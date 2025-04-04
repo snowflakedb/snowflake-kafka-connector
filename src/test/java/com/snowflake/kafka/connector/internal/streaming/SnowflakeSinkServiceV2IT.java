@@ -1708,13 +1708,13 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.assertWithRetry(() -> fishService.getOffset(fishTp) == fishRecordCount, 20, 20);
 
     // verify three clients were created
-    assert StreamingClientProvider.getStreamingClientProviderInstance()
+    assert OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(catConfig));
-    assert StreamingClientProvider.getStreamingClientProviderInstance()
+    assert OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(dogConfig));
-    assert StreamingClientProvider.getStreamingClientProviderInstance()
+    assert OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(fishConfig));
 
@@ -1724,13 +1724,13 @@ public class SnowflakeSinkServiceV2IT {
     fishService.closeAll();
 
     // verify three clients were closed
-    assert !StreamingClientProvider.getStreamingClientProviderInstance()
+    assert !OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(catConfig));
-    assert !StreamingClientProvider.getStreamingClientProviderInstance()
+    assert !OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(dogConfig));
-    assert !StreamingClientProvider.getStreamingClientProviderInstance()
+    assert !OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(fishConfig));
   }

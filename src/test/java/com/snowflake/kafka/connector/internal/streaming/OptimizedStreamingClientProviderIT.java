@@ -27,15 +27,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-public class StreamingClientProviderIT {
+public class OptimizedStreamingClientProviderIT {
 
   @Test
   @Disabled("CI flaky")
   public void getClient_forOptimizationEnabled_returnSameClient() {
     // given
     Map<String, String> clientConfig = getClientConfig(true);
-    StreamingClientProvider streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderInstance();
+    OptimizedStreamingClientProvider streamingClientProvider =
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance();
 
     // when
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(clientConfig);
@@ -52,8 +52,8 @@ public class StreamingClientProviderIT {
   public void getClient_forOptimizationDisabled_returnDifferentClients() {
     // given
     Map<String, String> clientConfig = getClientConfig(false);
-    StreamingClientProvider streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderInstance();
+    OptimizedStreamingClientProvider streamingClientProvider =
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance();
 
     // when
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(clientConfig);
@@ -69,8 +69,8 @@ public class StreamingClientProviderIT {
   public void getClient_forInvalidClient_returnNewInstance() throws Exception {
     // given
     Map<String, String> clientConfig = getClientConfig(true);
-    StreamingClientProvider streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderInstance();
+    OptimizedStreamingClientProvider streamingClientProvider =
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance();
 
     // when
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(clientConfig);
@@ -87,8 +87,8 @@ public class StreamingClientProviderIT {
     // given
     Map<String, String> clientConfig = getClientConfig(true);
     clientConfig.remove(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG);
-    StreamingClientProvider streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderInstance();
+    OptimizedStreamingClientProvider streamingClientProvider =
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance();
 
     // when
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(clientConfig);
@@ -103,8 +103,8 @@ public class StreamingClientProviderIT {
   public void closeClient_forValidClient_stopTheClient(boolean clientOptimizationEnabled) {
     // given
     Map<String, String> clientConfig = getClientConfig(clientOptimizationEnabled);
-    StreamingClientProvider streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderInstance();
+    OptimizedStreamingClientProvider streamingClientProvider =
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance();
 
     // when
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(clientConfig);
@@ -120,8 +120,8 @@ public class StreamingClientProviderIT {
       boolean clientOptimizationEnabled) {
     // given
     Map<String, String> clientConfig = getClientConfig(clientOptimizationEnabled);
-    StreamingClientProvider streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderInstance();
+    OptimizedStreamingClientProvider streamingClientProvider =
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance();
 
     // when
     SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(clientConfig);

@@ -10,7 +10,7 @@ import static org.apache.kafka.connect.sink.SinkConnector.TOPICS_CONFIG;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.FakeStreamingClientHandler;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider;
+import com.snowflake.kafka.connector.internal.streaming.OptimizedStreamingClientProvider;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.connect.storage.StringConverter;
@@ -45,14 +45,14 @@ public abstract class ConnectClusterBaseIT {
 
   @BeforeEach
   public void beforeEach() {
-    StreamingClientProvider.reset();
+    OptimizedStreamingClientProvider.reset();
     fakeStreamingClientHandler = new FakeStreamingClientHandler();
-    StreamingClientProvider.overrideStreamingClientHandler(fakeStreamingClientHandler);
+    OptimizedStreamingClientProvider.overrideStreamingClientHandler(fakeStreamingClientHandler);
   }
 
   @AfterEach
   public void afterEach() {
-    StreamingClientProvider.reset();
+    OptimizedStreamingClientProvider.reset();
   }
 
   @AfterAll

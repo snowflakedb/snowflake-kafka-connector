@@ -34,7 +34,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
-public class StreamingClientProviderConcurrencyTest {
+public class OptimizedStreamingClientProviderConcurrencyTest {
   private void testWithClient(RunnableWithException testFn, boolean enableClientOptimization)
       throws Exception {
     // set up the client
@@ -43,10 +43,10 @@ public class StreamingClientProviderConcurrencyTest {
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
         String.valueOf(enableClientOptimization));
     FakeStreamingClientHandler streamingClientHandler = new FakeStreamingClientHandler();
-    StreamingClientProvider streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderForTests(
+    OptimizedStreamingClientProvider streamingClientProvider =
+        OptimizedStreamingClientProvider.getStreamingClientProviderForTests(
             streamingClientHandler,
-            StreamingClientProvider.buildLoadingCache(streamingClientHandler));
+            OptimizedStreamingClientProvider.buildLoadingCache(streamingClientHandler));
 
     // run the test itself
     testFn.run(streamingClientProvider, streamingClientHandler, clientConfig);
@@ -287,7 +287,7 @@ public class StreamingClientProviderConcurrencyTest {
   }
 
   private Future<SnowflakeStreamingIngestClient> callGetClientThread(
-      StreamingClientProvider streamingClientProvider,
+      OptimizedStreamingClientProvider streamingClientProvider,
       ExecutorService executorService,
       CountDownLatch countDownLatch,
       Map<String, String> config) {
@@ -303,7 +303,7 @@ public class StreamingClientProviderConcurrencyTest {
   }
 
   private Future callCloseClientThread(
-      StreamingClientProvider streamingClientProvider,
+      OptimizedStreamingClientProvider streamingClientProvider,
       ExecutorService executorService,
       CountDownLatch countDownLatch,
       Map<String, String> config,
@@ -320,7 +320,7 @@ public class StreamingClientProviderConcurrencyTest {
 
   private static interface RunnableWithException {
     void run(
-        StreamingClientProvider streamingClientProvider,
+        OptimizedStreamingClientProvider streamingClientProvider,
         FakeStreamingClientHandler streamingClientHandler,
         Map<String, String> clientConfig)
         throws Exception;

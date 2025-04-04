@@ -187,7 +187,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
   public BufferedTopicPartitionChannel(
-      SnowflakeStreamingIngestClient streamingIngestClient,
+      StreamingClientProvider streamingClientProvider,
       TopicPartition topicPartition,
       final String channelNameFormatV1,
       final String tableName,
@@ -200,7 +200,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
       SchemaEvolutionService schemaEvolutionService,
       InsertErrorMapper insertErrorMapper) {
     this(
-        streamingIngestClient,
+        streamingClientProvider,
         topicPartition,
         channelNameFormatV1,
         tableName,
@@ -220,7 +220,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
   }
 
   /**
-   * @param streamingIngestClient client created specifically for this task
+   * @param streamingClientProvider Snowflake streaming client provider
    * @param topicPartition topic partition corresponding to this Streaming Channel
    *     (TopicPartitionChannel)
    * @param channelNameFormatV1 channel Name which is deterministic for topic and partition
@@ -239,7 +239,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    * @param insertErrorMapper maps insert errors to schema evolution items
    */
   public BufferedTopicPartitionChannel(
-      SnowflakeStreamingIngestClient streamingIngestClient,
+      StreamingClientProvider streamingClientProvider,
       TopicPartition topicPartition,
       final String channelNameFormatV1,
       final String tableName,
@@ -257,7 +257,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
       InsertErrorMapper insertErrorMapper) {
     final long startTime = System.currentTimeMillis();
 
-    this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
+    this.streamingIngestClient = streamingClientProvider.getClient(sfConnectorConfig);
     Preconditions.checkState(!streamingIngestClient.isClosed());
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelNameFormatV1 = Preconditions.checkNotNull(channelNameFormatV1);

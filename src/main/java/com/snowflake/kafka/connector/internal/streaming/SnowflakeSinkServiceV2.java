@@ -107,6 +107,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // needs url, username. p8 key, role name
   private SnowflakeStreamingIngestClient streamingIngestClient;
 
+  private final StreamingClientProvider streamingClientProvider;
+
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
@@ -165,7 +167,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             .orElse(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT);
 
     this.streamingIngestClient =
-        StreamingClientProvider.getStreamingClientProviderInstance()
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
             .getClient(this.connectorConfig);
 
     this.partitionsToChannel = new HashMap<>();
@@ -178,6 +180,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             ? "default_connector"
             : this.conn.getConnectorName();
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
+    this.streamingClientProvider = initStreamingClientProvider(connectorConfig);
   }
 
   @VisibleForTesting
@@ -217,7 +220,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.streamingIngestClient = streamingIngestClient;
     this.connectorConfig = connectorConfig;
     this.streamingIngestClient =
-        StreamingClientProvider.getStreamingClientProviderInstance()
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
             .getClient(this.connectorConfig);
     this.enableSchematization = enableSchematization;
     this.schemaEvolutionService = schemaEvolutionService;
@@ -231,6 +234,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             populateSchemaEvolutionPermissions(tableName);
           });
     }
+    this.streamingClientProvider = initStreamingClientProvider(connectorConfig);
+  }
+
+  private static StreamingClientProvider initStreamingClientProvider(
+      Map<String, String> connectorConfig) {
+    final boolean isClientOptimizationEnabled =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+                Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
+    return isClientOptimizationEnabled
+        ? OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
+        : new SimpleStreamingClientProvider();
   }
 
   /**
@@ -317,7 +333,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     return InternalBufferParameters.isSingleBufferEnabled(connectorConfig)
         ? new DirectTopicPartitionChannel(
-            this.streamingIngestClient,
+            this.streamingClientProvider,
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,
@@ -334,7 +350,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.schemaEvolutionService,
             new InsertErrorMapper())
         : new BufferedTopicPartitionChannel(
-            this.streamingIngestClient,
+            this.streamingClientProvider,
             topicPartition,
             partitionChannelKey, // Streaming channel name
             tableName,
@@ -448,7 +464,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     partitionsToChannel.clear();
 
-    StreamingClientProvider.getStreamingClientProviderInstance()
+    OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
         .closeClient(this.connectorConfig, this.streamingIngestClient);
   }
 
@@ -563,7 +579,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // stopping the client may cause unexpected behaviour
     if (!isOptimizationEnabled) {
       try {
-        StreamingClientProvider.getStreamingClientProviderInstance()
+        OptimizedStreamingClientProvider.getStreamingClientProviderInstance()
             .closeClient(connectorConfig, this.streamingIngestClient);
       } catch (Exception e) {
         LOGGER.warn(

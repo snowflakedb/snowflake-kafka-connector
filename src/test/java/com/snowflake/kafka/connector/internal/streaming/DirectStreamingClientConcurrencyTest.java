@@ -44,7 +44,7 @@ import org.mockito.Mockito;
 public class DirectStreamingClientConcurrencyTest {
   private Map<String, String> clientConfig;
 
-  private StreamingClientProvider streamingClientProvider;
+  private OptimizedStreamingClientProvider streamingClientProvider;
   private StreamingClientHandler streamingClientHandler;
   private boolean enableClientOptimization;
 
@@ -69,9 +69,9 @@ public class DirectStreamingClientConcurrencyTest {
 
     this.streamingClientHandler = Mockito.spy(DirectStreamingClientHandler.class);
     this.streamingClientProvider =
-        StreamingClientProvider.getStreamingClientProviderForTests(
+        OptimizedStreamingClientProvider.getStreamingClientProviderForTests(
             this.streamingClientHandler,
-            StreamingClientProvider.buildLoadingCache(this.streamingClientHandler));
+            OptimizedStreamingClientProvider.buildLoadingCache(this.streamingClientHandler));
 
     this.getClientFuturesTeardown = new ArrayList<>();
     this.closeClientFuturesTeardown = new ArrayList<>();

@@ -42,7 +42,7 @@ import net.snowflake.ingest.utils.Constants;
 /**
  * Object to convert and store properties for {@link
  * net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient}. This object is used to compare
- * equality between clients in {@link StreamingClientProvider}.
+ * equality between clients in {@link OptimizedStreamingClientProvider}.
  */
 public class StreamingClientProperties {
   public static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
@@ -223,8 +223,8 @@ public class StreamingClientProperties {
 
   /**
    * Determines equality between StreamingClientProperties by only looking at the parsed
-   * clientProperties. This is used in {@link StreamingClientProvider} to determine equality in
-   * registered clients
+   * clientProperties. This is used in {@link OptimizedStreamingClientProvider} to determine
+   * equality in registered clients
    *
    * @param other other object to determine equality
    * @return if the given object's clientProperties exists and is equal
@@ -239,7 +239,7 @@ public class StreamingClientProperties {
 
   /**
    * Creates the hashcode for this object from the clientProperties. This is used in {@link
-   * StreamingClientProvider} to determine equality in registered clients
+   * OptimizedStreamingClientProvider} to determine equality in registered clients
    *
    * @return the clientProperties' hashcode
    */
