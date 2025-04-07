@@ -300,18 +300,6 @@ public class TestUtils {
     return configuration;
   }
 
-  public static Map<String, String> getConfForStreaming(boolean useSingleBuffer) {
-    Map<String, String> config = getConfForStreaming();
-
-    if (useSingleBuffer) {
-      config.put(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-          Boolean.TRUE.toString());
-    }
-
-    return config;
-  }
-
   /* Get configuration map from profile path. Used against prod deployment of Snowflake */
   public static Map<String, String> getConfForStreamingWithOAuth() {
     Map<String, String> configuration = getConfWithOAuth();
@@ -326,18 +314,6 @@ public class TestUtils {
     configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
 
     return configuration;
-  }
-
-  public static Map<String, String> getConfForStreamingWithOAuth(boolean useSingleBuffer) {
-    Map<String, String> config = getConfForStreamingWithOAuth();
-
-    if (useSingleBuffer) {
-      config.put(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-          Boolean.TRUE.toString());
-    }
-
-    return config;
   }
 
   /** @return JDBC config with encrypted private key */

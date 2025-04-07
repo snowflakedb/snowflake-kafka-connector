@@ -28,8 +28,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
 
 public class TopicPartitionChannelIT {
 
@@ -65,11 +64,9 @@ public class TopicPartitionChannelIT {
     conn.close();
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testAutoChannelReopenOn_OffsetTokenSFException(boolean useSingleBuffer)
-      throws Exception {
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testAutoChannelReopenOn_OffsetTokenSFException() throws Exception {
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -127,10 +124,9 @@ public class TopicPartitionChannelIT {
   }
 
   /* This will automatically open the channel. */
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testInsertRowsOnChannelClosed(boolean useSingleBuffer) throws Exception {
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testInsertRowsOnChannelClosed() throws Exception {
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -192,11 +188,9 @@ public class TopicPartitionChannelIT {
    * <p>Insert New offsets -> The insert operation should automatically create a new channel and
    * insert data.
    */
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testAutoChannelReopen_InsertRowsSFException(boolean useSingleBuffer)
-      throws Exception {
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -281,11 +275,9 @@ public class TopicPartitionChannelIT {
    *
    * <p>Eventually 40 records should be present in snowflake table
    */
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testAutoChannelReopen_MultiplePartitionsInsertRowsSFException(boolean useSingleBuffer)
-      throws Exception {
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testAutoChannelReopen_MultiplePartitionsInsertRowsSFException() throws Exception {
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
@@ -402,11 +394,9 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testAutoChannelReopen_SinglePartitionsInsertRowsSFException(boolean useSingleBuffer)
-      throws Exception {
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testAutoChannelReopen_SinglePartitionsInsertRowsSFException() throws Exception {
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
@@ -479,11 +469,9 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testPartialBatchChannelInvalidationIngestion_schematization(boolean useSingleBuffer)
-      throws Exception {
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testPartialBatchChannelInvalidationIngestion_schematization() throws Exception {
+    Map<String, String> config = getConfForStreaming();
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "500"); // we want to flush on record
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "500000");
@@ -539,11 +527,10 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testChannelMigrateOffsetTokenSystemFunction_NonNullOffsetTokenForSourceChannel(
-      boolean useSingleBuffer) throws Exception {
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testChannelMigrateOffsetTokenSystemFunction_NonNullOffsetTokenForSourceChannel()
+      throws Exception {
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -624,11 +611,10 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testChannelMigrateOffsetTokenSystemFunction_NullOffsetTokenInFormatV2(
-      boolean useSingleBuffer) throws Exception {
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testChannelMigrateOffsetTokenSystemFunction_NullOffsetTokenInFormatV2()
+      throws Exception {
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -721,22 +707,19 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testInsertRowsWithGaps_schematization(boolean useSingleBuffer) throws Exception {
-    testInsertRowsWithGaps(true, useSingleBuffer);
+  @Test
+  public void testInsertRowsWithGaps_schematization() throws Exception {
+    testInsertRowsWithGaps(true);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  public void testInsertRowsWithGaps_nonSchematization(boolean useSingleBuffer) throws Exception {
-    testInsertRowsWithGaps(false, useSingleBuffer);
+  @Test
+  public void testInsertRowsWithGaps_nonSchematization() throws Exception {
+    testInsertRowsWithGaps(false);
   }
 
-  private void testInsertRowsWithGaps(boolean withSchematization, boolean useSingleBuffer)
-      throws Exception {
+  private void testInsertRowsWithGaps(boolean withSchematization) throws Exception {
     // setup
-    Map<String, String> config = getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
@@ -775,12 +758,7 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  private Map<String, String> getConfForStreaming(boolean useSingleBuffer) {
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    String enableSingleBufferValue = String.valueOf(useSingleBuffer);
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-        enableSingleBufferValue);
-    return config;
+  private Map<String, String> getConfForStreaming() {
+    return TestUtils.getConfForStreaming();
   }
 }

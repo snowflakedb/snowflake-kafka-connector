@@ -57,20 +57,18 @@ public class TombstoneRecordIngestionIT {
 
   private static Stream<Arguments> behaviorAndSingleBufferParameters() {
     return Sets.cartesianProduct(
-            ImmutableSet.copyOf(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.values()),
-            ImmutableSet.of(false, true))
+            ImmutableSet.copyOf(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.values()))
         .stream()
         .map(List::toArray)
         .map(Arguments::of);
   }
 
-  @ParameterizedTest(name = "behavior: {0}, useSingleBuffer: {1}")
+  @ParameterizedTest(name = "behavior: {0}")
   @MethodSource("behaviorAndSingleBufferParameters")
   public void testStreamingTombstoneBehavior(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior, boolean useSingleBuffer)
-      throws Exception {
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
     // setup
-    Map<String, String> connectorConfig = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
@@ -96,13 +94,12 @@ public class TombstoneRecordIngestionIT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "behavior: {0}, useSingleBuffer: {1}")
+  @ParameterizedTest(name = "behavior: {0}")
   @MethodSource("behaviorAndSingleBufferParameters")
   public void testStreamingTombstoneBehaviorWithSchematization(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior, boolean useSingleBuffer)
-      throws Exception {
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
     // setup
-    Map<String, String> connectorConfig = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     SnowflakeSinkService service =

@@ -37,8 +37,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 public class ConnectionServiceIT {
   private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
@@ -437,10 +435,9 @@ public class ConnectionServiceIT {
     assert service.isClosed();
   }
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @ValueSource(booleans = {false, true})
-  public void testStreamingChannelOffsetMigration(boolean useSingleBuffer) {
-    Map<String, String> testConfig = TestUtils.getConfForStreaming(useSingleBuffer);
+  @Test
+  public void testStreamingChannelOffsetMigration() {
+    Map<String, String> testConfig = TestUtils.getConfForStreaming();
     SnowflakeConnectionService conn =
         SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
     conn.createTable(tableName);
@@ -473,7 +470,7 @@ public class ConnectionServiceIT {
 
     try {
       // ### TEST 3 - Source Channel (v2 channel doesnt exist)
-      Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+      Map<String, String> config = TestUtils.getConfForStreaming();
       SnowflakeSinkConnectorConfig.setDefaultValues(config);
       TopicPartition topicPartition = new TopicPartition(tableName, 0);
 

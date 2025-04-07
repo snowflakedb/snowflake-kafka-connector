@@ -18,7 +18,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -29,9 +28,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2AvroSchematizationIT {
 
@@ -99,14 +96,12 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testSchematizationWithTableCreationAndAvroInput(boolean useSingleBuffer)
-      throws Exception {
+  @Test
+  public void testSchematizationWithTableCreationAndAvroInput() throws Exception {
     // given
     conn.createTableWithOnlyMetadataColumn(table);
     SinkRecord avroRecordValue = createSinkRecord();
-    service = createService(useSingleBuffer);
+    service = createService();
 
     // when
     // The first insert should fail and schema evolution will kick in to update the schema
@@ -152,8 +147,8 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
         StringUtils.deleteWhitespace(actual.get(INFO_MAP).toString()), "{\"field\":3}");
   }
 
-  private SnowflakeSinkService createService(boolean useSingleBuffer) {
-    Map<String, String> config = prepareConfig(useSingleBuffer);
+  private SnowflakeSinkService createService() {
+    Map<String, String> config = prepareConfig();
     return SnowflakeSinkServiceFactory.builder(
             conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
         .setRecordNumber(1)
@@ -191,8 +186,8 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     return avroConverter;
   }
 
-  private Map<String, String> prepareConfig(boolean useSingleBuffer) {
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+  private Map<String, String> prepareConfig() {
+    Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -243,10 +238,6 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
             INFO_ARRAY_JSON,
             Arrays.asList(null, "{\"a\": 1, \"b\": null, \"c\": null, \"d\": \"89asda9s0a\"}"))
         .put(INFO_MAP, Collections.singletonMap("field", 3));
-  }
-
-  private static Stream<Arguments> singleBufferParameters() {
-    return Stream.of(Arguments.of(false), Arguments.of(true));
   }
 
   private void waitUntilOffsetEquals(long expectedOffset) {

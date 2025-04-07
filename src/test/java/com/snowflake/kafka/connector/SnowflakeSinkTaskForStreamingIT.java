@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -73,10 +73,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     // return TestUtils.nBooleanProduct(2);
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testSinkTask(boolean useOAuth, boolean useSingleBuffer) throws Exception {
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testSinkTask(boolean useOAuth) throws Exception {
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -113,11 +113,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.stop();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testSinkTaskWithMultipleOpenClose(boolean useOAuth, boolean useSingleBuffer)
-      throws Exception {
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testSinkTaskWithMultipleOpenClose(boolean useOAuth) throws Exception {
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
@@ -209,10 +208,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     assert partitionsInTable.size() == 2;
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testTopicToTableRegex(boolean useOAuth, boolean useSingleBuffer) {
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testTopicToTableRegex(boolean useOAuth) {
+    Map<String, String> config = getConfig(useOAuth);
 
     testTopicToTableRegexMain(config);
   }
@@ -340,11 +339,11 @@ public class SnowflakeSinkTaskForStreamingIT {
     }
   }
 
-  private Map<String, String> getConfig(boolean useOAuth, boolean useSingleBuffer) {
+  private Map<String, String> getConfig(boolean useOAuth) {
     if (!useOAuth) {
-      return TestUtils.getConfForStreaming(useSingleBuffer);
+      return TestUtils.getConfForStreaming();
     } else {
-      return TestUtils.getConfForStreamingWithOAuth(useSingleBuffer);
+      return TestUtils.getConfForStreamingWithOAuth();
     }
   }
 }

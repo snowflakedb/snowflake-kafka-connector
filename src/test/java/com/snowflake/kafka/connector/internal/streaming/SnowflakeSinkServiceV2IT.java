@@ -45,9 +45,10 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 public class SnowflakeSinkServiceV2IT {
@@ -74,19 +75,15 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.dropTable(table);
   }
 
-  private static Stream<Arguments> singleBufferParameters() {
-    return Stream.of(Arguments.of(false), Arguments.of(true));
-  }
-
   private static Stream<Arguments> oAuthAndSingleBufferParameters() {
     return TestUtils.nBooleanProduct(2);
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testSinkServiceV2Builder(boolean useOAuth, boolean useSingleBuffer) {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testSinkServiceV2Builder(boolean useOAuth) {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
 
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
@@ -118,12 +115,11 @@ public class SnowflakeSinkServiceV2IT {
         });
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testChannelCloseIngestion(boolean useOAuth, boolean useSingleBuffer)
-      throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testChannelCloseIngestion(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -169,12 +165,11 @@ public class SnowflakeSinkServiceV2IT {
   // just before rebalance, there is data in buffer for other partition,
   // Send data again for both partitions.
   // Successfully able to ingest all records
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testStreamingIngest_multipleChannelPartitions_closeSubsetOfPartitionsAssigned(
-      boolean useSingleBuffer) throws Exception {
+  @Test
+  public void testStreamingIngest_multipleChannelPartitions_closeSubsetOfPartitionsAssigned()
+      throws Exception {
     conn = getConn(false);
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
     TopicPartition tp1 = new TopicPartition(table, partition);
@@ -250,12 +245,11 @@ public class SnowflakeSinkServiceV2IT {
         20);
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testRebalanceOpenCloseIngestion(boolean useOAuth, boolean useSingleBuffer)
-      throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testRebalanceOpenCloseIngestion(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -298,11 +292,11 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testStreamingIngestion(boolean useOAuth, boolean useSingleBuffer) throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestion(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -364,12 +358,12 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testStreamingIngest_multipleChannelPartitions_withMetrics(
-      boolean useOAuth, boolean useSingleBuffer) throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngest_multipleChannelPartitions_withMetrics(boolean useOAuth)
+      throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     // set up telemetry service spy
@@ -440,8 +434,7 @@ public class SnowflakeSinkServiceV2IT {
         recordsInPartition1 - 1,
         recordsInPartition1,
         1,
-        this.conn.getConnectorName(),
-        useSingleBuffer);
+        this.conn.getConnectorName());
     this.verifyPartitionMetrics(
         metricRegistry,
         partitionChannelKey(topic, partition2),
@@ -449,8 +442,7 @@ public class SnowflakeSinkServiceV2IT {
         recordsInPartition2 - 1,
         recordsInPartition2,
         1,
-        this.conn.getConnectorName(),
-        useSingleBuffer);
+        this.conn.getConnectorName());
 
     // verify telemetry
     Mockito.verify(telemetryService, Mockito.times(2))
@@ -475,8 +467,7 @@ public class SnowflakeSinkServiceV2IT {
       long processedOffset,
       long latestConsumerOffset,
       long currentTpChannelOpenCount,
-      String connectorName,
-      boolean useSingleBuffer) {
+      String connectorName) {
     // offsets
     assert (long)
             metricRegistry
@@ -496,29 +487,16 @@ public class SnowflakeSinkServiceV2IT {
                         MetricsUtil.PROCESSED_OFFSET))
                 .getValue()
         == processedOffset;
-    if (!useSingleBuffer) {
-      assert (long)
-              metricRegistry
-                  .get(
-                      MetricsUtil.constructMetricName(
-                          partitionChannelKey,
-                          MetricsUtil.OFFSET_SUB_DOMAIN,
-                          MetricsUtil.LATEST_CONSUMER_OFFSET))
-                  .getValue()
-          == latestConsumerOffset;
-    }
   }
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table(boolean useSingleBuffer)
-      throws Exception {
+  @Test
+  public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table() throws Exception {
     conn = getConn(false);
     final int partitionCount = 3;
     final int recordsInEachPartition = 2;
     final int topicCount = 3;
 
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     ArrayList<String> topics = new ArrayList<>();
@@ -579,15 +557,13 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions(
-      boolean useSingleBuffer) throws Exception {
+  @Test
+  public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions() throws Exception {
     conn = getConn(false);
     final int partitionCount = 5;
     final int recordsInEachPartition = 2;
 
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     SnowflakeSinkService service =
@@ -635,12 +611,11 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testStreamingIngestion_timeBased(boolean useOAuth, boolean useSingleBuffer)
-      throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestion_timeBased(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -675,12 +650,11 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testNativeJsonInputIngestion(boolean useOAuth, boolean useSingleBuffer)
-      throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testNativeJsonInputIngestion(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -777,12 +751,11 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testNativeAvroInputIngestion(boolean useOAuth, boolean useSingleBuffer)
-      throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testNativeAvroInputIngestion(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     // avro
     SchemaBuilder schemaBuilder =
@@ -941,11 +914,11 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testBrokenIngestion(boolean useOAuth, boolean useSingleBuffer) throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testBrokenIngestion(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -1012,12 +985,11 @@ public class SnowflakeSinkServiceV2IT {
         : "expected: " + 0 + " actual: " + TestUtils.tableSize(table);
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testBrokenRecordIngestionFollowedUpByValidRecord(
-      boolean useOAuth, boolean useSingleBuffer) throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testBrokenRecordIngestionFollowedUpByValidRecord(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -1071,12 +1043,11 @@ public class SnowflakeSinkServiceV2IT {
    * broken records (Non valid JSON) followed by another good record with max buffer record size
    * being 2
    */
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testBrokenRecordIngestionAfterValidRecord(boolean useOAuth, boolean useSingleBuffer)
-      throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testBrokenRecordIngestionAfterValidRecord(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -1130,14 +1101,13 @@ public class SnowflakeSinkServiceV2IT {
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets(
-      boolean useSingleBuffer) throws Exception {
+  @Test
+  public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets()
+      throws Exception {
     conn = getConn(false);
 
     conn.createTable(table);
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
@@ -1192,13 +1162,11 @@ public class SnowflakeSinkServiceV2IT {
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets(
-      boolean useSingleBuffer) throws Exception {
+  @Test
+  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
     conn = getConn(false);
     conn.createTable(table);
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
@@ -1254,12 +1222,10 @@ public class SnowflakeSinkServiceV2IT {
     service2.closeAll();
   }
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testSchematizationWithTableCreationAndJsonInput(boolean useSingleBuffer)
-      throws Exception {
+  @Test
+  public void testSchematizationWithTableCreationAndJsonInput() throws Exception {
     conn = getConn(false);
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -1345,12 +1311,10 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testSchematizationSchemaEvolutionWithNonNullableColumn(boolean useSingleBuffer)
-      throws Exception {
+  @Test
+  public void testSchematizationSchemaEvolutionWithNonNullableColumn() throws Exception {
     conn = getConn(false);
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
@@ -1434,12 +1398,11 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testStreamingIngestionValidClientLag(boolean useOAuth, boolean useSingleBuffer)
-      throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestionValidClientLag(boolean useOAuth) throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> config = getConfig(useOAuth);
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "30");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
@@ -1477,11 +1440,10 @@ public class SnowflakeSinkServiceV2IT {
     service.closeAll();
   }
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testStreamingIngestionInvalidClientLag(boolean useSingleBuffer) {
+  @Test
+  public void testStreamingIngestionInvalidClientLag() {
     conn = getConn(false);
-    Map<String, String> config = TestUtils.getConfForStreaming(useSingleBuffer);
+    Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     Map<String, String> overriddenConfig = new HashMap<>(config);
     overriddenConfig.put(
@@ -1503,12 +1465,12 @@ public class SnowflakeSinkServiceV2IT {
     }
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testStreamingIngestionValidClientPropertiesOverride(
-      boolean useOAuth, boolean useSingleBuffer) throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestionValidClientPropertiesOverride(boolean useOAuth)
+      throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = new HashMap<>(getConfig(useOAuth, useSingleBuffer));
+    Map<String, String> config = new HashMap<>(getConfig(useOAuth));
     config.put(
         SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:10000000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false");
@@ -1546,12 +1508,12 @@ public class SnowflakeSinkServiceV2IT {
    * Even if override key is invalid, we will still create a client since we dont verify key and
    * values, only format.
    */
-  @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
-  @MethodSource("oAuthAndSingleBufferParameters")
-  public void testStreamingIngestion_invalidClientPropertiesOverride(
-      boolean useOAuth, boolean useSingleBuffer) throws Exception {
+  @ParameterizedTest(name = "useOAuth: {0}")
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestion_invalidClientPropertiesOverride(boolean useOAuth)
+      throws Exception {
     conn = getConn(useOAuth);
-    Map<String, String> config = new HashMap<>(getConfig(useOAuth, useSingleBuffer));
+    Map<String, String> config = new HashMap<>(getConfig(useOAuth));
     config.put(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "MAX_SOMETHING_SOMETHING:1");
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
@@ -1597,42 +1559,40 @@ public class SnowflakeSinkServiceV2IT {
     }
   }
 
-  private Map<String, String> getConfig(boolean useOAuth, boolean useSingleBuffer) {
+  private Map<String, String> getConfig(boolean useOAuth) {
     if (!useOAuth) {
-      return TestUtils.getConfForStreaming(useSingleBuffer);
+      return TestUtils.getConfForStreaming();
     } else {
-      return TestUtils.getConfForStreamingWithOAuth(useSingleBuffer);
+      return TestUtils.getConfForStreamingWithOAuth();
     }
   }
 
   // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
   // user
   // todo SNOW-1528892: This test does not pass for oAuth turned on - investigate it and fix
-  @ParameterizedTest(name = "useSingleBuffer: {0}")
-  @MethodSource("singleBufferParameters")
-  public void testStreamingIngest_multipleChannel_distinctClients(boolean useSingleBuffer)
-      throws Exception {
+  @Test
+  public void testStreamingIngest_multipleChannel_distinctClients() throws Exception {
     boolean useOAuth = false;
 
     conn = getConn(useOAuth);
     // create cat and dog configs and partitions
     // one client is enabled but two clients should be created because different roles in config
     String catTopic = "catTopic_" + TestUtils.randomTableName();
-    Map<String, String> catConfig = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> catConfig = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(catConfig);
     catConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
     catConfig.put(Utils.SF_OAUTH_CLIENT_ID, "1");
     catConfig.put(Utils.NAME, catTopic);
 
     String dogTopic = "dogTopic_" + TestUtils.randomTableName();
-    Map<String, String> dogConfig = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> dogConfig = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(dogConfig);
     dogConfig.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
     dogConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
     dogConfig.put(Utils.NAME, dogTopic);
 
     String fishTopic = "fishTopic_" + TestUtils.randomTableName();
-    Map<String, String> fishConfig = getConfig(useOAuth, useSingleBuffer);
+    Map<String, String> fishConfig = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(fishConfig);
     fishConfig.put(
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
