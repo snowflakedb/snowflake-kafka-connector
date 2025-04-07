@@ -6,6 +6,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTI
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.snowflake.kafka.connector.DefaultConnectorConfigValidator;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.BufferThreshold;
@@ -19,6 +20,9 @@ import java.util.Set;
 import org.apache.kafka.common.config.ConfigException;
 
 public class DefaultStreamingConfigValidator implements StreamingConfigValidator {
+
+  private static final KCLogger LOGGER =
+      new KCLogger(DefaultConnectorConfigValidator.class.getName());
 
   private final SingleBufferConfigValidator singleBufferConfigValidator =
       new SingleBufferConfigValidator();
@@ -38,6 +42,10 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
       if (InternalBufferParameters.isSingleBufferEnabled(inputConfig)) {
         singleBufferConfigValidator.logDoubleBufferingParametersWarning(inputConfig);
       } else {
+        LOGGER.warn(
+            "Double buffered mode set by '{}=false' is deprecated and will be removed in the future"
+                + " release.",
+            SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER);
         invalidParams.putAll(doubleBufferConfigValidator.validate(inputConfig));
       }
 
