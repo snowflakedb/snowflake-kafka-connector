@@ -94,14 +94,11 @@ echo -e "=== Name Salt: $NAME_SALT ==="
 
 # start apache kafka cluster
 case $CONFLUENT_VERSION in
-	5.5.*)
-    DOWNLOAD_URL="https://packages.confluent.io/archive/5.5/confluent-community-$CONFLUENT_VERSION-2.12.tar.gz"
-    ;;
 	6.2.*)
     DOWNLOAD_URL="https://packages.confluent.io/archive/6.2/confluent-community-$CONFLUENT_VERSION.tar.gz"
     ;;
-  7.6.*)
-    DOWNLOAD_URL="https://packages.confluent.io/archive/7.6/confluent-community-$CONFLUENT_VERSION.tar.gz"
+  7.8.*)
+    DOWNLOAD_URL="https://packages.confluent.io/archive/7.8/confluent-community-$CONFLUENT_VERSION.tar.gz"
     ;;
   *)
     error_exit "Usage: ./run_test.sh <version> <path to apache config folder>. Unknown version $CONFLUENT_VERSION Aborting."
