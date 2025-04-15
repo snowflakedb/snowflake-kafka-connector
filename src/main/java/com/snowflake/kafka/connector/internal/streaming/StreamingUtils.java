@@ -25,14 +25,8 @@ public class StreamingUtils {
 
   protected static final int MAX_GET_OFFSET_TOKEN_RETRIES = 3;
 
-  // Buffer related defaults and minimum set at connector level by clients/customers.
   public static final long STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC =
       Duration.ofSeconds(1).getSeconds();
-
-  public static final long STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC =
-      Duration.ofSeconds(10).getSeconds();
-
-  protected static final long STREAMING_BUFFER_COUNT_RECORDS_DEFAULT = 10_000L;
 
   /**
    * Keeping this default as ~ 20MB.

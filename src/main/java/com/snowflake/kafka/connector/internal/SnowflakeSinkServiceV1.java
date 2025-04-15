@@ -91,9 +91,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
 
-  // default is false, unless the configuration provided true
-  // if this is true, the service will use new file cleaner module
-  private boolean useStageFilesProcessor = false;
   @Nullable private ScheduledExecutorService cleanerServiceExecutor;
 
   // if enabled, the prefix for stage files for a given table will contain information about source
@@ -404,18 +401,15 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     this.recordService.setMetadataConfig(configMap);
   }
 
-  @Override
-  public long getRecordNumber() {
+  private long getRecordNumber() {
     return this.recordNum;
   }
 
-  @Override
-  public long getFlushTime() {
+  private long getFlushTime() {
     return this.flushTime;
   }
 
-  @Override
-  public long getFileSize() {
+  private long getFileSize() {
     return this.fileSize;
   }
 
@@ -427,7 +421,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
   // enable use of new stage files processor
   void enableStageFilesProcessor(int threadCount) {
-    this.useStageFilesProcessor = true;
     if (cleanerServiceExecutor != null) {
       cleanerServiceExecutor.shutdown();
     }
@@ -1288,10 +1281,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       }
     }
 
-    private boolean isBufferEmpty() {
-      return this.buffer.isEmpty();
-    }
-
     /**
      * called when we flush the buffer to internal stage by calling put API.
      *
@@ -1404,18 +1393,5 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
           + hasInitialized
           + '}';
     }
-  }
-
-  /**
-   * Only used for testing Given a pipename, find out if buffer for this pipe has any data inserted.
-   *
-   * @param pipeName
-   * @return
-   */
-  protected boolean isPartitionBufferEmpty(final String pipeName) {
-    if (pipes.containsKey(pipeName)) {
-      return pipes.get(pipeName).isBufferEmpty();
-    }
-    return false;
   }
 }

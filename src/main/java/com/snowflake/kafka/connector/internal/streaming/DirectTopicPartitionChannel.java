@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -158,7 +157,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       TopicPartition topicPartition,
       final String channelNameFormatV1,
       final String tableName,
-      final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
@@ -172,7 +170,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         channelNameFormatV1,
         tableName,
         false, /* No schema evolution permission */
-        streamingBufferThreshold,
         sfConnectorConfig,
         kafkaRecordErrorReporter,
         sinkTaskContext,
@@ -194,7 +191,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * @param tableName table to ingest in snowflake
    * @param hasSchemaEvolutionPermission if the role has permission to perform schema evolution on
    *     the table
-   * @param streamingBufferThreshold bytes, count of records and flush time thresholds.
    * @param sfConnectorConfig configuration set for snowflake connector
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
@@ -210,7 +206,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       final String channelNameFormatV1,
       final String tableName,
       boolean hasSchemaEvolutionPermission,
-      final BufferThreshold streamingBufferThreshold,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
@@ -420,16 +415,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         record.timestamp(),
         record.timestampType(),
         record.headers());
-  }
-
-  // --------------- BUFFER FLUSHING LOGIC --------------- //
-
-  @Override
-  @Deprecated
-  public void insertBufferedRecordsIfFlushTimeThresholdReached() {
-    // It is just a leftover after buffered channel, not needed here as a buffer was removed in the
-    // current class.
-    // todo remove this method in the future
   }
 
   private void transformAndSend(SinkRecord kafkaSinkRecord) {
@@ -978,7 +963,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   }
 
   @Override
-  public void setLatestConsumerOffset(long consumerOffset) {
+  public void setLatestConsumerGroupOffset(long consumerOffset) {
     if (consumerOffset > this.currentConsumerGroupOffset.get()) {
       this.currentConsumerGroupOffset.set(consumerOffset);
     }
