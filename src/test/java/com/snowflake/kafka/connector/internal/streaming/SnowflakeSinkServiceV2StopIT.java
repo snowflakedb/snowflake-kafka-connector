@@ -7,15 +7,13 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Collections;
 import java.util.Map;
-import java.util.stream.Stream;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class SnowflakeSinkServiceV2StopIT {
 
@@ -31,14 +29,14 @@ public class SnowflakeSinkServiceV2StopIT {
     TestUtils.dropTable(topicAndTableName);
   }
 
-  @ParameterizedTest(name = "useSingleBuffer: {0}, optimizationEnabled: {1}")
-  @MethodSource("singleServiceTestCases")
+  @ParameterizedTest(name = "optimizationEnabled: {0}")
+  @ValueSource(booleans = {true, false})
   public void stop_forSingleService_closesClientDependingOnOptimization(
-      boolean useSingleBuffer, boolean optimizationEnabled) {
+      boolean optimizationEnabled) {
     final boolean clientClosed = !optimizationEnabled;
     // given
     SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
-    Map<String, String> config = getConfig(optimizationEnabled, useSingleBuffer);
+    Map<String, String> config = getConfig(optimizationEnabled);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     conn.createTable(topicAndTableName);
@@ -65,18 +63,11 @@ public class SnowflakeSinkServiceV2StopIT {
     Assertions.assertEquals(clientClosed, client.isClosed());
   }
 
-  private Map<String, String> getConfig(boolean optimizationEnabled, boolean useSingleBuffer) {
+  private Map<String, String> getConfig(boolean optimizationEnabled) {
     Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(
         SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
         String.valueOf(optimizationEnabled));
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-        String.valueOf(useSingleBuffer));
     return config;
-  }
-
-  public static Stream<Arguments> singleServiceTestCases() {
-    return TestUtils.nBooleanProduct(2);
   }
 }

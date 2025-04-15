@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
 import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.ConnectClusterBaseIT;
@@ -15,7 +14,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
 
@@ -51,12 +50,11 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
     return TestUtils.nBooleanProduct(2);
   }
 
-  @ParameterizedTest(name = "closeInParallel: {0}, useSingleBuffer: {1}")
-  @MethodSource("closeInParallelAndSingleBufferParams")
-  void closeChannels(boolean closeInParallel, boolean useSingleBuffer) {
+  @ParameterizedTest(name = "closeInParallel: {0}")
+  @ValueSource(booleans = {true, false})
+  void closeChannels(boolean closeInParallel) {
     // given
-    connectCluster.configureConnector(
-        connectorName, connectorProperties(closeInParallel, useSingleBuffer));
+    connectCluster.configureConnector(connectorName, connectorProperties(closeInParallel));
     waitForConnectorRunning(connectorName);
 
     await("channelsCreated").atMost(Duration.ofSeconds(30)).until(this::channelsCreated);
@@ -83,13 +81,9 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
     return PARTITIONS_NUMBER == channelsCount;
   }
 
-  private Map<String, String> connectorProperties(
-      boolean closeInParallel, boolean useSingleBuffer) {
+  private Map<String, String> connectorProperties(boolean closeInParallel) {
     Map<String, String> config = defaultProperties(topicName, connectorName);
-
     config.put(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL, Boolean.toString(closeInParallel));
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, Boolean.toString(useSingleBuffer));
-
     return config;
   }
 }
