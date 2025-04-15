@@ -20,7 +20,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
-import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
@@ -315,41 +314,23 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       boolean hasSchemaEvolutionPermission,
       String partitionChannelKey) {
 
-    return InternalBufferParameters.isSingleBufferEnabled(connectorConfig)
-        ? new DirectTopicPartitionChannel(
-            this.streamingIngestClient,
-            topicPartition,
-            partitionChannelKey, // Streaming channel name
-            tableName,
-            hasSchemaEvolutionPermission,
-            new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
-            this.connectorConfig,
-            this.kafkaRecordErrorReporter,
-            this.sinkTaskContext,
-            this.conn,
-            this.recordService,
-            this.conn.getTelemetryClient(),
-            this.enableCustomJMXMonitoring,
-            this.metricsJmxReporter,
-            this.schemaEvolutionService,
-            new InsertErrorMapper())
-        : new BufferedTopicPartitionChannel(
-            this.streamingIngestClient,
-            topicPartition,
-            partitionChannelKey, // Streaming channel name
-            tableName,
-            hasSchemaEvolutionPermission,
-            new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
-            this.connectorConfig,
-            this.kafkaRecordErrorReporter,
-            this.sinkTaskContext,
-            this.conn,
-            this.recordService,
-            this.conn.getTelemetryClient(),
-            this.enableCustomJMXMonitoring,
-            this.metricsJmxReporter,
-            this.schemaEvolutionService,
-            new InsertErrorMapper());
+    return new DirectTopicPartitionChannel(
+        this.streamingIngestClient,
+        topicPartition,
+        partitionChannelKey, // Streaming channel name
+        tableName,
+        hasSchemaEvolutionPermission,
+        new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
+        this.connectorConfig,
+        this.kafkaRecordErrorReporter,
+        this.sinkTaskContext,
+        this.conn,
+        this.recordService,
+        this.conn.getTelemetryClient(),
+        this.enableCustomJMXMonitoring,
+        this.metricsJmxReporter,
+        this.schemaEvolutionService,
+        new InsertErrorMapper());
   }
 
   /**

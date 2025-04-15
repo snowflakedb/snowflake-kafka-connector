@@ -98,22 +98,13 @@ public class TopicPartitionChannelTest {
 
   private final boolean enableSchematization;
 
-  private final boolean useDoubleBuffer;
-
-  public TopicPartitionChannelTest(boolean enableSchematization, boolean useDoubleBuffer) {
+  public TopicPartitionChannelTest(boolean enableSchematization) {
     this.enableSchematization = enableSchematization;
-    this.useDoubleBuffer = useDoubleBuffer;
   }
 
-  @Parameterized.Parameters(name = "enableSchematization: {0}, useDoubleBuffer: {1}")
+  @Parameterized.Parameters(name = "{0}")
   public static Collection<Object[]> input() {
-    return Arrays.asList(
-        new Object[][] {
-          {true, true},
-          {true, false},
-          {false, true},
-          {false, false},
-        });
+    return Arrays.asList(new Object[][] {{true}, {false}});
   }
 
   @Before
@@ -791,16 +782,9 @@ public class TopicPartitionChannelTest {
     expectedGetOffsetCount++;
 
     // verify mocks only tried ingesting once
-    if (useDoubleBuffer) {
-      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
-          .insertRows(
-              ArgumentMatchers.any(Iterable.class),
-              ArgumentMatchers.any(String.class),
-              ArgumentMatchers.any(String.class));
-    } else {
-      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
-          .insertRow(anyMap(), anyString());
-    }
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
+        .insertRow(anyMap(), anyString());
+
     Mockito.verify(mockStreamingClient, Mockito.times(expectedOpenChannelCount))
         .openChannel(ArgumentMatchers.any());
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
@@ -816,16 +800,8 @@ public class TopicPartitionChannelTest {
     expectedGetOffsetCount++;
 
     // verify mocks ingested each record
-    if (useDoubleBuffer) {
-      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedInsertRowsCount))
-          .insertRows(
-              ArgumentMatchers.any(Iterable.class),
-              ArgumentMatchers.any(String.class),
-              ArgumentMatchers.any(String.class));
-    } else {
-      Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(6))
-          .insertRow(anyMap(), anyString());
-    }
+    Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(6))
+        .insertRow(anyMap(), anyString());
     Mockito.verify(mockStreamingClient, Mockito.times(expectedOpenChannelCount))
         .openChannel(ArgumentMatchers.any());
     Mockito.verify(topicPartitionChannel.getChannel(), Mockito.times(expectedGetOffsetCount))
@@ -974,13 +950,7 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
-    if (useDoubleBuffer) {
-      Mockito.verify(mockStreamingChannel, Mockito.times(2))
-          .insertRows(
-              ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(String.class));
-    } else {
-      Mockito.verify(mockStreamingChannel, Mockito.times(5)).insertRow(anyMap(), anyString());
-    }
+    Mockito.verify(mockStreamingChannel, Mockito.times(5)).insertRow(anyMap(), anyString());
   }
 
   @Test
@@ -1037,13 +1007,7 @@ public class TopicPartitionChannelTest {
 
     Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
 
-    if (useDoubleBuffer) {
-      Mockito.verify(mockStreamingChannel, Mockito.times(2))
-          .insertRows(
-              ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(String.class));
-    } else {
-      Mockito.verify(mockStreamingChannel, Mockito.times(3)).insertRow(anyMap(), anyString());
-    }
+    Mockito.verify(mockStreamingChannel, Mockito.times(3)).insertRow(anyMap(), anyString());
 
     Assert.assertEquals(2L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -1197,33 +1161,19 @@ public class TopicPartitionChannelTest {
       SnowflakeConnectionService conn,
       SnowflakeTelemetryService telemetryService,
       SchemaEvolutionService schemaEvolutionService) {
-    return useDoubleBuffer
-        ? new BufferedTopicPartitionChannel(
-            streamingIngestClient,
-            topicPartition,
-            channelNameFormatV1,
-            tableName,
-            streamingBufferThreshold,
-            sfConnectorConfig,
-            kafkaRecordErrorReporter,
-            sinkTaskContext,
-            conn,
-            telemetryService,
-            this.schemaEvolutionService,
-            new InsertErrorMapper())
-        : new DirectTopicPartitionChannel(
-            streamingIngestClient,
-            topicPartition,
-            channelNameFormatV1,
-            tableName,
-            streamingBufferThreshold,
-            sfConnectorConfig,
-            kafkaRecordErrorReporter,
-            sinkTaskContext,
-            conn,
-            telemetryService,
-            this.schemaEvolutionService,
-            new InsertErrorMapper());
+    return new DirectTopicPartitionChannel(
+        streamingIngestClient,
+        topicPartition,
+        channelNameFormatV1,
+        tableName,
+        streamingBufferThreshold,
+        sfConnectorConfig,
+        kafkaRecordErrorReporter,
+        sinkTaskContext,
+        conn,
+        telemetryService,
+        this.schemaEvolutionService,
+        new InsertErrorMapper());
   }
 
   public TopicPartitionChannel createTopicPartitionChannel(
@@ -1242,41 +1192,23 @@ public class TopicPartitionChannelTest {
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter,
       SchemaEvolutionService schemaEvolutionService) {
-    return useDoubleBuffer
-        ? new BufferedTopicPartitionChannel(
-            streamingIngestClient,
-            topicPartition,
-            channelNameFormatV1,
-            tableName,
-            hasSchemaEvolutionPermission,
-            streamingBufferThreshold,
-            sfConnectorConfig,
-            kafkaRecordErrorReporter,
-            sinkTaskContext,
-            conn,
-            recordService,
-            telemetryService,
-            enableCustomJMXMonitoring,
-            metricsJmxReporter,
-            this.schemaEvolutionService,
-            new InsertErrorMapper())
-        : new DirectTopicPartitionChannel(
-            streamingIngestClient,
-            topicPartition,
-            channelNameFormatV1,
-            tableName,
-            hasSchemaEvolutionPermission,
-            streamingBufferThreshold,
-            sfConnectorConfig,
-            kafkaRecordErrorReporter,
-            sinkTaskContext,
-            conn,
-            recordService,
-            telemetryService,
-            enableCustomJMXMonitoring,
-            metricsJmxReporter,
-            this.schemaEvolutionService,
-            new InsertErrorMapper());
+    return new DirectTopicPartitionChannel(
+        streamingIngestClient,
+        topicPartition,
+        channelNameFormatV1,
+        tableName,
+        hasSchemaEvolutionPermission,
+        streamingBufferThreshold,
+        sfConnectorConfig,
+        kafkaRecordErrorReporter,
+        sinkTaskContext,
+        conn,
+        recordService,
+        telemetryService,
+        enableCustomJMXMonitoring,
+        metricsJmxReporter,
+        this.schemaEvolutionService,
+        new InsertErrorMapper());
   }
 
   @Test

@@ -12,7 +12,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.BufferedTopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.DirectTopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
@@ -101,7 +101,7 @@ public class SnowflakeStreamingSinkTaskBuilder {
     IcebergInitService mockIcebergInitService = Mockito.mock(IcebergInitService.class);
 
     TopicPartitionChannel topicPartitionChannel =
-        new BufferedTopicPartitionChannel(
+        new DirectTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
             SnowflakeSinkServiceV2.partitionChannelKey(topicName, partition),
