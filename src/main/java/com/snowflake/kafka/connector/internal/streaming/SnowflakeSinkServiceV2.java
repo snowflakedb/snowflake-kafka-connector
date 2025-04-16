@@ -114,6 +114,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
 
   public SnowflakeSinkServiceV2(
+      SnowflakeConnectionService conn,
+      Map<String, String> connectorConfig,
+      KafkaRecordErrorReporter recordErrorReporter,
+      SinkTaskContext sinkTaskContext,
+      boolean enableCustomJMXMonitoring,
+      Map<String, String> topicToTableMap) {
+    this(conn, connectorConfig);
+    this.kafkaRecordErrorReporter = recordErrorReporter;
+    this.sinkTaskContext = sinkTaskContext;
+    this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
+    this.topicToTableMap = topicToTableMap;
+  }
+
+  @Deprecated
+  public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
@@ -161,53 +176,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             ? "default_connector"
             : this.conn.getConnectorName();
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
-  }
-
-  @VisibleForTesting
-  public SnowflakeSinkServiceV2(
-      SnowflakeConnectionService conn,
-      RecordService recordService,
-      SnowflakeTelemetryService telemetryService,
-      IcebergTableSchemaValidator icebergTableSchemaValidator,
-      IcebergInitService icebergInitService,
-      Map<String, String> topicToTableMap,
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues,
-      boolean enableCustomJMXMonitoring,
-      KafkaRecordErrorReporter kafkaRecordErrorReporter,
-      SinkTaskContext sinkTaskContext,
-      SnowflakeStreamingIngestClient streamingIngestClient,
-      Map<String, String> connectorConfig,
-      boolean enableSchematization,
-      boolean closeChannelsInParallel,
-      Map<String, TopicPartitionChannel> partitionsToChannel,
-      SchemaEvolutionService schemaEvolutionService) {
-    this.conn = conn;
-    this.recordService = recordService;
-    this.icebergTableSchemaValidator = icebergTableSchemaValidator;
-    this.icebergInitService = icebergInitService;
-    this.telemetryService = telemetryService;
-    this.topicToTableMap = topicToTableMap;
-    this.behaviorOnNullValues = behaviorOnNullValues;
-    this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
-    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
-    this.sinkTaskContext = sinkTaskContext;
-    this.streamingIngestClient = streamingIngestClient;
-    this.connectorConfig = connectorConfig;
-    this.streamingIngestClient =
-        StreamingClientProvider.getStreamingClientProviderInstance()
-            .getClient(this.connectorConfig);
-    this.enableSchematization = enableSchematization;
-    this.schemaEvolutionService = schemaEvolutionService;
-    this.closeChannelsInParallel = closeChannelsInParallel;
-    this.partitionsToChannel = partitionsToChannel;
-
-    this.tableName2SchemaEvolutionPermission = new HashMap<>();
-    if (this.topicToTableMap != null) {
-      this.topicToTableMap.forEach(
-          (topic, tableName) -> {
-            populateSchemaEvolutionPermissions(tableName);
-          });
-    }
   }
 
   /**
