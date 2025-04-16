@@ -9,9 +9,9 @@ import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationR
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.streaming.BufferedTopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
+import com.snowflake.kafka.connector.internal.streaming.DirectTopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
@@ -518,7 +518,7 @@ public class ConnectionServiceIT {
       // Ctor of TopicPartitionChannel tries to open the channel.
       SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
       TopicPartitionChannel newChannelFormatV2 =
-          new BufferedTopicPartitionChannel(
+          new DirectTopicPartitionChannel(
               snowflakeSinkServiceV2.getStreamingIngestClient(),
               topicPartition,
               sourceChannelName,

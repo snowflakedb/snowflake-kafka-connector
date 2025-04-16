@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.metrics;
 
-import com.snowflake.kafka.connector.internal.streaming.BufferedTopicPartitionChannel;
 import java.util.Collection;
 import java.util.Map;
 
@@ -85,7 +84,10 @@ public class MetricsUtil {
   public static final String LATENCY_SUB_DOMAIN = "latencies";
 
   // ************ Streaming Constants ************//
-  /** See {@link BufferedTopicPartitionChannel} for offset description */
+  /**
+   * See {@link com.snowflake.kafka.connector.internal.streaming.DirectTopicPartitionChannel} for
+   * offset description
+   */
   public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
 
   public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
