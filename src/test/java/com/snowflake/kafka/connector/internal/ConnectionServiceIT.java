@@ -480,7 +480,6 @@ public class ConnectionServiceIT {
       SnowflakeSinkService service =
           SnowflakeSinkServiceFactory.builder(
                   conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-              .setRecordNumber(1)
               .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
               .setSinkTaskContext(inMemorySinkTaskContext)
               .addTask(tableName, topicPartition)

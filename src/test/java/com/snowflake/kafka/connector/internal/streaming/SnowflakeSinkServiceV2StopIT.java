@@ -48,7 +48,6 @@ public class SnowflakeSinkServiceV2StopIT {
         (SnowflakeSinkServiceV2)
             SnowflakeSinkServiceFactory.builder(
                     conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-                .setRecordNumber(1)
                 .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
                 .setSinkTaskContext(
                     new InMemorySinkTaskContext(Collections.singleton(topicPartition)))

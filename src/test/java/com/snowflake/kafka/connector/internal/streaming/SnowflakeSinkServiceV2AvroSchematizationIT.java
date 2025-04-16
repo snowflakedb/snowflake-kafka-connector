@@ -151,7 +151,6 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     Map<String, String> config = prepareConfig();
     return SnowflakeSinkServiceFactory.builder(
             conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-        .setRecordNumber(1)
         .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
         .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
         .addTask(table, new TopicPartition(topic, PARTITION))
