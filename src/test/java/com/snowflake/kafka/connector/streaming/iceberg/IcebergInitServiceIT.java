@@ -41,7 +41,35 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
     // then
     assertThat(describeRecordMetadataType(tableName))
         .isEqualTo(
-            "OBJECT(offset NUMBER(10,0), "
+            "OBJECT(offset NUMBER(19,0), "
+                + "topic VARCHAR(16777216), "
+                + "partition NUMBER(10,0), "
+                + "key VARCHAR(16777216), "
+                + "schema_id NUMBER(10,0), "
+                + "key_schema_id NUMBER(10,0), "
+                + "CreateTime NUMBER(19,0), "
+                + "LogAppendTime NUMBER(19,0), "
+                + "SnowflakeConnectorPushTime NUMBER(19,0), "
+                + "headers MAP(VARCHAR(16777216), "
+                + "VARCHAR(16777216)))");
+  }
+
+  @Test
+  void shouldMigrateOffsetFromIntToLong() {
+    // given
+    createIcebergTableWithColumnClause(
+        tableName,
+        "record_metadata OBJECT(offset INTEGER, topic STRING, partition INTEGER, key STRING,"
+            + " schema_id INTEGER, key_schema_id INTEGER, CreateTime BIGINT, LogAppendTime BIGINT,"
+            + " SnowflakeConnectorPushTime BIGINT, headers MAP(VARCHAR, VARCHAR))");
+
+    // when
+    icebergInitService.initializeIcebergTableProperties(tableName);
+
+    // then
+    assertThat(describeRecordMetadataType(tableName))
+        .isEqualTo(
+            "OBJECT(offset NUMBER(19,0), "
                 + "topic VARCHAR(16777216), "
                 + "partition NUMBER(10,0), "
                 + "key VARCHAR(16777216), "
@@ -71,7 +99,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
     // then
     assertThat(describeRecordMetadataType(tableName))
         .isEqualTo(
-            "OBJECT(offset NUMBER(10,0), "
+            "OBJECT(offset NUMBER(19,0), "
                 + "topic VARCHAR(16777216), "
                 + "partition NUMBER(10,0), "
                 + "key VARCHAR(16777216), "

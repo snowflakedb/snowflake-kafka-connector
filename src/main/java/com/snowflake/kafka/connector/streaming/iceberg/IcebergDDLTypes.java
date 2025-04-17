@@ -4,7 +4,7 @@ public class IcebergDDLTypes {
 
   public static String ICEBERG_METADATA_OBJECT_SCHEMA =
       "OBJECT("
-          + "offset INTEGER,"
+          + "offset LONG,"
           + "topic STRING,"
           + "partition INTEGER,"
           + "key STRING,"
