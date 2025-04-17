@@ -534,18 +534,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void setRecordNumber(long num) {
-    // TODO - remove from this class
+    throw new UnsupportedOperationException();
   }
 
-  /**
-   * Assume this is buffer size in bytes, since this is streaming ingestion
-   *
-   * @param size in bytes - a non negative long number representing size of internal buffer for
-   *     flush.
-   */
   @Override
   public void setFileSize(long size) {
-    // TODO - remove from this class
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -555,7 +549,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void setFlushTime(long time) {
-    // TODO - remove from this class
+    throw new UnsupportedOperationException();
   }
 
   @Override
