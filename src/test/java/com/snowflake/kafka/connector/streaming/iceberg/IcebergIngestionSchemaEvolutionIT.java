@@ -26,7 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static final String RECORD_METADATA_TYPE =
-      "OBJECT(offset NUMBER(10,0), topic VARCHAR(16777216), partition NUMBER(10,0), key"
+      "OBJECT(offset NUMBER(19,0), topic VARCHAR(16777216), partition NUMBER(10,0), key"
           + " VARCHAR(16777216), schema_id NUMBER(10,0), key_schema_id NUMBER(10,0),"
           + " CreateTime NUMBER(19,0), LogAppendTime NUMBER(19,0),"
           + " SnowflakeConnectorPushTime NUMBER(19,0), headers MAP(VARCHAR(16777216),"
