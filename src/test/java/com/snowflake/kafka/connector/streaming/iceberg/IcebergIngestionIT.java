@@ -85,11 +85,11 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
   protected abstract Boolean isSchemaEvolutionEnabled();
 
-  protected void waitForOffset(int targetOffset) throws Exception {
+  protected void waitForOffset(long targetOffset) throws Exception {
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == targetOffset);
   }
 
-  protected SinkRecord createKafkaRecord(String jsonString, int offset, boolean withSchema) {
+  protected SinkRecord createKafkaRecord(String jsonString, long offset, boolean withSchema) {
     JsonConverter converter = new JsonConverter();
     converter.configure(
         Collections.singletonMap("schemas.enable", Boolean.toString(withSchema)), false);

@@ -87,14 +87,18 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
   @MethodSource("prepareData")
   void shouldInsertRecords(String description, String message, boolean withSchema)
       throws Exception {
+    long overMaxIntOffset = (long) Integer.MAX_VALUE + 1;
     service.insert(
         Arrays.asList(
             createKafkaRecord(message, 0, withSchema), createKafkaRecord(message, 1, withSchema)));
     waitForOffset(2);
     service.insert(Collections.singletonList(createKafkaRecord(message, 2, withSchema)));
     waitForOffset(3);
+    service.insert(
+        Collections.singletonList(createKafkaRecord(message, overMaxIntOffset, withSchema)));
+    waitForOffset(overMaxIntOffset + 1);
 
-    assertRecordsInTable(0L, 1L, 2L);
+    assertRecordsInTable(Arrays.asList(0L, 1L, 2L, overMaxIntOffset));
   }
 
   @Test
@@ -112,7 +116,7 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
             createKafkaRecord(complexJsonPayloadExample, 4, false)));
     waitForOffset(5);
 
-    assertRecordsInTable(1L, 3L, 4L);
+    assertRecordsInTable(Arrays.asList(1L, 3L, 4L));
     List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedRecords =
         kafkaRecordErrorReporter.getReportedRecords();
     assertThat(reportedRecords).hasSize(2);
@@ -120,25 +124,22 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
         .containsExactlyInAnyOrder(wrongValueRecord1, wrongValueRecord2);
   }
 
-  private void assertRecordsInTable(Long... expectedOffsets) {
+  private void assertRecordsInTable(List<Long> expectedOffsets) {
     List<RecordWithMetadata<ComplexJsonRecord>> recordsWithMetadata =
         selectAllComplexJsonRecordFromRecordContent();
     assertThat(recordsWithMetadata)
-        .hasSize(3)
+        .hasSize(expectedOffsets.size())
         .extracting(RecordWithMetadata::getRecord)
-        .containsExactly(
-            complexJsonRecordValueExample,
-            complexJsonRecordValueExample,
-            complexJsonRecordValueExample);
+        .containsOnly(complexJsonRecordValueExample);
     List<MetadataRecord> metadataRecords =
         recordsWithMetadata.stream()
             .map(RecordWithMetadata::getMetadata)
             .collect(Collectors.toList());
     assertThat(metadataRecords)
         .extracting(MetadataRecord::getOffset)
-        .containsExactly(expectedOffsets);
+        .containsExactlyElementsOf(expectedOffsets);
     assertThat(metadataRecords)
-        .hasSize(3)
+        .hasSize(expectedOffsets.size())
         .allMatch(
             record ->
                 record.getTopic().equals(topicPartition.topic())
