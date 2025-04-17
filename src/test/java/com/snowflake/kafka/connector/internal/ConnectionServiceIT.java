@@ -15,7 +15,6 @@ import com.snowflake.kafka.connector.internal.streaming.DirectTopicPartitionChan
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
-import com.snowflake.kafka.connector.internal.streaming.StreamingBufferThreshold;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
@@ -481,7 +480,6 @@ public class ConnectionServiceIT {
       SnowflakeSinkService service =
           SnowflakeSinkServiceFactory.builder(
                   conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-              .setRecordNumber(1)
               .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
               .setSinkTaskContext(inMemorySinkTaskContext)
               .addTask(tableName, topicPartition)
@@ -523,7 +521,6 @@ public class ConnectionServiceIT {
               topicPartition,
               sourceChannelName,
               tableName,
-              new StreamingBufferThreshold(10, 10_000, 1),
               config,
               new InMemoryKafkaRecordErrorReporter(),
               new InMemorySinkTaskContext(Collections.singleton(topicPartition)),

@@ -1,12 +1,9 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.MetricRegistry;
@@ -61,16 +58,6 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
-
-  // Assume next three values are a threshold after which we will call insertRows API
-  // Set in config (Time based flush) in seconds
-  private long flushTimeSeconds;
-  // Set in config (buffer size based flush) in bytes
-  private long fileSizeBytes;
-
-  // Set in config (Threshold before we call insertRows API) corresponds to # of
-  // records in kafka
-  private long recordNum;
 
   // Used to connect to Snowflake, could be null during testing
   private final SnowflakeConnectionService conn;
@@ -132,9 +119,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
 
-    this.fileSizeBytes = StreamingUtils.STREAMING_BUFFER_BYTES_DEFAULT;
-    this.recordNum = StreamingUtils.STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
-    this.flushTimeSeconds = StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
     this.conn = conn;
     this.telemetryService = conn.getTelemetryClient();
     boolean schematizationEnabled = Utils.isSchematizationEnabled(connectorConfig);
@@ -181,9 +165,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @VisibleForTesting
   public SnowflakeSinkServiceV2(
-      long flushTimeSeconds,
-      long fileSizeBytes,
-      long recordNum,
       SnowflakeConnectionService conn,
       RecordService recordService,
       SnowflakeTelemetryService telemetryService,
@@ -200,9 +181,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       boolean closeChannelsInParallel,
       Map<String, TopicPartitionChannel> partitionsToChannel,
       SchemaEvolutionService schemaEvolutionService) {
-    this.flushTimeSeconds = flushTimeSeconds;
-    this.fileSizeBytes = fileSizeBytes;
-    this.recordNum = recordNum;
     this.conn = conn;
     this.recordService = recordService;
     this.icebergTableSchemaValidator = icebergTableSchemaValidator;
@@ -320,7 +298,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         partitionChannelKey, // Streaming channel name
         tableName,
         hasSchemaEvolutionPermission,
-        new StreamingBufferThreshold(this.flushTimeSeconds, this.fileSizeBytes, this.recordNum),
         this.connectorConfig,
         this.kafkaRecordErrorReporter,
         this.sinkTaskContext,
@@ -357,12 +334,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // threshold.
       insert(record);
     }
-
-    // check all partitions to see if they need to be flushed based on time
-    for (TopicPartitionChannel partitionChannel : partitionsToChannel.values()) {
-      // Time based flushing
-      partitionChannel.insertBufferedRecordsIfFlushTimeThresholdReached();
-    }
   }
 
   /**
@@ -397,7 +368,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
       long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
-      partitionsToChannel.get(partitionChannelKey).setLatestConsumerOffset(offset);
+      partitionsToChannel.get(partitionChannelKey).setLatestConsumerGroupOffset(offset);
 
       return offset;
     } else {
@@ -563,13 +534,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void setRecordNumber(long num) {
-    if (num < 0) {
-      LOGGER.error("number of record in each file is {}, it is negative, reset to 0", num);
-      this.recordNum = STREAMING_BUFFER_COUNT_RECORDS_DEFAULT;
-    } else {
-      this.recordNum = num;
-      LOGGER.info("Set number of records for buffer threshold to {}", num);
-    }
+    // TODO - remove from this class
   }
 
   /**
@@ -580,17 +545,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void setFileSize(long size) {
-    if (size < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) {
-      LOGGER.error(
-          "Buffer size is {} bytes, it is smaller than the minimum buffer "
-              + "size {} bytes, reset to the default buffer size",
-          size,
-          BUFFER_SIZE_BYTES_DEFAULT);
-      this.fileSizeBytes = BUFFER_SIZE_BYTES_DEFAULT;
-    } else {
-      this.fileSizeBytes = size;
-      LOGGER.info("set buffer size limitation to {} bytes", size);
-    }
+    // TODO - remove from this class
   }
 
   @Override
@@ -600,41 +555,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void setFlushTime(long time) {
-    if (time < StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC) {
-      LOGGER.error(
-          "flush time is {} seconds, it is smaller than the minimum "
-              + "flush time {} seconds, reset to the default flush time",
-          time,
-          STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC);
-      this.flushTimeSeconds = STREAMING_BUFFER_FLUSH_TIME_DEFAULT_SEC;
-    } else {
-      this.flushTimeSeconds = time;
-      LOGGER.info("set flush time to {} seconds", time);
-    }
+    // TODO - remove from this class
   }
 
   @Override
   public void setMetadataConfig(SnowflakeMetadataConfig configMap) {
     this.recordService.setMetadataConfig(configMap);
-  }
-
-  @Override
-  public long getRecordNumber() {
-    return this.recordNum;
-  }
-
-  @Override
-  public long getFlushTime() {
-    return this.flushTimeSeconds;
-  }
-
-  /**
-   * This is more of size in bytes of buffered records. This necessarily doesnt translates to files
-   * created by Streaming Ingest since they are compressed. So there is no 1:1 mapping.
-   */
-  @Override
-  public long getFileSize() {
-    return this.fileSizeBytes;
   }
 
   @Override

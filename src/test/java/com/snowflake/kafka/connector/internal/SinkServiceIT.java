@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -38,7 +37,6 @@ public class SinkServiceIT {
   private String pipe = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table, partition);
   private String pipe1 = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table, partition1);
   private String topic = "test";
-  private static ObjectMapper MAPPER = new ObjectMapper();
 
   @After
   public void afterEach() {
@@ -46,51 +44,6 @@ public class SinkServiceIT {
     conn.dropPipe(pipe);
     conn.dropPipe(pipe1);
     TestUtils.dropTable(table);
-  }
-
-  @Test
-  public void testSinkServiceBuilder() {
-    // default value
-    SnowflakeSinkService service = SnowflakeSinkServiceFactory.builder(conn).build();
-
-    assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-    assert service.getFlushTime() == SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT;
-    assert service.getRecordNumber() == SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
-
-    // set some value
-    service =
-        SnowflakeSinkServiceFactory.builder(conn)
-            .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT * 4)
-            .setFlushTime(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN + 10)
-            .setRecordNumber(10)
-            .build();
-
-    assert service.getRecordNumber() == 10;
-    assert service.getFlushTime() == SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN + 10;
-    assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT * 4;
-
-    // set some invalid value
-    service =
-        SnowflakeSinkServiceFactory.builder(conn)
-            .setRecordNumber(-100)
-            .setFlushTime(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN - 10)
-            .setFileSize(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN - 1)
-            .build();
-
-    assert service.getFileSize() == SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT;
-    assert service.getFlushTime() == SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN;
-    assert service.getRecordNumber() == 0;
-
-    // connection test
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_5010, () -> SnowflakeSinkServiceFactory.builder(null).build());
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_5010,
-        () -> {
-          SnowflakeConnectionService conn = TestUtils.getConnectionService();
-          conn.close();
-          SnowflakeSinkServiceFactory.builder(conn).build();
-        });
   }
 
   @ParameterizedTest

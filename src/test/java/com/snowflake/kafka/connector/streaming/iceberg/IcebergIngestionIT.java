@@ -65,7 +65,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     kafkaRecordErrorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(kafkaRecordErrorReporter)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .setTopic2TableMap(topic2Table)

@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming.channel;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.utils.SFException;
@@ -81,19 +80,5 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
 
   String getChannelNameFormatV1();
 
-  // todo it should belong to a buffered channel
-  /**
-   * If difference between current time and previous flush time is more than threshold, insert the
-   * buffered Rows.
-   *
-   * <p>Note: We acquire buffer lock since we copy the buffer.
-   *
-   * <p>Threshold is config parameter: {@link SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC}
-   *
-   * <p>Previous flush time here means last time we called insertRows API with rows present in
-   */
-  void insertBufferedRecordsIfFlushTimeThresholdReached();
-
-  // todo it should belong to a buffered channel
-  void setLatestConsumerOffset(long consumerOffset);
+  void setLatestConsumerGroupOffset(long consumerOffset);
 }

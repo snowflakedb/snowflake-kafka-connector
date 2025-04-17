@@ -75,7 +75,6 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -101,7 +100,6 @@ public class TopicPartitionChannelIT {
             topicPartition,
             testChannelName,
             testTableName,
-            new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
@@ -135,7 +133,6 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -199,7 +196,6 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -287,8 +283,6 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(5)
-            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -406,8 +400,6 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(10)
-            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -485,7 +477,6 @@ public class TopicPartitionChannelIT {
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -539,7 +530,6 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -564,7 +554,6 @@ public class TopicPartitionChannelIT {
             topicPartition,
             channelNameFormatV2,
             testTableName,
-            new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
@@ -623,7 +612,6 @@ public class TopicPartitionChannelIT {
     // This will automatically create a channel for topicPartition.
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(inMemorySinkTaskContext)
             .addTask(testTableName, topicPartition)
@@ -659,7 +647,6 @@ public class TopicPartitionChannelIT {
             topicPartition,
             channelNameFormatV2,
             testTableName,
-            new StreamingBufferThreshold(10, 10_000, 1),
             config,
             new InMemoryKafkaRecordErrorReporter(),
             new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
@@ -728,7 +715,6 @@ public class TopicPartitionChannelIT {
     // create tpChannel
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(4)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(testTableName, topicPartition)

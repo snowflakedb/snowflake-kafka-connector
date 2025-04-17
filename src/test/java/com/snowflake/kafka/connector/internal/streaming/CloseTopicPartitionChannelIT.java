@@ -8,12 +8,10 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.time.Duration;
 import java.util.Map;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
@@ -44,10 +42,6 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
   @AfterEach
   void tearDown() {
     connectCluster.kafka().deleteTopic(topicName);
-  }
-
-  private static Stream<Arguments> closeInParallelAndSingleBufferParams() {
-    return TestUtils.nBooleanProduct(2);
   }
 
   @ParameterizedTest(name = "closeInParallel: {0}")

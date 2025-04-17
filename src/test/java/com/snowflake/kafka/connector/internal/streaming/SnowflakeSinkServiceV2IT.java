@@ -35,7 +35,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -47,7 +46,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
@@ -73,10 +71,6 @@ public class SnowflakeSinkServiceV2IT {
   @AfterEach
   public void afterEach() {
     TestUtils.dropTable(table);
-  }
-
-  private static Stream<Arguments> oAuthAndSingleBufferParameters() {
-    return TestUtils.nBooleanProduct(2);
   }
 
   @ParameterizedTest(name = "useOAuth: {0}")
@@ -126,7 +120,6 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -178,8 +171,6 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(5)
-            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, tp1) // Internally calls startTask
@@ -256,7 +247,6 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -303,7 +293,6 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -377,8 +366,6 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(
                 connectionService, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(5)
-            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -510,8 +497,6 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(5)
-            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setTopic2TableMap(topic2Table)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -568,8 +553,6 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(5)
-            .setFlushTime(5)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
@@ -622,8 +605,6 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(100)
-            .setFlushTime(11) // 11 seconds
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -733,7 +714,6 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -898,7 +878,6 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
@@ -960,7 +939,6 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(errorReporter)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
@@ -1016,7 +994,6 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setErrorReporter(errorReporter)
-            .setRecordNumber(recordCount)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -1078,7 +1055,6 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
             .setErrorReporter(errorReporter)
-            .setRecordNumber(recordCount)
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
             .build();
@@ -1111,7 +1087,6 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
@@ -1139,7 +1114,6 @@ public class SnowflakeSinkServiceV2IT {
     // initialize a new sink service
     SnowflakeSinkService service2 =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
@@ -1170,7 +1144,6 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
@@ -1199,7 +1172,6 @@ public class SnowflakeSinkServiceV2IT {
     // initialize a new sink service
     SnowflakeSinkService service2 =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
@@ -1284,7 +1256,6 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
@@ -1355,7 +1326,6 @@ public class SnowflakeSinkServiceV2IT {
 
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition))
@@ -1410,8 +1380,6 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(100)
-            .setFlushTime(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -1455,7 +1423,6 @@ public class SnowflakeSinkServiceV2IT {
       // This will fail in creation of client
       SnowflakeSinkServiceFactory.builder(
               conn, IngestionMethodConfig.SNOWPIPE_STREAMING, overriddenConfig)
-          .setRecordNumber(1)
           .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
           .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
           .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -1480,8 +1447,6 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(100)
-            .setFlushTime(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -1521,8 +1486,6 @@ public class SnowflakeSinkServiceV2IT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setRecordNumber(100)
-            .setFlushTime(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, new TopicPartition(topic, partition)) // Internally calls startTask
@@ -1620,7 +1583,6 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService catService =
         SnowflakeSinkServiceFactory.builder(
                 catConn, IngestionMethodConfig.SNOWPIPE_STREAMING, catConfig)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(catTp)))
             .addTask(catTopic, catTp) // Internally calls startTask
@@ -1629,7 +1591,6 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService dogService =
         SnowflakeSinkServiceFactory.builder(
                 dogConn, IngestionMethodConfig.SNOWPIPE_STREAMING, dogConfig)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(dogTp)))
             .addTask(dogTopic, dogTp) // Internally calls startTask
@@ -1638,7 +1599,6 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeSinkService fishService =
         SnowflakeSinkServiceFactory.builder(
                 dogConn, IngestionMethodConfig.SNOWPIPE_STREAMING, fishConfig)
-            .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(fishTp)))
             .addTask(fishTopic, fishTp) // Internally calls startTask
