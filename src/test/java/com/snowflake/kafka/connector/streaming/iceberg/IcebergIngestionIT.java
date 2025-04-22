@@ -6,10 +6,9 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getConfForStreami
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
@@ -64,12 +63,11 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
     kafkaRecordErrorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setErrorReporter(kafkaRecordErrorReporter)
-            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .setTopic2TableMap(topic2Table)
-            .addTask(tableName, topicPartition)
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withTopicToTableMap(topic2Table)
             .build();
+    service.startPartition(tableName, topicPartition);
   }
 
   @AfterEach

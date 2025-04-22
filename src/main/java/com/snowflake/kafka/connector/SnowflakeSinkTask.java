@@ -27,6 +27,10 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Arrays;
 import java.util.Collection;
@@ -220,18 +224,36 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
     this.ingestionMethodConfig = ingestionType;
-    this.sink =
-        SnowflakeSinkServiceFactory.builder(getConnection(), ingestionType, parsedConfig)
-            .setFileSize(bufferSizeBytes)
-            .setRecordNumber(bufferCountRecords)
-            .setFlushTime(bufferFlushTime)
-            .setTopic2TableMap(topic2table)
-            .setMetadataConfig(metadataConfig)
-            .setBehaviorOnNullValuesConfig(behavior)
-            .setCustomJMXMetrics(enableCustomJMXMonitoring)
-            .setErrorReporter(kafkaRecordErrorReporter)
-            .setSinkTaskContext(this.context)
-            .build();
+    if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
+      this.sink =
+          SnowflakeSinkServiceFactory.builder(getConnection(), parsedConfig)
+              .setFileSize(bufferSizeBytes)
+              .setRecordNumber(bufferCountRecords)
+              .setFlushTime(bufferFlushTime)
+              .setTopic2TableMap(topic2table)
+              .setMetadataConfig(metadataConfig)
+              .setBehaviorOnNullValuesConfig(behavior)
+              .setCustomJMXMetrics(enableCustomJMXMonitoring)
+              .setErrorReporter(kafkaRecordErrorReporter)
+              .setSinkTaskContext(this.context)
+              .build();
+    } else {
+      SchemaEvolutionService schemaEvolutionService =
+          Utils.isIcebergEnabled(parsedConfig)
+              ? new IcebergSchemaEvolutionService(conn)
+              : new SnowflakeSchemaEvolutionService(conn);
+
+      this.sink =
+          new SnowflakeSinkServiceV2(
+              conn,
+              parsedConfig,
+              kafkaRecordErrorReporter,
+              this.context,
+              enableCustomJMXMonitoring,
+              topic2table,
+              SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT,
+              schemaEvolutionService);
+    }
 
     DYNAMIC_LOGGER.info(
         "task started, execution time: {} milliseconds",

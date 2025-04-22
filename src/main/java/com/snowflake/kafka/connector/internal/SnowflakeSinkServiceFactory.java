@@ -2,8 +2,6 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
@@ -15,15 +13,12 @@ public class SnowflakeSinkServiceFactory {
    * create service builder. To be used when Snowpipe streaming is the method of ingestion.
    *
    * @param conn snowflake connection service
-   * @param ingestionType ingestion Type based on config
    * @param connectorConfig KC config map
    * @return a builder instance
    */
   public static SnowflakeSinkServiceBuilder builder(
-      SnowflakeConnectionService conn,
-      IngestionMethodConfig ingestionType,
-      Map<String, String> connectorConfig) {
-    return new SnowflakeSinkServiceBuilder(conn, ingestionType, connectorConfig);
+      SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
+    return new SnowflakeSinkServiceBuilder(conn, connectorConfig);
   }
 
   /**
@@ -40,83 +35,77 @@ public class SnowflakeSinkServiceFactory {
   public static class SnowflakeSinkServiceBuilder {
     private final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceBuilder.class.getName());
 
-    private final SnowflakeSinkService service;
+    private final SnowflakeSinkServiceV1 service;
 
     private SnowflakeSinkServiceBuilder(
-        SnowflakeConnectionService conn,
-        IngestionMethodConfig ingestionType,
-        Map<String, String> connectorConfig) {
-      if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
-        long v2CleanerIntervalSeconds =
-            SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS_DEFAULT;
-        if (connectorConfig != null
-            && connectorConfig.containsKey(
-                SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS)) {
-          v2CleanerIntervalSeconds =
-              Long.parseLong(
-                  connectorConfig.get(
-                      SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS));
-        }
-
-        SnowflakeSinkServiceV1 svc = new SnowflakeSinkServiceV1(conn, v2CleanerIntervalSeconds);
-        this.service = svc;
-        boolean useStageFilesProcessor =
-            SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
-        int threadCount = SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT;
-
-        if (connectorConfig != null
-            && connectorConfig.containsKey(
-                SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED)) {
-          useStageFilesProcessor =
-              Boolean.parseBoolean(
-                  connectorConfig.get(
-                      SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED));
-        }
-        if (connectorConfig != null
-            && connectorConfig.containsKey(
-                SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS)) {
-          threadCount =
-              Integer.parseInt(
-                  connectorConfig.get(SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS));
-        }
-
-        if (useStageFilesProcessor) {
-          svc.enableStageFilesProcessor(threadCount);
-        }
-
-        boolean extendedStageFileNameFix =
-            SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED_DEFAULT;
-        if (connectorConfig != null
-            && connectorConfig.containsKey(
-                SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED)) {
-          extendedStageFileNameFix =
-              Boolean.parseBoolean(
-                  connectorConfig.get(
-                      SnowflakeSinkConnectorConfig
-                          .SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED));
-        }
-        svc.configureSingleTableLoadFromMultipleTopics(extendedStageFileNameFix);
-
-        boolean enableReprocessFilesCleanup =
-            SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP_DEFAULT;
-        if (connectorConfig != null
-            && connectorConfig.containsKey(
-                SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP)) {
-          enableReprocessFilesCleanup =
-              Boolean.parseBoolean(
-                  connectorConfig.get(
-                      SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP));
-        }
-        svc.configureEnableReprocessFilesCleanup(enableReprocessFilesCleanup);
-      } else {
-        this.service = new SnowflakeSinkServiceV2(conn, connectorConfig);
+        SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
+      long v2CleanerIntervalSeconds =
+          SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS_DEFAULT;
+      if (connectorConfig != null
+          && connectorConfig.containsKey(
+              SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS)) {
+        v2CleanerIntervalSeconds =
+            Long.parseLong(
+                connectorConfig.get(
+                    SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS));
       }
+
+      SnowflakeSinkServiceV1 svc = new SnowflakeSinkServiceV1(conn, v2CleanerIntervalSeconds);
+      this.service = svc;
+      boolean useStageFilesProcessor =
+          SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT;
+      int threadCount = SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT;
+
+      if (connectorConfig != null
+          && connectorConfig.containsKey(
+              SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED)) {
+        useStageFilesProcessor =
+            Boolean.parseBoolean(
+                connectorConfig.get(
+                    SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED));
+      }
+      if (connectorConfig != null
+          && connectorConfig.containsKey(
+              SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS)) {
+        threadCount =
+            Integer.parseInt(
+                connectorConfig.get(SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_THREADS));
+      }
+
+      if (useStageFilesProcessor) {
+        svc.enableStageFilesProcessor(threadCount);
+      }
+
+      boolean extendedStageFileNameFix =
+          SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED_DEFAULT;
+      if (connectorConfig != null
+          && connectorConfig.containsKey(
+              SnowflakeSinkConnectorConfig.SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED)) {
+        extendedStageFileNameFix =
+            Boolean.parseBoolean(
+                connectorConfig.get(
+                    SnowflakeSinkConnectorConfig
+                        .SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED));
+      }
+      svc.configureSingleTableLoadFromMultipleTopics(extendedStageFileNameFix);
+
+      boolean enableReprocessFilesCleanup =
+          SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP_DEFAULT;
+      if (connectorConfig != null
+          && connectorConfig.containsKey(
+              SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP)) {
+        enableReprocessFilesCleanup =
+            Boolean.parseBoolean(
+                connectorConfig.get(
+                    SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP));
+      }
+      svc.configureEnableReprocessFilesCleanup(enableReprocessFilesCleanup);
 
       LOGGER.info("{} created", this.service.getClass().getName());
     }
 
     private SnowflakeSinkServiceBuilder(SnowflakeConnectionService conn) {
-      this(conn, IngestionMethodConfig.SNOWPIPE, null /* Not required for V1 */);
+      this(conn, null /* Not required for V1 */);
     }
 
     /**

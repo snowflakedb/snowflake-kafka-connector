@@ -350,7 +350,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     return this.isStopped;
   }
 
-  @Override
   public void setRecordNumber(final long num) {
     if (num < 0) {
       LOGGER.error("number of record in each file is {}, it is negative, reset to" + " 0");
@@ -361,7 +360,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     }
   }
 
-  @Override
   public void setFileSize(final long size) {
     if (size < SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_MIN) {
       LOGGER.error(
@@ -376,7 +374,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     }
   }
 
-  @Override
   public void setFlushTime(final long time) {
     if (time < SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_MIN) {
       LOGGER.error(
@@ -391,12 +388,10 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     }
   }
 
-  @Override
   public void setTopic2TableMap(Map<String, String> topic2TableMap) {
     this.topic2TableMap = topic2TableMap;
   }
 
-  @Override
   public void setMetadataConfig(SnowflakeMetadataConfig configMap) {
     this.recordService.setMetadataConfig(configMap);
   }
@@ -413,7 +408,6 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     return this.fileSize;
   }
 
-  @Override
   public void setBehaviorOnNullValuesConfig(
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
     this.behaviorOnNullValues = behavior;
@@ -427,14 +421,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
     cleanerServiceExecutor = new ScheduledThreadPoolExecutor(Math.max(1, threadCount));
   }
 
-  @Override
   public void setCustomJMXMetrics(boolean enableJMX) {
     this.enableCustomJMXMonitoring = enableJMX;
-  }
-
-  @Override
-  public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
-    return this.behaviorOnNullValues;
   }
 
   /**
