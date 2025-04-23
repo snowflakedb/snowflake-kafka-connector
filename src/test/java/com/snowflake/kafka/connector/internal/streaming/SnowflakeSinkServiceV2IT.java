@@ -1543,6 +1543,7 @@ public class SnowflakeSinkServiceV2IT {
     Map<String, String> config = TestUtils.getConfForStreaming(false);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "300");
+    config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
 
     config.put(
             SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
