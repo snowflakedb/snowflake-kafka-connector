@@ -25,6 +25,7 @@ import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
@@ -45,6 +46,7 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -1533,6 +1535,119 @@ public class SnowflakeSinkServiceV2IT {
         () -> service.getOffset(new TopicPartition(topic, partition)) == startOffset + 1, 20, 5);
 
     service.closeAll();
+  }
+
+  @Test
+  void testSkippingOffsetsInSchemaEvolution() throws Exception {
+    conn = getConn(false);
+    Map<String, String> config = TestUtils.getConfForStreaming(false);
+    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "300");
+
+    config.put(
+            SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+            "org.apache.kafka.connect.json.JsonConverter");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    config.put("schemas.enable", "false");
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    // setup a table with a single field
+    conn.createTableWithOnlyMetadataColumn(table);
+    createNonNullableColumn(table, "id_int8");
+
+    // setup service
+    SnowflakeSinkService service =
+            SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+                    .setRecordNumber(100)
+                    .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+                    .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+                    .addTask(table, new TopicPartition(topic, partition))
+                    .build();
+
+    // insert 100 records - just to avoid a corner case when there is no data in the table
+    List<SinkRecord> recordsToInsert = new ArrayList<>();
+    for (int i = 0; i < 100; i++) {
+      recordsToInsert.add(recordWithSingleField(config, i));
+    }
+    service.insert(recordsToInsert);
+    TestUtils.assertWithRetry(
+            () ->
+                    service.getOffset(new TopicPartition(topic, partition))
+                            == 100,
+            20,
+            5);
+
+    // insert batch that triggers schema evolution in the middle of the buffer
+    List<SinkRecord> recordsToInsert2 = new ArrayList<>();
+    for (int i = 100; i < 157; i++) {
+      recordsToInsert2.add(recordWithSingleField(config, i));
+    }
+    for (int i = 157; i < 200; i++) {
+      recordsToInsert2.add(recordWithTwoFields(config, i));
+    }
+    service.insert(recordsToInsert2);
+    TestUtils.assertWithRetry(
+            () ->
+                    service.getOffset(new TopicPartition(topic, partition))
+                            == 100,
+            20,
+            5);
+
+    // repeat the batch after table schema was altered - all record present in the table
+    service.insert(recordsToInsert2);
+    TestUtils.assertWithRetry(
+            () ->
+                    service.getOffset(new TopicPartition(topic, partition))
+                            == 200,
+            20,
+            5);
+  }
+
+  private SinkRecord recordWithSingleField(Map<String, String> config, long offset) {
+    Schema schema =
+            SchemaBuilder.struct()
+                    .field("id_int8", Schema.INT8_SCHEMA)
+                    .build();
+    Struct original =
+            new Struct(schema).put("id_int8", (byte) 0);
+
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(config, false);
+    byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
+    SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
+
+      return new SinkRecord(
+              topic,
+              partition,
+              Schema.STRING_SCHEMA,
+              "test",
+              jsonInputValue.schema(),
+              jsonInputValue.value(),
+              offset);
+  }
+
+  private SinkRecord recordWithTwoFields(Map<String, String> config, long offset) {
+    Schema schema =
+            SchemaBuilder.struct()
+                    .field("id_int8", Schema.INT8_SCHEMA)
+                    .field("id_int8_2", Schema.INT8_SCHEMA)
+                    .build();
+    Struct original =
+            new Struct(schema).put("id_int8", (byte) 0).put("id_int8_2", (byte) 0);
+
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(config, false);
+    byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
+    SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
+
+    return new SinkRecord(
+            topic,
+            partition,
+            Schema.STRING_SCHEMA,
+            "test",
+            jsonInputValue.schema(),
+            jsonInputValue.value(),
+            offset);
   }
 
   @ParameterizedTest(name = "useOAuth: {0}, useSingleBuffer: {1}")
