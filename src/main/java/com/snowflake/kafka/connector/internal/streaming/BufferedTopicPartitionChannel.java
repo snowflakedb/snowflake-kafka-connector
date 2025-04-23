@@ -673,6 +673,7 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
                   "Triggering schema evolution. NonNullableColumns={}, extraColumns={}",
                   String.join(",", nonNullableColumns),
                   extraColNames == null ? "null" : String.join(",", extraColNames));
+              Thread.sleep(10 * 1000);
               SchematizationUtils.evolveSchemaIfNeeded(
                   this.conn,
                   this.channel.getTableName(),
@@ -952,12 +953,12 @@ public class BufferedTopicPartitionChannel implements TopicPartitionChannel {
    */
   private SnowflakeStreamingIngestChannel reopenChannel(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
-    try {
-      LOGGER.error("[REVI] sleeping 10s before reopening channel");
-      Thread.sleep(10*1000);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
+//    try {
+//      LOGGER.error("[REVI] sleeping 10s before reopening channel");
+//      Thread.sleep(10*1000);
+//    } catch (InterruptedException e) {
+//      throw new RuntimeException(e);
+//    }
     LOGGER.warn(
         "{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelNameFormatV1());
     return Preconditions.checkNotNull(openChannelForTable());
