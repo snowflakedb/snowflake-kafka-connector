@@ -3,6 +3,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +19,7 @@ public class StreamingSinkServiceBuilder {
   private SinkTaskContext sinkTaskContext = new InMemorySinkTaskContext(Collections.emptySet());
   private boolean enableCustomJMXMonitoring = false;
   private Map<String, String> topicToTableMap = new HashMap<>();
+  private SchemaEvolutionService schemaEvolutionService;
 
   public static StreamingSinkServiceBuilder builder(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
@@ -30,7 +33,10 @@ public class StreamingSinkServiceBuilder {
         errorReporter,
         sinkTaskContext,
         enableCustomJMXMonitoring,
-        topicToTableMap);
+        topicToTableMap,
+        schemaEvolutionService == null
+            ? new SnowflakeSchemaEvolutionService(conn)
+            : schemaEvolutionService);
   }
 
   private StreamingSinkServiceBuilder(
@@ -57,6 +63,12 @@ public class StreamingSinkServiceBuilder {
 
   public StreamingSinkServiceBuilder withTopicToTableMap(Map<String, String> topic2TableMap) {
     topicToTableMap = topic2TableMap;
+    return this;
+  }
+
+  public StreamingSinkServiceBuilder withSchemaEvolutionService(
+      SchemaEvolutionService schemaEvolutionService) {
+    this.schemaEvolutionService = schemaEvolutionService;
     return this;
   }
 }
