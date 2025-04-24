@@ -814,7 +814,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
             .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
             .setTableName(this.tableName)
-            .setOnErrorOption(OpenChannelRequest.OnErrorOption.CONTINUE)
+            .setOnErrorOption(OpenChannelRequest.OnErrorOption.SKIP_BATCH)
             .setOffsetTokenVerificationFunction(StreamingUtils.offsetTokenVerificationFunction)
             .build();
     LOGGER.info(
