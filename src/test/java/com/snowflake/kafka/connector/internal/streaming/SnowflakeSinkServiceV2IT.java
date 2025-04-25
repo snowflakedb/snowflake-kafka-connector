@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIP
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+import static org.awaitility.Awaitility.await;
 
 import com.codahale.metrics.Gauge;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -1537,5 +1539,93 @@ public class SnowflakeSinkServiceV2IT {
     assert !StreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(fishConfig));
+  }
+
+  @Test
+  void testSkippingOffsetsInSchemaEvolution() throws Exception {
+    long maxClientLagSeconds = 1L;
+    long schemaEvolutionDelayMs = 3 * 1000L; // must be enough for sdk to flush and commit
+    long assertionSleepTimeMs = 6 * 1000L;
+
+    conn = getConn(false);
+    Map<String, String> config = TestUtils.getConfForStreaming();
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(
+        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
+        "org.apache.kafka.connect.json.JsonConverter");
+    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    config.put("schemas.enable", "false");
+    config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, String.valueOf(maxClientLagSeconds));
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    // setup a table with a single field
+    conn.createTableWithOnlyMetadataColumn(table);
+    createNonNullableColumn(table, "id_int8");
+
+    SnowflakeSinkService service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withSchemaEvolutionService(
+                new DelayedSchemaEvolutionService(conn, schemaEvolutionDelayMs))
+            .build();
+    service.startPartition(table, new TopicPartition(topic, partition));
+
+    service.insert(
+        Arrays.asList(
+            recordWithSingleField(0),
+            recordWithSingleField(1),
+            recordWithTwoFields(2),
+            recordWithTwoFields(3)));
+
+    // wait for processing all records and running ingest sdk thread
+    Thread.sleep(assertionSleepTimeMs);
+
+    // records 0 and 1 are ingested, 2 triggers schema evolution, 3 is skipped
+    // getOffset() result is returned from preCommit() so Kafka will send next record starting from
+    // this offset
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .until(() -> service.getOffset(new TopicPartition(topic, partition)) == 2);
+
+    // Kafka sends remaining messages
+    service.insert(Arrays.asList(recordWithTwoFields(2), recordWithTwoFields(3)));
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .until(() -> service.getOffset(new TopicPartition(topic, partition)) == 4);
+  }
+
+  private SinkRecord recordWithSingleField(long offset) {
+    Schema schema = SchemaBuilder.struct().field("id_int8", Schema.INT8_SCHEMA).build();
+    Struct struct = new Struct(schema).put("id_int8", (byte) 0);
+    return getSinkRecord(offset, struct);
+  }
+
+  private SinkRecord recordWithTwoFields(long offset) {
+    Schema schema =
+        SchemaBuilder.struct()
+            .field("id_int8", Schema.INT8_SCHEMA)
+            .field("id_int8_2", Schema.INT8_SCHEMA)
+            .build();
+    Struct struct = new Struct(schema).put("id_int8", (byte) 0).put("id_int8_2", (byte) 0);
+    return getSinkRecord(offset, struct);
+  }
+
+  private SinkRecord getSinkRecord(long offset, Struct struct) {
+    JsonConverter jsonConverter = new JsonConverter();
+    Map<String, String> config = new HashMap<>();
+    config.put("schemas.enable", "false");
+    jsonConverter.configure(config, false);
+    byte[] converted = jsonConverter.fromConnectData(topic, struct.schema(), struct);
+    SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
+
+    return new SinkRecord(
+        topic,
+        partition,
+        Schema.STRING_SCHEMA,
+        "test",
+        jsonInputValue.schema(),
+        jsonInputValue.value(),
+        offset);
   }
 }
