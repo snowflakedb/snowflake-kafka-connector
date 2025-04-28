@@ -46,7 +46,8 @@ public enum ErrorCode {
   GENERATE_PRESIGNED_URLS_FAILURE("0038"),
   REFRESH_TABLE_INFORMATION_FAILURE("0039");
 
-  public static final String errorMessageResource = "com.snowflake.openflow.runtime.processors.snowpipe.ingest_error_messages";
+  public static final String errorMessageResource =
+      "com.snowflake.kafka.connector.ingest_error_messages";
 
   /** Snowflake internal message associated to the error. */
   private final String messageCode;

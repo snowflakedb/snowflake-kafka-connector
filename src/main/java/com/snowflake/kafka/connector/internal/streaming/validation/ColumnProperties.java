@@ -37,7 +37,8 @@ public class ColumnProperties {
     this.icebergColumnSchema = columnMetadata.getSourceIcebergDataType();
   }
 
-  public ColumnProperties(net.snowflake.ingest.streaming.internal.ColumnProperties ingestSdkColumnProperties) {
+  public ColumnProperties(
+      net.snowflake.ingest.streaming.internal.ColumnProperties ingestSdkColumnProperties) {
     this.type = ingestSdkColumnProperties.getType();
     this.logicalType = ingestSdkColumnProperties.getLogicalType();
     this.precision = ingestSdkColumnProperties.getPrecision();

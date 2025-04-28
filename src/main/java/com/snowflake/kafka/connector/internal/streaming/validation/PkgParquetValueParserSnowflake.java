@@ -4,14 +4,13 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
-import net.snowflake.ingest.utils.Utils;
-import org.apache.parquet.schema.PrimitiveType;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.ZoneId;
 import java.util.Optional;
+import net.snowflake.ingest.utils.Utils;
+import org.apache.parquet.schema.PrimitiveType;
 
 /** Parses a user Snowflake column value into Parquet internal representation for buffering. */
 class PkgParquetValueParserSnowflake {
@@ -36,8 +35,7 @@ class PkgParquetValueParserSnowflake {
     float estimatedParquetSize = 0F;
     estimatedParquetSize += PkgParquetBufferValue.DEFINITION_LEVEL_ENCODING_BYTE_LEN;
     if (value != null) {
-      ColumnLogicalType logicalType =
-          ColumnLogicalType.valueOf(columnMetadata.getLogicalType());
+      ColumnLogicalType logicalType = ColumnLogicalType.valueOf(columnMetadata.getLogicalType());
       ColumnPhysicalType physicalType =
           ColumnPhysicalType.valueOf(columnMetadata.getPhysicalType());
       switch (typeName) {
@@ -49,38 +47,40 @@ class PkgParquetValueParserSnowflake {
           estimatedParquetSize += PkgParquetBufferValue.BIT_ENCODING_BYTE_LEN;
           break;
         case INT32:
-            value = getInt32Value(
-                columnMetadata.getName(),
-                value,
-                columnMetadata.getScale(),
-                Optional.ofNullable(columnMetadata.getPrecision()).orElse(0),
-                logicalType,
-                physicalType,
-                insertRowsCurrIndex);
+          value =
+              getInt32Value(
+                  columnMetadata.getName(),
+                  value,
+                  columnMetadata.getScale(),
+                  Optional.ofNullable(columnMetadata.getPrecision()).orElse(0),
+                  logicalType,
+                  physicalType,
+                  insertRowsCurrIndex);
           estimatedParquetSize += 4;
           break;
         case INT64:
-            value = getInt64Value(
-                columnMetadata.getName(),
-                value,
-                columnMetadata.getScale(),
-                Optional.ofNullable(columnMetadata.getPrecision()).orElse(0),
-                logicalType,
-                physicalType,
-                defaultTimezone,
-                insertRowsCurrIndex);
+          value =
+              getInt64Value(
+                  columnMetadata.getName(),
+                  value,
+                  columnMetadata.getScale(),
+                  Optional.ofNullable(columnMetadata.getPrecision()).orElse(0),
+                  logicalType,
+                  physicalType,
+                  defaultTimezone,
+                  insertRowsCurrIndex);
           estimatedParquetSize += 8;
           break;
         case DOUBLE:
-            value = PkgDataValidationUtil.validateAndParseReal(
-                columnMetadata.getName(), value, insertRowsCurrIndex);
+          value =
+              PkgDataValidationUtil.validateAndParseReal(
+                  columnMetadata.getName(), value, insertRowsCurrIndex);
           estimatedParquetSize += 8;
           break;
         case BINARY:
           int length = 0;
           if (logicalType == ColumnLogicalType.BINARY) {
-            value =
-                getBinaryValueForLogicalBinary(value, columnMetadata, insertRowsCurrIndex);
+            value = getBinaryValueForLogicalBinary(value, columnMetadata, insertRowsCurrIndex);
             length = ((byte[]) value).length;
           } else {
             String str =
@@ -156,19 +156,22 @@ class PkgParquetValueParserSnowflake {
       case TIME:
         Utils.assertNotNull("Unexpected null scale for TIME data type", scale);
         intVal =
-            PkgDataValidationUtil.validateAndParseTime(columnName, value, scale, insertRowsCurrIndex)
+            PkgDataValidationUtil.validateAndParseTime(
+                    columnName, value, scale, insertRowsCurrIndex)
                 .intValue();
         break;
       case FIXED:
         BigDecimal bigDecimalValue =
-            PkgDataValidationUtil.validateAndParseBigDecimal(columnName, value, insertRowsCurrIndex);
+            PkgDataValidationUtil.validateAndParseBigDecimal(
+                columnName, value, insertRowsCurrIndex);
         bigDecimalValue = bigDecimalValue.setScale(scale, RoundingMode.HALF_UP);
         PkgDataValidationUtil.checkValueInRange(
             columnName, bigDecimalValue, scale, precision, insertRowsCurrIndex);
         intVal = bigDecimalValue.intValue();
         break;
       default:
-        throw new PkgSFException(ErrorCode.UNKNOWN_DATA_TYPE, columnName, logicalType, physicalType);
+        throw new PkgSFException(
+            ErrorCode.UNKNOWN_DATA_TYPE, columnName, logicalType, physicalType);
     }
     return intVal;
   }
@@ -197,7 +200,8 @@ class PkgParquetValueParserSnowflake {
       case TIME:
         Utils.assertNotNull("Unexpected null scale for TIME data type", scale);
         longValue =
-            PkgDataValidationUtil.validateAndParseTime(columnName, value, scale, insertRowsCurrIndex)
+            PkgDataValidationUtil.validateAndParseTime(
+                    columnName, value, scale, insertRowsCurrIndex)
                 .longValue();
         break;
       case TIMESTAMP_LTZ:
@@ -218,14 +222,16 @@ class PkgParquetValueParserSnowflake {
         break;
       case FIXED:
         BigDecimal bigDecimalValue =
-            PkgDataValidationUtil.validateAndParseBigDecimal(columnName, value, insertRowsCurrIndex);
+            PkgDataValidationUtil.validateAndParseBigDecimal(
+                columnName, value, insertRowsCurrIndex);
         bigDecimalValue = bigDecimalValue.setScale(scale, RoundingMode.HALF_UP);
         PkgDataValidationUtil.checkValueInRange(
             columnName, bigDecimalValue, scale, precision, insertRowsCurrIndex);
         longValue = bigDecimalValue.longValue();
         break;
       default:
-        throw new PkgSFException(ErrorCode.UNKNOWN_DATA_TYPE, columnName, logicalType, physicalType);
+        throw new PkgSFException(
+            ErrorCode.UNKNOWN_DATA_TYPE, columnName, logicalType, physicalType);
     }
     return longValue;
   }
@@ -262,14 +268,16 @@ class PkgParquetValueParserSnowflake {
             .toBinary(false);
       case FIXED:
         BigDecimal bigDecimalValue =
-            PkgDataValidationUtil.validateAndParseBigDecimal(columnName, value, insertRowsCurrIndex);
+            PkgDataValidationUtil.validateAndParseBigDecimal(
+                columnName, value, insertRowsCurrIndex);
         // explicitly match the BigDecimal input scale with the Snowflake data type scale
         bigDecimalValue = bigDecimalValue.setScale(scale, RoundingMode.HALF_UP);
         PkgDataValidationUtil.checkValueInRange(
             columnName, bigDecimalValue, scale, precision, insertRowsCurrIndex);
         return bigDecimalValue.unscaledValue();
       default:
-        throw new PkgSFException(ErrorCode.UNKNOWN_DATA_TYPE, columnName, logicalType, physicalType);
+        throw new PkgSFException(
+            ErrorCode.UNKNOWN_DATA_TYPE, columnName, logicalType, physicalType);
     }
   }
 
@@ -303,40 +311,48 @@ class PkgParquetValueParserSnowflake {
       ColumnMetadata columnMetadata,
       final long insertRowsCurrIndex,
       boolean enableNewJsonParsingLogic) {
-    ColumnLogicalType logicalType =
-        ColumnLogicalType.valueOf(columnMetadata.getLogicalType());
+    ColumnLogicalType logicalType = ColumnLogicalType.valueOf(columnMetadata.getLogicalType());
     String str;
     if (logicalType.isObject()) {
-        str = switch (logicalType) {
-            case OBJECT -> enableNewJsonParsingLogic
-                    ? PkgDataValidationUtil.validateAndParseObjectNew(
-                    columnMetadata.getName(), value, insertRowsCurrIndex)
-                    : PkgDataValidationUtil.validateAndParseObject(
-                    columnMetadata.getName(), value, insertRowsCurrIndex);
-            case VARIANT -> enableNewJsonParsingLogic
-                    ? PkgDataValidationUtil.validateAndParseVariantNew(
-                    columnMetadata.getName(), value, insertRowsCurrIndex)
-                    : PkgDataValidationUtil.validateAndParseVariant(
-                    columnMetadata.getName(), value, insertRowsCurrIndex);
-            case ARRAY -> enableNewJsonParsingLogic
-                    ? PkgDataValidationUtil.validateAndParseArrayNew(
-                    columnMetadata.getName(), value, insertRowsCurrIndex)
-                    : PkgDataValidationUtil.validateAndParseArray(
-                    columnMetadata.getName(), value, insertRowsCurrIndex);
-            default -> throw new PkgSFException(
-                    ErrorCode.UNKNOWN_DATA_TYPE,
-                    columnMetadata.getName(),
-                    logicalType,
-                    columnMetadata.getPhysicalType());
-        };
+      switch (logicalType) {
+        case OBJECT:
+          str =
+              enableNewJsonParsingLogic
+                  ? PkgDataValidationUtil.validateAndParseObjectNew(
+                      columnMetadata.getName(), value, insertRowsCurrIndex)
+                  : PkgDataValidationUtil.validateAndParseObject(
+                      columnMetadata.getName(), value, insertRowsCurrIndex);
+          break;
+        case VARIANT:
+          str =
+              enableNewJsonParsingLogic
+                  ? PkgDataValidationUtil.validateAndParseVariantNew(
+                      columnMetadata.getName(), value, insertRowsCurrIndex)
+                  : PkgDataValidationUtil.validateAndParseVariant(
+                      columnMetadata.getName(), value, insertRowsCurrIndex);
+          break;
+        case ARRAY:
+          str =
+              enableNewJsonParsingLogic
+                  ? PkgDataValidationUtil.validateAndParseArrayNew(
+                      columnMetadata.getName(), value, insertRowsCurrIndex)
+                  : PkgDataValidationUtil.validateAndParseArray(
+                      columnMetadata.getName(), value, insertRowsCurrIndex);
+          break;
+        default:
+          throw new PkgSFException(
+              ErrorCode.UNKNOWN_DATA_TYPE,
+              columnMetadata.getName(),
+              logicalType,
+              columnMetadata.getPhysicalType());
+      }
     } else {
       String maxLengthString = columnMetadata.getLength().toString();
-      str =
-          PkgDataValidationUtil.validateAndParseString(
-              columnMetadata.getName(),
-              value,
-              Optional.of(maxLengthString).map(Integer::parseInt),
-              insertRowsCurrIndex);
+      return PkgDataValidationUtil.validateAndParseString(
+          columnMetadata.getName(),
+          value,
+          Optional.of(maxLengthString).map(Integer::parseInt),
+          insertRowsCurrIndex);
     }
     return str;
   }
@@ -349,15 +365,13 @@ class PkgParquetValueParserSnowflake {
    * @return byte array representation
    */
   private static byte[] getBinaryValueForLogicalBinary(
-      Object value,
-      ColumnMetadata columnMetadata,
-      final long insertRowsCurrIndex) {
+      Object value, ColumnMetadata columnMetadata, final long insertRowsCurrIndex) {
     String maxLengthString = columnMetadata.getByteLength().toString();
-      return PkgDataValidationUtil.validateAndParseBinary(
-          columnMetadata.getName(),
-          value,
-          Optional.of(maxLengthString).map(Integer::parseInt),
-          insertRowsCurrIndex);
+    return PkgDataValidationUtil.validateAndParseBinary(
+        columnMetadata.getName(),
+        value,
+        Optional.of(maxLengthString).map(Integer::parseInt),
+        insertRowsCurrIndex);
   }
 
   // these types cannot be packed into the data chunk because they are not readable by the server

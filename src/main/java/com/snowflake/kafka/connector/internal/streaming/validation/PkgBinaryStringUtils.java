@@ -1,8 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
-import org.apache.commons.codec.binary.Hex;
-
 import java.nio.ByteBuffer;
+import org.apache.commons.codec.binary.Hex;
 
 class PkgBinaryStringUtils {
   private static final int MAX_LOB_LEN = 32;

@@ -4,17 +4,8 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
-import net.snowflake.ingest.utils.Constants;
-import org.apache.parquet.schema.GroupType;
-import org.apache.parquet.schema.LogicalTypeAnnotation;
-import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
-import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
-import org.apache.parquet.schema.LogicalTypeAnnotation.StringLogicalTypeAnnotation;
-import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
-import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
-import org.apache.parquet.schema.PrimitiveType;
-import org.apache.parquet.schema.Type;
-import org.apache.parquet.schema.Type.Repetition;
+import static com.snowflake.kafka.connector.internal.streaming.validation.PkgDataValidationUtil.checkFixedLengthByteArray;
+import static net.snowflake.ingest.utils.Utils.concatDotPath;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -29,9 +20,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
-import static com.snowflake.openflow.runtime.processors.snowpipe.validation.PkgDataValidationUtil.checkFixedLengthByteArray;
-import static net.snowflake.ingest.utils.Utils.concatDotPath;
+import net.snowflake.ingest.utils.Constants;
+import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.StringLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Type;
+import org.apache.parquet.schema.Type.Repetition;
 
 /** Parses a user Iceberg column value into Parquet internal representation for buffering. */
 class PkgParquetValueParserIceberg {
@@ -98,19 +97,21 @@ class PkgParquetValueParserIceberg {
             estimatedParquetSize += PkgParquetBufferValue.BIT_ENCODING_BYTE_LEN;
             break;
           case INT32:
-              value = getInt32Value(value, primitiveType, path, insertRowsCurrIndex);
+            value = getInt32Value(value, primitiveType, path, insertRowsCurrIndex);
             estimatedParquetSize += 4;
             break;
           case INT64:
-              value = getInt64Value(value, primitiveType, defaultTimezone, path, insertRowsCurrIndex);
+            value = getInt64Value(value, primitiveType, defaultTimezone, path, insertRowsCurrIndex);
             estimatedParquetSize += 8;
             break;
           case FLOAT:
-              value = (float) PkgDataValidationUtil.validateAndParseReal(path, value, insertRowsCurrIndex);
+            value =
+                (float)
+                    PkgDataValidationUtil.validateAndParseReal(path, value, insertRowsCurrIndex);
             estimatedParquetSize += 4;
             break;
           case DOUBLE:
-              value = PkgDataValidationUtil.validateAndParseReal(path, value, insertRowsCurrIndex);
+            value = PkgDataValidationUtil.validateAndParseReal(path, value, insertRowsCurrIndex);
             estimatedParquetSize += 8;
             break;
           case BINARY:
@@ -240,10 +241,7 @@ class PkgParquetValueParserIceberg {
    * @return string representation
    */
   private static byte[] getBinaryValue(
-      Object value,
-      PrimitiveType type,
-      String path,
-      final long insertRowsCurrIndex) {
+      Object value, PrimitiveType type, String path, final long insertRowsCurrIndex) {
     LogicalTypeAnnotation logicalTypeAnnotation = type.getLogicalTypeAnnotation();
     if (logicalTypeAnnotation == null) {
       byte[] bytes =
@@ -271,16 +269,13 @@ class PkgParquetValueParserIceberg {
    * @return string representation
    */
   private static byte[] getFixedLenByteArrayValue(
-      Object value,
-      PrimitiveType type,
-      String path,
-      final long insertRowsCurrIndex) {
+      Object value, PrimitiveType type, String path, final long insertRowsCurrIndex) {
     LogicalTypeAnnotation logicalTypeAnnotation = type.getLogicalTypeAnnotation();
     int length = type.getTypeLength();
     byte[] bytes = null;
     if (logicalTypeAnnotation == null) {
       PkgDataValidationUtil.validateAndParseBinary(
-              path, value, Optional.of(length), insertRowsCurrIndex);
+          path, value, Optional.of(length), insertRowsCurrIndex);
     }
     if (logicalTypeAnnotation instanceof DecimalLogicalTypeAnnotation) {
       BigInteger bigIntegerVal =

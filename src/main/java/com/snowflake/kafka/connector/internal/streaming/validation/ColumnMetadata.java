@@ -6,7 +6,6 @@ package com.snowflake.kafka.connector.internal.streaming.validation;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -214,10 +213,7 @@ public class ColumnMetadata {
 
     @Override
     public String toString() {
-      return "ObjectField{" +
-              "fieldName='" + fieldName + '\'' +
-              ", fieldType=" + fieldType +
-              '}';
+      return "ObjectField{" + "fieldName='" + fieldName + '\'' + ", fieldType=" + fieldType + '}';
     }
   }
 
@@ -295,13 +291,19 @@ public class ColumnMetadata {
 
     @Override
     public String toString() {
-      return "ObjectFieldType{" +
-              "type='" + type + '\'' +
-              ", length=" + length +
-              ", byteLength=" + byteLength +
-              ", nullable=" + nullable +
-              ", fixed=" + fixed +
-              '}';
+      return "ObjectFieldType{"
+          + "type='"
+          + type
+          + '\''
+          + ", length="
+          + length
+          + ", byteLength="
+          + byteLength
+          + ", nullable="
+          + nullable
+          + ", fixed="
+          + fixed
+          + '}';
     }
   }
 }

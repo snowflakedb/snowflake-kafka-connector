@@ -63,6 +63,7 @@
         <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
         <snowflake-jdbc.version>3.23.2</snowflake-jdbc.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
+        <parquet.version>1.14.4</parquet.version>
     </properties>
 
 
@@ -488,6 +489,12 @@
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
             <version>3.3.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-column</artifactId>
+            <version>${parquet.version}</version>
         </dependency>
 
         <!--junit for unit test-->

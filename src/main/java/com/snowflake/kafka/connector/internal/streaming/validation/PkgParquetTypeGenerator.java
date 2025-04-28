@@ -4,25 +4,25 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
-import net.snowflake.ingest.utils.IcebergDataTypeParser;
-import org.apache.parquet.schema.LogicalTypeAnnotation;
-import org.apache.parquet.schema.PrimitiveType;
-import org.apache.parquet.schema.Type;
-import org.apache.parquet.schema.Types;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Type;
+import org.apache.parquet.schema.Types;
 
 /** Generates the Parquet types for the Snowflake's column types */
 class PkgParquetTypeGenerator {
 
-  private static final Set<PkgParquetValueParserSnowflake.ColumnPhysicalType> TIME_SUPPORTED_PHYSICAL_TYPES =
-      new HashSet<>(
-          Arrays.asList(
-              PkgParquetValueParserSnowflake.ColumnPhysicalType.SB4, PkgParquetValueParserSnowflake.ColumnPhysicalType.SB8));
+  private static final Set<PkgParquetValueParserSnowflake.ColumnPhysicalType>
+      TIME_SUPPORTED_PHYSICAL_TYPES =
+          new HashSet<>(
+              Arrays.asList(
+                  PkgParquetValueParserSnowflake.ColumnPhysicalType.SB4,
+                  PkgParquetValueParserSnowflake.ColumnPhysicalType.SB8));
   private static final Set<PkgParquetValueParserSnowflake.ColumnPhysicalType>
       TIMESTAMP_SUPPORTED_PHYSICAL_TYPES =
           new HashSet<>(
@@ -54,14 +54,17 @@ class PkgParquetTypeGenerator {
 
     if (column.getSourceIcebergDataType() != null) {
       parquetType =
-          IcebergDataTypeParser.parseIcebergDataTypeStringToParquetType(
+          com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
+              .IcebergDataTypeParser.parseIcebergDataTypeStringToParquetType(
               column.getSourceIcebergDataType(), repetition, id, name);
     } else {
       PkgParquetValueParserSnowflake.ColumnPhysicalType physicalType;
       PkgParquetValueParserSnowflake.ColumnLogicalType logicalType;
       try {
-        physicalType = PkgParquetValueParserSnowflake.ColumnPhysicalType.valueOf(column.getPhysicalType());
-        logicalType = PkgParquetValueParserSnowflake.ColumnLogicalType.valueOf(column.getLogicalType());
+        physicalType =
+            PkgParquetValueParserSnowflake.ColumnPhysicalType.valueOf(column.getPhysicalType());
+        logicalType =
+            PkgParquetValueParserSnowflake.ColumnLogicalType.valueOf(column.getLogicalType());
       } catch (IllegalArgumentException e) {
         throw new PkgSFException(
             ErrorCode.UNKNOWN_DATA_TYPE,
@@ -146,6 +149,11 @@ class PkgParquetTypeGenerator {
       }
     }
     return new PkgParquetTypeInfo(parquetType, metadata);
+  }
+
+  private static Type toUnshaded(
+      net.snowflake.ingest.internal.apache.parquet.schema.Type shadedParquetType) {
+    return null;
   }
 
   /**

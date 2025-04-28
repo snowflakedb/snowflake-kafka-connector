@@ -8,13 +8,13 @@ package com.snowflake.kafka.connector.internal.streaming.validation;
  * DuplicateKeyValidatingSerializer}.
  */
 public class DuplicateKeyValidatedObject {
-    private final Object object;
+  private final Object object;
 
-    public DuplicateKeyValidatedObject(Object object) {
-        this.object = object;
-    }
+  public DuplicateKeyValidatedObject(Object object) {
+    this.object = object;
+  }
 
-    public Object getObject() {
-        return object;
-    }
+  public Object getObject() {
+    return object;
+  }
 }

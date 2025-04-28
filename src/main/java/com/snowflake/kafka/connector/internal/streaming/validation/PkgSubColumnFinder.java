@@ -4,16 +4,15 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
-import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.Type;
+import static net.snowflake.ingest.utils.Utils.concatDotPath;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static net.snowflake.ingest.utils.Utils.concatDotPath;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Type;
 
 /** Helper class to find all leaf columns in an immutable schema given a fieldId. */
 public class PkgSubColumnFinder {
@@ -21,12 +20,40 @@ public class PkgSubColumnFinder {
   /**
    * Helper class to store the start and end index of the interval of leaf columns of a node in the
    * list and the dot path of the node.
-   *
-   * @param startTag Start index of the leaf column in the list.
-   * @param endTag   End index of the leaf column in the list.
-   * @param dotPath  Dot path of the node.
    */
-    record SubtreeInfo(int startTag, int endTag, String dotPath, List<String> path) {
+  static class SubtreeInfo {
+    private final int startTag;
+    private final int endTag;
+    private final String dotPath;
+    private final List<String> path;
+
+    /**
+     * @param startTag Start index of the leaf column in the list.
+     * @param endTag End index of the leaf column in the list.
+     * @param dotPath Dot path of the node.
+     */
+    public SubtreeInfo(int startTag, int endTag, String dotPath, List<String> path) {
+      this.startTag = startTag;
+      this.endTag = endTag;
+      this.dotPath = dotPath;
+      this.path = path;
+    }
+
+    public int startTag() {
+      return startTag;
+    }
+
+    public int endTag() {
+      return endTag;
+    }
+
+    public String dotPath() {
+      return dotPath;
+    }
+
+    public List<String> path() {
+      return path;
+    }
   }
 
   /* A list to store all leaf columns field id in preorder traversal. */

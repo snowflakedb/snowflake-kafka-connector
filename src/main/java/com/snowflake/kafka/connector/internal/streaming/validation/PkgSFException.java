@@ -8,7 +8,7 @@ package com.snowflake.kafka.connector.internal.streaming.validation;
 class PkgSFException extends RuntimeException {
 
   static final ResourceBundleManager errorResourceBundleManager =
-      ResourceBundleManager.getSingleton(com.snowflake.openflow.runtime.processors.snowpipe.validation.ErrorCode.errorMessageResource);
+      ResourceBundleManager.getSingleton(ErrorCode.errorMessageResource);
 
   private final Throwable cause;
   private final String vendorCode;

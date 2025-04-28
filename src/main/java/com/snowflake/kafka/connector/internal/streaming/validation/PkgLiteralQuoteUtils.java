@@ -3,8 +3,8 @@
  */
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.Caffeine;
+import net.snowflake.ingest.internal.com.github.benmanes.caffeine.cache.LoadingCache;
 
 /**
  * Util class to normalise literals to match server side metadata.

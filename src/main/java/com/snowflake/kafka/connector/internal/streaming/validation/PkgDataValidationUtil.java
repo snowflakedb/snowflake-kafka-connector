@@ -4,6 +4,8 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
+import static com.snowflake.kafka.connector.internal.streaming.validation.DuplicateKeyValidatingSerializer.stripTrailingNulls;
+
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -15,15 +17,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
-import net.snowflake.client.jdbc.internal.snowflake.common.core.SnowflakeDateTimeFormat;
-import net.snowflake.client.jdbc.internal.snowflake.common.util.Power10;
-import net.snowflake.ingest.streaming.internal.TimestampWrapper;
-import net.snowflake.ingest.streaming.internal.serialization.ByteArraySerializer;
-import net.snowflake.ingest.streaming.internal.serialization.ZonedDateTimeSerializer;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.io.output.StringBuilderWriter;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -47,8 +40,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.Supplier;
-
-import static com.snowflake.openflow.runtime.processors.snowpipe.validation.DuplicateKeyValidatingSerializer.stripTrailingNulls;
+import net.snowflake.client.jdbc.internal.snowflake.common.core.SnowflakeDateTimeFormat;
+import net.snowflake.client.jdbc.internal.snowflake.common.util.Power10;
+import net.snowflake.ingest.streaming.internal.TimestampWrapper;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.output.StringBuilderWriter;
 
 /** Utility class for parsing and validating inputs based on Snowflake types */
 class PkgDataValidationUtil {
@@ -91,7 +88,7 @@ class PkgDataValidationUtil {
   // base64-encoded string, and we would like to serialize it as JSON array of numbers.
   static {
     SimpleModule module = new SimpleModule();
-    module.addSerializer(byte[].class, new ByteArraySerializer());
+    module.<byte[]>addSerializer(byte[].class, new ByteArraySerializer());
     module.addSerializer(ZonedDateTime.class, new ZonedDateTimeSerializer());
     module.addSerializer(LocalTime.class, new ToStringSerializer());
     module.addSerializer(OffsetTime.class, new ToStringSerializer());
@@ -191,10 +188,10 @@ class PkgDataValidationUtil {
               String strippedFieldName = stripTrailingNulls(parser.currentName());
               if (fieldsByLevel.peek().isDuplicate(strippedFieldName)) {
                 throw valueFormatNotAllowedException(
-                        columnName,
-                        snowflakeType,
-                        String.format("Not a valid JSON: duplicate field %s", strippedFieldName),
-                        insertRowIndex);
+                    columnName,
+                    snowflakeType,
+                    String.format("Not a valid JSON: duplicate field %s", strippedFieldName),
+                    insertRowIndex);
               }
             }
             generator.copyCurrentEvent(parser);
@@ -224,7 +221,7 @@ class PkgDataValidationUtil {
         return result;
       } catch (JsonProcessingException e) {
         throw valueFormatNotAllowedException(
-                columnName, snowflakeType, e.getMessage(), insertRowIndex);
+            columnName, snowflakeType, e.getMessage(), insertRowIndex);
       }
     }
 
@@ -391,7 +388,8 @@ class PkgDataValidationUtil {
 
     // Allow arrays of allowed semi-structured objects
     if (o.getClass().isArray()) {
-      return Arrays.stream((Object[]) o).allMatch(PkgDataValidationUtil::isAllowedSemiStructuredType);
+      return Arrays.stream((Object[]) o)
+          .allMatch(PkgDataValidationUtil::isAllowedSemiStructuredType);
     }
 
     // Allow lists consisting of allowed semi-structured objects
@@ -1208,7 +1206,8 @@ class PkgDataValidationUtil {
   }
 
   static Set<String> allowedBooleanStringsLowerCased =
-      new HashSet<>(Arrays.asList("1", "0", "yes", "no", "y", "n", "t", "f", "true", "false", "on", "off"));
+      new HashSet<>(
+          Arrays.asList("1", "0", "yes", "no", "y", "n", "t", "f", "true", "false", "on", "off"));
 
   private static boolean convertStringToBoolean(
       String columnName, String value, final long insertRowIndex) {
