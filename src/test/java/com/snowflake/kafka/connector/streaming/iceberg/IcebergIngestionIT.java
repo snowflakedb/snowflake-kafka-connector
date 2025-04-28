@@ -64,6 +64,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     kafkaRecordErrorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
+            .withErrorReporter(kafkaRecordErrorReporter)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .build();
