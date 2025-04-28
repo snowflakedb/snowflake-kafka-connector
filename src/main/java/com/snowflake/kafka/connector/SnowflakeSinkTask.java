@@ -251,7 +251,7 @@ public class SnowflakeSinkTask extends SinkTask {
               this.context,
               enableCustomJMXMonitoring,
               topic2table,
-              SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT,
+              behavior,
               schemaEvolutionService);
     }
 
