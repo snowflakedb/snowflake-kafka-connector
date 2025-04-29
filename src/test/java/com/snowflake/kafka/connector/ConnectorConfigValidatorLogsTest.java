@@ -7,7 +7,6 @@ import com.snowflake.kafka.connector.config.IcebergConfigValidator;
 import com.snowflake.kafka.connector.internal.EncryptionUtils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -25,8 +24,6 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS8EncryptedPrivateKeyInfoBuilder;
 import org.bouncycastle.pkcs.jcajce.JcePKCSPBEOutputEncryptorBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 public class ConnectorConfigValidatorLogsTest {
 
@@ -50,29 +47,6 @@ public class ConnectorConfigValidatorLogsTest {
     // then
     EncryptionUtils.parseEncryptedPrivateKey(testKey, testPasswd);
     Assertions.assertFalse(logFileContains(testPasswd));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {BUFFER_FLUSH_TIME_SEC, BUFFER_COUNT_RECORDS})
-  public void shouldLogWarningIfBufferingPropertiesDefinedForSingleBuffer(String parameter)
-      throws IOException {
-    // given
-    Map<String, String> config = TestUtils.getConfForStreaming();
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
-    config.put(parameter, "1000");
-    String expectedLog =
-        parameter
-            + " parameter value is ignored because internal buffer is disabled. To go back to"
-            + " previous behaviour set "
-            + SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER
-            + " to false";
-
-    // when
-    connectorConfigValidator.validateConfig(config);
-
-    // then
-    Assertions.assertTrue(logFileContains(expectedLog));
   }
 
   // Note that sf.log accumulates logs between the consecutive test runs

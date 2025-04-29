@@ -19,7 +19,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.DEFAULT_CLIENT_NAME;
@@ -37,10 +36,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import org.junit.Assert;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 public class StreamingClientPropertiesTest {
 
@@ -85,37 +81,15 @@ public class StreamingClientPropertiesTest {
   }
 
   @Test
-  void shouldNotPropagateStreamingClientProperties_SingleBufferDisabled() {
+  void shouldPropagateStreamingClientPropertiesFromOverrideMap() {
     // GIVEN
     Map<String, String> connectorConfig =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-            .withSingleBufferEnabled(false)
-            .build();
-
-    connectorConfig.put(BUFFER_SIZE_BYTES, "10000000");
-    connectorConfig.put(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, "20000000");
-
-    // WHEN
-    StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
-
-    // THEN
-    assertThat(resultProperties.parameterOverrides).isEmpty();
-  }
-
-  @ParameterizedTest
-  @CsvSource({"true", "false"})
-  void shouldPropagateStreamingClientPropertiesFromOverrideMap(String singleBufferEnabled) {
-    // GIVEN
-    Map<String, String> connectorConfig =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-            .withSingleBufferEnabled(Boolean.parseBoolean(singleBufferEnabled))
-            .build();
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
     connectorConfig.remove(BUFFER_SIZE_BYTES);
     connectorConfig.put(
         SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:1,MAX_MEMORY_LIMIT_IN_BYTES:2");
-    connectorConfig.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, singleBufferEnabled);
 
     Map<String, String> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, "1");
@@ -132,7 +106,7 @@ public class StreamingClientPropertiesTest {
   void shouldPropagateStreamingClientProperties_SingleBufferEnabled() {
     // GIVEN
     Map<String, String> connectorConfig =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig().withSingleBufferEnabled(true).build();
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
     connectorConfig.put(BUFFER_SIZE_BYTES, "10000000");
     connectorConfig.put(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, "20000000");
@@ -152,7 +126,7 @@ public class StreamingClientPropertiesTest {
   void explicitStreamingClientPropertiesTakePrecedenceOverOverrideMap_SingleBufferEnabled() {
     // GIVEN
     Map<String, String> connectorConfig =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig().withSingleBufferEnabled(true).build();
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
     connectorConfig.put(BUFFER_SIZE_BYTES, "10000000");
     connectorConfig.put(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, "20000000");
@@ -163,32 +137,6 @@ public class StreamingClientPropertiesTest {
     Map<String, String> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, "10000000");
     expectedParameterOverrides.put(MAX_MEMORY_LIMIT_IN_BYTES, "20000000");
-
-    // WHEN
-    StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
-
-    // THEN
-    assertThat(resultProperties.parameterOverrides).isEqualTo(expectedParameterOverrides);
-  }
-
-  @Test
-  void
-      explicitStreamingClientPropertiesShouldNOTTakePrecedenceOverOverrideMap_SingleBufferDisabled() {
-    // GIVEN
-    Map<String, String> connectorConfig =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-            .withSingleBufferEnabled(false)
-            .build();
-
-    connectorConfig.put(BUFFER_SIZE_BYTES, "10000000");
-    connectorConfig.put(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, "20000000");
-    connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-        "MAX_CHANNEL_SIZE_IN_BYTES:1,MAX_MEMORY_LIMIT_IN_BYTES:2");
-
-    Map<String, String> expectedParameterOverrides = new HashMap<>();
-    expectedParameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, "1");
-    expectedParameterOverrides.put(MAX_MEMORY_LIMIT_IN_BYTES, "2");
 
     // WHEN
     StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
@@ -256,38 +204,6 @@ public class StreamingClientPropertiesTest {
     assert resultProperties.clientProperties.equals(expectedProps);
     assert resultProperties.clientName.equals(expectedClientName);
     assert resultProperties.parameterOverrides.equals(expectedParameterOverrides);
-  }
-
-  @Test
-  public void
-      testValidPropertiesWithOverriddenStreamingPropertiesMap_withMaxClientLagOnlyInMapOfProperties() {
-
-    Map<String, String> connectorConfig =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-            .withSingleBufferEnabled(false)
-            .build();
-    connectorConfig.put(Utils.NAME, "testName");
-    connectorConfig.put(Utils.SF_URL, "testUrl");
-    connectorConfig.put(Utils.SF_ROLE, "testRole");
-    connectorConfig.put(Utils.SF_USER, "testUser");
-    connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
-    connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-        "MAX_CHANNEL_SIZE_IN_BYTES:10000000,MAX_CLIENT_LAG:100");
-
-    Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
-    String expectedClientName = STREAMING_CLIENT_PREFIX_NAME + connectorConfig.get(Utils.NAME);
-    Map<String, String> expectedParameterOverrides = new HashMap<>();
-    expectedParameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", 100));
-    expectedParameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, "10000000");
-
-    // test get properties
-    StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
-
-    // verify
-    Assertions.assertEquals(expectedProps, resultProperties.clientProperties);
-    Assertions.assertEquals(expectedClientName, resultProperties.clientName);
-    Assertions.assertEquals(expectedParameterOverrides, resultProperties.parameterOverrides);
   }
 
   @Test

@@ -394,13 +394,6 @@ public class ConnectorConfigDefinition {
             ConfigDef.Importance.LOW,
             "Memory limit for ingest sdk client in bytes.")
         .define(
-            SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-            ConfigDef.Type.BOOLEAN,
-            SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT,
-            ConfigDef.Importance.LOW,
-            "When enabled, it will disable kafka connector buffer and only use ingest sdk buffer"
-                + " instead of both.")
-        .define(
             SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
             ConfigDef.Type.STRING,
             "",
