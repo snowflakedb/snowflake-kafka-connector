@@ -17,7 +17,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
@@ -989,11 +988,10 @@ public class SnowflakeSinkServiceV2IT {
 
     // initialize a new sink service
     SnowflakeSinkService service2 =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .addTask(table, new TopicPartition(topic, partition))
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
+    service2.startPartition(table, new TopicPartition(topic, partition));
     offset = 1;
     // Create sink record
     SinkRecord record2 =

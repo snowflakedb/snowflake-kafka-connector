@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -803,7 +802,7 @@ public class SinkServiceIT {
     connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_FIX_ENABLED, "false");
 
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
+        SnowflakeSinkServiceFactory.builder(conn, connectorConfig)
             .addTask(table, new TopicPartition(topic, partition))
             .setRecordNumber(1) // immediate flush
             .build();

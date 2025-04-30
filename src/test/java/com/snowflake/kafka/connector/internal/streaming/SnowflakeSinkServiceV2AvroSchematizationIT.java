@@ -5,10 +5,8 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
@@ -149,12 +147,12 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
 
   private SnowflakeSinkService createService() {
     Map<String, String> config = prepareConfig();
-    return SnowflakeSinkServiceFactory.builder(
-            conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-        .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-        .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-        .addTask(table, new TopicPartition(topic, PARTITION))
-        .build();
+    SnowflakeSinkService service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .build();
+    service.startPartition(table, new TopicPartition(topic, PARTITION));
+    return service;
   }
 
   private SinkRecord createSinkRecord() {

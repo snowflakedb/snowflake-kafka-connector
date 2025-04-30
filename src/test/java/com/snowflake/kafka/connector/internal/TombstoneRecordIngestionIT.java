@@ -9,7 +9,8 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -70,17 +71,14 @@ public class TombstoneRecordIngestionIT {
     // setup
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     TopicPartition topicPartition = new TopicPartition(topic, partition);
-    SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(
-                TestUtils.getConnectionServiceForStreaming(),
-                IngestionMethodConfig.SNOWPIPE_STREAMING,
-                connectorConfig)
-            .setRecordNumber(1)
-            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .addTask(table, topicPartition)
-            .setBehaviorOnNullValuesConfig(behavior)
+    SnowflakeSinkServiceV2 service =
+        StreamingSinkServiceBuilder.builder(
+                TestUtils.getConnectionServiceForStreaming(), connectorConfig)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withBehaviorOnNullValues(behavior)
             .build();
+    service.startPartition(table, new TopicPartition(topic, partition));
+
     Map<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "false");
 
@@ -102,19 +100,13 @@ public class TombstoneRecordIngestionIT {
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     TopicPartition topicPartition = new TopicPartition(topic, partition);
-    SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(
-                TestUtils.getConnectionServiceForStreaming(),
-                IngestionMethodConfig.SNOWPIPE_STREAMING,
-                connectorConfig)
-            .setRecordNumber(1)
-            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .addTask(table, topicPartition)
-            .setBehaviorOnNullValuesConfig(behavior)
+    SnowflakeSinkServiceV2 service =
+        StreamingSinkServiceBuilder.builder(
+                TestUtils.getConnectionServiceForStreaming(), connectorConfig)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withBehaviorOnNullValues(behavior)
             .build();
-    Map<String, String> converterConfig = new HashMap<>();
-    converterConfig.put("schemas.enable", "false");
+    service.startPartition(table, topicPartition);
 
     // create one normal record
     SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);
@@ -138,15 +130,13 @@ public class TombstoneRecordIngestionIT {
     String pipe = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table, partition);
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE, connectorConfig)
+        SnowflakeSinkServiceFactory.builder(conn, connectorConfig)
             .setRecordNumber(1)
             .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
             .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .addTask(table, topicPartition)
             .setBehaviorOnNullValuesConfig(behavior)
             .build();
-    Map<String, String> converterConfig = new HashMap<>();
-    converterConfig.put("schemas.enable", "false");
 
     // create one normal record
     SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);

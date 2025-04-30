@@ -2,9 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -87,57 +85,6 @@ public interface SnowflakeSinkService {
    * @return true is closed
    */
   boolean isClosed();
-
-  /**
-   * change maximum number of record cached in buffer to control the flush rate, 0 for unlimited
-   *
-   * @param num a non negative long number represents number of record limitation
-   */
-  void setRecordNumber(long num);
-
-  /**
-   * change data size of buffer to control the flush rate, the minimum file size is controlled by
-   * {@link SnowflakeSinkConnectorConfig#BUFFER_SIZE_BYTES_MIN}
-   *
-   * <p>Please note: The buffer size for Streaming and snowpipe doesnt necessarily translate to same
-   * file size in Snowflake.
-   *
-   * <p>There is Java to UTF conversion followed by file compression in gzip.
-   *
-   * @param size a non negative long number represents data size limitation
-   */
-  void setFileSize(long size);
-
-  /**
-   * pass topic to table map to sink service
-   *
-   * @param topic2TableMap a String to String Map represents topic to table map
-   */
-  void setTopic2TableMap(Map<String, String> topic2TableMap);
-
-  /**
-   * change flush rate of sink service the minimum flush time is controlled by {@link
-   * SnowflakeSinkConnectorConfig#BUFFER_FLUSH_TIME_SEC_MIN}
-   *
-   * @param time a non negative long number represents service flush time in seconds
-   */
-  void setFlushTime(long time);
-
-  /**
-   * set the metadata config to let user control what metadata to be collected into SF db
-   *
-   * @param configMap a String to String Map
-   */
-  void setMetadataConfig(SnowflakeMetadataConfig configMap);
-
-  /* Set the behavior on what action to perform when this( @see com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig#BEHAVIOR_ON_NULL_VALUES_CONFIG ) config is set. */
-  void setBehaviorOnNullValuesConfig(SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior);
-
-  /* Should we emit Custom SF JMX Metrics to Mbean Server? If true (Default), we emit in form of SimpleMbeans */
-  void setCustomJMXMetrics(boolean enableJMX);
-
-  /* Only used in testing and verifying what was the passed value of this behavior from config to sink service*/
-  SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig();
 
   /* Set Error reporter which can be used to send records to DLQ (Dead Letter Queue) */
   default void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {}
