@@ -94,7 +94,7 @@ class IcebergTableStreamingRecordMapperTest {
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
+        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then
@@ -107,9 +107,9 @@ class IcebergTableStreamingRecordMapperTest {
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
     IcebergTableStreamingRecordMapper mapperSchematization =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
+        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
     Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, true);
 
@@ -125,9 +125,9 @@ class IcebergTableStreamingRecordMapperTest {
 
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
     IcebergTableStreamingRecordMapper mapperSchematization =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
+        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, false);
     Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, false);
 
@@ -143,7 +143,7 @@ class IcebergTableStreamingRecordMapperTest {
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then

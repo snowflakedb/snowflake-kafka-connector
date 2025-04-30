@@ -19,8 +19,8 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
       new TypeReference<Map<String, Object>>() {};
 
   public IcebergTableStreamingRecordMapper(
-      ObjectMapper objectMapper, boolean schematizationEnabled) {
-    super(objectMapper, schematizationEnabled);
+      ObjectMapper objectMapper, boolean schematizationEnabled, boolean ssv2Enabled) {
+    super(objectMapper, schematizationEnabled, ssv2Enabled);
   }
 
   @Override
@@ -35,7 +35,27 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
       }
     }
     if (includeMetadata) {
-      streamingIngestRow.put(TABLE_COLUMN_METADATA, getMapForMetadata(row.getMetadata()));
+      Map<String, Object> mapForMetadata = getMapForMetadata(row.getMetadata());
+      if (ssv2Enabled) {
+        // ssv2 for iceberg requires creating pipe that contains explicit type casting to structured
+        // object
+        // it does not handle null values when Map is being passed but it works fine for object
+        RecordMetadata metadata =
+            new RecordMetadata(
+                (Long) mapForMetadata.get(OFFSET),
+                (String) mapForMetadata.get(TOPIC),
+                (Integer) mapForMetadata.get(PARTITION),
+                (String) mapForMetadata.get(KEY),
+                (Integer) mapForMetadata.get(SCHEMA_ID),
+                (Integer) mapForMetadata.get(KEY_SCHEMA_ID),
+                (Long) mapForMetadata.get("CreateTime"),
+                (Long) mapForMetadata.get("LogAppendTime"),
+                (Long) mapForMetadata.get("SnowflakeConnectorPushTime"),
+                (Map<String, String>) mapForMetadata.get(HEADERS));
+        streamingIngestRow.put(TABLE_COLUMN_METADATA, metadata);
+      } else {
+        streamingIngestRow.put(TABLE_COLUMN_METADATA, mapForMetadata);
+      }
     }
     return streamingIngestRow;
   }

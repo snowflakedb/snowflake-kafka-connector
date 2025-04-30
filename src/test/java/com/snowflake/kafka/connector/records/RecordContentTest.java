@@ -137,7 +137,7 @@ public class RecordContentTest {
   public void recordService_getProcessedRecordForSnowpipe_whenInvalidSchema_throwException(
       Schema schema, Object value) {
     // given
-    RecordService service = RecordServiceFactory.createRecordService(false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
     SinkRecord record =
         SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
             .withValueSchema(schema)
@@ -162,7 +162,7 @@ public class RecordContentTest {
   @MethodSource("invalidPutKeyInputSource")
   public void recordService_putKey_whenInvalidInput_throwException(Schema keySchema, Object key) {
     // given
-    RecordService service = RecordServiceFactory.createRecordService(false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
     SinkRecord record =
         SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
             .withKeySchema(keySchema)
@@ -216,7 +216,7 @@ public class RecordContentTest {
 
   @Test
   public void testSchematizationStringField() throws JsonProcessingException {
-    RecordService service = RecordServiceFactory.createRecordService(false, true);
+    RecordService service = RecordServiceFactory.createRecordService(false, true, false);
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
     String value = "{\"name\":\"sf\",\"answer\":42}";
@@ -236,7 +236,7 @@ public class RecordContentTest {
 
   @Test
   public void testSchematizationArrayOfObject() throws JsonProcessingException {
-    RecordService service = RecordServiceFactory.createRecordService(false, true);
+    RecordService service = RecordServiceFactory.createRecordService(false, true, false);
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
     String value =
@@ -255,7 +255,7 @@ public class RecordContentTest {
 
   @Test
   public void testColumnNameFormatting() throws JsonProcessingException {
-    RecordService service = RecordServiceFactory.createRecordService(false, true);
+    RecordService service = RecordServiceFactory.createRecordService(false, true, false);
     SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
 
     String value = "{\"\\\"NaMe\\\"\":\"sf\",\"AnSwEr\":42}";
@@ -338,7 +338,7 @@ public class RecordContentTest {
   private void testGetProcessedRecordRunner(
       SinkRecord record, String expectedRecordContent, String expectedRecordMetadataKey)
       throws JsonProcessingException {
-    RecordService service = RecordServiceFactory.createRecordService(false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
     Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
 
     assertEquals(2, recordData.size());

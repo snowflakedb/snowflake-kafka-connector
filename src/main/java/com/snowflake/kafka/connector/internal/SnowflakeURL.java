@@ -101,7 +101,7 @@ public class SnowflakeURL implements URL {
     return jdbcUrl;
   }
 
-  String getAccount() {
+  public String getAccount() {
     return account;
   }
 
@@ -122,7 +122,7 @@ public class SnowflakeURL implements URL {
     return url + ":" + port;
   }
 
-  String getUrlWithoutPort() {
+  public String getUrlWithoutPort() {
     return url;
   }
 

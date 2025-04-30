@@ -251,6 +251,54 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  public void createPipeWithParseJson(String tableName, String pipeName) {
+    checkConnection();
+
+    String query =
+        "CREATE PIPE IF NOT EXISTS identifier(?) AS "
+            + "COPY INTO "
+            + tableName
+            + " FROM (SELECT PARSE_JSON($1:RECORD_METADATA), PARSE_JSON($1:RECORD_CONTENT) FROM"
+            + " TABLE (DATA_SOURCE(TYPE => 'STREAMING')))";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, pipeName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2009.getException(e);
+    }
+    LOGGER.info("create pipe: {}", pipeName);
+  }
+
+  @Override
+  public void createPipeForNonSchematizedIceberg(
+      String tableName, String pipeName, String recordMetadataType, String recordContentType) {
+    checkConnection();
+
+    String query =
+        "CREATE PIPE IF NOT EXISTS identifier(?) AS "
+            + "COPY INTO "
+            + tableName
+            + " FROM (SELECT $1:RECORD_METADATA::"
+            + recordMetadataType
+            + ", $1:RECORD_CONTENT::"
+            + recordContentType
+            + " FROM TABLE (DATA_SOURCE(TYPE => 'STREAMING')))";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, pipeName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2009.getException(e);
+    }
+    LOGGER.info("create pipe: {}", pipeName);
+  }
+
+  @Override
   public void createStage(final String stageName, final boolean overwrite) {
     checkConnection();
     InternalUtils.assertNotEmpty("stageName", stageName);

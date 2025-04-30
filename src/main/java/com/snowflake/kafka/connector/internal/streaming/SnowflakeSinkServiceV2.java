@@ -20,6 +20,9 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.v2.DefaultStreamingIngestClientV2Provider;
+import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
@@ -54,6 +57,9 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
+
+  private static final StreamingIngestClientV2Provider streamingIngestClientV2Provider =
+      new DefaultStreamingIngestClientV2Provider();
 
   // Used to connect to Snowflake, could be null during testing
   private final SnowflakeConnectionService conn;
@@ -130,7 +136,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordService =
         RecordServiceFactory.createRecordService(
             Utils.isIcebergEnabled(connectorConfig),
-            Utils.isSchematizationEnabled(connectorConfig));
+            Utils.isSchematizationEnabled(connectorConfig),
+            Utils.isSnowpipeStreamingV2Enabled(connectorConfig));
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
     this.closeChannelsInParallel =
@@ -238,22 +245,36 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     StreamingRecordService streamingRecordService =
         new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
 
-    return new DirectTopicPartitionChannel(
-        this.streamingIngestClient,
-        topicPartition,
-        partitionChannelKey, // Streaming channel name
-        tableName,
-        hasSchemaEvolutionPermission,
-        this.connectorConfig,
-        this.kafkaRecordErrorReporter,
-        this.sinkTaskContext,
-        this.conn,
-        streamingRecordService,
-        this.conn.getTelemetryClient(),
-        this.enableCustomJMXMonitoring,
-        this.metricsJmxReporter,
-        this.schemaEvolutionService,
-        new InsertErrorMapper());
+    if (Utils.isSnowpipeStreamingV2Enabled(connectorConfig)) {
+      return new SnowpipeStreamingV2PartitionChannel(
+          tableName,
+          partitionChannelKey,
+          topicPartition,
+          this.conn,
+          this.connectorConfig,
+          streamingRecordService,
+          this.sinkTaskContext,
+          this.enableCustomJMXMonitoring,
+          this.metricsJmxReporter,
+          streamingIngestClientV2Provider);
+    } else {
+      return new DirectTopicPartitionChannel(
+          this.streamingIngestClient,
+          topicPartition,
+          partitionChannelKey, // Streaming channel name
+          tableName,
+          hasSchemaEvolutionPermission,
+          this.connectorConfig,
+          this.kafkaRecordErrorReporter,
+          this.sinkTaskContext,
+          this.conn,
+          streamingRecordService,
+          this.conn.getTelemetryClient(),
+          this.enableCustomJMXMonitoring,
+          this.metricsJmxReporter,
+          this.schemaEvolutionService,
+          new InsertErrorMapper());
+    }
   }
 
   /**

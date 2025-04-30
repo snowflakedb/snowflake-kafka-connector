@@ -632,6 +632,12 @@
             <version>${iceberg.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.snowflake</groupId>
+            <artifactId>snowpipe-streaming</artifactId>
+            <version>0.2.0.36</version>
+        </dependency>
+
     </dependencies>
 
     <profiles>

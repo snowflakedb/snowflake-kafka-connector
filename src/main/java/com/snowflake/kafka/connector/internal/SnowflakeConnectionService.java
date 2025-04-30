@@ -45,6 +45,11 @@ public interface SnowflakeConnectionService {
    */
   void createPipe(String tableName, String stageName, String pipeName);
 
+  void createPipeWithParseJson(String tableName, String pipeName);
+
+  void createPipeForNonSchematizedIceberg(
+      String tableName, String pipeName, String recordMetadataType, String recordContentType);
+
   /**
    * create a stage
    *
