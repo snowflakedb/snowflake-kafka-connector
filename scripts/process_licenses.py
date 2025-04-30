@@ -34,7 +34,7 @@ BOUNCY_CASTLE_LICENSE = "Bouncy Castle License"
 LGPL = "LGPL License"
 
 # The SDK does not need to include licenses of dependencies, which aren't shaded
-IGNORED_DEPENDENCIES = {"net.snowflake:snowflake-jdbc", "org.slf4j:slf4j-api"}
+IGNORED_DEPENDENCIES = {"net.snowflake:snowflake-jdbc", "org.slf4j:slf4j-api", "com.snowflake:snowpipe-streaming"}
 
 # List of dependencies, which don't ship with a license file.
 # Only add a new record here after verifying that the dependency JAR does not contain a license!

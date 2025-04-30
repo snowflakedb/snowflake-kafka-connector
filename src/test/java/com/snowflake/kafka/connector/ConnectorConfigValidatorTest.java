@@ -1,6 +1,10 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_USER;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
@@ -176,6 +180,10 @@ public class ConnectorConfigValidatorTest {
     System.clearProperty(HTTP_USE_PROXY);
     System.clearProperty(HTTP_PROXY_HOST);
     System.clearProperty(HTTP_PROXY_PORT);
+    System.clearProperty(HTTPS_PROXY_HOST);
+    System.clearProperty(HTTPS_PROXY_PORT);
+    System.clearProperty(HTTPS_PROXY_USER);
+    System.clearProperty(HTTPS_PROXY_PASSWORD);
   }
 
   @Test
