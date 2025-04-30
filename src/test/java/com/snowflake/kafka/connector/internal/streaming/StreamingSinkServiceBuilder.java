@@ -49,8 +49,7 @@ public class StreamingSinkServiceBuilder {
     this.connectorConfig = connectorConfig;
   }
 
-  public StreamingSinkServiceBuilder withErrorReporter(
-      InMemoryKafkaRecordErrorReporter errorReporter) {
+  public StreamingSinkServiceBuilder withErrorReporter(KafkaRecordErrorReporter errorReporter) {
     this.errorReporter = errorReporter;
     return this;
   }

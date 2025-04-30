@@ -42,10 +42,10 @@
         <url>https://github.com/snowflakedb/snowflake-kafka-connector</url>
     </scm>
 
-    <!-- Set our Language Level to Java 8 -->
+    <!-- Set our Language Level to Java 11 -->
     <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
         <skipTests>false</skipTests>
         <skipUnitTests>${skipTests}</skipUnitTests>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
@@ -630,6 +630,12 @@
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
             <version>${iceberg.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.snowflake</groupId>
+            <artifactId>snowpipe-streaming</artifactId>
+            <version>0.1.5.251</version>
         </dependency>
 
     </dependencies>

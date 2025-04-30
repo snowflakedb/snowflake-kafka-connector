@@ -251,6 +251,28 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
+  public void createPipeForSSv2(String tableName, String pipeName) {
+    checkConnection();
+
+    String query =
+        "CREATE PIPE IF NOT EXISTS identifier(?) AS "
+            + "COPY INTO "
+            + tableName
+            + " FROM TABLE (DATA_SOURCE(TYPE => 'STREAMING'))"
+            + "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, pipeName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2009.getException(e);
+    }
+    LOGGER.info("create pipe: {}", pipeName);
+  }
+
+  @Override
   public void createStage(final String stageName, final boolean overwrite) {
     checkConnection();
     InternalUtils.assertNotEmpty("stageName", stageName);
