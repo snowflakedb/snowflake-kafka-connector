@@ -17,9 +17,9 @@ import net.snowflake.ingest.connection.JWTManager;
  * Build JWTManager class instance from the connector config. JWTManager is reused from
  * snowflake-ingest-java.
  */
-class JWTManagerProvider {
+public class JWTManagerProvider {
 
-  static JWTManager fromConfig(Map<String, String> config) {
+  public static JWTManager fromConfig(Map<String, String> config) {
     SnowflakeURL snowflakeURL = new SnowflakeURL(config.get(Utils.SF_URL));
     PrivateKey privateKey = parsePrivateKey(config.get(Utils.SF_PRIVATE_KEY));
     KeyPair keyPair = getKeyPair(privateKey);
