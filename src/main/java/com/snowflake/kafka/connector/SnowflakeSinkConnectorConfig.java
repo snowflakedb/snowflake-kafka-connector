@@ -142,11 +142,6 @@ public class SnowflakeSinkConnectorConfig {
       "snowflake.streaming.closeChannelsInParallel.enabled";
   public static final boolean SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT = true;
 
-  // This is the streaming max client lag which can be defined in config
-  public static final String SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER =
-      "snowflake.streaming.enable.single.buffer";
-
-  public static final boolean SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT = true;
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
   public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 30;
@@ -267,12 +262,6 @@ public class SnowflakeSinkConnectorConfig {
         config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT, "seconds");
 
     if (isSnowpipeStreamingIngestion(config)) {
-      setFieldToDefaultValues(
-          config,
-          SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-          SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT,
-          "");
-
       setFieldToDefaultValues(
           config,
           SNOWPIPE_STREAMING_MAX_CLIENT_LAG,

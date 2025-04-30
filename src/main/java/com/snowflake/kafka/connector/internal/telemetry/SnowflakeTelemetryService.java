@@ -285,13 +285,6 @@ public abstract class SnowflakeTelemetryService {
           SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
           userProvidedConfig.get(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
     }
-    if (userProvidedConfig.containsKey(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)) {
-      dataObjectNode.put(
-          SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-          userProvidedConfig.getOrDefault(
-              SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-              String.valueOf(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT)));
-    }
   }
 
   public enum TelemetryType {

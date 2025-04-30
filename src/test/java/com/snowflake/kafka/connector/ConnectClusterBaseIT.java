@@ -72,7 +72,6 @@ public abstract class ConnectClusterBaseIT {
     config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "testrole_kafka");
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
     config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
     config.put(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL, "true");
     config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
