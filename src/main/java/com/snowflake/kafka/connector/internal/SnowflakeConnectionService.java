@@ -45,6 +45,8 @@ public interface SnowflakeConnectionService {
    */
   void createPipe(String tableName, String stageName, String pipeName);
 
+  void createPipeForSSv2(String tableName, String pipeName);
+
   /**
    * create a stage
    *
