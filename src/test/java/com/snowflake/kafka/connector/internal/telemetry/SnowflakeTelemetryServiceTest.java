@@ -21,10 +21,8 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryData;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 public class SnowflakeTelemetryServiceTest {
 
@@ -40,43 +38,6 @@ public class SnowflakeTelemetryServiceTest {
   void setUp() {
     this.startTime = System.currentTimeMillis();
     this.mockTelemetryClient = new MockTelemetryClient();
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void shouldReportSingleBufferUsageForStreaming(boolean singleBufferEnabled) {
-    // given
-    Map<String, String> connectorConfig =
-        createConnectorConfig(IngestionMethodConfig.SNOWPIPE_STREAMING);
-    connectorConfig.put(
-        SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, String.valueOf(singleBufferEnabled));
-    SnowflakeTelemetryService snowflakeTelemetryService =
-        createSnowflakeTelemetryService(IngestionMethodConfig.SNOWPIPE_STREAMING, connectorConfig);
-
-    // when
-    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
-
-    // then
-    assertEquals(
-        String.valueOf(singleBufferEnabled),
-        sentTelemetryDataField(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER));
-  }
-
-  @Test
-  public void shouldReportSingleBufferUsageDefaultValue() {
-    // given
-    Map<String, String> connectorConfig =
-        createConnectorConfig(IngestionMethodConfig.SNOWPIPE_STREAMING);
-    SnowflakeTelemetryService snowflakeTelemetryService =
-        createSnowflakeTelemetryService(IngestionMethodConfig.SNOWPIPE_STREAMING, connectorConfig);
-
-    // when
-    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
-
-    // then
-    assertEquals(
-        String.valueOf(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER_DEFAULT),
-        sentTelemetryDataField(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER));
   }
 
   @ParameterizedTest

@@ -1,6 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
@@ -13,12 +18,8 @@ import com.google.common.collect.Iterables;
 import com.snowflake.kafka.connector.DefaultConnectorConfigValidator;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import com.snowflake.kafka.connector.internal.parameters.InternalBufferParameters;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.common.config.ConfigException;
@@ -27,11 +28,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
 
   private static final KCLogger LOGGER =
       new KCLogger(DefaultConnectorConfigValidator.class.getName());
-
-  private final SingleBufferConfigValidator singleBufferConfigValidator =
-      new SingleBufferConfigValidator();
-  private final DoubleBufferConfigValidator doubleBufferConfigValidator =
-      new DoubleBufferConfigValidator();
 
   private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
   private static final String STRING_CONVERTER_KEYWORD = "StringConverter";
@@ -43,16 +39,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
 
     // For snowpipe_streaming, role should be non empty
     if (inputConfig.containsKey(INGESTION_METHOD_OPT)) {
-      if (InternalBufferParameters.isSingleBufferEnabled(inputConfig)) {
-        singleBufferConfigValidator.logDoubleBufferingParametersWarning(inputConfig);
-      } else {
-        LOGGER.warn(
-            "Double buffered mode set by '{}=false' is deprecated and will be removed in the future"
-                + " release.",
-            SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER);
-        invalidParams.putAll(doubleBufferConfigValidator.validate(inputConfig));
-      }
-
       try {
         // This throws an exception if config value is invalid.
         IngestionMethodConfig.VALIDATOR.ensureValid(
@@ -95,12 +81,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
             BOOLEAN_VALIDATOR.ensureValid(
                 ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
                 inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG));
-          }
-
-          if (inputConfig.containsKey(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER)) {
-            BOOLEAN_VALIDATOR.ensureValid(
-                SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER,
-                inputConfig.get(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER));
           }
 
           if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
@@ -219,42 +199,5 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     }
 
     return invalidParams;
-  }
-
-  /** Config validations specific to single buffer architecture */
-  private static class SingleBufferConfigValidator {
-
-    private static final KCLogger LOGGER =
-        new KCLogger(SingleBufferConfigValidator.class.getName());
-
-    private void logDoubleBufferingParametersWarning(Map<String, String> config) {
-      if (InternalBufferParameters.isSingleBufferEnabled(config)) {
-        List<String> ignoredParameters = Arrays.asList(BUFFER_FLUSH_TIME_SEC, BUFFER_COUNT_RECORDS);
-        ignoredParameters.stream()
-            .filter(config::containsKey)
-            .forEach(
-                param ->
-                    LOGGER.warn(
-                        "{} parameter value is ignored because internal buffer is disabled. To go"
-                            + " back to previous behaviour set "
-                            + SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER
-                            + " to false",
-                        param));
-      }
-    }
-  }
-
-  /** Config validations specific to double buffer architecture */
-  private static class DoubleBufferConfigValidator {
-    private Map<String, String> validate(Map<String, String> inputConfig) {
-      Map<String, String> invalidParams = new HashMap<>();
-
-      // check if buffer thresholds are within permissible range
-      invalidParams.putAll(
-          BufferThreshold.validateBufferThreshold(
-              inputConfig, IngestionMethodConfig.SNOWPIPE_STREAMING));
-
-      return invalidParams;
-    }
   }
 }

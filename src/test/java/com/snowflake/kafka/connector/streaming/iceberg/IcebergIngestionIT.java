@@ -49,7 +49,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(ICEBERG_ENABLED, "TRUE");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, isSchemaEvolutionEnabled().toString());
-    config.put(SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER, "true");
     // "snowflake.streaming.max.client.lag" = 1 second, for faster tests
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
