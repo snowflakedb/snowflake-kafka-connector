@@ -943,23 +943,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     return this.currentConsumerGroupOffset.get();
   }
 
-  @Override
-  @VisibleForTesting
-  @Deprecated
-  public boolean isPartitionBufferEmpty() {
-    return true;
-  }
-
-  @Override
   @VisibleForTesting
   public SnowflakeStreamingIngestChannel getChannel() {
     return this.channel;
-  }
-
-  @Override
-  @VisibleForTesting
-  public SnowflakeTelemetryService getTelemetryServiceV2() {
-    return this.telemetryServiceV2;
   }
 
   @Override

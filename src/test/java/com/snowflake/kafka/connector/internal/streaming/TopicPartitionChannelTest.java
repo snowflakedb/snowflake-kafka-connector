@@ -133,8 +133,7 @@ public class TopicPartitionChannelTest {
         mockKafkaRecordErrorReporter,
         mockSinkTaskContext,
         mockSnowflakeConnectionService,
-        mockTelemetryService,
-        this.schemaEvolutionService);
+        mockTelemetryService);
   }
 
   @Test
@@ -151,8 +150,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
 
     Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -172,8 +170,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
 
     Assert.assertEquals(100L, topicPartitionChannel.fetchOffsetTokenWithRetry());
   }
@@ -202,8 +199,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
 
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<String, String>();
@@ -226,8 +222,6 @@ public class TopicPartitionChannelTest {
     topicPartitionChannel.insertRecord(record1, true);
 
     Assert.assertEquals(-1l, topicPartitionChannel.getOffsetPersistedInSnowflake());
-
-    Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
   }
 
   @Test
@@ -252,8 +246,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     topicPartitionChannel.closeChannel();
   }
@@ -281,8 +274,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     // when
     assertDoesNotThrow(topicPartitionChannel::closeChannel);
@@ -312,8 +304,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     // when
     assertDoesNotThrow(topicPartitionChannel::closeChannel);
@@ -348,8 +339,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     // when
     ExecutionException ex =
@@ -386,8 +376,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     // when
     assertDoesNotThrow(() -> topicPartitionChannel.closeChannelAsync().get());
@@ -417,8 +406,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     // when
     assertDoesNotThrow(() -> topicPartitionChannel.closeChannelAsync().get());
@@ -452,8 +440,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
     Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
 
@@ -474,8 +461,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
     Mockito.verify(mockSnowflakeConnectionService, Mockito.times(2))
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
 
@@ -497,8 +483,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             mockTelemetryService,
             false,
-            null,
-            this.schemaEvolutionService);
+            null);
     Mockito.verify(anotherMockForParamDisabled, Mockito.times(0))
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
   }
@@ -527,8 +512,7 @@ public class TopicPartitionChannelTest {
               RecordServiceFactory.createRecordService(false, false),
               mockTelemetryService,
               false,
-              null,
-              this.schemaEvolutionService);
+              null);
       Assert.fail("Should throw an exception:");
     } catch (Exception e) {
       Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
@@ -542,7 +526,7 @@ public class TopicPartitionChannelTest {
   public void testFetchOffsetTokenWithRetry_SFException() {
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(SF_EXCEPTION);
 
-    TopicPartitionChannel topicPartitionChannel =
+    DirectTopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
@@ -552,8 +536,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -577,7 +560,7 @@ public class TopicPartitionChannelTest {
         .thenThrow(SF_EXCEPTION)
         .thenReturn(offsetTokenAfterMaxAttempts);
 
-    TopicPartitionChannel topicPartitionChannel =
+    DirectTopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
@@ -587,8 +570,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
 
     int expectedRetries = MAX_GET_OFFSET_TOKEN_RETRIES;
     Mockito.verify(mockStreamingClient, Mockito.times(2)).openChannel(ArgumentMatchers.any());
@@ -608,7 +590,7 @@ public class TopicPartitionChannelTest {
 
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenReturn("invalidNo");
 
-    TopicPartitionChannel topicPartitionChannel =
+    DirectTopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
@@ -618,8 +600,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
 
     try {
       topicPartitionChannel.fetchOffsetTokenWithRetry();
@@ -641,7 +622,7 @@ public class TopicPartitionChannelTest {
     NullPointerException exception = new NullPointerException("NPE");
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(exception);
 
-    TopicPartitionChannel topicPartitionChannel =
+    DirectTopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
@@ -651,8 +632,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -670,7 +650,7 @@ public class TopicPartitionChannelTest {
     RuntimeException exception = new RuntimeException("runtime exception");
     Mockito.when(mockStreamingChannel.getLatestCommittedOffsetToken()).thenThrow(exception);
 
-    TopicPartitionChannel topicPartitionChannel =
+    DirectTopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
@@ -680,8 +660,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
 
     try {
       Assert.assertEquals(-1L, topicPartitionChannel.fetchOffsetTokenWithRetry());
@@ -719,7 +698,7 @@ public class TopicPartitionChannelTest {
         .thenReturn(Long.toString(noOfRecords - 1));
 
     // create tpchannel
-    TopicPartitionChannel topicPartitionChannel =
+    DirectTopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
@@ -729,8 +708,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            mockTelemetryService,
-            this.schemaEvolutionService);
+            mockTelemetryService);
     expectedOpenChannelCount++;
     expectedGetOffsetCount++;
 
@@ -838,8 +816,7 @@ public class TopicPartitionChannelTest {
               RecordServiceFactory.createRecordService(false, false),
               mockTelemetryService,
               false,
-              null,
-              this.schemaEvolutionService);
+              null);
 
       final int noOfRecords = 2;
       List<SinkRecord> records =
@@ -850,7 +827,6 @@ public class TopicPartitionChannelTest {
       }
 
       // Verify that the buffer is cleaned up and one record is in the DLQ
-      Assert.assertTrue(topicPartitionChannel.isPartitionBufferEmpty());
       Assert.assertEquals(1, kafkaRecordErrorReporter.getReportedRecords().size());
     }
   }
@@ -892,8 +868,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             this.mockTelemetryService,
             true,
-            metricsJmxReporter,
-            this.schemaEvolutionService);
+            metricsJmxReporter);
 
     // insert records
     List<SinkRecord> records =
@@ -965,8 +940,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             this.mockTelemetryService,
             true,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     // insert records
     List<SinkRecord> records =
@@ -984,7 +958,7 @@ public class TopicPartitionChannelTest {
     assert resultStatus.getMetricsJmxReporter() == null;
   }
 
-  public TopicPartitionChannel createTopicPartitionChannel(
+  public DirectTopicPartitionChannel createTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
       final String channelNameFormatV1,
@@ -993,8 +967,7 @@ public class TopicPartitionChannelTest {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
-      SnowflakeTelemetryService telemetryService,
-      SchemaEvolutionService schemaEvolutionService) {
+      SnowflakeTelemetryService telemetryService) {
     return new DirectTopicPartitionChannel(
         streamingIngestClient,
         topicPartition,
@@ -1009,7 +982,7 @@ public class TopicPartitionChannelTest {
         new InsertErrorMapper());
   }
 
-  public TopicPartitionChannel createTopicPartitionChannel(
+  public DirectTopicPartitionChannel createTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
       final String channelNameFormatV1,
@@ -1022,8 +995,7 @@ public class TopicPartitionChannelTest {
       RecordService recordService,
       SnowflakeTelemetryService telemetryService,
       boolean enableCustomJMXMonitoring,
-      MetricsJmxReporter metricsJmxReporter,
-      SchemaEvolutionService schemaEvolutionService) {
+      MetricsJmxReporter metricsJmxReporter) {
     return new DirectTopicPartitionChannel(
         streamingIngestClient,
         topicPartition,
@@ -1077,7 +1049,7 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingClient.openChannel(any(OpenChannelRequest.class)))
         .thenReturn(channel1, channel2);
 
-    TopicPartitionChannel topicPartitionChannel =
+    DirectTopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             this.mockStreamingClient,
             this.topicPartition,
@@ -1091,8 +1063,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             this.mockTelemetryService,
             true,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     // expect
     Assert.assertThrows(
@@ -1129,7 +1100,7 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingClient.openChannel(any(OpenChannelRequest.class)))
         .thenReturn(originalChannel, reopenedChannel);
 
-    TopicPartitionChannel topicPartitionChannel =
+    DirectTopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             this.mockStreamingClient,
             this.topicPartition,
@@ -1143,8 +1114,7 @@ public class TopicPartitionChannelTest {
             RecordServiceFactory.createRecordService(false, false),
             this.mockTelemetryService,
             true,
-            null,
-            this.schemaEvolutionService);
+            null);
 
     // when
     topicPartitionChannel.getOffsetSafeToCommitToKafka();
