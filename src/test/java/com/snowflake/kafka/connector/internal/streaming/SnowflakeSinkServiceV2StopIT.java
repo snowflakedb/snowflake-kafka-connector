@@ -1,9 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Collections;
 import java.util.Map;
@@ -45,14 +43,11 @@ public class SnowflakeSinkServiceV2StopIT {
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkServiceV2 service =
-        (SnowflakeSinkServiceV2)
-            SnowflakeSinkServiceFactory.builder(
-                    conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-                .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-                .setSinkTaskContext(
-                    new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-                .addTask(topicAndTableName, topicPartition)
-                .build();
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .build();
+    service.startPartition(topicAndTableName, topicPartition);
+
     SnowflakeStreamingIngestClient client = service.getStreamingIngestClient();
 
     // when

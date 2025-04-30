@@ -15,6 +15,7 @@ import com.snowflake.kafka.connector.internal.streaming.DirectTopicPartitionChan
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
@@ -458,9 +459,8 @@ public class ConnectionServiceIT {
 
     try {
       // ### TEST 2 - Table doesnt exist
-      channelMigrateOffsetTokenResponseDTO =
-          conn.migrateStreamingChannelOffsetToken(
-              tableName + "_Table_DOESNT_EXIST", sourceChannelName, destinationChannelName);
+      conn.migrateStreamingChannelOffsetToken(
+          tableName + "_Table_DOESNT_EXIST", sourceChannelName, destinationChannelName);
     } catch (SnowflakeConnectionServiceV1.OffsetTokenMigrationRetryableException ex) {
       assert ex.getMessage()
           .contains(
@@ -473,17 +473,13 @@ public class ConnectionServiceIT {
       SnowflakeSinkConnectorConfig.setDefaultValues(config);
       TopicPartition topicPartition = new TopicPartition(tableName, 0);
 
-      InMemorySinkTaskContext inMemorySinkTaskContext =
-          new InMemorySinkTaskContext(Collections.singleton(topicPartition));
-
       // This will automatically create a channel for topicPartition.
-      SnowflakeSinkService service =
-          SnowflakeSinkServiceFactory.builder(
-                  conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
-              .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-              .setSinkTaskContext(inMemorySinkTaskContext)
-              .addTask(tableName, topicPartition)
+      SnowflakeSinkServiceV2 service =
+          StreamingSinkServiceBuilder.builder(conn, config)
+              .withSinkTaskContext(
+                  new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
               .build();
+      service.startPartition(tableName, topicPartition);
 
       final long noOfRecords = 10;
 
@@ -514,10 +510,9 @@ public class ConnectionServiceIT {
       // step 3: do a migration and check if destination channel has expected offset
 
       // Ctor of TopicPartitionChannel tries to open the channel.
-      SnowflakeSinkServiceV2 snowflakeSinkServiceV2 = (SnowflakeSinkServiceV2) service;
       TopicPartitionChannel newChannelFormatV2 =
           new DirectTopicPartitionChannel(
-              snowflakeSinkServiceV2.getStreamingIngestClient(),
+              service.getStreamingIngestClient(),
               topicPartition,
               sourceChannelName,
               tableName,

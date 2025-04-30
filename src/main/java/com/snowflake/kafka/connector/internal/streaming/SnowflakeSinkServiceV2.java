@@ -20,12 +20,8 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.RecordServiceFactory;
-import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergTableSchemaValidator;
 import java.util.Collection;
@@ -63,40 +59,37 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final SnowflakeConnectionService conn;
 
   private final RecordService recordService;
-  private final SnowflakeTelemetryService telemetryService;
 
   private final IcebergTableSchemaValidator icebergTableSchemaValidator;
   private final IcebergInitService icebergInitService;
 
-  private SchemaEvolutionService schemaEvolutionService;
+  private final SchemaEvolutionService schemaEvolutionService;
 
-  private Map<String, String> topicToTableMap;
+  private final Map<String, String> topicToTableMap;
 
   // Behavior to be set at the start of connector start. (For tombstone records)
-  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
+  private final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
 
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
-  private MetricsJmxReporter metricsJmxReporter;
+  private final MetricsJmxReporter metricsJmxReporter;
 
   /**
    * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
    * org.apache.kafka.connect.sink.ErrantRecordReporter}
    */
-  private KafkaRecordErrorReporter kafkaRecordErrorReporter;
+  private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
 
   /* SinkTaskContext has access to all methods/APIs available to talk to Kafka Connect runtime*/
-  private SinkTaskContext sinkTaskContext;
+  private final SinkTaskContext sinkTaskContext;
 
   // ------ Streaming Ingest ------ //
   // needs url, username. p8 key, role name
-  private SnowflakeStreamingIngestClient streamingIngestClient;
+  private final SnowflakeStreamingIngestClient streamingIngestClient;
 
   // Config set in JSON
   private final Map<String, String> connectorConfig;
-
-  private final boolean enableSchematization;
 
   private final boolean closeChannelsInParallel;
 
@@ -120,61 +113,41 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SinkTaskContext sinkTaskContext,
       boolean enableCustomJMXMonitoring,
       Map<String, String> topicToTableMap,
+      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues,
       SchemaEvolutionService schemaEvolutionService) {
-    this(conn, connectorConfig);
+    if (conn == null || conn.isClosed()) {
+      throw SnowflakeErrors.ERROR_5010.getException();
+    }
+    this.conn = conn;
+    this.connectorConfig = connectorConfig;
+
     this.kafkaRecordErrorReporter = recordErrorReporter;
     this.sinkTaskContext = sinkTaskContext;
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
     this.topicToTableMap = topicToTableMap;
     this.schemaEvolutionService = schemaEvolutionService;
-  }
 
-  @Deprecated
-  public SnowflakeSinkServiceV2(
-      SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
-    if (conn == null || conn.isClosed()) {
-      throw SnowflakeErrors.ERROR_5010.getException();
-    }
-
-    this.conn = conn;
-    this.telemetryService = conn.getTelemetryClient();
-    boolean schematizationEnabled = Utils.isSchematizationEnabled(connectorConfig);
     this.recordService =
         RecordServiceFactory.createRecordService(
-            Utils.isIcebergEnabled(connectorConfig), schematizationEnabled);
+            Utils.isIcebergEnabled(connectorConfig),
+            Utils.isSchematizationEnabled(connectorConfig));
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
-    this.schemaEvolutionService =
-        Utils.isIcebergEnabled(connectorConfig)
-            ? new IcebergSchemaEvolutionService(conn)
-            : new SnowflakeSchemaEvolutionService(conn);
-
-    this.topicToTableMap = new HashMap<>();
-
-    // Setting the default value in constructor
-    // meaning it will not ignore the null values (Tombstone records wont be ignored/filtered)
-    this.behaviorOnNullValues = SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
-
-    this.connectorConfig = connectorConfig;
-
-    this.enableSchematization = schematizationEnabled;
-
     this.closeChannelsInParallel =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL))
             .map(Boolean::parseBoolean)
             .orElse(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT);
-
     this.streamingIngestClient =
         StreamingClientProvider.getStreamingClientProviderInstance()
             .getClient(this.connectorConfig);
 
+    this.behaviorOnNullValues = behaviorOnNullValues;
     this.partitionsToChannel = new HashMap<>();
-
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
 
     // jmx
     String connectorName =
-        conn == null || Strings.isNullOrEmpty(this.conn.getConnectorName())
+        Strings.isNullOrEmpty(this.conn.getConnectorName())
             ? "default_connector"
             : this.conn.getConnectorName();
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
@@ -229,7 +202,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private void tableActionsOnStartPartition(String tableName) {
     if (Utils.isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
-          tableName, Utils.role(connectorConfig), enableSchematization);
+          tableName, Utils.role(connectorConfig), Utils.isSchematizationEnabled(connectorConfig));
       icebergInitService.initializeIcebergTableProperties(tableName);
       populateSchemaEvolutionPermissions(tableName);
     } else {
@@ -281,11 +254,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Inserts the given record into buffer and then eventually calls insertRows API if buffer
-   * threshold has reached.
-   *
-   * <p>TODO: SNOW-473896 - Please note we will get away with Buffering logic in future commits.
-   *
    * @param records records coming from Kafka. Please note, they are not just from single topic and
    *     partition. It depends on the kafka connect worker node which can consume from multiple
    *     Topic and multiple Partitions
@@ -503,64 +471,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   @Override
-  public void setRecordNumber(long num) {
-    // TODO - remove from this class
-  }
-
-  /**
-   * Assume this is buffer size in bytes, since this is streaming ingestion
-   *
-   * @param size in bytes - a non negative long number representing size of internal buffer for
-   *     flush.
-   */
-  @Override
-  public void setFileSize(long size) {
-    // TODO - remove from this class
-  }
-
-  @Override
-  public void setTopic2TableMap(Map<String, String> topicToTableMap) {
-    this.topicToTableMap = topicToTableMap;
-  }
-
-  @Override
-  public void setFlushTime(long time) {
-    // TODO - remove from this class
-  }
-
-  @Override
-  public void setMetadataConfig(SnowflakeMetadataConfig configMap) {
-    this.recordService.setMetadataConfig(configMap);
-  }
-
-  @Override
-  public void setBehaviorOnNullValuesConfig(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
-    this.behaviorOnNullValues = behavior;
-  }
-
-  @Override
-  public void setCustomJMXMetrics(boolean enableJMX) {
-    this.enableCustomJMXMonitoring = enableJMX;
-  }
-
-  @Override
-  public SnowflakeSinkConnectorConfig.BehaviorOnNullValues getBehaviorOnNullValuesConfig() {
-    return this.behaviorOnNullValues;
-  }
-
-  /* Set this to send records to DLQ. */
-  @Override
-  public void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {
-    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
-  }
-
-  @Override
-  public void setSinkTaskContext(SinkTaskContext sinkTaskContext) {
-    this.sinkTaskContext = sinkTaskContext;
-  }
-
-  @Override
   public Optional<MetricRegistry> getMetricRegistry(String partitionChannelKey) {
     return this.partitionsToChannel.containsKey(partitionChannelKey)
         ? Optional.of(
@@ -606,19 +516,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // ------ Streaming Ingest Related Functions ------ //
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
-      if (!this.enableSchematization) {
+      if (!Utils.isSchematizationEnabled(connectorConfig)) {
         if (this.conn.isTableCompatible(tableName)) {
           LOGGER.info("Using existing table {}.", tableName);
         } else {
           throw SnowflakeErrors.ERROR_5003.getException(
-              "table name: " + tableName, this.telemetryService);
+              "table name: " + tableName, this.conn.getTelemetryClient());
         }
       } else {
         this.conn.appendMetaColIfNotExist(tableName);
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      if (this.enableSchematization) {
+      if (Utils.isSchematizationEnabled(connectorConfig)) {
         // Always create the table with RECORD_METADATA only and rely on schema evolution to update
         // the schema
         this.conn.createTableWithOnlyMetadataColumn(tableName);
@@ -633,7 +543,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void populateSchemaEvolutionPermissions(String tableName) {
     if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
-      if (enableSchematization) {
+      if (Utils.isSchematizationEnabled(connectorConfig)) {
         boolean hasSchemaEvolutionPermission =
             conn != null
                 && conn.hasSchemaEvolutionPermission(
