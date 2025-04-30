@@ -43,7 +43,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -116,8 +115,6 @@ public class Utils {
 
   // jdbc log dir
   public static final String JAVA_IO_TMPDIR = "java.io.tmpdir";
-
-  private static final Random random = new Random();
 
   // mvn repo
   private static final String MVN_REPO =
@@ -412,12 +409,25 @@ public class Utils {
         config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
   }
 
+  public static boolean isSnowpipeStreamingV2Enabled(Map<String, String> config) {
+    return Boolean.parseBoolean(
+        config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED));
+  }
+
   /**
    * @param config config with applied default values
    * @return role specified in rhe config
    */
   public static String role(Map<String, String> config) {
     return config.get(SF_ROLE);
+  }
+
+  public static String database(Map<String, String> config) {
+    return config.get(SF_DATABASE);
+  }
+
+  public static String schema(Map<String, String> config) {
+    return config.get(SF_SCHEMA);
   }
 
   /**

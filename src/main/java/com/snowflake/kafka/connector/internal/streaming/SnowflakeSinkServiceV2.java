@@ -20,6 +20,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
@@ -235,22 +236,32 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       boolean hasSchemaEvolutionPermission,
       String partitionChannelKey) {
 
-    return new DirectTopicPartitionChannel(
-        this.streamingIngestClient,
-        topicPartition,
-        partitionChannelKey, // Streaming channel name
-        tableName,
-        hasSchemaEvolutionPermission,
-        this.connectorConfig,
-        this.kafkaRecordErrorReporter,
-        this.sinkTaskContext,
-        this.conn,
-        this.recordService,
-        this.conn.getTelemetryClient(),
-        this.enableCustomJMXMonitoring,
-        this.metricsJmxReporter,
-        this.schemaEvolutionService,
-        new InsertErrorMapper());
+    if (Utils.isSnowpipeStreamingV2Enabled(connectorConfig)) {
+      return new SnowpipeStreamingV2PartitionChannel(
+          tableName,
+          partitionChannelKey,
+          this.conn,
+          this.connectorConfig,
+          this.recordService,
+          this.kafkaRecordErrorReporter);
+    } else {
+      return new DirectTopicPartitionChannel(
+          this.streamingIngestClient,
+          topicPartition,
+          partitionChannelKey, // Streaming channel name
+          tableName,
+          hasSchemaEvolutionPermission,
+          this.connectorConfig,
+          this.kafkaRecordErrorReporter,
+          this.sinkTaskContext,
+          this.conn,
+          this.recordService,
+          this.conn.getTelemetryClient(),
+          this.enableCustomJMXMonitoring,
+          this.metricsJmxReporter,
+          this.schemaEvolutionService,
+          new InsertErrorMapper());
+    }
   }
 
   /**
