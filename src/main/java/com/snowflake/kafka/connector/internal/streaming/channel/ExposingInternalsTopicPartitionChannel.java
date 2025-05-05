@@ -2,9 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.channel;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import dev.failsafe.Fallback;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 
 public interface ExposingInternalsTopicPartitionChannel {
 
@@ -16,15 +14,6 @@ public interface ExposingInternalsTopicPartitionChannel {
 
   @VisibleForTesting
   long getLatestConsumerOffset();
-
-  @VisibleForTesting
-  boolean isPartitionBufferEmpty();
-
-  @VisibleForTesting
-  SnowflakeStreamingIngestChannel getChannel();
-
-  @VisibleForTesting
-  SnowflakeTelemetryService getTelemetryServiceV2();
 
   @VisibleForTesting
   SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus();
