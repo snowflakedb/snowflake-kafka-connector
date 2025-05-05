@@ -12,7 +12,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -205,9 +204,6 @@ public class TopicPartitionChannelIT {
         service.getTopicPartitionChannelFromCacheKey(testChannelName).get();
 
     Assertions.assertNotNull(topicPartitionChannel);
-
-    Assertions.assertTrue(
-        topicPartitionChannel.getTelemetryServiceV2() instanceof SnowflakeTelemetryServiceV2);
 
     // close channel
     topicPartitionChannel.closeChannel();
