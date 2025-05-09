@@ -352,8 +352,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
-      Map<String, Object> transformedRecord =
-          streamingRecordService.transformDataBeforeSending(kafkaSinkRecord);
+      Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
       if (!transformedRecord.isEmpty()) {
         InsertValidationResponse response =
             insertRowWithFallback(transformedRecord, kafkaSinkRecord.kafkaOffset());

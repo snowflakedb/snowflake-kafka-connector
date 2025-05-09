@@ -18,6 +18,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
+/** Service to transform data from Kafka format into a map that is accepted by ingest sdk. */
 public class StreamingRecordService {
   private static final KCLogger LOGGER = new KCLogger(StreamingRecordService.class.getName());
 
@@ -30,7 +31,11 @@ public class StreamingRecordService {
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
   }
 
-  public Map<String, Object> transformDataBeforeSending(SinkRecord kafkaSinkRecord) {
+  /**
+   * @param kafkaSinkRecord a record in Kafka format
+   * @return a map that format depends on the schematization settings
+   */
+  public Map<String, Object> transformData(SinkRecord kafkaSinkRecord) {
     SinkRecord snowflakeSinkRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
     // broken record
     if (isRecordBroken(snowflakeSinkRecord)) {
