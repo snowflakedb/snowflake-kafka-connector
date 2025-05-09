@@ -1006,7 +1006,7 @@ public class TopicPartitionChannelTest {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
-        recordService,
+        new StreamingRecordService(recordService, kafkaRecordErrorReporter),
         telemetryService,
         enableCustomJMXMonitoring,
         metricsJmxReporter,
