@@ -235,6 +235,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       boolean hasSchemaEvolutionPermission,
       String partitionChannelKey) {
 
+    StreamingRecordService streamingRecordService =
+        new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
+
     return new DirectTopicPartitionChannel(
         this.streamingIngestClient,
         topicPartition,
@@ -245,7 +248,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.kafkaRecordErrorReporter,
         this.sinkTaskContext,
         this.conn,
-        this.recordService,
+        streamingRecordService,
         this.conn.getTelemetryClient(),
         this.enableCustomJMXMonitoring,
         this.metricsJmxReporter,

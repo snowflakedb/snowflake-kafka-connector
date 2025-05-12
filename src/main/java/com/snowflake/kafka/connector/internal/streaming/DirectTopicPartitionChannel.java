@@ -7,14 +7,11 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
 import static java.time.temporal.ChronoUnit.SECONDS;
-import static org.apache.kafka.common.record.TimestampType.NO_TIMESTAMP_TYPE;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -30,15 +27,10 @@ import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEv
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.RecordServiceFactory;
-import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
-import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -52,7 +44,6 @@ import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.*;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -104,9 +95,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   /* Error handling, DB, schema, Snowflake URL and other snowflake specific connector properties are defined here. */
   private final Map<String, String> sfConnectorConfig;
 
-  /* Responsible for converting records to Json */
-  private final RecordService recordService;
-
   /* Responsible for returning errors to DLQ if records have failed to be ingested. */
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
 
@@ -144,6 +132,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   private final ChannelOffsetTokenMigrator channelOffsetTokenMigrator;
 
+  private final StreamingRecordService streamingRecordService;
+
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
    * Connection Object, i.e. not a session-less Client
@@ -174,8 +164,10 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
-        RecordServiceFactory.createRecordService(
-            false, Utils.isSchematizationEnabled(sfConnectorConfig)),
+        new StreamingRecordService(
+            RecordServiceFactory.createRecordService(
+                false, Utils.isSchematizationEnabled(sfConnectorConfig)),
+            kafkaRecordErrorReporter),
         telemetryService,
         false,
         null,
@@ -195,7 +187,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
    * @param conn the snowflake connection service
-   * @param recordService record service for processing incoming offsets from Kafka
+   * @param streamingRecordService record service for processing incoming offsets from Kafka
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
    * @param insertErrorMapper Mapper to map insert errors to schema evolution items
@@ -210,7 +202,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
-      RecordService recordService,
+      StreamingRecordService streamingRecordService,
       SnowflakeTelemetryService telemetryService,
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter,
@@ -228,7 +220,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
 
-    this.recordService = recordService;
+    this.streamingRecordService = streamingRecordService;
     this.telemetryServiceV2 = Preconditions.checkNotNull(telemetryService);
 
     /* Error properties */
@@ -358,68 +350,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     }
   }
 
-  private boolean shouldConvertContent(final Object content) {
-    return content != null && !(content instanceof SnowflakeRecordContent);
-  }
-
-  /**
-   * This would always return false for streaming ingest use case since isBroken field is never set.
-   * isBroken is set only when using Custom snowflake converters and the content was not json
-   * serializable.
-   *
-   * <p>For Community converters, the kafka record will not be sent to Kafka connector if the record
-   * is not serializable.
-   */
-  private boolean isRecordBroken(final SinkRecord record) {
-    return isContentBroken(record.value()) || isContentBroken(record.key());
-  }
-
-  private boolean isContentBroken(final Object content) {
-    return content != null && ((SnowflakeRecordContent) content).isBroken();
-  }
-
-  private SinkRecord handleNativeRecord(SinkRecord record, boolean isKey) {
-    SnowflakeRecordContent newSFContent;
-    Schema schema = isKey ? record.keySchema() : record.valueSchema();
-    Object content = isKey ? record.key() : record.value();
-    try {
-      newSFContent = new SnowflakeRecordContent(schema, content, true);
-    } catch (Exception e) {
-      LOGGER.error("Native content parser error:\n{}", e.getMessage());
-      try {
-        // try to serialize this object and send that as broken record
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ObjectOutputStream os = new ObjectOutputStream(out);
-        os.writeObject(content);
-        newSFContent = new SnowflakeRecordContent(out.toByteArray());
-      } catch (Exception serializeError) {
-        LOGGER.error(
-            "Failed to convert broken native record to byte data:\n{}",
-            serializeError.getMessage());
-        throw e;
-      }
-    }
-    // create new sinkRecord
-    Schema keySchema = isKey ? new SnowflakeJsonSchema() : record.keySchema();
-    Object keyContent = isKey ? newSFContent : record.key();
-    Schema valueSchema = isKey ? record.valueSchema() : new SnowflakeJsonSchema();
-    Object valueContent = isKey ? record.value() : newSFContent;
-    return new SinkRecord(
-        record.topic(),
-        record.kafkaPartition(),
-        keySchema,
-        keyContent,
-        valueSchema,
-        valueContent,
-        record.kafkaOffset(),
-        record.timestamp(),
-        record.timestampType(),
-        record.headers());
-  }
-
   private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
-      Map<String, Object> transformedRecord = transformDataBeforeSending(kafkaSinkRecord);
+      Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
       if (!transformedRecord.isEmpty()) {
         InsertValidationResponse response =
             insertRowWithFallback(transformedRecord, kafkaSinkRecord.kafkaOffset());
@@ -959,70 +892,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     if (consumerOffset > this.currentConsumerGroupOffset.get()) {
       this.currentConsumerGroupOffset.set(consumerOffset);
     }
-  }
-
-  /**
-   * Converts the original kafka sink record into a Json Record. i.e key and values are converted
-   * into Json so that it can be used to insert into variant column of Snowflake Table.
-   *
-   * <p>TODO: SNOW-630885 - When schematization is enabled, we should create the map directly from
-   * the SinkRecord instead of first turning it into json
-   */
-  private SinkRecord getSnowflakeSinkRecordFromKafkaRecord(final SinkRecord kafkaSinkRecord) {
-    SinkRecord snowflakeRecord = kafkaSinkRecord;
-    if (shouldConvertContent(kafkaSinkRecord.value())) {
-      snowflakeRecord = handleNativeRecord(kafkaSinkRecord, false);
-    }
-    if (shouldConvertContent(kafkaSinkRecord.key())) {
-      snowflakeRecord = handleNativeRecord(snowflakeRecord, true);
-    }
-
-    return snowflakeRecord;
-  }
-
-  private Map<String, Object> transformDataBeforeSending(SinkRecord kafkaSinkRecord) {
-    SinkRecord snowflakeSinkRecord = getSnowflakeSinkRecordFromKafkaRecord(kafkaSinkRecord);
-    // broken record
-    if (isRecordBroken(snowflakeSinkRecord)) {
-      // check for error tolerance and log tolerance values
-      // errors.log.enable and errors.tolerance
-      LOGGER.debug(
-          "Broken record offset:{}, topic:{}",
-          kafkaSinkRecord.kafkaOffset(),
-          kafkaSinkRecord.topic());
-      kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
-    } else {
-      // lag telemetry, note that sink record timestamp might be null
-      if (kafkaSinkRecord.timestamp() != null
-          && kafkaSinkRecord.timestampType() != NO_TIMESTAMP_TYPE) {
-        // TODO:SNOW-529751 telemetry
-      }
-
-      // Convert this records into Json Schema which has content and metadata, add it to DLQ if
-      // there is an exception
-      try {
-        return recordService.getProcessedRecordForStreamingIngest(snowflakeSinkRecord);
-      } catch (JsonProcessingException e) {
-        LOGGER.warn(
-            "Record has JsonProcessingException offset:{}, topic:{}",
-            kafkaSinkRecord.kafkaOffset(),
-            kafkaSinkRecord.topic());
-        kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
-      } catch (SnowflakeKafkaConnectorException e) {
-        if (e.checkErrorCode(SnowflakeErrors.ERROR_0010)) {
-          LOGGER.warn(
-              "Cannot parse record offset:{}, topic:{}. Sending to DLQ.",
-              kafkaSinkRecord.kafkaOffset(),
-              kafkaSinkRecord.topic());
-          kafkaRecordErrorReporter.reportError(kafkaSinkRecord, e);
-        } else {
-          throw e;
-        }
-      }
-    }
-
-    // return empty
-    return ImmutableMap.of();
   }
 
   /**
