@@ -58,7 +58,17 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
    *
    * @return (offsetToken present in Snowflake + 1), else -1
    */
-  long getOffsetSafeToCommitToKafka();
+  default long getOffsetSafeToCommitToKafka() {
+    final long committedOffsetInSnowflake = fetchOffsetTokenWithRetry();
+    if (committedOffsetInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    } else {
+      // Return an offset which is + 1 of what was present in snowflake.
+      // Idea of sending + 1 back to Kafka is that it should start sending offsets after task
+      // restart from this offset
+      return committedOffsetInSnowflake + 1;
+    }
+  }
 
   /**
    * Close channel associated to this partition Not rethrowing connect exception because the

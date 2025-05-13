@@ -4,9 +4,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.MAX_GET_OFFSET_TOKEN_RETRIES;
-import static java.time.temporal.ChronoUnit.SECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -29,8 +26,8 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeExecutor;
 import dev.failsafe.Fallback;
-import dev.failsafe.RetryPolicy;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -140,6 +137,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    */
   private final SnowflakeTelemetryService telemetryServiceV2;
 
+  private final FailsafeExecutor<Long> offsetTokenExecutor;
+
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
   public DirectTopicPartitionChannel(
@@ -248,6 +247,15 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
     // Open channel and reset the offset in kafka
     this.channel = Preconditions.checkNotNull(openChannelForTable(this.enableSchemaEvolution));
+
+    this.offsetTokenExecutor =
+        LatestCommitedOffsetTokenExecutor.getExecutor(
+            this.getChannelNameFormatV1(),
+            SFException.class,
+            () ->
+                streamingApiFallbackSupplier(
+                    StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK));
+
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
     this.processedOffset.set(lastCommittedOffsetToken);
@@ -521,69 +529,10 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     }
   }
 
-  // TODO: SNOW-529755 POLL committed offsets in background thread
-
-  @Override
-  public long getOffsetSafeToCommitToKafka() {
-    final long committedOffsetInSnowflake = fetchOffsetTokenWithRetry();
-    if (committedOffsetInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-    } else {
-      // Return an offset which is + 1 of what was present in snowflake.
-      // Idea of sending + 1 back to Kafka is that it should start sending offsets after task
-      // restart from this offset
-      return committedOffsetInSnowflake + 1;
-    }
-  }
-
   @Override
   @VisibleForTesting
   public long fetchOffsetTokenWithRetry() {
-    final RetryPolicy<Long> offsetTokenRetryPolicy =
-        RetryPolicy.<Long>builder()
-            .handle(SFException.class)
-            .withDelay(DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY)
-            .withMaxAttempts(MAX_GET_OFFSET_TOKEN_RETRIES)
-            .onRetry(
-                event ->
-                    LOGGER.warn(
-                        "[OFFSET_TOKEN_RETRY_POLICY] retry for getLatestCommittedOffsetToken. Retry"
-                            + " no:{}, message:{}",
-                        event.getAttemptCount(),
-                        event.getLastException().getMessage()))
-            .build();
-
-    /*
-     * The fallback function to execute when all retries from getOffsetToken have exhausted.
-     * Fallback is only attempted on SFException
-     */
-    Fallback<Long> offsetTokenFallbackExecutor =
-        Fallback.builder(
-                () ->
-                    streamingApiFallbackSupplier(
-                        StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK))
-            .handle(SFException.class)
-            .onFailure(
-                event ->
-                    LOGGER.error(
-                        "[OFFSET_TOKEN_FALLBACK] Failed to open Channel/fetch offsetToken for"
-                            + " channel:{}, exception:{}",
-                        this.getChannelNameFormatV1(),
-                        event.getException().toString()))
-            .build();
-
-    // Read it from reverse order. Fetch offsetToken, apply retry policy and then fallback.
-    return Failsafe.with(offsetTokenFallbackExecutor)
-        .onFailure(
-            event ->
-                LOGGER.error(
-                    "[OFFSET_TOKEN_RETRY_FAILSAFE] Failure to fetch offsetToken even after retry"
-                        + " and fallback from snowflake for channel:{}, elapsedTimeSeconds:{}",
-                    this.getChannelNameFormatV1(),
-                    event.getElapsedTime().get(SECONDS),
-                    event.getException()))
-        .compose(offsetTokenRetryPolicy)
-        .get(this::fetchLatestCommittedOffsetFromSnowflake);
+    return offsetTokenExecutor.get(this::fetchLatestCommittedOffsetFromSnowflake);
   }
 
   /**

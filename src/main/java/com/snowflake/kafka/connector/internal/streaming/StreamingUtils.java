@@ -11,38 +11,11 @@ import java.util.Map;
 import java.util.Properties;
 import net.snowflake.ingest.streaming.OffsetTokenVerificationFunction;
 import net.snowflake.ingest.utils.Constants;
-import org.apache.kafka.common.record.DefaultRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StreamingUtils.class);
-
-  // Streaming Ingest API related fields
-
-  protected static final Duration DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY = Duration.ofSeconds(1);
-
-  protected static final int MAX_GET_OFFSET_TOKEN_RETRIES = 3;
-
   public static final long STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC =
       Duration.ofSeconds(1).getSeconds();
-
-  /**
-   * Keeping this default as ~ 20MB.
-   *
-   * <p>Logic behind this optimium value is we will do gzip compression and json to UTF conversion
-   * which will account to almost 95% compression.
-   *
-   * <p>1 MB is an ideal size for streaming ingestion so 95% if 20MB = 1MB
-   */
-  protected static final long STREAMING_BUFFER_BYTES_DEFAULT = 20_000_000;
-
-  // excluding key, value and headers: 5 bytes length + 10 bytes timestamp + 5 bytes offset + 1
-  // byte attributes. (This is not for record metadata, this is before we transform to snowflake
-  // understood JSON)
-  // This is overhead size for calculating while buffering Kafka records.
-  public static final int MAX_RECORD_OVERHEAD_BYTES = DefaultRecord.MAX_RECORD_OVERHEAD;
 
   // TODO: Modify STREAMING_CONSTANT to Constants. after SNOW-352846 is released
   public static final String STREAMING_CONSTANT_AUTHORIZATION_TYPE = "authorization_type";
