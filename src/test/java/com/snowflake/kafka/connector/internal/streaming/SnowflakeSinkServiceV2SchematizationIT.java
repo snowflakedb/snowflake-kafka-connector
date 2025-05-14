@@ -6,11 +6,15 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
+import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -24,6 +28,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -191,7 +196,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     long schemaEvolutionDelayMs = 3 * 1000L; // must be enough for sdk to flush and commit
     long assertionSleepTimeMs = 6 * 1000L;
 
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
         "org.apache.kafka.connect.json.JsonConverter");
@@ -230,6 +234,36 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     service.insert(Arrays.asList(recordWithTwoFields(2), recordWithTwoFields(3)));
 
     await().atMost(10, TimeUnit.SECONDS).until(() -> service.getOffset(topicPartition) == 4);
+  }
+
+  @Test
+  public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ() {
+    // given
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
+
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+
+    SnowflakeSinkService service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
+            .build();
+    service.startPartition(table, topicPartition);
+
+    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
+    String notSchematizeableJsonRecord =
+        "[{\"name\":\"sf\",\"answer\":42}]"; // cannot schematize array
+    byte[] valueContents = (notSchematizeableJsonRecord).getBytes(StandardCharsets.UTF_8);
+    SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
+
+    SinkRecord record =
+        SinkRecordBuilder.forTopicPartition(topic, partition).withSchemaAndValue(sv).build();
+
+    // when
+    service.insert(record);
+
+    // then
+    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
   private SinkRecord recordWithSingleField(long offset) {

@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -8,7 +7,6 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 import com.codahale.metrics.Gauge;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -39,7 +37,6 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -909,39 +906,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service2.closeAll();
   }
 
-  @Test
-  public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ() {
-    // given
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
-
-    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
-
-    SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withErrorReporter(errorReporter)
-            .build();
-    service.startPartition(table, topicPartition);
-
-    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
-    String notSchematizeableJsonRecord =
-        "[{\"name\":\"sf\",\"answer\":42}]"; // cannot schematize array
-    byte[] valueContents = (notSchematizeableJsonRecord).getBytes(StandardCharsets.UTF_8);
-    SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
-
-    SinkRecord record =
-        SinkRecordBuilder.forTopicPartition(topic, partition).withSchemaAndValue(sv).build();
-
-    // when
-    service.insert(record);
-
-    // then
-    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
-  }
-
   // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
   // user
-  // todo SNOW-1528892: This test does not pass for oAuth turned on - investigate it and fix
   @Test
   public void testStreamingIngest_multipleChannel_distinctClients() throws Exception {
     // create cat and dog configs and partitions
