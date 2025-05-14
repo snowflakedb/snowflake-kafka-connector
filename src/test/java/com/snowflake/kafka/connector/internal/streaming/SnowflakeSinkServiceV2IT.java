@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
@@ -18,6 +19,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import com.snowflake.kafka.connector.records.SnowflakeConverter;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
@@ -42,26 +44,33 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
   private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private Map<String, String> config;
+  private String pipe;
 
   @BeforeEach
   public void setup() {
     config = TestUtils.getConfForStreaming();
     conn.createTable(table);
+    pipe = PipeNameProvider.pipeName(config.get(Utils.NAME), table);
   }
 
   @AfterEach
   public void afterEach() {
     TestUtils.dropTable(table);
+    TestUtils.dropPipe(pipe);
   }
 
-  @Test
-  public void testChannelCloseIngestion() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testChannelCloseIngestion(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
@@ -97,8 +106,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
-  public void testRebalanceOpenCloseIngestion() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testRebalanceOpenCloseIngestion(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
@@ -135,8 +146,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
-  public void testStreamingIngestion() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestion(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
@@ -191,8 +204,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
-  public void testStreamingIngest_multipleChannelPartitions_withMetrics() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngest_multipleChannelPartitions_withMetrics(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // set up telemetry service spy
     SnowflakeConnectionService connectionService = Mockito.spy(this.conn);
     connectionService.createTable(table);
@@ -302,8 +317,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         == processedOffset;
   }
 
-  @Test
-  public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     final int partitionCount = 3;
     final int recordsInEachPartition = 2;
     final int topicCount = 3;
@@ -363,8 +380,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
-  public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     final int partitionCount = 5;
     final int recordsInEachPartition = 2;
 
@@ -410,8 +429,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
-  public void testNativeJsonInputIngestion() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testNativeJsonInputIngestion(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // json without schema
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<>();
@@ -502,8 +523,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
-  public void testNativeAvroInputIngestion() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testNativeAvroInputIngestion(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // avro
     SchemaBuilder schemaBuilder =
         SchemaBuilder.struct()
@@ -656,9 +679,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
-  public void testBrokenIngestion() throws Exception {
-
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testBrokenIngestion(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
 
@@ -717,8 +741,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         : "expected: " + 0 + " actual: " + TestUtils.tableSize(table);
   }
 
-  @Test
-  public void testBrokenRecordIngestionFollowedUpByValidRecord() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testBrokenRecordIngestionFollowedUpByValidRecord(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
     SchemaAndValue correctInputValue = new SchemaAndValue(Schema.STRING_SCHEMA, "correct");
@@ -765,8 +791,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
    * broken records (Non valid JSON) followed by another good record with max buffer record size
    * being 2
    */
-  @Test
-  public void testBrokenRecordIngestionAfterValidRecord() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testBrokenRecordIngestionAfterValidRecord(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
     SchemaAndValue correctInputValue = new SchemaAndValue(Schema.STRING_SCHEMA, "correct");
@@ -813,9 +841,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
 
-  @Test
-  public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets()
-      throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets(boolean ssv2Enabled) throws Exception {
+          config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -863,8 +892,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
-  @Test
-  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -942,8 +973,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
   // user
   // todo SNOW-1528892: This test does not pass for oAuth turned on - investigate it and fix
-  @Test
-  public void testStreamingIngest_multipleChannel_distinctClients() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngest_multipleChannel_distinctClients(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
     // create cat and dog configs and partitions
     // one client is enabled but two clients should be created because different roles in config
     String catTopic = "catTopic_" + TestUtils.randomTableName();
