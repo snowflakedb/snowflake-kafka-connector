@@ -1,6 +1,10 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.Assert.assertEquals;
@@ -19,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.storage.Converter;
+import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -139,6 +144,38 @@ public class ConnectorConfigValidatorTest {
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(JVM_PROXY_PORT);
+  }
+
+  @Test
+  public void testNonProxyHosts() {
+    String oldNonProxyHosts =
+        (System.getProperty(HTTP_NON_PROXY_HOSTS) != null)
+            ? System.getProperty(HTTP_NON_PROXY_HOSTS)
+            : null;
+
+    System.setProperty(HTTP_NON_PROXY_HOSTS, "host1.com|host2.com|localhost");
+    Map<String, String> config = getConfig();
+    config.put(JVM_PROXY_HOST, "127.0.0.1");
+    config.put(JVM_PROXY_PORT, "3128");
+    config.put(
+        SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS,
+        "*.snowflakecomputing.com|*.amazonaws.com");
+    Utils.enableJVMProxy(config);
+    String mergedNonProxyHosts = System.getProperty(HTTP_NON_PROXY_HOSTS);
+    Assert.assertTrue(
+        mergedNonProxyHosts.equals(
+            "host1.com|host2.com|localhost|*.snowflakecomputing.com|*.amazonaws.com"));
+
+    if (oldNonProxyHosts != null) {
+      System.setProperty(HTTP_NON_PROXY_HOSTS, oldNonProxyHosts);
+    } else {
+      System.clearProperty(HTTP_NON_PROXY_HOSTS);
+    }
+
+    // clear properties to prevent other tests from failing
+    System.clearProperty(HTTP_USE_PROXY);
+    System.clearProperty(HTTP_PROXY_HOST);
+    System.clearProperty(HTTP_PROXY_PORT);
   }
 
   @Test
