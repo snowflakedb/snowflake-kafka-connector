@@ -2,6 +2,9 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
+import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
+import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.Assert.assertEquals;
@@ -168,6 +171,11 @@ public class ConnectorConfigValidatorTest {
     } else {
       System.clearProperty(HTTP_NON_PROXY_HOSTS);
     }
+
+    // clear properties to prevent other tests from failing
+    System.clearProperty(HTTP_USE_PROXY);
+    System.clearProperty(HTTP_PROXY_HOST);
+    System.clearProperty(HTTP_PROXY_PORT);
   }
 
   @Test
