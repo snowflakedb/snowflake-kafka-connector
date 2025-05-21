@@ -72,7 +72,7 @@ public class ColumnMetadata {
     this.logicalType = logicalType.toUpperCase();
   }
 
-  String getLogicalType() {
+  public String getLogicalType() {
     return this.logicalType;
   }
 
@@ -90,7 +90,7 @@ public class ColumnMetadata {
     this.precision = precision;
   }
 
-  Integer getPrecision() {
+  public Integer getPrecision() {
     return this.precision;
   }
 
@@ -99,7 +99,7 @@ public class ColumnMetadata {
     this.scale = scale;
   }
 
-  Integer getScale() {
+  public Integer getScale() {
     return this.scale;
   }
 
@@ -108,7 +108,7 @@ public class ColumnMetadata {
     this.byteLength = byteLength;
   }
 
-  Long getByteLength() {
+  public Long getByteLength() {
     return this.byteLength;
   }
 
@@ -117,7 +117,7 @@ public class ColumnMetadata {
     this.length = length;
   }
 
-  Long getLength() {
+  public Long getLength() {
     return this.length;
   }
 
@@ -126,7 +126,7 @@ public class ColumnMetadata {
     this.nullable = nullable;
   }
 
-  boolean getNullable() {
+  public boolean getNullable() {
     return this.nullable;
   }
 

@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
+import com.snowflake.kafka.connector.internal.streaming.common.ColumnProperties;
 import java.util.Map;
-import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public interface SchemaEvolutionService {

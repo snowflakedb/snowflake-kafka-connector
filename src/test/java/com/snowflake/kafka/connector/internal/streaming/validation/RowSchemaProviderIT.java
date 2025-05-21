@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.common.ColumnProperties;
 import java.util.Map;
 import net.snowflake.ingest.connection.JWTManager;
 import org.junit.jupiter.api.AfterEach;
