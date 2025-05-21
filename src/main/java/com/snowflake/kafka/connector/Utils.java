@@ -430,6 +430,10 @@ public class Utils {
     return !isSnowpipeIngestion(config);
   }
 
+  public static String user(Map<String, String> config) {
+    return config.get(SF_USER);
+  }
+
   /**
    * Class for returned GeneratedName. isNameFromMap equal to True indicates that the name was
    * resolved by using the map passed to appropriate function. {@link

@@ -73,7 +73,7 @@ public class InternalUtils {
     }
   }
 
-  static PrivateKey parsePrivateKey(String key) {
+  public static PrivateKey parsePrivateKey(String key) {
     // remove header, footer, and line breaks
     key = key.replaceAll("-+[A-Za-z ]+-+", "");
     key = key.replaceAll("\\s", "");
