@@ -1,10 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.streaming.common.ColumnProperties;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import java.util.Map;
-import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /** This fake class simulates a delay in running ALTER TABLE statement */

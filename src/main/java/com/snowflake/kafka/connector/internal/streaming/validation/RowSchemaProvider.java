@@ -19,7 +19,7 @@ import net.snowflake.ingest.connection.JWTManager;
 public class RowSchemaProvider {
   private static final KCLogger LOGGER = new KCLogger(RowSchemaProvider.class.getName());
 
-  private static final String TABLE_COLUMNS_ENDPOINT =
+  static final String TABLE_COLUMNS_ENDPOINT =
       "/v1/streaming/rowsetclient/databases/%s/schemas/%s/tables/%s:table-info";
 
   private static final String TOKEN_TYPE = "KEYPAIR_JWT";

@@ -3,12 +3,12 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg
 import com.google.common.collect.Maps;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.streaming.common.ColumnProperties;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import java.util.*;
 import java.util.stream.Collectors;
-import net.snowflake.ingest.streaming.internal.ColumnProperties;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
