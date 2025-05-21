@@ -26,7 +26,7 @@ from cloud_platform import CloudPlatform
 
 @dataclass
 class ConnectorParameters:
-    snowflake_streaming_enable_single_buffer: str
+    snowflake_streaming_v2_enabled: str
 
 
 class ConnectorParametersList:
@@ -443,7 +443,7 @@ class KafkaTest:
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
                 .replace("SNOWFLAKE_ROLE", testRole) \
-                .replace("$SNOWFLAKE_STREAMING_ENABLE_SINGLE_BUFFER", self.connectorParameters.snowflake_streaming_enable_single_buffer)
+                .replace("$SNOWFLAKE_STREAMING_V2_ENABLED", self.connectorParameters.snowflake_streaming_v2_enabled)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(fileContent)
 
@@ -597,8 +597,8 @@ if __name__ == "__main__":
     print("Running tests for platform {} and distribution {}".format(snowflakeCloudPlatform, testSet))
 
     parametersList = ConnectorParametersList([
-        ConnectorParameters(snowflake_streaming_enable_single_buffer='false'),
-        ConnectorParameters(snowflake_streaming_enable_single_buffer='true'),
+        ConnectorParameters(snowflake_streaming_v2_enabled='false'),
+        ConnectorParameters(snowflake_streaming_v2_enabled='true'),
     ])
 
     parametersList.for_each(

@@ -1,14 +1,21 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
 import static com.snowflake.kafka.connector.streaming.iceberg.TestJsons.*;
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.*;
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.*;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonWithSchemaExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.emptyPrimitiveJsonRecordValueExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonRecordValueExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.primitiveJsonWithSchemaExample;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
+import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.records.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
@@ -18,6 +25,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -31,6 +39,19 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
           + " CreateTime NUMBER(19,0), LogAppendTime NUMBER(19,0),"
           + " SnowflakeConnectorPushTime NUMBER(19,0), headers MAP(VARCHAR(16777216),"
           + " VARCHAR(16777216)))";
+
+  @BeforeEach
+  public void setUp() {
+    super.setUp();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withErrorReporter(kafkaRecordErrorReporter)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withTopicToTableMap(topic2Table)
+            .withSchemaEvolutionService(new IcebergSchemaEvolutionService(conn))
+            .build();
+    service.startPartition(tableName, topicPartition);
+  }
 
   @Override
   protected Boolean isSchemaEvolutionEnabled() {

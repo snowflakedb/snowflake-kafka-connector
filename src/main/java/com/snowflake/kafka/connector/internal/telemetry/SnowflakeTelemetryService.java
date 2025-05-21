@@ -263,6 +263,12 @@ public abstract class SnowflakeTelemetryService {
         userProvidedConfig.getOrDefault(
             ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_DEFAULT));
 
+    dataObjectNode.put(
+        SNOWPIPE_STREAMING_V2_ENABLED,
+        userProvidedConfig.getOrDefault(
+            SNOWPIPE_STREAMING_V2_ENABLED,
+            String.valueOf(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE)));
+
     // Record whether streaming client optimization is enabled
     dataObjectNode.put(
         ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,

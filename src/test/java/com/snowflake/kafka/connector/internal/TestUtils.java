@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -300,6 +301,12 @@ public class TestUtils {
     return configuration;
   }
 
+  public static Map<String, String> getConfForStreamingV2() {
+    Map<String, String> configuration = getConfForStreaming();
+    configuration.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    return configuration;
+  }
+
   /* Get configuration map from profile path. Used against prod deployment of Snowflake */
   public static Map<String, String> getConfForStreamingWithOAuth() {
     Map<String, String> configuration = getConfWithOAuth();
@@ -458,6 +465,10 @@ public class TestUtils {
     String query = "drop table if exists " + tableName;
 
     executeQuery(query);
+  }
+
+  public static void dropPipe(String pipeName) {
+    executeQuery("drop pipe if exists " + pipeName);
   }
 
   /** Select * from table */
@@ -934,6 +945,13 @@ public class TestUtils {
       contentMap.put(result.getMetaData().getColumnName(i + 1), result.getObject(i + 1));
     }
     return contentMap;
+  }
+
+  public static int getNumberOfRows(String tableName) throws SQLException {
+    String getRowQuery = "select count(*) from " + tableName;
+    ResultSet result = executeQuery(getRowQuery);
+    result.next();
+    return result.getInt(1);
   }
 
   /**

@@ -56,6 +56,7 @@ ADDITIONAL_LICENSES_MAP = {
     "com.google.re2j:re2j": GO_LICENSE,
     "com.hubspot.jackson:jackson-datatype-protobuf": APACHE_LICENSE,
     "com.ibm.jsonata4java:JSONata4Java": APACHE_LICENSE,
+    "com.snowflake:snowpipe-streaming": APACHE_LICENSE,
     "com.squareup:protoparser": APACHE_LICENSE,
     "dev.failsafe:failsafe": APACHE_LICENSE,
     "info.picocli:picocli": APACHE_LICENSE,
