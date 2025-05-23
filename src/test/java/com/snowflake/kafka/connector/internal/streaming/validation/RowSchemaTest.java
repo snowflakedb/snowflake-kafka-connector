@@ -39,8 +39,8 @@ public class RowSchemaTest {
       columnMetadatum.setPhysicalType("SB1");
       columnMetadatum.setLogicalType("FIXED");
       columnMetadatum.setNullable(false);
-      columnMetadatum.setByteLength(14);
-      columnMetadatum.setLength(11);
+      columnMetadatum.setByteLength(14L);
+      columnMetadatum.setLength(11L);
       columnMetadatum.setScale(0);
       columnMetadata.add(columnMetadatum);
       return columnMetadatum;
@@ -58,8 +58,8 @@ public class RowSchemaTest {
       collatedColumn.setPhysicalType("LOB");
       collatedColumn.setNullable(true);
       collatedColumn.setLogicalType("TEXT");
-      collatedColumn.setByteLength(14);
-      collatedColumn.setLength(11);
+      collatedColumn.setByteLength(14L);
+      collatedColumn.setLength(11L);
       collatedColumn.setScale(0);
       collatedColumn.setCollation("en-ci");
 
@@ -79,8 +79,8 @@ public class RowSchemaTest {
       void prepareColumnMetadatumBase() {
         columnMetadatum = withNewColumnMetadataBase();
         columnMetadatum.setNullable(true);
-        columnMetadatum.setByteLength(14);
-        columnMetadatum.setLength(11);
+        columnMetadatum.setByteLength(14L);
+        columnMetadatum.setLength(11L);
         columnMetadatum.setScale(0);
         columnMetadatum.setPrecision(4);
       }
@@ -162,8 +162,8 @@ public class RowSchemaTest {
         columnMetadatum.setPhysicalType("SB1");
         columnMetadatum.setNullable(false);
         columnMetadatum.setLogicalType("INVALID");
-        columnMetadatum.setByteLength(14);
-        columnMetadatum.setLength(11);
+        columnMetadatum.setByteLength(14L);
+        columnMetadatum.setLength(11L);
         columnMetadatum.setScale(0);
 
         final RuntimeException runtimeException =
@@ -180,8 +180,8 @@ public class RowSchemaTest {
         columnMetadatum.setPhysicalType("INVALID");
         columnMetadatum.setNullable(false);
         columnMetadatum.setLogicalType("FIXED");
-        columnMetadatum.setByteLength(14);
-        columnMetadatum.setLength(11);
+        columnMetadatum.setByteLength(14L);
+        columnMetadatum.setLength(11L);
         columnMetadatum.setScale(0);
 
         final RuntimeException runtimeException =
@@ -205,8 +205,8 @@ public class RowSchemaTest {
         columnMetadatum.setPhysicalType("LOB");
         columnMetadatum.setNullable(true);
         columnMetadatum.setLogicalType("TEXT");
-        columnMetadatum.setByteLength(14);
-        columnMetadatum.setLength(11);
+        columnMetadatum.setByteLength(14L);
+        columnMetadatum.setLength(11L);
         columnMetadatum.setScale(0);
         return Collections.singletonList(columnMetadatum);
       }
@@ -295,8 +295,8 @@ public class RowSchemaTest {
         colChar.setPhysicalType("LOB");
         colChar.setNullable(true);
         colChar.setLogicalType("TEXT");
-        colChar.setByteLength(14);
-        colChar.setLength(11);
+        colChar.setByteLength(14L);
+        colChar.setLength(11L);
         colChar.setScale(0);
 
         if (isIceberg) {
@@ -737,8 +737,8 @@ public class RowSchemaTest {
         colBinary.setPhysicalType("LOB");
         colBinary.setNullable(true);
         colBinary.setLogicalType("BINARY");
-        colBinary.setLength(32);
-        colBinary.setByteLength(256);
+        colBinary.setLength(32L);
+        colBinary.setByteLength(256L);
         colBinary.setScale(0);
         if (isIceberg) {
           colBinary.setSourceIcebergDataType("\"binary\"");

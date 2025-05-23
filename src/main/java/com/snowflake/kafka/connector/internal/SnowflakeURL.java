@@ -28,13 +28,13 @@ public class SnowflakeURL implements URL {
 
   private String jdbcUrl;
 
-  private String url;
+  private final String url;
 
-  private boolean ssl;
+  private final boolean ssl;
 
-  private String account;
+  private final String account;
 
-  private int port;
+  private final int port;
 
   /**
    * There are several matching groups here. Matching groups numbers are identified as the opening
@@ -101,7 +101,7 @@ public class SnowflakeURL implements URL {
     return jdbcUrl;
   }
 
-  String getAccount() {
+  public String getAccount() {
     return account;
   }
 
@@ -122,7 +122,7 @@ public class SnowflakeURL implements URL {
     return url + ":" + port;
   }
 
-  String getUrlWithoutPort() {
+  public String getUrlWithoutPort() {
     return url;
   }
 
