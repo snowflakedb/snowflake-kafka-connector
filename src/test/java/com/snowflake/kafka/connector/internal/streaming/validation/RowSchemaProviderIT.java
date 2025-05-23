@@ -44,34 +44,37 @@ class RowSchemaProviderIT {
   @Test
   void shouldGetSchemaForSnowflakeTable() {
     // given
-    RowSchemaProvider provider = new RowSchemaProvider(jwtManager);
+    RowSchemaProvider provider =
+        new FailsafeRowSchemaProvider(new RowsetApiRowSchemaProvider(jwtManager));
+    // The best formatting I could get...
     String query =
-        "create table identifier(?) ("
-            + NUMBER_COL
-            + " number(16,1) not null,"
-            + DECIMAL_COL
-            + " decimal not null,"
-            + INT_COL
-            + " int not null,"
-            + FLOAT_COL
-            + " float,"
-            + DOUBLE_COL
-            + " double,"
-            + VARCHAR_COL
-            + " varchar(2137),"
-            + BOOLEAN_COL
-            + " boolean,"
-            + DATE_COL
-            + " date,"
-            + TIMESTAMP_COL
-            + " timestamp,"
-            + VARIANT_COL
-            + " variant,"
-            + OBJECT_COL
-            + " object,"
-            + ARRAY_COL
-            + " array"
-            + ")";
+        String.format(
+            "create table identifier(?) ("
+                + "{} number(16,1) not null,"
+                + "{} decimal not null,"
+                + "{} int not null,"
+                + "{} float,"
+                + "{} double,"
+                + "{} varchar(2137),"
+                + "{} boolean,"
+                + "{} date,"
+                + "{} timestamp,"
+                + "{} variant,"
+                + "{} object,"
+                + "{} array"
+                + ")",
+            NUMBER_COL,
+            DECIMAL_COL,
+            INT_COL,
+            FLOAT_COL,
+            DOUBLE_COL,
+            VARCHAR_COL,
+            BOOLEAN_COL,
+            DATE_COL,
+            TIMESTAMP_COL,
+            VARIANT_COL,
+            OBJECT_COL,
+            ARRAY_COL);
     TestUtils.executeQueryWithParameter(conn.getConnection(), query, tableName);
 
     // when
