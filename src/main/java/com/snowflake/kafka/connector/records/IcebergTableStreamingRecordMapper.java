@@ -16,11 +16,11 @@ import java.util.Map;
 
 class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
   private static final TypeReference<Map<String, Object>> OBJECTS_MAP_TYPE_REFERENCE =
-      new TypeReference<Map<String, Object>>() {};
+      new TypeReference<>() {};
 
   public IcebergTableStreamingRecordMapper(
-      ObjectMapper objectMapper, boolean schematizationEnabled) {
-    super(objectMapper, schematizationEnabled);
+      ObjectMapper objectMapper, boolean schematizationEnabled, boolean ssv2Enabled) {
+    super(objectMapper, schematizationEnabled, ssv2Enabled);
   }
 
   @Override
@@ -35,9 +35,33 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
       }
     }
     if (includeMetadata) {
-      streamingIngestRow.put(TABLE_COLUMN_METADATA, getMapForMetadata(row.getMetadata()));
+      Map<String, Object> mapForMetadata = getMapForMetadata(row.getMetadata());
+      if (ssv2Enabled) {
+        // ssv2 requires explicit type casting in pipe definition. For Map<> it does not ingest data
+        // when any of the values is missing.
+        // Passing POJO solves this problem and makes pipe definition easier.
+        RecordMetadata metadata =
+            new RecordMetadata(
+                getNullSafeLong(mapForMetadata, OFFSET),
+                (String) mapForMetadata.get(TOPIC),
+                (Integer) mapForMetadata.get(PARTITION),
+                (String) mapForMetadata.get(KEY),
+                (Integer) mapForMetadata.get(SCHEMA_ID),
+                (Integer) mapForMetadata.get(KEY_SCHEMA_ID),
+                getNullSafeLong(mapForMetadata, "CreateTime"),
+                getNullSafeLong(mapForMetadata, "LogAppendTime"),
+                getNullSafeLong(mapForMetadata, "SnowflakeConnectorPushTime"),
+                (Map<String, String>) mapForMetadata.get(HEADERS));
+        streamingIngestRow.put(TABLE_COLUMN_METADATA, metadata);
+      } else {
+        streamingIngestRow.put(TABLE_COLUMN_METADATA, mapForMetadata);
+      }
     }
     return streamingIngestRow;
+  }
+
+  private static Long getNullSafeLong(Map<String, Object> mapForMetadata, String key) {
+    return mapForMetadata.get(key) == null ? null : ((Number) mapForMetadata.get(key)).longValue();
   }
 
   private Map<String, Object> getMapForNoSchematization(JsonNode node) {

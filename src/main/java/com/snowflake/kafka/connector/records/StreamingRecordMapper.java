@@ -13,10 +13,13 @@ abstract class StreamingRecordMapper {
 
   protected final ObjectMapper mapper;
   protected final boolean schematizationEnabled;
+  protected final boolean ssv2Enabled;
 
-  public StreamingRecordMapper(ObjectMapper mapper, boolean schematizationEnabled) {
+  public StreamingRecordMapper(
+      ObjectMapper mapper, boolean schematizationEnabled, boolean ssv2Enabled) {
     this.mapper = mapper;
     this.schematizationEnabled = schematizationEnabled;
+    this.ssv2Enabled = ssv2Enabled;
   }
 
   abstract Map<String, Object> processSnowflakeRecord(

@@ -130,7 +130,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordService =
         RecordServiceFactory.createRecordService(
             Utils.isIcebergEnabled(connectorConfig),
-            Utils.isSchematizationEnabled(connectorConfig));
+            Utils.isSchematizationEnabled(connectorConfig),
+            false);
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
     this.closeChannelsInParallel =
