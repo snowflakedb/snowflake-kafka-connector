@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static java.util.stream.Collectors.toMap;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -18,6 +19,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.common.ColumnProperties;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
@@ -466,8 +468,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
           insertErrorMapper.mapToSchemaEvolutionItems(insertError, this.channel.getTableName());
       if (schemaEvolutionTargetItems.hasDataForSchemaEvolution()) {
         try {
+          Map<String, ColumnProperties> tableSchema = getTableSchemaFromChannel();
           schemaEvolutionService.evolveSchemaIfNeeded(
-              schemaEvolutionTargetItems, kafkaSinkRecord, channel.getTableSchema());
+              schemaEvolutionTargetItems, kafkaSinkRecord, tableSchema);
           streamingApiFallbackSupplier(
               StreamingApiFallbackInvoker.INSERT_ROWS_SCHEMA_EVOLUTION_FALLBACK);
         } catch (SnowflakeKafkaConnectorException e) {
@@ -491,6 +494,24 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             .map(InsertValidationResponse.InsertError::getException)
             .collect(Collectors.toList()),
         kafkaSinkRecord);
+  }
+
+  private Map<String, ColumnProperties> getTableSchemaFromChannel() {
+    return channel.getTableSchema().entrySet().stream()
+        .collect(toMap(Map.Entry::getKey, entry -> toInternalProperties(entry.getValue())));
+  }
+
+  private ColumnProperties toInternalProperties(
+      net.snowflake.ingest.streaming.internal.ColumnProperties sdkProps) {
+    return new ColumnProperties(
+        sdkProps.getType(),
+        sdkProps.getLogicalType(),
+        sdkProps.getPrecision(),
+        sdkProps.getScale(),
+        sdkProps.getByteLength() == null ? null : Long.valueOf(sdkProps.getByteLength()),
+        sdkProps.getLength() == null ? null : Long.valueOf(sdkProps.getLength()),
+        sdkProps.isNullable(),
+        sdkProps.getIcebergSchema());
   }
 
   private void handleError(List<Exception> insertErrors, SinkRecord kafkaSinkRecord) {
