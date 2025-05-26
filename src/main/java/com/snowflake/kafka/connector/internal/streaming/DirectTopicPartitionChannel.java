@@ -165,7 +165,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         conn,
         new StreamingRecordService(
             RecordServiceFactory.createRecordService(
-                false, Utils.isSchematizationEnabled(sfConnectorConfig)),
+                false, Utils.isSchematizationEnabled(sfConnectorConfig), false),
             kafkaRecordErrorReporter),
         telemetryService,
         false,

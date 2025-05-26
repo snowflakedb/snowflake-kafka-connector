@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
+import com.snowflake.kafka.connector.records.MetadataRecord;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -313,7 +313,7 @@ public class ComplexJsonRecord {
       while (resultSet.next()) {
         String jsonString = resultSet.getString(Utils.TABLE_COLUMN_CONTENT);
         ComplexJsonRecord record = MAPPER.readValue(jsonString, ComplexJsonRecord.class);
-        MetadataRecord metadata = MetadataRecord.fromMetadataSingleRow(resultSet);
+        MetadataRecord metadata = PrimitiveJsonRecord.fromMetadataSingleRow(resultSet);
         records.add(RecordWithMetadata.of(metadata, record));
       }
     } catch (SQLException | IOException e) {

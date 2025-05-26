@@ -1,16 +1,14 @@
-package com.snowflake.kafka.connector.streaming.iceberg.sql;
+package com.snowflake.kafka.connector.records;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.Utils;
-import java.io.IOException;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Map;
 import java.util.Objects;
-import org.assertj.core.api.Assertions;
 
+/**
+ * POJO for writing metadata with SSv2. Passing this class to sdk instead of Map makes pipe
+ * definition simpler.
+ */
 public class MetadataRecord {
   private final Long offset;
   private final String topic;
@@ -22,8 +20,6 @@ public class MetadataRecord {
   private final Long logAppendTime;
   private final Long snowflakeConnectorPushTime;
   private final Map<String, String> headers;
-
-  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @JsonCreator
   public MetadataRecord(
@@ -47,16 +43,6 @@ public class MetadataRecord {
     this.logAppendTime = logAppendTime;
     this.snowflakeConnectorPushTime = snowflakeConnectorPushTime;
     this.headers = headers;
-  }
-
-  public static MetadataRecord fromMetadataSingleRow(ResultSet resultSet) {
-    try {
-      String jsonString = resultSet.getString(Utils.TABLE_COLUMN_METADATA);
-      return MAPPER.readValue(jsonString, MetadataRecord.class);
-    } catch (SQLException | IOException e) {
-      Assertions.fail("Couldn't map ResultSet to MetadataRecord: " + e.getMessage());
-    }
-    return null;
   }
 
   // Getters for each field
@@ -158,27 +144,5 @@ public class MetadataRecord {
         + ", headers="
         + headers
         + '}';
-  }
-
-  public static class RecordWithMetadata<T> {
-    private final T record;
-    private final MetadataRecord metadata;
-
-    private RecordWithMetadata(MetadataRecord metadata, T record) {
-      this.record = record;
-      this.metadata = metadata;
-    }
-
-    public static <T> RecordWithMetadata<T> of(MetadataRecord metadata, T record) {
-      return new RecordWithMetadata<>(metadata, record);
-    }
-
-    public T getRecord() {
-      return record;
-    }
-
-    public MetadataRecord getMetadata() {
-      return metadata;
-    }
   }
 }

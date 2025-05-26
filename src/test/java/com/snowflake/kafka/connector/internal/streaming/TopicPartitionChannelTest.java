@@ -243,7 +243,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -271,7 +271,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -301,7 +301,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -336,7 +336,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -373,7 +373,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -403,7 +403,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -437,7 +437,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -458,7 +458,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -480,7 +480,7 @@ public class TopicPartitionChannelTest {
             mockKafkaRecordErrorReporter,
             mockSinkTaskContext,
             anotherMockForParamDisabled,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             mockTelemetryService,
             false,
             null);
@@ -509,7 +509,7 @@ public class TopicPartitionChannelTest {
               mockKafkaRecordErrorReporter,
               mockSinkTaskContext,
               mockSnowflakeConnectionService,
-              RecordServiceFactory.createRecordService(false, false),
+              RecordServiceFactory.createRecordService(false, false, false),
               mockTelemetryService,
               false,
               null);
@@ -813,7 +813,7 @@ public class TopicPartitionChannelTest {
               kafkaRecordErrorReporter,
               mockSinkTaskContext,
               conn,
-              RecordServiceFactory.createRecordService(false, false),
+              RecordServiceFactory.createRecordService(false, false, false),
               mockTelemetryService,
               false,
               null);
@@ -865,7 +865,7 @@ public class TopicPartitionChannelTest {
             this.mockKafkaRecordErrorReporter,
             this.mockSinkTaskContext,
             this.mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             this.mockTelemetryService,
             true,
             metricsJmxReporter);
@@ -937,7 +937,7 @@ public class TopicPartitionChannelTest {
             this.mockKafkaRecordErrorReporter,
             this.mockSinkTaskContext,
             this.mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             this.mockTelemetryService,
             true,
             null);
@@ -1060,7 +1060,7 @@ public class TopicPartitionChannelTest {
             this.mockKafkaRecordErrorReporter,
             this.mockSinkTaskContext,
             this.mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             this.mockTelemetryService,
             true,
             null);
@@ -1111,7 +1111,7 @@ public class TopicPartitionChannelTest {
             this.mockKafkaRecordErrorReporter,
             this.mockSinkTaskContext,
             this.mockSnowflakeConnectionService,
-            RecordServiceFactory.createRecordService(false, false),
+            RecordServiceFactory.createRecordService(false, false, false),
             this.mockTelemetryService,
             true,
             null);

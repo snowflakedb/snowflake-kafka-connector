@@ -87,6 +87,42 @@ class IcebergTableStreamingRecordMapperTest {
               "header3",
               "3.5"));
 
+  private static final MetadataRecord emptyRecordMetadata =
+      new MetadataRecord(null, null, null, null, null, null, null, null, null, new HashMap<>());
+  private static final MetadataRecord nullHeaderRecordMetadata =
+      new MetadataRecord(
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          (Map<String, String>) mapWithNullableValuesOf("key", null));
+  private static final MetadataRecord nestedHeaderRecordMetadata =
+      new MetadataRecord(
+          null, null, null, null, null, null, null, null, null, Map.of("key", "{\"key2\":null}"));
+  private static final MetadataRecord fullRecordMetadata =
+      new MetadataRecord(
+          10L,
+          "topic",
+          0,
+          "key",
+          1,
+          2,
+          3L,
+          4L,
+          5L,
+          Map.of(
+              "header3",
+              "3.5",
+              "header2",
+              "testheaderstring",
+              "objectAsJsonStringHeader",
+              "{\"key1\":\"value1\",\"key2\":\"value2\"}"));
+
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareSchematizationData")
   void shouldMapRecord_schematizationEnabled(
@@ -94,7 +130,7 @@ class IcebergTableStreamingRecordMapperTest {
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
+        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then
@@ -103,19 +139,27 @@ class IcebergTableStreamingRecordMapperTest {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareMetadataData")
-  void shouldMapMetadata(String description, SnowflakeTableRow row, Map<String, Object> expected)
+  void shouldMapMetadata(
+      String description,
+      SnowflakeTableRow row,
+      Map<String, Object> expected,
+      MetadataRecord ssv2Expected)
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
     IcebergTableStreamingRecordMapper mapperSchematization =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
+        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
+    IcebergTableStreamingRecordMapper ssv2Mapper =
+        new IcebergTableStreamingRecordMapper(objectMapper, false, true);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
     Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, true);
+    Map<String, Object> resultSSv2 = ssv2Mapper.processSnowflakeRecord(row, true);
 
     // Then
     assertThat(result.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
     assertThat(resultSchematized.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
+    assertThat(resultSSv2.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(ssv2Expected);
   }
 
   @Test
@@ -125,9 +169,9 @@ class IcebergTableStreamingRecordMapperTest {
 
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
     IcebergTableStreamingRecordMapper mapperSchematization =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
+        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, false);
     Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, false);
 
@@ -143,7 +187,7 @@ class IcebergTableStreamingRecordMapperTest {
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then
@@ -256,29 +300,37 @@ class IcebergTableStreamingRecordMapperTest {
 
   private static Stream<Arguments> prepareMetadataData() throws JsonProcessingException {
     return Stream.of(
-        Arguments.of("Full metadata", buildRow("{}"), fullMetadataJsonAsMap),
+        Arguments.of("Full metadata", buildRow("{}"), fullMetadataJsonAsMap, fullRecordMetadata),
         Arguments.of(
-            "Empty metadata", buildRow("{}", "{}"), ImmutableMap.of("headers", ImmutableMap.of())),
+            "Empty metadata",
+            buildRow("{}", "{}"),
+            ImmutableMap.of("headers", ImmutableMap.of()),
+            emptyRecordMetadata),
         Arguments.of(
             "Metadata with null headers",
             buildRow("{}", "{\"headers\": null}"),
-            ImmutableMap.of("headers", ImmutableMap.of())),
+            ImmutableMap.of("headers", ImmutableMap.of()),
+            emptyRecordMetadata),
         Arguments.of(
             "Metadata with empty headers",
             buildRow("{}", "{\"headers\": {}}"),
-            ImmutableMap.of("headers", ImmutableMap.of())),
+            ImmutableMap.of("headers", ImmutableMap.of()),
+            emptyRecordMetadata),
         Arguments.of(
             "Metadata with headers with null keys",
             buildRow("{}", "{\"headers\": {\"key\": null}}"),
-            ImmutableMap.of("headers", mapWithNullableValuesOf("key", null))),
+            ImmutableMap.of("headers", mapWithNullableValuesOf("key", null)),
+            nullHeaderRecordMetadata),
         Arguments.of(
             "Metadata with headers with nested null keys",
             buildRow("{}", "{\"headers\": {\"key\": {\"key2\": null }}}"),
-            ImmutableMap.of("headers", ImmutableMap.of("key", "{\"key2\":null}"))),
+            ImmutableMap.of("headers", ImmutableMap.of("key", "{\"key2\":null}")),
+            nestedHeaderRecordMetadata),
         Arguments.of(
             "Metadata with null field value",
             buildRow("{}", "{\"offset\": null}"),
-            mapWithNullableValuesOf("offset", null, "headers", ImmutableMap.of())));
+            mapWithNullableValuesOf("offset", null, "headers", ImmutableMap.of()),
+            emptyRecordMetadata));
   }
 
   private static Stream<Arguments> prepareNoSchematizationData() throws JsonProcessingException {
