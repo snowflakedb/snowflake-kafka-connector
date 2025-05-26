@@ -50,18 +50,18 @@ class RowSchemaProviderIT {
     String query =
         String.format(
             "create table identifier(?) ("
-                + "{} number(16,1) not null,"
-                + "{} decimal not null,"
-                + "{} int not null,"
-                + "{} float,"
-                + "{} double,"
-                + "{} varchar(2137),"
-                + "{} boolean,"
-                + "{} date,"
-                + "{} timestamp,"
-                + "{} variant,"
-                + "{} object,"
-                + "{} array"
+                + "%s number(16,1) not null,"
+                + "%s decimal not null,"
+                + "%s int not null,"
+                + "%s float,"
+                + "%s double,"
+                + "%s varchar(2137),"
+                + "%s boolean,"
+                + "%s date,"
+                + "%s timestamp,"
+                + "%s variant,"
+                + "%s object,"
+                + "%s array"
                 + ")",
             NUMBER_COL,
             DECIMAL_COL,
