@@ -40,8 +40,8 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
         // ssv2 requires explicit type casting in pipe definition. For Map<> it does not ingest data
         // when any of the values is missing.
         // Passing POJO solves this problem and makes pipe definition easier.
-        RecordMetadata metadata =
-            new RecordMetadata(
+        MetadataRecord metadata =
+            new MetadataRecord(
                 getNullSafeLong(mapForMetadata, OFFSET),
                 (String) mapForMetadata.get(TOPIC),
                 (Integer) mapForMetadata.get(PARTITION),

@@ -87,10 +87,10 @@ class IcebergTableStreamingRecordMapperTest {
               "header3",
               "3.5"));
 
-  private static final RecordMetadata emptyRecordMetadata =
-      new RecordMetadata(null, null, null, null, null, null, null, null, null, new HashMap<>());
-  private static final RecordMetadata nullHeaderRecordMetadata =
-      new RecordMetadata(
+  private static final MetadataRecord emptyRecordMetadata =
+      new MetadataRecord(null, null, null, null, null, null, null, null, null, new HashMap<>());
+  private static final MetadataRecord nullHeaderRecordMetadata =
+      new MetadataRecord(
           null,
           null,
           null,
@@ -101,11 +101,11 @@ class IcebergTableStreamingRecordMapperTest {
           null,
           null,
           (Map<String, String>) mapWithNullableValuesOf("key", null));
-  private static final RecordMetadata nestedHeaderRecordMetadata =
-      new RecordMetadata(
+  private static final MetadataRecord nestedHeaderRecordMetadata =
+      new MetadataRecord(
           null, null, null, null, null, null, null, null, null, Map.of("key", "{\"key2\":null}"));
-  private static final RecordMetadata fullRecordMetadata =
-      new RecordMetadata(
+  private static final MetadataRecord fullRecordMetadata =
+      new MetadataRecord(
           10L,
           "topic",
           0,
@@ -143,7 +143,7 @@ class IcebergTableStreamingRecordMapperTest {
       String description,
       SnowflakeTableRow row,
       Map<String, Object> expected,
-      RecordMetadata ssv2Expected)
+      MetadataRecord ssv2Expected)
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
