@@ -45,7 +45,7 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
                 getNullSafeLong(mapForMetadata, OFFSET),
                 (String) mapForMetadata.get(TOPIC),
                 (Integer) mapForMetadata.get(PARTITION),
-                (String) mapForMetadata.get(KEY),
+                getNullSafeString(mapForMetadata, KEY),
                 (Integer) mapForMetadata.get(SCHEMA_ID),
                 (Integer) mapForMetadata.get(KEY_SCHEMA_ID),
                 getNullSafeLong(mapForMetadata, "CreateTime"),
@@ -62,6 +62,11 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
 
   private static Long getNullSafeLong(Map<String, Object> mapForMetadata, String key) {
     return mapForMetadata.get(key) == null ? null : ((Number) mapForMetadata.get(key)).longValue();
+  }
+
+  private static String getNullSafeString(Map<String, Object> mapForMetadata, String key) {
+    Object object = mapForMetadata.get(key);
+    return object == null ? null : object.toString();
   }
 
   private Map<String, Object> getMapForNoSchematization(JsonNode node) {
