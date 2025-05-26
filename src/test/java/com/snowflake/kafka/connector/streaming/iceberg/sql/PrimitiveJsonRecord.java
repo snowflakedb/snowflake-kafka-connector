@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
+import com.snowflake.kafka.connector.records.MetadataRecord;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -133,7 +133,7 @@ public class PrimitiveJsonRecord {
                 resultSet.getDouble("RATING_FLOAT32"),
                 resultSet.getDouble("RATING_FLOAT64"),
                 resultSet.getBoolean("APPROVAL"));
-        MetadataRecord metadata = MetadataRecord.fromMetadataSingleRow(resultSet);
+        MetadataRecord metadata = fromMetadataSingleRow(resultSet);
         records.add(RecordWithMetadata.of(metadata, record));
       }
     } catch (SQLException e) {
@@ -150,13 +150,23 @@ public class PrimitiveJsonRecord {
       while (resultSet.next()) {
         String jsonString = resultSet.getString(Utils.TABLE_COLUMN_CONTENT);
         PrimitiveJsonRecord record = MAPPER.readValue(jsonString, PrimitiveJsonRecord.class);
-        MetadataRecord metadata = MetadataRecord.fromMetadataSingleRow(resultSet);
+        MetadataRecord metadata = fromMetadataSingleRow(resultSet);
         records.add(RecordWithMetadata.of(metadata, record));
       }
     } catch (SQLException | IOException e) {
       Assertions.fail("Couldn't map ResultSet to PrimitiveJsonRecord: " + e.getMessage());
     }
     return records;
+  }
+
+  public static MetadataRecord fromMetadataSingleRow(ResultSet resultSet) {
+    try {
+      String jsonString = resultSet.getString(Utils.TABLE_COLUMN_METADATA);
+      return MAPPER.readValue(jsonString, MetadataRecord.class);
+    } catch (SQLException | IOException e) {
+      Assertions.fail("Couldn't map ResultSet to MetadataRecord: " + e.getMessage());
+    }
+    return null;
   }
 
   public Long getIdInt8() {

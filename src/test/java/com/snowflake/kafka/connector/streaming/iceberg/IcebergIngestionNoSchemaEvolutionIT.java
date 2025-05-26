@@ -7,9 +7,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.records.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
-import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
-import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord.RecordWithMetadata;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
