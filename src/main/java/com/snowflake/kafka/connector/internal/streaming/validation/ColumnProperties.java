@@ -4,6 +4,8 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
+import java.util.Objects;
+
 /**
  * Class that encapsulates column properties. These are the same properties showed in the output of
  * <a href="https://docs.snowflake.com/en/sql-reference/sql/show-columns">SHOW COLUMNS</a>. Note
@@ -18,9 +20,9 @@ public class ColumnProperties {
 
   private final Integer scale;
 
-  private final Integer byteLength;
+  private final Long byteLength;
 
-  private final Integer length;
+  private final Long length;
 
   private final boolean nullable;
 
@@ -37,16 +39,23 @@ public class ColumnProperties {
     this.icebergColumnSchema = columnMetadata.getSourceIcebergDataType();
   }
 
-  public ColumnProperties(
-      net.snowflake.ingest.streaming.internal.ColumnProperties ingestSdkColumnProperties) {
-    this.type = ingestSdkColumnProperties.getType();
-    this.logicalType = ingestSdkColumnProperties.getLogicalType();
-    this.precision = ingestSdkColumnProperties.getPrecision();
-    this.scale = ingestSdkColumnProperties.getScale();
-    this.byteLength = ingestSdkColumnProperties.getByteLength();
-    this.length = ingestSdkColumnProperties.getLength();
-    this.nullable = ingestSdkColumnProperties.isNullable();
-    this.icebergColumnSchema = ingestSdkColumnProperties.getIcebergSchema();
+  ColumnProperties(
+      String type,
+      String logicalType,
+      Integer precision,
+      Integer scale,
+      Long byteLength,
+      Long length,
+      boolean nullable,
+      String icebergColumnSchema) {
+    this.type = type;
+    this.logicalType = logicalType;
+    this.precision = precision;
+    this.scale = scale;
+    this.byteLength = byteLength;
+    this.length = length;
+    this.nullable = nullable;
+    this.icebergColumnSchema = icebergColumnSchema;
   }
 
   public String getType() {
@@ -65,11 +74,11 @@ public class ColumnProperties {
     return scale;
   }
 
-  public Integer getByteLength() {
+  public Long getByteLength() {
     return byteLength;
   }
 
-  public Integer getLength() {
+  public Long getLength() {
     return length;
   }
 
@@ -85,5 +94,26 @@ public class ColumnProperties {
    */
   public String getIcebergSchema() {
     return icebergColumnSchema;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ColumnProperties that = (ColumnProperties) o;
+    return nullable == that.nullable
+        && Objects.equals(type, that.type)
+        && Objects.equals(logicalType, that.logicalType)
+        && Objects.equals(precision, that.precision)
+        && Objects.equals(scale, that.scale)
+        && Objects.equals(byteLength, that.byteLength)
+        && Objects.equals(length, that.length)
+        && Objects.equals(icebergColumnSchema, that.icebergColumnSchema);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        type, logicalType, precision, scale, byteLength, length, nullable, icebergColumnSchema);
   }
 }

@@ -5,14 +5,12 @@
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 /** Column metadata for each column in a Snowflake table */
 public class ColumnMetadata {
-  private static ObjectMapper objectMapper = new ObjectMapper();
 
   private String name;
   private String internalName;
@@ -21,12 +19,12 @@ public class ColumnMetadata {
   private String physicalType;
   private Integer precision;
   private Integer scale;
-  private Integer byteLength;
-  private Integer length;
+  private Long byteLength;
+  private Long length;
   private boolean nullable;
   private String collation;
   private ObjectField[] objectFields;
-  private Boolean fixed; // what is this?
+  private Boolean fixed;
 
   /**
    * The Json serialization of Iceberg data type of the column, see <a
@@ -106,20 +104,20 @@ public class ColumnMetadata {
   }
 
   @JsonProperty("byteLength")
-  public void setByteLength(Integer byteLength) {
+  public void setByteLength(Long byteLength) {
     this.byteLength = byteLength;
   }
 
-  Integer getByteLength() {
+  Long getByteLength() {
     return this.byteLength;
   }
 
   @JsonProperty("length")
-  public void setLength(Integer length) {
+  public void setLength(Long length) {
     this.length = length;
   }
 
-  Integer getLength() {
+  Long getLength() {
     return this.length;
   }
 
