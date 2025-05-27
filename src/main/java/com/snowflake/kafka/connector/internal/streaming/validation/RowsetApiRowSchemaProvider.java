@@ -5,7 +5,8 @@ import static com.snowflake.kafka.connector.Utils.SF_URL;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.io.IOException;
-import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -65,6 +66,7 @@ public class RowsetApiRowSchemaProvider implements RowSchemaProvider {
     metadata.setCollation(col.getCollation());
     metadata.setType(dataType.getType());
     metadata.setLogicalType(dataType.getType());
+    metadata.setSourceIcebergDataType(col.getSourceIcebergDataType());
     if (dataType.getByteLength() != null) {
       metadata.setByteLength(dataType.getByteLength());
     }
@@ -86,11 +88,11 @@ public class RowsetApiRowSchemaProvider implements RowSchemaProvider {
             + connectorConfig.get(SF_URL)
             + String.format(
                 TABLE_COLUMNS_ENDPOINT,
-                connectorConfig.get(Utils.SF_DATABASE),
-                connectorConfig.get(Utils.SF_SCHEMA),
-                tableName);
-    URI uri = URI.create(destinationUrl);
-    HttpPost tableInfoRequest = new HttpPost(uri);
+                URLEncoder.encode(connectorConfig.get(Utils.SF_DATABASE), StandardCharsets.UTF_8),
+                URLEncoder.encode(connectorConfig.get(Utils.SF_SCHEMA), StandardCharsets.UTF_8),
+                URLEncoder.encode(tableName, StandardCharsets.UTF_8));
+
+    HttpPost tableInfoRequest = new HttpPost(destinationUrl);
     tableInfoRequest.addHeader("Authorization", "Bearer " + jwtManager.getToken());
     tableInfoRequest.addHeader("X-Snowflake-Authorization-Token-Type", TOKEN_TYPE);
     tableInfoRequest.addHeader("Content-Type", "application/json");

@@ -98,6 +98,9 @@ public class RowsetApiColumnsEndpointResponse {
     private final Integer precision;
     private final Integer scale;
     private final List<Field> fields;
+    private final DataType keyType;
+    private final DataType valueType;
+    private final DataType elementType;
 
     DataType(
         @JsonProperty("type") String type,
@@ -107,7 +110,10 @@ public class RowsetApiColumnsEndpointResponse {
         @JsonProperty("fixed") Boolean fixed,
         @JsonProperty("precision") Integer precision,
         @JsonProperty("scale") Integer scale,
-        @JsonProperty("fields") List<Field> fields) {
+        @JsonProperty("fields") List<Field> fields,
+        @JsonProperty("keyType") DataType keyType,
+        @JsonProperty("valueType") DataType valueType,
+        @JsonProperty("elementType") DataType elementType) {
       this.type = type;
       this.nullable = nullable;
       this.length = length;
@@ -116,6 +122,9 @@ public class RowsetApiColumnsEndpointResponse {
       this.precision = precision;
       this.scale = scale;
       this.fields = fields;
+      this.keyType = keyType;
+      this.valueType = valueType;
+      this.elementType = elementType;
     }
 
     public String getType() {
@@ -148,6 +157,18 @@ public class RowsetApiColumnsEndpointResponse {
 
     public List<Field> getFields() {
       return fields;
+    }
+
+    public DataType getKeyType() {
+      return keyType;
+    }
+
+    public DataType getValueType() {
+      return valueType;
+    }
+
+    public DataType getElementType() {
+      return elementType;
     }
   }
 
