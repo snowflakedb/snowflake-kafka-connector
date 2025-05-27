@@ -678,7 +678,10 @@
                                 <include>**/*IT.java</include>
                             </includes>
                             <excludes>
+                                <!-- External volume configured only on AWS env -->
                                 <exclude>**/*Iceberg*IT.java</exclude>
+                                <!-- Rowset API is disabled on Azure and GCP -->
+                                <exclude>**/*RowSchemaProvider*IT.java</exclude>
                             </excludes>
                             <skipTests>${skipIntegrationTests}</skipTests>
                         </configuration>

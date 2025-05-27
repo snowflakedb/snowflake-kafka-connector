@@ -163,6 +163,14 @@ public enum SnowflakeErrors {
       "1005",
       "Task failed due to authorization error",
       "Set `enable.task.fail.on.authorization.errors=false` to avoid this behavior"),
+  ERROR_1006(
+      "1006",
+      "Error while obtaining public key from the private key",
+      "Check private key validity"),
+  ERROR_1007(
+      "1007",
+      "Fetching table schema from Snowflake failed",
+      "It is either a connection error or Snowflake instance is not responding"),
   // SQL issues 2---
   ERROR_2001(
       "2001", "Failed to prepare SQL statement", "SQL Exception, reported by Snowflake JDBC"),
