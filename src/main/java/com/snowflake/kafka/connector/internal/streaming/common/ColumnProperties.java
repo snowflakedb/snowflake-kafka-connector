@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Snowflake Computing Inc. All rights reserved.
+ * Copyright (c) 2025 Snowflake Computing Inc. All rights reserved.
  */
 
 package com.snowflake.kafka.connector.internal.streaming.common;
@@ -38,6 +38,18 @@ public class ColumnProperties {
     this.length = columnMetadata.getLength();
     this.nullable = columnMetadata.getNullable();
     this.icebergColumnSchema = columnMetadata.getSourceIcebergDataType();
+  }
+
+  public ColumnProperties(net.snowflake.ingest.streaming.internal.ColumnProperties sdkProps) {
+    this(
+        sdkProps.getType(),
+        sdkProps.getLogicalType(),
+        sdkProps.getPrecision(),
+        sdkProps.getScale(),
+        sdkProps.getByteLength() == null ? null : Long.valueOf(sdkProps.getByteLength()),
+        sdkProps.getLength() == null ? null : Long.valueOf(sdkProps.getLength()),
+        sdkProps.isNullable(),
+        sdkProps.getIcebergSchema());
   }
 
   public ColumnProperties(
@@ -110,6 +122,31 @@ public class ColumnProperties {
         && Objects.equals(byteLength, that.byteLength)
         && Objects.equals(length, that.length)
         && Objects.equals(icebergColumnSchema, that.icebergColumnSchema);
+  }
+
+  @Override
+  public String toString() {
+    return "ColumnProperties{"
+        + "type='"
+        + type
+        + '\''
+        + ", logicalType='"
+        + logicalType
+        + '\''
+        + ", precision="
+        + precision
+        + ", scale="
+        + scale
+        + ", byteLength="
+        + byteLength
+        + ", length="
+        + length
+        + ", nullable="
+        + nullable
+        + ", icebergColumnSchema='"
+        + icebergColumnSchema
+        + '\''
+        + '}';
   }
 
   @Override

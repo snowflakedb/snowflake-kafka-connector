@@ -498,20 +498,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   private Map<String, ColumnProperties> getTableSchemaFromChannel() {
     return channel.getTableSchema().entrySet().stream()
-        .collect(toMap(Map.Entry::getKey, entry -> toInternalProperties(entry.getValue())));
-  }
-
-  private ColumnProperties toInternalProperties(
-      net.snowflake.ingest.streaming.internal.ColumnProperties sdkProps) {
-    return new ColumnProperties(
-        sdkProps.getType(),
-        sdkProps.getLogicalType(),
-        sdkProps.getPrecision(),
-        sdkProps.getScale(),
-        sdkProps.getByteLength() == null ? null : Long.valueOf(sdkProps.getByteLength()),
-        sdkProps.getLength() == null ? null : Long.valueOf(sdkProps.getLength()),
-        sdkProps.isNullable(),
-        sdkProps.getIcebergSchema());
+        .collect(toMap(Map.Entry::getKey, entry -> new ColumnProperties(entry.getValue())));
   }
 
   private void handleError(List<Exception> insertErrors, SinkRecord kafkaSinkRecord) {
