@@ -71,7 +71,7 @@
         <jackson.version>2.18.2</jackson.version>
         <commons-compress.version>1.27.1</commons-compress.version>
         <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
-        <snowflake-jdbc.version>3.23.2</snowflake-jdbc.version>
+        <snowflake-jdbc.version>3.24.2</snowflake-jdbc.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
     </properties>
 
