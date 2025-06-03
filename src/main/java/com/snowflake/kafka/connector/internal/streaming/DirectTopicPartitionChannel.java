@@ -98,7 +98,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    */
   private final SinkTaskContext sinkTaskContext;
 
-  // Whether schema evolution could be done on this channel
+  // Whether schema evolution will be done on this channel
   private final boolean enableSchemaEvolution;
 
   // Reference to the Snowflake connection service
@@ -165,7 +165,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * @param tableName table to ingest in snowflake
    * @param enableSchemaEvolution if the schema evolution should be performed on the table
    * @param sfConnectorConfig configuration set for snowflake connector
-   * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
    * @param conn the snowflake connection service
    * @param streamingRecordService record service for processing incoming offsets from Kafka

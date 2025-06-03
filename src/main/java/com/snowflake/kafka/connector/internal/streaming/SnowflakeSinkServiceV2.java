@@ -20,10 +20,9 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.streaming.v2.DefaultPipeDefinitionProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.DefaultStreamingIngestClientV2Provider;
-import com.snowflake.kafka.connector.internal.streaming.v2.IcebergPipeDefinitionProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeDefinitionProvider;
-import com.snowflake.kafka.connector.internal.streaming.v2.SnowflakePipeDefinitionProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.internal.streaming.validation.FailsafeRowSchemaProvider;
@@ -252,17 +251,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     StreamingRecordService streamingRecordService =
         new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
 
-      StreamingErrorHandler streamingErrorHandler =
-              new StreamingErrorHandler(
-                      connectorConfig, kafkaRecordErrorReporter, this.conn.getTelemetryClient());
-
-    PipeDefinitionProvider pipeDefinitionProvider =
-        Utils.isIcebergEnabled(connectorConfig)
-            ? new IcebergPipeDefinitionProvider()
-            : new SnowflakePipeDefinitionProvider();
+    PipeDefinitionProvider pipeDefinitionProvider = new DefaultPipeDefinitionProvider();
 
     boolean schemaEvolutionEnabled =
         Utils.isSchematizationEnabled(connectorConfig) && hasSchemaEvolutionPermission;
+
+    StreamingErrorHandler streamingErrorHandler =
+        new StreamingErrorHandler(
+            connectorConfig, kafkaRecordErrorReporter, this.conn.getTelemetryClient());
 
     if (Utils.isSnowpipeStreamingV2Enabled(connectorConfig)) {
       RowSchemaProvider rowSchemaProvider =
@@ -282,24 +278,30 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           this.metricsJmxReporter,
           streamingIngestClientV2Provider,
           pipeDefinitionProvider,
-          rowSchemaProvider);
+          rowSchemaProvider,
+          () ->
+              partitionsToChannel.forEach(
+                  (key, value) -> value.waitForLastProcessedRecordCommitted()),
+          () ->
+              partitionsToChannel.forEach((key, value) -> value.reopenChannelAfterSchemaEvolved()),
+          streamingErrorHandler);
     } else {
-        return new DirectTopicPartitionChannel(
-                this.streamingIngestClient,
-                topicPartition,
-                partitionChannelKey, // Streaming channel name
-                tableName,
-                hasSchemaEvolutionPermission,
-                this.connectorConfig,
-                this.sinkTaskContext,
-                this.conn,
-                streamingRecordService,
-                this.conn.getTelemetryClient(),
-                this.enableCustomJMXMonitoring,
-                this.metricsJmxReporter,
-                this.schemaEvolutionService,
-                new InsertErrorMapper(),
-                streamingErrorHandler);
+      return new DirectTopicPartitionChannel(
+          this.streamingIngestClient,
+          topicPartition,
+          partitionChannelKey, // Streaming channel name
+          tableName,
+          schemaEvolutionEnabled,
+          this.connectorConfig,
+          this.sinkTaskContext,
+          this.conn,
+          streamingRecordService,
+          this.conn.getTelemetryClient(),
+          this.enableCustomJMXMonitoring,
+          this.metricsJmxReporter,
+          this.schemaEvolutionService,
+          new InsertErrorMapper(),
+          streamingErrorHandler);
     }
   }
 
@@ -493,6 +495,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void stop() {
+    if (Utils.isSnowpipeStreamingV2Enabled(connectorConfig)) {
+      stopForSSv2();
+    } else {
+      stopForSSv1();
+    }
+  }
+
+  private void stopForSSv1() {
     final boolean isOptimizationEnabled =
         Boolean.parseBoolean(
             connectorConfig.getOrDefault(
@@ -512,6 +522,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             e.getMessage());
       }
     }
+  }
+
+  private void stopForSSv2() {
+    streamingIngestClientV2Provider.closeAll();
   }
 
   /* Undefined */

@@ -9,4 +9,8 @@ public interface StreamingIngestClientV2Provider {
       Map<String, String> connectorConfig,
       String pipeName,
       StreamingClientProperties streamingClientProperties);
+
+  void close(String pipeName);
+
+  void closeAll();
 }

@@ -5,7 +5,9 @@ import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -15,7 +17,41 @@ public class DefaultStreamingIngestClientV2Provider implements StreamingIngestCl
   private static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
   private static final AtomicInteger createdClientId = new AtomicInteger(0);
 
+  private final Map<String, SnowflakeStreamingIngestClient> pipeToClientMap = new HashMap<>();
+
+  @Override
   public SnowflakeStreamingIngestClient getClient(
+      Map<String, String> connectorConfig,
+      String pipeName,
+      StreamingClientProperties streamingClientProperties) {
+
+    Optional<SnowflakeStreamingIngestClient> existingClient =
+        Optional.ofNullable(pipeToClientMap.get(pipeName)).filter(client -> !client.isClosed());
+
+    if (existingClient.isPresent()) {
+      return existingClient.get();
+    } else {
+      SnowflakeStreamingIngestClient newClient =
+          createClient(connectorConfig, pipeName, streamingClientProperties);
+      pipeToClientMap.put(pipeName, newClient);
+      return newClient;
+    }
+  }
+
+  @Override
+  public void close(String pipeName) {
+    Optional.ofNullable(pipeToClientMap.get(pipeName))
+        .ifPresent(SnowflakeStreamingIngestClient::close);
+    pipeToClientMap.remove(pipeName);
+  }
+
+  @Override
+  public void closeAll() {
+    pipeToClientMap.forEach((k, v) -> v.close());
+    pipeToClientMap.clear();
+  }
+
+  private SnowflakeStreamingIngestClient createClient(
       Map<String, String> connectorConfig,
       String pipeName,
       StreamingClientProperties streamingClientProperties) {

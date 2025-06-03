@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -172,7 +174,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     // setup a table with a single field
     conn.createTableWithOnlyMetadataColumn(table);
-    createNonNullableColumn(table, "id_int8");
+    createNonNullableColumn(table, "id_int8", "int");
 
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
@@ -211,7 +213,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     // setup a table with a single field
     conn.createTableWithOnlyMetadataColumn(table);
-    createNonNullableColumn(table, "id_int8");
+    createNonNullableColumn(table, "id_int8", "int");
 
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
@@ -317,8 +319,40 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         .until(
             () ->
                 service.getOffset(topicPartition) == 2
-                    && service.getOffset(topicPartition) == 2
+                    && service.getOffset(topicPartition2) == 2
                     && TestUtils.getNumberOfRows(table) == 4);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void shouldSendRecordToDlqIfSchemaNotMatched(boolean ssv2Enabled) {
+    // given
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+    config.put(ERRORS_TOLERANCE_CONFIG, "all");
+    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
+
+    conn.createTableWithOnlyMetadataColumn(table);
+    createNonNullableColumn(table, "\"ID_INT8\"", "boolean");
+
+    Schema schema = SchemaBuilder.struct().field("id_int8", Schema.INT8_SCHEMA).build();
+    Struct struct = new Struct(schema).put("id_int8", (byte) 2);
+    // 2 cannot be casted to boolean
+    SinkRecord invalidBooleanRecord = getSinkRecord(partition, 0, struct);
+
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
+            .build();
+    service.startPartition(table, topicPartition);
+
+    // when
+    service.insert(invalidBooleanRecord);
+
+    // then
+    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
   private SinkRecord createComplexTestRecord(int partition, long offset) {
@@ -379,8 +413,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     jsonConverter.configure(config, false);
     byte[] converted = jsonConverter.fromConnectData(topic, original.schema(), original);
     conn.createTableWithOnlyMetadataColumn(table);
-    createNonNullableColumn(table, "id_int8_non_nullable_missing_value");
-    createNonNullableColumn(table, "id_int8_non_nullable_null_value");
+    createNonNullableColumn(table, "id_int8_non_nullable_missing_value", "int");
+    createNonNullableColumn(table, "id_int8_non_nullable_null_value", "int");
 
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
 
@@ -428,8 +462,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         offset);
   }
 
-  private void createNonNullableColumn(String tableName, String colName) {
-    String createTableQuery = "alter table identifier(?) add " + colName + " int not null";
+  private void createNonNullableColumn(String tableName, String colName, String colDataType) {
+    String createTableQuery =
+        "alter table identifier(?) add " + colName + " " + colDataType + " not null";
 
     try {
       PreparedStatement stmt = conn.getConnection().prepareStatement(createTableQuery);
