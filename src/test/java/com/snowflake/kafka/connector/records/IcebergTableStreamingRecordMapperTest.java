@@ -4,7 +4,6 @@ import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonR
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Utils;
@@ -17,8 +16,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class IcebergTableStreamingRecordMapperTest {
-  private static final ObjectMapper objectMapper = new ObjectMapper();
+class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
 
   private static final ImmutableMap<String, Object> primitiveJsonAsMap =
       ImmutableMap.of(
@@ -38,25 +36,6 @@ class IcebergTableStreamingRecordMapperTest {
           0.25,
           "approval",
           true);
-
-  private static final String fullMetadataJsonExample =
-      "{"
-          + "\"offset\": 10,"
-          + "\"topic\": \"topic\","
-          + "\"partition\": 0,"
-          + "\"key\": \"key\","
-          + "\"schema_id\": 1,"
-          + "\"key_schema_id\": 2,"
-          + "\"CreateTime\": 3,"
-          + "\"LogAppendTime\": 4,"
-          + "\"SnowflakeConnectorPushTime\": 5,"
-          + "\"headers\": {\"objectAsJsonStringHeader\": {"
-          + "\"key1\": \"value1\","
-          + "\"key2\": \"value2\""
-          + "},"
-          + "\"header2\": \"testheaderstring\","
-          + "\"header3\": 3.5}"
-          + "}";
 
   private static final Map<String, Object> fullMetadataJsonAsMap =
       ImmutableMap.of(
@@ -104,24 +83,6 @@ class IcebergTableStreamingRecordMapperTest {
   private static final MetadataRecord nestedHeaderRecordMetadata =
       new MetadataRecord(
           null, null, null, null, null, null, null, null, null, Map.of("key", "{\"key2\":null}"));
-  private static final MetadataRecord fullRecordMetadata =
-      new MetadataRecord(
-          10L,
-          "topic",
-          0,
-          "key",
-          1,
-          2,
-          3L,
-          4L,
-          5L,
-          Map.of(
-              "header3",
-              "3.5",
-              "header2",
-              "testheaderstring",
-              "objectAsJsonStringHeader",
-              "{\"key1\":\"value1\",\"key2\":\"value2\"}"));
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareSchematizationData")
@@ -439,16 +400,5 @@ class IcebergTableStreamingRecordMapperTest {
     map.put(key, value);
     map.put(key2, value2);
     return map;
-  }
-
-  private static SnowflakeTableRow buildRow(String content) throws JsonProcessingException {
-    return buildRow(content, fullMetadataJsonExample);
-  }
-
-  private static SnowflakeTableRow buildRow(String content, String metadata)
-      throws JsonProcessingException {
-    return new SnowflakeTableRow(
-        new SnowflakeRecordContent(objectMapper.readTree(content)),
-        objectMapper.readTree(metadata));
   }
 }
