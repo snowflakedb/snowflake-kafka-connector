@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 
-public class StreamingRecordMapperTest {
+abstract class StreamingRecordMapperTest {
 
   protected static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -26,9 +26,6 @@ public class StreamingRecordMapperTest {
           + "\"header2\": \"testheaderstring\","
           + "\"header3\": 3.5}"
           + "}";
-
-  protected static final String fullMetadataJsonExampleWithoutWhitespace =
-      fullMetadataJsonExample.replaceAll("\\s+", "");
 
   protected static final String fullMetadataWithoutWhitespace =
       fullMetadataJsonExample.replaceAll("\\s+", "");
@@ -52,7 +49,7 @@ public class StreamingRecordMapperTest {
               "objectAsJsonStringHeader",
               "{\"key1\":\"value1\",\"key2\":\"value2\"}"));
 
-  protected static RecordService.SnowflakeTableRow buildRow(String content)
+  protected static RecordService.SnowflakeTableRow buildRowWithDefaultMetadata(String content)
       throws JsonProcessingException {
     return buildRow(content, fullMetadataJsonExample);
   }

@@ -86,11 +86,11 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
         Arguments.of(
             buildRow("{}", "{}"), Map.of(TABLE_COLUMN_METADATA, "{}", TABLE_COLUMN_CONTENT, "{}")),
         Arguments.of(
-            buildRow("{}"),
+            buildRowWithDefaultMetadata("{}"),
             Map.of(
                 TABLE_COLUMN_METADATA, fullMetadataWithoutWhitespace, TABLE_COLUMN_CONTENT, "{}")),
         Arguments.of(
-            buildRow("{\"key\": \"value\"}"),
+            buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
             Map.of(
                 TABLE_COLUMN_METADATA,
                 fullMetadataWithoutWhitespace,
@@ -101,14 +101,15 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
   public static Stream<Arguments> ssv1SchematizationData() throws JsonProcessingException {
     return Stream.of(
         Arguments.of(buildRow("{}", "{}"), Map.of(TABLE_COLUMN_METADATA, "{}")),
-        Arguments.of(buildRow("{}"), Map.of(TABLE_COLUMN_METADATA, fullMetadataWithoutWhitespace)),
         Arguments.of(
-            buildRow("{\"key\": \"value\"}"),
+            buildRowWithDefaultMetadata("{}"),
+            Map.of(TABLE_COLUMN_METADATA, fullMetadataWithoutWhitespace)),
+        Arguments.of(
+            buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
             Map.of(TABLE_COLUMN_METADATA, fullMetadataWithoutWhitespace, "\"KEY\"", "value")),
         Arguments.of(
-            buildRow("{\"key\": []}"),
-            Map.of(
-                TABLE_COLUMN_METADATA, fullMetadataJsonExampleWithoutWhitespace, "\"KEY\"", "[]")));
+            buildRowWithDefaultMetadata("{\"key\": []}"),
+            Map.of(TABLE_COLUMN_METADATA, fullMetadataWithoutWhitespace, "\"KEY\"", "[]")));
   }
 
   public static Stream<Arguments> ssv2NoSchematizationData() throws JsonProcessingException {
@@ -121,11 +122,11 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
                 TABLE_COLUMN_CONTENT,
                 new HashMap<>())),
         Arguments.of(
-            buildRow("{}"),
+            buildRowWithDefaultMetadata("{}"),
             Map.of(
                 TABLE_COLUMN_METADATA, fullRecordMetadata, TABLE_COLUMN_CONTENT, new HashMap<>())),
         Arguments.of(
-            buildRow("{\"key\": \"value\"}"),
+            buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
             Map.of(
                 TABLE_COLUMN_METADATA,
                 fullRecordMetadata,
@@ -141,12 +142,13 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
                 TABLE_COLUMN_METADATA,
                 new MetadataRecord(
                     null, null, null, null, null, null, null, null, null, Map.of()))),
-        Arguments.of(buildRow("{}"), Map.of(TABLE_COLUMN_METADATA, fullRecordMetadata)),
         Arguments.of(
-            buildRow("{\"key\": \"value\"}"),
+            buildRowWithDefaultMetadata("{}"), Map.of(TABLE_COLUMN_METADATA, fullRecordMetadata)),
+        Arguments.of(
+            buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
             Map.of(TABLE_COLUMN_METADATA, fullRecordMetadata, "\"KEY\"", "value")),
         Arguments.of(
-            buildRow("{\"key\": []}"),
+            buildRowWithDefaultMetadata("{\"key\": []}"),
             Map.of(TABLE_COLUMN_METADATA, fullRecordMetadata, "\"KEY\"", List.of())));
   }
 }

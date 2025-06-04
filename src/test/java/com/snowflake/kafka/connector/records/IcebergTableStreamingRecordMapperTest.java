@@ -126,7 +126,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
   @Test
   void shouldSkipMapMetadata() throws JsonProcessingException {
     // Given
-    SnowflakeTableRow row = buildRow(primitiveJsonExample);
+    SnowflakeTableRow row = buildRowWithDefaultMetadata(primitiveJsonExample);
 
     // When
     IcebergTableStreamingRecordMapper mapper =
@@ -159,26 +159,26 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
     return Stream.of(
         Arguments.of(
             "Empty JSON",
-            buildRow("{}"),
+            buildRowWithDefaultMetadata("{}"),
             ImmutableMap.of(Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
         Arguments.of(
             "Simple JSON",
-            buildRow("{\"key\": \"value\"}"),
+            buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
             ImmutableMap.of(
                 "\"KEY\"", "value", Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
         Arguments.of(
             "Already quoted key JSON",
-            buildRow("{\"\\\"key\\\"\": \"value\"}"),
+            buildRowWithDefaultMetadata("{\"\\\"key\\\"\": \"value\"}"),
             ImmutableMap.of(
                 "\"key\"", "value", Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
         Arguments.of(
             "Already quoted UPPERCASE key JSON",
-            buildRow("{\"\\\"KEY\\\"\": \"value\"}"),
+            buildRowWithDefaultMetadata("{\"\\\"KEY\\\"\": \"value\"}"),
             ImmutableMap.of(
                 "\"KEY\"", "value", Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
         Arguments.of(
             "JSON with different primitive types",
-            buildRow(primitiveJsonExample),
+            buildRowWithDefaultMetadata(primitiveJsonExample),
             ImmutableMap.of(
                 "\"ID_INT8\"",
                 8,
@@ -200,7 +200,8 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Nested array",
-            buildRow("{\"key\": [" + primitiveJsonExample + ", " + primitiveJsonExample + "]}"),
+            buildRowWithDefaultMetadata(
+                "{\"key\": [" + primitiveJsonExample + ", " + primitiveJsonExample + "]}"),
             ImmutableMap.of(
                 "\"KEY\"",
                 ImmutableList.of(primitiveJsonAsMap, primitiveJsonAsMap),
@@ -208,22 +209,22 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Empty nested array",
-            buildRow("{\"key\": []}"),
+            buildRowWithDefaultMetadata("{\"key\": []}"),
             ImmutableMap.of(
                 "\"KEY\"", ImmutableList.of(), Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
         Arguments.of(
             "Empty object",
-            buildRow("{\"key\": {}}"),
+            buildRowWithDefaultMetadata("{\"key\": {}}"),
             ImmutableMap.of(
                 "\"KEY\"", ImmutableMap.of(), Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
         Arguments.of(
             "Nested object",
-            buildRow("{\"key\":" + primitiveJsonExample + "}"),
+            buildRowWithDefaultMetadata("{\"key\":" + primitiveJsonExample + "}"),
             ImmutableMap.of(
                 "\"KEY\"", primitiveJsonAsMap, Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
         Arguments.of(
             "Double nested object",
-            buildRow("{\"key\":{\"key2\":" + primitiveJsonExample + "}}"),
+            buildRowWithDefaultMetadata("{\"key\":{\"key2\":" + primitiveJsonExample + "}}"),
             ImmutableMap.of(
                 "\"KEY\"",
                 ImmutableMap.of("key2", primitiveJsonAsMap),
@@ -231,7 +232,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Nested objects and primitive types",
-            buildRow(
+            buildRowWithDefaultMetadata(
                 primitiveJsonExample.replaceFirst("}", "")
                     + ",\"key\":"
                     + primitiveJsonExample
@@ -261,7 +262,11 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
 
   private static Stream<Arguments> prepareMetadataData() throws JsonProcessingException {
     return Stream.of(
-        Arguments.of("Full metadata", buildRow("{}"), fullMetadataJsonAsMap, fullRecordMetadata),
+        Arguments.of(
+            "Full metadata",
+            buildRowWithDefaultMetadata("{}"),
+            fullMetadataJsonAsMap,
+            fullRecordMetadata),
         Arguments.of(
             "Empty metadata",
             buildRow("{}", "{}"),
@@ -298,7 +303,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
     return Stream.of(
         Arguments.of(
             "Empty JSON",
-            buildRow("{}"),
+            buildRowWithDefaultMetadata("{}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 ImmutableMap.of(),
@@ -306,7 +311,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Simple JSON",
-            buildRow("{\"key\": \"value\"}"),
+            buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 ImmutableMap.of("key", "value"),
@@ -314,7 +319,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "UPPERCASE key JSON",
-            buildRow("{\"KEY\": \"value\"}"),
+            buildRowWithDefaultMetadata("{\"KEY\": \"value\"}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 ImmutableMap.of("KEY", "value"),
@@ -322,7 +327,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "JSON with different primitive types",
-            buildRow(primitiveJsonExample),
+            buildRowWithDefaultMetadata(primitiveJsonExample),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 primitiveJsonAsMap,
@@ -330,7 +335,8 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Nested array",
-            buildRow("{\"key\": [" + primitiveJsonExample + ", " + primitiveJsonExample + "]}"),
+            buildRowWithDefaultMetadata(
+                "{\"key\": [" + primitiveJsonExample + ", " + primitiveJsonExample + "]}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 ImmutableMap.of("key", ImmutableList.of(primitiveJsonAsMap, primitiveJsonAsMap)),
@@ -338,7 +344,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Empty nested array",
-            buildRow("{\"key\": []}"),
+            buildRowWithDefaultMetadata("{\"key\": []}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 ImmutableMap.of("key", ImmutableList.of()),
@@ -346,7 +352,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Empty object",
-            buildRow("{\"key\": {}}"),
+            buildRowWithDefaultMetadata("{\"key\": {}}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 ImmutableMap.of("key", ImmutableMap.of()),
@@ -354,7 +360,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Nested object",
-            buildRow("{\"key\":" + primitiveJsonExample + "}"),
+            buildRowWithDefaultMetadata("{\"key\":" + primitiveJsonExample + "}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 ImmutableMap.of("key", primitiveJsonAsMap),
@@ -362,7 +368,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Double nested object",
-            buildRow("{\"key\":{\"key2\":" + primitiveJsonExample + "}}"),
+            buildRowWithDefaultMetadata("{\"key\":{\"key2\":" + primitiveJsonExample + "}}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
                 ImmutableMap.of("key", ImmutableMap.of("key2", primitiveJsonAsMap)),
@@ -370,7 +376,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Nested objects and primitive types",
-            buildRow(
+            buildRowWithDefaultMetadata(
                 primitiveJsonExample.replaceFirst("}", "")
                     + ",\"key\":"
                     + primitiveJsonExample
