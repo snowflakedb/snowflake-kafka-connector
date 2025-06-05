@@ -996,6 +996,8 @@ public class TopicPartitionChannelTest {
       SnowflakeTelemetryService telemetryService,
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter) {
+    StreamingErrorHandler streamingErrorHandler =
+        new StreamingErrorHandler(sfConnectorConfig, kafkaRecordErrorReporter, telemetryService);
     return new DirectTopicPartitionChannel(
         streamingIngestClient,
         topicPartition,
@@ -1003,7 +1005,6 @@ public class TopicPartitionChannelTest {
         tableName,
         hasSchemaEvolutionPermission,
         sfConnectorConfig,
-        kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
         new StreamingRecordService(recordService, kafkaRecordErrorReporter),
@@ -1011,7 +1012,8 @@ public class TopicPartitionChannelTest {
         enableCustomJMXMonitoring,
         metricsJmxReporter,
         this.schemaEvolutionService,
-        new InsertErrorMapper());
+        new InsertErrorMapper(),
+        streamingErrorHandler);
   }
 
   @Test

@@ -239,6 +239,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     StreamingRecordService streamingRecordService =
         new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
 
+    StreamingErrorHandler streamingErrorHandler =
+        new StreamingErrorHandler(
+            connectorConfig, kafkaRecordErrorReporter, this.conn.getTelemetryClient());
+
     return new DirectTopicPartitionChannel(
         this.streamingIngestClient,
         topicPartition,
@@ -246,7 +250,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         tableName,
         hasSchemaEvolutionPermission,
         this.connectorConfig,
-        this.kafkaRecordErrorReporter,
         this.sinkTaskContext,
         this.conn,
         streamingRecordService,
@@ -254,7 +257,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.enableCustomJMXMonitoring,
         this.metricsJmxReporter,
         this.schemaEvolutionService,
-        new InsertErrorMapper());
+        new InsertErrorMapper(),
+        streamingErrorHandler);
   }
 
   /**
