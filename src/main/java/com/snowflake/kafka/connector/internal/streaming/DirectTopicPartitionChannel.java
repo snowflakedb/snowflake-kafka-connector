@@ -2,14 +2,11 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static java.util.stream.Collectors.toMap;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -44,7 +41,6 @@ import net.snowflake.ingest.streaming.*;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -94,9 +90,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   /* Error handling, DB, schema, Snowflake URL and other snowflake specific connector properties are defined here. */
   private final Map<String, String> sfConnectorConfig;
 
-  /* Responsible for returning errors to DLQ if records have failed to be ingested. */
-  private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
-
   private final SchemaEvolutionService schemaEvolutionService;
 
   /**
@@ -104,20 +97,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * utility methods.
    */
   private final SinkTaskContext sinkTaskContext;
-
-  /* Error related properties */
-
-  // If set to true, we will send records to DLQ provided DLQ name is valid.
-  private final boolean errorTolerance;
-
-  // Whether to log errors to log file.
-  private final boolean logErrors;
-
-  // Set to false if DLQ topic is null or empty. True if it is a valid string in config
-  private final boolean isDLQTopicSet;
-
-  // Whether schematization has been enabled.
-  private final boolean enableSchematization;
 
   // Whether schema evolution could be done on this channel
   private final boolean enableSchemaEvolution;
@@ -141,6 +120,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
   private final FailsafeExecutor<Long> offsetTokenExecutor;
 
+  private final StreamingErrorHandler streamingErrorHandler;
+
   /** Testing only, initialize TopicPartitionChannel without the connection service */
   @VisibleForTesting
   public DirectTopicPartitionChannel(
@@ -162,7 +143,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         tableName,
         false, /* No schema evolution permission */
         sfConnectorConfig,
-        kafkaRecordErrorReporter,
         sinkTaskContext,
         conn,
         new StreamingRecordService(
@@ -173,7 +153,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         false,
         null,
         schemaEvolutionService,
-        insertErrorMapper);
+        insertErrorMapper,
+        new StreamingErrorHandler(sfConnectorConfig, kafkaRecordErrorReporter, telemetryService));
   }
 
   /**
@@ -192,15 +173,15 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * @param telemetryService Telemetry Service which includes the Telemetry Client, sends Json data
    *     to Snowflake
    * @param insertErrorMapper Mapper to map insert errors to schema evolution items
+   * @param streamingErrorHandler contains DLQ and error logging related logic
    */
   public DirectTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
       final String channelNameFormatV1,
       final String tableName,
-      boolean hasSchemaEvolutionPermission,
+      final boolean enableSchemaEvolution,
       final Map<String, String> sfConnectorConfig,
-      KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       SnowflakeConnectionService conn,
       StreamingRecordService streamingRecordService,
@@ -208,7 +189,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter,
       SchemaEvolutionService schemaEvolutionService,
-      InsertErrorMapper insertErrorMapper) {
+      InsertErrorMapper insertErrorMapper,
+      StreamingErrorHandler streamingErrorHandler) {
     final long startTime = System.currentTimeMillis();
 
     this.streamingIngestClient = Preconditions.checkNotNull(streamingIngestClient);
@@ -217,23 +199,13 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     this.channelNameFormatV1 = Preconditions.checkNotNull(channelNameFormatV1);
     this.tableName = Preconditions.checkNotNull(tableName);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
-    this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
 
     this.streamingRecordService = streamingRecordService;
     this.telemetryServiceV2 = Preconditions.checkNotNull(telemetryService);
 
-    /* Error properties */
-    this.errorTolerance = StreamingUtils.tolerateErrors(this.sfConnectorConfig);
-    this.logErrors = StreamingUtils.logErrors(this.sfConnectorConfig);
-    this.isDLQTopicSet =
-        !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(this.sfConnectorConfig));
-
-    /* Schematization related properties */
-    this.enableSchematization = Utils.isSchematizationEnabled(this.sfConnectorConfig);
-
-    this.enableSchemaEvolution = this.enableSchematization && hasSchemaEvolutionPermission;
+    this.enableSchemaEvolution = enableSchemaEvolution;
     this.schemaEvolutionService = schemaEvolutionService;
 
     this.channelOffsetTokenMigrator = new ChannelOffsetTokenMigrator(conn, telemetryService);
@@ -291,6 +263,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
               + " correct offset instead",
           this.getChannelNameFormatV1());
     }
+    this.streamingErrorHandler = streamingErrorHandler;
   }
 
   /**
@@ -479,7 +452,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
               this.getChannelNameFormatV1(),
               e);
           if (Objects.equals(e.getCode(), SnowflakeErrors.ERROR_5026.getCode())) {
-            handleError(Collections.singletonList(e), kafkaSinkRecord);
+            streamingErrorHandler.handleError(Collections.singletonList(e), kafkaSinkRecord);
           } else {
             throw e;
           }
@@ -489,7 +462,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       }
     }
 
-    handleError(
+    streamingErrorHandler.handleError(
         insertErrors.stream()
             .map(InsertValidationResponse.InsertError::getException)
             .collect(Collectors.toList()),
@@ -499,42 +472,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private Map<String, ColumnProperties> getTableSchemaFromChannel() {
     return channel.getTableSchema().entrySet().stream()
         .collect(toMap(Map.Entry::getKey, entry -> new ColumnProperties(entry.getValue())));
-  }
-
-  private void handleError(List<Exception> insertErrors, SinkRecord kafkaSinkRecord) {
-    if (logErrors) {
-      for (Exception insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message:{}", insertError.getMessage());
-      }
-    }
-    if (errorTolerance) {
-      if (!isDLQTopicSet) {
-        LOGGER.warn(
-            "{} is set, however {} is not. The message will not be added to the Dead Letter Queue"
-                + " topic.",
-            ERRORS_TOLERANCE_CONFIG,
-            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-      } else {
-        LOGGER.warn(
-            "Adding the message to Dead Letter Queue topic: {}",
-            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-        this.kafkaRecordErrorReporter.reportError(
-            kafkaSinkRecord,
-            insertErrors.stream()
-                .findFirst()
-                .orElseThrow(
-                    () ->
-                        new IllegalStateException(
-                            "Reported record error, however exception list is empty.")));
-      }
-    } else {
-      final String errMsg =
-          String.format(
-              "Error inserting Records using Streaming API with msg:%s",
-              insertErrors.get(0).getMessage());
-      this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      throw new DataException(errMsg, insertErrors.get(0));
-    }
   }
 
   @Override
