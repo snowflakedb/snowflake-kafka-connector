@@ -53,8 +53,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   private final StreamingClientProperties streamingClientProperties;
   private final StreamingIngestClientV2Provider streamingIngestClientV2Provider;
 
-  // used to communicate to the streaming ingest's insertRows API
-  // This is non final because we might decide to get the new instance of Channel
   private SnowflakeStreamingIngestChannel channel;
 
   // This offset represents the data persisted in Snowflake. More specifically it is the Snowflake
@@ -95,15 +93,13 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   private final SinkTaskContext sinkTaskContext;
 
   // Whether schema evolution will be done on this channel
-  private final boolean enableSchemaEvolution;
-
-  private final SnowflakeConnectionService conn;
+  private final boolean schemaEvolutionEnabled;
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
 
   private final StreamingRecordService streamingRecordService;
 
-  private final PipeDefinitionProvider pipeDefinitionProvider;
+  private final SSv2PipeCreator ssv2PipeCreator;
 
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
@@ -129,7 +125,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   public SnowpipeStreamingV2PartitionChannel(
       String tableName,
-      final boolean enableSchemaEvolution,
+      final boolean schemaEvolutionEnabled,
       String channelName,
       TopicPartition topicPartition,
       SchemaEvolutionService schemaEvolutionService,
@@ -140,39 +136,29 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter,
       StreamingIngestClientV2Provider streamingIngestClientV2Provider,
-      PipeDefinitionProvider pipeDefinitionProvider,
       RowSchemaProvider rowSchemaProvider,
       Runnable waitForAllPartitionsToCommitData,
       Consumer<String> closeClientAndReopenChannelsForTable,
       StreamingErrorHandler streamingErrorHandler) {
-    this.connectorConfig = connectorConfig;
-    this.schemaEvolutionService = schemaEvolutionService;
-    final long startTime = System.currentTimeMillis();
-
-    this.topicPartition = topicPartition;
+    this.tableName = tableName;
+    this.schemaEvolutionEnabled = schemaEvolutionEnabled;
     this.channelName = channelName;
-    this.tableName = Preconditions.checkNotNull(tableName);
-    this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
-    this.conn = conn;
-
+    this.topicPartition = topicPartition;
+    this.schemaEvolutionService = schemaEvolutionService;
+    this.connectorConfig = connectorConfig;
     this.streamingRecordService = streamingRecordService;
-    this.telemetryServiceV2 = conn.getTelemetryClient();
-
-    this.enableSchemaEvolution = enableSchemaEvolution;
-    this.pipeDefinitionProvider = pipeDefinitionProvider;
-    this.rowSchemaProvider = rowSchemaProvider;
-    this.rowSchema = rowSchemaProvider.getRowSchema(tableName, connectorConfig);
-
-    this.pipeName = PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName);
-
-    createPipe(false);
-
-    this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
-
+    this.sinkTaskContext = sinkTaskContext;
     this.streamingIngestClientV2Provider = streamingIngestClientV2Provider;
+    this.rowSchemaProvider = rowSchemaProvider;
+    this.waitForAllPartitionsToCommitData = waitForAllPartitionsToCommitData;
+    this.closeClientAndReopenChannelsForTable = closeClientAndReopenChannelsForTable;
+    this.streamingErrorHandler = streamingErrorHandler;
 
-    this.channel = openChannelForTable(channelName);
-
+    this.rowSchema = rowSchemaProvider.getRowSchema(tableName, connectorConfig);
+    this.telemetryServiceV2 = conn.getTelemetryClient();
+    this.pipeName = PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName);
+    this.ssv2PipeCreator = new DefaultSSv2PipeCreator(conn, pipeName, tableName);
+    this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
     this.offsetTokenExecutor =
         LatestCommitedOffsetTokenExecutor.getExecutor(
             this.getChannelNameFormatV1(),
@@ -180,6 +166,9 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
             () ->
                 streamingApiFallbackSupplier(
                     StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK));
+
+    ssv2PipeCreator.createPipe(false);
+    this.channel = openChannelForTable(channelName);
 
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
@@ -190,6 +179,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
         conn == null || conn.getConnectorName() == null || conn.getConnectorName().isEmpty()
             ? "default_connector_name"
             : conn.getConnectorName();
+    final long startTime = System.currentTimeMillis();
     this.snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             tableName,
@@ -201,25 +191,22 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
             this.offsetPersistedInSnowflake,
             this.processedOffset,
             this.currentConsumerGroupOffset);
+
     this.telemetryServiceV2.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(tableName, channelName, startTime));
 
+    setOffsetInKafka(lastCommittedOffsetToken);
+  }
+
+  private void setOffsetInKafka(long lastCommittedOffsetToken) {
     if (lastCommittedOffsetToken != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.sinkTaskContext.offset(this.topicPartition, lastCommittedOffsetToken + 1L);
     } else {
       LOGGER.info(
-          "[SSV2] TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
+          "TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
               + " correct offset instead",
           this.getChannelNameFormatV1());
     }
-    this.waitForAllPartitionsToCommitData = waitForAllPartitionsToCommitData;
-    this.closeClientAndReopenChannelsForTable = closeClientAndReopenChannelsForTable;
-    this.streamingErrorHandler = streamingErrorHandler;
-  }
-
-  private void createPipe(boolean recreate) {
-    String createPipeSql = pipeDefinitionProvider.getPipeDefinition(tableName, recreate);
-    conn.executeQueryWithParameter(createPipeSql, pipeName);
   }
 
   @Override
@@ -239,7 +226,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
     if (needToSkipCurrentBatch) {
       LOGGER.info(
-          "[SSv2] Ignore inserting offset:{} for channel:{} because we recently reset offset in"
+          "Ignore inserting offset:{} for channel:{} because we recently reset offset in"
               + " Kafka. currentProcessedOffset:{}",
           kafkaSinkRecord.kafkaOffset(),
           this.getChannelNameFormatV1(),
@@ -253,7 +240,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
       transformAndSend(kafkaSinkRecord);
     } else {
       LOGGER.warn(
-          "[SSv2] Channel {} - skipping current record - expected offset {} but received {}. The"
+          "Channel {} - skipping current record - expected offset {} but received {}. The"
               + " current offset stored in Snowflake: {}",
           this.getChannelNameFormatV1(),
           currentProcessedOffset,
@@ -265,43 +252,14 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
       Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
+      if (schemaEvolutionEnabled) {
+        validateRecordAndEvolveTableSchema(kafkaSinkRecord, transformedRecord);
+      }
+
       // for schema evolution all identifiers are quoted
       // in SSv2 we still need quoted identifiers for ALTER TABLE statements
-      // but unquoted for pipe definition and Map keys that are passed to ssv2
+      // but unquoted for map keys that are passed to ssv2
       Map<String, Object> unquotedTransformedRecord = unquoteIdentifiers(transformedRecord);
-
-      if (enableSchemaEvolution) {
-        Map<String, Object> fieldsToValidate = new HashMap<>(transformedRecord);
-        // skip RECORD_METADATA cause SSv1 validations doesn't accept POJOs
-        fieldsToValidate.remove("RECORD_METADATA");
-
-        // validation return only first encountered error type so it might be needed to call it more
-        // than once
-        while (true) {
-          RowSchema.Error error = rowSchema.validate(fieldsToValidate);
-          if (error == null) {
-            // no errors - data can be safely ingested to Snowflake
-            break;
-          } else {
-            boolean triggersSchemaEvolution =
-                error.extraColNames() != null
-                    || error.nullValueForNotNullColNames() != null
-                    || error.missingNotNullColNames() != null;
-            if (triggersSchemaEvolution) {
-              waitForAllPartitionsToCommitData.run();
-              evolveSchemaAndUpdateState(kafkaSinkRecord, error);
-              createPipe(true);
-              closeClientAndReopenChannelsForTable.accept(tableName);
-            } else {
-              // this error can't be fixed by schema evolution
-              streamingErrorHandler.handleError(
-                  List.of(new RuntimeException(error.localizedMessage(), error.cause())),
-                  kafkaSinkRecord);
-              break;
-            }
-          }
-        }
-      }
       if (!transformedRecord.isEmpty()) {
         insertRowWithFallback(unquotedTransformedRecord, kafkaSinkRecord.kafkaOffset());
         this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
@@ -309,10 +267,57 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
-          "[SSV2] Failed to insert row for channel:{}. Will be retried by Kafka. Exception: {}",
+          "Failed to insert row for channel:{}. Will be retried by Kafka. Exception: {}",
           this.getChannelNameFormatV1(),
           ex);
     }
+  }
+
+  private void validateRecordAndEvolveTableSchema(
+      SinkRecord kafkaSinkRecord, Map<String, Object> transformedRecord) {
+    Map<String, Object> fieldsToValidate = new HashMap<>(transformedRecord);
+    // skip RECORD_METADATA cause SSv1 validations don't accept POJOs
+    fieldsToValidate.remove("RECORD_METADATA");
+
+    // validation return only first encountered error type so it might be needed to call it more
+    // than once
+    for (int i = 0; i < 5; i++) {
+      RowSchema.Error error = rowSchema.validate(fieldsToValidate);
+      if (error == null) {
+        // no errors - data can be safely ingested to Snowflake
+        return;
+      } else {
+        boolean triggersSchemaEvolution =
+            error.extraColNames() != null
+                || error.nullValueForNotNullColNames() != null
+                || error.missingNotNullColNames() != null;
+        if (triggersSchemaEvolution) {
+          LOGGER.info(
+              "Record doesn't match table schema - triggering schema evolution. topic={},"
+                  + " partition={}, offset={}",
+              kafkaSinkRecord.kafkaOffset(),
+              kafkaSinkRecord.kafkaPartition(),
+              kafkaSinkRecord.topic());
+          waitForAllPartitionsToCommitData.run();
+          evolveSchemaAndUpdateState(kafkaSinkRecord, error);
+          ssv2PipeCreator.createPipe(true);
+          closeClientAndReopenChannelsForTable.accept(tableName);
+        } else {
+          LOGGER.info(
+              "Record doesn't match table schema. This can't be fixed by schema evolution."
+                  + " topic={}, partition={}, offset={}",
+              kafkaSinkRecord.kafkaOffset(),
+              kafkaSinkRecord.kafkaPartition(),
+              kafkaSinkRecord.topic());
+          streamingErrorHandler.handleError(List.of(error.cause()), kafkaSinkRecord);
+          return;
+        }
+      }
+    }
+    // should not happen, but it is reasonable to send record to DLQ instead of stopping connector
+    LOGGER.warn("Unexpected state in schema evolution. Record will be sent to DLQ if possible.");
+    streamingErrorHandler.handleError(
+        List.of(new IllegalStateException("Schema evolution unsuccessful")), kafkaSinkRecord);
   }
 
   @Override

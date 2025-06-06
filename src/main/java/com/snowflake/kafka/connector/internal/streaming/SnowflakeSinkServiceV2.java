@@ -20,9 +20,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.v2.DefaultPipeDefinitionProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.DefaultStreamingIngestClientV2Provider;
-import com.snowflake.kafka.connector.internal.streaming.v2.PipeDefinitionProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientV2Provider;
@@ -254,8 +252,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     StreamingRecordService streamingRecordService =
         new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
 
-    PipeDefinitionProvider pipeDefinitionProvider = new DefaultPipeDefinitionProvider();
-
     boolean schemaEvolutionEnabled =
         Utils.isSchematizationEnabled(connectorConfig) && hasSchemaEvolutionPermission;
 
@@ -280,7 +276,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           this.enableCustomJMXMonitoring,
           this.metricsJmxReporter,
           streamingIngestClientV2Provider,
-          pipeDefinitionProvider,
           rowSchemaProvider,
           this::waitForAllChannelsToCommitData,
           this::closeClientAndReopenChannelsForTable,

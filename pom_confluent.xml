@@ -836,6 +836,8 @@
                             </includes>
                             <excludes>
                                 <exclude>**/*Iceberg*IT.java</exclude>
+                                <!-- Rowset API is disabled on Azure and GCP -->
+                                <exclude>**/*SnowflakeSinkServiceV2*IT.java</exclude>
                             </excludes>
                             <skipTests>${skipIntegrationTests}</skipTests>
                         </configuration>
