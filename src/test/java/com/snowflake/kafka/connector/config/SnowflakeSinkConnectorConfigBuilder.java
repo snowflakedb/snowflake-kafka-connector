@@ -149,6 +149,11 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
+  public SnowflakeSinkConnectorConfigBuilder withSnowpipeStreamingV2Enabled() {
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    return this;
+  }
+
   public Map<String, String> build() {
     return config;
   }
