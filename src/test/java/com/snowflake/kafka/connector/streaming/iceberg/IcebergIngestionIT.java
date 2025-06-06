@@ -7,11 +7,15 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
+import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
@@ -34,8 +38,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected TopicPartition topicPartition;
   protected SnowflakeSinkService service;
   protected InMemoryKafkaRecordErrorReporter kafkaRecordErrorReporter;
-  protected Map<String, String> config;
-  protected Map<String, String> topic2Table;
   protected static final String simpleRecordJson = "{\"simple\": \"extra field\"}";
 
   @BeforeEach
@@ -43,7 +45,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     tableName = TestUtils.randomTableName();
     topic = tableName;
     topicPartition = new TopicPartition(topic, PARTITION);
-    config = getConfForStreaming();
+    Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(ICEBERG_ENABLED, "TRUE");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, isSchemaEvolutionEnabled().toString());
@@ -54,8 +56,20 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
     createIcebergTable();
     enableSchemaEvolution(tableName);
+
+    // only insert fist topic to topicTable
+    Map<String, String> topic2Table = new HashMap<>();
+    topic2Table.put(topic, tableName);
+
     kafkaRecordErrorReporter = new InMemoryKafkaRecordErrorReporter();
-    topic2Table = Map.of(topic, tableName);
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withErrorReporter(kafkaRecordErrorReporter)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withTopicToTableMap(topic2Table)
+            .withSchemaEvolutionService(new IcebergSchemaEvolutionService(conn))
+            .build();
+    service.startPartition(tableName, topicPartition);
   }
 
   @AfterEach

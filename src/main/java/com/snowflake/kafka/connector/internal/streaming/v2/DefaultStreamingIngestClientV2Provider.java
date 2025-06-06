@@ -28,14 +28,13 @@ public class DefaultStreamingIngestClientV2Provider implements StreamingIngestCl
     Optional<SnowflakeStreamingIngestClient> existingClient =
         Optional.ofNullable(pipeToClientMap.get(pipeName)).filter(client -> !client.isClosed());
 
-    if (existingClient.isPresent()) {
-      return existingClient.get();
-    } else {
-      SnowflakeStreamingIngestClient newClient =
-          createClient(connectorConfig, pipeName, streamingClientProperties);
-      pipeToClientMap.put(pipeName, newClient);
-      return newClient;
-    }
+    return existingClient.orElseGet(
+        () -> {
+          SnowflakeStreamingIngestClient newClient =
+              createClient(connectorConfig, pipeName, streamingClientProperties);
+          pipeToClientMap.put(pipeName, newClient);
+          return newClient;
+        });
   }
 
   @Override

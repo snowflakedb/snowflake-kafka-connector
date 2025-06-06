@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -122,7 +123,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   private final Runnable waitForAllPartitionsToCommitData;
 
-  private final Runnable reopenAllChannels;
+  private final Consumer<String> closeClientAndReopenChannelsForTable;
 
   private final StreamingErrorHandler streamingErrorHandler;
 
@@ -142,7 +143,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
       PipeDefinitionProvider pipeDefinitionProvider,
       RowSchemaProvider rowSchemaProvider,
       Runnable waitForAllPartitionsToCommitData,
-      Runnable reopenAllChannels,
+      Consumer<String> closeClientAndReopenChannelsForTable,
       StreamingErrorHandler streamingErrorHandler) {
     this.connectorConfig = connectorConfig;
     this.schemaEvolutionService = schemaEvolutionService;
@@ -212,7 +213,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
           this.getChannelNameFormatV1());
     }
     this.waitForAllPartitionsToCommitData = waitForAllPartitionsToCommitData;
-    this.reopenAllChannels = reopenAllChannels;
+    this.closeClientAndReopenChannelsForTable = closeClientAndReopenChannelsForTable;
     this.streamingErrorHandler = streamingErrorHandler;
   }
 
@@ -274,6 +275,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
         // skip RECORD_METADATA cause SSv1 validations doesn't accept POJOs
         fieldsToValidate.remove("RECORD_METADATA");
 
+        // validation return only first encountered error type so it might be needed to call it more
+        // than once
         while (true) {
           RowSchema.Error error = rowSchema.validate(fieldsToValidate);
           if (error == null) {
@@ -285,11 +288,10 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
                     || error.nullValueForNotNullColNames() != null
                     || error.missingNotNullColNames() != null;
             if (triggersSchemaEvolution) {
-              // validations return first error type so it might be needed to call it more than once
               waitForAllPartitionsToCommitData.run();
               evolveSchemaAndUpdateState(kafkaSinkRecord, error);
               createPipe(true);
-              reopenAllChannels.run();
+              closeClientAndReopenChannelsForTable.accept(tableName);
             } else {
               // this error can't be fixed by schema evolution
               streamingErrorHandler.handleError(
@@ -316,8 +318,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   @Override
   public void reopenChannelAfterSchemaEvolved() {
     rowSchema = rowSchemaProvider.getRowSchema(tableName, connectorConfig);
-    this.channel.close();
-    streamingIngestClientV2Provider.close(pipeName);
     channel = openChannelForTable(channelName);
   }
 
@@ -357,7 +357,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
             error.extraColNames());
     schemaEvolutionService.evolveSchemaIfNeeded(
         targetItems, kafkaSinkRecord, rowSchema.getColumnProperties());
-    rowSchema = rowSchemaProvider.getRowSchema(tableName, connectorConfig);
   }
 
   private List<String> joinNullableLists(List<String> list1, List<String> list2) {

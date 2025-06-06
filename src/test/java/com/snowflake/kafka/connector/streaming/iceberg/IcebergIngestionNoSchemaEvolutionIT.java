@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadWithWrongValueTypeExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonRecordValueExample;
@@ -8,9 +7,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
-import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.records.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
@@ -82,44 +78,15 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
   private static Stream<Arguments> prepareData() {
     return Stream.of(
         Arguments.of(
-            "Complex JSON with schema (SSv1)",
-            ComplexJsonRecord.complexJsonWithSchemaExample,
-            true,
-            false),
+            "Complex JSON with schema", ComplexJsonRecord.complexJsonWithSchemaExample, true),
         Arguments.of(
-            "Complex JSON without schema (SSv1)",
-            ComplexJsonRecord.complexJsonPayloadExample,
-            false,
-            false),
-        Arguments.of(
-            "Complex JSON with schema (SSv2)",
-            ComplexJsonRecord.complexJsonWithSchemaExample,
-            true,
-            true),
-        Arguments.of(
-            "Complex JSON without schema (SSv2)",
-            ComplexJsonRecord.complexJsonPayloadExample,
-            false,
-            true));
+            "Complex JSON without schema", ComplexJsonRecord.complexJsonPayloadExample, false));
   }
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareData")
-  void shouldInsertRecords(
-      String description, String message, boolean withSchema, boolean ssv2Enabled)
+  void shouldInsertRecords(String description, String message, boolean withSchema)
       throws Exception {
-    // only insert fist topic to topicTable
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
-
-    service =
-        StreamingSinkServiceBuilder.builder(conn, config)
-            .withErrorReporter(kafkaRecordErrorReporter)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withTopicToTableMap(topic2Table)
-            .withSchemaEvolutionService(new IcebergSchemaEvolutionService(conn))
-            .build();
-    service.startPartition(tableName, topicPartition);
-
     long overMaxIntOffset = (long) Integer.MAX_VALUE + 1;
     service.insert(
         Arrays.asList(
@@ -136,15 +103,6 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   @Test
   void shouldSendValueWithWrongTypeToDLQ() throws Exception {
-    service =
-        StreamingSinkServiceBuilder.builder(conn, config)
-            .withErrorReporter(kafkaRecordErrorReporter)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withTopicToTableMap(topic2Table)
-            .withSchemaEvolutionService(new IcebergSchemaEvolutionService(conn))
-            .build();
-    service.startPartition(tableName, topicPartition);
-
     SinkRecord wrongValueRecord1 =
         createKafkaRecord(complexJsonPayloadWithWrongValueTypeExample, 0, false);
     SinkRecord wrongValueRecord2 =

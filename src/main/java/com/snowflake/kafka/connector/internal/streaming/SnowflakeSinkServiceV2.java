@@ -23,6 +23,7 @@ import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEv
 import com.snowflake.kafka.connector.internal.streaming.v2.DefaultPipeDefinitionProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.DefaultStreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeDefinitionProvider;
+import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.internal.streaming.validation.FailsafeRowSchemaProvider;
@@ -36,10 +37,12 @@ import com.snowflake.kafka.connector.streaming.iceberg.IcebergTableSchemaValidat
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -279,11 +282,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           streamingIngestClientV2Provider,
           pipeDefinitionProvider,
           rowSchemaProvider,
-          () ->
-              partitionsToChannel.forEach(
-                  (key, value) -> value.waitForLastProcessedRecordCommitted()),
-          () ->
-              partitionsToChannel.forEach((key, value) -> value.reopenChannelAfterSchemaEvolved()),
+          this::waitForAllChannelsToCommitData,
+          this::closeClientAndReopenChannelsForTable,
           streamingErrorHandler);
     } else {
       return new DirectTopicPartitionChannel(
@@ -303,6 +303,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           new InsertErrorMapper(),
           streamingErrorHandler);
     }
+  }
+
+  private void closeClientAndReopenChannelsForTable(String table) {
+    List<TopicPartitionChannel> channelsForTable =
+        partitionsToChannel.entrySet().stream()
+            .filter(e -> e.getKey().startsWith(table + "_"))
+            .map(Map.Entry::getValue)
+            .collect(Collectors.toList());
+    channelsForTable.forEach(TopicPartitionChannel::closeChannel);
+    streamingIngestClientV2Provider.close(
+        PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), table));
+    channelsForTable.forEach(TopicPartitionChannel::reopenChannelAfterSchemaEvolved);
+  }
+
+  private void waitForAllChannelsToCommitData() {
+    partitionsToChannel.forEach((key, value) -> value.waitForLastProcessedRecordCommitted());
   }
 
   /**
@@ -525,6 +541,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   private void stopForSSv2() {
+    waitForAllChannelsToCommitData();
     streamingIngestClientV2Provider.closeAll();
   }
 

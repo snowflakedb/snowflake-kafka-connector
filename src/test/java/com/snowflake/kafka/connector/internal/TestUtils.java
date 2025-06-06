@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -298,12 +297,6 @@ public class TestUtils {
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
-    return configuration;
-  }
-
-  public static Map<String, String> getConfForStreamingV2() {
-    Map<String, String> configuration = getConfForStreaming();
-    configuration.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     return configuration;
   }
 

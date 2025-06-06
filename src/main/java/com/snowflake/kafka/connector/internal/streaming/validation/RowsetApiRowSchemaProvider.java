@@ -66,6 +66,7 @@ public class RowsetApiRowSchemaProvider implements RowSchemaProvider {
     metadata.setCollation(col.getCollation());
     metadata.setType(dataType.getType());
     metadata.setLogicalType(dataType.getType());
+    metadata.setSourceIcebergDataType(col.getSourceIcebergDataType());
     if (dataType.getByteLength() != null) {
       metadata.setByteLength(dataType.getByteLength());
     }
