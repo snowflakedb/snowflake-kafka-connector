@@ -20,6 +20,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.snowflake.kafka.connector.internal.InternalUtils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.OAuthConstants;
@@ -41,8 +43,10 @@ import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -873,5 +877,12 @@ public class Utils {
             : Arrays.toString(ex.getCause().getStackTrace());
 
     return formatString(GET_EXCEPTION_FORMAT, customMessage, message, cause);
+  }
+
+  public static List<String> joinNullableLists(List<String> list1, List<String> list2) {
+    return Lists.newArrayList(
+        Iterables.concat(
+            Optional.ofNullable(list1).orElse(List.of()),
+            Optional.ofNullable(list2).orElse(List.of())));
   }
 }

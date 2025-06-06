@@ -1,11 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
+import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5027;
+import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5028;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.snowflake.ingest.streaming.AppendResult;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
@@ -35,7 +34,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -299,7 +297,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
               kafkaSinkRecord.kafkaPartition(),
               kafkaSinkRecord.topic());
           waitForAllPartitionsToCommitData.run();
-          evolveSchemaAndUpdateState(kafkaSinkRecord, error);
+          evolveSchemaIfNeeded(kafkaSinkRecord, error);
           ssv2PipeCreator.createPipe(true);
           closeClientAndReopenChannelsForTable.accept(tableName);
         } else {
@@ -328,47 +326,40 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   @Override
   public void waitForLastProcessedRecordCommitted() {
+    long intervalMs = 1000;
+    int maxRetries = 20;
+
     if (lastAppendRowsOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return;
     }
-
     streamingIngestClientV2Provider
         .getClient(connectorConfig, pipeName, streamingClientProperties)
         .initiateFlush();
-    final long start = System.currentTimeMillis();
-    final long waitLimit = start + 10 * 1000;
-    long current = start;
 
-    while (current < waitLimit) {
-      try {
-        Thread.sleep(500);
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      }
+    for (int i = 0; i < maxRetries; i++) {
       long offsetCommitedToBackend = fetchLatestCommittedOffsetFromSnowflake();
       if (offsetCommitedToBackend == lastAppendRowsOffset) {
         return;
       }
-      current = System.currentTimeMillis();
+      try {
+        Thread.sleep(intervalMs);
+      } catch (InterruptedException e) {
+        throw ERROR_5027.getException();
+      }
     }
-    throw new RuntimeException();
+
+    throw ERROR_5027.getException();
   }
 
-  private void evolveSchemaAndUpdateState(SinkRecord kafkaSinkRecord, RowSchema.Error error) {
+  private void evolveSchemaIfNeeded(SinkRecord kafkaSinkRecord, RowSchema.Error error) {
     SchemaEvolutionTargetItems targetItems =
         new SchemaEvolutionTargetItems(
             tableName,
-            joinNullableLists(error.missingNotNullColNames(), error.nullValueForNotNullColNames()),
+            Utils.joinNullableLists(
+                error.missingNotNullColNames(), error.nullValueForNotNullColNames()),
             error.extraColNames());
     schemaEvolutionService.evolveSchemaIfNeeded(
         targetItems, kafkaSinkRecord, rowSchema.getColumnProperties());
-  }
-
-  private List<String> joinNullableLists(List<String> list1, List<String> list2) {
-    return Lists.newArrayList(
-        Iterables.concat(
-            Optional.ofNullable(list1).orElse(ImmutableList.of()),
-            Optional.ofNullable(list2).orElse(ImmutableList.of())));
   }
 
   private static Map<String, Object> unquoteIdentifiers(Map<String, Object> transformedRecord) {
@@ -474,7 +465,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    */
   private long streamingApiFallbackSupplier(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
-    SnowflakeStreamingIngestChannel newChannel = reopenChannel(streamingApiFallbackInvoker);
+    SnowflakeStreamingIngestChannel newChannel = openChannelForTable(channelName);
 
     LOGGER.warn(
         "{} Fetching offsetToken after re-opening the channel:{}",
@@ -548,22 +539,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   }
 
   /**
-   * {@link Fallback} executes below code if retries have failed on {@link SFException}.
-   *
-   * <p>It re-opens the channel and fetches the latestOffsetToken one more time after reopen was
-   * successful.
-   *
-   * @param streamingApiFallbackInvoker Streaming API which invoked this function.
-   * @return offset which was last present in Snowflake
-   */
-  private SnowflakeStreamingIngestChannel reopenChannel(
-      final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
-    LOGGER.warn(
-        "{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelNameFormatV1());
-    return Preconditions.checkNotNull(openChannelForTable(this.channelName));
-  }
-
-  /**
    * Returns the offset Token persisted into snowflake.
    *
    * <p>OffsetToken from Snowflake returns a String and we will convert it into long.
@@ -621,8 +596,10 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     if (result.getChannelStatus().getStatusCode().equals("SUCCESS")) {
       return result.getChannel();
     } else {
-      throw new RuntimeException(
-          "Got openChannel() code=" + result.getChannelStatus().getStatusCode());
+      throw ERROR_5028.getException(
+          String.format(
+              "Failed to open channel %s. Error code %s",
+              channelName, result.getChannelStatus().getStatusCode()));
     }
   }
 
