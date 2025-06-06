@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 
 /** Default implementation does not perform any transformations on pipe level */
-public class DefaultSSv2PipeCreator implements SSv2PipeCreator {
+class DefaultSSv2PipeCreator implements SSv2PipeCreator {
 
   private static final String CREATE_PIPE_IF_NOT_EXISTS_STATEMENT =
       "CREATE PIPE IF NOT EXISTS identifier(?) AS COPY INTO %s FROM TABLE (DATA_SOURCE(TYPE =>"
@@ -17,8 +17,7 @@ public class DefaultSSv2PipeCreator implements SSv2PipeCreator {
   private final String pipeName;
   private final String tableName;
 
-  public DefaultSSv2PipeCreator(
-      SnowflakeConnectionService conn, String pipeName, String tableName) {
+  DefaultSSv2PipeCreator(SnowflakeConnectionService conn, String pipeName, String tableName) {
     this.conn = conn;
     this.pipeName = pipeName;
     this.tableName = tableName;

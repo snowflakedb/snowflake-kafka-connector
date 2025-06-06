@@ -11,6 +11,10 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Lazily creates SnowflakeStreamingIngestClient instances. Only one instance per pipe/table is
+ * created.
+ */
 public class DefaultStreamingIngestClientV2Provider implements StreamingIngestClientV2Provider {
 
   private static final String STREAMING_CLIENT_V2_PREFIX_NAME = "KC_CLIENT_V2_";

@@ -98,7 +98,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    */
   private final SinkTaskContext sinkTaskContext;
 
-  // Whether schema evolution will be done on this channel
+  // Whether schema evolution could be done on this channel
   private final boolean enableSchemaEvolution;
 
   // Reference to the Snowflake connection service
@@ -141,7 +141,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         topicPartition,
         channelNameFormatV1,
         tableName,
-        false, /* No schema evolution */
+        false, /* No schema evolution permission */
         sfConnectorConfig,
         sinkTaskContext,
         conn,

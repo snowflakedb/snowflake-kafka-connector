@@ -157,6 +157,9 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     this.pipeName = PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName);
     this.ssv2PipeCreator = new DefaultSSv2PipeCreator(conn, pipeName, tableName);
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
+
+    ssv2PipeCreator.createPipe(false);
+    this.channel = openChannelForTable(channelName);
     this.offsetTokenExecutor =
         LatestCommitedOffsetTokenExecutor.getExecutor(
             this.getChannelNameFormatV1(),
@@ -164,9 +167,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
             () ->
                 streamingApiFallbackSupplier(
                     StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK));
-
-    ssv2PipeCreator.createPipe(false);
-    this.channel = openChannelForTable(channelName);
 
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
