@@ -293,9 +293,9 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
           LOGGER.info(
               "Record doesn't match table schema - triggering schema evolution. topic={},"
                   + " partition={}, offset={}",
+                  kafkaSinkRecord.topic(),
               kafkaSinkRecord.kafkaOffset(),
-              kafkaSinkRecord.kafkaPartition(),
-              kafkaSinkRecord.topic());
+              kafkaSinkRecord.kafkaPartition());
           waitForAllPartitionsToCommitData.run();
           evolveSchemaIfNeeded(kafkaSinkRecord, error);
           ssv2PipeCreator.createPipe(true);
@@ -304,9 +304,9 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
           LOGGER.info(
               "Record doesn't match table schema. This can't be fixed by schema evolution."
                   + " topic={}, partition={}, offset={}",
+                  kafkaSinkRecord.topic(),
               kafkaSinkRecord.kafkaOffset(),
-              kafkaSinkRecord.kafkaPartition(),
-              kafkaSinkRecord.topic());
+              kafkaSinkRecord.kafkaPartition());
           streamingErrorHandler.handleError(List.of(error.cause()), kafkaSinkRecord);
           return;
         }
@@ -320,8 +320,14 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   @Override
   public void reopenChannelAfterSchemaEvolved() {
+    LOGGER.info("Updating table schema and reopening channel {}", channelName);
     rowSchema = rowSchemaProvider.getRowSchema(tableName, connectorConfig);
     channel = openChannelForTable(channelName);
+  }
+
+  @Override
+  public String tableName() {
+    return tableName;
   }
 
   @Override

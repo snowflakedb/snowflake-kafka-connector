@@ -302,10 +302,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void closeClientAndReopenChannelsForTable(String table) {
     List<TopicPartitionChannel> channelsForTable =
-        partitionsToChannel.entrySet().stream()
-            .filter(e -> e.getKey().startsWith(table + "_"))
-            .map(Map.Entry::getValue)
+        partitionsToChannel.values().stream()
+            .filter(topicPartitionChannel -> topicPartitionChannel.tableName().equals(table))
             .collect(Collectors.toList());
+    LOGGER.info("Closing {} channels for table {}", channelsForTable.size(), table);
     channelsForTable.forEach(TopicPartitionChannel::closeChannel);
     streamingIngestClientV2Provider.close(
         PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), table));

@@ -95,4 +95,6 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
   default void waitForLastProcessedRecordCommitted() {}
 
   default void reopenChannelAfterSchemaEvolved() {}
+
+  String tableName();
 }
