@@ -50,7 +50,9 @@ public class DefaultStreamingIngestClientV2Provider implements StreamingIngestCl
 
   @Override
   public void closeAll() {
-    pipeToClientMap.forEach((k, v) -> v.close());
+    for (Map.Entry<String, SnowflakeStreamingIngestClient> entry : pipeToClientMap.entrySet()) {
+      entry.getValue().close();
+    }
     pipeToClientMap.clear();
   }
 
