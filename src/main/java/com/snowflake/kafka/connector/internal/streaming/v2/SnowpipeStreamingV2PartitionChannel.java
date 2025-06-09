@@ -334,29 +334,22 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   @Override
   public void waitForLastProcessedRecordCommitted() {
-    long intervalMs = 1000;
-    int maxRetries = 20;
-
     if (lastAppendRowsOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return;
     }
+
     streamingIngestClientV2Provider
         .getClient(connectorConfig, pipeName, streamingClientProperties)
         .initiateFlush();
 
-    for (int i = 0; i < maxRetries; i++) {
-      long offsetCommitedToBackend = fetchLatestCommittedOffsetFromSnowflake();
-      if (offsetCommitedToBackend == lastAppendRowsOffset) {
-        return;
-      }
-      try {
-        Thread.sleep(intervalMs);
-      } catch (InterruptedException e) {
-        throw ERROR_5027.getException();
-      }
-    }
-
-    throw ERROR_5027.getException();
+    WaitForLastOffsetCommittedPolicy.getPolicy(
+        () -> {
+          long offsetCommitedToBackend = fetchLatestCommittedOffsetFromSnowflake();
+          if (offsetCommitedToBackend == lastAppendRowsOffset) {
+            return true;
+          }
+          throw ERROR_5027.getException();
+        });
   }
 
   private void evolveSchemaIfNeeded(SinkRecord kafkaSinkRecord, RowSchema.Error error) {
