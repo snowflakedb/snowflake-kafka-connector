@@ -65,7 +65,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 30  # max wait time 30 mins
+        self.MAX_RETRY = 10  # max wait time 10 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
@@ -294,6 +294,9 @@ class KafkaTest:
             pipeName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_PIPE_{}_{}".format(connectorName, topicName, p)
             print(datetime.now().strftime("%H:%M:%S "), "=== Drop pipe {} ===".format(pipeName))
             self.snowflake_conn.cursor().execute("DROP pipe IF EXISTS {}".format(pipeName))
+
+        ssv2PipeName = "SNOWFLAKE_KAFKA_CONNECTOR_SSV2_PIPE_{}".format(tableName)
+        self.snowflake_conn.cursor().execute("DROP PIPE IF EXISTS {}".format(ssv2PipeName))
 
         print(datetime.now().strftime("%H:%M:%S "), "=== Done ===", flush=True)
 

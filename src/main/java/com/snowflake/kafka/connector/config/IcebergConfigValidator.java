@@ -15,7 +15,7 @@ public class IcebergConfigValidator implements StreamingConfigValidator {
   private static final String INCOMPATIBLE_INGESTION_METHOD =
       "Ingestion to Iceberg table is supported only for Snowpipe Streaming";
 
-  private static final String ICEBERG_NOT_SUPPORT_IN_SSV2 =
+  private static final String ICEBERG_NOT_SUPPORTED_IN_SSV2 =
       "Ingestion to Iceberg table is not supported by Snowpipe Streaming v2";
 
   @Override
@@ -36,7 +36,7 @@ public class IcebergConfigValidator implements StreamingConfigValidator {
     }
 
     if (Utils.isSnowpipeStreamingV2Enabled(inputConfig)) {
-      validationErrors.put(SNOWPIPE_STREAMING_V2_ENABLED, ICEBERG_NOT_SUPPORT_IN_SSV2);
+      validationErrors.put(SNOWPIPE_STREAMING_V2_ENABLED, ICEBERG_NOT_SUPPORTED_IN_SSV2);
     }
 
     return ImmutableMap.copyOf(validationErrors);

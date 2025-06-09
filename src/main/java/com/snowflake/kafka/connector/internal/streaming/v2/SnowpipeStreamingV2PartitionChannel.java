@@ -278,8 +278,9 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     fieldsToValidate.remove("RECORD_METADATA");
 
     // validation return only first encountered error type so it might be needed to call it more
-    // than once
-    for (int i = 0; i < 5; i++) {
+    // than once. Possible validation errors are: extra column, null value for non-null column or missing value for non-null column
+    int typesOfValidationErrors = 3;
+    for (int i = 0; i < typesOfValidationErrors; i++) {
       RowSchema.Error error = rowSchema.validate(fieldsToValidate);
       if (error == null) {
         // no errors - data can be safely ingested to Snowflake
