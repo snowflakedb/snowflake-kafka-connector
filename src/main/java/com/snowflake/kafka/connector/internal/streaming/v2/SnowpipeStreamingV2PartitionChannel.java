@@ -293,7 +293,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
           LOGGER.info(
               "Record doesn't match table schema - triggering schema evolution. topic={},"
                   + " partition={}, offset={}",
-                  kafkaSinkRecord.topic(),
+              kafkaSinkRecord.topic(),
               kafkaSinkRecord.kafkaOffset(),
               kafkaSinkRecord.kafkaPartition());
           waitForAllPartitionsToCommitData.run();
@@ -304,7 +304,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
           LOGGER.info(
               "Record doesn't match table schema. This can't be fixed by schema evolution."
                   + " topic={}, partition={}, offset={}",
-                  kafkaSinkRecord.topic(),
+              kafkaSinkRecord.topic(),
               kafkaSinkRecord.kafkaOffset(),
               kafkaSinkRecord.kafkaPartition());
           streamingErrorHandler.handleError(List.of(error.cause()), kafkaSinkRecord);
