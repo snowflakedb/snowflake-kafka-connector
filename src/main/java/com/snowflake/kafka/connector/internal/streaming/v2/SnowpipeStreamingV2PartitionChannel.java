@@ -163,7 +163,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     this.offsetTokenExecutor =
         LatestCommitedOffsetTokenExecutor.getExecutor(
             this.getChannelNameFormatV1(),
-            SFException.class,
+            Exception.class,
             () ->
                 streamingApiFallbackSupplier(
                     StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK));
