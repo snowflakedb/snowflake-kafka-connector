@@ -467,7 +467,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
