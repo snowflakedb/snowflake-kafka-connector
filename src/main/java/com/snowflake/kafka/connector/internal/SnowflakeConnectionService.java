@@ -354,7 +354,7 @@ public interface SnowflakeConnectionService {
    * execute sql query
    *
    * @param query sql query string
-   * @param parameter parameter to be inserted at index 1
+   * @param parameters query parameters
    */
-  void executeQueryWithParameter(String query, String parameter);
+  void executeQueryWithParameters(String query, String... parameters);
 }

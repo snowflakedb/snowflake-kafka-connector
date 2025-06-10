@@ -155,10 +155,10 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     this.rowSchema = rowSchemaProvider.getRowSchema(tableName, connectorConfig);
     this.telemetryServiceV2 = conn.getTelemetryClient();
     this.pipeName = PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName);
-    this.ssv2PipeCreator = new DefaultSSv2PipeCreator(conn, pipeName, tableName);
+    this.ssv2PipeCreator = new SSv2PipeCreator(conn, pipeName, tableName);
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
 
-    ssv2PipeCreator.createPipe(false);
+    ssv2PipeCreator.createPipe(CreatePipeMode.CREATE_IF_NOT_EXIST);
     this.channel = openChannelForTable(channelName);
     this.offsetTokenExecutor =
         LatestCommitedOffsetTokenExecutor.getExecutor(
@@ -300,7 +300,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
               kafkaSinkRecord.kafkaPartition());
           waitForAllPartitionsToCommitData.run();
           evolveSchemaIfNeeded(kafkaSinkRecord, error);
-          ssv2PipeCreator.createPipe(true);
+          ssv2PipeCreator.createPipe(CreatePipeMode.CREATE_OR_REPLACE);
           closeClientAndReopenChannelsForTable.accept(tableName);
         } else {
           LOGGER.info(

@@ -1209,10 +1209,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public void executeQueryWithParameter(String query, String parameter) {
+  public void executeQueryWithParameters(String query, String... parameters) {
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, parameter);
+      for (int i = 0; i < parameters.length; i++) {
+        stmt.setString(i + 1, parameters[i]);
+      }
       stmt.execute();
       stmt.close();
     } catch (Exception e) {
