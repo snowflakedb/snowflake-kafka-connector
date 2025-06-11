@@ -65,9 +65,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // This offset is would not be required for buffer-less channel, but we add it to keep buffered
-  // and non-buffered
-  // channel versions compatible.
+  // Used for telemetry and logging only
   private final AtomicLong currentConsumerGroupOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
