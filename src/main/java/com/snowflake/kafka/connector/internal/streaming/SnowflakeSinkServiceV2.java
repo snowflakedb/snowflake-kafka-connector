@@ -21,10 +21,7 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.v2.DefaultStreamingIngestClientV2Provider;
-import com.snowflake.kafka.connector.internal.streaming.v2.NoOpSSv2SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
-import com.snowflake.kafka.connector.internal.streaming.v2.SSv2SchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.v2.SSv2SchemaEvolutionServiceImpl;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.internal.streaming.validation.FailsafeRowSchemaProvider;
@@ -266,22 +263,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       RowSchemaProvider rowSchemaProvider =
           new FailsafeRowSchemaProvider(
               new RowsetApiRowSchemaProvider(JWTManagerProvider.fromConfig(connectorConfig)));
-      SSv2SchemaEvolutionService ssv2SchemaEvolutionService =
-          schemaEvolutionEnabled
-              ? new SSv2SchemaEvolutionServiceImpl(
-                  streamingErrorHandler,
-                  tableName,
-                  schemaEvolutionService,
-                  connectorConfig,
-                  conn,
-                  this::waitForAllChannelsToCommitData,
-                  this::closeClientAndReopenChannelsForTable)
-              : new NoOpSSv2SchemaEvolutionService();
       return new SnowpipeStreamingV2PartitionChannel(
           tableName,
+          schemaEvolutionEnabled,
           partitionChannelKey,
           topicPartition,
-          ssv2SchemaEvolutionService,
+          this.schemaEvolutionService,
           this.conn,
           this.connectorConfig,
           streamingRecordService,
@@ -289,7 +276,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           this.enableCustomJMXMonitoring,
           this.metricsJmxReporter,
           streamingIngestClientV2Provider,
-          rowSchemaProvider);
+          rowSchemaProvider,
+          this::waitForAllChannelsToCommitData,
+          this::closeClientAndReopenChannelsForTable,
+          streamingErrorHandler);
     } else {
       return new DirectTopicPartitionChannel(
           this.streamingIngestClient,
