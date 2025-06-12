@@ -342,8 +342,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
     WaitForLastOffsetCommittedPolicy.getPolicy(
         () -> {
-          long offsetCommitedToBackend = fetchLatestCommittedOffsetFromSnowflake();
-          if (offsetCommitedToBackend == lastAppendRowsOffset) {
+          long offsetCommittedToBackend = fetchLatestCommittedOffsetFromSnowflake();
+          if (offsetCommittedToBackend == lastAppendRowsOffset) {
             return true;
           }
           throw ERROR_5027.getException();
