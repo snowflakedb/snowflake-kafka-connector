@@ -53,6 +53,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "TRUE");
 
     createIcebergTable();
     enableSchemaEvolution(tableName);

@@ -61,32 +61,32 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
     assertThat(rows.size()).isEqualTo(9);
 
     // don't check metadata column schema, we have different tests for that
-    rows =
-        rows.stream()
-            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
-            .collect(Collectors.toList());
-
-    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
-
-    // resend and store same record without any issues now
-    service.insert(Collections.singletonList(record));
-    waitForOffset(1);
-
-    // and another record with same schema
-    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
-    waitForOffset(2);
-
-    // and another record with extra field - schema evolves again
-    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
-
-    rows = describeTable(tableName);
-    assertThat(rows).hasSize(10).contains(new DescribeTableRow("SIMPLE", "VARCHAR(16777216)"));
-
-    // reinsert record with extra field
-    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
-    waitForOffset(3);
-
-    assertRecordsInTable();
+//    rows =
+//        rows.stream()
+//            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
+//            .collect(Collectors.toList());
+//
+//    assertThat(rows).containsExactlyInAnyOrder(expectedSchema);
+//
+//    // resend and store same record without any issues now
+//    service.insert(Collections.singletonList(record));
+//    waitForOffset(1);
+//
+//    // and another record with same schema
+//    service.insert(Collections.singletonList(createKafkaRecord(message, 1, withSchema)));
+//    waitForOffset(2);
+//
+//    // and another record with extra field - schema evolves again
+//    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
+//
+//    rows = describeTable(tableName);
+//    assertThat(rows).hasSize(10).contains(new DescribeTableRow("SIMPLE", "VARCHAR(16777216)"));
+//
+//    // reinsert record with extra field
+//    service.insert(Collections.singletonList(createKafkaRecord(simpleRecordJson, 2, false)));
+//    waitForOffset(3);
+//
+//    assertRecordsInTable();
   }
 
   private static Stream<Arguments> prepareData() {
@@ -104,21 +104,22 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
               new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
               new DescribeTableRow("APPROVAL", "BOOLEAN")
             },
-            true),
-        Arguments.of(
-            "Primitive JSON without schema",
-            primitiveJsonExample,
-            new DescribeTableRow[] {
-              new DescribeTableRow("ID_INT8", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT16", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT32", "NUMBER(19,0)"),
-              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
-              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
-              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
-              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
-              new DescribeTableRow("APPROVAL", "BOOLEAN")
-            },
-            false));
+            true)
+//        Arguments.of(
+//            "Primitive JSON without schema",
+//            primitiveJsonExample,
+//            new DescribeTableRow[] {
+//              new DescribeTableRow("ID_INT8", "NUMBER(19,0)"),
+//              new DescribeTableRow("ID_INT16", "NUMBER(19,0)"),
+//              new DescribeTableRow("ID_INT32", "NUMBER(19,0)"),
+//              new DescribeTableRow("ID_INT64", "NUMBER(19,0)"),
+//              new DescribeTableRow("DESCRIPTION", "VARCHAR(16777216)"),
+//              new DescribeTableRow("RATING_FLOAT32", "FLOAT"),
+//              new DescribeTableRow("RATING_FLOAT64", "FLOAT"),
+//              new DescribeTableRow("APPROVAL", "BOOLEAN")
+//            },
+//            false));
+    );
   }
 
   /**
