@@ -26,6 +26,7 @@ import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2Pa
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.internal.streaming.validation.FailsafeRowSchemaProvider;
 import com.snowflake.kafka.connector.internal.streaming.validation.JWTManagerProvider;
+import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaManager;
 import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaProvider;
 import com.snowflake.kafka.connector.internal.streaming.validation.RowsetApiRowSchemaProvider;
 import com.snowflake.kafka.connector.records.RecordService;
@@ -263,6 +264,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       RowSchemaProvider rowSchemaProvider =
           new FailsafeRowSchemaProvider(
               new RowsetApiRowSchemaProvider(JWTManagerProvider.fromConfig(connectorConfig)));
+      RowSchemaManager rowSchemaManager = new RowSchemaManager(rowSchemaProvider);
       return new SnowpipeStreamingV2PartitionChannel(
           tableName,
           schemaEvolutionEnabled,
@@ -276,7 +278,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           this.enableCustomJMXMonitoring,
           this.metricsJmxReporter,
           streamingIngestClientV2Provider,
-          rowSchemaProvider,
+          rowSchemaManager,
           this::waitForAllChannelsToCommitData,
           this::closeClientAndReopenChannelsForTable,
           streamingErrorHandler);
