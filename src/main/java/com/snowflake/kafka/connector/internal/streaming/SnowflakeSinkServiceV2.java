@@ -22,6 +22,7 @@ import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertEr
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.v2.DefaultStreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
+import com.snowflake.kafka.connector.internal.streaming.v2.SSv2PipeCreator;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.internal.streaming.validation.FailsafeRowSchemaProvider;
@@ -36,12 +37,10 @@ import com.snowflake.kafka.connector.streaming.iceberg.IcebergTableSchemaValidat
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -265,12 +264,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           new FailsafeRowSchemaProvider(
               new RowsetApiRowSchemaProvider(JWTManagerProvider.fromConfig(connectorConfig)));
       RowSchemaManager rowSchemaManager = new RowSchemaManager(rowSchemaProvider);
+      SSv2PipeCreator ssv2PipeCreator =
+          new SSv2PipeCreator(
+              conn,
+              PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName),
+              tableName);
       return new SnowpipeStreamingV2PartitionChannel(
           tableName,
           schemaEvolutionEnabled,
           partitionChannelKey,
           topicPartition,
-          this.schemaEvolutionService,
           this.conn,
           this.connectorConfig,
           streamingRecordService,
@@ -279,9 +282,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           this.metricsJmxReporter,
           streamingIngestClientV2Provider,
           rowSchemaManager,
-          this::waitForAllChannelsToCommitData,
-          this::closeClientAndReopenChannelsForTable,
-          streamingErrorHandler);
+          streamingErrorHandler,
+          ssv2PipeCreator);
     } else {
       return new DirectTopicPartitionChannel(
           this.streamingIngestClient,
@@ -300,18 +302,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           new InsertErrorMapper(),
           streamingErrorHandler);
     }
-  }
-
-  private void closeClientAndReopenChannelsForTable(String table) {
-    List<TopicPartitionChannel> channelsForTable =
-        partitionsToChannel.values().stream()
-            .filter(topicPartitionChannel -> topicPartitionChannel.tableName().equals(table))
-            .collect(Collectors.toList());
-    LOGGER.info("Closing {} channels for table {}", channelsForTable.size(), table);
-    channelsForTable.forEach(TopicPartitionChannel::closeChannel);
-    streamingIngestClientV2Provider.close(
-        PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), table));
-    channelsForTable.forEach(TopicPartitionChannel::reopenChannelAfterSchemaEvolved);
   }
 
   private void waitForAllChannelsToCommitData() {

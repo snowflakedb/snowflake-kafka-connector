@@ -58,6 +58,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         "org.apache.kafka.connect.json.JsonConverter");
     config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
     config.put("schemas.enable", "false");
+    config.put(ERRORS_TOLERANCE_CONFIG, "all");
+    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
     pipe = PipeNameProvider.pipeName(config.get(Utils.NAME), table);
   }
 
@@ -93,13 +95,15 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
-  public void testSchematizationWithTableCreationAndJsonInput_ssv2() throws Exception {
+  public void testSchematizationWithTableCreationAndJsonInput_ssv2() {
     // given
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     SinkRecord jsonRecordValue = createComplexTestRecord(partition, 0);
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
             .build();
     service.startPartition(table, topicPartition);
 
@@ -107,10 +111,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     service.insert(Collections.singletonList(jsonRecordValue));
 
     // then
-    TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
-    TestUtils.checkTableContentOneRow(
-        table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
   @Test
@@ -146,14 +148,16 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
-  public void testSchematizationSchemaEvolutionWithNonNullableColumn_ssv2() throws Exception {
+  public void testSchematizationSchemaEvolutionWithNonNullableColumn_ssv2() {
     // given
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     SinkRecord jsonRecordValue = recordForNullabilityTest(0);
 
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
             .build();
     service.startPartition(table, topicPartition);
 
@@ -161,7 +165,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     service.insert(Collections.singletonList(jsonRecordValue));
 
     // then
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
   @Test
@@ -215,9 +220,11 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     conn.createTableWithOnlyMetadataColumn(table);
     createNonNullableColumn(table, "id_int8", "int");
 
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
             .withSchemaEvolutionService(
                 new DelayedSchemaEvolutionService(conn, schemaEvolutionDelayMs))
             .build();
@@ -230,10 +237,13 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
             recordWithTwoFields(partition, 2),
             recordWithTwoFields(partition, 3)));
 
+    // then
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(2, errorReporter.getReportedRecords().size());
     await()
         .atMost(30, TimeUnit.SECONDS)
         .pollInterval(5, TimeUnit.SECONDS)
-        .until(() -> service.getOffset(topicPartition) == 4);
+        .until(() -> service.getOffset(topicPartition) == 2);
   }
 
   @ParameterizedTest
@@ -275,9 +285,11 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     SinkRecord simpleRecordPartition = recordWithSingleField(partition, 0);
     SinkRecord complexRecordPartition = createComplexTestRecord(partition, 1);
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Set.of(topicPartition)))
+            .withErrorReporter(errorReporter)
             .build();
     service.startPartition(table, topicPartition);
 
@@ -285,11 +297,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     service.insert(List.of(simpleRecordPartition, complexRecordPartition));
 
     // then
-    await()
-        .atMost(30, TimeUnit.SECONDS)
-        .pollInterval(5, TimeUnit.SECONDS)
-        .until(
-            () -> service.getOffset(topicPartition) == 2 && TestUtils.getNumberOfRows(table) == 2);
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(2, errorReporter.getReportedRecords().size());
   }
 
   @Test
@@ -300,10 +309,12 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     SinkRecord complexRecordPartition1 = createComplexTestRecord(partition, 1);
     SinkRecord simpleRecordPartition2 = recordWithSingleField(partition2, 0);
     SinkRecord complexRecordPartition2 = createComplexTestRecord(partition2, 1);
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(
                 new InMemorySinkTaskContext(Set.of(topicPartition, topicPartition2)))
+            .withErrorReporter(errorReporter)
             .build();
     service.startPartition(table, topicPartition);
     service.startPartition(table, topicPartition2);
@@ -313,14 +324,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     service.insert(List.of(simpleRecordPartition2, complexRecordPartition2));
 
     // then
-    await()
-        .atMost(30, TimeUnit.SECONDS)
-        .pollInterval(5, TimeUnit.SECONDS)
-        .until(
-            () ->
-                service.getOffset(topicPartition) == 2
-                    && service.getOffset(topicPartition2) == 2
-                    && TestUtils.getNumberOfRows(table) == 4);
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(4, errorReporter.getReportedRecords().size());
   }
 
   @ParameterizedTest

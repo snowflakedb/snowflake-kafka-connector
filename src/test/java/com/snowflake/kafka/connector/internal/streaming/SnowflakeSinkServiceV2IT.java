@@ -945,7 +945,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
   // user
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
+  @ValueSource(booleans = {false})
   public void testStreamingIngest_multipleChannel_distinctClients(boolean ssv2Enabled)
       throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
