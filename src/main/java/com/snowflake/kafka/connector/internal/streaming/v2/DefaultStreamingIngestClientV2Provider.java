@@ -9,17 +9,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Lazily creates SnowflakeStreamingIngestClient instances. Only one instance per pipe/table is
  * created.
+ *
+ * <p>Synchronization is required because multiple Sink Task instances may run on the same worker.
+ * Synchronization via ConcurrentHashMap is not enough because more than one operation is called
+ * within single method.
  */
 public class DefaultStreamingIngestClientV2Provider implements StreamingIngestClientV2Provider {
 
   private static final String STREAMING_CLIENT_V2_PREFIX_NAME = "KC_CLIENT_V2_";
   private static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
-  private static final AtomicInteger createdClientId = new AtomicInteger(0);
+  private static int createdClientId = 0;
 
   private final Map<String, SnowflakeStreamingIngestClient> pipeToClientMap = new HashMap<>();
 
@@ -28,32 +31,37 @@ public class DefaultStreamingIngestClientV2Provider implements StreamingIngestCl
       Map<String, String> connectorConfig,
       String pipeName,
       StreamingClientProperties streamingClientProperties) {
+    synchronized (pipeToClientMap) {
+      Optional<SnowflakeStreamingIngestClient> existingClient =
+          Optional.ofNullable(pipeToClientMap.get(pipeName)).filter(client -> !client.isClosed());
 
-    Optional<SnowflakeStreamingIngestClient> existingClient =
-        Optional.ofNullable(pipeToClientMap.get(pipeName)).filter(client -> !client.isClosed());
-
-    return existingClient.orElseGet(
-        () -> {
-          SnowflakeStreamingIngestClient newClient =
-              createClient(connectorConfig, pipeName, streamingClientProperties);
-          pipeToClientMap.put(pipeName, newClient);
-          return newClient;
-        });
+      return existingClient.orElseGet(
+          () -> {
+            SnowflakeStreamingIngestClient newClient =
+                createClient(connectorConfig, pipeName, streamingClientProperties);
+            pipeToClientMap.put(pipeName, newClient);
+            return newClient;
+          });
+    }
   }
 
   @Override
   public void close(String pipeName) {
-    Optional.ofNullable(pipeToClientMap.get(pipeName))
-        .ifPresent(SnowflakeStreamingIngestClient::close);
-    pipeToClientMap.remove(pipeName);
+    synchronized (pipeToClientMap) {
+      Optional.ofNullable(pipeToClientMap.get(pipeName))
+          .ifPresent(SnowflakeStreamingIngestClient::close);
+      pipeToClientMap.remove(pipeName);
+    }
   }
 
   @Override
   public void closeAll() {
-    for (Map.Entry<String, SnowflakeStreamingIngestClient> entry : pipeToClientMap.entrySet()) {
-      entry.getValue().close();
+    synchronized (pipeToClientMap) {
+      for (Map.Entry<String, SnowflakeStreamingIngestClient> entry : pipeToClientMap.entrySet()) {
+        entry.getValue().close();
+      }
+      pipeToClientMap.clear();
     }
-    pipeToClientMap.clear();
   }
 
   private SnowflakeStreamingIngestClient createClient(
@@ -70,9 +78,10 @@ public class DefaultStreamingIngestClientV2Provider implements StreamingIngestCl
   }
 
   private static String clientName(Map<String, String> connectorConfig) {
+    createdClientId++;
     return STREAMING_CLIENT_V2_PREFIX_NAME
         + connectorConfig.getOrDefault(Utils.NAME, DEFAULT_CLIENT_NAME)
-        + createdClientId.getAndIncrement();
+        + createdClientId;
   }
 
   private static Properties getClientProperties(Map<String, String> connectorConfig) {

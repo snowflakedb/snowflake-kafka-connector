@@ -20,8 +20,6 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.StreamingRecordService;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelInsertionException;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionTargetItems;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.validation.RowSchema;
@@ -34,10 +32,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -83,8 +81,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   /* table is required for opening the channel */
   private final String tableName;
 
-  private final SchemaEvolutionService schemaEvolutionService;
-
   /** Available from {@link SinkTask} which has access to various utility methods. */
   private final SinkTaskContext sinkTaskContext;
 
@@ -94,8 +90,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
 
   private final StreamingRecordService streamingRecordService;
-
-  private final SSv2PipeCreator ssv2PipeCreator;
 
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
@@ -111,10 +105,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   private final Map<String, String> connectorConfig;
 
-  private final Runnable waitForAllPartitionsToCommitData;
-
-  private final Consumer<String> closeClientAndReopenChannelsForTable;
-
   private final StreamingErrorHandler streamingErrorHandler;
 
   public SnowpipeStreamingV2PartitionChannel(
@@ -122,7 +112,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
       final boolean schemaEvolutionEnabled,
       String channelName,
       TopicPartition topicPartition,
-      SchemaEvolutionService schemaEvolutionService,
       SnowflakeConnectionService conn,
       Map<String, String> connectorConfig,
       StreamingRecordService streamingRecordService,
@@ -131,26 +120,21 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
       MetricsJmxReporter metricsJmxReporter,
       StreamingIngestClientV2Provider streamingIngestClientV2Provider,
       RowSchemaManager rowSchemaManager,
-      Runnable waitForAllPartitionsToCommitData,
-      Consumer<String> closeClientAndReopenChannelsForTable,
-      StreamingErrorHandler streamingErrorHandler) {
+      StreamingErrorHandler streamingErrorHandler,
+      SSv2PipeCreator ssv2PipeCreator) {
     this.tableName = tableName;
     this.schemaEvolutionEnabled = schemaEvolutionEnabled;
     this.channelName = channelName;
     this.topicPartition = topicPartition;
-    this.schemaEvolutionService = schemaEvolutionService;
     this.connectorConfig = connectorConfig;
     this.streamingRecordService = streamingRecordService;
     this.sinkTaskContext = sinkTaskContext;
     this.streamingIngestClientV2Provider = streamingIngestClientV2Provider;
     this.rowSchemaManager = rowSchemaManager;
-    this.waitForAllPartitionsToCommitData = waitForAllPartitionsToCommitData;
-    this.closeClientAndReopenChannelsForTable = closeClientAndReopenChannelsForTable;
     this.streamingErrorHandler = streamingErrorHandler;
 
     this.telemetryServiceV2 = conn.getTelemetryClient();
     this.pipeName = PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName);
-    this.ssv2PipeCreator = new SSv2PipeCreator(conn, pipeName, tableName);
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
 
     ssv2PipeCreator.createPipe(CreatePipeMode.CREATE_IF_NOT_EXIST);
@@ -246,7 +230,17 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     try {
       Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
       if (schemaEvolutionEnabled) {
-        validateRecordAndEvolveTableSchema(kafkaSinkRecord, transformedRecord);
+        Optional<RowSchema.Error> error = validateRecord(transformedRecord);
+        if (error.isPresent()) {
+          LOGGER.info(
+              "Record doesn't match table schema. " + " topic={}, partition={}, offset={}",
+              kafkaSinkRecord.topic(),
+              kafkaSinkRecord.kafkaPartition(),
+              kafkaSinkRecord.kafkaOffset());
+          streamingErrorHandler.handleError(List.of(error.get().cause()), kafkaSinkRecord);
+          this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+          return;
+        }
       }
 
       // for schema evolution all identifiers are quoted
@@ -266,55 +260,12 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     }
   }
 
-  private void validateRecordAndEvolveTableSchema(
-      SinkRecord kafkaSinkRecord, Map<String, Object> transformedRecord) {
+  private Optional<RowSchema.Error> validateRecord(Map<String, Object> transformedRecord) {
     Map<String, Object> fieldsToValidate = new HashMap<>(transformedRecord);
     // skip RECORD_METADATA cause SSv1 validations don't accept POJOs
     fieldsToValidate.remove("RECORD_METADATA");
-
-    // validation return only first encountered error type so it might be needed to call it more
-    // than once. Possible validation errors are: extra column, null value for non-null column or
-    // missing value for non-null column
-    int typesOfValidationErrors = 3;
-    for (int i = 0; i < typesOfValidationErrors + 1; i++) {
-      RowSchema.Error error =
-          rowSchemaManager.get(tableName, connectorConfig).validate(fieldsToValidate);
-      if (error == null) {
-        // no errors - data can be safely ingested to Snowflake
-        return;
-      } else {
-        boolean triggersSchemaEvolution =
-            error.extraColNames() != null
-                || error.nullValueForNotNullColNames() != null
-                || error.missingNotNullColNames() != null;
-        if (triggersSchemaEvolution) {
-          LOGGER.info(
-              "Record doesn't match table schema - triggering schema evolution. topic={},"
-                  + " partition={}, offset={}",
-              kafkaSinkRecord.topic(),
-              kafkaSinkRecord.kafkaOffset(),
-              kafkaSinkRecord.kafkaPartition());
-          waitForAllPartitionsToCommitData.run();
-          evolveSchemaIfNeeded(kafkaSinkRecord, error);
-          rowSchemaManager.invalidate(tableName);
-          ssv2PipeCreator.createPipe(CreatePipeMode.CREATE_OR_REPLACE);
-          closeClientAndReopenChannelsForTable.accept(tableName);
-        } else {
-          LOGGER.info(
-              "Record doesn't match table schema. This can't be fixed by schema evolution."
-                  + " topic={}, partition={}, offset={}",
-              kafkaSinkRecord.topic(),
-              kafkaSinkRecord.kafkaOffset(),
-              kafkaSinkRecord.kafkaPartition());
-          streamingErrorHandler.handleError(List.of(error.cause()), kafkaSinkRecord);
-          return;
-        }
-      }
-    }
-    // should not happen, but it is reasonable to send record to DLQ instead of stopping connector
-    LOGGER.warn("Unexpected state in schema evolution. Record will be sent to DLQ if possible.");
-    streamingErrorHandler.handleError(
-        List.of(new IllegalStateException("Schema evolution unsuccessful")), kafkaSinkRecord);
+    return Optional.ofNullable(
+        rowSchemaManager.get(tableName, connectorConfig).validate(fieldsToValidate));
   }
 
   @Override
@@ -346,19 +297,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
           }
           throw ERROR_5027.getException();
         });
-  }
-
-  private void evolveSchemaIfNeeded(SinkRecord kafkaSinkRecord, RowSchema.Error error) {
-    SchemaEvolutionTargetItems targetItems =
-        new SchemaEvolutionTargetItems(
-            tableName,
-            Utils.joinNullableLists(
-                error.missingNotNullColNames(), error.nullValueForNotNullColNames()),
-            error.extraColNames());
-    schemaEvolutionService.evolveSchemaIfNeeded(
-        targetItems,
-        kafkaSinkRecord,
-        rowSchemaManager.get(tableName, connectorConfig).getColumnProperties());
   }
 
   private static Map<String, Object> unquoteIdentifiers(Map<String, Object> transformedRecord) {
