@@ -144,6 +144,10 @@ public enum SnowflakeErrors {
       "0032",
       "Iceberg table does not exist or is in invalid format",
       "Check Snowflake Kafka Connector docs for details"),
+  ERROR_0033(
+      "0033",
+      "Iceberg ingestion not supported by Snowpipe Streaming v2",
+      "Use Snowpipe Streaming v1 instead"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -352,7 +356,16 @@ public enum SnowflakeErrors {
   ERROR_5026(
       "5026",
       "Invalid SinkRecord received",
-      "Cannot infer type from null or empty object/list during schema evolution.");
+      "Cannot infer type from null or empty object/list during schema evolution."),
+  ERROR_5027(
+      "5027",
+      "Data verification failed",
+      "Connector couldn't verify that all data was committed to Snowflake. Stopping to avoid data"
+          + " loss."),
+  ERROR_5028(
+      "5028",
+      "Failed to open Snowpipe Streaming v2 channel",
+      "Failed to open Snowpipe Streaming v2 channel");
 
   // properties
 
