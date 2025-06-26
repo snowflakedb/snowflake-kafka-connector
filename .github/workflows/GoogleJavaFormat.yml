@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: GoogleJavaFormat
         id: googlejavaformat
-        uses: axel-op/googlejavaformat-action@v3
+        uses: axel-op/googlejavaformat-action@v4
         with:
           skipCommit: true
           version: 1.10.0
