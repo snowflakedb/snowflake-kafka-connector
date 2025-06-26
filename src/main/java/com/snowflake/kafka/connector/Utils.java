@@ -74,7 +74,6 @@ public class Utils {
   public static final String SF_USER = "snowflake.user.name";
   public static final String SF_PRIVATE_KEY = "snowflake.private.key";
   public static final String SF_URL = "snowflake.url.name";
-  public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
   public static final String SF_AUTHENTICATOR =
@@ -412,12 +411,25 @@ public class Utils {
         config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
   }
 
+  public static boolean isSnowpipeStreamingV2Enabled(Map<String, String> config) {
+    return Boolean.parseBoolean(
+        config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED));
+  }
+
   /**
    * @param config config with applied default values
    * @return role specified in rhe config
    */
   public static String role(Map<String, String> config) {
     return config.get(SF_ROLE);
+  }
+
+  public static String database(Map<String, String> config) {
+    return config.get(SF_DATABASE);
+  }
+
+  public static String schema(Map<String, String> config) {
+    return config.get(SF_SCHEMA);
   }
 
   /**

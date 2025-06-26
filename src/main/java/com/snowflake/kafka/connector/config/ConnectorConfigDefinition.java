@@ -483,6 +483,12 @@ public class ConnectorConfigDefinition {
             "When set to true the connector will ingest data into the Iceberg table. Check the"
                 + " official Snowflake documentation for the prerequisites.")
         .define(
+            SNOWPIPE_STREAMING_V2_ENABLED,
+            ConfigDef.Type.BOOLEAN,
+            SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE,
+            ConfigDef.Importance.HIGH,
+            "When set to true the connector will ingest data using Snowpipe Streaming v2.")
+        .define(
             ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
             ConfigDef.Type.BOOLEAN,
             ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DEFAULT,
