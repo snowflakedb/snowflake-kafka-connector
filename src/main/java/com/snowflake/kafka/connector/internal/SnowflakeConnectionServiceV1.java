@@ -1208,6 +1208,20 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     }
   }
 
+  @Override
+  public void executeQueryWithParameters(String query, String... parameters) {
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      for (int i = 0; i < parameters.length; i++) {
+        stmt.setString(i + 1, parameters[i]);
+      }
+      stmt.execute();
+      stmt.close();
+    } catch (Exception e) {
+      throw new RuntimeException("Error executing query: " + query, e);
+    }
+  }
+
   @VisibleForTesting
   protected ChannelMigrateOffsetTokenResponseDTO getChannelMigrateOffsetTokenResponseDTO(
       String migrateOffsetTokenResultFromSysFunc) throws JsonProcessingException {

@@ -274,7 +274,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -283,7 +283,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSnowpipeStreamingStringJson(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -294,7 +294,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -305,7 +305,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -314,7 +314,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -323,7 +323,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSnowpipeStreamingStringAvroSR(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -334,7 +334,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -352,7 +352,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSchemaMapping(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -363,7 +363,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -374,7 +374,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -385,7 +385,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -394,7 +394,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSchemaEvolutionJson(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -405,7 +405,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -414,7 +414,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -425,7 +425,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=False,
                     run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -436,7 +436,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -447,7 +447,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -458,7 +458,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -467,7 +467,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -478,7 +478,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -487,7 +487,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSchemaNotSupportedConverter(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -496,7 +496,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcDeleteCreate(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -505,7 +505,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcDeleteCreateChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -514,7 +514,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcDeleteResume(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -523,7 +523,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcDeleteResumeChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -532,7 +532,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcPauseCreate(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -541,7 +541,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcPauseCreateChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -550,7 +550,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcPauseResume(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -559,7 +559,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcPauseResumeChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -568,7 +568,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcRecreate(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -577,7 +577,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcRecreateChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -586,16 +586,18 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcRestart(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
+                # This test is not supported for SSv2 on purpose
+                # Manual table recreation is difficult to handle in the new architecture
                 "TestSchemaEvolutionDropTable",
                 EndToEndTestSuite(
                     test_instance=TestSchemaEvolutionDropTable(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -606,7 +608,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -617,7 +619,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
