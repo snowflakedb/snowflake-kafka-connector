@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.config;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -52,6 +53,11 @@ public class IcebergConfigValidationTest {
             SnowflakeSinkConnectorConfigBuilder.icebergConfig()
                 .withIngestionMethod(IngestionMethodConfig.SNOWPIPE)
                 .build(),
-            INGESTION_METHOD_OPT));
+            INGESTION_METHOD_OPT),
+        Arguments.of(
+            SnowflakeSinkConnectorConfigBuilder.icebergConfig()
+                .withSnowpipeStreamingV2Enabled()
+                .build(),
+            SNOWPIPE_STREAMING_V2_ENABLED));
   }
 }

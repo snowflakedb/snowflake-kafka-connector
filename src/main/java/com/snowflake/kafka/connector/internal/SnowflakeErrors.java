@@ -144,6 +144,11 @@ public enum SnowflakeErrors {
       "0032",
       "Iceberg table does not exist or is in invalid format",
       "Check Snowflake Kafka Connector docs for details"),
+  ERROR_0033(
+      "0033",
+      "Iceberg ingestion not supported by Snowpipe Streaming v2",
+      "Use Snowpipe Streaming v1 instead"),
+
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",

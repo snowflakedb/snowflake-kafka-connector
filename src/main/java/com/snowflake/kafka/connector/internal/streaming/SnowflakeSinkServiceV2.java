@@ -239,6 +239,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     StreamingRecordService streamingRecordService =
         new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
 
+    boolean schemaEvolutionEnabled =
+        Utils.isSchematizationEnabled(connectorConfig) && hasSchemaEvolutionPermission;
+
     StreamingErrorHandler streamingErrorHandler =
         new StreamingErrorHandler(
             connectorConfig, kafkaRecordErrorReporter, this.conn.getTelemetryClient());
@@ -248,7 +251,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         topicPartition,
         partitionChannelKey, // Streaming channel name
         tableName,
-        hasSchemaEvolutionPermission,
+        schemaEvolutionEnabled,
         this.connectorConfig,
         this.sinkTaskContext,
         this.conn,

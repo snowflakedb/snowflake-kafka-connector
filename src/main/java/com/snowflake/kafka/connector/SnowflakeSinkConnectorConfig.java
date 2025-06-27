@@ -156,6 +156,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ICEBERG_ENABLED = "snowflake.streaming.iceberg.enabled";
   public static final boolean ICEBERG_ENABLED_DEFAULT_VALUE = false;
 
+  public static final String SNOWPIPE_STREAMING_V2_ENABLED = "snowflake.streaming.v2.enabled";
+  public static final boolean SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE = false;
+
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;

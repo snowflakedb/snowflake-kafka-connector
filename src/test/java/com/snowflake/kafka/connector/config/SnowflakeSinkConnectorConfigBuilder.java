@@ -113,6 +113,11 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
+  public SnowflakeSinkConnectorConfigBuilder withoutRole() {
+    config.remove(SF_ROLE);
+    return this;
+  }
+
   public SnowflakeSinkConnectorConfigBuilder withSchematizationEnabled(boolean enabled) {
     config.put(ENABLE_SCHEMATIZATION_CONFIG, Boolean.toString(enabled));
     return this;
@@ -146,6 +151,11 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public SnowflakeSinkConnectorConfigBuilder withOauthTokenEndpoint(String value) {
     config.put(Utils.SF_OAUTH_TOKEN_ENDPOINT, value);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withSnowpipeStreamingV2Enabled() {
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED, "true");
     return this;
   }
 

@@ -2,6 +2,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
+import static com.snowflake.kafka.connector.Utils.database;
+import static com.snowflake.kafka.connector.Utils.schema;
 import static java.util.stream.Collectors.toMap;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -65,9 +67,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private final AtomicLong processedOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
-  // This offset is would not be required for buffer-less channel, but we add it to keep buffered
-  // and non-buffered
-  // channel versions compatible.
+  // Used for telemetry and logging only
   private final AtomicLong currentConsumerGroupOffset =
       new AtomicLong(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
@@ -163,10 +163,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    *     (TopicPartitionChannel)
    * @param channelNameFormatV1 channel Name which is deterministic for topic and partition
    * @param tableName table to ingest in snowflake
-   * @param hasSchemaEvolutionPermission if the role has permission to perform schema evolution on
-   *     the table
+   * @param enableSchemaEvolution if the schema evolution should be performed on the table
    * @param sfConnectorConfig configuration set for snowflake connector
-   * @param kafkaRecordErrorReporter kafka errpr reporter for sending records to DLQ
    * @param sinkTaskContext context on Kafka Connect's runtime
    * @param conn the snowflake connection service
    * @param streamingRecordService record service for processing incoming offsets from Kafka
@@ -644,8 +642,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(this.channelNameFormatV1)
-            .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
-            .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
+            .setDBName(database(sfConnectorConfig))
+            .setSchemaName(schema(sfConnectorConfig))
             .setTableName(this.tableName)
             .setOnErrorOption(onErrorOption)
             .setOffsetTokenVerificationFunction(StreamingUtils.offsetTokenVerificationFunction)
