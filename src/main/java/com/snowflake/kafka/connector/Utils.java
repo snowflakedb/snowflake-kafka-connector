@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.InternalUtils;
@@ -43,7 +44,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Random;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -115,8 +116,6 @@ public class Utils {
 
   // jdbc log dir
   public static final String JAVA_IO_TMPDIR = "java.io.tmpdir";
-
-  private static final Random random = new Random();
 
   // mvn repo
   private static final String MVN_REPO =
@@ -412,8 +411,10 @@ public class Utils {
   }
 
   public static boolean isSnowpipeStreamingV2Enabled(Map<String, String> config) {
-    return Boolean.parseBoolean(
-        config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED));
+    return Optional.ofNullable(
+            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED))
+        .map(Boolean::parseBoolean)
+        .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
   /**

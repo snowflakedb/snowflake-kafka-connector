@@ -113,6 +113,11 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
+  public SnowflakeSinkConnectorConfigBuilder withoutRole() {
+    config.remove(SF_ROLE);
+    return this;
+  }
+
   public SnowflakeSinkConnectorConfigBuilder withSchematizationEnabled(boolean enabled) {
     config.put(ENABLE_SCHEMATIZATION_CONFIG, Boolean.toString(enabled));
     return this;
