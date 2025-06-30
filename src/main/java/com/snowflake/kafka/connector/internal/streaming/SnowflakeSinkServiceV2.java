@@ -218,29 +218,24 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * presented or not.
    */
   private void createStreamingChannelForTopicPartition(
-      final String tableName,
-      final TopicPartition topicPartition,
-      boolean hasSchemaEvolutionPermission) {
+      final String tableName, final TopicPartition topicPartition, boolean schemaEvolutionEnabled) {
     final String partitionChannelKey =
         partitionChannelKey(topicPartition.topic(), topicPartition.partition());
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
         partitionChannelKey,
         createTopicPartitionChannel(
-            tableName, topicPartition, hasSchemaEvolutionPermission, partitionChannelKey));
+            tableName, topicPartition, schemaEvolutionEnabled, partitionChannelKey));
   }
 
   private TopicPartitionChannel createTopicPartitionChannel(
       String tableName,
       TopicPartition topicPartition,
-      boolean hasSchemaEvolutionPermission,
+      boolean schemaEvolutionEnabled,
       String partitionChannelKey) {
 
     StreamingRecordService streamingRecordService =
         new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
-
-    boolean schemaEvolutionEnabled =
-        Utils.isSchematizationEnabled(connectorConfig) && hasSchemaEvolutionPermission;
 
     StreamingErrorHandler streamingErrorHandler =
         new StreamingErrorHandler(

@@ -126,8 +126,9 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     if (inputConfig.containsKey(Utils.SF_ROLE)) {
       String rolePresentForSSv2 =
           String.format(
-              "'%s' must not be present when '%s' is enabled",
-              Utils.SF_ROLE, SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED);
+              "The default role is used when '%s' is enabled. Delete '%s' parameter from the"
+                  + " connector config and make sure that default role is set properly.",
+              SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED, Utils.SF_ROLE);
       return Optional.of(Map.entry(Utils.SF_ROLE, rolePresentForSSv2));
     }
     return Optional.empty();

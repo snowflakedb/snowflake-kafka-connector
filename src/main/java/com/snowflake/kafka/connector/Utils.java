@@ -425,11 +425,11 @@ public class Utils {
     return config.get(SF_ROLE);
   }
 
-  public static String database(Map<String, String> config) {
+  public static String getDatabase(Map<String, String> config) {
     return config.get(SF_DATABASE);
   }
 
-  public static String schema(Map<String, String> config) {
+  public static String getSchema(Map<String, String> config) {
     return config.get(SF_SCHEMA);
   }
 
