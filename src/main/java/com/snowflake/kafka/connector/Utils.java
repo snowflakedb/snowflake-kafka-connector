@@ -421,7 +421,7 @@ public class Utils {
    * @param config config with applied default values
    * @return role specified in rhe config
    */
-  public static String role(Map<String, String> config) {
+  public static String getRole(Map<String, String> config) {
     return config.get(SF_ROLE);
   }
 
@@ -443,7 +443,7 @@ public class Utils {
     return !isSnowpipeIngestion(config);
   }
 
-  public static String user(Map<String, String> config) {
+  public static String getUser(Map<String, String> config) {
     return config.get(SF_USER);
   }
 

@@ -203,7 +203,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private void tableActionsOnStartPartition(String tableName) {
     if (Utils.isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
-          tableName, Utils.role(connectorConfig), Utils.isSchematizationEnabled(connectorConfig));
+          tableName,
+          Utils.getRole(connectorConfig),
+          Utils.isSchematizationEnabled(connectorConfig));
       icebergInitService.initializeIcebergTableProperties(tableName);
       populateSchemaEvolutionPermissions(tableName);
     } else {
