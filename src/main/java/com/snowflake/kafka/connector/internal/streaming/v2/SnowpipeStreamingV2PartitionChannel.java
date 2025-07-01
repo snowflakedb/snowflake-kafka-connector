@@ -137,7 +137,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     this.pipeName = PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName);
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
 
-    ssv2PipeCreator.createPipe(CreatePipeMode.CREATE_IF_NOT_EXIST);
+    ssv2PipeCreator.createPipeIfNotExists();
     this.channel = openChannelForTable(channelName);
     this.offsetTokenExecutor =
         LatestCommitedOffsetTokenExecutor.getExecutor(
