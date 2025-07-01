@@ -1,8 +1,9 @@
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
 import static com.snowflake.kafka.connector.Utils.SF_URL;
+import static com.snowflake.kafka.connector.Utils.getDatabase;
+import static com.snowflake.kafka.connector.Utils.getSchema;
 
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -89,8 +90,8 @@ public class RowsetApiRowSchemaProvider implements RowSchemaProvider {
             + connectorConfig.get(SF_URL)
             + String.format(
                 TABLE_COLUMNS_ENDPOINT,
-                URLEncoder.encode(connectorConfig.get(Utils.SF_DATABASE), StandardCharsets.UTF_8),
-                URLEncoder.encode(connectorConfig.get(Utils.SF_SCHEMA), StandardCharsets.UTF_8),
+                URLEncoder.encode(getDatabase(connectorConfig), StandardCharsets.UTF_8),
+                URLEncoder.encode(getSchema(connectorConfig), StandardCharsets.UTF_8),
                 URLEncoder.encode(tableName, StandardCharsets.UTF_8));
 
     HttpPost tableInfoRequest = new HttpPost(destinationUrl);

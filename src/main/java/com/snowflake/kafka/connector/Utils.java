@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -77,7 +78,6 @@ public class Utils {
   public static final String SF_USER = "snowflake.user.name";
   public static final String SF_PRIVATE_KEY = "snowflake.private.key";
   public static final String SF_URL = "snowflake.url.name";
-  public static final String SF_SSL = "sfssl"; // for test only
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
   public static final String SF_AUTHENTICATOR =
@@ -414,23 +414,25 @@ public class Utils {
   }
 
   public static boolean isSnowpipeStreamingV2Enabled(Map<String, String> config) {
-    return Boolean.parseBoolean(
-        config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED));
+    return Optional.ofNullable(
+            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED))
+        .map(Boolean::parseBoolean)
+        .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
   /**
    * @param config config with applied default values
    * @return role specified in rhe config
    */
-  public static String role(Map<String, String> config) {
+  public static String getRole(Map<String, String> config) {
     return config.get(SF_ROLE);
   }
 
-  public static String database(Map<String, String> config) {
+  public static String getDatabase(Map<String, String> config) {
     return config.get(SF_DATABASE);
   }
 
-  public static String schema(Map<String, String> config) {
+  public static String getSchema(Map<String, String> config) {
     return config.get(SF_SCHEMA);
   }
 
@@ -444,7 +446,7 @@ public class Utils {
     return !isSnowpipeIngestion(config);
   }
 
-  public static String user(Map<String, String> config) {
+  public static String getUser(Map<String, String> config) {
     return config.get(SF_USER);
   }
 
