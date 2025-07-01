@@ -87,7 +87,6 @@ public class DefaultStreamingIngestClientV2Provider implements StreamingIngestCl
   private static Properties getClientProperties(Map<String, String> connectorConfig) {
     final Properties props = new Properties();
     SnowflakeURL url = new SnowflakeURL(connectorConfig.get(Utils.SF_URL));
-    props.put("role", Utils.getRole(connectorConfig));
     props.put("private_key", connectorConfig.get(Utils.SF_PRIVATE_KEY));
     props.put("user", connectorConfig.get(Utils.SF_USER));
     props.put("account", url.getAccount());
