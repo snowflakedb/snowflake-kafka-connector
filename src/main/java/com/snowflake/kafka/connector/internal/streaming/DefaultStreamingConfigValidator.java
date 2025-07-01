@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.kafka.common.config.ConfigException;
 
@@ -49,16 +50,9 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
           invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
           invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
 
-          // Validate if snowflake role is present
-          if (!inputConfig.containsKey(Utils.SF_ROLE)
-              || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
-            invalidParams.put(
-                Utils.SF_ROLE,
-                Utils.formatString(
-                    "Config:{} should be present if ingestionMethod is:{}",
-                    Utils.SF_ROLE,
-                    inputConfig.get(INGESTION_METHOD_OPT)));
-          }
+          validateRole(inputConfig)
+              .ifPresent(
+                  errorEntry -> invalidParams.put(errorEntry.getKey(), errorEntry.getValue()));
 
           /**
            * Only checking in streaming since we are utilizing the values before we send it to
@@ -104,6 +98,40 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     }
 
     return ImmutableMap.copyOf(invalidParams);
+  }
+
+  private static Optional<Map.Entry<String, String>> validateRole(Map<String, String> inputConfig) {
+    if (Utils.isSnowpipeStreamingV2Enabled(inputConfig)) {
+      return validateRoleForSSv2(inputConfig);
+    } else {
+      return validateRoleForSSv1(inputConfig);
+    }
+  }
+
+  private static Optional<Map.Entry<String, String>> validateRoleForSSv1(
+      Map<String, String> inputConfig) {
+    if (!inputConfig.containsKey(Utils.SF_ROLE)
+        || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
+      String roleMissingForSSv1 =
+          String.format(
+              "Config:%s should be present if ingestionMethod is:%s",
+              Utils.SF_ROLE, inputConfig.get(INGESTION_METHOD_OPT));
+      return Optional.of(Map.entry(Utils.SF_ROLE, roleMissingForSSv1));
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<Map.Entry<String, String>> validateRoleForSSv2(
+      Map<String, String> inputConfig) {
+    if (inputConfig.containsKey(Utils.SF_ROLE)) {
+      String rolePresentForSSv2 =
+          String.format(
+              "The default role is used when '%s' is enabled. Delete '%s' parameter from the"
+                  + " connector config and make sure that default role is set properly.",
+              SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED, Utils.SF_ROLE);
+      return Optional.of(Map.entry(Utils.SF_ROLE, rolePresentForSSv2));
+    }
+    return Optional.empty();
   }
 
   private static void ensureValidLong(
