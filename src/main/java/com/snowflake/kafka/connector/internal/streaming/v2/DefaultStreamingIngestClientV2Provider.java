@@ -69,8 +69,8 @@ public class DefaultStreamingIngestClientV2Provider implements StreamingIngestCl
       String pipeName,
       StreamingClientProperties streamingClientProperties) {
     String clientName = clientName(connectorConfig);
-    String dbName = Utils.database(connectorConfig);
-    String schemaName = Utils.schema(connectorConfig);
+    String dbName = Utils.getDatabase(connectorConfig);
+    String schemaName = Utils.getSchema(connectorConfig);
     return SnowflakeStreamingIngestClientFactory.builder(clientName, dbName, schemaName, pipeName)
         .setProperties(getClientProperties(connectorConfig))
         .setParameterOverrides(streamingClientProperties.parameterOverrides)
@@ -87,7 +87,7 @@ public class DefaultStreamingIngestClientV2Provider implements StreamingIngestCl
   private static Properties getClientProperties(Map<String, String> connectorConfig) {
     final Properties props = new Properties();
     SnowflakeURL url = new SnowflakeURL(connectorConfig.get(Utils.SF_URL));
-    props.put("role", Utils.role(connectorConfig));
+    props.put("role", Utils.getRole(connectorConfig));
     props.put("private_key", connectorConfig.get(Utils.SF_PRIVATE_KEY));
     props.put("user", connectorConfig.get(Utils.SF_USER));
     props.put("account", url.getAccount());

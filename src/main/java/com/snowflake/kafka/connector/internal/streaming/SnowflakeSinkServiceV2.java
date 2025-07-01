@@ -202,14 +202,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         .forEach(topic -> perTopicActionsOnStartPartitions(topic, topic2Table));
     partitions.forEach(
         tp -> {
-          String tableName = Utils.getTableName(tp.topic(), topic2Table);
+          String tableName = Utils.tableName(tp.topic(), topic2Table);
           createStreamingChannelForTopicPartition(
               tableName, tp, tableName2SchemaEvolutionPermission.get(tableName));
         });
   }
 
   private void perTopicActionsOnStartPartitions(String topic, Map<String, String> topic2Table) {
-    String tableName = Utils.getTableName(topic, topic2Table);
+    String tableName = Utils.tableName(topic, topic2Table);
     tableActionsOnStartPartition(tableName);
   }
 
@@ -282,22 +282,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           streamingErrorHandler,
           ssv2PipeCreator);
     } else {
-        return new DirectTopicPartitionChannel(
-                this.streamingIngestClient,
-                topicPartition,
-                partitionChannelKey, // Streaming channel name
-                tableName,
-                schemaEvolutionEnabled,
-                this.connectorConfig,
-                this.sinkTaskContext,
-                this.conn,
-                streamingRecordService,
-                this.conn.getTelemetryClient(),
-                this.enableCustomJMXMonitoring,
-                this.metricsJmxReporter,
-                this.schemaEvolutionService,
-                new InsertErrorMapper(),
-                streamingErrorHandler);
+      return new DirectTopicPartitionChannel(
+          this.streamingIngestClient,
+          topicPartition,
+          partitionChannelKey, // Streaming channel name
+          tableName,
+          schemaEvolutionEnabled,
+          this.connectorConfig,
+          this.sinkTaskContext,
+          this.conn,
+          streamingRecordService,
+          this.conn.getTelemetryClient(),
+          this.enableCustomJMXMonitoring,
+          this.metricsJmxReporter,
+          this.schemaEvolutionService,
+          new InsertErrorMapper(),
+          streamingErrorHandler);
     }
   }
 
@@ -343,7 +343,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           record.topic(),
           record.kafkaPartition());
       startPartition(
-          Utils.getTableName(record.topic(), this.topicToTableMap),
+          Utils.tableName(record.topic(), this.topicToTableMap),
           new TopicPartition(record.topic(), record.kafkaPartition()));
     }
 
