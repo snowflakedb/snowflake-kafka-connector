@@ -1,8 +1,9 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
-import static com.snowflake.kafka.connector.Utils.joinNullableLists;
-
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import java.util.List;
+import java.util.Optional;
 import net.snowflake.ingest.streaming.InsertValidationResponse;
 
 public class InsertErrorMapper {
@@ -17,5 +18,12 @@ public class InsertErrorMapper {
         tableName,
         joinNullableLists(nonNullableColumns, nullValueForNotNullColNames),
         extraColNames);
+  }
+
+  private static List<String> joinNullableLists(List<String> list1, List<String> list2) {
+    return Lists.newArrayList(
+        Iterables.concat(
+            Optional.ofNullable(list1).orElse(List.of()),
+            Optional.ofNullable(list2).orElse(List.of())));
   }
 }
