@@ -23,7 +23,7 @@ class JWTManagerProvider {
     SnowflakeURL snowflakeURL = new SnowflakeURL(config.get(Utils.SF_URL));
     PrivateKey privateKey = parsePrivateKey(config.get(Utils.SF_PRIVATE_KEY));
     KeyPair keyPair = getKeyPair(privateKey);
-    return new JWTManager(snowflakeURL.getAccount(), Utils.user(config), keyPair, null);
+    return new JWTManager(snowflakeURL.getAccount(), Utils.getUser(config), keyPair, null);
   }
 
   private static KeyPair getKeyPair(PrivateKey privateKey) {

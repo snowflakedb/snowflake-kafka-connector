@@ -919,6 +919,31 @@ public class ConnectorConfigValidatorTest {
         .hasMessageContaining(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN);
   }
 
+  @Test
+  public void shouldValidateSSv2Config() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSnowpipeStreamingV2Enabled()
+            .withoutRole()
+            .build();
+
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  public void shouldThrowExceptionWhenRoleDefinedForSSv2() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSnowpipeStreamingV2Enabled()
+            .withRole("someRole")
+            .build();
+
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SNOWFLAKE_ROLE);
+  }
+
   private void invalidConfigRunner(List<String> paramsToRemove) {
     Map<String, String> config = getConfig();
     for (String configParam : paramsToRemove) {
