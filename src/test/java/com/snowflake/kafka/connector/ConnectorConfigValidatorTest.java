@@ -932,7 +932,6 @@ public class ConnectorConfigValidatorTest {
     Map<String, String> config =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig()
             .withSnowpipeStreamingV2Enabled()
-            .withoutRole()
             .build();
 
     assertThatCode(() -> connectorConfigValidator.validateConfig(config))
@@ -940,11 +939,11 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void shouldThrowExceptionWhenRoleDefinedForSSv2() {
+  public void shouldThrowExceptionWhenRoleNotDefinedForSSv2() {
     Map<String, String> config =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig()
             .withSnowpipeStreamingV2Enabled()
-            .withRole("someRole")
+            .withoutRole()
             .build();
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
