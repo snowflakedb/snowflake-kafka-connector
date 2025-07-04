@@ -4,10 +4,12 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
@@ -15,6 +17,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
@@ -22,7 +25,9 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -34,12 +39,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkServiceV2BaseIT {
 
   private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private Map<String, String> config;
   private SnowflakeSinkService service;
+  private String pipe;
 
   @BeforeEach
   public void setup() {
@@ -52,12 +60,14 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     config.put("schemas.enable", "false");
     config.put(ERRORS_TOLERANCE_CONFIG, "all");
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
+    pipe = PipeNameProvider.pipeName(config.get(Utils.NAME), table);
   }
 
   @AfterEach
   public void teardown() {
     service.closeAll();
     TestUtils.dropTable(table);
+    TestUtils.dropPipe(pipe);
   }
 
   @Test
@@ -82,6 +92,27 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
+  }
+
+  @Test
+  public void testSchematizationWithTableCreationAndJsonInput_ssv2() {
+    // given
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    SinkRecord jsonRecordValue = createComplexTestRecord(partition, 0);
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
+            .build();
+    service.startPartition(table, topicPartition);
+
+    // when
+    service.insert(Collections.singletonList(jsonRecordValue));
+
+    // then
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
   @Test
@@ -114,6 +145,28 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     // Retry the insert should succeed now with the updated schema
     service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+  }
+
+  @Test
+  public void testSchematizationSchemaEvolutionWithNonNullableColumn_ssv2() {
+    // given
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    SinkRecord jsonRecordValue = recordForNullabilityTest(0);
+
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
+            .build();
+    service.startPartition(table, topicPartition);
+
+    // when
+    service.insert(Collections.singletonList(jsonRecordValue));
+
+    // then
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
   @Test
@@ -159,8 +212,48 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
-  public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ() {
+  void testSkippingOffsetsInSchemaEvolution_ssv2() {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    long schemaEvolutionDelayMs = 3 * 1000L;
+
+    // setup a table with a single field
+    conn.createTableWithOnlyMetadataColumn(table);
+    createNonNullableColumn(table, "id_int8", "int");
+
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
+            .withSchemaEvolutionService(
+                new DelayedSchemaEvolutionService(conn, schemaEvolutionDelayMs))
+            .build();
+    service.startPartition(table, topicPartition);
+
+    service.insert(
+        Arrays.asList(
+            recordWithSingleField(partition, 0),
+            recordWithSingleField(partition, 1),
+            recordWithTwoFields(partition, 2),
+            recordWithTwoFields(partition, 3)));
+
+    // then
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(2, errorReporter.getReportedRecords().size());
+    await()
+        .atMost(30, TimeUnit.SECONDS)
+        .pollInterval(5, TimeUnit.SECONDS)
+        .until(() -> service.getOffset(topicPartition) == 2);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ(
+      boolean ssv2Enabled) {
     // given
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     service =
@@ -187,8 +280,63 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
-  void shouldSendRecordToDlqIfSchemaNotMatched() {
+  void testSchematizationWithinSingleBatch_ssv2() {
     // given
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    SinkRecord simpleRecordPartition = recordWithSingleField(partition, 0);
+    SinkRecord complexRecordPartition = createComplexTestRecord(partition, 1);
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Set.of(topicPartition)))
+            .withErrorReporter(errorReporter)
+            .build();
+    service.startPartition(table, topicPartition);
+
+    // when
+    service.insert(List.of(simpleRecordPartition, complexRecordPartition));
+
+    // then
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(2, errorReporter.getReportedRecords().size());
+  }
+
+  @Test
+  void testSchematizationForTwoPartitions_ssv2() {
+    // given
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    SinkRecord simpleRecordPartition1 = recordWithSingleField(partition, 0);
+    SinkRecord complexRecordPartition1 = createComplexTestRecord(partition, 1);
+    SinkRecord simpleRecordPartition2 = recordWithSingleField(partition2, 0);
+    SinkRecord complexRecordPartition2 = createComplexTestRecord(partition2, 1);
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(
+                new InMemorySinkTaskContext(Set.of(topicPartition, topicPartition2)))
+            .withErrorReporter(errorReporter)
+            .build();
+    service.startPartition(table, topicPartition);
+    service.startPartition(table, topicPartition2);
+
+    // when
+    service.insert(List.of(simpleRecordPartition1, complexRecordPartition1));
+    service.insert(List.of(simpleRecordPartition2, complexRecordPartition2));
+
+    // then
+    // schema evolution not available for ssv2
+    Assertions.assertEquals(4, errorReporter.getReportedRecords().size());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void shouldSendRecordToDlqIfSchemaNotMatched(boolean ssv2Enabled) {
+    // given
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+    config.put(ERRORS_TOLERANCE_CONFIG, "all");
+    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
+
     conn.createTableWithOnlyMetadataColumn(table);
     createNonNullableColumn(table, "\"ID_INT8\"", "boolean");
 
