@@ -101,11 +101,12 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   }
 
   private static Optional<Map.Entry<String, String>> validateRole(Map<String, String> inputConfig) {
-    if (!inputConfig.containsKey(Utils.SF_ROLE) || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
+    if (!inputConfig.containsKey(Utils.SF_ROLE)
+        || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
       String missingRole =
-              String.format(
-                      "Config:%s should be present if ingestionMethod is:%s",
-                      Utils.SF_ROLE, inputConfig.get(INGESTION_METHOD_OPT));
+          String.format(
+              "Config:%s should be present if ingestionMethod is:%s",
+              Utils.SF_ROLE, inputConfig.get(INGESTION_METHOD_OPT));
       return Optional.of(Map.entry(Utils.SF_ROLE, missingRole));
     }
     return Optional.empty();
