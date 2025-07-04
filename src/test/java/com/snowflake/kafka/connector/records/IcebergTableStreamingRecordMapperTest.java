@@ -4,11 +4,11 @@ import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonR
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.RecordService.SnowflakeTableRow;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -204,14 +204,14 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 "{\"key\": [" + primitiveJsonExample + ", " + primitiveJsonExample + "]}"),
             ImmutableMap.of(
                 "\"KEY\"",
-                ImmutableList.of(primitiveJsonAsMap, primitiveJsonAsMap),
+                List.of(primitiveJsonAsMap, primitiveJsonAsMap),
                 Utils.TABLE_COLUMN_METADATA,
                 fullMetadataJsonAsMap)),
         Arguments.of(
             "Empty nested array",
             buildRowWithDefaultMetadata("{\"key\": []}"),
             ImmutableMap.of(
-                "\"KEY\"", ImmutableList.of(), Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
+                "\"KEY\"", List.of(), Utils.TABLE_COLUMN_METADATA, fullMetadataJsonAsMap)),
         Arguments.of(
             "Empty object",
             buildRowWithDefaultMetadata("{\"key\": {}}"),
@@ -339,7 +339,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
                 "{\"key\": [" + primitiveJsonExample + ", " + primitiveJsonExample + "]}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("key", ImmutableList.of(primitiveJsonAsMap, primitiveJsonAsMap)),
+                ImmutableMap.of("key", List.of(primitiveJsonAsMap, primitiveJsonAsMap)),
                 Utils.TABLE_COLUMN_METADATA,
                 fullMetadataJsonAsMap)),
         Arguments.of(
@@ -347,7 +347,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
             buildRowWithDefaultMetadata("{\"key\": []}"),
             ImmutableMap.of(
                 Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("key", ImmutableList.of()),
+                ImmutableMap.of("key", List.of()),
                 Utils.TABLE_COLUMN_METADATA,
                 fullMetadataJsonAsMap)),
         Arguments.of(

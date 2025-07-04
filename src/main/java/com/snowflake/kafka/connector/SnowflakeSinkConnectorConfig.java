@@ -19,7 +19,6 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.Utils.isSnowpipeStreamingIngestion;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Arrays;
@@ -251,7 +250,7 @@ public class SnowflakeSinkConnectorConfig {
       "value.converter.schema.registry.url";
 
   public static final Set<String> CUSTOM_SNOWFLAKE_CONVERTERS =
-      ImmutableSet.of(
+      Set.of(
           "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
