@@ -20,7 +20,6 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 import java.io.IOException;
@@ -122,13 +121,13 @@ abstract class AbstractMetaColumnTest {
     return Stream.of(
         arguments(
             ImmutableMap.of(SNOWFLAKE_METADATA_CREATETIME, "false"),
-            ImmutableSet.of(TOPIC, PARTITION, OFFSET)),
+            Set.of(TOPIC, PARTITION, OFFSET)),
         arguments(
             ImmutableMap.of(SNOWFLAKE_METADATA_TOPIC, "false"),
-            ImmutableSet.of(PARTITION, OFFSET, TimestampType.CREATE_TIME.name)),
+            Set.of(PARTITION, OFFSET, TimestampType.CREATE_TIME.name)),
         arguments(
             ImmutableMap.of(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "false"),
-            ImmutableSet.of(TOPIC, TimestampType.CREATE_TIME.name)),
+            Set.of(TOPIC, TimestampType.CREATE_TIME.name)),
         arguments(
             ImmutableMap.of(
                 SNOWFLAKE_METADATA_CREATETIME,

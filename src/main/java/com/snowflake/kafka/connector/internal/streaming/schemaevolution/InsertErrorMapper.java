@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import java.util.List;
@@ -21,10 +20,10 @@ public class InsertErrorMapper {
         extraColNames);
   }
 
-  private List<String> joinNullableLists(List<String> list1, List<String> list2) {
+  private static List<String> joinNullableLists(List<String> list1, List<String> list2) {
     return Lists.newArrayList(
         Iterables.concat(
-            Optional.ofNullable(list1).orElse(ImmutableList.of()),
-            Optional.ofNullable(list2).orElse(ImmutableList.of())));
+            Optional.ofNullable(list1).orElse(List.of()),
+            Optional.ofNullable(list2).orElse(List.of())));
   }
 }

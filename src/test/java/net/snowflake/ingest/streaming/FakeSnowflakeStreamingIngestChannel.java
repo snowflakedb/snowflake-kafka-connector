@@ -1,6 +1,5 @@
 package net.snowflake.ingest.streaming;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -160,6 +159,6 @@ public class FakeSnowflakeStreamingIngestChannel implements SnowflakeStreamingIn
   }
 
   List<Map<String, Object>> getRows() {
-    return ImmutableList.copyOf(this.rows);
+    return List.copyOf(this.rows);
   }
 }
