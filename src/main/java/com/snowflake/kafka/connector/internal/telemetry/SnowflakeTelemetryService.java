@@ -269,6 +269,11 @@ public abstract class SnowflakeTelemetryService {
             SNOWPIPE_STREAMING_V2_ENABLED,
             String.valueOf(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE)));
 
+    dataObjectNode.put(
+        ICEBERG_ENABLED,
+        userProvidedConfig.getOrDefault(
+            ICEBERG_ENABLED, String.valueOf(ICEBERG_ENABLED_DEFAULT_VALUE)));
+
     // Record whether streaming client optimization is enabled
     dataObjectNode.put(
         ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,

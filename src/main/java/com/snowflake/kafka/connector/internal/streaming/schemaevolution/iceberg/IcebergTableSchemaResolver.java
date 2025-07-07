@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.common.ColumnProperties;
@@ -43,7 +42,7 @@ class IcebergTableSchemaResolver {
   public List<IcebergColumnTree> resolveIcebergSchemaFromRecord(
       SinkRecord record, Set<String> columnsToEvolve) {
     if (columnsToEvolve == null || columnsToEvolve.isEmpty()) {
-      return ImmutableList.of();
+      return List.of();
     }
     if (hasSchema(record)) {
       LOGGER.debug(

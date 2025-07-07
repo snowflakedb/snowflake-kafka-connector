@@ -5,7 +5,6 @@ import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKN
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.records.MetadataRecord;
 import java.io.IOException;
@@ -28,11 +27,11 @@ public class ComplexJsonRecord {
           0.5,
           0.25,
           true,
-          ImmutableList.of(1, 2, 3),
-          ImmutableList.of("a", "b", "c"),
-          ImmutableList.of(true),
-          ImmutableList.of(1, 4),
-          ImmutableList.of(ImmutableList.of(7, 8, 9), ImmutableList.of(10, 11, 12)),
+          List.of(1, 2, 3),
+          List.of("a", "b", "c"),
+          List.of(true),
+          List.of(1, 4),
+          List.of(List.of(7, 8, 9), List.of(10, 11, 12)),
           PrimitiveJsonRecord.primitiveJsonRecordValueExample,
           PrimitiveJsonRecord.primitiveJsonRecordValueExample);
 

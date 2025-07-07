@@ -3,8 +3,6 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.ConnectorConfigValidatorTest.COMMUNITY_CONVERTER_SUBSET;
 import static com.snowflake.kafka.connector.ConnectorConfigValidatorTest.CUSTOM_SNOWFLAKE_CONVERTERS;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -20,7 +18,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -30,9 +27,7 @@ import org.apache.kafka.connect.storage.Converter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.MethodSource;
 
 public class TombstoneRecordIngestionIT {
   private final int partition = 0;
@@ -56,16 +51,8 @@ public class TombstoneRecordIngestionIT {
     TestUtils.dropTable(table);
   }
 
-  private static Stream<Arguments> behaviorAndSingleBufferParameters() {
-    return Sets.cartesianProduct(
-            ImmutableSet.copyOf(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.values()))
-        .stream()
-        .map(List::toArray)
-        .map(Arguments::of);
-  }
-
   @ParameterizedTest(name = "behavior: {0}")
-  @MethodSource("behaviorAndSingleBufferParameters")
+  @EnumSource(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.class)
   public void testStreamingTombstoneBehavior(
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
     // setup
@@ -93,7 +80,7 @@ public class TombstoneRecordIngestionIT {
   }
 
   @ParameterizedTest(name = "behavior: {0}")
-  @MethodSource("behaviorAndSingleBufferParameters")
+  @EnumSource(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.class)
   public void testStreamingTombstoneBehaviorWithSchematization(
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
     // setup
