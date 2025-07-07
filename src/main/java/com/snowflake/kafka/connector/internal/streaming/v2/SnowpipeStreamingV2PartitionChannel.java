@@ -269,17 +269,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   }
 
   @Override
-  public void reopenChannelAfterSchemaEvolved() {
-    LOGGER.info("Reopening channel {}", channelName);
-    channel = openChannelForTable(channelName);
-  }
-
-  @Override
-  public String tableName() {
-    return tableName;
-  }
-
-  @Override
   public void waitForLastProcessedRecordCommitted() {
     if (lastAppendRowsOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       return;

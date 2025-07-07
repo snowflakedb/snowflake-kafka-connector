@@ -786,11 +786,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     }
   }
 
-  @Override
-  public String tableName() {
-    return tableName;
-  }
-
   /**
    * Enum representing which Streaming API is invoking the fallback supplier. ({@link
    * #streamingApiFallbackSupplier(StreamingApiFallbackInvoker)})

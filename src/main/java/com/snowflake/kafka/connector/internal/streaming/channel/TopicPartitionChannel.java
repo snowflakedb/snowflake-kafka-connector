@@ -93,8 +93,4 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
   void setLatestConsumerGroupOffset(long consumerOffset);
 
   default void waitForLastProcessedRecordCommitted() {}
-
-  default void reopenChannelAfterSchemaEvolved() {}
-
-  String tableName();
 }
