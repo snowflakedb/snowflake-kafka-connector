@@ -20,7 +20,6 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.v2.DefaultStreamingIngestClientV2Provider;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.SSv2PipeCreator;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
@@ -66,7 +65,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
   private static final StreamingIngestClientV2Provider streamingIngestClientV2Provider =
-      new DefaultStreamingIngestClientV2Provider();
+      new StreamingIngestClientV2Provider();
 
   // Used to connect to Snowflake, could be null during testing
   private final SnowflakeConnectionService conn;
