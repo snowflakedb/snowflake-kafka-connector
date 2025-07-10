@@ -60,7 +60,7 @@
         -->
         <license.processing.targetDir>${project.build.directory}/../licenses</license.processing.targetDir>
 
-        <kafka.version>3.9.0</kafka.version>
+        <kafka.version>3.9.1</kafka.version>
         <awaitility.version>4.2.2</awaitility.version>
         <assertj-core.version>3.26.3</assertj-core.version>
         <confluent.version>7.9.2</confluent.version>
