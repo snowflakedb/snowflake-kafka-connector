@@ -91,4 +91,6 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
   String getChannelNameFormatV1();
 
   void setLatestConsumerGroupOffset(long consumerOffset);
+
+  default void waitForLastProcessedRecordCommitted() {}
 }
