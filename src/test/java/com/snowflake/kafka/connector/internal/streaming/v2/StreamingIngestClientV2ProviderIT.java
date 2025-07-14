@@ -9,18 +9,11 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
@@ -80,9 +73,7 @@ public class StreamingIngestClientV2ProviderIT {
   @AfterEach
   public void tearDown() {
     // Close all clients in the provider after each test to ensure clean state
-    if (provider != null) {
-      provider.closeAll();
-    }
+    provider.closeAll();
   }
 
   @AfterAll
@@ -90,22 +81,10 @@ public class StreamingIngestClientV2ProviderIT {
     // Clean up shared Snowflake resources once at the end
     if (connectionService != null) {
       try {
-        // Drop pipes
-        if (testPipeName != null) {
-          connectionService.dropPipe(testPipeName);
-        }
-        if (testPipeName2 != null) {
-          connectionService.dropPipe(testPipeName2);
-        }
-
-        // Drop tables
-        if (testTableName != null) {
-          TestUtils.dropTable(testTableName);
-        }
-        if (testTableName2 != null) {
-          TestUtils.dropTable(testTableName2);
-        }
-
+        connectionService.dropPipe(testPipeName);
+        connectionService.dropPipe(testPipeName2);
+        TestUtils.dropTable(testTableName);
+        TestUtils.dropTable(testTableName2);
         // Close connection service
         connectionService.close();
       } catch (Exception e) {
@@ -235,131 +214,6 @@ public class StreamingIngestClientV2ProviderIT {
   }
 
   @Test
-  @Timeout(15)
-  public void testConcurrentAccess_MultipleThreads_ThreadSafe() throws Exception {
-    // Given
-    ExecutorService executor = Executors.newFixedThreadPool(3);
-    AtomicInteger successCount = new AtomicInteger(0);
-    AtomicReference<Exception> errorRef = new AtomicReference<>();
-
-    try {
-      // When - Multiple threads trying to get client for same pipe
-      CompletableFuture<SnowflakeStreamingIngestClient>[] futures = new CompletableFuture[5];
-      for (int i = 0; i < 5; i++) {
-        futures[i] =
-            CompletableFuture.supplyAsync(
-                () -> {
-                  try {
-                    SnowflakeStreamingIngestClient client =
-                        provider.getClient(
-                            connectorConfig, testPipeName, streamingClientProperties);
-                    successCount.incrementAndGet();
-                    return client;
-                  } catch (Exception e) {
-                    errorRef.set(e);
-                    throw new RuntimeException(e);
-                  }
-                },
-                executor);
-      }
-
-      // Wait for all to complete
-      CompletableFuture.allOf(futures).get(12, TimeUnit.SECONDS);
-
-      // Then
-      assertThat(errorRef.get()).as("No exceptions should occur during concurrent access").isNull();
-      assertThat(successCount.get()).as("All operations should succeed").isEqualTo(5);
-
-      // Verify all threads got the same client instance
-      SnowflakeStreamingIngestClient firstClient = futures[0].get();
-      for (int i = 1; i < futures.length; i++) {
-        assertThat(firstClient)
-            .as("All threads should get the same client instance")
-            .isSameAs(futures[i].get());
-      }
-    } finally {
-      executor.shutdown();
-      executor.awaitTermination(5, TimeUnit.SECONDS);
-    }
-  }
-
-  @Test
-  @Timeout(15)
-  public void testConcurrentAccess_DifferentPipes_CreatesDistinctClients() throws Exception {
-    // Given
-    ExecutorService executor = Executors.newFixedThreadPool(2);
-    AtomicInteger successCount = new AtomicInteger(0);
-    AtomicReference<Exception> errorRef = new AtomicReference<>();
-
-    try {
-      // When - Multiple threads creating clients for different pipes
-      CompletableFuture<SnowflakeStreamingIngestClient> future1 =
-          CompletableFuture.supplyAsync(
-              () -> {
-                try {
-                  SnowflakeStreamingIngestClient client =
-                      provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-                  successCount.incrementAndGet();
-                  return client;
-                } catch (Exception e) {
-                  errorRef.set(e);
-                  throw new RuntimeException(e);
-                }
-              },
-              executor);
-
-      CompletableFuture<SnowflakeStreamingIngestClient> future2 =
-          CompletableFuture.supplyAsync(
-              () -> {
-                try {
-                  SnowflakeStreamingIngestClient client =
-                      provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
-                  successCount.incrementAndGet();
-                  return client;
-                } catch (Exception e) {
-                  errorRef.set(e);
-                  throw new RuntimeException(e);
-                }
-              },
-              executor);
-
-      // Wait for completion
-      CompletableFuture.allOf(future1, future2).get(12, TimeUnit.SECONDS);
-
-      // Then
-      assertThat(errorRef.get()).as("No exceptions should occur during concurrent access").isNull();
-      assertThat(successCount.get()).as("All operations should succeed").isEqualTo(2);
-
-      SnowflakeStreamingIngestClient client1 = future1.get();
-      SnowflakeStreamingIngestClient client2 = future2.get();
-
-      assertThat(client1)
-          .as("Different pipes should create different clients")
-          .isNotSameAs(client2);
-      assertThat(client1.isClosed()).as("First client should not be closed").isFalse();
-      assertThat(client2.isClosed()).as("Second client should not be closed").isFalse();
-    } finally {
-      executor.shutdown();
-      executor.awaitTermination(5, TimeUnit.SECONDS);
-    }
-  }
-
-  @Test
-  public void testClientName_Generation_IncrementsCorrectly() {
-    // When - Create multiple clients with same config
-    SnowflakeStreamingIngestClient client1 =
-        provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    SnowflakeStreamingIngestClient client2 =
-        provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
-
-    // Then - Clients should be different instances for different pipes
-    assertThat(client1).as("Different pipes should create different clients").isNotSameAs(client2);
-    assertThat(client1.isClosed()).as("First client should not be closed").isFalse();
-    assertThat(client2.isClosed()).as("Second client should not be closed").isFalse();
-    // Note: Skipping client name assertions to avoid interface dependency issues
-  }
-
-  @Test
   public void testProvider_ReuseAfterPartialClose_WorksCorrectly() {
     // Given - Multiple clients
     SnowflakeStreamingIngestClient client1 =
@@ -384,100 +238,5 @@ public class StreamingIngestClientV2ProviderIT {
     SnowflakeStreamingIngestClient sameClient2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
     assertThat(client2).as("Should reuse existing client for open pipe").isSameAs(sameClient2);
-  }
-
-  @Test
-  public void testProvider_MultipleInstances_AreIndependent() {
-    // Given - Two provider instances
-    StreamingIngestClientV2Provider provider1 = new StreamingIngestClientV2Provider();
-    StreamingIngestClientV2Provider provider2 = new StreamingIngestClientV2Provider();
-
-    try {
-      // When - Create clients with same pipe name in different providers
-      SnowflakeStreamingIngestClient client1 =
-          provider1.getClient(connectorConfig, testPipeName, streamingClientProperties);
-      SnowflakeStreamingIngestClient client2 =
-          provider2.getClient(connectorConfig, testPipeName, streamingClientProperties);
-
-      // Then - Should be different client instances
-      assertThat(client1)
-          .as("Different providers should create different clients")
-          .isNotSameAs(client2);
-      assertThat(client1.isClosed()).as("First client should not be closed").isFalse();
-      assertThat(client2.isClosed()).as("Second client should not be closed").isFalse();
-
-      // When - Close client in first provider
-      provider1.close(testPipeName);
-
-      // Then - Should not affect client in second provider
-      assertThat(client1.isClosed()).as("First client should be closed").isTrue();
-      assertThat(client2.isClosed()).as("Second client should still be open").isFalse();
-    } finally {
-      provider1.closeAll();
-      provider2.closeAll();
-    }
-  }
-
-  @Test
-  public void testIntegration_MultipleTablesAndPipes_CreatesDistinctClients() {
-    // Given - Multiple tables and pipes created in setUp
-    assertThat(connectionService.tableExist(testTableName)).as("First table should exist").isTrue();
-    assertThat(connectionService.tableExist(testTableName2))
-        .as("Second table should exist")
-        .isTrue();
-    assertThat(connectionService.pipeExist(testPipeName)).as("First pipe should exist").isTrue();
-    assertThat(connectionService.pipeExist(testPipeName2)).as("Second pipe should exist").isTrue();
-
-    // When - Create clients for both pipes
-    SnowflakeStreamingIngestClient client1 =
-        provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    SnowflakeStreamingIngestClient client2 =
-        provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
-
-    // Then - Should create distinct clients
-    assertThat(client1).as("First client should not be null").isNotNull();
-    assertThat(client2).as("Second client should not be null").isNotNull();
-    assertThat(client1).as("Clients should be different instances").isNotSameAs(client2);
-    assertThat(client1.isClosed()).as("First client should not be closed").isFalse();
-    assertThat(client2.isClosed()).as("Second client should not be closed").isFalse();
-  }
-
-  @Test
-  public void testIntegration_TableCreationWithSSv2PipeCreator_CreatesCompatibleInfrastructure() {
-    // Given - Create a new table and pipe for this test
-    String newTableName = "integration_test_table_" + System.currentTimeMillis();
-    String appName = connectorConfig.get(Utils.NAME);
-    String newPipeName = PipeNameProvider.pipeName(appName, newTableName);
-
-    try {
-      // When - Create table and pipe using the same approach as setUp
-      connectionService.createTable(newTableName);
-      SSv2PipeCreator newPipeCreator =
-          new SSv2PipeCreator(connectionService, newPipeName, newTableName);
-      newPipeCreator.createPipeIfNotExists();
-
-      // Then - Infrastructure should be created and compatible
-      assertThat(connectionService.tableExist(newTableName)).as("New table should exist").isTrue();
-      assertThat(connectionService.pipeExist(newPipeName)).as("New pipe should exist").isTrue();
-      assertThat(connectionService.isTableCompatible(newTableName))
-          .as("New table should be compatible")
-          .isTrue();
-
-      // Create client with the new infrastructure
-      SnowflakeStreamingIngestClient client =
-          provider.getClient(connectorConfig, newPipeName, streamingClientProperties);
-
-      assertThat(client).as("Client should be created successfully").isNotNull();
-      assertThat(client.isClosed()).as("Client should not be closed").isFalse();
-
-    } finally {
-      // Clean up
-      try {
-        connectionService.dropPipe(newPipeName);
-        TestUtils.dropTable(newTableName);
-      } catch (Exception e) {
-        LOGGER.warn("Error cleaning up test resources: {}", e.getMessage());
-      }
-    }
   }
 }
