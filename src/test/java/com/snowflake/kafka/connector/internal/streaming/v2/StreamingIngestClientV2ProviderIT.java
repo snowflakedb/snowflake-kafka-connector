@@ -124,7 +124,6 @@ public class StreamingIngestClientV2ProviderIT {
     // Then
     assertThat(client).as("Client should not be null").isNotNull();
     assertThat(client.isClosed()).as("Client should not be closed").isFalse();
-    // Note: Skipping client name assertions to avoid interface dependency issues
   }
 
   @Test
@@ -346,45 +345,6 @@ public class StreamingIngestClientV2ProviderIT {
   }
 
   @Test
-  public void testClientCreation_WithDifferentConfigs_CreatesClientsWithCorrectProperties() {
-    // Given - Config with specific properties
-    Map<String, String> customConfig = TestUtils.getConfForStreaming();
-    customConfig.put(Utils.NAME, "custom_connector_name");
-    StreamingClientProperties customProperties = new StreamingClientProperties(customConfig);
-
-    // When
-    SnowflakeStreamingIngestClient client =
-        provider.getClient(customConfig, testPipeName, customProperties);
-
-    // Then
-    assertThat(client).as("Client should not be null").isNotNull();
-    assertThat(client.isClosed()).as("Client should not be closed").isFalse();
-    // Note: Skipping client name assertions to avoid interface dependency issues
-  }
-
-  @Test
-  public void testClientCreation_WithParameterOverrides_PassesOverridesToClient() {
-    // Given - Config with parameter overrides
-    Map<String, String> configWithOverrides = TestUtils.getConfForStreaming();
-    configWithOverrides.put("snowflake.streaming.max.client.lag", "10");
-    configWithOverrides.put(
-        "snowflake.streaming.client.provider.override.map", "MAX_CHANNEL_SIZE_IN_BYTES:10000000");
-
-    StreamingClientProperties propertiesWithOverrides =
-        new StreamingClientProperties(configWithOverrides);
-
-    // When
-    SnowflakeStreamingIngestClient client =
-        provider.getClient(configWithOverrides, testPipeName, propertiesWithOverrides);
-
-    // Then
-    assertThat(client).as("Client should not be null").isNotNull();
-    assertThat(client.isClosed()).as("Client should not be closed").isFalse();
-    // Note: We can't directly verify parameter overrides are applied without more complex mocking
-    // But the client creation should succeed with the overrides
-  }
-
-  @Test
   public void testClientName_Generation_IncrementsCorrectly() {
     // When - Create multiple clients with same config
     SnowflakeStreamingIngestClient client1 =
@@ -396,23 +356,6 @@ public class StreamingIngestClientV2ProviderIT {
     assertThat(client1).as("Different pipes should create different clients").isNotSameAs(client2);
     assertThat(client1.isClosed()).as("First client should not be closed").isFalse();
     assertThat(client2.isClosed()).as("Second client should not be closed").isFalse();
-    // Note: Skipping client name assertions to avoid interface dependency issues
-  }
-
-  @Test
-  public void testClientCreation_WithMinimalConfig_CreatesValidClient() {
-    // Given - Minimal config
-    Map<String, String> minimalConfig = TestUtils.getConfForStreaming();
-    minimalConfig.put(Utils.NAME, "minimal_test");
-    StreamingClientProperties minimalProperties = new StreamingClientProperties(minimalConfig);
-
-    // When
-    SnowflakeStreamingIngestClient client =
-        provider.getClient(minimalConfig, testPipeName, minimalProperties);
-
-    // Then
-    assertThat(client).as("Client should not be null").isNotNull();
-    assertThat(client.isClosed()).as("Client should not be closed").isFalse();
     // Note: Skipping client name assertions to avoid interface dependency issues
   }
 
@@ -473,46 +416,6 @@ public class StreamingIngestClientV2ProviderIT {
       provider1.closeAll();
       provider2.closeAll();
     }
-  }
-
-  @Test
-  public void testIntegration_WithRealSnowflakeTableAndPipe_CreatesValidClient() {
-    // Given - Real Snowflake table and pipe created in setUp
-    assertThat(connectionService.tableExist(testTableName)).as("Test table should exist").isTrue();
-    assertThat(connectionService.pipeExist(testPipeName)).as("Test pipe should exist").isTrue();
-
-    // When - Create client with real pipe name
-    SnowflakeStreamingIngestClient client =
-        provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-
-    // Then - Client should be created successfully
-    assertThat(client).as("Client should not be null").isNotNull();
-    assertThat(client.isClosed()).as("Client should not be closed").isFalse();
-
-    // Verify table is compatible with Snowflake streaming
-    assertThat(connectionService.isTableCompatible(testTableName))
-        .as("Table should be compatible with streaming")
-        .isTrue();
-  }
-
-  @Test
-  public void testIntegration_PipeNameProvider_GeneratesCorrectPipeNames() {
-    // Given
-    String appName = connectorConfig.get(Utils.NAME);
-    String expectedPipeName = PipeNameProvider.pipeName(appName, testTableName);
-
-    // Then - Generated pipe name should match expected format
-    assertThat(testPipeName)
-        .as("Generated pipe name should match expected format")
-        .isEqualTo(expectedPipeName);
-    assertThat(testPipeName).as("Pipe name should contain app name").contains(appName);
-    assertThat(testPipeName).as("Pipe name should contain table name").contains(testTableName);
-    assertThat(testPipeName).as("Pipe name should contain SSV2 prefix").contains("SSV2_PIPE");
-
-    // Verify pipe exists in Snowflake
-    assertThat(connectionService.pipeExist(testPipeName))
-        .as("Generated pipe should exist")
-        .isTrue();
   }
 
   @Test

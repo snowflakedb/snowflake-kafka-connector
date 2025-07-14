@@ -46,17 +46,14 @@ public class StreamingIngestClientV2Provider {
 
   public void close(String pipeName) {
     synchronized (pipeToClientMap) {
-      Optional.ofNullable(pipeToClientMap.get(pipeName))
+      Optional.ofNullable(pipeToClientMap.remove(pipeName))
           .ifPresent(SnowflakeStreamingIngestClient::close);
-      pipeToClientMap.remove(pipeName);
     }
   }
 
   public void closeAll() {
     synchronized (pipeToClientMap) {
-      for (Map.Entry<String, SnowflakeStreamingIngestClient> entry : pipeToClientMap.entrySet()) {
-        entry.getValue().close();
-      }
+      pipeToClientMap.values().forEach(SnowflakeStreamingIngestClient::close);
       pipeToClientMap.clear();
     }
   }
