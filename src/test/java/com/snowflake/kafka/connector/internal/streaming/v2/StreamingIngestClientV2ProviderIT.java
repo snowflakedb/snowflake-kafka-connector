@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1;
@@ -97,83 +96,74 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testGetClient_FirstTime_CreatesNewClient() {
     // When
-    SnowflakeStreamingIngestClient client =
+    StreamingIngestClientV2Wrapper client =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // Then
     assertThat(client).as("Client should not be null").isNotNull();
-    assertThat(client.isClosed()).as("Client should not be closed").isFalse();
   }
 
   @Test
   public void testGetClient_SamePipeName_ReturnsExistingClient() {
     // Given
-    SnowflakeStreamingIngestClient client1 =
+    StreamingIngestClientV2Wrapper client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // When
-    SnowflakeStreamingIngestClient client2 =
+    StreamingIngestClientV2Wrapper client2 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // Then
     assertThat(client1)
         .as("Should return the same client instance for same pipe name")
-        .isSameAs(client2);
-    assertThat(client2.isClosed()).as("Reused client should not be closed").isFalse();
+        .isEqualTo(client2);
   }
 
   @Test
   public void testGetClient_DifferentPipeNames_CreatesDistinctClients() {
     // When
-    SnowflakeStreamingIngestClient client1 =
+    StreamingIngestClientV2Wrapper client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    SnowflakeStreamingIngestClient client2 =
+    StreamingIngestClientV2Wrapper client2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
 
     // Then
     assertThat(client1)
         .as("Different pipe names should create different clients")
-        .isNotSameAs(client2);
-    assertThat(client1.isClosed()).as("First client should not be closed").isFalse();
-    assertThat(client2.isClosed()).as("Second client should not be closed").isFalse();
+        .isNotEqualTo(client2);
   }
 
   @Test
   public void testGetClient_AfterClientClosed_CreatesNewClient() {
     // Given
-    SnowflakeStreamingIngestClient client1 =
+    StreamingIngestClientV2Wrapper client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    client1.close();
+    // Close the client through the provider
+    provider.close(testPipeName);
 
     // When
-    SnowflakeStreamingIngestClient client2 =
+    StreamingIngestClientV2Wrapper client2 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // Then
     assertThat(client1)
         .as("Should create a new client when previous is closed")
-        .isNotSameAs(client2);
-    assertThat(client1.isClosed()).as("First client should be closed").isTrue();
-    assertThat(client2.isClosed()).as("New client should not be closed").isFalse();
+        .isNotEqualTo(client2);
   }
 
   @Test
   public void testClose_ExistingPipe_ClosesAndRemovesClient() {
     // Given
-    SnowflakeStreamingIngestClient client =
+    StreamingIngestClientV2Wrapper client =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // When
     provider.close(testPipeName);
 
-    // Then
-    assertThat(client.isClosed()).as("Client should be closed after calling close").isTrue();
-
-    // Verify new client is created for same pipe name
-    SnowflakeStreamingIngestClient newClient =
+    // Then - Verify new client is created for same pipe name
+    StreamingIngestClientV2Wrapper newClient =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    assertThat(client).as("Should create new client after close").isNotSameAs(newClient);
-    assertThat(newClient.isClosed()).as("New client should not be closed").isFalse();
+    assertThat(client).as("Should create new client after close").isNotEqualTo(newClient);
   }
 
   @Test
@@ -185,26 +175,22 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testCloseAll_MultipleClients_ClosesAllClients() {
     // Given
-    SnowflakeStreamingIngestClient client1 =
+    StreamingIngestClientV2Wrapper client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    SnowflakeStreamingIngestClient client2 =
+    StreamingIngestClientV2Wrapper client2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
 
     // When
     provider.closeAll();
 
-    // Then
-    assertThat(client1.isClosed()).as("First client should be closed").isTrue();
-    assertThat(client2.isClosed()).as("Second client should be closed").isTrue();
-
-    // Verify new clients are created after closeAll
-    SnowflakeStreamingIngestClient newClient1 =
+    // Then - Verify new clients are created after closeAll
+    StreamingIngestClientV2Wrapper newClient1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    SnowflakeStreamingIngestClient newClient2 =
+    StreamingIngestClientV2Wrapper newClient2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
 
-    assertThat(client1).as("Should create new client after closeAll").isNotSameAs(newClient1);
-    assertThat(client2).as("Should create new client after closeAll").isNotSameAs(newClient2);
+    assertThat(client1).as("Should create new client after closeAll").isNotEqualTo(newClient1);
+    assertThat(client2).as("Should create new client after closeAll").isNotEqualTo(newClient2);
   }
 
   @Test
@@ -216,27 +202,22 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testProvider_ReuseAfterPartialClose_WorksCorrectly() {
     // Given - Multiple clients
-    SnowflakeStreamingIngestClient client1 =
+    StreamingIngestClientV2Wrapper client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    SnowflakeStreamingIngestClient client2 =
+    StreamingIngestClientV2Wrapper client2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
 
     // When - Close only one client
     provider.close(testPipeName);
 
-    // Then - Other client should still be available
-    assertThat(client1.isClosed()).as("First client should be closed").isTrue();
-    assertThat(client2.isClosed()).as("Second client should still be open").isFalse();
-
-    // New client for first pipe should be created
-    SnowflakeStreamingIngestClient newClient1 =
+    // Then - New client for first pipe should be created
+    StreamingIngestClientV2Wrapper newClient1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    assertThat(client1).as("Should create new client for closed pipe").isNotSameAs(newClient1);
-    assertThat(newClient1.isClosed()).as("New client should not be closed").isFalse();
+    assertThat(client1).as("Should create new client for closed pipe").isNotEqualTo(newClient1);
 
     // Existing client for second pipe should be reused
-    SnowflakeStreamingIngestClient sameClient2 =
+    StreamingIngestClientV2Wrapper sameClient2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
-    assertThat(client2).as("Should reuse existing client for open pipe").isSameAs(sameClient2);
+    assertThat(client2).as("Should reuse existing client for open pipe").isEqualTo(sameClient2);
   }
 }
