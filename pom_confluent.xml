@@ -777,6 +777,12 @@
             <version>${iceberg.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.snowflake</groupId>
+            <artifactId>snowpipe-streaming</artifactId>
+            <version>v0.3.0</version>
+        </dependency>
+
     </dependencies>
 
     <profiles>
@@ -824,6 +830,9 @@
                             </includes>
                             <excludes>
                                 <exclude>**/*Iceberg*IT.java</exclude>
+                                <!-- Rowset API is disabled on Azure and GCP -->
+                                <exclude>**/*RowSchemaProvider*IT.java</exclude>
+                                <exclude>**/*StreamingIngestClientV2Provider*IT.java</exclude>
                             </excludes>
                             <skipTests>${skipIntegrationTests}</skipTests>
                         </configuration>

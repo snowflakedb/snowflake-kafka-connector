@@ -349,4 +349,12 @@ public interface SnowflakeConnectionService {
    *     otherwise.
    */
   Optional<List<DescribeTableRow>> describeTable(String tableName);
+
+  /**
+   * execute sql query
+   *
+   * @param query sql query string
+   * @param parameters query parameters
+   */
+  void executeQueryWithParameters(String query, String... parameters);
 }
