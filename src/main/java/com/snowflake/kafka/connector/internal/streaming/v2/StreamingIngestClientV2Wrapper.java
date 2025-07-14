@@ -27,10 +27,7 @@ class StreamingIngestClientV2Wrapper {
    * @throws IllegalArgumentException if client is null
    */
   StreamingIngestClientV2Wrapper(SnowflakeStreamingIngestClient client) {
-    if (client == null) {
-      throw new IllegalArgumentException("Client cannot be null");
-    }
-    this.client = client;
+    this.client = Objects.requireNonNull(client, "Client cannot be null");
   }
 
   /**
