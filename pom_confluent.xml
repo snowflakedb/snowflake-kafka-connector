@@ -101,7 +101,7 @@
     <distributionManagement>
         <snapshotRepository>
             <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <url>https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
     <build>
@@ -319,7 +319,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <serverId>ossrh</serverId>
-                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                    <nexusUrl>https://ossrh-staging-api.central.sonatype.com/</nexusUrl>
                     <autoReleaseAfterClose>true</autoReleaseAfterClose>
                 </configuration>
             </plugin>
@@ -783,6 +783,12 @@
             <version>v0.3.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.snowflake</groupId>
+            <artifactId>snowpipe-streaming</artifactId>
+            <version>v0.3.0</version>
+        </dependency>
+
     </dependencies>
 
     <profiles>
@@ -832,6 +838,7 @@
                                 <exclude>**/*Iceberg*IT.java</exclude>
                                 <!-- Rowset API is disabled on Azure and GCP -->
                                 <exclude>**/*RowSchemaProvider*IT.java</exclude>
+                                <exclude>**/*StreamingIngestClientV2Provider*IT.java</exclude>
                                 <exclude>**/*SnowflakeSinkServiceV2*IT.java</exclude>
                             </excludes>
                             <skipTests>${skipIntegrationTests}</skipTests>

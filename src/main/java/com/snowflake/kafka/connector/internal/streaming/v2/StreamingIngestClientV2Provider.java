@@ -26,37 +26,28 @@ public class StreamingIngestClientV2Provider {
 
   private final Map<String, SnowflakeStreamingIngestClient> pipeToClientMap = new HashMap<>();
 
-  public SnowflakeStreamingIngestClient getClient(
+  public StreamingIngestClientV2Wrapper getClient(
       Map<String, String> connectorConfig,
       String pipeName,
       StreamingClientProperties streamingClientProperties) {
     synchronized (pipeToClientMap) {
-      Optional<SnowflakeStreamingIngestClient> existingClient =
-          Optional.ofNullable(pipeToClientMap.get(pipeName)).filter(client -> !client.isClosed());
-
-      return existingClient.orElseGet(
-          () -> {
-            SnowflakeStreamingIngestClient newClient =
-                createClient(connectorConfig, pipeName, streamingClientProperties);
-            pipeToClientMap.put(pipeName, newClient);
-            return newClient;
-          });
+      SnowflakeStreamingIngestClient client =
+          pipeToClientMap.computeIfAbsent(
+              pipeName, k -> createClient(connectorConfig, pipeName, streamingClientProperties));
+      return new StreamingIngestClientV2Wrapper(client);
     }
   }
 
   public void close(String pipeName) {
     synchronized (pipeToClientMap) {
-      Optional.ofNullable(pipeToClientMap.get(pipeName))
+      Optional.ofNullable(pipeToClientMap.remove(pipeName))
           .ifPresent(SnowflakeStreamingIngestClient::close);
-      pipeToClientMap.remove(pipeName);
     }
   }
 
   public void closeAll() {
     synchronized (pipeToClientMap) {
-      for (Map.Entry<String, SnowflakeStreamingIngestClient> entry : pipeToClientMap.entrySet()) {
-        entry.getValue().close();
-      }
+      pipeToClientMap.values().forEach(SnowflakeStreamingIngestClient::close);
       pipeToClientMap.clear();
     }
   }

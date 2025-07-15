@@ -4,12 +4,10 @@ import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5027;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5028;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.snowflake.ingest.streaming.AppendResult;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
-import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -515,7 +513,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    * @return new channel which was fetched after open/reopen
    */
   private SnowflakeStreamingIngestChannel openChannelForTable(String channelName) {
-    SnowflakeStreamingIngestClient streamingIngestClient =
+    StreamingIngestClientV2Wrapper streamingIngestClient =
         streamingIngestClientV2Provider.getClient(
             connectorConfig, pipeName, streamingClientProperties);
     OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
@@ -610,18 +608,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   @Override
   public String getChannelNameFormatV1() {
     return channel.getFullyQualifiedChannelName();
-  }
-
-  @Override
-  public String toString() {
-    SnowflakeStreamingIngestClient streamingIngestClient =
-        streamingIngestClientV2Provider.getClient(
-            connectorConfig, pipeName, streamingClientProperties);
-    return MoreObjects.toStringHelper(this)
-        .add("offsetPersistedInSnowflake", this.offsetPersistedInSnowflake)
-        .add("channelName", this.getChannelNameFormatV1())
-        .add("isStreamingIngestClientClosed", streamingIngestClient.isClosed())
-        .toString();
   }
 
   @Override
