@@ -82,7 +82,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   /** Available from {@link SinkTask} which has access to various utility methods. */
   private final SinkTaskContext sinkTaskContext;
 
-  // Unlike SSv1 schema evolution is not supported yet, but ingestion to schematized table can happen
+  // Unlike SSv1 schema evolution is not supported yet, but ingestion to schematized table can
+  // happen
   private final boolean schematizationEnabled;
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
