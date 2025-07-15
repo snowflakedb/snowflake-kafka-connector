@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming.validation;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 /** Manage state of RowSchema objects across tables */
 public class RowSchemaManager {
@@ -16,14 +15,8 @@ public class RowSchemaManager {
 
   /** Get existing schema or create if absent */
   public RowSchema get(String tableName, Map<String, String> connectorConfig) {
-    Optional<RowSchema> rowSchemaOpt = Optional.ofNullable(schemaMap.get(tableName));
-    if (rowSchemaOpt.isPresent()) {
-      return rowSchemaOpt.get();
-    } else {
-      RowSchema rowSchema = provider.getRowSchema(tableName, connectorConfig);
-      schemaMap.put(tableName, rowSchema);
-      return rowSchema;
-    }
+    return schemaMap.computeIfAbsent(
+        tableName, k -> provider.getRowSchema(tableName, connectorConfig));
   }
 
   /** Remove schema for given table */
