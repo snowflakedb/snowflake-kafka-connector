@@ -260,11 +260,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           new FailsafeRowSchemaProvider(
               new RowsetApiRowSchemaProvider(JWTManagerProvider.fromConfig(connectorConfig)));
       RowSchemaManager rowSchemaManager = new RowSchemaManager(rowSchemaProvider);
-      SSv2PipeCreator ssv2PipeCreator =
-          new SSv2PipeCreator(
-              conn,
-              PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName),
-              tableName);
+      createPipeIfNotExists(tableName);
       return new SnowpipeStreamingV2PartitionChannel(
           tableName,
           schemaEvolutionEnabled,
@@ -278,8 +274,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           this.metricsJmxReporter,
           streamingIngestClientV2Provider,
           rowSchemaManager,
-          streamingErrorHandler,
-          ssv2PipeCreator);
+          streamingErrorHandler);
     } else {
       return new DirectTopicPartitionChannel(
           this.streamingIngestClient,
@@ -298,6 +293,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           new InsertErrorMapper(),
           streamingErrorHandler);
     }
+  }
+
+  private void createPipeIfNotExists(String tableName) {
+    SSv2PipeCreator ssv2PipeCreator =
+        new SSv2PipeCreator(
+            conn, PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName), tableName);
+    ssv2PipeCreator.createPipeIfNotExists();
   }
 
   private void waitForAllChannelsToCommitData() {

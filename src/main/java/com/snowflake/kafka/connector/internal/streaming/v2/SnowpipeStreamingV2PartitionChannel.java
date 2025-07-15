@@ -82,8 +82,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   /** Available from {@link SinkTask} which has access to various utility methods. */
   private final SinkTaskContext sinkTaskContext;
 
-  // Whether schema evolution will be done on this channel
-  private final boolean schemaEvolutionEnabled;
+  // Unlike SSv1 schema evolution is not supported yet, but ingestion to schematized table can happen
+  private final boolean schematizationEnabled;
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
 
@@ -107,7 +107,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   public SnowpipeStreamingV2PartitionChannel(
       String tableName,
-      final boolean schemaEvolutionEnabled,
+      final boolean schematizationEnabled,
       String channelName,
       TopicPartition topicPartition,
       SnowflakeConnectionService conn,
@@ -118,10 +118,9 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
       MetricsJmxReporter metricsJmxReporter,
       StreamingIngestClientV2Provider streamingIngestClientV2Provider,
       RowSchemaManager rowSchemaManager,
-      StreamingErrorHandler streamingErrorHandler,
-      SSv2PipeCreator ssv2PipeCreator) {
+      StreamingErrorHandler streamingErrorHandler) {
     this.tableName = tableName;
-    this.schemaEvolutionEnabled = schemaEvolutionEnabled;
+    this.schematizationEnabled = schematizationEnabled;
     this.channelName = channelName;
     this.topicPartition = topicPartition;
     this.connectorConfig = connectorConfig;
@@ -135,7 +134,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     this.pipeName = PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName);
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
 
-    ssv2PipeCreator.createPipeIfNotExists();
     this.channel = openChannelForTable(channelName);
     this.offsetTokenExecutor =
         LatestCommitedOffsetTokenExecutor.getExecutor(
@@ -208,8 +206,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
           currentProcessedOffset);
       return;
     }
-    // Accept the incoming record only if we don't have a valid offset token at server side, or the
-    // incoming record offset is 1 + the processed offset
+
     if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
         || kafkaSinkRecord.kafkaOffset() >= currentProcessedOffset + 1) {
       transformAndSend(kafkaSinkRecord);
@@ -227,7 +224,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
       Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
-      if (schemaEvolutionEnabled) {
+      if (schematizationEnabled) {
         Optional<RowSchema.Error> error = validateRecord(transformedRecord);
         if (error.isPresent()) {
           LOGGER.info(
