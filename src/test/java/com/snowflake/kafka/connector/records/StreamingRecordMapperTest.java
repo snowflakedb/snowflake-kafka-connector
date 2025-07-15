@@ -2,8 +2,6 @@ package com.snowflake.kafka.connector.records;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
-import java.util.Map;
 
 abstract class StreamingRecordMapperTest {
 
@@ -30,25 +28,6 @@ abstract class StreamingRecordMapperTest {
 
   protected static final String fullMetadataWithoutWhitespace =
       fullMetadataJsonExample.replaceAll("\\s+", "");
-
-  protected static final MetadataRecord fullRecordMetadata =
-      new MetadataRecord(
-          10L,
-          "topic",
-          0,
-          "key",
-          1,
-          2,
-          3L,
-          4L,
-          5L,
-          Map.of(
-              "header3",
-              "3.5",
-              "header2",
-              "testheaderstring",
-              "objectAsJsonStringHeader",
-              "{\"key1\":\"value1\",\"key2\":\"value2\"}"));
 
   protected static RecordService.SnowflakeTableRow buildRowWithDefaultMetadata(String content)
       throws JsonProcessingException {
