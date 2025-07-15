@@ -66,24 +66,6 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
               "header3",
               "3.5"));
 
-  private static final MetadataRecord emptyRecordMetadata =
-      new MetadataRecord(null, null, null, null, null, null, null, null, null, new HashMap<>());
-  private static final MetadataRecord nullHeaderRecordMetadata =
-      new MetadataRecord(
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          (Map<String, String>) mapWithNullableValuesOf("key", null));
-  private static final MetadataRecord nestedHeaderRecordMetadata =
-      new MetadataRecord(
-          null, null, null, null, null, null, null, null, null, Map.of("key", "{\"key2\":null}"));
-
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareSchematizationData")
   void shouldMapRecord_schematizationEnabled(
@@ -100,11 +82,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("prepareMetadataData")
-  void shouldMapMetadata(
-      String description,
-      SnowflakeTableRow row,
-      Map<String, Object> expected,
-      MetadataRecord ssv2Expected)
+  void shouldMapMetadata(String description, SnowflakeTableRow row, Map<String, Object> expected)
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
@@ -120,7 +98,6 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
     // Then
     assertThat(result.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
     assertThat(resultSchematized.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
-    assertThat(resultSSv2.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(ssv2Expected);
   }
 
   @Test
@@ -262,41 +239,29 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
 
   private static Stream<Arguments> prepareMetadataData() throws JsonProcessingException {
     return Stream.of(
+        Arguments.of("Full metadata", buildRowWithDefaultMetadata("{}"), fullMetadataJsonAsMap),
         Arguments.of(
-            "Full metadata",
-            buildRowWithDefaultMetadata("{}"),
-            fullMetadataJsonAsMap,
-            fullRecordMetadata),
-        Arguments.of(
-            "Empty metadata",
-            buildRow("{}", "{}"),
-            ImmutableMap.of("headers", ImmutableMap.of()),
-            emptyRecordMetadata),
+            "Empty metadata", buildRow("{}", "{}"), ImmutableMap.of("headers", ImmutableMap.of())),
         Arguments.of(
             "Metadata with null headers",
             buildRow("{}", "{\"headers\": null}"),
-            ImmutableMap.of("headers", ImmutableMap.of()),
-            emptyRecordMetadata),
+            ImmutableMap.of("headers", ImmutableMap.of())),
         Arguments.of(
             "Metadata with empty headers",
             buildRow("{}", "{\"headers\": {}}"),
-            ImmutableMap.of("headers", ImmutableMap.of()),
-            emptyRecordMetadata),
+            ImmutableMap.of("headers", ImmutableMap.of())),
         Arguments.of(
             "Metadata with headers with null keys",
             buildRow("{}", "{\"headers\": {\"key\": null}}"),
-            ImmutableMap.of("headers", mapWithNullableValuesOf("key", null)),
-            nullHeaderRecordMetadata),
+            ImmutableMap.of("headers", mapWithNullableValuesOf("key", null))),
         Arguments.of(
             "Metadata with headers with nested null keys",
             buildRow("{}", "{\"headers\": {\"key\": {\"key2\": null }}}"),
-            ImmutableMap.of("headers", ImmutableMap.of("key", "{\"key2\":null}")),
-            nestedHeaderRecordMetadata),
+            ImmutableMap.of("headers", ImmutableMap.of("key", "{\"key2\":null}"))),
         Arguments.of(
             "Metadata with null field value",
             buildRow("{}", "{\"offset\": null}"),
-            mapWithNullableValuesOf("offset", null, "headers", ImmutableMap.of()),
-            emptyRecordMetadata));
+            mapWithNullableValuesOf("offset", null, "headers", ImmutableMap.of())));
   }
 
   private static Stream<Arguments> prepareNoSchematizationData() throws JsonProcessingException {

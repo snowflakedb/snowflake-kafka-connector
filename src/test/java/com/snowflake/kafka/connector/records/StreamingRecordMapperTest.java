@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.records;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import java.util.Map;
 
 abstract class StreamingRecordMapperTest {

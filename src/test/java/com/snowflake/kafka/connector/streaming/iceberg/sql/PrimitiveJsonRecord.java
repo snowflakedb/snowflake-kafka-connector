@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.records.MetadataRecord;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;

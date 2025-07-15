@@ -1,7 +1,5 @@
 package com.snowflake.kafka.connector.streaming.iceberg.sql;
 
-import com.snowflake.kafka.connector.records.MetadataRecord;
-
 public class RecordWithMetadata<T> {
   private final T record;
   private final MetadataRecord metadata;

@@ -31,13 +31,7 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
       }
     }
     if (includeMetadata) {
-      Map<String, Object> mapForMetadata = getMapForMetadata(row.getMetadata());
-      if (ssv2Enabled) {
-        MetadataRecord metadata = metadataFromMap(mapForMetadata);
-        streamingIngestRow.put(TABLE_COLUMN_METADATA, metadata);
-      } else {
-        streamingIngestRow.put(TABLE_COLUMN_METADATA, mapForMetadata);
-      }
+      streamingIngestRow.put(TABLE_COLUMN_METADATA, getMapForMetadata(row.getMetadata()));
     }
     return streamingIngestRow;
   }
