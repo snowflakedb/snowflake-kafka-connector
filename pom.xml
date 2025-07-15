@@ -683,6 +683,7 @@
                                 <!-- Rowset API is disabled on Azure and GCP -->
                                 <exclude>**/*RowSchemaProvider*IT.java</exclude>
                                 <exclude>**/*StreamingIngestClientV2Provider*IT.java</exclude>
+                                <exclude>**/*SnowflakeSinkServiceV2*IT.java</exclude>
                             </excludes>
                             <skipTests>${skipIntegrationTests}</skipTests>
                         </configuration>
