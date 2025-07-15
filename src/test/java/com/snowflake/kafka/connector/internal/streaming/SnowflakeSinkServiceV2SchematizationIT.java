@@ -251,7 +251,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ(
       boolean ssv2Enabled) {
     // given
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
@@ -332,10 +331,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @ValueSource(booleans = {true, false})
   void shouldSendRecordToDlqIfSchemaNotMatched(boolean ssv2Enabled) {
     // given
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
-    config.put(ERRORS_TOLERANCE_CONFIG, "all");
-    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
 
     conn.createTableWithOnlyMetadataColumn(table);
     createNonNullableColumn(table, "\"ID_INT8\"", "boolean");
