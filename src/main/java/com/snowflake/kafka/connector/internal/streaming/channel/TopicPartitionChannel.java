@@ -92,5 +92,7 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
 
   void setLatestConsumerGroupOffset(long consumerOffset);
 
-  default void waitForLastProcessedRecordCommitted() {}
+  default CompletableFuture<Void> waitForLastProcessedRecordCommitted() {
+    return CompletableFuture.completedFuture(null);
+  }
 }

@@ -29,7 +29,7 @@ public class JWTManagerProvider {
     PrivateKey privateKey =
         privateKeyPassphrase
             .map(passphrase -> EncryptionUtils.parseEncryptedPrivateKey(rawPrivateKey, passphrase))
-            .orElse(parsePrivateKey(rawPrivateKey));
+            .orElseGet(() -> parsePrivateKey(rawPrivateKey));
     KeyPair keyPair = getKeyPair(privateKey);
     return new JWTManager(snowflakeURL.getAccount(), Utils.getUser(config), keyPair, null);
   }

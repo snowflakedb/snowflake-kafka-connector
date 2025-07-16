@@ -265,22 +265,29 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   }
 
   @Override
-  public void waitForLastProcessedRecordCommitted() {
+  public CompletableFuture<Void> waitForLastProcessedRecordCommitted() {
     if (lastAppendRowsOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      return;
+      return CompletableFuture.completedFuture(null);
     }
 
-    streamingIngestClientV2Provider
-        .getClient(connectorConfig, pipeName, streamingClientProperties)
-        .initiateFlush();
-
-    WaitForLastOffsetCommittedPolicy.getPolicy(
+    return CompletableFuture.runAsync(
         () -> {
-          long offsetCommittedToBackend = fetchLatestCommittedOffsetFromSnowflake();
-          if (offsetCommittedToBackend == lastAppendRowsOffset) {
-            return true;
-          }
-          throw ERROR_5027.getException();
+          LOGGER.info("Starting flush for channel: {}", this.getChannelNameFormatV1());
+
+          streamingIngestClientV2Provider
+              .getClient(connectorConfig, pipeName, streamingClientProperties)
+              .initiateFlush();
+
+          WaitForLastOffsetCommittedPolicy.getPolicy(
+              () -> {
+                long offsetCommittedToBackend = fetchLatestCommittedOffsetFromSnowflake();
+                if (offsetCommittedToBackend == lastAppendRowsOffset) {
+                  return true;
+                }
+                throw ERROR_5027.getException();
+              });
+
+          LOGGER.info("Completed flush for channel: {}", this.getChannelNameFormatV1());
         });
   }
 

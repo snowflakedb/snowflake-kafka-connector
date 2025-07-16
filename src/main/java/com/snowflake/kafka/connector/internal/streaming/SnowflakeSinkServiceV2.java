@@ -303,7 +303,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   private void waitForAllChannelsToCommitData() {
-    partitionsToChannel.forEach((key, value) -> value.waitForLastProcessedRecordCommitted());
+    int channelCount = partitionsToChannel.size();
+    if (channelCount == 0) {
+      return;
+    }
+
+    LOGGER.info("Starting parallel flush for {} channels", channelCount);
+
+    CompletableFuture<?>[] futures =
+        partitionsToChannel.values().stream()
+            .map(TopicPartitionChannel::waitForLastProcessedRecordCommitted)
+            .toArray(CompletableFuture[]::new);
+
+    CompletableFuture.allOf(futures).join();
+
+    LOGGER.info("Completed parallel flush for {} channels", channelCount);
   }
 
   /**
