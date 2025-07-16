@@ -515,23 +515,18 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   @Override
   public void closeChannel() {
     try {
-      channel.close();
-
-      // telemetry and metrics
-      this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
-      this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
-    } catch (SFException e) {
+      closeChannelAsync().get();
+    } catch (Exception e) {
       final String errMsg =
           String.format(
               "Failure closing Streaming Channel name:%s msg:%s",
               this.getChannelNameFormatV1(), e.getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
       LOGGER.error(
-          "Closing Streaming Channel={} encountered an exception {}: {} {}",
+          "Closing Streaming Channel={} encountered an exception: {}",
           this.getChannelNameFormatV1(),
-          e.getClass(),
-          e.getMessage(),
-          Arrays.toString(e.getStackTrace()));
+          e.getClass().getSimpleName(),
+          e);
     }
   }
 
