@@ -23,9 +23,7 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.validation.RowSchema;
 import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaManager;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeExecutor;
-import dev.failsafe.Fallback;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -306,7 +304,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   }
 
   /**
-   * Uses {@link Fallback} API to reopen the channel if insertRows throws {@link SFException}.
+   * Uses {@link AppendRowWithFallbackPolicy} to reopen the channel if insertRows throws {@link
+   * SFException}.
    *
    * <p>We have deliberately not performed retries on insertRows because it might slow down overall
    * ingestion and introduce lags in committing offsets to Kafka.
@@ -320,42 +319,23 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    * @return InsertValidationResponse a response that wraps around InsertValidationResponse
    */
   private AppendResult insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
-    Fallback<Object> reopenChannelFallbackExecutorForInsertRows =
-        Fallback.builder(
-                executionAttemptedEvent -> {
-                  insertRowFallbackSupplier(executionAttemptedEvent.getLastException());
-                })
-            .handle(SFException.class)
-            .onFailedAttempt(
-                event ->
-                    LOGGER.warn(
-                        "Failed Attempt to invoke the appendRow API for channel: {}. Exception: {}",
-                        getChannelNameFormatV1(),
-                        event.getLastException()))
-            .onFailure(
-                event ->
-                    LOGGER.error(
-                        "{} Failed to open Channel or fetching offsetToken for channel:{}."
-                            + " Exception: {}",
-                        StreamingApiFallbackInvoker.APPEND_ROW_FALLBACK,
-                        this.getChannelNameFormatV1(),
-                        event.getException()))
-            .build();
-
-    return Failsafe.with(reopenChannelFallbackExecutorForInsertRows)
-        .get(
-            () -> {
-              AppendResult result =
-                  this.channel.appendRow(transformedRecord, Long.toString(offset));
-              this.lastAppendRowsOffset = offset;
-              return result;
-            });
+    return AppendRowWithFallbackPolicy.executeWithFallback(
+        () -> {
+          AppendResult result = this.channel.appendRow(transformedRecord, Long.toString(offset));
+          this.lastAppendRowsOffset = offset;
+          return result;
+        },
+        this::insertRowFallbackSupplier,
+        this.getChannelNameFormatV1());
   }
 
   /**
-   * We will reopen the channel on {@link SFException} and reset offset in kafka. But, we will throw
-   * a custom exception to show that records were not added into Snowflake.
+   * Fallback supplier used by {@link AppendRowWithFallbackPolicy} to handle channel recovery.
    *
+   * <p>We will reopen the channel on {@link SFException} and reset offset in kafka. But, we will
+   * throw a custom exception to show that records were not added into Snowflake.
+   *
+   * @param ex the original exception that caused the fallback to be triggered
    * @throws TopicPartitionChannelInsertionException exception is thrown after channel reopen has
    *     been successful and offsetToken was fetched from Snowflake
    */
