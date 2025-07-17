@@ -256,8 +256,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   private Optional<RowSchema.Error> validateRecord(Map<String, Object> transformedRecord) {
     Map<String, Object> fieldsToValidate = new HashMap<>(transformedRecord);
-    // skip RECORD_METADATA cause SSv1 validations don't accept POJOs
-    fieldsToValidate.remove("RECORD_METADATA");
     return Optional.ofNullable(
         rowSchemaManager.get(tableName, connectorConfig).validate(fieldsToValidate));
   }

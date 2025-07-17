@@ -58,27 +58,22 @@ public class MetadataRecord {
     return key;
   }
 
-  @JsonProperty("schema_id")
   public Integer getSchemaId() {
     return schemaId;
   }
 
-  @JsonProperty("key_schema_id")
   public Integer getKeySchemaId() {
     return keySchemaId;
   }
 
-  @JsonProperty("CreateTime")
   public Long getCreateTime() {
     return createTime;
   }
 
-  @JsonProperty("LogAppendTime")
   public Long getLogAppendTime() {
     return logAppendTime;
   }
 
-  @JsonProperty("SnowflakeConnectorPushTime")
   public Long getSnowflakeConnectorPushTime() {
     return snowflakeConnectorPushTime;
   }
