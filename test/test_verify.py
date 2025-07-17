@@ -26,7 +26,7 @@ from cloud_platform import CloudPlatform
 
 @dataclass
 class ConnectorParameters:
-    snowflake_streaming_enable_single_buffer: str
+    snowflake_streaming_v2_enabled: str
 
 
 class ConnectorParametersList:
@@ -65,7 +65,7 @@ class KafkaTest:
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 10 # max wait time 10 mins
+        self.MAX_RETRY = 10  # max wait time 10 mins
         self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
@@ -295,6 +295,9 @@ class KafkaTest:
             print(datetime.now().strftime("%H:%M:%S "), "=== Drop pipe {} ===".format(pipeName))
             self.snowflake_conn.cursor().execute("DROP pipe IF EXISTS {}".format(pipeName))
 
+        ssv2PipeName = "SNOWFLAKE_KAFKA_CONNECTOR_SSV2_PIPE_{}".format(tableName)
+        self.snowflake_conn.cursor().execute("DROP PIPE IF EXISTS {}".format(ssv2PipeName))
+
         print(datetime.now().strftime("%H:%M:%S "), "=== Done ===", flush=True)
 
     def enable_schema_evolution_for_iceberg(self, table: str):
@@ -443,7 +446,7 @@ class KafkaTest:
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
                 .replace("SNOWFLAKE_ROLE", testRole) \
-                .replace("$SNOWFLAKE_STREAMING_ENABLE_SINGLE_BUFFER", self.connectorParameters.snowflake_streaming_enable_single_buffer)
+                .replace("$SNOWFLAKE_STREAMING_V2_ENABLED", self.connectorParameters.snowflake_streaming_v2_enabled)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(fileContent)
 
@@ -597,8 +600,8 @@ if __name__ == "__main__":
     print("Running tests for platform {} and distribution {}".format(snowflakeCloudPlatform, testSet))
 
     parametersList = ConnectorParametersList([
-        ConnectorParameters(snowflake_streaming_enable_single_buffer='false'),
-        ConnectorParameters(snowflake_streaming_enable_single_buffer='true'),
+        ConnectorParameters(snowflake_streaming_v2_enabled='false'),
+        ConnectorParameters(snowflake_streaming_v2_enabled='true'),
     ])
 
     parametersList.for_each(

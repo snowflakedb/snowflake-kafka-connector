@@ -52,6 +52,7 @@ public class RowsetApiRowSchemaProvider implements RowSchemaProvider {
           rowsetApiColumnsEndpointResponse.tableColumns().stream()
               .map(RowsetApiRowSchemaProvider::mapColumn)
               .collect(Collectors.toList());
+      LOGGER.info("Fetched table {} schema. Got {} columns.", tableName, columns.size());
       return new RowSchema(false, columns);
     } catch (IOException e) {
       throw new RowsetApiException(e);
