@@ -17,6 +17,26 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
+  // Helper constants for metadata structures
+  private static final Map<String, Object> EMPTY_SSV2_METADATA = Map.of("headers", Map.of());
+
+  private static final Map<String, Object> FULL_SSV2_METADATA =
+      Map.of(
+          "offset", 10,
+          "topic", "topic",
+          "partition", 0,
+          "key", "key",
+          "schema_id", 1,
+          "key_schema_id", 2,
+          "CreateTime", 3,
+          "LogAppendTime", 4,
+          "SnowflakeConnectorPushTime", 5,
+          "headers",
+              Map.of(
+                  "header2", "testheaderstring",
+                  "header3", "3.5",
+                  "objectAsJsonStringHeader", "{\"key1\":\"value1\",\"key2\":\"value2\"}"));
+
   @ParameterizedTest
   @MethodSource("ssv1NoSchematizationData")
   public void shouldMapDataForSsv1(
@@ -117,38 +137,30 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
         Arguments.of(
             buildRow("{}", "{}"),
             Map.of(
-                TABLE_COLUMN_METADATA,
-                new MetadataRecord(null, null, null, null, null, null, null, null, null, Map.of()),
-                TABLE_COLUMN_CONTENT,
-                new HashMap<>())),
+                TABLE_COLUMN_METADATA, EMPTY_SSV2_METADATA, TABLE_COLUMN_CONTENT, new HashMap<>())),
         Arguments.of(
             buildRowWithDefaultMetadata("{}"),
             Map.of(
-                TABLE_COLUMN_METADATA, fullRecordMetadata, TABLE_COLUMN_CONTENT, new HashMap<>())),
+                TABLE_COLUMN_METADATA, FULL_SSV2_METADATA, TABLE_COLUMN_CONTENT, new HashMap<>())),
         Arguments.of(
             buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
             Map.of(
                 TABLE_COLUMN_METADATA,
-                fullRecordMetadata,
+                FULL_SSV2_METADATA,
                 TABLE_COLUMN_CONTENT,
                 Map.of("key", "value"))));
   }
 
   public static Stream<Arguments> ssv2SchematizationData() throws JsonProcessingException {
     return Stream.of(
+        Arguments.of(buildRow("{}", "{}"), Map.of(TABLE_COLUMN_METADATA, EMPTY_SSV2_METADATA)),
         Arguments.of(
-            buildRow("{}", "{}"),
-            Map.of(
-                TABLE_COLUMN_METADATA,
-                new MetadataRecord(
-                    null, null, null, null, null, null, null, null, null, Map.of()))),
-        Arguments.of(
-            buildRowWithDefaultMetadata("{}"), Map.of(TABLE_COLUMN_METADATA, fullRecordMetadata)),
+            buildRowWithDefaultMetadata("{}"), Map.of(TABLE_COLUMN_METADATA, FULL_SSV2_METADATA)),
         Arguments.of(
             buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
-            Map.of(TABLE_COLUMN_METADATA, fullRecordMetadata, "\"KEY\"", "value")),
+            Map.of(TABLE_COLUMN_METADATA, FULL_SSV2_METADATA, "\"KEY\"", "value")),
         Arguments.of(
             buildRowWithDefaultMetadata("{\"key\": []}"),
-            Map.of(TABLE_COLUMN_METADATA, fullRecordMetadata, "\"KEY\"", List.of())));
+            Map.of(TABLE_COLUMN_METADATA, FULL_SSV2_METADATA, "\"KEY\"", List.of())));
   }
 }

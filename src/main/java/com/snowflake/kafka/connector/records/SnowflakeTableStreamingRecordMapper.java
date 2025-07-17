@@ -126,8 +126,7 @@ class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
 
   private Object getMetadata(RecordService.SnowflakeTableRow row) throws JsonProcessingException {
     if (ssv2Enabled) {
-      Map<String, Object> mapForMetadata = getMapForMetadata(row.getMetadata());
-      return metadataFromMap(mapForMetadata);
+      return getMapForMetadata(row.getMetadata());
     } else {
       return mapper.writeValueAsString(row.getMetadata());
     }
