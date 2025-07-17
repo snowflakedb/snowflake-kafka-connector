@@ -189,13 +189,13 @@ public class RowSchema {
       return null;
     } catch (PkgSFException e) {
       return errorWith(insertError, e, e.getVendorCode(), e.getParams());
-    } catch (Throwable th) {
+    } catch (Exception th) {
       return errorWith(insertError, th, ErrorCode.INTERNAL_ERROR.getMessageCode(), th.getMessage());
     }
   }
 
   private Error errorWith(
-      PkgInsertError insertError, Throwable th, String vendorCode, Object... params) {
+      PkgInsertError insertError, Exception th, String vendorCode, Object... params) {
     return new Error(
         insertError.getExtraColNames(),
         insertError.getMissingNotNullColNames(),
@@ -230,7 +230,7 @@ public class RowSchema {
       return vendorCode;
     }
 
-    public Throwable cause() {
+    public Exception cause() {
       return cause;
     }
 
@@ -239,7 +239,7 @@ public class RowSchema {
     private final List<String> nullValueForNotNullColNames;
     private final String localizedMessage;
     private final String vendorCode;
-    private final Throwable cause;
+    private final Exception cause;
 
     public Error(
         List<String> extraColNames,
@@ -247,7 +247,7 @@ public class RowSchema {
         List<String> nullValueForNotNullColNames,
         String localizedMessage,
         String vendorCode,
-        Throwable cause) {
+        Exception cause) {
       this.extraColNames = extraColNames;
       this.missingNotNullColNames = missingNotNullColNames;
       this.nullValueForNotNullColNames = nullValueForNotNullColNames;
