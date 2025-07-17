@@ -1,12 +1,6 @@
 package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.records.RecordService.HEADERS;
-import static com.snowflake.kafka.connector.records.RecordService.KEY;
-import static com.snowflake.kafka.connector.records.RecordService.KEY_SCHEMA_ID;
-import static com.snowflake.kafka.connector.records.RecordService.OFFSET;
-import static com.snowflake.kafka.connector.records.RecordService.PARTITION;
-import static com.snowflake.kafka.connector.records.RecordService.SCHEMA_ID;
-import static com.snowflake.kafka.connector.records.RecordService.TOPIC;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -85,15 +79,6 @@ abstract class StreamingRecordMapper {
     }
   }
 
-  protected static Long getNullSafeLong(Map<String, Object> mapForMetadata, String key) {
-    return mapForMetadata.get(key) == null ? null : ((Number) mapForMetadata.get(key)).longValue();
-  }
-
-  protected static String getNullSafeString(Map<String, Object> mapForMetadata, String key) {
-    Object object = mapForMetadata.get(key);
-    return object == null ? null : object.toString();
-  }
-
   protected Map<String, Object> getMapForMetadata(JsonNode metadataNode)
       throws JsonProcessingException {
     Map<String, Object> values = mapper.convertValue(metadataNode, OBJECTS_MAP_TYPE_REFERENCE);
@@ -120,19 +105,5 @@ abstract class StreamingRecordMapper {
       headers.put(key, value);
     }
     return headers;
-  }
-
-  protected MetadataRecord metadataFromMap(Map<String, Object> mapForMetadata) {
-    return new MetadataRecord(
-        getNullSafeLong(mapForMetadata, OFFSET),
-        (String) mapForMetadata.get(TOPIC),
-        (Integer) mapForMetadata.get(PARTITION),
-        getNullSafeString(mapForMetadata, KEY),
-        (Integer) mapForMetadata.get(SCHEMA_ID),
-        (Integer) mapForMetadata.get(KEY_SCHEMA_ID),
-        getNullSafeLong(mapForMetadata, "CreateTime"),
-        getNullSafeLong(mapForMetadata, "LogAppendTime"),
-        getNullSafeLong(mapForMetadata, "SnowflakeConnectorPushTime"),
-        (Map<String, String>) mapForMetadata.get(HEADERS));
   }
 }
