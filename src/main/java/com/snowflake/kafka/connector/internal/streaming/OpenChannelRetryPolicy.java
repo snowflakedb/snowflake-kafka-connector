@@ -24,12 +24,12 @@ class OpenChannelRetryPolicy {
 
   // Retry policy constants
   /** Initial delay before the first retry attempt. */
-  private static final Duration INITIAL_DELAY = Duration.ofSeconds(3);
+  private static final Duration INITIAL_DELAY = Duration.ofSeconds(2);
 
   /** Maximum delay between retry attempts. */
   private static final Duration MAX_DELAY = Duration.ofMinutes(1);
 
-  /** Exponential backoff multiplier (retry delays: 3s, 6s, 12s, 24s, 48s, 60s max). */
+  /** Exponential backoff multiplier (retry delays: 4s, 8s, 16s, 32s, 60s max). */
   private static final double BACKOFF_MULTIPLIER = 2.0;
 
   /** Random jitter added to retry delays to prevent thundering herd. */
@@ -73,7 +73,6 @@ class OpenChannelRetryPolicy {
     RetryPolicy<SnowflakeStreamingIngestChannel> retryPolicy =
         RetryPolicy.<SnowflakeStreamingIngestChannel>builder()
             .handle(SFException.class)
-            .withDelay(INITIAL_DELAY)
             .withBackoff(INITIAL_DELAY, MAX_DELAY, BACKOFF_MULTIPLIER)
             .withJitter(JITTER_DURATION)
             .withMaxAttempts(maxRetryAttempts)
