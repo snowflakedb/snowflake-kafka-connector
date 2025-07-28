@@ -648,11 +648,26 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             .setOnErrorOption(onErrorOption)
             .setOffsetTokenVerificationFunction(StreamingUtils.offsetTokenVerificationFunction)
             .build();
+
     LOGGER.info(
         "Opening a channel with name:{} for table name:{}",
         this.channelNameFormatV1,
         this.tableName);
-    return streamingIngestClient.openChannel(channelRequest);
+
+    try {
+      return OpenChannelRetryPolicy.executeWithRetry(
+          () -> streamingIngestClient.openChannel(channelRequest),
+          this.channelNameFormatV1,
+          this.sfConnectorConfig);
+    } catch (RuntimeException e) {
+      LOGGER.error(
+          "Failed to open channel {} after retries: {}",
+          this.channelNameFormatV1,
+          e.getMessage(),
+          e);
+      // rethrow the original exception when retry limit exceeded
+      throw e;
+    }
   }
 
   @Override
