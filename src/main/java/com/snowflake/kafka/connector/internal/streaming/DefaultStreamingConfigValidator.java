@@ -2,6 +2,11 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.OPEN_CHANNEL_MAX_RETRY_ATTEMPTS;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -108,6 +113,11 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
                 inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
           }
 
+          if (inputConfig.containsKey(OPEN_CHANNEL_MAX_RETRY_ATTEMPTS)) {
+            ensureValidIntWithMinimum(
+                inputConfig, OPEN_CHANNEL_MAX_RETRY_ATTEMPTS, 1, invalidParams);
+          }
+
           // Valid schematization for Snowpipe Streaming
           invalidParams.putAll(validateSchematizationConfig(inputConfig));
         }
@@ -131,6 +141,30 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
           param,
           Utils.formatString(
               param + " configuration must be a parsable long. Given configuration" + " was: {}",
+              inputConfig.get(param)));
+    }
+  }
+
+  private static void ensureValidIntWithMinimum(
+      Map<String, String> inputConfig,
+      String param,
+      int minimumValue,
+      Map<String, String> invalidParams) {
+    try {
+      int value = Integer.parseInt(inputConfig.get(param));
+      if (value < minimumValue) {
+        invalidParams.put(
+            param,
+            Utils.formatString(
+                param + " configuration must be at least {}. Given configuration was: {}",
+                minimumValue,
+                value));
+      }
+    } catch (NumberFormatException exception) {
+      invalidParams.put(
+          param,
+          Utils.formatString(
+              param + " configuration must be a parsable int. Given configuration was: {}",
               inputConfig.get(param)));
     }
   }
