@@ -22,6 +22,19 @@ class OpenChannelRetryPolicy {
 
   private static final KCLogger LOGGER = new KCLogger(OpenChannelRetryPolicy.class.getName());
 
+  // Retry policy constants
+  /** Initial delay before the first retry attempt. */
+  private static final Duration INITIAL_DELAY = Duration.ofSeconds(3);
+
+  /** Maximum delay between retry attempts. */
+  private static final Duration MAX_DELAY = Duration.ofMinutes(1);
+
+  /** Exponential backoff multiplier (retry delays: 3s, 6s, 12s, 24s, 48s, 60s max). */
+  private static final double BACKOFF_MULTIPLIER = 2.0;
+
+  /** Random jitter added to retry delays to prevent thundering herd. */
+  private static final Duration JITTER_DURATION = Duration.ofMillis(200);
+
   /**
    * Executes the provided channel opening action with retry handling.
    *
@@ -60,12 +73,9 @@ class OpenChannelRetryPolicy {
     RetryPolicy<SnowflakeStreamingIngestChannel> retryPolicy =
         RetryPolicy.<SnowflakeStreamingIngestChannel>builder()
             .handle(SFException.class)
-            .withDelay(Duration.ofSeconds(3)) // initial delay
-            .withBackoff(
-                Duration.ofSeconds(3),
-                Duration.ofMinutes(1),
-                2.0) // retry after 3,6,12,... seconds up to 1 minute
-            .withJitter(Duration.ofMillis(200))
+            .withDelay(INITIAL_DELAY)
+            .withBackoff(INITIAL_DELAY, MAX_DELAY, BACKOFF_MULTIPLIER)
+            .withJitter(JITTER_DURATION)
             .withMaxAttempts(maxRetryAttempts)
             .onRetry(
                 event ->
