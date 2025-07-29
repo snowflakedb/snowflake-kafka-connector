@@ -1,13 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import dev.failsafe.Failsafe;
-import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.time.Duration;
-import java.util.Map;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.utils.SFException;
 
@@ -16,20 +13,23 @@ import net.snowflake.ingest.utils.SFException;
  * backoff and jitter.
  *
  * <p>This class provides a clean interface to execute channel opening operations with automatic
- * retry on various streaming-related exceptions.
+ * retry on HTTP 429 (rate limiting) errors from Snowflake streaming service.
  */
 class OpenChannelRetryPolicy {
 
   private static final KCLogger LOGGER = new KCLogger(OpenChannelRetryPolicy.class.getName());
+
+  private static final String RATE_LIMIT_MESSAGE_PART = "429";
+  private static final String INTERNAL_ERROR_MESSAGE_PART = "500";
 
   // Retry policy constants
   /** Initial delay before the first retry attempt. */
   private static final Duration INITIAL_DELAY = Duration.ofSeconds(2);
 
   /** Maximum delay between retry attempts. */
-  private static final Duration MAX_DELAY = Duration.ofMinutes(1);
+  private static final Duration MAX_DELAY = Duration.ofSeconds(8);
 
-  /** Exponential backoff multiplier (retry delays: 4s, 8s, 16s, 32s, 60s max). */
+  /** Exponential backoff multiplier (retry delays: 2s, 4s, 8s max). */
   private static final double BACKOFF_MULTIPLIER = 2.0;
 
   /** Random jitter added to retry delays to prevent thundering herd. */
@@ -38,44 +38,22 @@ class OpenChannelRetryPolicy {
   /**
    * Executes the provided channel opening action with retry handling.
    *
-   * <p>On streaming-related exceptions, it will retry with exponential backoff and jitter. If all
-   * retries are exhausted, it will throw the last encountered exception.
+   * <p>On SFException containing "429" (HTTP rate limiting), it will retry with exponential backoff
+   * and jitter with unlimited retry attempts. Other exceptions are not retried.
    *
    * @param channelOpenAction the action to execute (typically openChannelForTable call)
    * @param channelName the channel name for logging purposes
-   * @param connectorConfig the connector configuration map
    * @return the result of the channel opening operation
    */
   static SnowflakeStreamingIngestChannel executeWithRetry(
-      CheckedSupplier<SnowflakeStreamingIngestChannel> channelOpenAction,
-      String channelName,
-      Map<String, String> connectorConfig) {
-
-    // Get the configurable max delay, using default if not specified
-    int maxRetryAttempts =
-        Integer.parseInt(
-            connectorConfig.getOrDefault(
-                SnowflakeSinkConnectorConfig.OPEN_CHANNEL_MAX_RETRY_ATTEMPTS,
-                String.valueOf(
-                    SnowflakeSinkConnectorConfig.OPEN_CHANNEL_MAX_RETRY_ATTEMPTS_DEFAULT)));
-
-    Fallback<SnowflakeStreamingIngestChannel> fallback =
-        Fallback.ofException(
-            e -> {
-              LOGGER.error(
-                  "Open channel {} - max retry attempts reached. Last exception: {}",
-                  channelName,
-                  e.getLastException().getMessage(),
-                  e.getLastException());
-              throw e.getLastException();
-            });
+      CheckedSupplier<SnowflakeStreamingIngestChannel> channelOpenAction, String channelName) {
 
     RetryPolicy<SnowflakeStreamingIngestChannel> retryPolicy =
         RetryPolicy.<SnowflakeStreamingIngestChannel>builder()
-            .handle(SFException.class)
+            .handleIf(e -> e instanceof SFException && shouldBeRetried(e))
             .withBackoff(INITIAL_DELAY, MAX_DELAY, BACKOFF_MULTIPLIER)
             .withJitter(JITTER_DURATION)
-            .withMaxAttempts(maxRetryAttempts)
+            .withMaxAttempts(-1)
             .onRetry(
                 event ->
                     LOGGER.warn(
@@ -83,14 +61,13 @@ class OpenChannelRetryPolicy {
                         channelName,
                         event.getAttemptCount(),
                         event.getLastException().getMessage()))
-            .onRetriesExceeded(
-                event ->
-                    LOGGER.error(
-                        "Open channel {} retries exceeded. Last exception: {}",
-                        channelName,
-                        event.getException().getMessage()))
             .build();
 
-    return Failsafe.with(fallback).compose(retryPolicy).get(channelOpenAction);
+    return Failsafe.with(retryPolicy).get(channelOpenAction);
+  }
+
+  private static boolean shouldBeRetried(Throwable e) {
+    return e.getMessage().contains(RATE_LIMIT_MESSAGE_PART)
+        || e.getMessage().contains(INTERNAL_ERROR_MESSAGE_PART);
   }
 }
