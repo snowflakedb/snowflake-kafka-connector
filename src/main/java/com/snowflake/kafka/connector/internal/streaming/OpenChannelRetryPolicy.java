@@ -19,8 +19,7 @@ class OpenChannelRetryPolicy {
 
   private static final KCLogger LOGGER = new KCLogger(OpenChannelRetryPolicy.class.getName());
 
-  private static final String RATE_LIMIT_MESSAGE_PART = "429";
-  private static final String INTERNAL_ERROR_MESSAGE_PART = "500";
+  private static final String RATE_LIMIT_MESSAGE_PART = "HTTP Status: 429";
 
   // Retry policy constants
   /** Initial delay before the first retry attempt. */
@@ -50,7 +49,7 @@ class OpenChannelRetryPolicy {
 
     RetryPolicy<SnowflakeStreamingIngestChannel> retryPolicy =
         RetryPolicy.<SnowflakeStreamingIngestChannel>builder()
-            .handleIf(e -> e instanceof SFException && shouldBeRetried(e))
+            .handleIf(OpenChannelRetryPolicy::isRetryableError)
             .withBackoff(INITIAL_DELAY, MAX_DELAY, BACKOFF_MULTIPLIER)
             .withJitter(JITTER_DURATION)
             .withMaxAttempts(-1)
@@ -66,8 +65,7 @@ class OpenChannelRetryPolicy {
     return Failsafe.with(retryPolicy).get(channelOpenAction);
   }
 
-  private static boolean shouldBeRetried(Throwable e) {
-    return e.getMessage().contains(RATE_LIMIT_MESSAGE_PART)
-        || e.getMessage().contains(INTERNAL_ERROR_MESSAGE_PART);
+  private static boolean isRetryableError(Throwable e) {
+    return e instanceof SFException && e.getMessage().contains(RATE_LIMIT_MESSAGE_PART);
   }
 }
