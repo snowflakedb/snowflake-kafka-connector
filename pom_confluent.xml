@@ -74,6 +74,7 @@
         <snowflake-jdbc.version>3.24.2</snowflake-jdbc.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
         <parquet.version>1.14.4</parquet.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
     </properties>
 
 
@@ -553,7 +554,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.18.0</version>
+            <version>${commons-lang3.version}</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-core -->
