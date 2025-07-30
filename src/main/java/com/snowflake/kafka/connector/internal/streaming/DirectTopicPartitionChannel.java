@@ -656,9 +656,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
     try {
       return OpenChannelRetryPolicy.executeWithRetry(
-          () -> streamingIngestClient.openChannel(channelRequest),
-          this.channelNameFormatV1,
-          this.sfConnectorConfig);
+          () -> streamingIngestClient.openChannel(channelRequest), this.channelNameFormatV1);
     } catch (RuntimeException e) {
       LOGGER.error(
           "Failed to open channel {} after retries: {}",
