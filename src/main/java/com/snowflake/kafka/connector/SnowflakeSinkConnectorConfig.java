@@ -157,10 +157,6 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
       "snowflake.streaming.client.provider.override.map";
 
-  public static final String OPEN_CHANNEL_MAX_RETRY_ATTEMPTS =
-      "snowflake.streaming.open.channel.retry.max.attempts";
-  public static final int OPEN_CHANNEL_MAX_RETRY_ATTEMPTS_DEFAULT = 3;
-
   // Iceberg
   public static final String ICEBERG_ENABLED = "snowflake.streaming.iceberg.enabled";
   public static final boolean ICEBERG_ENABLED_DEFAULT_VALUE = false;

@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.OPEN_CHANNEL_MAX_RETRY_ATTEMPTS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
@@ -111,11 +110,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
           if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
             ensureValidLong(
                 inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
-          }
-
-          if (inputConfig.containsKey(OPEN_CHANNEL_MAX_RETRY_ATTEMPTS)) {
-            ensureValidIntWithMinimum(
-                inputConfig, OPEN_CHANNEL_MAX_RETRY_ATTEMPTS, 1, invalidParams);
           }
 
           // Valid schematization for Snowpipe Streaming
