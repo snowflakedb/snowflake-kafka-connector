@@ -302,8 +302,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   }
 
   /**
-   * Uses {@link AppendRowWithFallbackPolicy} to reopen the channel if insertRows throws {@link
-   * SFException}.
+   * Uses {@link AppendRowWithRetryAndFallbackPolicy} to reopen the channel if insertRows throws
+   * {@link SFException}.
    *
    * <p>We have deliberately not performed retries on insertRows because it might slow down overall
    * ingestion and introduce lags in committing offsets to Kafka.
@@ -317,7 +317,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    * @return InsertValidationResponse a response that wraps around InsertValidationResponse
    */
   private AppendResult insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
-    return AppendRowWithFallbackPolicy.executeWithFallback(
+    return AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
         () -> {
           AppendResult result = this.channel.appendRow(transformedRecord, Long.toString(offset));
           this.lastAppendRowsOffset = offset;
@@ -328,7 +328,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   }
 
   /**
-   * Fallback supplier used by {@link AppendRowWithFallbackPolicy} to handle channel recovery.
+   * Fallback supplier used by {@link AppendRowWithRetryAndFallbackPolicy} to handle channel
+   * recovery.
    *
    * <p>We will reopen the channel on {@link SFException} and reset offset in kafka. But, we will
    * throw a custom exception to show that records were not added into Snowflake.
