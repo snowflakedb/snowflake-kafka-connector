@@ -41,7 +41,7 @@ public class SnowflakeSinkConnectorConfig {
   // For tombstone records
   public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
 
-  // Buffer thresholds
+  // Buffer thresholds for Snowpipe
   public static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
   public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
   public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;

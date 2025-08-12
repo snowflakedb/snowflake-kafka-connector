@@ -58,7 +58,7 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
             supplier, failingFallback(), channelName);
 
     // Then
-    assertEquals(3, attemptCounter.get()); // Should retry once
+    assertEquals(3, attemptCounter.get()); // Should retry thrice (1 initial + 2 retries)
     assertSame(appendResult, result);
   }
 

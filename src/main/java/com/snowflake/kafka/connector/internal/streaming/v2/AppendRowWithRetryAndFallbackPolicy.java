@@ -23,10 +23,7 @@ class AppendRowWithRetryAndFallbackPolicy {
 
   // Retry policy constants
   /** Delay before next retry attempt. */
-  private static final Duration DELAY = Duration.ofSeconds(5);
-
-  /** Maximum duration for retries before giving up. */
-  private static final Duration MAX_RETRIES_DURATION = Duration.ofMinutes(5);
+  private static final Duration RETRY_DELAY = Duration.ofSeconds(5);
 
   /** Random jitter added to retry delays to prevent potential partition starving. */
   private static final Duration JITTER_DURATION = Duration.ofMillis(200);
@@ -72,9 +69,8 @@ class AppendRowWithRetryAndFallbackPolicy {
     RetryPolicy<AppendResult> memoryBackpressureRetryPolicy =
         RetryPolicy.<AppendResult>builder()
             .handleIf(AppendRowWithRetryAndFallbackPolicy::isMemoryBackpressure)
-            .withDelay(DELAY)
+            .withDelay(RETRY_DELAY)
             .withJitter(JITTER_DURATION)
-            .withMaxDuration(MAX_RETRIES_DURATION)
             .withMaxAttempts(-1)
             .onRetry(
                 event ->
