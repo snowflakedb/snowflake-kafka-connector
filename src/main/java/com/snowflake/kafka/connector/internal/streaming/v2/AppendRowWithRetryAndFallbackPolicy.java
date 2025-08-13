@@ -5,7 +5,9 @@ import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
+import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
+import java.time.Duration;
 
 /**
  * Policy class that encapsulates Failsafe logic for insert row operations with channel reopening
@@ -14,9 +16,17 @@ import dev.failsafe.function.CheckedSupplier;
  * <p>This class provides a clean interface to execute append row operations with automatic channel
  * recovery on {@link SFException}.
  */
-class AppendRowWithFallbackPolicy {
+class AppendRowWithRetryAndFallbackPolicy {
 
-  private static final KCLogger LOGGER = new KCLogger(AppendRowWithFallbackPolicy.class.getName());
+  private static final KCLogger LOGGER =
+      new KCLogger(AppendRowWithRetryAndFallbackPolicy.class.getName());
+
+  // Retry policy constants
+  /** Delay before next retry attempt. */
+  private static final Duration RETRY_DELAY = Duration.ofSeconds(5);
+
+  /** Random jitter added to retry delays to prevent potential partition starving. */
+  private static final Duration JITTER_DURATION = Duration.ofMillis(200);
 
   /**
    * Executes the provided append row action with fallback handling.
@@ -29,13 +39,13 @@ class AppendRowWithFallbackPolicy {
    * @param channelName the channel name for logging purposes
    * @return the result of the append row operation
    */
-  static AppendResult executeWithFallback(
+  static AppendResult executeWithRetryAndFallback(
       CheckedSupplier<AppendResult> appendRowAction,
       FallbackSupplierWithException fallbackSupplier,
       String channelName) {
 
-    Fallback<Object> reopenChannelFallbackExecutor =
-        Fallback.builder(
+    Fallback<AppendResult> reopenChannelFallbackExecutor =
+        Fallback.<AppendResult>builder(
                 executionAttemptedEvent -> {
                   fallbackSupplier.execute(executionAttemptedEvent.getLastException());
                 })
@@ -56,7 +66,29 @@ class AppendRowWithFallbackPolicy {
                         event.getException()))
             .build();
 
-    return Failsafe.with(reopenChannelFallbackExecutor).get(appendRowAction);
+    RetryPolicy<AppendResult> memoryBackpressureRetryPolicy =
+        RetryPolicy.<AppendResult>builder()
+            .handleIf(AppendRowWithRetryAndFallbackPolicy::isMemoryBackpressure)
+            .withDelay(RETRY_DELAY)
+            .withJitter(JITTER_DURATION)
+            .withMaxAttempts(-1)
+            .onRetry(
+                event ->
+                    LOGGER.warn(
+                        "Failed attempt #{} to invoke appendRow API for channel: {}. Exception: {}",
+                        event.getAttemptCount(),
+                        channelName,
+                        event.getLastException().getMessage()))
+            .build();
+
+    return Failsafe.with(reopenChannelFallbackExecutor)
+        .compose(memoryBackpressureRetryPolicy)
+        .get(appendRowAction);
+  }
+
+  private static boolean isMemoryBackpressure(Throwable e) {
+    return e instanceof SFException
+        && "MemoryThresholdExceeded".equals(((SFException) e).getErrorCodeName());
   }
 
   /**
