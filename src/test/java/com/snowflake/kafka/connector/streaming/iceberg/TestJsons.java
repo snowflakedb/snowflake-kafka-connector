@@ -498,6 +498,9 @@ class TestJsons {
 
   static String STRING_SCHEMA = "{  \"field\" : \"test_string\",  \"type\" : \"string\"  }";
 
+  static String TIMESTAMP_SCHEMA = 
+      "{  \"field\" : \"timestamp_received\", \"type\" : \"int64\", \"name\" : \"org.apache.kafka.connect.data.Timestamp\", \"version\" : 1  }";
+
   static String COMMENTED_SCHEMA =
       "{  \"field\" : \"test_string\",  \"type\" : \"string\", \"doc\": \"Test comment\"  }";
 
@@ -509,8 +512,19 @@ class TestJsons {
   static final String FLOAT_PAYLOAD = "\"test_float\" : 1939.30 ";
   static final String DOUBLE_PAYLOAD = "\"test_double\" : 123.45793247859723 ";
   static final String STRING_PAYLOAD = "\"test_string\" : \"very long string\" ";
+  static final String TIMESTAMP_PAYLOAD = "\"timestamp_received\" : 1672531200000 ";
 
   private static final String SCHEMA_BEGINNING =
       "{ \"schema\": { \"type\": \"struct\", \"fields\": [";
   private static final String SCHEMA_END = "]},";
+
+  static String timestampWithSchemaExample() {
+    return SCHEMA_BEGINNING
+        + TIMESTAMP_SCHEMA
+        + SCHEMA_END
+        + "\"payload\": {"
+        + TIMESTAMP_PAYLOAD
+        + "}}";
+  }
+
 }

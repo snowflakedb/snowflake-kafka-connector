@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
 import static com.snowflake.kafka.connector.streaming.iceberg.TestJsons.*;
+import static com.snowflake.kafka.connector.streaming.iceberg.TestJsons.timestampWithSchemaExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.*;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -9,12 +10,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -536,6 +539,64 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
         kafkaRecordErrorReporter.getReportedRecords();
     assertThat(reportedRecords).hasSize(1);
     assertThat(reportedRecords.get(0).getRecord()).isEqualTo(wrongValueRecord);
+  }
+
+  /**
+   * Test for CONN-10521: Unable to insert timestamp (google.protobuf.Timestamp) type into
+   * iceberg table (via protobuf). This test reproduces the issue using JSON with schema instead of
+   * protobuf to validate that timestamp logical types are handled correctly.
+   *
+   * This is a positive test case - it should PASS when the bug is fixed and FAIL when the bug exists.
+   */
+  @Test
+  public void testTimestampLogicalTypeSchemaEvolution() throws Exception {
+    // Insert a record with timestamp logical type schema
+    service.insert(Collections.singletonList(createKafkaRecord(timestampWithSchemaExample(), 0, true)));
+
+    // First, wait for the schema evolution to complete (column should be created)
+    TestUtils.assertWithRetry(() -> {
+      List<DescribeTableRow> columns = describeTable(tableName);
+      if (columns.size() != 2) {
+        return false;
+      }
+      
+      // Find the timestamp column (excluding metadata column)
+      DescribeTableRow timestampColumn =
+          columns.stream()
+              .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
+              .findFirst()
+              .orElse(null);
+      
+      return timestampColumn != null 
+          && "TIMESTAMP_RECEIVED".equals(timestampColumn.getColumn())
+          && "TIMESTAMP_NTZ(6)".equals(timestampColumn.getType());
+    });
+
+    // Verify the schema was created correctly
+    List<DescribeTableRow> columns = describeTable(tableName);
+    assertThat(columns).hasSize(2);
+
+    // Find the timestamp column (excluding metadata column) using Optional assertions
+    Optional<DescribeTableRow> timestampColumnOpt =
+        columns.stream()
+            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
+            .findFirst();
+    
+    assertThat(timestampColumnOpt).isPresent();
+    DescribeTableRow timestampColumn = timestampColumnOpt.get();
+
+    assertThat(timestampColumn.getColumn()).isEqualTo("TIMESTAMP_RECEIVED");
+    // For Iceberg tables, timestamp logical type should map to TIMESTAMP_NTZ(6)
+    assertThat(timestampColumn.getType()).isEqualTo("TIMESTAMP_NTZ(6)");
+
+    // insert second time same record, this should succeed when the bug is fixed - data insertion should work
+    service.insert(Collections.singletonList(createKafkaRecord(timestampWithSchemaExample(), 0, true)));
+    // This should succeed when the bug is fixed - data insertion should work
+    waitForOffset(1);
+
+    // Insert another record with the same schema to ensure it works consistently
+    insertWithRetry(timestampWithSchemaExample(), 1, true);
+    waitForOffset(2);
   }
 
   private static Stream<Arguments> nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema_dataSource() {
