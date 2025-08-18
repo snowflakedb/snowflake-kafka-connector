@@ -30,6 +30,20 @@ public abstract class TableSchemaResolver {
   }
 
   /**
+   * A map of Lucerna types to Snowflake types. This is used to map the Lucerna data types to their destination Snowflake types.
+   * MicroDuration omitted
+   */
+  private static final Map<String, String> LUCERNA_TYPES = ImmutableMap.of(
+      "io.debezium.time.ZonedTimestamp", "TIMESTAMP_TZ",
+      "io.debezium.time.ZonedTime", "TIME",
+      "io.debezium.time.Date", "DATE",
+      "io.debezium.time.Time", "TIME(3)",
+      "io.debezium.time.MicroTime", "TIME(6)",
+      "io.debezium.time.Timestamp", "TIMESTAMP_NTZ(3)",
+      "io.debezium.time.MicroTimestamp", "TIMESTAMP_NTZ(6)"
+  );
+
+  /**
    * With the list of columns, collect their data types from either the schema or the data itself
    *
    * @param record the sink record that contains the schema and actual data
@@ -118,17 +132,22 @@ public abstract class TableSchemaResolver {
    */
   private Map<String, ColumnInfos> getFullSchemaMapFromRecord(SinkRecord record) {
     Map<String, ColumnInfos> schemaMap = new HashMap<>();
+    FetchSchemaClient instance = FetchSchemaClient.getInstance();
+    org.apache.avro.Schema avroSchema = instance.getSchema(record.topic() + "-value");
     Schema schema = record.valueSchema();
     if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
-        String columnType =
-            columnTypeMapper.mapToColumnType(field.schema().type(), field.schema().name());
+        String connectName = null;
+        if (avroSchema != null && avroSchema.getField(field.name()) != null) {
+          connectName = extractConnectNameFromAvroField(avroSchema.getField(field.name()).schema());
+        }
+        String columnType = connectName != null && LUCERNA_TYPES.get(connectName) != null ? LUCERNA_TYPES.get(connectName) : columnTypeMapper.mapToColumnType(field.schema().type(), field.schema().name());
         LOGGER.info(
-            "Got the data type for field:{}, schemaName:{}, schemaDoc: {} kafkaType:{},"
+            "Got the data type for field:{}, schemaName:{}, connect.name: {} kafkaType:{},"
                 + " columnType:{}",
             field.name(),
             field.schema().name(),
-            field.schema().doc(),
+            connectName != null ? connectName : "N/A",
             field.schema().type(),
             columnType);
 
@@ -136,6 +155,33 @@ public abstract class TableSchemaResolver {
       }
     }
     return schemaMap;
+  }
+
+  /**
+   * Extract connect.name property from Avro field schema, handling union types properly.
+   * For union types like ["null", "string"], the connect.name property is on the non-null type.
+   */
+  private String extractConnectNameFromAvroField(org.apache.avro.Schema fieldSchema) {
+    // First check if the schema itself has the connect.name property
+    String connectName = fieldSchema.getProp("connect.name");
+    if (connectName != null) {
+      return connectName;
+    }
+    
+    // If it's a union type, check each type in the union for connect.name
+    if (fieldSchema.getType() == org.apache.avro.Schema.Type.UNION) {
+      for (org.apache.avro.Schema unionType : fieldSchema.getTypes()) {
+        // Skip null types
+        if (unionType.getType() != org.apache.avro.Schema.Type.NULL) {
+          connectName = unionType.getProp("connect.name");
+          if (connectName != null) {
+            return connectName;
+          }
+        }
+      }
+    }
+    
+    return null;
   }
 
   /** Try to infer the data type from the data */

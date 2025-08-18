@@ -1,3 +1,15 @@
+# Lucerna Instructions
+
+Use JDK 8 
+```bash
+brew install openjdk@8
+```
+
+Build the project
+```bash
+mvn -f ./pom_confluent.xml clean package -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 -DskipTests=true
+```
+
 # Snowflake-kafka-connector
 [![License](http://img.shields.io/:license-Apache%202-brightgreen.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 
