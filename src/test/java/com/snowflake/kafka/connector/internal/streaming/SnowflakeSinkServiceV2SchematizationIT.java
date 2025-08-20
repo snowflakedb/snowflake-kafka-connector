@@ -434,8 +434,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
   private String timestampWithSchemaExample() {
     return "{ \"schema\": { \"type\": \"struct\", \"fields\": [{  \"field\" :"
-               + " \"timestamp_received\", \"type\" : \"int64\", \"name\" :"
-               + " \"org.apache.kafka.connect.data.Timestamp\", \"version\" : 1  }]}, \"payload\":"
-               + " {\"timestamp_received\" : 1672531200000 }}";
+        + " \"timestamp_received\", \"type\" : \"int64\", \"name\" :"
+        + " \"org.apache.kafka.connect.data.Timestamp\", \"version\" : 1  }]}, \"payload\":"
+        + " {\"timestamp_received\" : 1672531200000 }}";
   }
 }
