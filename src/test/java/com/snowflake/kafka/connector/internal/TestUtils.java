@@ -454,6 +454,10 @@ public class TestUtils {
     executeQuery(query);
   }
 
+  public static void dropPipe(String pipeName) {
+    executeQuery("drop pipe if exists " + pipeName);
+  }
+
   /** Select * from table */
   public static ResultSet showTable(String tableName) {
     String query = "select * from " + tableName;
@@ -928,6 +932,13 @@ public class TestUtils {
       contentMap.put(result.getMetaData().getColumnName(i + 1), result.getObject(i + 1));
     }
     return contentMap;
+  }
+
+  public static int getNumberOfRows(String tableName) throws SQLException {
+    String getRowQuery = "select count(*) from " + tableName;
+    ResultSet result = executeQuery(getRowQuery);
+    result.next();
+    return result.getInt(1);
   }
 
   /**

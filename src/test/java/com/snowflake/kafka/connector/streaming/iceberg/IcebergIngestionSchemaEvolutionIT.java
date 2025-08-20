@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
 import static com.snowflake.kafka.connector.streaming.iceberg.TestJsons.*;
-import static com.snowflake.kafka.connector.streaming.iceberg.TestJsons.timestampWithSchemaExample;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.*;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,14 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
-import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;

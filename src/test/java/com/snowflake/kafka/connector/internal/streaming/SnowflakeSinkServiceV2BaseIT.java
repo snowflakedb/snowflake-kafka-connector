@@ -13,4 +13,5 @@ public abstract class SnowflakeSinkServiceV2BaseIT {
   // Topic name should be same as table name. (Only for testing, not necessarily in real deployment)
   protected String topic = table;
   protected TopicPartition topicPartition = new TopicPartition(topic, partition);
+  protected TopicPartition topicPartition2 = new TopicPartition(topic, partition2);
 }

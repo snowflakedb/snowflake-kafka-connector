@@ -15,6 +15,7 @@
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
     "snowflake.enable.schematization": "false",
+    "snowflake.streaming.v2.enabled": "$SNOWFLAKE_STREAMING_V2_ENABLED",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",

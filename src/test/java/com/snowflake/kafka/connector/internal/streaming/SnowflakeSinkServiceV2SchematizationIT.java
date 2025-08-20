@@ -4,10 +4,12 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
@@ -15,6 +17,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
+import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -33,12 +37,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkServiceV2BaseIT {
 
   private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
   private Map<String, String> config;
   private SnowflakeSinkService service;
+  private String pipe;
 
   @BeforeEach
   public void setup() {
@@ -51,12 +58,14 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     config.put("schemas.enable", "false");
     config.put(ERRORS_TOLERANCE_CONFIG, "all");
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
+    pipe = PipeNameProvider.pipeName(config.get(Utils.NAME), table);
   }
 
   @AfterEach
   public void teardown() {
     service.closeAll();
     TestUtils.dropTable(table);
+    TestUtils.dropPipe(pipe);
   }
 
   @Test
@@ -81,6 +90,26 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
+  }
+
+  @Test
+  public void testSchemaEvolutionNotAvailableInSsv2() {
+    // given
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    SinkRecord jsonRecordValue = createComplexTestRecord(partition, 0);
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
+            .build();
+    service.startPartition(table, topicPartition);
+
+    // when
+    service.insert(Collections.singletonList(jsonRecordValue));
+
+    // then
+    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
   @Test
@@ -157,9 +186,13 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     await().atMost(10, TimeUnit.SECONDS).until(() -> service.getOffset(topicPartition) == 4);
   }
 
-  @Test
-  public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ(
+      boolean ssv2Enabled) {
     // given
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     service =
@@ -180,9 +213,12 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
-  @Test
-  void shouldSendRecordToDlqIfSchemaNotMatched() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void shouldSendRecordToDlqIfSchemaNotMatched(boolean ssv2Enabled) {
     // given
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+
     conn.createTableWithOnlyMetadataColumn(table);
     createNonNullableColumn(table, "\"ID_INT8\"", "boolean");
 
@@ -341,7 +377,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     Map<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "false");
     jsonConverter.configure(converterConfig, false);
-    
+
     // Convert Struct -> JSON -> SchemaAndValue for consistent test behavior
     byte[] converted = jsonConverter.fromConnectData(topic, struct.schema(), struct);
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);

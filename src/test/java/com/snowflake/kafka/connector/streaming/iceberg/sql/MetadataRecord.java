@@ -1,14 +1,10 @@
-package com.snowflake.kafka.connector.records;
+package com.snowflake.kafka.connector.streaming.iceberg.sql;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * POJO for writing metadata with SSv2. Passing this class to sdk instead of Map makes pipe
- * definition simpler.
- */
 public class MetadataRecord {
   private final Long offset;
   private final String topic;
