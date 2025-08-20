@@ -542,57 +542,24 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   /**
-   * Test for CONN-10521: Unable to insert timestamp (google.protobuf.Timestamp) type into
+   * Test for SNOW-2266941: Unable to insert timestamp (google.protobuf.Timestamp) type into
    * iceberg table (via protobuf). This test reproduces the issue using JSON with schema instead of
    * protobuf to validate that timestamp logical types are handled correctly.
-   *
-   * This is a positive test case - it should PASS when the bug is fixed and FAIL when the bug exists.
    */
   @Test
   public void testTimestampLogicalTypeSchemaEvolution() throws Exception {
     // Insert a record with timestamp logical type schema
-    service.insert(Collections.singletonList(createKafkaRecord(timestampWithSchemaExample(), 0, true)));
-
-    // First, wait for the schema evolution to complete (column should be created)
-    TestUtils.assertWithRetry(() -> {
-      List<DescribeTableRow> columns = describeTable(tableName);
-      if (columns.size() != 2) {
-        return false;
-      }
-      
-      // Find the timestamp column (excluding metadata column)
-      DescribeTableRow timestampColumn =
-          columns.stream()
-              .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
-              .findFirst()
-              .orElse(null);
-      
-      return timestampColumn != null 
-          && "TIMESTAMP_RECEIVED".equals(timestampColumn.getColumn())
-          && "TIMESTAMP_NTZ(6)".equals(timestampColumn.getType());
-    });
+    insertWithRetry(timestampWithSchemaExample(),0, true);
+    waitForOffset(1);
 
     // Verify the schema was created correctly
     List<DescribeTableRow> columns = describeTable(tableName);
-    assertThat(columns).hasSize(2);
-
-    // Find the timestamp column (excluding metadata column) using Optional assertions
-    Optional<DescribeTableRow> timestampColumnOpt =
-        columns.stream()
-            .filter(r -> !r.getColumn().equals(Utils.TABLE_COLUMN_METADATA))
-            .findFirst();
-    
-    assertThat(timestampColumnOpt).isPresent();
-    DescribeTableRow timestampColumn = timestampColumnOpt.get();
-
-    assertThat(timestampColumn.getColumn()).isEqualTo("TIMESTAMP_RECEIVED");
-    // For Iceberg tables, timestamp logical type should map to TIMESTAMP_NTZ(6)
-    assertThat(timestampColumn.getType()).isEqualTo("TIMESTAMP_NTZ(6)");
-
-    // insert second time same record, this should succeed when the bug is fixed - data insertion should work
-    service.insert(Collections.singletonList(createKafkaRecord(timestampWithSchemaExample(), 0, true)));
-    // This should succeed when the bug is fixed - data insertion should work
-    waitForOffset(1);
+    DescribeTableRow[] expectedSchema =
+            new DescribeTableRow[] {
+                    new DescribeTableRow("RECORD_METADATA", RECORD_METADATA_TYPE),
+                    new DescribeTableRow("TIMESTAMP_RECEIVED", "TIMESTAMP_NTZ(6)")
+            };
+    assertThat(columns).containsExactlyInAnyOrder(expectedSchema);
 
     // Insert another record with the same schema to ensure it works consistently
     insertWithRetry(timestampWithSchemaExample(), 1, true);
