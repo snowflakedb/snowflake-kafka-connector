@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
-import com.snowflake.kafka.connector.records.MetadataRecord;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.util.Arrays;
