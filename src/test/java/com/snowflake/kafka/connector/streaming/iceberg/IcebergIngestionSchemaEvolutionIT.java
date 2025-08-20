@@ -539,23 +539,23 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
   }
 
   /**
-   * Test for SNOW-2266941: Unable to insert timestamp (google.protobuf.Timestamp) type into
-   * iceberg table (via protobuf). This test reproduces the issue using JSON with schema instead of
-   * protobuf to validate that timestamp logical types are handled correctly.
+   * Test for SNOW-2266941: Unable to insert timestamp (google.protobuf.Timestamp) type into iceberg
+   * table (via protobuf). This test reproduces the issue using JSON with schema instead of protobuf
+   * to validate that timestamp logical types are handled correctly.
    */
   @Test
   public void testTimestampLogicalTypeSchemaEvolution() throws Exception {
     // Insert a record with timestamp logical type schema
-    insertWithRetry(timestampWithSchemaExample(),0, true);
+    insertWithRetry(timestampWithSchemaExample(), 0, true);
     waitForOffset(1);
 
     // Verify the schema was created correctly
     List<DescribeTableRow> columns = describeTable(tableName);
     DescribeTableRow[] expectedSchema =
-            new DescribeTableRow[] {
-                    new DescribeTableRow("RECORD_METADATA", RECORD_METADATA_TYPE),
-                    new DescribeTableRow("TIMESTAMP_RECEIVED", "TIMESTAMP_NTZ(6)")
-            };
+        new DescribeTableRow[] {
+          new DescribeTableRow("RECORD_METADATA", RECORD_METADATA_TYPE),
+          new DescribeTableRow("TIMESTAMP_RECEIVED", "TIMESTAMP_NTZ(6)")
+        };
     assertThat(columns).containsExactlyInAnyOrder(expectedSchema);
 
     // Insert another record with the same schema to ensure it works consistently

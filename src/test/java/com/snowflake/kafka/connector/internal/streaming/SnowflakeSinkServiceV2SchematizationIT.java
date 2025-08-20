@@ -241,11 +241,10 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
-
   /**
-   * Test for SNOW-2266941: Unable to insert timestamp (google.protobuf.Timestamp) type into
-   * regular Snowflake table (via JSON with schema). This test validates that timestamp logical types
-   * are handled correctly for normal Snowflake tables.
+   * Test for SNOW-2266941: Unable to insert timestamp (google.protobuf.Timestamp) type into regular
+   * Snowflake table (via JSON with schema). This test validates that timestamp logical types are
+   * handled correctly for normal Snowflake tables.
    */
   @Test
   public void testTimestampLogicalTypeSchemaEvolution() throws Exception {
@@ -253,9 +252,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     conn.createTableWithOnlyMetadataColumn(table);
 
     service =
-            StreamingSinkServiceBuilder.builder(conn, config)
-                    .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-                    .build();
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .build();
     service.startPartition(table, topicPartition);
 
     SinkRecord timestampRecord = createKafkaRecordWithSchema(timestampWithSchemaExample(), 0);
@@ -263,9 +262,10 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     // Wait for schema evolution to complete
     TestUtils.assertWithRetry(
-            () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
+        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
 
-    Map<String, String> expectedSchema = Map.of("RECORD_METADATA", "VARIANT", "TIMESTAMP_RECEIVED", "TIMESTAMP_NTZ");
+    Map<String, String> expectedSchema =
+        Map.of("RECORD_METADATA", "VARIANT", "TIMESTAMP_RECEIVED", "TIMESTAMP_NTZ");
     TestUtils.checkTableSchema(table, expectedSchema);
 
     // Retry the insert should succeed now with the updated schema
@@ -368,8 +368,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   /**
-   * Helper method to create a SinkRecord from a Struct by converting through JSON
-   * This is useful for testing schema evolution with structured data
+   * Helper method to create a SinkRecord from a Struct by converting through JSON This is useful
+   * for testing schema evolution with structured data
    */
   private SinkRecord createKafkaRecordWithoutSchema(int partition, long offset, Struct struct) {
     JsonConverter jsonConverter = new JsonConverter();
@@ -403,9 +403,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     }
   }
 
-  /**
-   * Helper method to create a Kafka record from JSON string
-   */
+  /** Helper method to create a Kafka record from JSON string */
   private SinkRecord createKafkaRecord(String jsonWithSchema, long offset, boolean withSchema) {
     JsonConverter jsonConverter = new JsonConverter();
     Map<String, String> converterConfig = new HashMap<>();
@@ -429,18 +427,15 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     return createKafkaRecord(jsonPayload, offset, false);
   }
 
-  /**
-   * Convenience method to create a Kafka record from JSON with schema (schemas.enable = true)
-   */
+  /** Convenience method to create a Kafka record from JSON with schema (schemas.enable = true) */
   private SinkRecord createKafkaRecordWithSchema(String jsonWithSchema, long offset) {
     return createKafkaRecord(jsonWithSchema, offset, true);
   }
 
   private String timestampWithSchemaExample() {
-    return "{ \"schema\": { \"type\": \"struct\", \"fields\": ["
-        + "{  \"field\" : \"timestamp_received\", \"type\" : \"int64\", \"name\" : \"org.apache.kafka.connect.data.Timestamp\", \"version\" : 1  }"
-        + "]}, \"payload\": {"
-        + "\"timestamp_received\" : 1672531200000 "
-        + "}}";
+    return "{ \"schema\": { \"type\": \"struct\", \"fields\": [{  \"field\" :"
+               + " \"timestamp_received\", \"type\" : \"int64\", \"name\" :"
+               + " \"org.apache.kafka.connect.data.Timestamp\", \"version\" : 1  }]}, \"payload\":"
+               + " {\"timestamp_received\" : 1672531200000 }}";
   }
 }

@@ -498,8 +498,9 @@ class TestJsons {
 
   static String STRING_SCHEMA = "{  \"field\" : \"test_string\",  \"type\" : \"string\"  }";
 
-  static String TIMESTAMP_SCHEMA = 
-      "{  \"field\" : \"timestamp_received\", \"type\" : \"int64\", \"name\" : \"org.apache.kafka.connect.data.Timestamp\", \"version\" : 1  }";
+  static String TIMESTAMP_SCHEMA =
+      "{  \"field\" : \"timestamp_received\", \"type\" : \"int64\", \"name\" :"
+          + " \"org.apache.kafka.connect.data.Timestamp\", \"version\" : 1  }";
 
   static String COMMENTED_SCHEMA =
       "{  \"field\" : \"test_string\",  \"type\" : \"string\", \"doc\": \"Test comment\"  }";
@@ -526,5 +527,4 @@ class TestJsons {
         + TIMESTAMP_PAYLOAD
         + "}}";
   }
-
 }

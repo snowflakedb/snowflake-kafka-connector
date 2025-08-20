@@ -340,7 +340,8 @@ public class RecordService {
           return JsonNodeFactory.instance.numberNode((Integer) value);
         case INT64:
           if (schema != null && Timestamp.LOGICAL_NAME.equals(schema.name())) {
-            // Snowflake does not support inserting numbers into timestamp columns, but it does support strings
+            // Snowflake does not support inserting numbers into timestamp columns, but it does
+            // support strings
             return JsonNodeFactory.instance.textNode(
                 String.valueOf(Timestamp.fromLogical(schema, (java.util.Date) value)));
           }
