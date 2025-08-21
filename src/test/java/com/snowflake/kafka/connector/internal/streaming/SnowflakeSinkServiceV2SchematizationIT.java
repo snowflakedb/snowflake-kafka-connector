@@ -272,6 +272,13 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     service.insert(Collections.singletonList(timestampRecord));
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
 
+    // Verify the timestamp content was inserted correctly
+    Map<String, Object> expectedContent = new HashMap<>();
+    expectedContent.put("RECORD_METADATA", "RECORD_METADATA_PLACE_HOLDER");
+    expectedContent.put(
+        "TIMESTAMP_RECEIVED", java.sql.Timestamp.valueOf("2023-01-01 00:00:00.000"));
+    TestUtils.checkTableContentOneRow(table, expectedContent);
+
     // Insert another record with the same schema to ensure it works consistently
     SinkRecord timestampRecord2 = createKafkaRecordWithSchema(timestampWithSchemaExample(), 1);
     service.insert(Collections.singletonList(timestampRecord2));
@@ -367,10 +374,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     return createKafkaRecordWithoutSchema(partition, offset, struct);
   }
 
-  /**
-   * Helper method to create a SinkRecord from a Struct by converting through JSON This is useful
-   * for testing schema evolution with structured data
-   */
   private SinkRecord createKafkaRecordWithoutSchema(int partition, long offset, Struct struct) {
     JsonConverter jsonConverter = new JsonConverter();
     Map<String, String> converterConfig = new HashMap<>();
