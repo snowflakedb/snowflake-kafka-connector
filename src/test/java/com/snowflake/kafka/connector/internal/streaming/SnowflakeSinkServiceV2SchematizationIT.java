@@ -18,7 +18,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
-import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -202,14 +201,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
             .build();
     service.startPartition(table, topicPartition);
 
-    SnowflakeJsonConverter jsonConverter = new SnowflakeJsonConverter();
-    String notSchematizeableJsonRecord =
-        "[{\"name\":\"sf\",\"answer\":42}]"; // cannot schematize array
-    byte[] valueContents = (notSchematizeableJsonRecord).getBytes(StandardCharsets.UTF_8);
-    SchemaAndValue sv = jsonConverter.toConnectData(topic, valueContents);
-
-    SinkRecord record =
-        SinkRecordBuilder.forTopicPartition(topic, partition).withSchemaAndValue(sv).build();
+    // Create a record that cannot be schematized (array at root level)
+    String notSchematizeableJsonRecord = "[{\"name\":\"sf\",\"answer\":42}]";
+    SinkRecord record = createKafkaRecordWithoutSchema(notSchematizeableJsonRecord, 0);
 
     // when
     service.insert(record);
@@ -229,8 +223,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     Schema schema = SchemaBuilder.struct().field("id_int8", Schema.INT8_SCHEMA).build();
     Struct struct = new Struct(schema).put("id_int8", (byte) 2);
-    // 2 cannot be casted to boolean
-    SinkRecord invalidBooleanRecord = getSinkRecord(partition, 0, struct);
+    // 2 cannot be cast to boolean
+    SinkRecord invalidBooleanRecord = createKafkaRecordWithoutSchema(partition, 0, struct);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
@@ -245,6 +239,50 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     // then
     Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
+  }
+
+  /**
+   * Test for SNOW-2266941: Unable to insert timestamp (google.protobuf.Timestamp) type into regular
+   * Snowflake table (via JSON with schema). This test validates that timestamp logical types are
+   * handled correctly for normal Snowflake tables.
+   */
+  @Test
+  public void testTimestampLogicalTypeSchemaEvolution() throws Exception {
+    // Create table with only metadata column
+    conn.createTableWithOnlyMetadataColumn(table);
+
+    service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .build();
+    service.startPartition(table, topicPartition);
+
+    SinkRecord timestampRecord = createKafkaRecordWithSchema(timestampWithSchemaExample(), 0);
+    service.insert(Collections.singletonList(timestampRecord));
+
+    // Wait for schema evolution to complete
+    TestUtils.assertWithRetry(
+        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
+
+    Map<String, String> expectedSchema =
+        Map.of("RECORD_METADATA", "VARIANT", "TIMESTAMP_RECEIVED", "TIMESTAMP_NTZ");
+    TestUtils.checkTableSchema(table, expectedSchema);
+
+    // Retry the insert should succeed now with the updated schema
+    service.insert(Collections.singletonList(timestampRecord));
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+
+    // Verify the timestamp content was inserted correctly
+    Map<String, Object> expectedContent = new HashMap<>();
+    expectedContent.put("RECORD_METADATA", "RECORD_METADATA_PLACE_HOLDER");
+    expectedContent.put(
+        "TIMESTAMP_RECEIVED", java.sql.Timestamp.valueOf("2023-01-01 00:00:00.000"));
+    TestUtils.checkTableContentOneRow(table, expectedContent);
+
+    // Insert another record with the same schema to ensure it works consistently
+    SinkRecord timestampRecord2 = createKafkaRecordWithSchema(timestampWithSchemaExample(), 1);
+    service.insert(Collections.singletonList(timestampRecord2));
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 2, 20, 5);
   }
 
   private SinkRecord createComplexTestRecord(int partition, long offset) {
@@ -323,7 +361,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   private SinkRecord recordWithSingleField(int partition, long offset) {
     Schema schema = SchemaBuilder.struct().field("id_int8", Schema.INT8_SCHEMA).build();
     Struct struct = new Struct(schema).put("id_int8", (byte) 0);
-    return getSinkRecord(partition, offset, struct);
+    return createKafkaRecordWithoutSchema(partition, offset, struct);
   }
 
   private SinkRecord recordWithTwoFields(int partition, long offset) {
@@ -333,25 +371,24 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
             .field("id_int8_2", Schema.INT8_SCHEMA)
             .build();
     Struct struct = new Struct(schema).put("id_int8", (byte) 0).put("id_int8_2", (byte) 0);
-    return getSinkRecord(partition, offset, struct);
+    return createKafkaRecordWithoutSchema(partition, offset, struct);
   }
 
-  private SinkRecord getSinkRecord(int partition, long offset, Struct struct) {
+  private SinkRecord createKafkaRecordWithoutSchema(int partition, long offset, Struct struct) {
     JsonConverter jsonConverter = new JsonConverter();
-    Map<String, String> config = new HashMap<>();
-    config.put("schemas.enable", "false");
-    jsonConverter.configure(config, false);
+    Map<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "false");
+    jsonConverter.configure(converterConfig, false);
+
+    // Convert Struct -> JSON -> SchemaAndValue for consistent test behavior
     byte[] converted = jsonConverter.fromConnectData(topic, struct.schema(), struct);
     SchemaAndValue jsonInputValue = jsonConverter.toConnectData(topic, converted);
 
-    return new SinkRecord(
-        topic,
-        partition,
-        Schema.STRING_SCHEMA,
-        "test",
-        jsonInputValue.schema(),
-        jsonInputValue.value(),
-        offset);
+    return SinkRecordBuilder.forTopicPartition(topic, partition)
+        .withSchemaAndValue(jsonInputValue)
+        .withOffset(offset)
+        .withKey("test")
+        .build();
   }
 
   private void createNonNullableColumn(String tableName, String colName, String colDataType) {
@@ -367,5 +404,41 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
+  }
+
+  /** Helper method to create a Kafka record from JSON string */
+  private SinkRecord createKafkaRecord(String jsonWithSchema, long offset, boolean withSchema) {
+    JsonConverter jsonConverter = new JsonConverter();
+    Map<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", String.valueOf(withSchema));
+    jsonConverter.configure(converterConfig, false);
+
+    byte[] valueBytes = jsonWithSchema.getBytes(StandardCharsets.UTF_8);
+    SchemaAndValue schemaAndValue = jsonConverter.toConnectData(topic, valueBytes);
+
+    return SinkRecordBuilder.forTopicPartition(topic, partition)
+        .withSchemaAndValue(schemaAndValue)
+        .withOffset(offset)
+        .withKey("test")
+        .build();
+  }
+
+  /**
+   * Convenience method to create a Kafka record from JSON without schema (schemas.enable = false)
+   */
+  private SinkRecord createKafkaRecordWithoutSchema(String jsonPayload, long offset) {
+    return createKafkaRecord(jsonPayload, offset, false);
+  }
+
+  /** Convenience method to create a Kafka record from JSON with schema (schemas.enable = true) */
+  private SinkRecord createKafkaRecordWithSchema(String jsonWithSchema, long offset) {
+    return createKafkaRecord(jsonWithSchema, offset, true);
+  }
+
+  private String timestampWithSchemaExample() {
+    return "{ \"schema\": { \"type\": \"struct\", \"fields\": [{  \"field\" :"
+        + " \"timestamp_received\", \"type\" : \"int64\", \"name\" :"
+        + " \"org.apache.kafka.connect.data.Timestamp\", \"version\" : 1  }]}, \"payload\":"
+        + " {\"timestamp_received\" : 1672531200000 }}";
   }
 }
