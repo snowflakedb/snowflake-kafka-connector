@@ -9,12 +9,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -536,6 +539,38 @@ public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
         kafkaRecordErrorReporter.getReportedRecords();
     assertThat(reportedRecords).hasSize(1);
     assertThat(reportedRecords.get(0).getRecord()).isEqualTo(wrongValueRecord);
+  }
+
+  /**
+   * Test for SNOW-2266941: Unable to insert timestamp (google.protobuf.Timestamp) type into iceberg
+   * table (via protobuf). This test reproduces the issue using JSON with schema instead of protobuf
+   * to validate that timestamp logical types are handled correctly.
+   */
+  @Test
+  public void testTimestampLogicalTypeSchemaEvolution() throws Exception {
+    // Insert a record with timestamp logical type schema
+    insertWithRetry(timestampWithSchemaExample(), 0, true);
+    waitForOffset(1);
+
+    // Verify the schema was created correctly
+    List<DescribeTableRow> columns = describeTable(tableName);
+    DescribeTableRow[] expectedSchema =
+        new DescribeTableRow[] {
+          new DescribeTableRow("RECORD_METADATA", RECORD_METADATA_TYPE),
+          new DescribeTableRow("TIMESTAMP_RECEIVED", "TIMESTAMP_NTZ(6)")
+        };
+    assertThat(columns).containsExactlyInAnyOrder(expectedSchema);
+
+    // Verify the timestamp content was inserted correctly
+    Map<String, Object> expectedContent = new HashMap<>();
+    expectedContent.put("RECORD_METADATA", "RECORD_METADATA_PLACE_HOLDER");
+    expectedContent.put(
+        "TIMESTAMP_RECEIVED", java.sql.Timestamp.valueOf("2023-01-01 00:00:00.000"));
+    TestUtils.checkTableContentOneRow(tableName, expectedContent);
+
+    // Insert another record with the same schema to ensure it works consistently
+    insertWithRetry(timestampWithSchemaExample(), 1, true);
+    waitForOffset(2);
   }
 
   private static Stream<Arguments> nullOrEmptyValueShouldBeSentToDLQOnlyWhenNoSchema_dataSource() {
