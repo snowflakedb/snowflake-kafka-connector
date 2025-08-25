@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>3.2.4</version>
+    <version>3.2.8</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -39,6 +39,9 @@
         <connection>
             scm:git:https://github.com/snowflakedb/snowflake-kafka-connector.git
         </connection>
+        <developerConnection>
+            scm:git:https://github.com/snowflakedb/snowflake-kafka-connector.git
+        </developerConnection>
         <url>https://github.com/snowflakedb/snowflake-kafka-connector</url>
     </scm>
 
@@ -98,12 +101,6 @@
         </repository>
     </repositories>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
     <build>
         <plugins>
             <!--
@@ -313,14 +310,12 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-                <version>1.7.0</version>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.8.0</version>
                 <extensions>true</extensions>
                 <configuration>
-                    <serverId>ossrh</serverId>
-                    <nexusUrl>https://ossrh-staging-api.central.sonatype.com/</nexusUrl>
-                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                    <autoPublish>true</autoPublish>
                 </configuration>
             </plugin>
             <plugin>
