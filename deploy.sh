@@ -15,6 +15,16 @@ if [ -z "$GPG_KEY_PASSPHRASE" ]; then
   exit 1
 fi
 
+if [ -z "$GPG_PRIVATE_KEY" ]; then
+  echo "[ERROR] GPG private key file is not specified!"
+  exit 1
+fi
+
+echo "[INFO] Import PGP Key"
+if ! gpg --list-secret-key | grep "$GPG_KEY_ID"; then
+  gpg --allow-secret-key-import --import "$GPG_PRIVATE_KEY"
+fi
+
 CENTRAL_DEPLOY_SETTINGS_XML="$THIS_DIR/mvn_settings_central_deploy.xml"
 
 cat > $CENTRAL_DEPLOY_SETTINGS_XML << SETTINGS.XML
