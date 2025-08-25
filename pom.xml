@@ -39,6 +39,9 @@
         <connection>
             scm:git:https://github.com/snowflakedb/snowflake-kafka-connector.git
         </connection>
+        <developerConnection>
+            scm:git:https://github.com/snowflakedb/snowflake-kafka-connector.git
+        </developerConnection>
         <url>https://github.com/snowflakedb/snowflake-kafka-connector</url>
     </scm>
 
