@@ -25,23 +25,23 @@ if ! gpg --list-secret-key | grep "$GPG_KEY_ID"; then
   gpg --allow-secret-key-import --import "$GPG_PRIVATE_KEY"
 fi
 
-OSSRH_DEPLOY_SETTINGS_XML="$THIS_DIR/mvn_settings_ossrh_deploy.xml"
+CENTRAL_DEPLOY_SETTINGS_XML="$THIS_DIR/mvn_settings_central_deploy.xml"
 
-cat > $OSSRH_DEPLOY_SETTINGS_XML << SETTINGS.XML
+cat > $CENTRAL_DEPLOY_SETTINGS_XML << SETTINGS.XML
 <?xml version="1.0" encoding="UTF-8"?>
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
      xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
   <servers>
     <server>
-      <id>ossrh</id>
+      <id>central</id>
       <username>$SONATYPE_USER</username>
       <password>$SONATYPE_PWD</password>
     </server>
   </servers>
   <profiles>
       <profile>
-        <id>ossrh</id>
+        <id>central</id>
         <activation>
           <activeByDefault>true</activeByDefault>
         </activation>
@@ -55,10 +55,10 @@ cat > $OSSRH_DEPLOY_SETTINGS_XML << SETTINGS.XML
 </settings>
 SETTINGS.XML
 
-mvn --settings $OSSRH_DEPLOY_SETTINGS_XML -DskipTests clean deploy
+mvn --settings $CENTRAL_DEPLOY_SETTINGS_XML -DskipTests clean deploy
 
 #confluent release
-mvn -f pom_confluent.xml --settings $OSSRH_DEPLOY_SETTINGS_XML -DskipTests clean package
+mvn -f pom_confluent.xml --settings $CENTRAL_DEPLOY_SETTINGS_XML -DskipTests clean package
 #white source
 # whitesource/run_whitesource.sh
 
