@@ -26,6 +26,7 @@ from test_suit.test_json_json import TestJsonJson
 from test_suit.test_multiple_topic_to_one_table_snowpipe import (
     TestMultipleTopicToOneTableSnowpipe,
 )
+from test_suit.test_large_blob_snowpipe import TestLargeBlobSnowpipe
 from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import (
     TestMultipleTopicToOneTableSnowpipeStreaming,
 )
@@ -341,6 +342,15 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                 "TestMultipleTopicToOneTableSnowpipe",
                 EndToEndTestSuite(
                     test_instance=TestMultipleTopicToOneTableSnowpipe(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=True,
+                    cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
+            (
+                "TestLargeBlobSnowpipe",
+                EndToEndTestSuite(
+                    test_instance=TestLargeBlobSnowpipe(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
                     cloud_platform=CloudPlatform.ALL,
