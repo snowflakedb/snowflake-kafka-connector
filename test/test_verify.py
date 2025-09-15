@@ -89,14 +89,20 @@ class KafkaTest:
             }
 
         self.adminClient = AdminClient(self.client_config)
-        self.producer = Producer(self.client_config)
+
+        producer_config = self.client_config.copy()
+        # Setting max request size to 30 MiB to support large blob tests.
+        producer_config['message.max.bytes'] = 31457280  # 30 MiB
+        self.producer = Producer(producer_config)
+
         consumer_config = self.client_config.copy()
         consumer_config['group.id'] = 'my-group-' + str(uuid.uuid4())
         consumer_config['auto.offset.reset'] = 'earliest'
         self.consumer = Consumer(consumer_config)
-        sc_config = self.client_config
-        sc_config['schema.registry.url'] = schemaRegistryAddress
-        self.avroProducer = AvroProducer(sc_config)
+
+        avro_producer_config = producer_config.copy()
+        avro_producer_config['schema.registry.url'] = schemaRegistryAddress
+        self.avroProducer = AvroProducer(avro_producer_config)
 
         reg = "[^\/]*snowflakecomputing"  # find the account name
         account = re.findall(reg, testHost)
