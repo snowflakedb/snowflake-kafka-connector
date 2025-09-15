@@ -1,13 +1,13 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
-import com.snowflake.ingest.streaming.AppendResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
 import dev.failsafe.RetryPolicy;
-import dev.failsafe.function.CheckedSupplier;
+import dev.failsafe.function.CheckedRunnable;
 import java.time.Duration;
+import java.util.Set;
 
 /**
  * Policy class that encapsulates Failsafe logic for insert row operations with channel reopening
@@ -39,13 +39,13 @@ class AppendRowWithRetryAndFallbackPolicy {
    * @param channelName the channel name for logging purposes
    * @return the result of the append row operation
    */
-  static AppendResult executeWithRetryAndFallback(
-      CheckedSupplier<AppendResult> appendRowAction,
+  static void executeWithRetryAndFallback(
+      CheckedRunnable appendRowAction,
       FallbackSupplierWithException fallbackSupplier,
       String channelName) {
 
-    Fallback<AppendResult> reopenChannelFallbackExecutor =
-        Fallback.<AppendResult>builder(
+    Fallback<Void> reopenChannelFallbackExecutor =
+        Fallback.<Void>builder(
                 executionAttemptedEvent -> {
                   fallbackSupplier.execute(executionAttemptedEvent.getLastException());
                 })
@@ -66,9 +66,9 @@ class AppendRowWithRetryAndFallbackPolicy {
                         event.getException()))
             .build();
 
-    RetryPolicy<AppendResult> memoryBackpressureRetryPolicy =
-        RetryPolicy.<AppendResult>builder()
-            .handleIf(AppendRowWithRetryAndFallbackPolicy::isMemoryBackpressure)
+    RetryPolicy<Void> memoryBackpressureRetryPolicy =
+        RetryPolicy.<Void>builder()
+            .handleIf(AppendRowWithRetryAndFallbackPolicy::isRetryableError)
             .withDelay(RETRY_DELAY)
             .withJitter(JITTER_DURATION)
             .withMaxAttempts(-1)
@@ -81,14 +81,25 @@ class AppendRowWithRetryAndFallbackPolicy {
                         event.getLastException().getMessage()))
             .build();
 
-    return Failsafe.with(reopenChannelFallbackExecutor)
+    Failsafe.with(reopenChannelFallbackExecutor)
         .compose(memoryBackpressureRetryPolicy)
-        .get(appendRowAction);
+        .run(appendRowAction);
   }
 
-  private static boolean isMemoryBackpressure(Throwable e) {
-    return e instanceof SFException
-        && "MemoryThresholdExceeded".equals(((SFException) e).getErrorCodeName());
+  private static final Set<String> RETRYABLE_ERROR_CODE_NAMES =
+      Set.of(
+          // 429 Too Many Requests
+          "ReceiverSaturated",
+          "MemoryThresholdExceeded",
+          "MemoryThresholdExceededInContainer",
+          // 503 Service Unavailable
+          "HttpRetryableClientError");
+
+  private static boolean isRetryableError(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    return RETRYABLE_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
   }
 
   /**

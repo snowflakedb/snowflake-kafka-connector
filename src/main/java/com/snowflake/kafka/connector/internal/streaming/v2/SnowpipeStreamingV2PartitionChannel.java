@@ -4,7 +4,6 @@ import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5027;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5028;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.ingest.streaming.AppendResult;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -316,12 +315,11 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    *
    * @return InsertValidationResponse a response that wraps around InsertValidationResponse
    */
-  private AppendResult insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
-    return AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
+  private void insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
+    AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
         () -> {
-          AppendResult result = this.channel.appendRow(transformedRecord, Long.toString(offset));
+          this.channel.appendRow(transformedRecord, Long.toString(offset));
           this.lastAppendRowsOffset = offset;
-          return result;
         },
         this::insertRowFallbackSupplier,
         this.getChannelNameFormatV1());

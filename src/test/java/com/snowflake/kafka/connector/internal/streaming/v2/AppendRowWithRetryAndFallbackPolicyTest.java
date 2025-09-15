@@ -1,22 +1,17 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.snowflake.ingest.streaming.AppendResult;
 import com.snowflake.ingest.streaming.SFException;
-import dev.failsafe.function.CheckedSupplier;
+import dev.failsafe.function.CheckedRunnable;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 public class AppendRowWithRetryAndFallbackPolicyTest {
-
-  @Mock private AppendResult appendResult;
 
   private final String channelName = "test_channel";
 
@@ -28,38 +23,31 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
   @Test
   void shouldReturnChannelOnFirstAttemptSuccess() {
     // Given
-    CheckedSupplier<AppendResult> supplier = () -> appendResult;
+    CheckedRunnable supplier = () -> {};
 
     // When
-    AppendResult result =
-        AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
-            supplier, failingFallback(), channelName);
-
-    // Then
-    assertSame(appendResult, result);
+    AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
+        supplier, failingFallback(), channelName);
   }
 
   @Test
   void shouldRetryOnRetryableException() {
     // Given
     AtomicInteger attemptCounter = new AtomicInteger(0);
-    CheckedSupplier<AppendResult> supplier =
+    CheckedRunnable supplier =
         () -> {
           if (attemptCounter.getAndIncrement() < 2) {
             throw new SFException(
-                "MemoryThresholdExceeded", "Some Message", "Some CorrelationId", "Some Stacktrace");
+                "MemoryThresholdExceeded", "Some Message", 420, "Some Stacktrace");
           }
-          return appendResult;
         };
 
     // When
-    AppendResult result =
-        AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
-            supplier, failingFallback(), channelName);
+    AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
+        supplier, failingFallback(), channelName);
 
     // Then
     assertEquals(3, attemptCounter.get()); // Should retry thrice (1 initial + 2 retries)
-    assertSame(appendResult, result);
   }
 
   @Test
@@ -67,26 +55,22 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
     // Given
     AtomicInteger attemptCounter = new AtomicInteger(0);
     SFException nonRetryableException =
-        new SFException(
-            "NonRetryableError", "Some Message", "Some CorrelationId", "Some Stacktrace");
-    CheckedSupplier<AppendResult> supplier =
+        new SFException("NonRetryableError", "Some Message", 420, "Some Stacktrace");
+    CheckedRunnable supplier =
         () -> {
           if (attemptCounter.getAndIncrement() == 0) {
             throw nonRetryableException;
           }
-          return appendResult;
         };
     AtomicInteger fallbackCallCounter = new AtomicInteger(0);
 
     // When/Then
-    AppendResult result =
-        AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
-            supplier, countingFallbackSupplier(fallbackCallCounter), channelName);
+    AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
+        supplier, countingFallbackSupplier(fallbackCallCounter), channelName);
 
     // Then
     assertEquals(1, attemptCounter.get()); // Should not retry
     assertEquals(1, fallbackCallCounter.get()); // Fallback should be called once
-    assertNull(result);
   }
 
   @Test
@@ -94,7 +78,7 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
     // Given
     AtomicInteger attemptCounter = new AtomicInteger(0);
     IllegalArgumentException nonRetryableException = new IllegalArgumentException("Non-retryable");
-    CheckedSupplier<AppendResult> supplier =
+    CheckedRunnable supplier =
         () -> {
           attemptCounter.getAndIncrement();
           throw nonRetryableException;
