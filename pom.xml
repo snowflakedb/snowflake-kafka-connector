@@ -252,7 +252,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.6.1</version>
                 <configuration>
                     <mainClass>com.snowflake.kafka.connector.internal.ResetProxyConfigExec</mainClass>
                     <classpathScope>test</classpathScope>
