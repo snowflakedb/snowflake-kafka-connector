@@ -266,10 +266,18 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     // Check mutual exclusivity between SSv2 and Iceberg
     if (isSnowpipeStreamingV2Enabled(config) && isIcebergEnabled(config)) {
-      invalidConfigParams.put(SNOWPIPE_STREAMING_V2_ENABLED, Utils.formatString(
-          "{} and {} are mutually exclusive and cannot both be enabled", SNOWPIPE_STREAMING_V2_ENABLED, ICEBERG_ENABLED));
-      invalidConfigParams.put(ICEBERG_ENABLED,Utils.formatString(
-          "{} and {} are mutually exclusive and cannot both be enabled", ICEBERG_ENABLED, SNOWPIPE_STREAMING_V2_ENABLED));
+      invalidConfigParams.put(
+          SNOWPIPE_STREAMING_V2_ENABLED,
+          Utils.formatString(
+              "{} and {} are mutually exclusive and cannot both be enabled",
+              SNOWPIPE_STREAMING_V2_ENABLED,
+              ICEBERG_ENABLED));
+      invalidConfigParams.put(
+          ICEBERG_ENABLED,
+          Utils.formatString(
+              "{} and {} are mutually exclusive and cannot both be enabled",
+              ICEBERG_ENABLED,
+              SNOWPIPE_STREAMING_V2_ENABLED));
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
