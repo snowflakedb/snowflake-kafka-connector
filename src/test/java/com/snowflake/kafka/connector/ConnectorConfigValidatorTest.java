@@ -983,4 +983,52 @@ public class ConnectorConfigValidatorTest {
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP);
   }
+
+  @Test
+  public void testSchematizationWithStreamingV2Enabled_shouldFail() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSchematizationEnabled(true)
+            .withSnowpipeStreamingV2Enabled()
+            .build();
+
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(ENABLE_SCHEMATIZATION_CONFIG)
+        .hasMessageContaining("not supported with Snowpipe Streaming V2");
+  }
+
+  @Test
+  public void testSchematizationDisabledWithStreamingV2Enabled_shouldPass() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSchematizationEnabled(false)
+            .withSnowpipeStreamingV2Enabled()
+            .build();
+
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  public void testSchematizationEnabledWithoutStreamingV2_shouldPass() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSchematizationEnabled(true)
+            .build();
+
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  public void testBothSchematizationAndStreamingV2Disabled_shouldPass() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSchematizationEnabled(false)
+            .build();
+
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
 }
