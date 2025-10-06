@@ -393,7 +393,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     for (int partition = 0; partition < partitionCount; partition++) {
-      topicPartitions.add(topicPartition);
+      topicPartitions.add(new TopicPartition(topic, partition));
     }
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);

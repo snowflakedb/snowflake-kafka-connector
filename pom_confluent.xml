@@ -789,7 +789,7 @@
         <dependency>
             <groupId>com.snowflake</groupId>
             <artifactId>snowpipe-streaming</artifactId>
-            <version>v0.3.0</version>
+            <version>0.6.0</version>
         </dependency>
 
     </dependencies>
