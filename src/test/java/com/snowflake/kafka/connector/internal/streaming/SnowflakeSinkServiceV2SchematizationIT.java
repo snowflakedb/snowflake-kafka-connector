@@ -36,8 +36,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkServiceV2BaseIT {
 
@@ -210,7 +208,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
-    @Test
+  @Test
   void shouldSendRecordToDlqIfSchemaNotMatched() {
     // given
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
