@@ -995,7 +995,9 @@ public class ConnectorConfigValidatorTest {
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(ENABLE_SCHEMATIZATION_CONFIG)
-        .hasMessageContaining("not supported with Snowpipe Streaming V2");
+        .hasMessageContaining(
+            "Schematization is not yet supported with Snowpipe Streaming: High-Performance"
+                + " Architecture");
   }
 
   @Test
