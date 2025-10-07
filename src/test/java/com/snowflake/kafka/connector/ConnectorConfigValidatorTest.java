@@ -1009,26 +1009,4 @@ public class ConnectorConfigValidatorTest {
     assertThatCode(() -> connectorConfigValidator.validateConfig(config))
         .doesNotThrowAnyException();
   }
-
-  @Test
-  public void testSchematizationEnabledWithoutStreamingV2_shouldPass() {
-    Map<String, String> config =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-            .withSchematizationEnabled(true)
-            .build();
-
-    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
-        .doesNotThrowAnyException();
-  }
-
-  @Test
-  public void testBothSchematizationAndStreamingV2Disabled_shouldPass() {
-    Map<String, String> config =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-            .withSchematizationEnabled(false)
-            .build();
-
-    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
-        .doesNotThrowAnyException();
-  }
 }
