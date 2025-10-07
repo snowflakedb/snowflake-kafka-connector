@@ -1045,4 +1045,54 @@ public class ConnectorConfigValidatorTest {
     assertThatCode(() -> connectorConfigValidator.validateConfig(config))
         .doesNotThrowAnyException();
   }
+
+  private static Stream<Arguments> validDdlConfigurations() {
+    return Stream.of(
+        Arguments.of("both DDLs defined", "CREATE TABLE ....", "CREATE PIPE ...."),
+        Arguments.of("both DDLs empty/whitespace", "  ", ""),
+        Arguments.of("both DDLs null", null, null));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("validDdlConfigurations")
+  public void testValidDdlConfigurations(String testName, String tableDdl, String pipeDdl) {
+    Map<String, String> config = getConfig();
+    if (tableDdl != null) {
+      config.put(SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL, tableDdl);
+    }
+    if (pipeDdl != null) {
+      config.put(SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL, pipeDdl);
+    }
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  private static Stream<Arguments> invalidDdlConfigurations() {
+    return Stream.of(
+        Arguments.of("only table DDL defined (pipe DDL empty)", "CREATE TABLE ....", ""),
+        Arguments.of("only pipe DDL defined (table DDL empty)", "", "CREATE PIPE ...."),
+        Arguments.of("table DDL defined, pipe DDL null", "CREATE TABLE ....", null),
+        Arguments.of("pipe DDL defined, table DDL null", null, "CREATE PIPE ..."),
+        Arguments.of("table DDL whitespace, pipe DDL defined", "   ", "CREATE PIPE ..."),
+        Arguments.of(
+            "pipe DDL whitespace, table DDL defined",
+            "CREATE TABLE test_table (col1 VARCHAR)",
+            "   "));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("invalidDdlConfigurations")
+  public void testInvalidDdlConfigurations(String testName, String tableDdl, String pipeDdl) {
+    Map<String, String> config = getConfig();
+    if (tableDdl != null) {
+      config.put(SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL, tableDdl);
+    }
+    if (pipeDdl != null) {
+      config.put(SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL, pipeDdl);
+    }
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL)
+        .hasMessageContaining(SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL);
+  }
 }

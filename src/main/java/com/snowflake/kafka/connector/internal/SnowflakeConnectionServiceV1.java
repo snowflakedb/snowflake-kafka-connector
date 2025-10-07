@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import static com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -51,6 +52,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   private final SnowflakeURL url;
   private final SnowflakeInternalStage internalStage;
+  private final String interactiveTableDdl;
 
   // This info is provided in the connector configuration
   // This property will be appeneded to user agent while calling snowpipe API in http request
@@ -77,13 +79,15 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       String connectorName,
       String taskID,
       String kafkaProvider,
-      IngestionMethodConfig ingestionMethodConfig) {
+      IngestionMethodConfig ingestionMethodConfig,
+      String interactiveTableDdl) {
     this.jdbcProperties = jdbcProperties;
     this.connectorName = connectorName;
     this.taskID = taskID;
     this.url = url;
     this.stageType = null;
     this.kafkaProvider = kafkaProvider;
+    this.interactiveTableDdl = interactiveTableDdl;
     Properties proxyProperties = jdbcProperties.getProxyProperties();
     Properties combinedProperties = jdbcProperties.getProperties();
     try {
@@ -113,7 +117,11 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query;
-    if (overwrite) {
+    // if ddl for the table is given by the user in config
+    // use it unconditionally
+    if (isNotBlank(interactiveTableDdl)) {
+      query = interactiveTableDdl;
+    } else if (overwrite) {
       query =
           "create or replace table identifier(?) (record_metadata "
               + "variant, record_content variant)";
@@ -122,6 +130,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
           "create table if not exists identifier(?) (record_metadata "
               + "variant, record_content variant)";
     }
+
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
@@ -132,6 +141,23 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     }
 
     LOGGER.info("create table {}", tableName);
+  }
+
+  @Override
+  public void executeCreateTableDdl(final String ddl, final String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    InternalUtils.assertNotEmpty("ddl", ddl);
+    try {
+      PreparedStatement stmt = conn.prepareStatement(ddl);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+
+    LOGGER.info("executed ddl [{}] with parameters [tableName: {}]", ddl, tableName);
   }
 
   @Override

@@ -282,7 +282,6 @@ public class TestUtils {
   /* Get configuration map from profile path. Used against prod deployment of Snowflake */
   public static Map<String, String> getConfForStreaming() {
     Map<String, String> configuration = getConfFromFileName(PROFILE_PATH);
-
     // On top of existing configurations, add
     configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     configuration.put(Utils.TASK_ID, "0");

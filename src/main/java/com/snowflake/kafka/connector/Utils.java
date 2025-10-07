@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.InternalUtils;
@@ -415,6 +416,11 @@ public class Utils {
             config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED))
         .map(Boolean::parseBoolean)
         .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
+  }
+
+  public static boolean pipeAndTableDdlsDefinedInConfig(Map<String, String> config) {
+    return isNotBlank(config.get(SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL))
+        && isNotBlank(config.get(SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL));
   }
 
   /**

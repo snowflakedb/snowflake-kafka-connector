@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
 import com.snowflake.kafka.connector.config.IcebergConfigValidator;

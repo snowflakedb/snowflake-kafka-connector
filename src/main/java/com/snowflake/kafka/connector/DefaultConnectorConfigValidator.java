@@ -12,6 +12,7 @@ import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.config.ConfigException;
 
 public class DefaultConnectorConfigValidator implements ConnectorConfigValidator {
@@ -278,6 +279,27 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               "{} and {} are mutually exclusive and cannot both be enabled",
               ICEBERG_ENABLED,
               SNOWPIPE_STREAMING_V2_ENABLED));
+    }
+
+    // Validate DESTINATION_PIPE_DDL and DESTINATION_TABLE_DDL are both defined or both not defined
+    String tableDdl = config.get(DESTINATION_TABLE_DDL);
+    String pipeDdl = config.get(DESTINATION_PIPE_DDL);
+    boolean isTableDdlBlank = StringUtils.isBlank(tableDdl);
+    boolean isPipeDdlBlank = StringUtils.isBlank(pipeDdl);
+
+    if (isTableDdlBlank != isPipeDdlBlank) {
+      String errorMessage =
+          Utils.formatString(
+              "{} and {} must both be defined or both be empty/null. Currently {} is {} and {} is"
+                  + " {}.",
+              DESTINATION_TABLE_DDL,
+              DESTINATION_PIPE_DDL,
+              DESTINATION_TABLE_DDL,
+              isTableDdlBlank ? "blank/null" : "defined",
+              DESTINATION_PIPE_DDL,
+              isPipeDdlBlank ? "blank/null" : "defined");
+      invalidConfigParams.put(DESTINATION_TABLE_DDL, errorMessage);
+      invalidConfigParams.put(DESTINATION_PIPE_DDL, errorMessage);
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING

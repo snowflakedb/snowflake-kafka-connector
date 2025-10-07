@@ -489,6 +489,18 @@ public class ConnectorConfigDefinition {
             ConfigDef.Importance.HIGH,
             "When set to true the connector will ingest data using Snowpipe Streaming v2.")
         .define(
+            DESTINATION_TABLE_DDL,
+            ConfigDef.Type.STRING,
+            "",
+            ConfigDef.Importance.HIGH,
+            "SQL DDL statement for creating the destination table.")
+        .define(
+            DESTINATION_PIPE_DDL,
+            ConfigDef.Type.STRING,
+            "",
+            ConfigDef.Importance.HIGH,
+            "SQL DDL statement for creating destination snowflake pipe object")
+        .define(
             ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
             ConfigDef.Type.BOOLEAN,
             ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DEFAULT,

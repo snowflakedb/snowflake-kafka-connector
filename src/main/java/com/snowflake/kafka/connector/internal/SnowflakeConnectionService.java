@@ -18,6 +18,8 @@ public interface SnowflakeConnectionService {
    */
   void createTable(String tableName, boolean overwrite);
 
+  void executeCreateTableDdl(String ddl, String tableName);
+
   /**
    * create table is not exists
    *
