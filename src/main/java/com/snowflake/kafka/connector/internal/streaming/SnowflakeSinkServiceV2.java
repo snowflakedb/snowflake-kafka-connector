@@ -177,7 +177,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void startPartition(String tableName, TopicPartition topicPartition) {
-    // the table should be present before opening a channel so let's do a table existence check here
+    // the table should be present unless in interactive table mode
     tableActionsOnStartPartition(tableName);
 
     // Create channel for the given partition
@@ -213,7 +213,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   private void tableActionsOnStartPartition(String tableName) {
-    if (Utils.isIcebergEnabled(connectorConfig)) {
+
+    boolean useInteractiveTables = Utils.useInteractiveTable(connectorConfig);
+    boolean tableExists = this.conn.tableExist(tableName);
+
+    if (useInteractiveTables) {
+      if (!tableExists) {
+        throw SnowflakeErrors.ERROR_5029.getException(
+            "Table name: " + tableName, this.conn.getTelemetryClient());
+      }
+    } else if (Utils.isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
           tableName,
           Utils.getRole(connectorConfig),
@@ -297,8 +306,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void createPipeIfNotExists(String tableName) {
     SSv2PipeCreator ssv2PipeCreator =
-        new SSv2PipeCreator(
-            conn, PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName), tableName);
+        new SSv2PipeCreator(conn, PipeNameProvider.pipeName(connectorConfig, tableName), tableName);
     ssv2PipeCreator.createPipeIfNotExists();
   }
 

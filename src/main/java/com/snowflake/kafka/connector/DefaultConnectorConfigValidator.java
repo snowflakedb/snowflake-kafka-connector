@@ -299,6 +299,22 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               SNOWPIPE_STREAMING_V2_ENABLED));
     }
 
+    // Check mutual exclusivity between interactive tables and schematization
+    if (useInteractiveTable(config) && isSchematizationEnabled(config)) {
+      invalidConfigParams.put(
+          SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES,
+          Utils.formatString(
+              "{} and {} are mutually exclusive and cannot both be enabled",
+              SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES,
+              ENABLE_SCHEMATIZATION_CONFIG));
+      invalidConfigParams.put(
+          ENABLE_SCHEMATIZATION_CONFIG,
+          Utils.formatString(
+              "{} and {} are mutually exclusive and cannot both be enabled",
+              ENABLE_SCHEMATIZATION_CONFIG,
+              SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES));
+    }
+
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
     invalidConfigParams.putAll(streamingConfigValidator.validate(config));
     invalidConfigParams.putAll(icebergConfigValidator.validate(config));

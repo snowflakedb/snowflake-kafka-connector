@@ -365,7 +365,13 @@ public enum SnowflakeErrors {
   ERROR_5028(
       "5028",
       "Failed to open Snowpipe Streaming v2 channel",
-      "Failed to open Snowpipe Streaming v2 channel");
+      "Failed to open Snowpipe Streaming v2 channel"),
+  ERROR_5029(
+      "5029",
+      "Destination table does not exist. Connector is set to write to interactive tables. In this"
+          + " mode destination tables need to be created manually beforehand",
+      "Destination table does not exist. Connector is set to write to interactive tables. In this"
+          + " mode destination tables need to be created manually beforehand");
 
   // properties
 

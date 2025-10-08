@@ -417,11 +417,12 @@ public class Utils {
         .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
-  public static boolean useInteractiveTables(Map<String, String> config) {
+  public static boolean useInteractiveTable(Map<String, String> config) {
     return Optional.ofNullable(
             config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES))
         .map(Boolean::parseBoolean)
-        .orElse(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES_DEFAULT_VALUE);
+        .orElse(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES_DEFAULT_VALUE);
   }
 
   /**
