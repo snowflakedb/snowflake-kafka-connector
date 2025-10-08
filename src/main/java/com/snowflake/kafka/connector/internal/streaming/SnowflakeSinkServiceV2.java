@@ -608,11 +608,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     final boolean tableExists = this.conn.tableExist(tableName);
     final boolean schematizationEnabled = isSchematizationEnabled(connectorConfig);
     final boolean customDdlsPresentInConfig = pipeAndTableDdlsDefinedInConfig(connectorConfig);
-    final String interactiveTableDdl = connectorConfig.get(DESTINATION_TABLE_DDL);
+    final String userDefinedCreateTableDdl = connectorConfig.get(DESTINATION_TABLE_DDL);
 
     if (tableExists) {
       if (customDdlsPresentInConfig) {
-        LOGGER.info("Table exists and interactive mode is enabled, NOOP for table {}", tableName);
+        LOGGER.info(
+            "Table exists and the user specified ddl for the table in the configuration. NOOP for"
+                + " table {}",
+            tableName);
         return;
       }
       if (!schematizationEnabled) {
@@ -628,7 +631,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     } else {
       LOGGER.info("Creating new table {}.", tableName);
       if (customDdlsPresentInConfig) {
-        conn.executeCreateTableDdl(interactiveTableDdl, tableName);
+        conn.executeCreateTableDdl(userDefinedCreateTableDdl, tableName);
         return;
       }
       if (isSchematizationEnabled(connectorConfig)) {

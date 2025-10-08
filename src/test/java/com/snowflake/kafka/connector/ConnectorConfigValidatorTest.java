@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -1058,10 +1060,10 @@ public class ConnectorConfigValidatorTest {
   public void testValidDdlConfigurations(String testName, String tableDdl, String pipeDdl) {
     Map<String, String> config = getConfig();
     if (tableDdl != null) {
-      config.put(SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL, tableDdl);
+      config.put(DESTINATION_TABLE_DDL, tableDdl);
     }
     if (pipeDdl != null) {
-      config.put(SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL, pipeDdl);
+      config.put(DESTINATION_PIPE_DDL, pipeDdl);
     }
     assertThatCode(() -> connectorConfigValidator.validateConfig(config))
         .doesNotThrowAnyException();
@@ -1085,14 +1087,14 @@ public class ConnectorConfigValidatorTest {
   public void testInvalidDdlConfigurations(String testName, String tableDdl, String pipeDdl) {
     Map<String, String> config = getConfig();
     if (tableDdl != null) {
-      config.put(SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL, tableDdl);
+      config.put(DESTINATION_TABLE_DDL, tableDdl);
     }
     if (pipeDdl != null) {
-      config.put(SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL, pipeDdl);
+      config.put(DESTINATION_PIPE_DDL, pipeDdl);
     }
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL)
-        .hasMessageContaining(SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL);
+        .hasMessageContaining(DESTINATION_TABLE_DDL)
+        .hasMessageContaining(DESTINATION_PIPE_DDL);
   }
 }

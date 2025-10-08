@@ -1,7 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DESTINATION_PIPE_DDL;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.DESTINATION_TABLE_DDL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
@@ -42,7 +40,6 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
@@ -56,6 +53,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @BeforeEach
   public void setup() {
     config = TestUtils.getConfForStreaming();
+    conn.createTable(table);
     pipe = PipeNameProvider.pipeName(config.get(Utils.NAME), table);
   }
 
@@ -144,25 +142,11 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
-  public void testStreamingIngestion() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    //    config.put(ENABLE_INTERACTIVE_TABLES, "true");
-    //      config.put(INTERACTIVE_TABLES_PIPE_DDL, "CREATE PIPE IF NOT EXISTS identifier(?) AS COPY
-    // INTO %s FROM TABLE (DATA_SOURCE(TYPE => 'STREAMING')) MATCH_BY_COLUMN_NAME=CASE_SENSITIVE");
-    //      config.put(INTERACTIVE_TABLES_TABLE_DDL, "CREATE INTERACTIVE TABLE identifier(?)
-    // (record_metadata varchar, record_content varchar) " +
-    //          "cluster BY (record_metadata) FROM TABLE(DATA_SOURCE(TYPE => 'STREAMING'))");;
-    config.put(
-        DESTINATION_PIPE_DDL,
-        "CREATE PIPE IF NOT EXISTS identifier(?) AS COPY INTO %s FROM (SELECT"
-            + " $1:RECORD_CONTENT.name as name, $1:RECORD_METADATA.topic as topic from TABLE"
-            + " (DATA_SOURCE(TYPE => 'STREAMING')))");
-    config.put(
-        DESTINATION_TABLE_DDL,
-        "CREATE INTERACTIVE TABLE identifier(?) (name varchar, topic varchar ) "
-            + "cluster BY (name) FROM TABLE(DATA_SOURCE(TYPE => 'STREAMING'))");
-    ;
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testStreamingIngestion(boolean ssv2Enabled) throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
@@ -396,7 +380,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true})
+  @ValueSource(booleans = {true, false})
   public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions(boolean ssv2Enabled)
       throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
