@@ -951,6 +951,40 @@ public class ConnectorConfigValidatorTest {
         .hasMessageContaining(SNOWFLAKE_ROLE);
   }
 
+  @Test
+  public void shouldThrowExceptionWhenBothSSv2AndIcebergEnabled() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSnowpipeStreamingV2Enabled()
+            .withIcebergEnabled()
+            .build();
+
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SNOWPIPE_STREAMING_V2_ENABLED)
+        .hasMessageContaining(ICEBERG_ENABLED)
+        .hasMessageContaining("mutually exclusive");
+  }
+
+  @Test
+  public void shouldValidateSSv2WithoutIceberg() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withSnowpipeStreamingV2Enabled()
+            .build();
+
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  public void shouldValidateIcebergWithoutSSv2() {
+    Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.icebergConfig().build();
+
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
   private void invalidConfigRunner(List<String> paramsToRemove) {
     Map<String, String> config = getConfig();
     for (String configParam : paramsToRemove) {
