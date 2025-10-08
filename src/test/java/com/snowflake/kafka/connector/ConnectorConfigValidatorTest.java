@@ -1045,4 +1045,45 @@ public class ConnectorConfigValidatorTest {
     assertThatCode(() -> connectorConfigValidator.validateConfig(config))
         .doesNotThrowAnyException();
   }
+
+  @Test
+  public void testUseInteractiveTables_valid_value() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "true");
+    connectorConfigValidator.validateConfig(config);
+
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "False");
+    connectorConfigValidator.validateConfig(config);
+  }
+
+  @Test
+  public void testUseInteractiveTables_invalid_value() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "INVALID");
+
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES);
+  }
+
+  @Test
+  public void testUseInteractiveTables_invalidWithSnowpipe() {
+    Map<String, String> config = getConfig();
+    config.put(
+        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
+        IngestionMethodConfig.SNOWPIPE.toString());
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "true");
+
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES);
+  }
 }

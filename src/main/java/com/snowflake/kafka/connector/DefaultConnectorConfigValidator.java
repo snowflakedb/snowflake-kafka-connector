@@ -123,6 +123,14 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
                 "Streaming channel offset verification function is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
+      if (config.containsKey(
+          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES,
+            Utils.formatString(
+                "Interactive tables are only available with {}.",
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
@@ -261,6 +269,17 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
             Utils.formatString(
                 "Kafka config:{} should either be true or false",
                 SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP));
+      }
+    }
+
+    if (config.containsKey(SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES)) {
+      if (!(config.get(SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES).equalsIgnoreCase("true")
+          || config.get(SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES).equalsIgnoreCase("false"))) {
+        invalidConfigParams.put(
+            SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES,
+            Utils.formatString(
+                "Kafka config:{} should either be true or false",
+                SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES));
       }
     }
 
