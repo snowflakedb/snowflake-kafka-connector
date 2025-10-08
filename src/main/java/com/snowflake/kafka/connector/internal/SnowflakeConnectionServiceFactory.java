@@ -20,7 +20,6 @@ public class SnowflakeConnectionServiceFactory {
     private SnowflakeURL url;
     private String connectorName;
     private String taskID = "-1";
-    private String interactiveTableDdl;
 
     // whether kafka is hosted on premise or on confluent cloud.
     // This info is provided in the connector configuration
@@ -81,13 +80,7 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
       return new SnowflakeConnectionServiceV1(
-          jdbcProperties,
-          url,
-          connectorName,
-          taskID,
-          kafkaProvider,
-          ingestionMethodConfig,
-          interactiveTableDdl);
+          jdbcProperties, url, connectorName, taskID, kafkaProvider, ingestionMethodConfig);
     }
   }
 }
