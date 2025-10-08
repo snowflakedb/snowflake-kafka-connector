@@ -222,10 +222,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       icebergTableSchemaValidator.validateTable(
           tableName, Utils.getRole(connectorConfig), isSchematizationEnabled(connectorConfig));
       icebergInitService.initializeIcebergTableProperties(tableName);
-      populateSchemaEvolutionPermissions(tableName);
     } else {
       createTableIfNotExists(tableName);
     }
+    populateSchemaEvolutionPermissions(tableName);
   }
 
   /**
@@ -609,9 +609,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     final boolean schematizationEnabled = isSchematizationEnabled(connectorConfig);
     final boolean customDdlsPresentInConfig = pipeAndTableDdlsDefinedInConfig(connectorConfig);
     final String interactiveTableDdl = connectorConfig.get(DESTINATION_TABLE_DDL);
-
-    // Populate schema evolution cache if needed
-    populateSchemaEvolutionPermissions(tableName);
 
     if (tableExists) {
       if (customDdlsPresentInConfig) {
