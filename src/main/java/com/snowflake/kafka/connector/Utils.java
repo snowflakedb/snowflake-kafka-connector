@@ -417,13 +417,13 @@ public class Utils {
         .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
-  public static boolean isCreateDestinationObjects(Map<String, String> config) {
+  public static boolean isEnableAlteringPipesTables(Map<String, String> config) {
     return Optional.ofNullable(
-            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS))
+            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES))
         .map(Boolean::parseBoolean)
         .orElse(
             SnowflakeSinkConnectorConfig
-                .SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS_DEFAULT_VALUE);
+                .SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES_DEFAULT_VALUE);
   }
 
   /**

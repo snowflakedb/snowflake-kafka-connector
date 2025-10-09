@@ -264,14 +264,14 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    if (config.containsKey(SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS)) {
-      if (!(config.get(SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS).equalsIgnoreCase("true")
-          || config.get(SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS).equalsIgnoreCase("false"))) {
+    if (config.containsKey(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)) {
+      if (!(config.get(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES).equalsIgnoreCase("true")
+          || config.get(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES).equalsIgnoreCase("false"))) {
         invalidConfigParams.put(
-            SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS,
+            SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
             Utils.formatString(
                 "Kafka config:{} should either be true or false",
-                SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS));
+                SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES));
       }
     }
 
@@ -291,22 +291,15 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               SNOWPIPE_STREAMING_V2_ENABLED));
     }
 
-    // with schematization enabled user expects us to alter table when new fields arrive
-    // so those two props are mutually exclusive. Pipe and tables created by the user will never be
-    // modified
-    if (isCreateDestinationObjects(config) && isSchematizationEnabled(config)) {
+    // with schematization enabled user expects the connector to alter table (add columns) when new fields arrive
+    // so setting schematization to true and at the same time telling the connector not to modify TABLE and PIPE makes no sense.
+    if (isSchematizationEnabled(config) && !isEnableAlteringPipesTables(config) ) {
       invalidConfigParams.put(
-          SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS,
+          SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
           Utils.formatString(
-              "{} and {} are mutually exclusive and cannot both be enabled",
-              SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS,
+              "{} and {} are mutually exclusive. If schematization is enabled then you need to allow connector to alter target table and pipe.",
+              SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
               ENABLE_SCHEMATIZATION_CONFIG));
-      invalidConfigParams.put(
-          ENABLE_SCHEMATIZATION_CONFIG,
-          Utils.formatString(
-              "{} and {} are mutually exclusive and cannot both be enabled",
-              ENABLE_SCHEMATIZATION_CONFIG,
-              SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS));
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING

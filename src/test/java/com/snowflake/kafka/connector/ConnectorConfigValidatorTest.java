@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -636,7 +638,7 @@ public class ConnectorConfigValidatorTest {
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE.toString());
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
@@ -649,7 +651,7 @@ public class ConnectorConfigValidatorTest {
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     connectorConfigValidator.validateConfig(config);
   }
@@ -660,7 +662,7 @@ public class ConnectorConfigValidatorTest {
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
         "org.apache.kafka.connect.storage.StringConverter");
@@ -676,7 +678,7 @@ public class ConnectorConfigValidatorTest {
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
         IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "false");
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "false");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
         "org.apache.kafka.connect.storage.StringConverter");
@@ -1047,37 +1049,34 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void test_snowpipe_streaming_create_destination_objects_valid_values() {
+  public void test_snowpipe_streaming_enable_atlering_pipes_and_tables() {
     Map<String, String> config = getConfig();
     connectorConfigValidator.validateConfig(config);
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS, "False");
+    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "False");
     connectorConfigValidator.validateConfig(config);
-  }
+    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "True");
+    connectorConfigValidator.validateConfig(config);
+      config.put(
+          SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "INVALID");
+      assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+          .isInstanceOf(SnowflakeKafkaConnectorException.class)
+          .hasMessageContaining(
+              SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES);
 
-  @Test
-  public void test_snowpipe_streaming_create_destination_objects_invalid_values() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS, "INVALID");
-
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS);
   }
 
   @Test
   public void
-      test_snowpipe_streaming_create_destination_objects_invalid_with_schematization_enabled() {
+      test_snowpipe_streaming_enable_atlering_pipes_and_tables_invalid_with_schematization_enabled() {
     Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS, "true");
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "false");
+    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS)
-        .hasMessageContaining(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
+            SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)
+        .hasMessageContaining(ENABLE_SCHEMATIZATION_CONFIG)
         .hasMessageContaining("mutually exclusive");
   }
 }

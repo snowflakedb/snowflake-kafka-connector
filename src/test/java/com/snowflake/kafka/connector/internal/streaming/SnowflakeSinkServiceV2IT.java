@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
@@ -1063,7 +1063,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @Disabled
   public void test_streaming_ingestion_with_ddls_from_configuration() throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    config.put(SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS, "true");
+    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "true");
     ;
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =

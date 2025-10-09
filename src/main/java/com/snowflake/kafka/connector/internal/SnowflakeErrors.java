@@ -369,11 +369,11 @@ public enum SnowflakeErrors {
   ERROR_5029(
       "5029",
       "Destination table does not exist. The "
-          + SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS
+          + SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES
           + " property is set to false. In this"
           + " mode destination tables need to be created manually beforehand",
       "Destination table does not exist. The "
-          + SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS
+          + SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES
           + " property is set to false. In this"
           + " mode destination tables need to be created manually beforehand");
 

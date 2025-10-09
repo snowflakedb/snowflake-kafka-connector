@@ -5,7 +5,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLA
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
 import static com.snowflake.kafka.connector.Utils.getRole;
-import static com.snowflake.kafka.connector.Utils.isCreateDestinationObjects;
+import static com.snowflake.kafka.connector.Utils.isEnableAlteringPipesTables;
 import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
@@ -217,11 +217,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void tableActionsOnStartPartition(String tableName) {
 
-    boolean createDestinationObjects = isCreateDestinationObjects(connectorConfig);
+    boolean enableAlteringPipesTables = isEnableAlteringPipesTables(connectorConfig);
     boolean tableExists = this.conn.tableExist(tableName);
 
-    if (createDestinationObjects) {
-
+    if (enableAlteringPipesTables) {
       if (!tableExists) {
         throw SnowflakeErrors.ERROR_5029.getException(
             "Table name: " + tableName, this.conn.getTelemetryClient());
