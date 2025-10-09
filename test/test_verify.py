@@ -104,7 +104,7 @@ class KafkaTest:
         avro_producer_config['schema.registry.url'] = schemaRegistryAddress
         self.avroProducer = AvroProducer(avro_producer_config)
 
-        reg = "[^\/]*snowflakecomputing"  # find the account name
+        reg = "[^/]*snowflakecomputing"  # find the account name
         account = re.findall(reg, testHost)
         if len(account) != 1 or len(account[0]) < 20:
             print(datetime.now().strftime("%H:%M:%S "),
