@@ -226,7 +226,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         throw SnowflakeErrors.ERROR_5029.getException(
             "Table name: " + tableName, this.conn.getTelemetryClient());
       }
-        populateSchemaEvolutionPermissions(tableName);
+      populateSchemaEvolutionPermissions(tableName);
     } else if (Utils.isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
           tableName, getRole(connectorConfig), isSchematizationEnabled(connectorConfig));
@@ -235,8 +235,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       createTableIfNotExists(tableName);
       populateSchemaEvolutionPermissions(tableName);
     }
-
-
   }
 
   /**

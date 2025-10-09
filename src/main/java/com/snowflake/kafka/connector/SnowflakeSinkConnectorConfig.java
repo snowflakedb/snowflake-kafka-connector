@@ -166,6 +166,9 @@ public class SnowflakeSinkConnectorConfig {
   // pipe
   // When  the name of the topic has been mapped to a different table name in topic2table mapping
   // then mapped name should be used for both objects
+  // this one to one mapping between topic, table and pipe is to allow use of the INTERACTIVE TABLES
+  // currently when the user creates interactive table (via sql) the pipe with the same name is
+  // created automatically
   public static final String SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS =
       "snowflake.streaming.create.destination.objects";
   public static final boolean SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS_DEFAULT_VALUE = true;
