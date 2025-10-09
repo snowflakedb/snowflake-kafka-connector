@@ -1047,62 +1047,36 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void testUseInteractiveTables_valid_value() {
+  public void test_snowpipe_streaming_create_destination_objects_valid_values() {
     Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "true");
     connectorConfigValidator.validateConfig(config);
-
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "False");
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS, "False");
     connectorConfigValidator.validateConfig(config);
   }
 
   @Test
-  public void testUseInteractiveTables_invalid_value() {
+  public void test_snowpipe_streaming_create_destination_objects_invalid_values() {
     Map<String, String> config = getConfig();
     config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "INVALID");
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS, "INVALID");
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES);
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS);
   }
 
   @Test
-  public void testUseInteractiveTables_invalidWithSnowpipe() {
+  public void
+      test_snowpipe_streaming_create_destination_objects_invalid_with_schematization_enabled() {
     Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "true");
-
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES);
-  }
-
-  @Test
-  public void testUseInteractiveTables_invalidWithSchematization() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES, "true");
+    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS, "true");
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES)
+            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS)
         .hasMessageContaining(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
         .hasMessageContaining("mutually exclusive");
   }

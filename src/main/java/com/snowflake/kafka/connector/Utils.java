@@ -417,12 +417,13 @@ public class Utils {
         .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
-  public static boolean useInteractiveTable(Map<String, String> config) {
+  public static boolean isCreateDestinationObjects(Map<String, String> config) {
     return Optional.ofNullable(
-            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES))
+            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS))
         .map(Boolean::parseBoolean)
         .orElse(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES_DEFAULT_VALUE);
+            SnowflakeSinkConnectorConfig
+                .SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS_DEFAULT_VALUE);
   }
 
   /**

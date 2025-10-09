@@ -158,9 +158,17 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWPIPE_STREAMING_V2_ENABLED = "snowflake.streaming.v2.enabled";
   public static final boolean SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE = false;
 
-  public static final String SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES =
-      "snowflake.streaming.use.interactive.tables";
-  public static final boolean SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES_DEFAULT_VALUE = false;
+  // with this flag set to true the user is responsible to create the destination objects (pipe and
+  // the table)
+  // when this feature is turned on the normal topic to table mapping applies but the pipe name ==
+  // destination table name
+  // so if the user is consuming from TOPIC1 then he need to manually create TOPIC1 table and TOPIC1
+  // pipe
+  // When  the name of the topic has been mapped to a different table name in topic2table mapping
+  // then mapped name should be used for both objects
+  public static final String SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS =
+      "snowflake.streaming.create.destination.objects";
+  public static final boolean SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS_DEFAULT_VALUE = true;
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";

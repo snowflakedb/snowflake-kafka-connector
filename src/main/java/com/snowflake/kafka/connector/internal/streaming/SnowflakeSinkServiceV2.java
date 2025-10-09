@@ -4,6 +4,9 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
+import static com.snowflake.kafka.connector.Utils.getRole;
+import static com.snowflake.kafka.connector.Utils.isCreateDestinationObjects;
+import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.MetricRegistry;
@@ -142,7 +145,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordService =
         RecordServiceFactory.createRecordService(
             Utils.isIcebergEnabled(connectorConfig),
-            Utils.isSchematizationEnabled(connectorConfig),
+            isSchematizationEnabled(connectorConfig),
             Utils.isSnowpipeStreamingV2Enabled(connectorConfig));
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
@@ -177,7 +180,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void startPartition(String tableName, TopicPartition topicPartition) {
-    // the table should be present unless in interactive table mode
+
     tableActionsOnStartPartition(tableName);
 
     // Create channel for the given partition
@@ -214,24 +217,26 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void tableActionsOnStartPartition(String tableName) {
 
-    boolean useInteractiveTables = Utils.useInteractiveTable(connectorConfig);
+    boolean createDestinationObjects = isCreateDestinationObjects(connectorConfig);
     boolean tableExists = this.conn.tableExist(tableName);
 
-    if (useInteractiveTables) {
+    if (createDestinationObjects) {
+
       if (!tableExists) {
         throw SnowflakeErrors.ERROR_5029.getException(
             "Table name: " + tableName, this.conn.getTelemetryClient());
       }
+        populateSchemaEvolutionPermissions(tableName);
     } else if (Utils.isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
-          tableName,
-          Utils.getRole(connectorConfig),
-          Utils.isSchematizationEnabled(connectorConfig));
+          tableName, getRole(connectorConfig), isSchematizationEnabled(connectorConfig));
       icebergInitService.initializeIcebergTableProperties(tableName);
-      populateSchemaEvolutionPermissions(tableName);
     } else {
       createTableIfNotExists(tableName);
+      populateSchemaEvolutionPermissions(tableName);
     }
+
+
   }
 
   /**
@@ -604,7 +609,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // ------ Streaming Ingest Related Functions ------ //
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
-      if (!Utils.isSchematizationEnabled(connectorConfig)) {
+      if (!isSchematizationEnabled(connectorConfig)) {
         if (this.conn.isTableCompatible(tableName)) {
           LOGGER.info("Using existing table {}.", tableName);
         } else {
@@ -616,7 +621,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      if (Utils.isSchematizationEnabled(connectorConfig)) {
+      if (isSchematizationEnabled(connectorConfig)) {
         // Always create the table with RECORD_METADATA only and rely on schema evolution to update
         // the schema
         this.conn.createTableWithOnlyMetadataColumn(tableName);
@@ -631,7 +636,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void populateSchemaEvolutionPermissions(String tableName) {
     if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
-      if (Utils.isSchematizationEnabled(connectorConfig)) {
+      if (isSchematizationEnabled(connectorConfig)) {
         boolean hasSchemaEvolutionPermission =
             conn != null
                 && conn.hasSchemaEvolutionPermission(

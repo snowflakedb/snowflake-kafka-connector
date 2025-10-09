@@ -123,14 +123,6 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
                 "Streaming channel offset verification function is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES,
-            Utils.formatString(
-                "Interactive tables are only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
@@ -272,14 +264,14 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    if (config.containsKey(SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES)) {
-      if (!(config.get(SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES).equalsIgnoreCase("true")
-          || config.get(SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES).equalsIgnoreCase("false"))) {
+    if (config.containsKey(SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS)) {
+      if (!(config.get(SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS).equalsIgnoreCase("true")
+          || config.get(SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS).equalsIgnoreCase("false"))) {
         invalidConfigParams.put(
-            SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES,
+            SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS,
             Utils.formatString(
                 "Kafka config:{} should either be true or false",
-                SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES));
+                SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS));
       }
     }
 
@@ -299,20 +291,22 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               SNOWPIPE_STREAMING_V2_ENABLED));
     }
 
-    // Check mutual exclusivity between interactive tables and schematization
-    if (useInteractiveTable(config) && isSchematizationEnabled(config)) {
+    // with schematization enabled user expects us to alter table when new fields arrive
+    // so those two props are mutually exclusive. Pipe and tables created by the user will never be
+    // modified
+    if (isCreateDestinationObjects(config) && isSchematizationEnabled(config)) {
       invalidConfigParams.put(
-          SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES,
+          SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS,
           Utils.formatString(
               "{} and {} are mutually exclusive and cannot both be enabled",
-              SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES,
+              SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS,
               ENABLE_SCHEMATIZATION_CONFIG));
       invalidConfigParams.put(
           ENABLE_SCHEMATIZATION_CONFIG,
           Utils.formatString(
               "{} and {} are mutually exclusive and cannot both be enabled",
               ENABLE_SCHEMATIZATION_CONFIG,
-              SNOWPIPE_STREAMING_USE_INTERACTIVE_TABLES));
+              SNOWPIPE_STREAMING_CREATE_DESTINATION_OBJECTS));
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING

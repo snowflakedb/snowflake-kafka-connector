@@ -7,7 +7,7 @@ import java.util.Map;
 public class PipeNameProvider {
 
   public static String pipeName(Map<String, String> connectorConfig, String table) {
-    if (Utils.useInteractiveTable(connectorConfig)) {
+    if (Utils.isCreateDestinationObjects(connectorConfig)) {
       return table;
     } else {
       return connectorConfig.get(Utils.NAME) + "_SSV2_PIPE_" + table;
