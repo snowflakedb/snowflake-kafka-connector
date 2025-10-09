@@ -1056,26 +1056,23 @@ public class ConnectorConfigValidatorTest {
     connectorConfigValidator.validateConfig(config);
     config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "True");
     connectorConfigValidator.validateConfig(config);
-      config.put(
-          SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "INVALID");
-      assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-          .isInstanceOf(SnowflakeKafkaConnectorException.class)
-          .hasMessageContaining(
-              SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES);
-
+    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "INVALID");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES);
   }
 
   @Test
   public void
       test_snowpipe_streaming_enable_atlering_pipes_and_tables_invalid_with_schematization_enabled() {
     Map<String, String> config = getConfig();
+    boolean test = Utils.isEnableAlteringPipesTables(config);
     config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "false");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(
-            SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)
+        .hasMessageContaining(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)
         .hasMessageContaining(ENABLE_SCHEMATIZATION_CONFIG)
         .hasMessageContaining("mutually exclusive");
   }

@@ -220,7 +220,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     boolean enableAlteringPipesTables = isEnableAlteringPipesTables(connectorConfig);
     boolean tableExists = this.conn.tableExist(tableName);
 
-    if (enableAlteringPipesTables) {
+    // if the user don't want the connector to modify the table/pipe we must make sure the table
+    // exists
+    if (!enableAlteringPipesTables) {
       if (!tableExists) {
         throw SnowflakeErrors.ERROR_5029.getException(
             "Table name: " + tableName, this.conn.getTelemetryClient());

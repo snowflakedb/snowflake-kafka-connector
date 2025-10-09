@@ -419,7 +419,9 @@ public class Utils {
 
   public static boolean isEnableAlteringPipesTables(Map<String, String> config) {
     return Optional.ofNullable(
-            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES))
+            config.get(
+                SnowflakeSinkConnectorConfig
+                    .SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES))
         .map(Boolean::parseBoolean)
         .orElse(
             SnowflakeSinkConnectorConfig

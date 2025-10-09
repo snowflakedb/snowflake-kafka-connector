@@ -265,8 +265,12 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
     }
 
     if (config.containsKey(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)) {
-      if (!(config.get(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES).equalsIgnoreCase("true")
-          || config.get(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES).equalsIgnoreCase("false"))) {
+      if (!(config
+              .get(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)
+              .equalsIgnoreCase("true")
+          || config
+              .get(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)
+              .equalsIgnoreCase("false"))) {
         invalidConfigParams.put(
             SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
             Utils.formatString(
@@ -291,13 +295,16 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               SNOWPIPE_STREAMING_V2_ENABLED));
     }
 
-    // with schematization enabled user expects the connector to alter table (add columns) when new fields arrive
-    // so setting schematization to true and at the same time telling the connector not to modify TABLE and PIPE makes no sense.
-    if (isSchematizationEnabled(config) && !isEnableAlteringPipesTables(config) ) {
+    // with schematization enabled user expects the connector to alter table (add columns) when new
+    // fields arrive
+    // so setting schematization to true and at the same time telling the connector not to modify
+    // TABLE and PIPE makes no sense.
+    if (isSchematizationEnabled(config) && !isEnableAlteringPipesTables(config)) {
       invalidConfigParams.put(
           SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
           Utils.formatString(
-              "{} and {} are mutually exclusive. If schematization is enabled then you need to allow connector to alter target table and pipe.",
+              "{} and {} are mutually exclusive. If schematization is enabled then you need to"
+                  + " allow connector to alter target table and pipe.",
               SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
               ENABLE_SCHEMATIZATION_CONFIG));
     }
