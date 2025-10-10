@@ -264,18 +264,18 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    if (config.containsKey(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)) {
+    if (config.containsKey(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)) {
       if (!(config
-              .get(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)
+              .get(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)
               .equalsIgnoreCase("true")
           || config
-              .get(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)
+              .get(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)
               .equalsIgnoreCase("false"))) {
         invalidConfigParams.put(
-            SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
+            SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
             Utils.formatString(
                 "Kafka config:{} should either be true or false",
-                SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES));
+                SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS));
       }
     }
 
@@ -297,15 +297,15 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     // with schematization enabled user expects the connector to alter table (add columns) when new
     // fields arrive
-    // so setting schematization to true and at the same time telling the connector not to modify
-    // TABLE and PIPE makes no sense.
-    if (isSchematizationEnabled(config) && !isEnableAlteringPipesTables(config)) {
+    // so setting schematization to true and at the same time using user defined database objects
+    // makes no sense because the connector should not modify the TABLE and PIPE created by the user (as per contract).
+    if (isSchematizationEnabled(config) && isUsingUserDefinedDatabaseObjects(config)) {
       invalidConfigParams.put(
-          SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
+          SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
           Utils.formatString(
               "{} and {} are mutually exclusive. If schematization is enabled then you need to"
                   + " allow connector to alter target table and pipe.",
-              SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES,
+              SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
               ENABLE_SCHEMATIZATION_CONFIG));
     }
 

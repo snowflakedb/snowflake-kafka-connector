@@ -417,16 +417,14 @@ public class Utils {
         .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
-  public static boolean isEnableAlteringPipesTables(Map<String, String> config) {
-    return Optional.ofNullable(
-            config.get(
-                SnowflakeSinkConnectorConfig
-                    .SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES))
-        .map(Boolean::parseBoolean)
-        .orElse(
-            SnowflakeSinkConnectorConfig
-                .SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES_DEFAULT_VALUE);
-  }
+    public static boolean isUsingUserDefinedDatabaseObjects(Map<String, String> config) {
+        return Optional.ofNullable(
+                        config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS))
+                .map(Boolean::parseBoolean)
+                .orElse(
+                        SnowflakeSinkConnectorConfig
+                                .SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS_DEFAULT_VALUE);
+    }
 
   /**
    * @param config config with applied default values

@@ -158,23 +158,22 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWPIPE_STREAMING_V2_ENABLED = "snowflake.streaming.v2.enabled";
   public static final boolean SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE = false;
 
-  // with this flag set to false the user is responsible for creating the destination objects (pipe
+  // with this flag set to true the user is responsible for creating the destination objects (pipe
   // and the table)
-  // when this feature is turned off or on the normal topic to table mapping applies but the
-  // connector expects the
-  // user to create the pipe and table with the same names
-  // so if the user is consuming from TOPIC1 then he need to manually create TOPIC1 table and TOPIC1
+  // when this feature is turned on the normal topic to table mapping applies but the connector
+  // expects the user to create the pipe and table with the same names
+  // so if the user is consuming from TOPIC1 then he needs to manually create TOPIC1 table and TOPIC1
   // pipe
-  // When  the name of the topic has been mapped to a different table name in topic2table mapping
-  // then mapped name should be used for both objects.
-  // This one-to-one mapping between topic, table and pipe is to allow use of the INTERACTIVE
+  // When the name of the topic has been mapped to a different table name in topic2table mapping
+  // then mapped name should be used.
+  // This one-to-one mapping between table and pipe is to allow use of the INTERACTIVE
   // TABLES.
   // Currently, when the user creates interactive table (via sql) the pipe with the same name is
   // created automatically
-  public static final String SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES =
-      "snowflake.streaming.enable.altering.target.pipes.tables";
-  public static final boolean
-      SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES_DEFAULT_VALUE = true;
+  public static final String SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS =
+      "snowflake.streaming.use.user.defined.database.objects";
+  public static final boolean SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS_DEFAULT_VALUE =
+      false;
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";

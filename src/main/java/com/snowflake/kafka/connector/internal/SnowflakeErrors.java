@@ -21,6 +21,8 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
+
 public enum SnowflakeErrors {
 
   // connector configuration issues 0---
@@ -369,12 +371,12 @@ public enum SnowflakeErrors {
   ERROR_5029(
       "5029",
       "Destination table does not exist. The "
-          + SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES
-          + " property is set to false. In this"
+          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
+          + " property is set to true. In this"
           + " mode destination tables need to be created manually beforehand",
       "Destination table does not exist. The "
-          + SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES
-          + " property is set to false. In this"
+          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
+          + " property is set to true. In this"
           + " mode destination tables need to be created manually beforehand");
 
   // properties

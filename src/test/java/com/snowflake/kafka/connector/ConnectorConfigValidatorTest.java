@@ -2,7 +2,7 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -1049,30 +1049,29 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void test_snowpipe_streaming_enable_atlering_pipes_and_tables() {
+  public void test_snowpipe_streaming_use_user_defined_database_objects() {
     Map<String, String> config = getConfig();
     connectorConfigValidator.validateConfig(config);
-    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "False");
+    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "False");
     connectorConfigValidator.validateConfig(config);
-    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "True");
+    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "True");
     connectorConfigValidator.validateConfig(config);
-    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "INVALID");
+    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "INVALID");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES);
+        .hasMessageContaining(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS);
   }
 
   @Test
   public void
-      test_snowpipe_streaming_enable_atlering_pipes_and_tables_invalid_with_schematization_enabled() {
+      test_snowpipe_streaming_use_user_defined_database_objects_invalid_with_schematization_enabled() {
     Map<String, String> config = getConfig();
-    boolean test = Utils.isEnableAlteringPipesTables(config);
-    config.put(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES, "false");
+    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "true");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SNOWPIPE_STREAMING_ENABLE_ALTERING_TARGET_PIPES_AND_TABLES)
+        .hasMessageContaining(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)
         .hasMessageContaining(ENABLE_SCHEMATIZATION_CONFIG)
         .hasMessageContaining("mutually exclusive");
   }
