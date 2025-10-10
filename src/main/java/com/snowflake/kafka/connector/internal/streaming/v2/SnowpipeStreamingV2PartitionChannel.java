@@ -7,7 +7,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
@@ -129,7 +128,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     this.streamingErrorHandler = streamingErrorHandler;
 
     this.telemetryServiceV2 = conn.getTelemetryClient();
-    this.pipeName = PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName);
+    this.pipeName = PipeNameProvider.pipeName(connectorConfig, tableName);
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
 
     this.channel = openChannelForTable(channelName);

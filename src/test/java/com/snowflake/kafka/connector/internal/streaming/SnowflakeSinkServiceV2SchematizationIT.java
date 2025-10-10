@@ -9,7 +9,6 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
@@ -57,7 +56,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     config.put("schemas.enable", "false");
     config.put(ERRORS_TOLERANCE_CONFIG, "all");
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
-    pipe = PipeNameProvider.pipeName(config.get(Utils.NAME), table);
+    pipe = PipeNameProvider.pipeName(config, table);
   }
 
   @AfterEach

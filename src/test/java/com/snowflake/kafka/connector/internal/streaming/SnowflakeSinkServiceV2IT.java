@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
@@ -40,6 +41,8 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
@@ -53,8 +56,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @BeforeEach
   public void setup() {
     config = TestUtils.getConfForStreaming();
-    conn.createTable(table);
-    pipe = PipeNameProvider.pipeName(config.get(Utils.NAME), table);
+    //    conn.createTable(table);
+    pipe = PipeNameProvider.pipeName(config, table);
   }
 
   @AfterEach
@@ -1054,5 +1057,74 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     assert !StreamingClientProvider.getStreamingClientProviderInstance()
         .getRegisteredClients()
         .containsKey(new StreamingClientProperties(fishConfig));
+  }
+
+  @Test
+  @Disabled
+  public void test_streaming_ingestion_with_ddls_from_configuration() throws Exception {
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
+    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "false");
+    // opens a channel for partition 0, table and topic
+    SnowflakeSinkService service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .build();
+    service.startPartition(table, topicPartition);
+
+    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    SchemaAndValue input =
+        converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+
+    List<SinkRecord> records = new ArrayList<>();
+    for (long offset = 200000; offset < 300000; offset++) {
+      SinkRecord record =
+          new SinkRecord(
+              topic,
+              partition,
+              Schema.STRING_SCHEMA,
+              "test_key" + offset,
+              input.schema(),
+              input.value(),
+              offset);
+      records.add(record);
+    }
+    service.insert(records);
+    // Wait for data to be ingested into the interactive table
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 3, 30, 20);
+
+    // Verify all rows have correct values
+    String query = "SELECT name, topic FROM identifier(?) ORDER BY name";
+    List<Map<String, Object>> rows = getRows(query);
+
+    // All 3 rows should have name="test" and topic=<topic name>
+    assert rows.size() == 3 : "Expected 3 rows, but got " + rows.size();
+    for (Map<String, Object> row : rows) {
+      assert "test".equals(row.get("name"))
+          : "Expected name='test', but got '" + row.get("name") + "'";
+      assert topic.equals(row.get("topic"))
+          : "Expected topic='" + topic + "', but got '" + row.get("topic") + "'";
+    }
+
+    service.closeAll();
+  }
+
+  private List<Map<String, Object>> getRows(final String query) {
+    return TestUtils.executeQueryAndCollectResult(
+        query,
+        table,
+        resultSet -> {
+          List<Map<String, Object>> results = new ArrayList<>();
+          try {
+            while (resultSet.next()) {
+              Map<String, Object> row = new HashMap<>();
+              row.put("name", resultSet.getString("NAME"));
+              row.put("topic", resultSet.getString("TOPIC"));
+              results.add(row);
+            }
+          } catch (Exception e) {
+            throw new RuntimeException("Error reading result set", e);
+          }
+          return results;
+        });
   }
 }

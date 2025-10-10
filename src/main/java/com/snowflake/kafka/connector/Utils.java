@@ -417,6 +417,15 @@ public class Utils {
         .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
+    public static boolean isUsingUserDefinedDatabaseObjects(Map<String, String> config) {
+        return Optional.ofNullable(
+                        config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS))
+                .map(Boolean::parseBoolean)
+                .orElse(
+                        SnowflakeSinkConnectorConfig
+                                .SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS_DEFAULT_VALUE);
+    }
+
   /**
    * @param config config with applied default values
    * @return role specified in rhe config
