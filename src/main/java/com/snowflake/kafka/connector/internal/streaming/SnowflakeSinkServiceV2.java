@@ -5,8 +5,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLA
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
 import static com.snowflake.kafka.connector.Utils.getRole;
-import static com.snowflake.kafka.connector.Utils.isUsingUserDefinedDatabaseObjects;
 import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
+import static com.snowflake.kafka.connector.Utils.isUsingUserDefinedDatabaseObjects;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.MetricRegistry;
@@ -273,8 +273,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           new FailsafeRowSchemaProvider(
               new RowsetApiRowSchemaProvider(JWTManagerProvider.fromConfig(connectorConfig)));
       RowSchemaManager rowSchemaManager = new RowSchemaManager(rowSchemaProvider);
-      if(!isUsingUserDefinedDatabaseObjects(connectorConfig)){
-          createPipeIfNotExists(tableName);
+      if (!isUsingUserDefinedDatabaseObjects(connectorConfig)) {
+        createPipeIfNotExists(tableName);
       }
 
       return new SnowpipeStreamingV2PartitionChannel(

@@ -6,11 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to mark fields and parameters for QueryRunner injection.
- * Use with {@link InjectQueryRunnerExtension}.
+ * Annotation to mark fields and parameters for QueryRunner injection. Use with {@link
+ * InjectQueryRunnerExtension}.
  */
 @Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface InjectQueryRunner {
-}
-
+public @interface InjectQueryRunner {}

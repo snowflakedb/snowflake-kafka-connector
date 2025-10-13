@@ -298,7 +298,8 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
     // with schematization enabled user expects the connector to alter table (add columns) when new
     // fields arrive
     // so setting schematization to true and at the same time using user defined database objects
-    // makes no sense because the connector should not modify the TABLE and PIPE created by the user (as per contract).
+    // makes no sense because the connector should not modify the TABLE and PIPE created by the user
+    // (as per contract).
     if (isSchematizationEnabled(config) && isUsingUserDefinedDatabaseObjects(config)) {
       invalidConfigParams.put(
           SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
