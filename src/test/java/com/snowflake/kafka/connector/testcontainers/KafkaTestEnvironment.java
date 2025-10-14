@@ -9,6 +9,8 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.containers.output.ToStringConsumer;
+import org.testcontainers.containers.output.WaitingConsumer;
 
 /**
  * Test utility class providing access to Kafka, Schema Registry, and Kafka Connect containers along
@@ -25,14 +27,20 @@ final class KafkaTestEnvironment {
   private final KafkaContainer kafkaContainer;
   private final GenericContainer<?> schemaRegistryContainer;
   private final GenericContainer<?> kafkaConnectContainer;
+  private final ToStringConsumer connectLogConsumer;
+  private final WaitingConsumer connectWaitingConsumer;
 
   KafkaTestEnvironment(
       final KafkaContainer kafkaContainer,
       final GenericContainer<?> schemaRegistryContainer,
-      final GenericContainer<?> kafkaConnectContainer) {
+      final GenericContainer<?> kafkaConnectContainer,
+      final ToStringConsumer connectLogConsumer,
+      final WaitingConsumer connectWaitingConsumer) {
     this.kafkaContainer = kafkaContainer;
     this.schemaRegistryContainer = schemaRegistryContainer;
     this.kafkaConnectContainer = kafkaConnectContainer;
+    this.connectLogConsumer = connectLogConsumer;
+    this.connectWaitingConsumer = connectWaitingConsumer;
   }
 
   /**
@@ -125,6 +133,24 @@ final class KafkaTestEnvironment {
    */
   public GenericContainer<?> getKafkaConnectContainer() {
     return kafkaConnectContainer;
+  }
+
+  /**
+   * Returns the captured Kafka Connect logs as a string.
+   *
+   * @return captured logs as string
+   */
+  public String getKafkaConnectLogs() {
+    return connectLogConsumer.toUtf8String();
+  }
+
+  /**
+   * Returns the WaitingConsumer for Kafka Connect logs, allowing real-time log assertions.
+   *
+   * @return WaitingConsumer instance for Kafka Connect logs
+   */
+  public WaitingConsumer getKafkaConnectWaitingConsumer() {
+    return connectWaitingConsumer;
   }
 }
 

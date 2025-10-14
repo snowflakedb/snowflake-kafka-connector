@@ -21,6 +21,8 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.output.ToStringConsumer;
+import org.testcontainers.containers.output.WaitingConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
@@ -144,6 +146,8 @@ public final class KafkaTestcontainersExtension
     private KafkaContainer kafkaContainer;
     private GenericContainer<?> schemaRegistryContainer;
     private GenericContainer<?> kafkaConnectContainer;
+    private ToStringConsumer connectLogConsumer;
+    private WaitingConsumer connectWaitingConsumer;
     private KafkaTestEnvironment environment;
 
     @SuppressWarnings("resource") // Containers are closed in close() method
@@ -223,8 +227,16 @@ public final class KafkaTestcontainersExtension
       // Copy connector JAR to container before starting it
       copyConnectorJarIfExists(kafkaConnectContainer);
 
+      // Initialize log consumers to capture Kafka Connect logs
+      connectLogConsumer = new ToStringConsumer();
+      connectWaitingConsumer = new WaitingConsumer();
+
       kafkaConnectContainer.start();
-      kafkaConnectContainer.followOutput(new Slf4jLogConsumer(LoggerFactory.getLogger("testcontainers.kafka-connect")));
+      // Chain all log consumers: WaitingConsumer -> ToStringConsumer -> SLF4J Logger
+      kafkaConnectContainer.followOutput(
+          connectWaitingConsumer
+              .andThen(connectLogConsumer)
+              .andThen(new Slf4jLogConsumer(LoggerFactory.getLogger("testcontainers.kafka-connect"))));
       LOGGER.info(
           "Kafka Connect container started. URL: http://{}:{}",
           kafkaConnectContainer.getHost(),
@@ -234,7 +246,12 @@ public final class KafkaTestcontainersExtension
 
       // Create the environment
       environment =
-          new KafkaTestEnvironment(kafkaContainer, schemaRegistryContainer, kafkaConnectContainer);
+          new KafkaTestEnvironment(
+              kafkaContainer,
+              schemaRegistryContainer,
+              kafkaConnectContainer,
+              connectLogConsumer,
+              connectWaitingConsumer);
     }
 
     @Override

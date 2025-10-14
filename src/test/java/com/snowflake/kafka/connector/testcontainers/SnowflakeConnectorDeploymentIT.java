@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.testcontainers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -20,6 +21,10 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -27,6 +32,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.output.WaitingConsumer;
 
 /**
  * Integration test that verifies the Snowflake Kafka Connector JAR can be deployed to Kafka
@@ -149,9 +155,37 @@ class SnowflakeConnectorDeploymentIT {
 
     // Wait for connector to reach RUNNING state
     waitForConnectorRunning(connectorName);
+      // When - Send multiple JSON messages to the Kafka topic
+      try (KafkaProducer<String, String> producer = kafkaEnv.createKafkaProducer()) {
+          for (int i = 1; i <= 5; i++) {
+              final ObjectNode testMessage = OBJECT_MAPPER.createObjectNode();
+              testMessage.put("id", i);
+              testMessage.put("name", "test-record-" + i);
+              testMessage.put("timestamp", System.currentTimeMillis());
+
+              final ProducerRecord<String, String> record =
+                  new ProducerRecord<>(
+                      topicName, "key" + i, OBJECT_MAPPER.writeValueAsString(testMessage));
+              producer.send(record).get();
+              LOGGER.info("Sent test message {} to topic {}: {}", i, topicName, testMessage);
+          }
+          producer.flush();
+      }
 
     LOGGER.info("Connector {} reached RUNNING state", connectorName);
+      // Then - Assert on Kafka Connect logs
+      final String connectLogs = kafkaEnv.getKafkaConnectLogs();
+      WaitingConsumer waitingConsumer = kafkaEnv.getKafkaConnectWaitingConsumer();
+      waitingConsumer.waitUntil( frame -> frame.getUtf8String().contains("Error Code: 5029"), 30, TimeUnit.SECONDS);
+
+
+      LOGGER.info("Checking Kafka Connect logs for expected content");
+      assertTrue(
+          connectLogs.contains(SnowflakeSinkConnector.class.getSimpleName()),
+          "Logs should mention SnowflakeSinkConnector");
   }
+
+
 
   private Map<String, String> buildConnectorConfig(
       final String connectorName, final String topicName) throws IOException {
