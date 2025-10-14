@@ -7,11 +7,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.net.URI;
@@ -26,23 +23,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Example integration test demonstrating the usage of KafkaTestcontainersExtension. This test
- * verifies that Kafka broker, Schema Registry, and Kafka Connect are properly configured and
- * accessible.
- */
-@ExtendWith(KafkaTestcontainersExtension.class)
+@ExtendWith(KafkaEcosystemExtention.class)
 class KafkaEcosystemSanityCheckIT {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @InjectKafkaEnvironment
     private KafkaTestEnvironment kafkaEnv;
-    private KafkaConnectApiClient kafkaConnectClient;
 
     @BeforeEach
     void setup() {
-        kafkaConnectClient = new KafkaConnectApiClient(kafkaEnv.getConnectUrl(), HttpClient.newHttpClient());
     }
 
     @Test

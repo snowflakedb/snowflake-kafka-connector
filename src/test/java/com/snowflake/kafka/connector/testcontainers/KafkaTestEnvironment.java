@@ -17,7 +17,7 @@ import org.testcontainers.containers.output.WaitingConsumer;
  * with helper methods for creating producers and consumers.
  *
  * <p>This class is injected into test fields annotated with {@link InjectKafkaEnvironment} when
- * using {@link KafkaTestcontainersExtension}.
+ * using {@link KafkaEcosystemExtention}.
  */
 final class KafkaTestEnvironment {
 

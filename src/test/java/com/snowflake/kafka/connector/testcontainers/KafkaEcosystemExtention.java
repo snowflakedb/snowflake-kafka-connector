@@ -38,7 +38,7 @@ import org.testcontainers.utility.MountableFile;
  * <p>Example usage:
  *
  * <pre>
- * &#64;ExtendWith(KafkaTestcontainersExtension.class)
+ * &#64;ExtendWith(KafkaEcosystemExtention.class)
  * class MyIntegrationTest {
  *
  *   &#64;InjectKafkaEnvironment
@@ -55,11 +55,11 @@ import org.testcontainers.utility.MountableFile;
  * }
  * </pre>
  */
-public final class KafkaTestcontainersExtension
+public final class KafkaEcosystemExtention
     implements BeforeAllCallback, AfterAllCallback, TestInstancePostProcessor {
 
   private static final Logger LOGGER =
-      LoggerFactory.getLogger(KafkaTestcontainersExtension.class);
+      LoggerFactory.getLogger(KafkaEcosystemExtention.class);
 
   private static final String CONFLUENT_PLATFORM_VERSION = "7.9.2";
   private static final int SCHEMA_REGISTRY_PORT = 8081;
@@ -103,7 +103,7 @@ public final class KafkaTestcontainersExtension
   }
 
   private ExtensionContext.Namespace getNamespace() {
-    return ExtensionContext.Namespace.create(KafkaTestcontainersExtension.class);
+    return ExtensionContext.Namespace.create(KafkaEcosystemExtention.class);
   }
 
   /**

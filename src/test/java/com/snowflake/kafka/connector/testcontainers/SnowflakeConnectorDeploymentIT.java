@@ -19,7 +19,6 @@ import org.testcontainers.containers.output.WaitingConsumer;
 import java.io.File;
 import java.io.IOException;
 import java.net.http.HttpClient;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -28,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
-@ExtendWith(KafkaTestcontainersExtension.class)
+@ExtendWith(KafkaEcosystemExtention.class)
 class SnowflakeConnectorDeploymentIT {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeConnectorDeploymentIT.class);
