@@ -517,6 +517,7 @@
             <artifactId>junit-vintage-engine</artifactId>
             <scope>test</scope>
         </dependency>
+
         <!-- Optional : override the JUnit 4 API version provided by junit-vintage-engine -->
         <dependency>
             <groupId>junit</groupId>
@@ -525,7 +526,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!--Mockito for unit test-->
+        <!--Mockito for undit test-->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
