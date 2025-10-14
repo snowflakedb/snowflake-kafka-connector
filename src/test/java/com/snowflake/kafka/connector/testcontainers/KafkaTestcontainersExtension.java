@@ -306,9 +306,9 @@ public final class KafkaTestcontainersExtension
               MountableFile.forHostPath(jar.toPath()), containerPath);
           LOGGER.info("Snowflake Connector JAR copied to container");
         } else {
-          LOGGER.warn(
+          throw new RuntimeException(
               "Snowflake Connector JAR not found in target directory. "
-                  + "Build the project first with: mvn package -Dgpg.skip=true");
+                  + "Build the project first with: mvn package -Dgpg.skip=truef -DskipTests");
         }
       } catch (IOException e) {
         LOGGER.warn("Failed to copy connector JAR: {}", e.getMessage());

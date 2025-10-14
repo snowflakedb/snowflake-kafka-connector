@@ -288,8 +288,10 @@ public class SnowflakeSinkTask extends SinkTask {
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
     this.sink.startPartitions(partitions, this.topic2table);
+    String topicName = partitions.isEmpty() ? "N/A" : partitions.iterator().next().topic();
     this.DYNAMIC_LOGGER.info(
-        "task opened with {} partitions, execution time: {} milliseconds",
+        "SnowflakeSinkTask task open success for topic {} with {} partitions, execution time: {} milliseconds",
+        topicName,
         partitions.size(),
         getDurationFromStartMs(startTime));
   }
