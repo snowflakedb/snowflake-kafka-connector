@@ -118,8 +118,10 @@ class SnowflakeConnectorDeploymentIT {
 
     final Map<String, String> connectorConfig = buildConnectorConfig(connectorName, topicName);
     connectorConfig.put("name", connectorName);
+    connectorConfig.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "true");
     final ObjectNode configJson = OBJECT_MAPPER.createObjectNode();
     configJson.put("name", connectorName);
+
 
     final ObjectNode config = OBJECT_MAPPER.createObjectNode();
     connectorConfig.forEach(config::put);
