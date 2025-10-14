@@ -181,9 +181,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void startPartition(String tableName, TopicPartition topicPartition) {
-
     tableActionsOnStartPartition(tableName);
-
     // Create channel for the given partition
     createStreamingChannelForTopicPartition(
         tableName, topicPartition, tableName2SchemaEvolutionPermission.get(tableName));
