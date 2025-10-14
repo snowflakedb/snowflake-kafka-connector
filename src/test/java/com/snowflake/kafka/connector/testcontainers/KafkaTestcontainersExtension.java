@@ -1,9 +1,16 @@
 package com.snowflake.kafka.connector.testcontainers;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -13,8 +20,10 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 /**
  * JUnit 5 extension that manages Kafka, Schema Registry, and Kafka Connect containers for
@@ -53,25 +62,11 @@ public final class KafkaTestcontainersExtension
   private static final String CONFLUENT_PLATFORM_VERSION = "7.9.2";
   private static final int SCHEMA_REGISTRY_PORT = 8081;
   private static final int KAFKA_CONNECT_PORT = 8083;
+  private static final String CONNECTOR_PLUGIN_PATH = "/usr/share/java";
 
   @Override
   public void beforeAll(final ExtensionContext context) {
-    final ContainerManager manager =
-        context
-            .getStore(getNamespace(context))
-            .getOrComputeIfAbsent(
-                ContainerManager.class,
-                key -> {
-                  final ContainerManager newManager = new ContainerManager();
-                  newManager.start();
-                  return newManager;
-                },
-                ContainerManager.class);
-
-    // Store the environment in the context for injection
-    context
-        .getStore(getNamespace(context))
-        .put(KafkaTestEnvironment.class, manager.getEnvironment());
+    ensureEnvironmentInitialized(context);
   }
 
   @Override
@@ -82,13 +77,7 @@ public final class KafkaTestcontainersExtension
 
   @Override
   public void postProcessTestInstance(final Object testInstance, final ExtensionContext context) {
-    final KafkaTestEnvironment environment =
-        context.getStore(getNamespace(context)).get(KafkaTestEnvironment.class, KafkaTestEnvironment.class);
-
-    if (environment == null) {
-      throw new IllegalStateException(
-          "KafkaTestEnvironment not initialized. This should not happen.");
-    }
+    final KafkaTestEnvironment environment = ensureEnvironmentInitialized(context);
 
     // Find all fields annotated with @InjectKafkaEnvironment and inject the environment
     final Class<?> testClass = testInstance.getClass();
@@ -114,6 +103,34 @@ public final class KafkaTestcontainersExtension
   private ExtensionContext.Namespace getNamespace(final ExtensionContext context) {
     return ExtensionContext.Namespace.create(
         KafkaTestcontainersExtension.class, context.getRequiredTestClass());
+  }
+
+  /**
+   * Ensures the KafkaTestEnvironment is initialized, creating it if necessary.
+   * This method is idempotent and thread-safe due to getOrComputeIfAbsent semantics.
+   *
+   * @param context the extension context
+   * @return the initialized KafkaTestEnvironment
+   */
+  private KafkaTestEnvironment ensureEnvironmentInitialized(final ExtensionContext context) {
+    final ContainerManager manager =
+        context
+            .getStore(getNamespace(context))
+            .getOrComputeIfAbsent(
+                ContainerManager.class,
+                key -> {
+                  final ContainerManager newManager = new ContainerManager();
+                  newManager.start();
+                  return newManager;
+                },
+                ContainerManager.class);
+
+    // Store the environment in the context for injection
+    final KafkaTestEnvironment environment = manager.getEnvironment();
+    context
+        .getStore(getNamespace(context))
+        .put(KafkaTestEnvironment.class, environment);
+    return environment;
   }
 
   /**
@@ -146,6 +163,7 @@ public final class KafkaTestcontainersExtension
               .withStartupTimeout(Duration.ofMinutes(2));
 
       kafkaContainer.start();
+      kafkaContainer.followOutput(new Slf4jLogConsumer(LoggerFactory.getLogger("testcontainers.kafka")));
       LOGGER.info("Kafka container started. Bootstrap servers: {}", kafkaContainer.getBootstrapServers());
 
       // Start Schema Registry container
@@ -164,6 +182,7 @@ public final class KafkaTestcontainersExtension
               .dependsOn(kafkaContainer);
 
       schemaRegistryContainer.start();
+      schemaRegistryContainer.followOutput(new Slf4jLogConsumer(LoggerFactory.getLogger("testcontainers.schema-registry")));
       LOGGER.info(
           "Schema Registry container started. URL: http://{}:{}",
           schemaRegistryContainer.getHost(),
@@ -201,7 +220,11 @@ public final class KafkaTestcontainersExtension
               .withStartupTimeout(Duration.ofMinutes(3))
               .dependsOn(kafkaContainer, schemaRegistryContainer);
 
+      // Copy connector JAR to container before starting it
+      copyConnectorJarIfExists(kafkaConnectContainer);
+
       kafkaConnectContainer.start();
+      kafkaConnectContainer.followOutput(new Slf4jLogConsumer(LoggerFactory.getLogger("testcontainers.kafka-connect")));
       LOGGER.info(
           "Kafka Connect container started. URL: http://{}:{}",
           kafkaConnectContainer.getHost(),
@@ -243,6 +266,61 @@ public final class KafkaTestcontainersExtension
 
     KafkaTestEnvironment getEnvironment() {
       return environment;
+    }
+
+    /**
+     * Copies the Snowflake Kafka Connector JAR from the target directory to the Kafka Connect
+     * container before it starts. This allows Kafka Connect to discover the plugin during its
+     * initial startup without requiring a restart.
+     *
+     * @param container the Kafka Connect container to copy the JAR to
+     */
+    private void copyConnectorJarIfExists(final GenericContainer<?> container) {
+      try {
+        final Optional<File> jarFile = findConnectorJar();
+        if (jarFile.isPresent()) {
+          final File jar = jarFile.get();
+          final String containerPath = CONNECTOR_PLUGIN_PATH + "/" + jar.getName();
+          LOGGER.info(
+              "Copying Snowflake Connector JAR {} to container path: {}",
+              jar.getName(),
+              containerPath);
+          container.withCopyFileToContainer(
+              MountableFile.forHostPath(jar.toPath()), containerPath);
+          LOGGER.info("Snowflake Connector JAR copied to container");
+        } else {
+          LOGGER.warn(
+              "Snowflake Connector JAR not found in target directory. "
+                  + "Build the project first with: mvn package -Dgpg.skip=true");
+        }
+      } catch (IOException e) {
+        LOGGER.warn("Failed to copy connector JAR: {}", e.getMessage());
+      }
+    }
+
+    /**
+     * Finds the Snowflake Kafka Connector JAR in the target directory.
+     *
+     * @return Optional containing the connector JAR file if found
+     * @throws IOException if an I/O error occurs while searching
+     */
+    private Optional<File> findConnectorJar() throws IOException {
+      final Path targetDir = Paths.get("target");
+      if (!Files.exists(targetDir)) {
+        LOGGER.debug("Target directory does not exist");
+        return Optional.empty();
+      }
+
+      try (Stream<Path> files = Files.list(targetDir)) {
+        return files
+            .filter(
+                path ->
+                    path.getFileName().toString().matches("snowflake-kafka-connector-.*\\.jar")
+                        && !path.getFileName().toString().contains("javadoc")
+                        && !path.getFileName().toString().contains("sources"))
+            .findFirst()
+            .map(Path::toFile);
+      }
     }
   }
 }
