@@ -31,7 +31,7 @@ import org.testcontainers.utility.MountableFile;
  * JUnit 5 extension that manages Kafka, Schema Registry, and Kafka Connect containers for
  * integration tests.
  *
- * <p>Containers are started once per test class and automatically cleaned up after all tests
+ * <p>Containers are started once per test run and automatically cleaned up after all tests
  * complete. Use with {@link InjectKafkaEnvironment} annotation to inject a {@link
  * KafkaTestEnvironment} into test fields.
  *
@@ -102,9 +102,8 @@ public final class KafkaTestcontainersExtension
     }
   }
 
-  private ExtensionContext.Namespace getNamespace(final ExtensionContext context) {
-    return ExtensionContext.Namespace.create(
-        KafkaTestcontainersExtension.class, context.getRequiredTestClass());
+  private ExtensionContext.Namespace getNamespace() {
+    return ExtensionContext.Namespace.create(KafkaTestcontainersExtension.class);
   }
 
   /**
@@ -117,7 +116,8 @@ public final class KafkaTestcontainersExtension
   private KafkaTestEnvironment ensureEnvironmentInitialized(final ExtensionContext context) {
     final ContainerManager manager =
         context
-            .getStore(getNamespace(context))
+            .getRoot()
+            .getStore(getNamespace())
             .getOrComputeIfAbsent(
                 ContainerManager.class,
                 key -> {
@@ -130,7 +130,8 @@ public final class KafkaTestcontainersExtension
     // Store the environment in the context for injection
     final KafkaTestEnvironment environment = manager.getEnvironment();
     context
-        .getStore(getNamespace(context))
+        .getRoot()
+        .getStore(getNamespace())
         .put(KafkaTestEnvironment.class, environment);
     return environment;
   }
