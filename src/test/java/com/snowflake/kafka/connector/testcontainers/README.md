@@ -1,10 +1,10 @@
 # Testcontainers Kafka Integration Tests
 
-This package provides a base class for integration tests using [Testcontainers](https://www.testcontainers.org/) to automatically start and manage Kafka broker, Schema Registry, and Kafka Connect containers.
+This package provides a JUnit 5 extension for integration tests using [Testcontainers](https://www.testcontainers.org/) to automatically start and manage Kafka broker, Schema Registry, and Kafka Connect containers.
 
 ## Overview
 
-The `TestcontainersKafkaBaseIT` class provides a simple, zero-configuration approach to integration testing with Kafka components. All containers use PLAINTEXT security (no authentication) for simplicity.
+The `KafkaTestcontainersExtension` provides a simple, zero-configuration approach to integration testing with Kafka components using annotation-based field injection. All containers use PLAINTEXT security (no authentication) for simplicity.
 
 ## Features
 
@@ -13,6 +13,7 @@ The `TestcontainersKafkaBaseIT` class provides a simple, zero-configuration appr
 - **Complete Kafka Stack**: Includes Kafka broker, Schema Registry, and Kafka Connect
 - **Helper Methods**: Pre-configured producer and consumer creation
 - **Shared Containers**: Containers are shared across all tests in a class for faster execution
+- **Annotation-Based Injection**: Clean field injection using `@InjectKafkaEnvironment`
 
 ## Usage
 
@@ -21,17 +22,24 @@ The `TestcontainersKafkaBaseIT` class provides a simple, zero-configuration appr
 ```java
 package com.snowflake.kafka.connector.mypackage;
 
-import com.snowflake.kafka.connector.testcontainers.TestcontainersKafkaBaseIT;
+import com.snowflake.kafka.connector.testcontainers.KafkaTestcontainersExtension;
+import com.snowflake.kafka.connector.testcontainers.InjectKafkaEnvironment;
+import com.snowflake.kafka.connector.testcontainers.KafkaTestEnvironment;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-class MyIntegrationTest extends TestcontainersKafkaBaseIT {
+@ExtendWith(KafkaTestcontainersExtension.class)
+class MyIntegrationTest {
+
+    @InjectKafkaEnvironment
+    private KafkaTestEnvironment kafkaEnv;
 
     @Test
     void testProduceMessage() throws Exception {
         // Use helper method to create a producer
-        try (KafkaProducer<String, String> producer = createKafkaProducer()) {
+        try (KafkaProducer<String, String> producer = kafkaEnv.createKafkaProducer()) {
             ProducerRecord<String, String> record = 
                 new ProducerRecord<>("test-topic", "key", "value");
             producer.send(record).get();
@@ -41,7 +49,7 @@ class MyIntegrationTest extends TestcontainersKafkaBaseIT {
     @Test
     void testWithSchemaRegistry() {
         // Access Schema Registry URL
-        String schemaRegistryUrl = getSchemaRegistryUrl();
+        String schemaRegistryUrl = kafkaEnv.getSchemaRegistryUrl();
         // Use in your test...
     }
 }
@@ -51,24 +59,24 @@ class MyIntegrationTest extends TestcontainersKafkaBaseIT {
 
 #### Connection URLs
 
-- `getKafkaBootstrapServers()` - Returns Kafka bootstrap servers URL
-- `getSchemaRegistryUrl()` - Returns Schema Registry HTTP URL
-- `getConnectUrl()` - Returns Kafka Connect REST API URL
+- `kafkaEnv.getKafkaBootstrapServers()` - Returns Kafka bootstrap servers URL
+- `kafkaEnv.getSchemaRegistryUrl()` - Returns Schema Registry HTTP URL
+- `kafkaEnv.getConnectUrl()` - Returns Kafka Connect REST API URL
 
 #### Client Creation
 
-- `createKafkaProducer()` - Creates a String producer with sensible defaults
-- `createKafkaConsumer(String groupId)` - Creates a String consumer with sensible defaults
+- `kafkaEnv.createKafkaProducer()` - Creates a String producer with sensible defaults
+- `kafkaEnv.createKafkaConsumer(String groupId)` - Creates a String consumer with sensible defaults
 
 #### Advanced Access
 
-- `getKafkaContainer()` - Access the underlying Kafka container
-- `getSchemaRegistryContainer()` - Access the Schema Registry container
-- `getKafkaConnectContainer()` - Access the Kafka Connect container
+- `kafkaEnv.getKafkaContainer()` - Access the underlying Kafka container
+- `kafkaEnv.getSchemaRegistryContainer()` - Access the Schema Registry container
+- `kafkaEnv.getKafkaConnectContainer()` - Access the Kafka Connect container
 
 ## Configuration
 
-The base class uses the following defaults:
+The extension uses the following defaults:
 
 ### Kafka Broker
 - Image: `confluentinc/cp-kafka:7.9.2`
@@ -91,7 +99,7 @@ The base class uses the following defaults:
 
 ## Running Tests
 
-To run integration tests that extend this base class:
+To run integration tests that use this extension:
 
 ```bash
 # Run all integration tests
@@ -159,10 +167,11 @@ The following dependencies are automatically included (see `pom.xml`):
 
 ## Best Practices
 
-1. **Use PER_CLASS lifecycle**: Containers are already shared, don't restart for each test
+1. **Containers are shared**: The extension manages per-class container lifecycle automatically
 2. **Clean up resources**: Close producers/consumers in try-with-resources or @AfterEach
 3. **Use unique topic names**: Avoid conflicts between tests
 4. **Keep tests focused**: Each test should verify a specific behavior
+5. **Field injection**: Annotate fields with `@InjectKafkaEnvironment` for automatic injection
 
 ## Alternative Approaches
 

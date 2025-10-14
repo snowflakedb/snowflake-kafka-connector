@@ -20,15 +20,19 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Example integration test demonstrating the usage of TestcontainersKafkaBaseIT. This test
+ * Example integration test demonstrating the usage of KafkaTestcontainersExtension. This test
  * verifies that Kafka broker, Schema Registry, and Kafka Connect are properly configured and
  * accessible.
  */
-class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
+@ExtendWith(KafkaTestcontainersExtension.class)
+class TestcontainersKafkaBaseITTest {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+  @InjectKafkaEnvironment private KafkaTestEnvironment kafkaEnv;
 
   @Test
   void testKafkaBrokerIsAccessible() throws ExecutionException, InterruptedException {
@@ -38,7 +42,7 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
     final String testValue = "test-value";
 
     // When - produce a message
-    try (KafkaProducer<String, String> producer = createKafkaProducer()) {
+    try (KafkaProducer<String, String> producer = kafkaEnv.createKafkaProducer()) {
       ProducerRecord<String, String> record =
           new ProducerRecord<>(topicName, testKey, testValue);
       RecordMetadata metadata = producer.send(record).get();
@@ -58,7 +62,7 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
     final String testValue = "value-1";
 
     // When - produce a message
-    try (KafkaProducer<String, String> producer = createKafkaProducer()) {
+    try (KafkaProducer<String, String> producer = kafkaEnv.createKafkaProducer()) {
       ProducerRecord<String, String> record =
           new ProducerRecord<>(topicName, testKey, testValue);
       producer.send(record).get();
@@ -66,7 +70,7 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
     }
 
     // Then - consume the message
-    try (KafkaConsumer<String, String> consumer = createKafkaConsumer("test-group-1")) {
+    try (KafkaConsumer<String, String> consumer = kafkaEnv.createKafkaConsumer("test-group-1")) {
       consumer.subscribe(Collections.singletonList(topicName));
 
       ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(10));
@@ -84,7 +88,7 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
     HttpClient client = HttpClient.newHttpClient();
     HttpRequest request =
         HttpRequest.newBuilder()
-            .uri(URI.create(getSchemaRegistryUrl() + "/subjects"))
+            .uri(URI.create(kafkaEnv.getSchemaRegistryUrl() + "/subjects"))
             .GET()
             .build();
 
@@ -102,7 +106,7 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
     // Given
     HttpClient client = HttpClient.newHttpClient();
     HttpRequest request =
-        HttpRequest.newBuilder().uri(URI.create(getConnectUrl() + "/connectors")).GET().build();
+        HttpRequest.newBuilder().uri(URI.create(kafkaEnv.getConnectUrl() + "/connectors")).GET().build();
 
     // When
     HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -118,7 +122,7 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
     // Given
     HttpClient client = HttpClient.newHttpClient();
     HttpRequest request =
-        HttpRequest.newBuilder().uri(URI.create(getConnectUrl() + "/")).GET().build();
+        HttpRequest.newBuilder().uri(URI.create(kafkaEnv.getConnectUrl() + "/")).GET().build();
 
     // When
     HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -138,7 +142,7 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
     final int messageCount = 10;
 
     // When - produce multiple messages
-    try (KafkaProducer<String, String> producer = createKafkaProducer()) {
+    try (KafkaProducer<String, String> producer = kafkaEnv.createKafkaProducer()) {
       for (int i = 0; i < messageCount; i++) {
         ProducerRecord<String, String> record =
             new ProducerRecord<>(topicName, "key-" + i, "value-" + i);
@@ -148,7 +152,7 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
     }
 
     // Then - consume all messages
-    try (KafkaConsumer<String, String> consumer = createKafkaConsumer("test-group-2")) {
+    try (KafkaConsumer<String, String> consumer = kafkaEnv.createKafkaConsumer("test-group-2")) {
       consumer.subscribe(Collections.singletonList(topicName));
 
       int totalRecordsRead = 0;
@@ -166,9 +170,9 @@ class TestcontainersKafkaBaseITTest extends TestcontainersKafkaBaseIT {
   @Test
   void testContainerUrlsAreValid() {
     // Given & When
-    final String kafkaBootstrapServers = getKafkaBootstrapServers();
-    final String schemaRegistryUrl = getSchemaRegistryUrl();
-    final String connectUrl = getConnectUrl();
+    final String kafkaBootstrapServers = kafkaEnv.getKafkaBootstrapServers();
+    final String schemaRegistryUrl = kafkaEnv.getSchemaRegistryUrl();
+    final String connectUrl = kafkaEnv.getConnectUrl();
 
     // Then
     assertNotNull(kafkaBootstrapServers);
