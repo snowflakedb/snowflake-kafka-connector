@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLA
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
 import static com.snowflake.kafka.connector.Utils.getRole;
+import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
 import static com.snowflake.kafka.connector.Utils.isUsingUserDefinedDatabaseObjects;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
@@ -144,7 +145,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.recordService =
         RecordServiceFactory.createRecordService(
-            Utils.isIcebergEnabled(connectorConfig),
+            isIcebergEnabled(connectorConfig),
             isSchematizationEnabled(connectorConfig),
             Utils.isSnowpipeStreamingV2Enabled(connectorConfig));
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
@@ -227,15 +228,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         throw SnowflakeErrors.ERROR_5029.getException(
             "Table name: " + tableName, this.conn.getTelemetryClient());
       }
-      populateSchemaEvolutionPermissions(tableName);
-    } else if (Utils.isIcebergEnabled(connectorConfig)) {
+    } else if (isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
           tableName, getRole(connectorConfig), isSchematizationEnabled(connectorConfig));
       icebergInitService.initializeIcebergTableProperties(tableName);
     } else {
       createTableIfNotExists(tableName);
-      populateSchemaEvolutionPermissions(tableName);
     }
+    populateSchemaEvolutionPermissions(tableName);
   }
 
   /**

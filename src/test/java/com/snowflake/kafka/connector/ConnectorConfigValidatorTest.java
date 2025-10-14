@@ -11,6 +11,7 @@ import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
 import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConfForStreaming;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.Assert.assertEquals;
@@ -1050,7 +1051,7 @@ public class ConnectorConfigValidatorTest {
 
   @Test
   public void test_snowpipe_streaming_use_user_defined_database_objects() {
-    Map<String, String> config = getConfig();
+    Map<String, String> config = getConfForStreaming();
     connectorConfigValidator.validateConfig(config);
     config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "False");
     connectorConfigValidator.validateConfig(config);
@@ -1065,7 +1066,7 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void
       test_snowpipe_streaming_use_user_defined_database_objects_invalid_with_schematization_enabled() {
-    Map<String, String> config = getConfig();
+    Map<String, String> config = getConfForStreaming();
     config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "true");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
 
