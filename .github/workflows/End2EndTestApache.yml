@@ -64,10 +64,8 @@ jobs:
         sudo htpasswd -db -c /etc/squid/passwords admin test
         sudo mv .github/scripts/squid.conf /etc/squid/squid.conf
         sudo service squid start
-    
     - name: Build with Unit Test for Apache
       env:
-        JACOCO_COVERAGE: true
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
       run: |

@@ -39,7 +39,7 @@ else
   SKIP_PROXY=false
 fi
 
-tests_pattern="[^(--tests=).*]"
+tests_pattern="^(--tests=).*"
 if [ "$#" -gt 5 ] && [[ $6 =~ $tests_pattern ]] ; then
   # skip initial '--tests='
   TESTS=`echo $6 | cut -c9-`
@@ -124,7 +124,7 @@ KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
 echo "Built zip file using kafka connect maven plugin:"
 ls /tmp/sf-kafka-connect-plugin*
 # Plugin path is used by kafka connect to install plugin, in our case, SF Kafka Connector
-unzip /tmp/sf-kafka-connect-plugin.zip -d $KAFKA_CONNECT_PLUGIN_PATH
+unzip -o /tmp/sf-kafka-connect-plugin.zip -d $KAFKA_CONNECT_PLUGIN_PATH
 echo "list KAFKA_CONNECT_PLUGIN_PATH: $KAFKA_CONNECT_PLUGIN_PATH"
 ls $KAFKA_CONNECT_PLUGIN_PATH
 

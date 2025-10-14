@@ -67,7 +67,6 @@ jobs:
 
     - name: Build with Unit Test For Confluent
       env:
-        JACOCO_COVERAGE: true
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
       run: |
