@@ -180,6 +180,28 @@ public class StreamingClientProvider {
   }
 
   /**
+   * Recreates the client for the given connector configuration.
+   *
+   * @param connectorConfig The connector configuration
+   * @return The newly created client
+   */
+  public SnowflakeStreamingIngestClient recreateClient(Map<String, String> connectorConfig) {
+    StreamingClientProperties clientProperties = new StreamingClientProperties(connectorConfig);
+
+    // Atomically update the cache entry and return the new client
+    return this.registeredClients.asMap().compute(clientProperties, (key, client) -> {
+      if (client != null) {
+        if (StreamingClientHandler.isClientValid(client)) {
+          // Client was already recreated by another thread
+          return client;
+        }
+        LOGGER.warn("Client is invalid, recreating streaming client: {}", client.getName());
+      }
+      return this.streamingClientHandler.createClient(clientProperties);
+    });
+  }
+
+  /**
    * Closes the given client and deregisters it from the cache if necessary. It will also call close
    * on the registered client if exists, which should be the same as the given client so the call
    * will no-op.
