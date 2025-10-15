@@ -188,17 +188,14 @@ public class StreamingClientProvider {
   public SnowflakeStreamingIngestClient recreateClient(Map<String, String> connectorConfig) {
     StreamingClientProperties clientProperties = new StreamingClientProperties(connectorConfig);
 
-    SnowflakeStreamingIngestClient registeredClient =
-        this.registeredClients.getIfPresent(clientProperties);
-    if (registeredClient != null) {
-      LOGGER.warn("Client is invalid, recreating streaming client: {}", registeredClient.getName());
-      this.streamingClientHandler.closeClient(registeredClient);
-      this.registeredClients.invalidate(clientProperties);
-    }
-
-    SnowflakeStreamingIngestClient newClient = this.streamingClientHandler.createClient(clientProperties);
-    this.registeredClients.put(clientProperties, newClient);
-    return newClient;
+    // Atomically update the cache entry and return the new client
+    return this.registeredClients.asMap().compute(clientProperties, (key, oldClient) -> {
+      if (oldClient != null) {
+        LOGGER.warn("Client is invalid, recreating streaming client: {}", oldClient.getName());
+        this.streamingClientHandler.closeClient(oldClient);
+      }
+      return this.streamingClientHandler.createClient(clientProperties);
+    });
   }
 
   /**
