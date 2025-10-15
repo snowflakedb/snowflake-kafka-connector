@@ -4,9 +4,11 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIP
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.TestUtils.assertWithRetry;
 import static com.snowflake.kafka.connector.internal.TestUtils.tableSize;
+import static com.snowflake.kafka.connector.internal.streaming.AssertjDbWrapper.dbAssertThat;
 import static java.lang.String.format;
 import static org.apache.kafka.connect.data.Schema.STRING_SCHEMA;
-import static org.assertj.db.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +18,7 @@ import com.snowflake.kafka.connector.InjectQueryRunner;
 import com.snowflake.kafka.connector.InjectQueryRunnerExtension;
 import com.snowflake.kafka.connector.InjectSnowflakeDataSourceExtension;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
@@ -103,7 +106,7 @@ class UserDefinedPipeAndTableIT {
     Table destinationTable = assertDb.table(table).build();
 
     // Assert that the table has exactly 2 rows with the given values
-    assertThat(destinationTable)
+    dbAssertThat(destinationTable)
         .hasNumberOfRows(2)
         .row(0)
         .value("city")
@@ -112,6 +115,21 @@ class UserDefinedPipeAndTableIT {
         .isEqualTo(30)
         .value("married")
         .isEqualTo(false);
+  }
+
+  @Test
+  public void test_error_reported_when_the_pipe_does_not_exist() throws Exception {
+    // pipe will not exist when startPartition is called
+    TestUtils.dropPipe(pipe);
+    SnowflakeSinkService service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .build();
+    SnowflakeKafkaConnectorException e =
+        assertThrows(
+            SnowflakeKafkaConnectorException.class,
+            () -> service.startPartition(table, topicPartition));
+    assertThat(e.getMessage()).contains("Destination pipe does not exist");
   }
 
   private List<SinkRecord> getRecordsToInsert() throws JsonProcessingException {

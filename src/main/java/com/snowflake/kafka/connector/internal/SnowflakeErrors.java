@@ -373,11 +373,29 @@ public enum SnowflakeErrors {
       "Destination table does not exist. The "
           + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
           + " property is set to true. In this"
-          + " mode destination tables need to be created manually beforehand",
+          + " mode destination tables and pipes need to be created manually beforehand. With the "
+          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
+          + " parameter set to true, the table name and pipe names must be equal.",
       "Destination table does not exist. The "
           + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
           + " property is set to true. In this"
-          + " mode destination tables need to be created manually beforehand");
+          + " mode destination tables and pipes need to be created manually beforehand. With the "
+          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
+          + " parameter set to true, the table name and pipe names must be equal."),
+  ERROR_5030(
+      "5030",
+      "Destination pipe does not exist. The "
+          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
+          + " property is set to true. In this"
+          + " mode destination tables and pipes need to be created manually beforehand. With the "
+          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
+          + " parameter set to true, the table name and pipe names must be equal.",
+      "Destination pipe does not exist. The "
+          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
+          + " property is set to true. In this"
+          + " mode destination tables and pipes need to be created manually beforehand. With the "
+          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
+          + " parameter set to true, the table name and pipe names must be equal.");
 
   // properties
 
