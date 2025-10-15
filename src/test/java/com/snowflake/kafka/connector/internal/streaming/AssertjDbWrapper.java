@@ -7,8 +7,8 @@ import org.assertj.db.type.Table;
 
 /**
  * Wrapper class to avoid name clashing with jassert-core library. Jassert-core and jassert-db, both
- * have the same 'assertThat' construct. To use both of them, it would require to reference one of them
- * as FQN. So I'm aliasing the assertj-db in this wrapper
+ * have the same 'assertThat' construct. To use both of them, it would require to reference one of
+ * them as FQN. So I'm aliasing the assertj-db in this wrapper
  */
 final class AssertjDbWrapper {
 
