@@ -96,10 +96,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /* SinkTaskContext has access to all methods/APIs available to talk to Kafka Connect runtime*/
   private final SinkTaskContext sinkTaskContext;
 
-  // ------ Streaming Ingest ------ //
-  // needs url, username. p8 key, role name
-  private final SnowflakeStreamingIngestClient streamingIngestClient;
-
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
@@ -150,9 +146,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL))
             .map(Boolean::parseBoolean)
             .orElse(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT);
-    this.streamingIngestClient =
-        StreamingClientProvider.getStreamingClientProviderInstance()
-            .getClient(this.connectorConfig);
 
     this.behaviorOnNullValues = behaviorOnNullValues;
     this.partitionsToChannel = new HashMap<>();
@@ -276,8 +269,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           rowSchemaManager,
           streamingErrorHandler);
     } else {
+      // Get current client from provider (may have been recreated by another channel)
+      SnowflakeStreamingIngestClient client =
+          StreamingClientProvider.getStreamingClientProviderInstance()
+              .getClient(this.connectorConfig);
       return new DirectTopicPartitionChannel(
-          this.streamingIngestClient,
+          client,
           topicPartition,
           partitionChannelKey, // Streaming channel name
           tableName,
@@ -405,8 +402,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     partitionsToChannel.clear();
 
+    SnowflakeStreamingIngestClient client =
+        StreamingClientProvider.getStreamingClientProviderInstance().getClient(this.connectorConfig);
     StreamingClientProvider.getStreamingClientProviderInstance()
-        .closeClient(this.connectorConfig, this.streamingIngestClient);
+        .closeClient(this.connectorConfig, client);
   }
 
   private void closeAllSequentially() {
@@ -528,13 +527,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // stopping the client may cause unexpected behaviour
     if (!isOptimizationEnabled) {
       try {
+        SnowflakeStreamingIngestClient client =
+            StreamingClientProvider.getStreamingClientProviderInstance()
+                .getClient(this.connectorConfig);
         StreamingClientProvider.getStreamingClientProviderInstance()
-            .closeClient(connectorConfig, this.streamingIngestClient);
+            .closeClient(connectorConfig, client);
       } catch (Exception e) {
-        LOGGER.warn(
-            "Could not close streaming ingest client {}. Reason: {}",
-            streamingIngestClient.getName(),
-            e.getMessage());
+        LOGGER.warn("Could not close streaming ingest client. Reason: {}", e.getMessage());
       }
     }
   }
@@ -577,7 +576,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /* Used for testing */
   @VisibleForTesting
   public SnowflakeStreamingIngestClient getStreamingIngestClient() {
-    return this.streamingIngestClient;
+    return StreamingClientProvider.getStreamingClientProviderInstance()
+        .getClient(this.connectorConfig);
   }
 
   /**

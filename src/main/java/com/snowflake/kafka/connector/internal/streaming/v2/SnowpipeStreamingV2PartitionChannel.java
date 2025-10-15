@@ -41,6 +41,10 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
 public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChannel {
   private static final KCLogger LOGGER =
       new KCLogger(SnowpipeStreamingV2PartitionChannel.class.getName());
+
+  // TODO: Replace with structured error code once SSv2 SDK provides error code constants
+  private static final String CLIENT_CLOSED_ERROR_CODE = "CLIENT_CLOSED";
+
   private final StreamingClientProperties streamingClientProperties;
   private final StreamingIngestClientV2Provider streamingIngestClientV2Provider;
 
@@ -338,6 +342,10 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    */
   private void insertRowFallbackSupplier(Throwable ex)
       throws TopicPartitionChannelInsertionException {
+    if (isClientInvalidError(ex)) {
+      streamingIngestClientV2Provider.recreateClient(
+          connectorConfig, pipeName, streamingClientProperties);
+    }
     final long offsetRecoveredFromSnowflake =
         streamingApiFallbackSupplier(StreamingApiFallbackInvoker.APPEND_ROW_FALLBACK);
     throw new TopicPartitionChannelInsertionException(
@@ -353,6 +361,19 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   @VisibleForTesting
   public long fetchOffsetTokenWithRetry() {
     return offsetTokenExecutor.get(this::fetchLatestCommittedOffsetFromSnowflake);
+  }
+
+  /**
+   * Checks if the exception indicates a client invalidation error.
+   *
+   * @param e the exception to check
+   * @return true if the exception is a CLOSED_CLIENT error
+   */
+  private boolean isClientInvalidError(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    return CLIENT_CLOSED_ERROR_CODE.equals(((SFException) e).getErrorCodeName());
   }
 
   /**

@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.util.HashMap;
@@ -19,6 +20,8 @@ import java.util.Properties;
  * within single method.
  */
 public class StreamingIngestClientV2Provider {
+  private static final KCLogger LOGGER =
+      new KCLogger(StreamingIngestClientV2Provider.class.getName());
 
   private static final String STREAMING_CLIENT_V2_PREFIX_NAME = "KC_CLIENT_V2_";
   private static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
@@ -35,6 +38,27 @@ public class StreamingIngestClientV2Provider {
           pipeToClientMap.computeIfAbsent(
               pipeName, k -> createClient(connectorConfig, pipeName, streamingClientProperties));
       return new StreamingIngestClientV2Wrapper(client);
+    }
+  }
+
+  /**
+   * Recreates the client for the given pipe name.
+   *
+   * @param connectorConfig the connector configuration
+   * @param pipeName the pipe name
+   * @param streamingClientProperties the streaming client properties
+   */
+  public void recreateClient(
+      Map<String, String> connectorConfig,
+      String pipeName,
+      StreamingClientProperties streamingClientProperties) {
+    synchronized (pipeToClientMap) {
+      SnowflakeStreamingIngestClient oldClient = pipeToClientMap.remove(pipeName);
+      if (oldClient != null) {
+        LOGGER.warn("Client is invalid, recreating client for pipe: {}", pipeName);
+        oldClient.close();
+      }
+      pipeToClientMap.put(pipeName, createClient(connectorConfig, pipeName, streamingClientProperties));
     }
   }
 
