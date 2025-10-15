@@ -50,6 +50,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.*;
+import net.snowflake.ingest.utils.ErrorCode;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -90,7 +91,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   // should be skipped
   private boolean needToSkipCurrentBatch = false;
 
-  private final SnowflakeStreamingIngestClient streamingIngestClient;
+  private SnowflakeStreamingIngestClient streamingIngestClient;
 
   // Topic partition Object from connect consisting of topic and partition
   private final TopicPartition topicPartition;
@@ -498,6 +499,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    */
   private void insertRowFallbackSupplier(Throwable ex)
       throws TopicPartitionChannelInsertionException {
+    if (isClientInvalidError(ex)) {
+      this.streamingIngestClient =
+          StreamingClientProvider.getStreamingClientProviderInstance()
+              .recreateClient(sfConnectorConfig);
+    }
     final long offsetRecoveredFromSnowflake =
         streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);
     throw new TopicPartitionChannelInsertionException(
@@ -651,6 +657,19 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
                     event.getException()))
         .compose(offsetTokenRetryPolicy)
         .get(this::fetchLatestCommittedOffsetFromSnowflake);
+  }
+
+  /**
+   * Checks if the exception indicates a client invalidation error.
+   *
+   * @param e the exception to check
+   * @return true if the exception is a CLOSED_CLIENT error
+   */
+  private boolean isClientInvalidError(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    return ErrorCode.CLOSED_CLIENT.getMessageCode().equals(((SFException) e).getVendorCode());
   }
 
   /**
