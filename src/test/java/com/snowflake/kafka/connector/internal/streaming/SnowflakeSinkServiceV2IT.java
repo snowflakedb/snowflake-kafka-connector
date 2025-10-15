@@ -197,8 +197,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testStreamingIngest_multipleChannelPartitions_withMetrics()
-      throws Exception {
+  public void testStreamingIngest_multipleChannelPartitions_withMetrics() throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     // set up telemetry service spy
     SnowflakeConnectionService connectionService = Mockito.spy(this.conn);
@@ -310,8 +309,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table()
-      throws Exception {
+  public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table() throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     final int partitionCount = 3;
     final int recordsInEachPartition = 2;
@@ -373,8 +371,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions()
-      throws Exception {
+  public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions() throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     final int partitionCount = 5;
     final int recordsInEachPartition = 2;
@@ -731,8 +728,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testBrokenRecordIngestionFollowedUpByValidRecord()
-      throws Exception {
+  public void testBrokenRecordIngestionFollowedUpByValidRecord() throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
@@ -881,8 +877,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
   @Test
-  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets()
-      throws Exception {
+  public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
@@ -931,8 +926,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
   // user
   @Test
-  public void testStreamingIngest_multipleChannel_distinctClients()
-      throws Exception {
+  public void testStreamingIngest_multipleChannel_distinctClients() throws Exception {
     config.put(SNOWPIPE_STREAMING_V2_ENABLED, "false");
     // create cat and dog configs and partitions
     // one client is enabled but two clients should be created because different roles in config
