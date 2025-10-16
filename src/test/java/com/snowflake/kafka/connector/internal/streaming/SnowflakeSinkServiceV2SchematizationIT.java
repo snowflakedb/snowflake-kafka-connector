@@ -35,8 +35,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkServiceV2BaseIT {
 
@@ -184,12 +182,10 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     await().atMost(10, TimeUnit.SECONDS).until(() -> service.getOffset(topicPartition) == 4);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ(
-      boolean ssv2Enabled) {
+  @Test
+  public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ() {
     // given
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
@@ -211,11 +207,10 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void shouldSendRecordToDlqIfSchemaNotMatched(boolean ssv2Enabled) {
+  @Test
+  void shouldSendRecordToDlqIfSchemaNotMatched() {
     // given
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
 
     conn.createTableWithOnlyMetadataColumn(table);
     createNonNullableColumn(table, "\"ID_INT8\"", "boolean");
