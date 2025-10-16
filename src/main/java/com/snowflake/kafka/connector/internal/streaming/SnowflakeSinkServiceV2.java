@@ -216,8 +216,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void tableActionsOnStartPartition(String tableName) {
 
-    boolean usingUserDefinedDatabaseObjects = isUsingUserDefinedDatabaseObjects(connectorConfig);
-    boolean tableExists = this.conn.tableExist(tableName);
+    final String destinationPipeName = PipeNameProvider.pipeName(connectorConfig, tableName);
+    final boolean usingUserDefinedDatabaseObjects =
+        isUsingUserDefinedDatabaseObjects(connectorConfig);
+    final boolean tableExists = this.conn.tableExist(tableName);
+    final boolean pipeExists = this.conn.pipeExist(destinationPipeName);
 
     // if the user is using their own database objects (tables/pipes) we must make sure the table
     // exists
@@ -225,6 +228,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       if (!tableExists) {
         throw SnowflakeErrors.ERROR_5029.getException(
             "Table name: " + tableName, this.conn.getTelemetryClient());
+      }
+      if (!pipeExists) {
+        throw SnowflakeErrors.ERROR_5030.getException(
+            "Pipe name: " + destinationPipeName, this.conn.getTelemetryClient());
       }
     } else if (isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
