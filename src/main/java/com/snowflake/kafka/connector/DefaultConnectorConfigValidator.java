@@ -264,6 +264,21 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
+    if (config.containsKey(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)) {
+      if (!(config
+              .get(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)
+              .equalsIgnoreCase("true")
+          || config
+              .get(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)
+              .equalsIgnoreCase("false"))) {
+        invalidConfigParams.put(
+            SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
+            Utils.formatString(
+                "Kafka config:{} should either be true or false",
+                SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS));
+      }
+    }
+
     // Check mutual exclusivity between SSv2 and Iceberg
     if (isSnowpipeStreamingV2Enabled(config) && isIcebergEnabled(config)) {
       invalidConfigParams.put(
@@ -278,6 +293,21 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               "{} and {} are mutually exclusive and cannot both be enabled",
               ICEBERG_ENABLED,
               SNOWPIPE_STREAMING_V2_ENABLED));
+    }
+
+    // with schematization enabled user expects the connector to alter table (add columns) when new
+    // fields arrive
+    // so setting schematization to true and at the same time using user defined database objects
+    // makes no sense because the connector should not modify the TABLE and PIPE created by the user
+    // (as per contract).
+    if (isSchematizationEnabled(config) && isUsingUserDefinedDatabaseObjects(config)) {
+      invalidConfigParams.put(
+          SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
+          Utils.formatString(
+              "{} and {} are mutually exclusive. If schematization is enabled then you need to"
+                  + " allow connector to alter target table and pipe.",
+              SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
+              ENABLE_SCHEMATIZATION_CONFIG));
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING

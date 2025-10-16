@@ -2,6 +2,7 @@
 
 # exit on error
 set -e
+set -x
 
 # error printing function
 function error_exit() {
@@ -99,7 +100,7 @@ case $BUILD_METHOD in
 	  mvn -f $POM_FILE_NAME clean
 	  # mvn package with pom_confluent runs the kafka-connect-maven-plugin which creates a zip file
 	  # More information: https://docs.confluent.io/platform/current/connect/kafka-connect-maven-plugin/site/plugin-info.html
-    mvn -f $POM_FILE_NAME package -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+    mvn -f $POM_FILE_NAME package -Dgpg.skip=true -DskipTests -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 		;;
 	none)
 		echo -e "\n=== skip building, please make sure built connector exist ==="

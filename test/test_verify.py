@@ -104,7 +104,7 @@ class KafkaTest:
         avro_producer_config['schema.registry.url'] = schemaRegistryAddress
         self.avroProducer = AvroProducer(avro_producer_config)
 
-        reg = "[^\/]*snowflakecomputing"  # find the account name
+        reg = "[^/]*snowflakecomputing"  # find the account name
         account = re.findall(reg, testHost)
         if len(account) != 1 or len(account[0]) < 20:
             print(datetime.now().strftime("%H:%M:%S "),
@@ -605,9 +605,7 @@ if __name__ == "__main__":
     snowflakeCloudPlatform: CloudPlatform = __parseCloudPlatform()
     print("Running tests for platform {} and distribution {}".format(snowflakeCloudPlatform, testSet))
 
-    parametersList = ConnectorParametersList([
-        ConnectorParameters(snowflake_streaming_v2_enabled='false'),
-        ConnectorParameters(snowflake_streaming_v2_enabled='true'),
+    parametersList = ConnectorParametersList([ConnectorParameters(snowflake_streaming_v2_enabled='true')
     ])
 
     parametersList.for_each(

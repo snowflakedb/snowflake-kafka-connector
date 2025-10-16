@@ -4,6 +4,10 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT;
+import static com.snowflake.kafka.connector.Utils.getRole;
+import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
+import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
+import static com.snowflake.kafka.connector.Utils.isUsingUserDefinedDatabaseObjects;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.MetricRegistry;
@@ -141,8 +145,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.recordService =
         RecordServiceFactory.createRecordService(
-            Utils.isIcebergEnabled(connectorConfig),
-            Utils.isSchematizationEnabled(connectorConfig),
+            isIcebergEnabled(connectorConfig),
+            isSchematizationEnabled(connectorConfig),
             Utils.isSnowpipeStreamingV2Enabled(connectorConfig));
     this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
     this.icebergInitService = new IcebergInitService(conn);
@@ -177,9 +181,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void startPartition(String tableName, TopicPartition topicPartition) {
-    // the table should be present before opening a channel so let's do a table existence check here
     tableActionsOnStartPartition(tableName);
-
     // Create channel for the given partition
     createStreamingChannelForTopicPartition(
         tableName, topicPartition, tableName2SchemaEvolutionPermission.get(tableName));
@@ -213,16 +215,25 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   private void tableActionsOnStartPartition(String tableName) {
-    if (Utils.isIcebergEnabled(connectorConfig)) {
+
+    boolean usingUserDefinedDatabaseObjects = isUsingUserDefinedDatabaseObjects(connectorConfig);
+    boolean tableExists = this.conn.tableExist(tableName);
+
+    // if the user is using their own database objects (tables/pipes) we must make sure the table
+    // exists
+    if (usingUserDefinedDatabaseObjects) {
+      if (!tableExists) {
+        throw SnowflakeErrors.ERROR_5029.getException(
+            "Table name: " + tableName, this.conn.getTelemetryClient());
+      }
+    } else if (isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
-          tableName,
-          Utils.getRole(connectorConfig),
-          Utils.isSchematizationEnabled(connectorConfig));
+          tableName, getRole(connectorConfig), isSchematizationEnabled(connectorConfig));
       icebergInitService.initializeIcebergTableProperties(tableName);
-      populateSchemaEvolutionPermissions(tableName);
     } else {
       createTableIfNotExists(tableName);
     }
+    populateSchemaEvolutionPermissions(tableName);
   }
 
   /**
@@ -260,7 +271,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           new FailsafeRowSchemaProvider(
               new RowsetApiRowSchemaProvider(JWTManagerProvider.fromConfig(connectorConfig)));
       RowSchemaManager rowSchemaManager = new RowSchemaManager(rowSchemaProvider);
-      createPipeIfNotExists(tableName);
+      if (!isUsingUserDefinedDatabaseObjects(connectorConfig)) {
+        createPipeIfNotExists(tableName);
+      }
+
       return new SnowpipeStreamingV2PartitionChannel(
           tableName,
           schemaEvolutionEnabled,
@@ -297,8 +311,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void createPipeIfNotExists(String tableName) {
     SSv2PipeCreator ssv2PipeCreator =
-        new SSv2PipeCreator(
-            conn, PipeNameProvider.pipeName(connectorConfig.get(Utils.NAME), tableName), tableName);
+        new SSv2PipeCreator(conn, PipeNameProvider.pipeName(connectorConfig, tableName), tableName);
     ssv2PipeCreator.createPipeIfNotExists();
   }
 
@@ -596,7 +609,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // ------ Streaming Ingest Related Functions ------ //
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
-      if (!Utils.isSchematizationEnabled(connectorConfig)) {
+      if (!isSchematizationEnabled(connectorConfig)) {
         if (this.conn.isTableCompatible(tableName)) {
           LOGGER.info("Using existing table {}.", tableName);
         } else {
@@ -608,7 +621,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      if (Utils.isSchematizationEnabled(connectorConfig)) {
+      if (isSchematizationEnabled(connectorConfig)) {
         // Always create the table with RECORD_METADATA only and rely on schema evolution to update
         // the schema
         this.conn.createTableWithOnlyMetadataColumn(tableName);
@@ -623,7 +636,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private void populateSchemaEvolutionPermissions(String tableName) {
     if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
-      if (Utils.isSchematizationEnabled(connectorConfig)) {
+      if (isSchematizationEnabled(connectorConfig)) {
         boolean hasSchemaEvolutionPermission =
             conn != null
                 && conn.hasSchemaEvolutionPermission(

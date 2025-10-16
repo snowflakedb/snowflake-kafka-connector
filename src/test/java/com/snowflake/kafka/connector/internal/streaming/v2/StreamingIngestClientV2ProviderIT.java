@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -49,9 +48,8 @@ public class StreamingIngestClientV2ProviderIT {
     connectionService.createTable(testTableName2);
 
     // Generate pipe names using PipeNameProvider
-    String appName = connectorConfig.get(Utils.NAME);
-    testPipeName = PipeNameProvider.pipeName(appName, testTableName);
-    testPipeName2 = PipeNameProvider.pipeName(appName, testTableName2);
+    testPipeName = PipeNameProvider.pipeName(connectorConfig, testTableName);
+    testPipeName2 = PipeNameProvider.pipeName(connectorConfig, testTableName2);
 
     // Create both pipes using SSv2PipeCreator
     SSv2PipeCreator pipeCreator1 =

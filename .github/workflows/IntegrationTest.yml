@@ -1,4 +1,4 @@
-name: Kafka Connector Integration Test
+name: Kafka Connector Java Integration Tests
 
 on:
   push:
@@ -12,7 +12,8 @@ jobs:
     strategy:
       fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast
       matrix:
-        snowflake_cloud: [ 'AWS', 'AZURE', 'GCP' ]
+        snowflake_cloud: ['AWS'] # for now only AWS has support for ssv2
+#        snowflake_cloud: [ 'AWS', 'AZURE', 'GCP' ]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -60,15 +61,19 @@ jobs:
         sudo htpasswd -db -c /etc/squid/passwords admin test
         sudo mv .github/scripts/squid.conf /etc/squid/squid.conf
         sudo service squid start
-    
+
     - name: Build with Unit and Integration Test against Snowflake Cloud in ${{ matrix.snowflake_cloud }}
       env:
-        JACOCO_COVERAGE: true
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
       run: |
+        set -Eeuo pipefail
+        # line-buffer stdout/stderr for all child procs
+        export PYTHONUNBUFFERED=1
+        export RUST_BACKTRACE=1
         cd test
-        ./build_runtime_jar.sh ../../snowflake-kafka-connector verify apache ${{ matrix.snowflake_cloud }}
+        trap 'echo "::group::Last 1000 lines of logs"; tail -n 1000 build.log || true; echo "::endgroup::"' ERR
+        stdbuf -oL -eL ./build_runtime_jar.sh ../../snowflake-kafka-connector verify apache ${{ matrix.snowflake_cloud }} 2>&1 | tee build.log
 
 #      Commented out because the build was very unstable
 #      Error that might be a hint: {'detail': ErrorDetail(string='Rate limit reached. Please upload with the Codecov repository upload token to resolve issue. Expected available in 383 seconds.', code='throttled')}

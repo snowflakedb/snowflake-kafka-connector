@@ -39,7 +39,7 @@ else
   SKIP_PROXY=false
 fi
 
-tests_pattern="[^(--tests=).*]"
+tests_pattern="^(--tests=).*"
 if [ "$#" -gt 5 ] && [[ $6 =~ $tests_pattern ]] ; then
   # skip initial '--tests='
   TESTS=`echo $6 | cut -c9-`

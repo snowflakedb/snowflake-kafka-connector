@@ -54,7 +54,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   public void setup() {
     config = TestUtils.getConfForStreaming();
     conn.createTable(table);
-    pipe = PipeNameProvider.pipeName(config.get(Utils.NAME), table);
+    pipe = PipeNameProvider.pipeName(config, table);
   }
 
   @AfterEach
