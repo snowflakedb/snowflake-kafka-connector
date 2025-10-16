@@ -33,7 +33,7 @@ public class OAuthURL implements URL {
     Matcher matcher = pattern.matcher(urlStr.trim().toLowerCase());
 
     if (!matcher.find()) {
-      throw SnowflakeErrors.ERROR_0007.getException("input url: " + urlStr);
+      throw SnowflakeErrors.ERROR_0033.getException("input url: " + urlStr);
     }
 
     boolean ssl = !"http://".equals(matcher.group(1));

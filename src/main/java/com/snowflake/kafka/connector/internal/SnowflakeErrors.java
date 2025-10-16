@@ -144,6 +144,13 @@ public enum SnowflakeErrors {
       "0032",
       "Iceberg table does not exist or is in invalid format",
       "Check Snowflake Kafka Connector docs for details"),
+  ERROR_0033(
+      "0033",
+      "Invalid OAuth URL",
+      "OAuth URL format: '[http://|https://]<oauth_server>[:<port>][/<path>]'. Protocol defaults"
+          + " to 'https://'. Port defaults to 443 for https and 80 for http. Path may contain"
+          + " alphanumeric characters, dots, hyphens, and forward slashes (e.g.,"
+          + " 'login.example.com/oauth2/v2.0/token')."),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
