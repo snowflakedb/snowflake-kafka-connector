@@ -21,7 +21,13 @@ class OAuthURLTest {
         Arguments.of("localhost:8085", ImmutableList.of("https", "localhost:8085", "", true)),
         Arguments.of(
             "http://localhost:8085", ImmutableList.of("http", "localhost:8085", "", false)),
-        Arguments.of("localhost", ImmutableList.of("https", "localhost:443", "", true)));
+        Arguments.of("localhost", ImmutableList.of("https", "localhost:443", "", true)),
+        Arguments.of(
+            "https://login.test.com/xxxxxxx/oauth2/v2.0/token",
+            ImmutableList.of("https", "login.test.com:443", "/xxxxxxx/oauth2/v2.0/token", true)),
+        Arguments.of(
+            "https://example.com/my-api/v2.0/get-token",
+            ImmutableList.of("https", "example.com:443", "/my-api/v2.0/get-token", true)));
   }
 
   @ParameterizedTest(name = "url: {0}, parsed: {1}")
