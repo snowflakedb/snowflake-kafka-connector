@@ -10,7 +10,7 @@ public class OAuthURL implements URL {
   private static final KCLogger LOGGER = new KCLogger(OAuthURL.class.getName());
 
   private static final String OAUTH_SERVER_URL_REGEX_PATTERN =
-      "^(https?://)?((([\\w\\d-]+)(\\.[\\w\\d-]+)*)(:(\\d+))?)((/[\\w\\d]*)*)/?$";
+      "^(https?://)?((([\\w\\d-]+)(\\.[\\w\\d-]+)*)(:(\\d+))?)((/[\\w\\d\\.-]*)*)/?$";
 
   private final String url;
 
