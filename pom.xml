@@ -341,13 +341,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>3.1.2</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>net.snowflake</groupId>
-                    <artifactId>snowflake-jdbc</artifactId>
-                </exclusion>
-            </exclusions>
+            <version>4.3.1</version>
         </dependency>
 
         <dependency>
