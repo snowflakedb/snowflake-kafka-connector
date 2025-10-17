@@ -26,6 +26,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class TopicPartitionChannelIT {
 
@@ -59,6 +61,65 @@ public class TopicPartitionChannelIT {
   @AfterAll
   public static void afterAll() {
     conn.close();
+  }
+
+  /**
+   * Tests that when a client is closed, the connector:
+   * 1. Detects the client closed error
+   * 2. Recreates the client
+   * 3. Reopens the channel with the new client
+   * 4. Successfully inserts data
+   *
+   * @param ssv2Enabled whether to test SSv1 or SSv2
+   */
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testClientRecreationOn_ClosedClientError(boolean ssv2Enabled) throws Exception {
+    Map<String, String> config = getConfForStreaming();
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    SnowflakeSinkServiceV2 service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(inMemorySinkTaskContext)
+            .build();
+    service.startPartition(testTableName, topicPartition);
+
+    // Insert initial records to verify setup
+    List<SinkRecord> initialRecords =
+        TestUtils.createJsonStringSinkRecords(0, 5, topic, PARTITION);
+    service.insert(initialRecords);
+
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 5);
+
+    // Get the current client name for comparison
+    SnowflakeStreamingIngestClient originalClient = service.getStreamingIngestClient();
+    String originalClientName = originalClient.getName();
+
+    // Close the client to simulate CLOSED_CLIENT error condition
+    originalClient.close();
+
+    // Insert more records - this should trigger CLOSED_CLIENT error and recreate the client
+    List<SinkRecord> newRecords = TestUtils.createJsonStringSinkRecords(5, 5, topic, PARTITION);
+    service.insert(newRecords);
+
+    // Verify data was inserted successfully despite client being closed
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 10);
+
+    // Verify a new client was created
+    SnowflakeStreamingIngestClient newClient = service.getStreamingIngestClient();
+    String newClientName = newClient.getName();
+    Assertions.assertNotEquals(
+        originalClientName, newClientName, "Client should have been recreated with a new name");
+
+    // Verify all data made it to Snowflake
+    Assertions.assertEquals(10, TestUtils.tableSize(testTableName));
+
+    service.closeAll();
   }
 
   @Test
