@@ -65,11 +65,12 @@ public class TopicPartitionChannelIT {
 
   /**
    * Tests that when a client is closed, the connector:
-   * 1. Detects the client closed error
-   * 2. Recreates the client
-   * 3. Reopens the channel with the new client
-   * 4. Successfully inserts data
-   *
+   * <ol>
+   *   <li>Detects the client closed error
+   *   <li>Recreates the client
+   *   <li>Reopens the channel with the new client
+   *   <li>Successfully inserts data
+   * </ol>
    * @param ssv2Enabled whether to test SSv1 or SSv2
    */
   @ParameterizedTest
@@ -90,8 +91,7 @@ public class TopicPartitionChannelIT {
     service.startPartition(testTableName, topicPartition);
 
     // Insert initial records to verify setup
-    List<SinkRecord> initialRecords =
-        TestUtils.createJsonStringSinkRecords(0, 5, topic, PARTITION);
+    List<SinkRecord> initialRecords = TestUtils.createJsonStringSinkRecords(0, 5, topic, PARTITION);
     service.insert(initialRecords);
 
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 5);

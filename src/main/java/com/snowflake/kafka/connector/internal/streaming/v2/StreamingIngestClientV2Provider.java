@@ -58,7 +58,8 @@ public class StreamingIngestClientV2Provider {
         LOGGER.warn("Client is invalid, recreating client for pipe: {}", pipeName);
         oldClient.close();
       }
-      pipeToClientMap.put(pipeName, createClient(connectorConfig, pipeName, streamingClientProperties));
+      pipeToClientMap.put(
+          pipeName, createClient(connectorConfig, pipeName, streamingClientProperties));
     }
   }
 
