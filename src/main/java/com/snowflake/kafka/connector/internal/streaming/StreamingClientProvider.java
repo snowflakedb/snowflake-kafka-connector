@@ -188,15 +188,13 @@ public class StreamingClientProvider {
   public SnowflakeStreamingIngestClient recreateClient(Map<String, String> connectorConfig) {
     StreamingClientProperties clientProperties = new StreamingClientProperties(connectorConfig);
 
-    // Atomically update the cache entry and return the new client
+    // ConcurrentHashMap.compute() ensures that only one thread recreates a client for the specified key.
     return this.registeredClients.asMap().compute(clientProperties, (key, client) -> {
-      if (client != null) {
-        if (StreamingClientHandler.isClientValid(client)) {
-          // Client was already recreated by another thread
-          return client;
-        }
-        LOGGER.warn("Client is invalid, recreating streaming client: {}", client.getName());
+      if (StreamingClientHandler.isClientValid(client)) {
+        LOGGER.info("Client was already recreated by another thread: {}", client.getName());
+        return client;
       }
+      LOGGER.info("Recreating client: {}", clientProperties.toString());
       return this.streamingClientHandler.createClient(clientProperties);
     });
   }
