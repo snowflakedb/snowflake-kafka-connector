@@ -72,16 +72,11 @@ public class TopicPartitionChannelIT {
    * 2. Recreates the client
    * 3. Reopens the channel with the new client
    * 4. Successfully inserts data
-   *
-   * @param ssv2Enabled whether to test SSv1 or SSv2
    */
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void testClientRecreationOn_ClosedClientError(boolean ssv2Enabled) throws Exception {
+  @Test
+  public void testClientRecreationOn_ClosedClientError() throws Exception {
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED, String.valueOf(ssv2Enabled));
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
