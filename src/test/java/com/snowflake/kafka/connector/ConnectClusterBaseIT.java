@@ -66,7 +66,7 @@ public abstract class ConnectClusterBaseIT {
   protected final Map<String, String> defaultProperties(String topicName, String connectorName) {
     Map<String, String> config = TestUtils.getConf();
 
-    config.put(CONNECTOR_CLASS_CONFIG, SnowflakeSinkConnector.class.getName());
+    config.put(CONNECTOR_CLASS_CONFIG, SnowflakeStreamingSinkConnector.class.getName());
     config.put(NAME, connectorName);
     config.put(TOPICS_CONFIG, topicName);
     config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());

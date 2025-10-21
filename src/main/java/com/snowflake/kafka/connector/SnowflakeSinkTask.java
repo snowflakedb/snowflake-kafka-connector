@@ -51,7 +51,7 @@ import org.apache.kafka.connect.sink.SinkTask;
 /**
  * SnowflakeSinkTask implements SinkTask for Kafka Connect framework.
  *
- * <p>Expects configuration from SnowflakeSinkConnector
+ * <p>Expects configuration from SnowflakeStreamingSinkConnector
  *
  * <p>Creates sink service instance, takes records loaded from those Kafka partitions and ingests to
  * Snowflake via Sink service
