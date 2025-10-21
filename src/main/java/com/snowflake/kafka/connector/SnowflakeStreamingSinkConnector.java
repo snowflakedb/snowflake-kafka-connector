@@ -158,7 +158,8 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
    * taskConfigs method returns a set of configurations for SinkTasks based on the current
    * configuration, producing at most 'maxTasks' configurations
    *
-   * @param maxTasks maximum number of SinkTasks for this instance of SnowflakeStreamingSinkConnector
+   * @param maxTasks maximum number of SinkTasks for this instance of
+   *     SnowflakeStreamingSinkConnector
    * @return a list containing 'maxTasks' copies of the configuration
    */
   @Override
