@@ -99,7 +99,7 @@ popd
 
 # get built image name
 # only match the first line
-SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
+SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep -E "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
 echo -e "\n=== built connector name: $SNOWFLAKE_PLUGIN_NAME ==="
 
 # download Kafka connect docker image
