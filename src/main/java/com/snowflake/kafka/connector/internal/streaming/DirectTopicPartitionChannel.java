@@ -414,9 +414,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private void insertRowFallbackSupplier(Throwable ex)
       throws TopicPartitionChannelInsertionException {
     if (isClientInvalidError(ex)) {
-      this.streamingIngestClient =
-          StreamingClientProvider.getStreamingClientProviderInstance()
-              .recreateClient(sfConnectorConfig);
+      LOGGER.warn("Client is invalid, recreating client for channel: {}", getChannelNameFormatV1());
+      this.streamingIngestClient = StreamingClientProvider.getStreamingClientProviderInstance().getClient(sfConnectorConfig);
     }
     final long offsetRecoveredFromSnowflake =
         streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);
@@ -676,11 +675,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     try {
       return OpenChannelRetryPolicy.executeWithRetry(
           () -> {
-            // Recreate client if invalid before each attempt
             if (!StreamingClientHandler.isClientValid(streamingIngestClient)) {
-              this.streamingIngestClient =
-                  StreamingClientProvider.getStreamingClientProviderInstance()
-                      .recreateClient(sfConnectorConfig);
+              LOGGER.warn("Client is invalid, recreating client for channel: {}", getChannelNameFormatV1());
+              this.streamingIngestClient = StreamingClientProvider.getStreamingClientProviderInstance().getClient(sfConnectorConfig);
             }
             return streamingIngestClient.openChannel(channelRequest);
           },

@@ -138,10 +138,10 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Gets the current client or creates a new one from the given connector config. If client
-   * optimization is not enabled, it will create a new streaming client and the caller is
-   * responsible for closing it. If the optimization is enabled and the registered client is
-   * invalid, we will try recreating and reregistering the client
+   * Gets the current client or creates a new one from the given connector config.
+   * If optimization is enabled, gets or recreates the client in the shared provider cache.
+   * If optimization is disabled, creates a new streaming client and the caller
+   * is responsible for closing it.
    *
    * @param connectorConfig The connector config
    * @return A streaming client
@@ -156,15 +156,7 @@ public class StreamingClientProvider {
                 Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
 
     if (isOptimizationEnabled) {
-      resultClient = this.registeredClients.get(clientProperties);
-
-      // refresh if registered client is invalid
-      if (!StreamingClientHandler.isClientValid(resultClient)) {
-        LOGGER.warn(
-            "Registered streaming client is not valid, recreating and registering new client");
-        resultClient = this.streamingClientHandler.createClient(clientProperties);
-        this.registeredClients.put(clientProperties, resultClient);
-      }
+      resultClient = getOrRecreateClient(clientProperties);
     } else {
       resultClient = this.streamingClientHandler.createClient(clientProperties);
     }
@@ -180,16 +172,14 @@ public class StreamingClientProvider {
   }
 
   /**
-   * Recreates the client for the given connector configuration.
+   * Atomically gets or recreates a client from the cache. Returns the existing client if valid,
+   * otherwise creates and caches a new one.
    *
-   * @param connectorConfig The connector configuration
-   * @return The newly created client
+   * @param clientProperties The client properties for cache lookup
+   * @return A valid client (either cached or newly created)
    */
-  public SnowflakeStreamingIngestClient recreateClient(Map<String, String> connectorConfig) {
-    StreamingClientProperties clientProperties = new StreamingClientProperties(connectorConfig);
-
-    // ConcurrentHashMap.compute() ensures that only one thread recreates a client for the specified
-    // key.
+  public SnowflakeStreamingIngestClient getOrRecreateClient(StreamingClientProperties clientProperties) {
+    // ConcurrentHashMap.compute() ensures that only one thread recreates a client for the specified key at a time.
     return this.registeredClients
         .asMap()
         .compute(
