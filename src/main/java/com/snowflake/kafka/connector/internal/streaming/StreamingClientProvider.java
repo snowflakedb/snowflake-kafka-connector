@@ -156,15 +156,7 @@ public class StreamingClientProvider {
                 Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
 
     if (isOptimizationEnabled) {
-      resultClient = this.registeredClients.get(clientProperties);
-
-      // refresh if registered client is invalid
-      if (!StreamingClientHandler.isClientValid(resultClient)) {
-        LOGGER.warn(
-            "Registered streaming client is not valid, recreating and registering new client");
-        resultClient = this.streamingClientHandler.createClient(clientProperties);
-        this.registeredClients.put(clientProperties, resultClient);
-      }
+      resultClient = getOrRecreateClient(clientProperties);
     } else {
       resultClient = this.streamingClientHandler.createClient(clientProperties);
     }
@@ -177,6 +169,30 @@ public class StreamingClientProvider {
         resultClient.getName());
 
     return resultClient;
+  }
+
+  /**
+   * Atomically gets or recreates a client from the cache. Returns the existing client if valid,
+   * otherwise creates and caches a new one.
+   *
+   * @param clientProperties The client properties for cache lookup
+   * @return A valid client (either cached or newly created)
+   */
+  public SnowflakeStreamingIngestClient getOrRecreateClient(
+      StreamingClientProperties clientProperties) {
+    // ConcurrentHashMap.compute() ensures only one thread recreates a client for the specified key.
+    return this.registeredClients
+        .asMap()
+        .compute(
+            clientProperties,
+            (key, client) -> {
+              if (StreamingClientHandler.isClientValid(client)) {
+                LOGGER.info("Client was already recreated by another thread: {}", client.getName());
+                return client;
+              }
+              LOGGER.info("Recreating client: {}", clientProperties.toString());
+              return this.streamingClientHandler.createClient(clientProperties);
+            });
   }
 
   /**
