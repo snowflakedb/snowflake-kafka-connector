@@ -53,8 +53,8 @@ command -v docker >/dev/null 2>&1 || error_exit "Require docker but it's not ins
 command -v minikube >/dev/null 2>&1 || error_exit "Require minikube but it's not installed.  Aborting."
 command -v mvn >/dev/null 2>&1 || error_exit "Require mvn but it's not installed.  Aborting."
 
-# match all versions of built SF connector
-SNOWFLAKE_PLUGIN_NAME_REGEX="snowflake-kafka-connector-[0-9]*\.[0-9]*\.[0-9]*\.jar$"
+# match all versions of built SF connector (including release candidates like rc1)
+SNOWFLAKE_PLUGIN_NAME_REGEX="snowflake-kafka-connector-[0-9]*\.[0-9]*\.[0-9]*(-rc[0-9]+)?\.jar$"
 SNOWFLAKE_PLUGIN_PATH="$SNOWFLAKE_CONNECTOR_PATH/target"
 
 SNOWFLAKE_DOCKER_IMAGE="snowflakedb/kc-dev-build"
