@@ -139,9 +139,12 @@ public class StreamingClientProvider {
 
   /**
    * Gets the current client or creates a new one from the given connector config.
-   * If optimization is enabled, gets or recreates the client in the shared provider cache.
-   * If optimization is disabled, creates a new streaming client and the caller
-   * is responsible for closing it.
+   *
+   * <ul>
+   *   <li>If optimization is enabled, gets or recreates the client using the shared provider cache.
+   *   <li>If optimization is disabled, creates a new streaming client and the caller is responsible
+   *       for closing it.
+   * </ul>
    *
    * @param connectorConfig The connector config
    * @return A streaming client
@@ -178,8 +181,10 @@ public class StreamingClientProvider {
    * @param clientProperties The client properties for cache lookup
    * @return A valid client (either cached or newly created)
    */
-  public SnowflakeStreamingIngestClient getOrRecreateClient(StreamingClientProperties clientProperties) {
-    // ConcurrentHashMap.compute() ensures that only one thread recreates a client for the specified key at a time.
+  public SnowflakeStreamingIngestClient getOrRecreateClient(
+      StreamingClientProperties clientProperties) {
+    // ConcurrentHashMap.compute() ensures that only one thread recreates a client for the specified
+    // key at a time.
     return this.registeredClients
         .asMap()
         .compute(

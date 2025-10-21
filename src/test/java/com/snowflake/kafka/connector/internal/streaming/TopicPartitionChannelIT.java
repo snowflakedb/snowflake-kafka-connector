@@ -65,12 +65,14 @@ public class TopicPartitionChannelIT {
 
   /**
    * Tests that when a client is closed, the connector:
+   *
    * <ol>
    *   <li>Detects the client closed error
    *   <li>Recreates the client
    *   <li>Reopens the channel with the new client
    *   <li>Successfully inserts data
    * </ol>
+   *
    * @param ssv2Enabled whether to test SSv1 or SSv2
    */
   @ParameterizedTest
