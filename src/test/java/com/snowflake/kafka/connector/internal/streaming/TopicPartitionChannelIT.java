@@ -773,6 +773,64 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
+  /**
+   * Tests client behavior when closed:
+   *
+   * <ul>
+   *   <li>With shared client (optimization enabled): client is recreated and data insertion
+   *       succeeds
+   *   <li>With dedicated client (optimization disabled): client recreation is not supported, insert
+   *       fails
+   * </ul>
+   *
+   * @param optimizationEnabled whether to use shared client (true) or dedicated client (false)
+   */
+  @org.junit.jupiter.params.ParameterizedTest(name = "clientOptimizationEnabled: {0}")
+  @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+  public void testClosedClient_RecreatesOnlyWhenShared(boolean optimizationEnabled)
+      throws Exception {
+    Map<String, String> config = getConfForStreaming();
+    config.put(
+        SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+        String.valueOf(optimizationEnabled));
+    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+
+    InMemorySinkTaskContext inMemorySinkTaskContext =
+        new InMemorySinkTaskContext(Collections.singleton(topicPartition));
+
+    SnowflakeSinkService service =
+        SnowflakeSinkServiceFactory.builder(conn, IngestionMethodConfig.SNOWPIPE_STREAMING, config)
+            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
+            .setSinkTaskContext(inMemorySinkTaskContext)
+            .addTask(testTableName, topicPartition)
+            .build();
+
+    // Insert initial records
+    List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 5, topic, PARTITION);
+    service.insert(records);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 5);
+
+    // Close the client to simulate CLIENT_INVALID error
+    SnowflakeSinkServiceV2 serviceV2 = (SnowflakeSinkServiceV2) service;
+    SnowflakeStreamingIngestClient client = serviceV2.getStreamingIngestClient();
+    client.close();
+
+    // Insert more records
+    List<SinkRecord> moreRecords = TestUtils.createJsonStringSinkRecords(5, 5, topic, PARTITION);
+
+    if (optimizationEnabled) {
+      // When optimization is enabled, client should be recreated and data inserted successfully
+      service.insert(moreRecords);
+      TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 10);
+    } else {
+      // When optimization is disabled, client recreation is not supported
+      // The insert should fail because the dedicated client is closed
+      Assertions.assertThrows(Exception.class, () -> service.insert(moreRecords));
+    }
+
+    service.closeAll();
+  }
+
   private Map<String, String> getConfForStreaming() {
     return TestUtils.getConfForStreaming();
   }
