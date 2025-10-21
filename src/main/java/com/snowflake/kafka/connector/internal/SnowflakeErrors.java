@@ -292,14 +292,14 @@ public enum SnowflakeErrors {
       "Exception while creating or validating table, stage, or pipe."),
   ERROR_5007(
       "5007",
-      "SnowflakeSinkConnector timeout",
-      "SnowflakeSinkConnector timed out. Tables or stages are not yet "
+      "SnowflakeStreamingSinkConnector timeout",
+      "SnowflakeStreamingSinkConnector timed out. Tables or stages are not yet "
           + "available for data ingestion to start. If this persists, please "
           + "contact Snowflake support."),
   ERROR_5008(
       "5008",
       "SnowflakeSinkTask timeout",
-      "SnowflakeSinkConnector timed out. Tables or stages are not yet "
+      "SnowflakeStreamingSinkConnector timed out. Tables or stages are not yet "
           + "available for data ingestion to start. If this persists, please "
           + "contact Snowflake support."),
   ERROR_5009(

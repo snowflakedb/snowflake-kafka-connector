@@ -61,7 +61,7 @@ public class ConnectorIT {
   }
 
   private static Map<String, ConfigValue> toValidateMap(final Map<String, String> config) {
-    SnowflakeSinkConnector sinkConnector = new SnowflakeSinkConnector();
+    SnowflakeStreamingSinkConnector sinkConnector = new SnowflakeStreamingSinkConnector();
     Config result = sinkConnector.validate(config);
     return Utils.validateConfigToMap(result);
   }
@@ -376,7 +376,7 @@ public class ConnectorIT {
   @Test
   public void testConnectorComprehensive() {
     Map<String, String> config = getConf();
-    SnowflakeSinkConnector sinkConnector = new SnowflakeSinkConnector();
+    SnowflakeStreamingSinkConnector sinkConnector = new SnowflakeStreamingSinkConnector();
     sinkConnector.start(config);
     assert sinkConnector.taskClass().equals(SnowflakeSinkTask.class);
     List<Map<String, String>> taskConfigs = sinkConnector.taskConfigs(2);
@@ -390,7 +390,7 @@ public class ConnectorIT {
   @Test
   public void testConnectorComprehensiveNegative() throws Exception {
     Map<String, String> config = getConf();
-    SnowflakeSinkConnector sinkConnector = new SnowflakeSinkConnector();
+    SnowflakeStreamingSinkConnector sinkConnector = new SnowflakeStreamingSinkConnector();
     ExecutorService testThread = Executors.newSingleThreadExecutor();
     testThread.submit(
         () -> {

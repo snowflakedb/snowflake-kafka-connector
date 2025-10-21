@@ -1,7 +1,7 @@
 {
   "name": "SNOWFLAKE_CONNECTOR_NAME",
   "config": {
-    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector",
     "topics": "SNOWFLAKE_TEST_TOPIC0,SNOWFLAKE_TEST_TOPIC1,SNOWFLAKE_TEST_TOPIC2",
     "snowflake.topic2table.map": "SNOWFLAKE_TEST_TOPIC0:SNOWFLAKE_CONNECTOR_NAME,SNOWFLAKE_TEST_TOPIC1:SNOWFLAKE_CONNECTOR_NAME,SNOWFLAKE_TEST_TOPIC2:SNOWFLAKE_CONNECTOR_NAME",
     "tasks.max": "1",
