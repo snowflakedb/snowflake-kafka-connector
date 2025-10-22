@@ -65,7 +65,6 @@ class MetaColumnIT {
 
     TestUtils.assertWithRetry(
         () -> {
-          service.callAllGetOffset();
           ResultSet resultSet = TestUtils.executeQuery("select RECORD_METADATA from " + tableName);
 
           boolean hasKey1 = false;

@@ -200,7 +200,7 @@ public class SnowflakeSinkConnectorConfig {
     public static void setDefaultValues(Map<String, String> config) {
         if (!config.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
             config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT + " seconds");
-            LOGGER.info("{} set to default {} seconds", SNOWPIPE_STREAMING_MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT, unitName);
+            LOGGER.info("{} set to default {} seconds", SNOWPIPE_STREAMING_MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT);
         }
     }
 

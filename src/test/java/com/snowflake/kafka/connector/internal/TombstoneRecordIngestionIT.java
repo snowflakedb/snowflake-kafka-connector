@@ -168,9 +168,8 @@ class TombstoneRecordIngestionIT {
 
     // insert all records
     service.insert(sinkRecords);
-    service.callAllGetOffset();
 
-    // verify inserted
+    // verify inserted (offset updates happen automatically in streaming)
     int expectedOffset =
         behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT
             ? sinkRecords.size()

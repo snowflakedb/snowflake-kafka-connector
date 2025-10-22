@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.channel;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import net.snowflake.ingest.utils.SFException;
@@ -75,7 +77,16 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
 
   String getChannelNameFormatV1();
 
-  void setLatestConsumerGroupOffset(long consumerOffset);
+    @VisibleForTesting
+    long getOffsetPersistedInSnowflake();
+
+    @VisibleForTesting
+    long getProcessedOffset();
+
+    @VisibleForTesting
+    long getLatestConsumerOffset();
+
+    void setLatestConsumerGroupOffset(long consumerOffset);
 
   default CompletableFuture<Void> waitForLastProcessedRecordCommitted() {
     return CompletableFuture.completedFuture(null);

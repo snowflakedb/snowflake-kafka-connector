@@ -586,20 +586,20 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     return channel.getFullyQualifiedChannelName();
   }
 
-  @Override
   @VisibleForTesting
+  @Override
   public long getOffsetPersistedInSnowflake() {
     return this.offsetPersistedInSnowflake.get();
   }
 
-  @Override
   @VisibleForTesting
+  @Override
   public long getProcessedOffset() {
     return this.processedOffset.get();
   }
 
-  @Override
   @VisibleForTesting
+  @Override
   public long getLatestConsumerOffset() {
     return this.currentConsumerGroupOffset.get();
   }
