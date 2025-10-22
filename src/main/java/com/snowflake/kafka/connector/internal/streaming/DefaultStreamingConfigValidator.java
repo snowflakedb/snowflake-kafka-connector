@@ -167,12 +167,11 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
               inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
 
       // Validate that schematization and streaming V2 are mutually exclusive
-      if (isSchematizationEnabled && Utils.isSnowpipeStreamingV2Enabled(inputConfig)) {
+      if (isSchematizationEnabled) {
         invalidParams.put(
             SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
             "Schematization is not yet supported with Snowpipe Streaming: High-Performance"
-                + " Architecture. Please set snowflake.enable.schematization to false when"
-                + " snowflake.streaming.v2.enabled is set to true.");
+                + " Architecture. ");
       }
 
       if (isSchematizationEnabled

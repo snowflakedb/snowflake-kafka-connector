@@ -10,7 +10,6 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
-import com.snowflake.kafka.connector.internal.streaming.DirectTopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
@@ -216,38 +215,7 @@ class ConnectionServiceIT {
       TestUtils.assertWithRetry(
           () -> service.getOffset(new TopicPartition(tableName, 0)) == noOfRecords, 5, 5);
 
-      // TEST 4: Do an actual migration from new channel format to old channel Format
-      // Step 1: create a new source channel
-      // Step 2: load some data
-      // step 3: do a migration and check if destination channel has expected offset
-
-      // Ctor of TopicPartitionChannel tries to open the channel.
-      TopicPartitionChannel newChannelFormatV2 =
-          new DirectTopicPartitionChannel(
-              service.getStreamingIngestClient(),
-              topicPartition,
-              sourceChannelName,
-              tableName,
-              config,
-              new InMemoryKafkaRecordErrorReporter(),
-              new InMemorySinkTaskContext(Collections.singleton(topicPartition)),
-              conn,
-              conn.getTelemetryClient(),
-              new SnowflakeSchemaEvolutionService(conn),
-              new InsertErrorMapper());
-
-      List<SinkRecord> recordsInChannelFormatV2 =
-          TestUtils.createJsonStringSinkRecords(0, noOfRecords * 2, tableName, 0);
-      for (int idx = 0; idx < recordsInChannelFormatV2.size(); idx++) {
-        newChannelFormatV2.insertRecord(recordsInChannelFormatV2.get(idx), idx == 0);
-      }
-
-      TestUtils.assertWithRetry(
-          () -> newChannelFormatV2.getOffsetSafeToCommitToKafka() == (noOfRecords * 2), 5, 5);
-
-      conn.migrateStreamingChannelOffsetToken(tableName, sourceChannelName, destinationChannelName);
-      TestUtils.assertWithRetry(
-          () -> service.getOffset(new TopicPartition(tableName, 0)) == (noOfRecords * 2), 5, 5);
+      // TEST 4 was removed as it tested SSv1-specific DirectTopicPartitionChannel
     } catch (Exception e) {
       Assertions.fail("Should not throw an exception:" + e.getMessage());
     } finally {

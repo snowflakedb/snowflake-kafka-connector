@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import java.util.ArrayList;
 import java.util.List;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 
 /** Wraps the row content and exception when there is a failure */
 class PkgInsertError {

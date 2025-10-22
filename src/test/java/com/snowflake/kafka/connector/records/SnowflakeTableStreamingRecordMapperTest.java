@@ -44,7 +44,7 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
       throws JsonProcessingException {
     // given
     SnowflakeTableStreamingRecordMapper mapper =
-        new SnowflakeTableStreamingRecordMapper(objectMapper, false, false);
+        new SnowflakeTableStreamingRecordMapper(objectMapper, false);
 
     // when
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
@@ -60,7 +60,7 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
       throws JsonProcessingException {
     // given
     SnowflakeTableStreamingRecordMapper mapper =
-        new SnowflakeTableStreamingRecordMapper(objectMapper, true, false);
+        new SnowflakeTableStreamingRecordMapper(objectMapper, true);
 
     // when
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
@@ -76,7 +76,7 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
       throws JsonProcessingException {
     // given
     SnowflakeTableStreamingRecordMapper mapper =
-        new SnowflakeTableStreamingRecordMapper(objectMapper, false, true);
+        new SnowflakeTableStreamingRecordMapper(objectMapper, false);
 
     // when
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
@@ -92,7 +92,7 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
       throws JsonProcessingException {
     // given
     SnowflakeTableStreamingRecordMapper mapper =
-        new SnowflakeTableStreamingRecordMapper(objectMapper, true, true);
+        new SnowflakeTableStreamingRecordMapper(objectMapper, true);
 
     // when
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
