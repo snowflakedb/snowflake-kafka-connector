@@ -22,7 +22,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
   private SnowflakeSinkConnectorConfigBuilder() {}
 
   public static SnowflakeSinkConnectorConfigBuilder snowpipeConfig() {
-    return commonRequiredFields().withIngestionMethod(IngestionMethodConfig.SNOWPIPE);
+    return commonRequiredFields().withIngestionMethod(IngestionMethodConfig.SNOWPIPE_STREAMING);
   }
 
   public static SnowflakeSinkConnectorConfigBuilder streamingConfig() {

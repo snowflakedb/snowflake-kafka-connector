@@ -48,8 +48,7 @@ public class SinkTaskIT {
   @After
   public void after() {
     TestUtils.dropTable(topicName);
-    snowflakeConnectionService.dropStage(Utils.stageName(TEST_CONNECTOR_NAME, topicName));
-    snowflakeConnectionService.dropPipe(Utils.pipeName(TEST_CONNECTOR_NAME, topicName, partition));
+    // SNOWPIPE_STREAMING doesn't use stages and pipes, only tables
   }
 
   @Test

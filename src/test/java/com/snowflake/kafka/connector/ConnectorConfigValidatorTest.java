@@ -368,7 +368,8 @@ public class ConnectorConfigValidatorTest {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
+    config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     connectorConfigValidator.validateConfig(config);
   }
 
@@ -409,10 +410,10 @@ public class ConnectorConfigValidatorTest {
   public void testDetermineIngestionMethod_nullOrEmptyInput() {
     Map<String, String> config = getConfig();
     assertEquals(
-        IngestionMethodConfig.SNOWPIPE, IngestionMethodConfig.determineIngestionMethod(config));
+        IngestionMethodConfig.SNOWPIPE_STREAMING, IngestionMethodConfig.determineIngestionMethod(config));
 
     assertEquals(
-        IngestionMethodConfig.SNOWPIPE, IngestionMethodConfig.determineIngestionMethod(null));
+        IngestionMethodConfig.SNOWPIPE_STREAMING, IngestionMethodConfig.determineIngestionMethod(null));
   }
 
   @Test
@@ -623,7 +624,7 @@ public class ConnectorConfigValidatorTest {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.put(prop, value);
 
@@ -638,7 +639,7 @@ public class ConnectorConfigValidatorTest {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
@@ -704,7 +705,7 @@ public class ConnectorConfigValidatorTest {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
@@ -730,7 +731,7 @@ public class ConnectorConfigValidatorTest {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "true");
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
@@ -804,7 +805,7 @@ public class ConnectorConfigValidatorTest {
     Map<String, String> config = getConfig();
     config.put(
         SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(
         SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "a:b,c:d");
 
@@ -1003,23 +1004,6 @@ public class ConnectorConfigValidatorTest {
     }
   }
 
-  @Test
-  public void testENABLE_REPROCESS_FILES_CLEANUP_valid_value() {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP, "true");
-    connectorConfigValidator.validateConfig(config);
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP, "False");
-    connectorConfigValidator.validateConfig(config);
-  }
-
-  @Test
-  public void testENABLE_REPROCESS_FILES_CLEANUP_invalid_value() {
-    Map<String, String> config = getConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP, "INVALID");
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SnowflakeSinkConnectorConfig.SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP);
-  }
 
   @Test
   public void testSchematizationWithStreamingV2Enabled_shouldFail() {

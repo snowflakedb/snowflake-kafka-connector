@@ -167,16 +167,8 @@ public class SnowflakeTelemetryServiceTest {
 
     SnowflakeTelemetryBasicInfo partitionUsage;
 
-    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      SnowflakeTelemetryPipeStatus pipeStatus =
-          new SnowflakeTelemetryPipeStatus(
-              expectedTableName, expectedStageName, expectedPipeName, 0, false, null);
-      pipeStatus.setFlushedOffset(expectedFlushedOffset);
-      pipeStatus.setProcessedOffset(expectedProcessedOffset);
-      pipeStatus.setCommittedOffset(expectedCommittedOffset);
-
-      partitionUsage = pipeStatus;
-    } else {
+    // Only SNOWPIPE_STREAMING is supported
+    {
       SnowflakeTelemetryChannelStatus channelStatus =
           new SnowflakeTelemetryChannelStatus(
               expectedTableName,
@@ -211,19 +203,8 @@ public class SnowflakeTelemetryServiceTest {
         expectedProcessedOffset, dataNode.get(TelemetryConstants.PROCESSED_OFFSET).asLong());
     assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
 
-    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      assertTrue(
-          dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
-              && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
-      assertEquals(
-          SnowflakeTelemetryService.TelemetryType.KAFKA_PIPE_USAGE.toString(),
-          allNode.get("type").asText());
-      assertEquals(expectedFlushedOffset, dataNode.get(TelemetryConstants.FLUSHED_OFFSET).asLong());
-      assertEquals(
-          expectedCommittedOffset, dataNode.get(TelemetryConstants.COMMITTED_OFFSET).asLong());
-      assertEquals(expectedPipeName, dataNode.get(TelemetryConstants.PIPE_NAME).asText());
-      assertEquals(expectedStageName, dataNode.get(TelemetryConstants.STAGE_NAME).asText());
-    } else {
+    // Only SNOWPIPE_STREAMING is supported
+    {
       assertTrue(
           dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME).asLong()
               == expectedTpChannelCreationTime);
@@ -263,18 +244,8 @@ public class SnowflakeTelemetryServiceTest {
     final String expectedChannelName = "channelName";
     final long expectedChannelCreationTime = 1234;
 
-    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      SnowflakeTelemetryPipeCreation pipeCreation =
-          new SnowflakeTelemetryPipeCreation(
-              expectedTableName, expectedStageName, expectedPipeName);
-      pipeCreation.setReuseTable(true);
-      pipeCreation.setReusePipe(true);
-      pipeCreation.setReuseStage(true);
-      pipeCreation.setFileCountReprocessPurge(10);
-      pipeCreation.setFileCountRestart(11);
-
-      partitionCreation = pipeCreation;
-    } else {
+    // Only SNOWPIPE_STREAMING is supported
+    {
       SnowflakeTelemetryChannelCreation channelCreation =
           new SnowflakeTelemetryChannelCreation(
               expectedTableName, expectedChannelName, expectedChannelCreationTime);
@@ -301,7 +272,8 @@ public class SnowflakeTelemetryServiceTest {
     assertTrue(dataNode.get(TelemetryConstants.IS_REUSE_TABLE).asBoolean());
     assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
 
-    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
+    // Only SNOWPIPE_STREAMING is supported
+    {
       assertTrue(
           dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
               && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
@@ -314,7 +286,6 @@ public class SnowflakeTelemetryServiceTest {
       assertEquals(11, dataNode.get(TelemetryConstants.FILE_COUNT_RESTART).asInt());
       assertEquals(expectedStageName, dataNode.get(TelemetryConstants.STAGE_NAME).asText());
       assertEquals(expectedPipeName, dataNode.get(TelemetryConstants.PIPE_NAME).asText());
-    } else {
       assertTrue(
           dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME).asLong()
               == expectedChannelCreationTime);
@@ -328,23 +299,17 @@ public class SnowflakeTelemetryServiceTest {
   }
 
   private Map<String, String> createConnectorConfig(IngestionMethodConfig ingestionMethodConfig) {
-    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      return TestUtils.getConfig();
-    } else {
-      return TestUtils.getConfForStreaming();
-    }
+    // Only SNOWPIPE_STREAMING is supported
+    return TestUtils.getConfForStreaming();
   }
 
   private SnowflakeTelemetryService createSnowflakeTelemetryService(
       IngestionMethodConfig ingestionMethodConfig, Map<String, String> connectorConfig) {
     SnowflakeTelemetryService snowflakeTelemetryService;
 
-    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE) {
-      snowflakeTelemetryService = new SnowflakeTelemetryServiceV1(mockTelemetryClient);
-    } else {
-      snowflakeTelemetryService = new SnowflakeTelemetryServiceV2(mockTelemetryClient);
-      SnowflakeSinkConnectorConfig.setDefaultValues(connectorConfig);
-    }
+    // Only SNOWPIPE_STREAMING is supported
+    snowflakeTelemetryService = new SnowflakeTelemetryServiceV2(mockTelemetryClient);
+    SnowflakeSinkConnectorConfig.setDefaultValues(connectorConfig);
 
     snowflakeTelemetryService.setAppName("TEST_APP");
     snowflakeTelemetryService.setTaskID("1");

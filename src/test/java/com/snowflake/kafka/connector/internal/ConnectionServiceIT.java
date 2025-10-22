@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1.USER_AGENT_SUFFIX_FORMAT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
@@ -20,36 +19,27 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.InsertErrorMapper;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceV1;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.UUID;
-import net.snowflake.client.jdbc.internal.apache.http.Header;
-import net.snowflake.client.jdbc.internal.apache.http.HttpHeaders;
-import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ConnectionServiceIT {
+class ConnectionServiceIT {
   private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
 
   private final String tableName = TestUtils.randomTableName();
-  private final String stageName = TestUtils.randomStageName();
-  private final String pipeName = TestUtils.randomPipeName();
   private final String tableName1 = TestUtils.randomTableName();
-  private final String stageName1 = TestUtils.randomStageName();
   private final String topicName = TestUtils.randomTopicName();
 
   @Test
-  public void testEncryptedKey() {
+  void testEncryptedKey() {
     // no exception
     SnowflakeConnectionServiceFactory.builder()
         .setProperties(TestUtils.getConfWithEncryptedKey())
@@ -57,14 +47,14 @@ public class ConnectionServiceIT {
   }
 
   @Test
-  public void testOAuthAZ() {
+  void testOAuthAZ() {
     Map<String, String> confWithOAuth = TestUtils.getConfWithOAuth();
     assert confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID);
     SnowflakeConnectionServiceFactory.builder().setProperties(TestUtils.getConfWithOAuth()).build();
   }
 
   @Test
-  public void testSetSSLProperties() {
+  void testSetSSLProperties() {
     Map<String, String> testConfig = TestUtils.getConf();
     testConfig.put(Utils.SF_URL, "https://sfctest0.snowflakecomputing.com");
     assert SnowflakeConnectionServiceFactory.builder()
@@ -87,92 +77,7 @@ public class ConnectionServiceIT {
   }
 
   @Test
-  public void testUserAgentSuffixInIngestionService() {
-    Map<String, String> testConfig = TestUtils.getConf();
-    String kafkaProvider = SnowflakeSinkConnectorConfig.KafkaProvider.SELF_HOSTED.name();
-    String userAgentExpectedSuffixInHttpHeader =
-        String.format(USER_AGENT_SUFFIX_FORMAT, Utils.VERSION, kafkaProvider);
-    testConfig.put(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG, kafkaProvider);
-    SnowflakeConnectionService conn =
-        SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
-    SnowflakeIngestionServiceV1 ingestionService =
-        (SnowflakeIngestionServiceV1) conn.buildIngestService(stageName, pipeName);
-    try {
-      HttpPost httpPostInsertRequest =
-          ingestionService
-              .getIngestManager()
-              .getRequestBuilder()
-              .generateInsertRequest(UUID.randomUUID(), pipeName, Collections.EMPTY_LIST, false);
-      for (Header h : httpPostInsertRequest.getAllHeaders()) {
-        if (h.getName().equalsIgnoreCase(HttpHeaders.USER_AGENT)) {
-          System.out.println(h);
-          Assertions.assertTrue(h.getValue().contains(userAgentExpectedSuffixInHttpHeader));
-          Assertions.assertTrue(h.getValue().endsWith(userAgentExpectedSuffixInHttpHeader));
-        }
-      }
-    } catch (Exception e) {
-      Assertions.fail("Should not throw an exception:" + e.getMessage());
-    }
-  }
-
-  @Test
-  public void createConnectionService() {
-    SnowflakeConnectionService service =
-        SnowflakeConnectionServiceFactory.builder().setProperties(TestUtils.getConf()).build();
-
-    assert service.getConnectorName().equals(TEST_CONNECTOR_NAME);
-
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0017,
-        () -> {
-          Map<String, String> conf = TestUtils.getConf();
-          conf.remove(Utils.SF_URL);
-          SnowflakeConnectionServiceFactory.builder().setProperties(conf).build();
-        });
-
-    SnowflakeURL url = TestUtils.getUrl();
-    Properties prop = InternalUtils.createProperties(TestUtils.getConf(), url);
-    String appName = TEST_CONNECTOR_NAME;
-
-    service =
-        SnowflakeConnectionServiceFactory.builder()
-            .setProperties(prop)
-            .setURL(url)
-            .setConnectorName(appName)
-            .build();
-
-    assert service.getTelemetryClient() instanceof SnowflakeTelemetryServiceV1;
-
-    assert service
-        .getTelemetryClient()
-        .getObjectNode()
-        .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
-        .toString()
-        .equals("0");
-
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0003,
-        () ->
-            SnowflakeConnectionServiceFactory.builder()
-                .setProperties(prop)
-                .setConnectorName(appName)
-                .build());
-
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0003,
-        () ->
-            SnowflakeConnectionServiceFactory.builder()
-                .setURL(url)
-                .setConnectorName(appName)
-                .build());
-
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0003,
-        () -> SnowflakeConnectionServiceFactory.builder().setURL(url).setProperties(prop).build());
-  }
-
-  @Test
-  public void createConnectionService_SnowpipeStreaming() {
+  void createConnectionService_SnowpipeStreaming() {
 
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -191,20 +96,17 @@ public class ConnectionServiceIT {
         .getObjectNode()
         .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
         .toString()
-        .equals("1");
+        .equals("0"); // SNOWPIPE_STREAMING is now ordinal 0
   }
 
   @AfterEach
-  public void afterEach() {
+  void afterEach() {
     TestUtils.dropTable(tableName);
-    conn.dropPipe(pipeName);
-    conn.dropStage(stageName);
     TestUtils.dropTable(tableName1);
-    conn.dropStage(stageName1);
   }
 
   @Test
-  public void testTableFunctions() throws SQLException {
+  void testTableFunctions() throws SQLException {
     // table doesn't exist
     assert !conn.tableExist(tableName);
     // create table
@@ -238,197 +140,7 @@ public class ConnectionServiceIT {
   }
 
   @Test
-  public void testStageFunctions() {
-    // stage doesn't exist
-    assert !conn.stageExist(stageName);
-    // create stage
-    conn.createStage(stageName);
-    // stage exists
-    assert conn.stageExist(stageName);
-    // put a file to stage
-    String fileName =
-        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, "topic", 1, 123, 456);
-    conn.put(stageName, fileName, "test");
-    // list stage with prefix
-    List<String> files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
-    assert files.size() == 1;
-    assert files.get(0).equals(fileName);
-    // stage is compatible
-    assert conn.isStageCompatible(stageName);
-    // create stage if not exists
-    conn.createStage(stageName);
-    // stage hasn't been overwritten
-    files = conn.listStage(stageName, "");
-    assert files.size() == 1;
-    // overwrite stage
-    conn.createStage(stageName, true);
-    files = conn.listStage(stageName, "");
-    // empty stage
-    assert files.size() == 0;
-    // put incompatible file to stage
-    String fileName1 = "123/adsasads.gz";
-    conn.put(stageName, fileName1, "test");
-    // stage is incompatible
-    assert !conn.isStageCompatible(stageName);
-    // drop stage if not empty
-    assert !conn.dropStageIfEmpty(stageName);
-    // stage hasn't been dropped
-    assert conn.stageExist(stageName);
-    // create table stage
-    conn.createTable(tableName);
-    // move file to table stage
-    conn.moveToTableStage(tableName, stageName, "");
-    // list table stage
-    files = conn.listStage(tableName, "123", true);
-    // file exits on table stage
-    assert files.size() == 1;
-    assert files.get(0).equals(fileName1);
-    // drop table
-    TestUtils.dropTable(tableName);
-    // put two files to stage
-    conn.put(stageName, fileName, "test");
-    conn.put(stageName, fileName1, "test");
-    // still not incompatible
-    assert !conn.isStageCompatible(stageName);
-    // list with prefix
-    files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
-    // only one file
-    assert files.size() == 1;
-    assert files.get(0).equals(fileName);
-    // move to table stage with name
-    conn.createTable(tableName);
-    List<String> files1 = new ArrayList<>(1);
-    files1.add(fileName);
-    conn.moveToTableStage(tableName, stageName, files1);
-    // only one file on table stage
-    files = conn.listStage(tableName, "", true);
-    assert files.size() == 1;
-    assert files.get(0).equals(fileName);
-    // only one file on stage
-    files = conn.listStage(stageName, "");
-    assert files.size() == 1;
-    assert files.get(0).equals(fileName1);
-    // put one more file
-    conn.put(stageName, fileName, "test");
-    // two files on stage
-    files = conn.listStage(stageName, "");
-    assert files.size() == 2;
-    // purge one file
-    conn.purgeStage(stageName, files1);
-    // one file on stage
-    files = conn.listStage(stageName, "");
-    assert files.size() == 1;
-    assert files.get(0).equals(fileName1);
-    conn.dropStage(stageName);
-    conn.createStage(stageName);
-    // drop if empty
-    assert conn.dropStageIfEmpty(stageName);
-    assert !conn.stageExist(stageName);
-    TestUtils.dropTable(tableName);
-  }
-
-  @Test
-  public void testStagePurgeFunctions() {
-    // stage doesn't exist
-    assert !conn.stageExist(stageName);
-    // create stage
-    conn.createStage(stageName);
-    // stage exists
-    assert conn.stageExist(stageName);
-    // put two files to stage
-    String fileName1 =
-        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 1, 3);
-    conn.put(stageName, fileName1, "test");
-    String fileName2 =
-        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 4, 6);
-    conn.put(stageName, fileName2, "test");
-    String fileName3 =
-        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 14, 16);
-    conn.put(stageName, fileName3, "test");
-    String fileName4 =
-        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 24, 26);
-    conn.put(stageName, fileName4, "test");
-    String fileName5 =
-        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 34, 36);
-    conn.put(stageName, fileName5, "test");
-    String fileName6 =
-        FileNameTestUtils.fileName(TEST_CONNECTOR_NAME, tableName, topicName, 1, 44, 46);
-    conn.put(stageName, fileName6, "test");
-    // list stage with prefix
-    List<String> files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
-    assert files.size() == 6;
-
-    List<String> filesList = new ArrayList<>();
-    filesList.add(fileName1);
-    filesList.add(fileName2);
-    filesList.add(fileName3);
-    filesList.add(fileName4);
-    filesList.add(fileName5);
-    filesList.add(fileName6);
-    conn.purgeStage(stageName, filesList);
-
-    files = conn.listStage(stageName, TEST_CONNECTOR_NAME);
-    assert files.size() == 0;
-  }
-
-  @Test
-  public void testPipeFunctions() {
-    conn.createStage(stageName);
-    conn.createTable(tableName);
-    conn.createTable(tableName1);
-    conn.createStage(stageName1);
-    // pipe doesn't exit
-    assert !conn.pipeExist(pipeName);
-    // create pipe
-    conn.createPipe(tableName, stageName, pipeName);
-    // pipe exists
-    assert conn.pipeExist(pipeName);
-    // pipe is compatible
-    assert conn.isPipeCompatible(tableName, stageName, pipeName);
-    // pipe is incompatible with other table
-    assert !conn.isPipeCompatible(tableName1, stageName, pipeName);
-    // pipe is incompatible with other stage
-    assert !conn.isPipeCompatible(tableName, stageName1, pipeName);
-    // pipe hasn't been overwritten
-    conn.createPipe(tableName1, stageName1, pipeName);
-    assert !conn.isPipeCompatible(tableName1, stageName1, pipeName);
-    // overwrite pipe
-    conn.createPipe(tableName1, stageName1, pipeName, true);
-    assert conn.isPipeCompatible(tableName1, stageName1, pipeName);
-    // drop pipe
-    conn.dropPipe(pipeName);
-    assert !conn.pipeExist(pipeName);
-  }
-
-  @Test
-  public void testTableCompatible() {
-    TestUtils.executeQuery(
-        "create or replace table "
-            + tableName
-            + "(record_content variant, record_metadata variant, other int)");
-    assert conn.isTableCompatible(tableName);
-
-    TestUtils.executeQuery(
-        "create or replace table "
-            + tableName
-            + "(record_content variant, record_metadata string, other int)");
-    assert !conn.isTableCompatible(tableName);
-
-    TestUtils.executeQuery(
-        "create or replace table "
-            + tableName
-            + "(record_content variant, abc variant, other int)");
-    assert !conn.isTableCompatible(tableName);
-
-    TestUtils.executeQuery(
-        "create or replace table "
-            + tableName
-            + "(record_content variant, record_metadata variant, other int not null)");
-    assert !conn.isTableCompatible(tableName);
-  }
-
-  @Test
-  public void testConnectionFunction() {
+  void testConnectionFunction() {
     SnowflakeConnectionService service = TestUtils.getConnectionService();
     assert !service.isClosed();
     service.close();
@@ -436,7 +148,7 @@ public class ConnectionServiceIT {
   }
 
   @Test
-  public void testStreamingChannelOffsetMigration() {
+  void testStreamingChannelOffsetMigration() {
     Map<String, String> testConfig = TestUtils.getConfForStreaming();
     SnowflakeConnectionService conn =
         SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
@@ -543,3 +255,4 @@ public class ConnectionServiceIT {
     }
   }
 }
+

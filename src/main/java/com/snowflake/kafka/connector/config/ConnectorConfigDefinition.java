@@ -341,34 +341,11 @@ public class ConnectorConfigDefinition {
             INGESTION_METHOD_DEFAULT_SNOWPIPE,
             IngestionMethodConfig.VALIDATOR,
             ConfigDef.Importance.LOW,
-            "Acceptable values for Ingestion: SNOWPIPE or Streaming ingest respectively",
+            "Ingestion method. Only SNOWPIPE_STREAMING is supported.",
             CONNECTOR_CONFIG_DOC,
             5,
             ConfigDef.Width.NONE,
             INGESTION_METHOD_OPT)
-        .define(
-            SNOWPIPE_FILE_CLEANER_FIX_ENABLED,
-            ConfigDef.Type.BOOLEAN,
-            SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT,
-            ConfigDef.Importance.LOW,
-            "Whether to use new file cleaner for snowpipe data ingestion")
-        .define(
-            SNOWPIPE_FILE_CLEANER_THREADS,
-            ConfigDef.Type.INT,
-            SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT,
-            ConfigDef.Importance.LOW,
-            "Defines number of worker threads to associate with the cleaner task. By default there"
-                + " is one cleaner per topic's partition and they all share one worker thread")
-        .define(
-            SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED,
-            ConfigDef.Type.BOOLEAN,
-            SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED_DEFAULT,
-            ConfigDef.Importance.LOW,
-            "Defines whether stage file names should be prefixed with source topic's name hash."
-                + " This is required in scenarios, when there are multiple topics configured to"
-                + " ingest data into a single table via topic2table map. If disabled, there is a"
-                + " risk that files from various topics may collide with each other and be deleted"
-                + " before ingestion.")
         .define(
             SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL,
             ConfigDef.Type.BOOLEAN,

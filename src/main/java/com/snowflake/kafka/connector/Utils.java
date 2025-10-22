@@ -385,16 +385,12 @@ public class Utils {
   }
 
   /**
-   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE. If INGESTION_METHOD_OPT not specified,
-   * returns true as default.
-   *
    * @param config input config object
+   * @deprecated SNOWPIPE ingestion is no longer supported. This method always returns false.
    */
+  @Deprecated
   static boolean isSnowpipeIngestion(Map<String, String> config) {
-    return !config.containsKey(INGESTION_METHOD_OPT)
-        || config
-            .get(INGESTION_METHOD_OPT)
-            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString());
+    return false;
   }
 
   /**

@@ -1017,36 +1017,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     return this.connectorName;
   }
 
-  @Override
-  public SnowflakeIngestionService buildIngestService(
-      final String stageName, final String pipeName) {
-    String account = url.getAccount();
-    String user = jdbcProperties.getProperty(InternalUtils.JDBC_USER);
-    String userAgentSuffixInHttpRequest =
-        String.format(USER_AGENT_SUFFIX_FORMAT, Utils.VERSION, kafkaProvider);
-    String host = url.getUrlWithoutPort();
-    int port = url.getPort();
-    String connectionScheme = url.getScheme();
-    String fullPipeName =
-        jdbcProperties.getProperty(InternalUtils.JDBC_DATABASE)
-            + "."
-            + jdbcProperties.getProperty(InternalUtils.JDBC_SCHEMA)
-            + "."
-            + pipeName;
-    PrivateKey privateKey = (PrivateKey) jdbcProperties.get(InternalUtils.JDBC_PRIVATE_KEY);
-    return SnowflakeIngestionServiceFactory.builder(
-            account,
-            user,
-            host,
-            port,
-            connectionScheme,
-            stageName,
-            fullPipeName,
-            privateKey,
-            userAgentSuffixInHttpRequest,
-            telemetry)
-        .build();
-  }
 
   /** make sure connection is not closed */
   private void checkConnection() {

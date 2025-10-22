@@ -21,7 +21,7 @@ public class SnowflakeTelemetryServiceV1 extends SnowflakeTelemetryService {
 
   @Override
   public ObjectNode getObjectNode() {
-    ObjectNode objectNode = getDefaultObjectNode(IngestionMethodConfig.SNOWPIPE);
+    ObjectNode objectNode = getDefaultObjectNode(IngestionMethodConfig.SNOWPIPE_STREAMING);
     return objectNode;
   }
 }

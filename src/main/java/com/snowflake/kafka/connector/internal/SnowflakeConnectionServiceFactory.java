@@ -32,7 +32,7 @@ public class SnowflakeConnectionServiceFactory {
     @VisibleForTesting
     public SnowflakeConnectionServiceBuilder setProperties(Properties connectionProperties) {
       this.jdbcProperties = JdbcProperties.create(connectionProperties);
-      this.ingestionMethodConfig = IngestionMethodConfig.SNOWPIPE;
+      this.ingestionMethodConfig = IngestionMethodConfig.SNOWPIPE_STREAMING;
       return this;
     }
 

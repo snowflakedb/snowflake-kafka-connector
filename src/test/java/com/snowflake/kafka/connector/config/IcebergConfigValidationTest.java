@@ -50,11 +50,6 @@ public class IcebergConfigValidationTest {
     return Stream.of(
         Arguments.of(
             SnowflakeSinkConnectorConfigBuilder.icebergConfig()
-                .withIngestionMethod(IngestionMethodConfig.SNOWPIPE)
-                .build(),
-            INGESTION_METHOD_OPT),
-        Arguments.of(
-            SnowflakeSinkConnectorConfigBuilder.icebergConfig()
                 .withSnowpipeStreamingV2Enabled()
                 .build(),
             SNOWPIPE_STREAMING_V2_ENABLED));

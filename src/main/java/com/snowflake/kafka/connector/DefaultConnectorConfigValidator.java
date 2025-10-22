@@ -54,76 +54,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               SnowflakeSinkConnectorConfig.NAME));
     }
 
-    // If config doesnt have ingestion method defined, default is snowpipe or if snowpipe is
-    // explicitly passed in as ingestion method
-    // Below checks are just for snowpipe.
-    if (isSnowpipeIngestion(config)) {
-      invalidConfigParams.putAll(
-          BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE));
-
-      if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
-          && Boolean.parseBoolean(
-              config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
-            Utils.formatString(
-                "Schematization is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-            Utils.formatString(
-                "{} is only available with ingestion type: {}.",
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
-            Utils.formatString(
-                "{} is only available with ingestion type: {}.",
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-            Utils.formatString(
-                "{} is only available with ingestion type: {}.",
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-              SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
-          && Boolean.parseBoolean(
-              config.get(
-                  SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-            Utils.formatString(
-                "Streaming client optimization is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
-            Utils.formatString(
-                "Streaming client Channel migration is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
-            Utils.formatString(
-                "Streaming channel offset verification function is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-    }
+    // SNOWPIPE is no longer supported, no specific validation needed for it
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
         && parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
@@ -253,16 +184,6 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    if (config.containsKey(SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP)) {
-      if (!(config.get(SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP).equalsIgnoreCase("true")
-          || config.get(SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP).equalsIgnoreCase("false"))) {
-        invalidConfigParams.put(
-            SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP,
-            Utils.formatString(
-                "Kafka config:{} should either be true or false",
-                SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP));
-      }
-    }
 
     if (config.containsKey(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)) {
       if (!(config

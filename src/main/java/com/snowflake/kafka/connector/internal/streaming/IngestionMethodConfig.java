@@ -13,9 +13,6 @@ import org.apache.kafka.common.config.ConfigDef;
  */
 public enum IngestionMethodConfig {
 
-  /* Default Way of ingestion */
-  SNOWPIPE,
-
   /* Snowpipe streaming which doesnt convert records to intermediate files (from client perspective) */
   SNOWPIPE_STREAMING,
   ;
@@ -55,14 +52,14 @@ public enum IngestionMethodConfig {
   /**
    * Returns the Ingestion Method found in User Configuration for Snowflake Kafka Connector.
    *
-   * <p>Default is always {@link IngestionMethodConfig#SNOWPIPE} unless an invalid value is passed
+   * <p>Default is always {@link IngestionMethodConfig#SNOWPIPE_STREAMING} unless an invalid value is passed
    * which results in exception.
    */
   public static IngestionMethodConfig determineIngestionMethod(Map<String, String> inputConf) {
     if (inputConf == null
         || inputConf.isEmpty()
         || !inputConf.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
-      return IngestionMethodConfig.SNOWPIPE;
+      return IngestionMethodConfig.SNOWPIPE_STREAMING;
     } else {
       try {
         return IngestionMethodConfig.valueOf(

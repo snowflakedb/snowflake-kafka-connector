@@ -111,14 +111,14 @@ public class InternalUtils {
 
   /**
    * Use this function if you want to create properties from user provided Snowflake kafka connector
-   * config. It assumes the caller wants to use this Property for Snowpipe based Kafka Connector.
+   * config. It assumes the caller wants to use this Property for Snowpipe Streaming based Kafka Connector.
    *
    * @param conf User provided kafka connector config
    * @param url target server url
    * @return Properties object which will be passed down to JDBC connection
    */
   static Properties createProperties(Map<String, String> conf, SnowflakeURL url) {
-    return createProperties(conf, url, IngestionMethodConfig.SNOWPIPE);
+    return createProperties(conf, url, IngestionMethodConfig.SNOWPIPE_STREAMING);
   }
 
   /**

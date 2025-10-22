@@ -270,14 +270,6 @@ public interface SnowflakeConnectionService {
   /** @return name of Kafka Connector instance */
   String getConnectorName();
 
-  /**
-   * build ingest service instance for given stage and pipe
-   *
-   * @param stageName stage name
-   * @param pipeName pipe name
-   * @return an instance of SnowflakeIngestService
-   */
-  SnowflakeIngestionService buildIngestService(String stageName, String pipeName);
 
   /** @return the raw jdbc connection */
   Connection getConnection();
