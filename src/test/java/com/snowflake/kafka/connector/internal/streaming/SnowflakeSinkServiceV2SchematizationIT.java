@@ -4,7 +4,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.awaitility.Awaitility.await;
 
@@ -91,7 +90,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @Test
   public void testSchemaEvolutionNotAvailableInSsv2() {
     // given
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     SinkRecord jsonRecordValue = createComplexTestRecord(partition, 0);
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
@@ -185,7 +183,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @Test
   public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ() {
     // given
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
@@ -210,7 +207,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @Test
   void shouldSendRecordToDlqIfSchemaNotMatched() {
     // given
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
 
     conn.createTableWithOnlyMetadataColumn(table);
     createNonNullableColumn(table, "\"ID_INT8\"", "boolean");

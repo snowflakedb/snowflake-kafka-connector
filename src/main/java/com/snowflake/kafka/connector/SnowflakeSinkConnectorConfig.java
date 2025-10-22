@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.Utils.isSnowpipeStreamingIngestion;
 
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -40,18 +39,6 @@ public class SnowflakeSinkConnectorConfig {
 
   // For tombstone records
   public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
-
-  // Buffer thresholds for Snowpipe
-  public static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
-  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
-  public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
-
-  public static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
-  public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
-  public static final long BUFFER_SIZE_BYTES_MIN = 1;
-
-  public static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
-  public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
 
   // Snowflake connection and database config
   public static final String SNOWFLAKE_URL = Utils.SF_URL;
@@ -107,11 +94,6 @@ public class SnowflakeSinkConnectorConfig {
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
 
-  // for Snowpipe Streaming
-  public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.method";
-  public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
-      IngestionMethodConfig.SNOWPIPE_STREAMING.toString();
-
   // Whether to close streaming channels in parallel.
   public static final String SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL =
       "snowflake.streaming.closeChannelsInParallel.enabled";
@@ -130,9 +112,6 @@ public class SnowflakeSinkConnectorConfig {
   // Iceberg
   public static final String ICEBERG_ENABLED = "snowflake.streaming.iceberg.enabled";
   public static final boolean ICEBERG_ENABLED_DEFAULT_VALUE = false;
-
-  public static final String SNOWPIPE_STREAMING_V2_ENABLED = "snowflake.streaming.v2.enabled";
-  public static final boolean SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE = false;
 
   // with this flag set to true the user is responsible
   // for creating the destination objects (pipe and the table)
@@ -185,15 +164,6 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to output conversion errors to the dead letter queue "
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
-
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG =
-      "enable.streaming.client.optimization";
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY =
-      "Enable streaming client optimization";
-  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = true;
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC =
-      "Whether to optimize the streaming client to reduce cost. Note that this may affect"
-          + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
 
   public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG =
       "enable.streaming.channel.offset.migration";
@@ -250,14 +220,10 @@ public class SnowflakeSinkConnectorConfig {
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
 
   public static void setDefaultValues(Map<String, String> config) {
-    setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT, "");
+    // Buffer threshold configs removed (legacy SNOWPIPE mode)
 
-    setFieldToDefaultValues(config, BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT, "bytes");
-
-    setFieldToDefaultValues(
-        config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT, "seconds");
-
-    if (isSnowpipeStreamingIngestion(config)) {
+    // Set default for streaming configs
+    if (true) { // Always streaming now
       setFieldToDefaultValues(
           config,
           SNOWPIPE_STREAMING_MAX_CLIENT_LAG,

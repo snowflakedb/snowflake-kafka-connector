@@ -1,7 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -78,9 +76,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void testSinkTask(boolean useOAuth) throws Exception {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
@@ -118,9 +114,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void testSinkTaskWithMultipleOpenClose(boolean useOAuth) throws Exception {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(BUFFER_COUNT_RECORDS, "1"); // override
 
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
     // Inits the sinktaskcontext

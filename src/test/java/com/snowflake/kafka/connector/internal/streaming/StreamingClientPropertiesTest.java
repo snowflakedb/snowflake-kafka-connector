@@ -17,7 +17,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
+
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
@@ -86,7 +86,6 @@ public class StreamingClientPropertiesTest {
     Map<String, String> connectorConfig =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
-    connectorConfig.remove(BUFFER_SIZE_BYTES);
     connectorConfig.put(
         SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:1,MAX_MEMORY_LIMIT_IN_BYTES:2");
@@ -108,7 +107,6 @@ public class StreamingClientPropertiesTest {
     Map<String, String> connectorConfig =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
-    connectorConfig.put(BUFFER_SIZE_BYTES, "10000000");
     connectorConfig.put(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, "20000000");
 
     Map<String, String> expectedParameterOverrides = new HashMap<>();
@@ -128,7 +126,6 @@ public class StreamingClientPropertiesTest {
     Map<String, String> connectorConfig =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
-    connectorConfig.put(BUFFER_SIZE_BYTES, "10000000");
     connectorConfig.put(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, "20000000");
     connectorConfig.put(
         SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
@@ -256,11 +253,9 @@ public class StreamingClientPropertiesTest {
   public void testStreamingClientPropertiesEquality() {
     Map<String, String> config1 = TestUtils.getConfForStreaming();
     config1.put(Utils.NAME, "catConnector");
-    config1.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "100");
 
     Map<String, String> config2 = TestUtils.getConfForStreaming();
     config1.put(Utils.NAME, "dogConnector");
-    config1.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "1000000");
 
     // get properties
     StreamingClientProperties prop1 = new StreamingClientProperties(config1);

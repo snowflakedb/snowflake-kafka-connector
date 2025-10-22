@@ -85,21 +85,13 @@ public class SnowflakeSinkConnectorConfigBuilder {
   }
 
   public SnowflakeSinkConnectorConfigBuilder withDefaultBufferConfig() {
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");
+    // Buffer configs removed (legacy SNOWPIPE mode) - method kept as no-op for compatibility
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withIngestionMethod(
       IngestionMethodConfig ingestionMethod) {
-    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, ingestionMethod.toString());
+    // "snowflake.ingestion.method" removed - only SNOWPIPE_STREAMING supported - method kept as no-op
     return this;
   }
 
@@ -154,9 +146,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
-  public SnowflakeSinkConnectorConfigBuilder withSnowpipeStreamingV2Enabled() {
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    return this;
+  public SnowflakeSinkConnectorConfigBuilder withSnowpipeStreamingV2Enabled() {    return this;
   }
 
   public Map<String, String> build() {

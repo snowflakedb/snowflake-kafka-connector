@@ -17,7 +17,6 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
@@ -99,10 +98,7 @@ public class StreamingClientProperties {
         overriddenValue ->
             parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue)));
 
-    Optional<String> bufferMaxSizeBytes =
-        Optional.ofNullable(connectorConfig.get(BUFFER_SIZE_BYTES));
-    bufferMaxSizeBytes.ifPresent(
-        overriddenValue -> parameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, overriddenValue));
+    // MAX_CHANNEL_SIZE_IN_BYTES can still be set via SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP
 
     Optional<String> snowpipeStreamingMaxMemoryLimit =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES));
@@ -121,7 +117,6 @@ public class StreamingClientProperties {
    *
    * <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
    *
-   * <p>MAX_CHANNEL_SIZE_IN_BYTES can be provided in BUFFER_SIZE_BYTES
    *
    * <p>MAX_MEMORY_LIMIT_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT. All the
    * listed above parameters can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP as
@@ -172,8 +167,6 @@ public class StreamingClientProperties {
               });
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap, MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
-          overrideStreamingClientPropertyIfSet(
-              clientOverridePropertiesMap, MAX_CHANNEL_SIZE_IN_BYTES, BUFFER_SIZE_BYTES);
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap,
               MAX_MEMORY_LIMIT_IN_BYTES,

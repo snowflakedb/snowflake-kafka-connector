@@ -74,7 +74,6 @@ public abstract class ConnectClusterBaseIT {
     config.put(CONNECTOR_CLASS_CONFIG, SnowflakeStreamingSinkConnector.class.getName());
     config.put(NAME, connectorName);
     config.put(TOPICS_CONFIG, topicName);
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "testrole_kafka");
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());

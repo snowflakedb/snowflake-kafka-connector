@@ -20,9 +20,7 @@ public class ConnectorIT {
     SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE,
-    SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-    SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-    SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
+
     SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC,
     SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
@@ -73,11 +71,6 @@ public class ConnectorIT {
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, "");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, "");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA, "");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE, "");
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "0");
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "0");
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "-1");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL, "falseee");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC, "falseee");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "falseee");
     config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME, "falseee");

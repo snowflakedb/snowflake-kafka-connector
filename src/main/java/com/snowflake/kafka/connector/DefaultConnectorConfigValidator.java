@@ -5,7 +5,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.Behavio
 import static com.snowflake.kafka.connector.Utils.*;
 
 import com.google.common.collect.ImmutableMap;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -198,22 +197,6 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
                 "Kafka config:{} should either be true or false",
                 SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS));
       }
-    }
-
-    // Check mutual exclusivity between SSv2 and Iceberg
-    if (isSnowpipeStreamingV2Enabled(config) && isIcebergEnabled(config)) {
-      invalidConfigParams.put(
-          SNOWPIPE_STREAMING_V2_ENABLED,
-          Utils.formatString(
-              "{} and {} are mutually exclusive and cannot both be enabled",
-              SNOWPIPE_STREAMING_V2_ENABLED,
-              ICEBERG_ENABLED));
-      invalidConfigParams.put(
-          ICEBERG_ENABLED,
-          Utils.formatString(
-              "{} and {} are mutually exclusive and cannot both be enabled",
-              ICEBERG_ENABLED,
-              SNOWPIPE_STREAMING_V2_ENABLED));
     }
 
     // with schematization enabled user expects the connector to alter table (add columns) when new

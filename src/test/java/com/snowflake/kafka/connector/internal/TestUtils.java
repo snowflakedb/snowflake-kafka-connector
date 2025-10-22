@@ -287,9 +287,6 @@ public class TestUtils {
     configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     configuration.put(Utils.TASK_ID, "0");
     configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
-    configuration.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     return configuration;
   }
@@ -301,9 +298,6 @@ public class TestUtils {
       // On top of existing configurations, add
       configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
       configuration.put(Utils.TASK_ID, "0");
-      configuration.put(
-          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     }
     configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
 

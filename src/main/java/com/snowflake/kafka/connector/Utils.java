@@ -17,8 +17,6 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.InternalUtils;
@@ -385,15 +383,6 @@ public class Utils {
   }
 
   /**
-   * @param config input config object
-   * @deprecated SNOWPIPE ingestion is no longer supported. This method always returns false.
-   */
-  @Deprecated
-  static boolean isSnowpipeIngestion(Map<String, String> config) {
-    return false;
-  }
-
-  /**
    * @param config config with applied default values
    * @return true when Iceberg mode is enabled.
    */
@@ -404,13 +393,6 @@ public class Utils {
   public static boolean isSchematizationEnabled(Map<String, String> config) {
     return Boolean.parseBoolean(
         config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
-  }
-
-  public static boolean isSnowpipeStreamingV2Enabled(Map<String, String> config) {
-    return Optional.ofNullable(
-            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED))
-        .map(Boolean::parseBoolean)
-        .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
   public static boolean isUsingUserDefinedDatabaseObjects(Map<String, String> config) {
@@ -437,16 +419,6 @@ public class Utils {
 
   public static String getSchema(Map<String, String> config) {
     return config.get(SF_SCHEMA);
-  }
-
-  /**
-   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE_STREAMING. If INGESTION_METHOD_OPT not
-   * specified, returns false as default.
-   *
-   * @param config input config object
-   */
-  public static boolean isSnowpipeStreamingIngestion(Map<String, String> config) {
-    return !isSnowpipeIngestion(config);
   }
 
   public static String getUser(Map<String, String> config) {

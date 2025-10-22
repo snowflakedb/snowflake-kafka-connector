@@ -64,7 +64,7 @@ public class SnowflakeConnectionServiceFactory {
       this.kafkaProvider =
           SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
       this.connectorName = conf.get(Utils.NAME);
-      this.ingestionMethodConfig = IngestionMethodConfig.determineIngestionMethod(conf);
+      this.ingestionMethodConfig = IngestionMethodConfig.determineIngestionMethod();
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =

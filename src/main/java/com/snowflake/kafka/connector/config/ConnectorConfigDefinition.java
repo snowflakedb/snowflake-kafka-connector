@@ -4,7 +4,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import org.apache.kafka.common.config.ConfigDef;
 
@@ -216,41 +215,6 @@ public class ConnectorConfigDefinition {
             ConfigDef.Width.NONE,
             TOPICS_TABLES_MAP)
         .define(
-            BUFFER_COUNT_RECORDS,
-            ConfigDef.Type.LONG,
-            BUFFER_COUNT_RECORDS_DEFAULT,
-            ConfigDef.Range.atLeast(1),
-            ConfigDef.Importance.LOW,
-            "Number of records buffered in memory per partition before triggering Snowflake"
-                + " ingestion",
-            CONNECTOR_CONFIG_DOC,
-            1,
-            ConfigDef.Width.NONE,
-            BUFFER_COUNT_RECORDS)
-        .define(
-            BUFFER_SIZE_BYTES,
-            ConfigDef.Type.LONG,
-            BUFFER_SIZE_BYTES_DEFAULT,
-            ConfigDef.Range.atLeast(1),
-            ConfigDef.Importance.LOW,
-            "Cumulative size of records buffered in memory per partition before triggering"
-                + " Snowflake ingestion",
-            CONNECTOR_CONFIG_DOC,
-            2,
-            ConfigDef.Width.NONE,
-            BUFFER_SIZE_BYTES)
-        .define(
-            BUFFER_FLUSH_TIME_SEC,
-            ConfigDef.Type.LONG,
-            BUFFER_FLUSH_TIME_SEC_DEFAULT,
-            ConfigDef.Range.atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
-            ConfigDef.Importance.LOW,
-            "The time in seconds to flush cached data",
-            CONNECTOR_CONFIG_DOC,
-            3,
-            ConfigDef.Width.NONE,
-            BUFFER_FLUSH_TIME_SEC)
-        .define(
             SNOWFLAKE_METADATA_ALL,
             ConfigDef.Type.BOOLEAN,
             SNOWFLAKE_METADATA_DEFAULT,
@@ -336,17 +300,6 @@ public class ConnectorConfigDefinition {
             "Whether to trigger a rebalancing by exceeding the max poll interval (Used only in"
                 + " testing)")
         .define(
-            INGESTION_METHOD_OPT,
-            ConfigDef.Type.STRING,
-            INGESTION_METHOD_DEFAULT_SNOWPIPE,
-            IngestionMethodConfig.VALIDATOR,
-            ConfigDef.Importance.LOW,
-            "Ingestion method. Only SNOWPIPE_STREAMING is supported.",
-            CONNECTOR_CONFIG_DOC,
-            5,
-            ConfigDef.Width.NONE,
-            INGESTION_METHOD_OPT)
-        .define(
             SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL,
             ConfigDef.Type.BOOLEAN,
             SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT,
@@ -416,16 +369,6 @@ public class ConnectorConfigDefinition {
             ConfigDef.Width.NONE,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY)
         .define(
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-            ConfigDef.Type.BOOLEAN,
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT,
-            ConfigDef.Importance.LOW,
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC,
-            CONNECTOR_CONFIG_DOC,
-            7,
-            ConfigDef.Width.NONE,
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY)
-        .define(
             ENABLE_MDC_LOGGING_CONFIG,
             ConfigDef.Type.BOOLEAN,
             ENABLE_MDC_LOGGING_DEFAULT,
@@ -459,12 +402,6 @@ public class ConnectorConfigDefinition {
             ConfigDef.Importance.HIGH,
             "When set to true the connector will ingest data into the Iceberg table. Check the"
                 + " official Snowflake documentation for the prerequisites.")
-        .define(
-            SNOWPIPE_STREAMING_V2_ENABLED,
-            ConfigDef.Type.BOOLEAN,
-            SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE,
-            ConfigDef.Importance.HIGH,
-            "When set to true the connector will ingest data using Snowpipe Streaming v2.")
         .define(
             ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
             ConfigDef.Type.BOOLEAN,

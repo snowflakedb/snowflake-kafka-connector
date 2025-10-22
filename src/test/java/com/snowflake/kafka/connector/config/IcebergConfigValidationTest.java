@@ -1,7 +1,5 @@
 package com.snowflake.kafka.connector.config;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
@@ -52,6 +50,6 @@ public class IcebergConfigValidationTest {
             SnowflakeSinkConnectorConfigBuilder.icebergConfig()
                 .withSnowpipeStreamingV2Enabled()
                 .build(),
-            SNOWPIPE_STREAMING_V2_ENABLED));
+            "asdfasdf"));
   }
 }

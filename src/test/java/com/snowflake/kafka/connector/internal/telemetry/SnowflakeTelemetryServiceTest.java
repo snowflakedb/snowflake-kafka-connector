@@ -65,7 +65,7 @@ public class SnowflakeTelemetryServiceTest {
     assertEquals("kafka_connector", allNode.get("source").asText());
     assertEquals(Utils.VERSION, allNode.get("version").asText());
 
-    assertEquals(sentTelemetryDataField(INGESTION_METHOD_OPT), ingestionMethodConfig.toString());
+    assertEquals(sentTelemetryDataField("snowflake.ingestion.method"), ingestionMethodConfig.toString());
 
     JsonNode dataNode = allNode.get("data");
     assertTrue(
@@ -103,8 +103,8 @@ public class SnowflakeTelemetryServiceTest {
 
     JsonNode dataNode = allNode.get("data");
     assertNotNull(dataNode);
-    assertTrue(dataNode.has(INGESTION_METHOD_OPT));
-    assertTrue(dataNode.get(INGESTION_METHOD_OPT).asInt() == ingestionMethodConfig.ordinal());
+    assertTrue(dataNode.has("snowflake.ingestion.method"));
+    assertTrue(dataNode.get("snowflake.ingestion.method").asInt() == ingestionMethodConfig.ordinal());
     assertTrue(
         dataNode.get(TelemetryConstants.START_TIME).asLong() <= System.currentTimeMillis()
             && dataNode.get(TelemetryConstants.START_TIME).asLong() >= this.startTime);
@@ -136,8 +136,8 @@ public class SnowflakeTelemetryServiceTest {
 
     JsonNode dataNode = allNode.get("data");
     assertNotNull(dataNode);
-    assertTrue(dataNode.has(INGESTION_METHOD_OPT));
-    assertTrue(dataNode.get(INGESTION_METHOD_OPT).asInt() == ingestionMethodConfig.ordinal());
+    assertTrue(dataNode.has("snowflake.ingestion.method"));
+    assertTrue(dataNode.get("snowflake.ingestion.method").asInt() == ingestionMethodConfig.ordinal());
     assertTrue(
         dataNode.get("time").asLong() <= System.currentTimeMillis()
             && dataNode.get("time").asLong() >= this.startTime);
@@ -197,8 +197,8 @@ public class SnowflakeTelemetryServiceTest {
 
     JsonNode dataNode = allNode.get("data");
     assertNotNull(dataNode);
-    assertTrue(dataNode.has(INGESTION_METHOD_OPT));
-    assertTrue(dataNode.get(INGESTION_METHOD_OPT).asInt() == ingestionMethodConfig.ordinal());
+    assertTrue(dataNode.has("snowflake.ingestion.method"));
+    assertTrue(dataNode.get("snowflake.ingestion.method").asInt() == ingestionMethodConfig.ordinal());
     assertEquals(
         expectedProcessedOffset, dataNode.get(TelemetryConstants.PROCESSED_OFFSET).asLong());
     assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
@@ -267,8 +267,8 @@ public class SnowflakeTelemetryServiceTest {
 
     JsonNode dataNode = allNode.get("data");
     assertNotNull(dataNode);
-    assertTrue(dataNode.has(INGESTION_METHOD_OPT));
-    assertTrue(dataNode.get(INGESTION_METHOD_OPT).asInt() == ingestionMethodConfig.ordinal());
+    assertTrue(dataNode.has("snowflake.ingestion.method"));
+    assertTrue(dataNode.get("snowflake.ingestion.method").asInt() == ingestionMethodConfig.ordinal());
     assertTrue(dataNode.get(TelemetryConstants.IS_REUSE_TABLE).asBoolean());
     assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
 
@@ -338,14 +338,14 @@ public class SnowflakeTelemetryServiceTest {
   }
 
   private void validateBufferProperties(JsonNode dataNode) {
-    assertTrue(dataNode.has(BUFFER_SIZE_BYTES));
-    assertTrue(isNumeric(dataNode.get(BUFFER_SIZE_BYTES).asText()));
+    assertTrue(dataNode.has("buffer.size.bytes"));
+    assertTrue(isNumeric(dataNode.get("buffer.size.bytes").asText()));
 
-    assertTrue(dataNode.has(BUFFER_COUNT_RECORDS));
-    assertTrue(isNumeric(dataNode.get(BUFFER_COUNT_RECORDS).asText()));
+    assertTrue(dataNode.has("buffer.count.records"));
+    assertTrue(isNumeric(dataNode.get("buffer.count.records").asText()));
 
-    assertTrue(dataNode.has(BUFFER_FLUSH_TIME_SEC));
-    assertTrue(isNumeric(dataNode.get(BUFFER_FLUSH_TIME_SEC).asText()));
+    // INGESTION_METHOD_OPT removed
+    // INGESTION_METHOD_OPT removed
   }
 
   private static boolean isNumeric(String strNum) {

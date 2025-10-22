@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST;
 import static com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful;
@@ -81,7 +80,6 @@ class ConnectionServiceIT {
     Map<String, String> config = TestUtils.getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     SnowflakeConnectionService service =
         SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
@@ -93,7 +91,7 @@ class ConnectionServiceIT {
     assert service
         .getTelemetryClient()
         .getObjectNode()
-        .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
+        .get("snowflake.ingestion.method")
         .toString()
         .equals("0"); // SNOWPIPE_STREAMING is now ordinal 0
   }

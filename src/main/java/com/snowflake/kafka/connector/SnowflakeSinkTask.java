@@ -171,15 +171,7 @@ public class SnowflakeSinkTask extends SinkTask {
     // enable jvm proxy
     Utils.enableJVMProxy(parsedConfig);
 
-    // config buffer.count.records -- how many records to buffer
-    final long bufferCountRecords =
-        Long.parseLong(parsedConfig.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-    // config buffer.size.bytes -- aggregate size in bytes of all records to
-    // buffer
-    final long bufferSizeBytes =
-        Long.parseLong(parsedConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
-    final long bufferFlushTime =
-        Long.parseLong(parsedConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
+    // Buffer configs removed (legacy SNOWPIPE mode)
 
     // Falling back to default behavior which is to ingest an empty json string if we get null
     // value. (Tombstone record)
@@ -205,13 +197,8 @@ public class SnowflakeSinkTask extends SinkTask {
 
     KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 
-    // default to snowpipe streaming
+    // Only SNOWPIPE_STREAMING ingestion method is supported
     IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE_STREAMING;
-    if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
-      ingestionType =
-          IngestionMethodConfig.valueOf(
-              parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).toUpperCase());
-    }
 
     conn =
         SnowflakeConnectionServiceFactory.builder()

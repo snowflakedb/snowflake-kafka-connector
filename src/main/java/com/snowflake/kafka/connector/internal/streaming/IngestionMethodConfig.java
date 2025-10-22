@@ -1,75 +1,25 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import java.util.Locale;
-import java.util.Map;
-import org.apache.kafka.common.config.ConfigDef;
 
 /**
- * Enum representing the allowed values for config {@link
- * SnowflakeSinkConnectorConfig#INGESTION_METHOD_OPT}
+ * Enum representing the ingestion method for Snowflake Kafka Connector.
  *
- * <p>NOTE: Please do not change ordering of this Enums, please append to the end.
+ * <p>Only SNOWPIPE_STREAMING is supported (SSv2). Legacy SNOWPIPE and SSv1 have been removed.
  */
 public enum IngestionMethodConfig {
 
-  /* Snowpipe streaming which doesnt convert records to intermediate files (from client perspective) */
-  SNOWPIPE_STREAMING,
-  ;
-
-  /* Validator to validate snowflake.ingestion.method values */
-  public static final ConfigDef.Validator VALIDATOR =
-      new ConfigDef.Validator() {
-        private final ConfigDef.ValidString validator =
-            ConfigDef.ValidString.in(IngestionMethodConfig.allIngestionTypes());
-
-        @Override
-        public void ensureValid(String name, Object value) {
-          if (value instanceof String) {
-            value = ((String) value).toLowerCase(Locale.ROOT);
-          }
-          validator.ensureValid(name, value);
-        }
-
-        @Override
-        public String toString() {
-          return validator.toString();
-        }
-      };
-
-  // All valid enum values
-  public static String[] allIngestionTypes() {
-    IngestionMethodConfig[] configs = values();
-    String[] result = new String[configs.length];
-
-    for (int i = 0; i < configs.length; i++) {
-      result[i] = configs[i].toString();
-    }
-
-    return result;
-  }
+  /* Snowpipe streaming (SSv2) - the only supported ingestion method */
+  SNOWPIPE_STREAMING;
 
   /**
-   * Returns the Ingestion Method found in User Configuration for Snowflake Kafka Connector.
+   * Returns the ingestion method.
    *
-   * <p>Default is always {@link IngestionMethodConfig#SNOWPIPE_STREAMING} unless an invalid value is passed
-   * which results in exception.
+   * <p>Always returns {@link IngestionMethodConfig#SNOWPIPE_STREAMING} since it's the only
+   * supported method.
    */
-  public static IngestionMethodConfig determineIngestionMethod(Map<String, String> inputConf) {
-    if (inputConf == null
-        || inputConf.isEmpty()
-        || !inputConf.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
-      return IngestionMethodConfig.SNOWPIPE_STREAMING;
-    } else {
-      try {
-        return IngestionMethodConfig.valueOf(
-            inputConf
-                .get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)
-                .toUpperCase(Locale.ROOT));
-      } catch (IllegalArgumentException ex) {
-        throw ex;
-      }
-    }
+  public static IngestionMethodConfig determineIngestionMethod() {
+    return SNOWPIPE_STREAMING;
   }
 
   @Override
