@@ -148,6 +148,13 @@ public enum SnowflakeErrors {
       "Check Snowflake Kafka Connector docs for details"),
   ERROR_0033(
       "0033",
+      "Invalid OAuth URL",
+      "OAuth URL format: '[http://|https://]<oauth_server>[:<port>][/<path>]'. Protocol defaults"
+          + " to 'https://'. Port defaults to 443 for https and 80 for http. Path may contain"
+          + " alphanumeric characters, dots, hyphens, and forward slashes (e.g.,"
+          + " 'login.example.com/oauth2/v2.0/token')."),
+  ERROR_0034(
+      "0034",
       "Iceberg ingestion not supported by Snowpipe Streaming v2",
       "Use Snowpipe Streaming v1 instead"),
   // Snowflake connection issues 1---
