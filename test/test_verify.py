@@ -451,8 +451,7 @@ class KafkaTest:
                 .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
-                .replace("SNOWFLAKE_ROLE", testRole) \
-                .replace("$SNOWFLAKE_STREAMING_V2_ENABLED", self.connectorParameters.snowflake_streaming_v2_enabled)
+                .replace("SNOWFLAKE_ROLE", testRole)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(fileContent)
 
