@@ -68,8 +68,8 @@ fi
 # check required commands
 command -v mvn >/dev/null 2>&1 || error_exit "Require mvn but it's not installed.  Aborting."
 
-# match all versions of built SF connector
-SNOWFLAKE_PLUGIN_NAME_REGEX="snowflake-kafka-connector-[0-9]*\.[0-9]*\.[0-9]*\.jar$"
+# match all versions of built SF connector (including release candidates like rc1)
+SNOWFLAKE_PLUGIN_NAME_REGEX="snowflake-kafka-connector-[0-9]*\.[0-9]*\.[0-9]*(-rc[0-9]+)?\.jar$"
 SNOWFLAKE_PLUGIN_PATH="$SNOWFLAKE_CONNECTOR_PATH/target"
 
 KAFKA_CONNECT_PLUGIN_PATH="/usr/local/share/kafka/plugins"
@@ -112,7 +112,7 @@ popd
 
 # get built image name
 # only match the first line
-SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
+SNOWFLAKE_PLUGIN_NAME=$(ls $SNOWFLAKE_PLUGIN_PATH | grep -E "$SNOWFLAKE_PLUGIN_NAME_REGEX" | head -n 1)
 echo -e "\nbuilt connector name: $SNOWFLAKE_PLUGIN_NAME"
 
 mkdir -m 777 -p $KAFKA_CONNECT_PLUGIN_PATH || \

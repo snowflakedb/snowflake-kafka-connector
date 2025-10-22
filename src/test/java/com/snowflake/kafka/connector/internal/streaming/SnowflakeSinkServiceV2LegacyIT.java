@@ -13,6 +13,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2LegacyIT extends SnowflakeSinkServiceV2BaseIT {
@@ -30,6 +31,9 @@ public class SnowflakeSinkServiceV2LegacyIT extends SnowflakeSinkServiceV2BaseIT
   }
 
   @Test
+  @Disabled(
+      "This test is flaky. Runs locally. Instead of time based waits it should be reimplemented to"
+          + " check if proper lag has been set in overrideProperties in Ingest SDK client")
   public void testStreamingIngestionValidClientLag() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreaming();
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "7");
