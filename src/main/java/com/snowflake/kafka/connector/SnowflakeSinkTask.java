@@ -25,8 +25,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
-import com.snowflake.kafka.connector.internal.SnowflakeSinkServiceFactory;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
@@ -64,7 +62,7 @@ public class SnowflakeSinkTask extends SinkTask {
   // during task start, however if it is not set, it falls back to the static logger
   private static final KCLogger STATIC_LOGGER =
       new KCLogger(SnowflakeSinkTask.class.getName() + "_STATIC");
-  private KCLogger DYNAMIC_LOGGER;
+  private final KCLogger DYNAMIC_LOGGER;
 
   // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
   // not found
@@ -91,8 +89,6 @@ public class SnowflakeSinkTask extends SinkTask {
   private int rebalancingCounter = 0;
 
   private long taskStartTime;
-
-  private IngestionMethodConfig ingestionMethodConfig;
 
   private final SnowflakeSinkTaskAuthorizationExceptionTracker authorizationExceptionTracker =
       new SnowflakeSinkTaskAuthorizationExceptionTracker();
@@ -139,7 +135,7 @@ public class SnowflakeSinkTask extends SinkTask {
     return Optional.ofNullable(getConnection());
   }
 
-  private SnowflakeSinkService getSink() {
+  protected SnowflakeSinkService getSink() {
     try {
       waitFor(() -> sink != null && !sink.isClosed());
     } catch (Exception e) {
@@ -172,16 +168,6 @@ public class SnowflakeSinkTask extends SinkTask {
     // enable jvm proxy
     Utils.enableJVMProxy(parsedConfig);
 
-    // config buffer.count.records -- how many records to buffer
-    final long bufferCountRecords =
-        Long.parseLong(parsedConfig.get(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS));
-    // config buffer.size.bytes -- aggregate size in bytes of all records to
-    // buffer
-    final long bufferSizeBytes =
-        Long.parseLong(parsedConfig.get(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES));
-    final long bufferFlushTime =
-        Long.parseLong(parsedConfig.get(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC));
-
     // Falling back to default behavior which is to ingest an empty json string if we get null
     // value. (Tombstone record)
     SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior =
@@ -206,14 +192,6 @@ public class SnowflakeSinkTask extends SinkTask {
 
     KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 
-    // default to snowpipe
-    IngestionMethodConfig ingestionType = IngestionMethodConfig.SNOWPIPE;
-    if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT)) {
-      ingestionType =
-          IngestionMethodConfig.valueOf(
-              parsedConfig.get(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT).toUpperCase());
-    }
-
     conn =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
@@ -223,37 +201,21 @@ public class SnowflakeSinkTask extends SinkTask {
     if (this.sink != null) {
       this.sink.closeAll();
     }
-    this.ingestionMethodConfig = ingestionType;
-    if (ingestionType == IngestionMethodConfig.SNOWPIPE) {
-      this.sink =
-          SnowflakeSinkServiceFactory.builder(getConnection(), parsedConfig)
-              .setFileSize(bufferSizeBytes)
-              .setRecordNumber(bufferCountRecords)
-              .setFlushTime(bufferFlushTime)
-              .setTopic2TableMap(topic2table)
-              .setMetadataConfig(metadataConfig)
-              .setBehaviorOnNullValuesConfig(behavior)
-              .setCustomJMXMetrics(enableCustomJMXMonitoring)
-              .setErrorReporter(kafkaRecordErrorReporter)
-              .setSinkTaskContext(this.context)
-              .build();
-    } else {
-      SchemaEvolutionService schemaEvolutionService =
-          Utils.isIcebergEnabled(parsedConfig)
-              ? new IcebergSchemaEvolutionService(conn)
-              : new SnowflakeSchemaEvolutionService(conn);
 
-      this.sink =
-          new SnowflakeSinkServiceV2(
-              conn,
-              parsedConfig,
-              kafkaRecordErrorReporter,
-              this.context,
-              enableCustomJMXMonitoring,
-              topic2table,
-              behavior,
-              schemaEvolutionService);
-    }
+    SchemaEvolutionService schemaEvolutionService =
+        Utils.isIcebergEnabled(parsedConfig)
+            ? new IcebergSchemaEvolutionService(conn)
+            : new SnowflakeSchemaEvolutionService(conn);
+
+    this.sink =
+        new SnowflakeSinkServiceV2(
+            conn,
+            parsedConfig,
+            kafkaRecordErrorReporter,
+            this.context,
+            enableCustomJMXMonitoring,
+            topic2table,
+            behavior);
 
     DYNAMIC_LOGGER.info(
         "task started, execution time: {} milliseconds",
@@ -376,9 +338,7 @@ public class SnowflakeSinkTask extends SinkTask {
       offsets.forEach(
           (topicPartition, offsetAndMetadata) -> {
             long offset = sink.getOffset(topicPartition);
-            if ((ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE && offset != 0)
-                || (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE_STREAMING
-                    && offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE)) {
+            if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
               committedOffsets.put(topicPartition, new OffsetAndMetadata(offset));
             }
           });

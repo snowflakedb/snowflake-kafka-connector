@@ -4,7 +4,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import org.apache.kafka.common.config.ConfigDef;
 
@@ -216,41 +215,6 @@ public class ConnectorConfigDefinition {
             ConfigDef.Width.NONE,
             TOPICS_TABLES_MAP)
         .define(
-            BUFFER_COUNT_RECORDS,
-            ConfigDef.Type.LONG,
-            BUFFER_COUNT_RECORDS_DEFAULT,
-            ConfigDef.Range.atLeast(1),
-            ConfigDef.Importance.LOW,
-            "Number of records buffered in memory per partition before triggering Snowflake"
-                + " ingestion",
-            CONNECTOR_CONFIG_DOC,
-            1,
-            ConfigDef.Width.NONE,
-            BUFFER_COUNT_RECORDS)
-        .define(
-            BUFFER_SIZE_BYTES,
-            ConfigDef.Type.LONG,
-            BUFFER_SIZE_BYTES_DEFAULT,
-            ConfigDef.Range.atLeast(1),
-            ConfigDef.Importance.LOW,
-            "Cumulative size of records buffered in memory per partition before triggering"
-                + " Snowflake ingestion",
-            CONNECTOR_CONFIG_DOC,
-            2,
-            ConfigDef.Width.NONE,
-            BUFFER_SIZE_BYTES)
-        .define(
-            BUFFER_FLUSH_TIME_SEC,
-            ConfigDef.Type.LONG,
-            BUFFER_FLUSH_TIME_SEC_DEFAULT,
-            ConfigDef.Range.atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
-            ConfigDef.Importance.LOW,
-            "The time in seconds to flush cached data",
-            CONNECTOR_CONFIG_DOC,
-            3,
-            ConfigDef.Width.NONE,
-            BUFFER_FLUSH_TIME_SEC)
-        .define(
             SNOWFLAKE_METADATA_ALL,
             ConfigDef.Type.BOOLEAN,
             SNOWFLAKE_METADATA_DEFAULT,
@@ -336,47 +300,6 @@ public class ConnectorConfigDefinition {
             "Whether to trigger a rebalancing by exceeding the max poll interval (Used only in"
                 + " testing)")
         .define(
-            INGESTION_METHOD_OPT,
-            ConfigDef.Type.STRING,
-            INGESTION_METHOD_DEFAULT_SNOWPIPE,
-            IngestionMethodConfig.VALIDATOR,
-            ConfigDef.Importance.LOW,
-            "Acceptable values for Ingestion: SNOWPIPE or Streaming ingest respectively",
-            CONNECTOR_CONFIG_DOC,
-            5,
-            ConfigDef.Width.NONE,
-            INGESTION_METHOD_OPT)
-        .define(
-            SNOWPIPE_FILE_CLEANER_FIX_ENABLED,
-            ConfigDef.Type.BOOLEAN,
-            SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT,
-            ConfigDef.Importance.LOW,
-            "Whether to use new file cleaner for snowpipe data ingestion")
-        .define(
-            SNOWPIPE_FILE_CLEANER_THREADS,
-            ConfigDef.Type.INT,
-            SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT,
-            ConfigDef.Importance.LOW,
-            "Defines number of worker threads to associate with the cleaner task. By default there"
-                + " is one cleaner per topic's partition and they all share one worker thread")
-        .define(
-            SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED,
-            ConfigDef.Type.BOOLEAN,
-            SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED_DEFAULT,
-            ConfigDef.Importance.LOW,
-            "Defines whether stage file names should be prefixed with source topic's name hash."
-                + " This is required in scenarios, when there are multiple topics configured to"
-                + " ingest data into a single table via topic2table map. If disabled, there is a"
-                + " risk that files from various topics may collide with each other and be deleted"
-                + " before ingestion.")
-        .define(
-            SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL,
-            ConfigDef.Type.BOOLEAN,
-            SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT,
-            ConfigDef.Importance.MEDIUM,
-            "Whether to close Snowpipe Streaming channels in parallel during task shutdown or"
-                + " rebalancing")
-        .define(
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
             ConfigDef.Type.LONG,
             StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC,
@@ -439,16 +362,6 @@ public class ConnectorConfigDefinition {
             ConfigDef.Width.NONE,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY)
         .define(
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-            ConfigDef.Type.BOOLEAN,
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT,
-            ConfigDef.Importance.LOW,
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC,
-            CONNECTOR_CONFIG_DOC,
-            7,
-            ConfigDef.Width.NONE,
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY)
-        .define(
             ENABLE_MDC_LOGGING_CONFIG,
             ConfigDef.Type.BOOLEAN,
             ENABLE_MDC_LOGGING_DEFAULT,
@@ -458,16 +371,6 @@ public class ConnectorConfigDefinition {
             8,
             ConfigDef.Width.NONE,
             ENABLE_MDC_LOGGING_DISPLAY)
-        .define(
-            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
-            ConfigDef.Type.BOOLEAN,
-            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT,
-            ConfigDef.Importance.LOW,
-            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC,
-            CONNECTOR_CONFIG_DOC,
-            9,
-            ConfigDef.Width.NONE,
-            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY)
         .define(
             ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
             ConfigDef.Type.BOOLEAN,
@@ -481,22 +384,6 @@ public class ConnectorConfigDefinition {
             ICEBERG_ENABLED_DEFAULT_VALUE,
             ConfigDef.Importance.HIGH,
             "When set to true the connector will ingest data into the Iceberg table. Check the"
-                + " official Snowflake documentation for the prerequisites.")
-        .define(
-            SNOWPIPE_STREAMING_V2_ENABLED,
-            ConfigDef.Type.BOOLEAN,
-            SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE,
-            ConfigDef.Importance.HIGH,
-            "When set to true the connector will ingest data using Snowpipe Streaming v2.")
-        .define(
-            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
-            ConfigDef.Type.BOOLEAN,
-            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DEFAULT,
-            ConfigDef.Importance.LOW,
-            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DOC,
-            CONNECTOR_CONFIG_DOC,
-            11,
-            ConfigDef.Width.NONE,
-            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DISPLAY);
+                + " official Snowflake documentation for the prerequisites.");
   }
 }

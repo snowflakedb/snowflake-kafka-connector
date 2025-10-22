@@ -4,11 +4,11 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.awaitility.Awaitility.await;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SchematizationTestUtils;
@@ -34,6 +34,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkServiceV2BaseIT {
@@ -47,10 +48,8 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   public void setup() {
     config = TestUtils.getConfForStreaming();
     config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
-    config.put(
-        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-        "org.apache.kafka.connect.json.JsonConverter");
-    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    config.put(VALUE_CONVERTER_CONFIG_FIELD, "org.apache.kafka.connect.json.JsonConverter");
+    config.put(VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
     config.put("schemas.enable", "false");
     config.put(ERRORS_TOLERANCE_CONFIG, "all");
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
@@ -65,6 +64,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
+  @Disabled(
+      "disabling this test for now. It may come in handy depending on how ssv2 schema evolution"
+          + " will be implemented")
   public void testSchematizationWithTableCreationAndJsonInput() throws Exception {
     SinkRecord jsonRecordValue = createComplexTestRecord(partition, 0);
 
@@ -91,7 +93,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @Test
   public void testSchemaEvolutionNotAvailableInSsv2() {
     // given
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     SinkRecord jsonRecordValue = createComplexTestRecord(partition, 0);
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
@@ -109,6 +110,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
+  @Disabled(
+      "disabling this test for now. It may come in handy depending on how ssv2 schema evolution"
+          + " will be implemented")
   public void testSchematizationSchemaEvolutionWithNonNullableColumn() throws Exception {
     SinkRecord jsonRecordValue = recordForNullabilityTest(0);
 
@@ -141,6 +145,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
+  @Disabled(
+      "disabling this test for now. It may come in handy depending on how ssv2 schema evolution"
+          + " will be implemented")
   void testSkippingOffsetsInSchemaEvolution() throws Exception {
     long maxClientLagSeconds = 1L;
     long schemaEvolutionDelayMs = 3 * 1000L; // must be enough for sdk to flush and commit
@@ -155,8 +162,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withSchemaEvolutionService(
-                new DelayedSchemaEvolutionService(conn, schemaEvolutionDelayMs))
             .build();
     service.startPartition(table, topicPartition);
 
@@ -185,7 +190,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @Test
   public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ() {
     // given
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
@@ -210,7 +214,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @Test
   void shouldSendRecordToDlqIfSchemaNotMatched() {
     // given
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
 
     conn.createTableWithOnlyMetadataColumn(table);
     createNonNullableColumn(table, "\"ID_INT8\"", "boolean");
@@ -241,6 +244,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
    * handled correctly for normal Snowflake tables.
    */
   @Test
+  @Disabled(
+      "TODO: this test does not work with ssv2, depending on the implementation of schema evolution"
+          + " at SS side we may need this test")
   public void testTimestampLogicalTypeSchemaEvolution() throws Exception {
     // Create table with only metadata column
     conn.createTableWithOnlyMetadataColumn(table);

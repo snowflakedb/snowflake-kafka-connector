@@ -17,7 +17,6 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
-import com.snowflake.kafka.connector.config.IcebergConfigValidator;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -46,7 +45,8 @@ import org.apache.kafka.connect.sink.SinkConnector;
  */
 public class SnowflakeStreamingSinkConnector extends SinkConnector {
   // create logger without correlationId for now
-  private static KCLogger LOGGER = new KCLogger(SnowflakeStreamingSinkConnector.class.getName());
+  private static final KCLogger LOGGER =
+      new KCLogger(SnowflakeStreamingSinkConnector.class.getName());
 
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
@@ -67,8 +67,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   private boolean setupComplete;
 
   private final ConnectorConfigValidator connectorConfigValidator =
-      new DefaultConnectorConfigValidator(
-          new DefaultStreamingConfigValidator(), new IcebergConfigValidator());
+      new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeStreamingSinkConnector() {

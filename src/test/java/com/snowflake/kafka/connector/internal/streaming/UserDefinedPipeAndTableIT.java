@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.TestUtils.assertWithRetry;
 import static com.snowflake.kafka.connector.internal.TestUtils.tableSize;
 import static com.snowflake.kafka.connector.internal.streaming.AssertjDbWrapper.dbAssertThat;
@@ -22,17 +21,18 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
-import com.snowflake.kafka.connector.records.SnowflakeConverter;
-import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.storage.Converter;
 import org.assertj.db.type.AssertDbConnection;
 import org.assertj.db.type.Table;
 import org.junit.jupiter.api.AfterEach;
@@ -65,7 +65,6 @@ class UserDefinedPipeAndTableIT {
   void setup() throws SQLException {
     config = TestUtils.getConfForStreaming();
     // Enable user defined table and pipe
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "true");
     table = TestUtils.randomTableName();
     topic = table;
@@ -118,7 +117,7 @@ class UserDefinedPipeAndTableIT {
   }
 
   @Test
-  public void test_error_reported_when_the_pipe_does_not_exist() throws Exception {
+  public void test_error_reported_when_the_pipe_does_not_exist() {
     // pipe will not exist when startPartition is called
     TestUtils.dropPipe(pipe);
     SnowflakeSinkService service =
@@ -133,7 +132,10 @@ class UserDefinedPipeAndTableIT {
   }
 
   private List<SinkRecord> getRecordsToInsert() throws JsonProcessingException {
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    Converter converter = new JsonConverter();
+    final Map<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, false);
     SchemaAndValue input = converter.toConnectData(topic, jsonPayload());
     return List.of(
         new SinkRecord(topic, 0, STRING_SCHEMA, "test_key1", input.schema(), input.value(), 1),

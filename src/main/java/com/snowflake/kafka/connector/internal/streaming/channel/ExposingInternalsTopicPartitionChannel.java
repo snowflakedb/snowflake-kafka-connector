@@ -7,15 +7,6 @@ import dev.failsafe.Fallback;
 public interface ExposingInternalsTopicPartitionChannel {
 
   @VisibleForTesting
-  long getOffsetPersistedInSnowflake();
-
-  @VisibleForTesting
-  long getProcessedOffset();
-
-  @VisibleForTesting
-  long getLatestConsumerOffset();
-
-  @VisibleForTesting
   SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus();
 
   /**

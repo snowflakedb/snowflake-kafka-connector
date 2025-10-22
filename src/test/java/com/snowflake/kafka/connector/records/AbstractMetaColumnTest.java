@@ -11,7 +11,6 @@ import static com.snowflake.kafka.connector.records.RecordService.TOPIC;
 import static java.util.Collections.emptySet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,12 +20,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
-import com.snowflake.kafka.connector.mock.MockSchemaRegistryClient;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -34,6 +29,7 @@ import javax.annotation.Nullable;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,8 +37,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 abstract class AbstractMetaColumnTest {
-
-  private static final String TEST_VALUE_FILE_NAME = "test.avro";
 
   protected final String topic = "test";
   protected final int partition = 0;
@@ -60,7 +54,7 @@ abstract class AbstractMetaColumnTest {
 
   @Test
   public void testKey() throws IOException {
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     SchemaAndValue input = getJsonInputData();
     long timestamp = System.currentTimeMillis();
 
@@ -102,7 +96,7 @@ abstract class AbstractMetaColumnTest {
             .withTimestamp(System.currentTimeMillis(), timestampType)
             .build();
 
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     service.setMetadataConfig(new SnowflakeMetadataConfig(config));
 
     // when
@@ -151,7 +145,7 @@ abstract class AbstractMetaColumnTest {
 
     Map<String, String> config = ImmutableMap.of(SNOWFLAKE_METADATA_ALL, "false");
 
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     service.setMetadataConfig(new SnowflakeMetadataConfig(config));
 
     // when
@@ -163,7 +157,7 @@ abstract class AbstractMetaColumnTest {
 
   @Test
   public void testTimeStamp() throws IOException {
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     SchemaAndValue input = getJsonInputData();
     long timestamp = System.currentTimeMillis();
 
@@ -225,55 +219,9 @@ abstract class AbstractMetaColumnTest {
     assertEquals(timestamp, metadata.get(TimestampType.LOG_APPEND_TIME.name).asLong());
   }
 
-  @Test
-  public void testSchemaID() throws IOException {
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
-    SchemaAndValue input =
-        converter.toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
-
-    // no schema id
-    SinkRecord record =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), 0);
-    SnowflakeRecordContent content = assertInstanceOf(SnowflakeRecordContent.class, record.value());
-
-    assertEquals(SnowflakeRecordContent.NON_AVRO_SCHEMA, content.getSchemaID());
-
-    // broken data
-    input = converter.toConnectData(topic, ("123adsada").getBytes(StandardCharsets.UTF_8));
-    record =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), 0);
-    content = assertInstanceOf(SnowflakeRecordContent.class, record.value());
-
-    assertEquals(SnowflakeRecordContent.NON_AVRO_SCHEMA, content.getSchemaID());
-
-    // avro without schema registry
-    converter = new SnowflakeAvroConverterWithoutSchemaRegistry();
-    URL resource = ConverterTest.class.getResource(TEST_VALUE_FILE_NAME);
-    byte[] testFile = Files.readAllBytes(Paths.get(resource.getFile()));
-    input = converter.toConnectData(topic, testFile);
-    record =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), 0);
-    content = assertInstanceOf(SnowflakeRecordContent.class, record.value());
-
-    assertEquals(SnowflakeRecordContent.NON_AVRO_SCHEMA, content.getSchemaID());
-
-    // include schema id
-    MockSchemaRegistryClient client = new MockSchemaRegistryClient();
-    converter = new SnowflakeAvroConverter();
-    ((SnowflakeAvroConverter) converter).setSchemaRegistry(client);
-    input = converter.toConnectData(topic, client.getData());
-    record =
-        new SinkRecord(
-            topic, partition, Schema.STRING_SCHEMA, "test", input.schema(), input.value(), 0);
-    content = assertInstanceOf(SnowflakeRecordContent.class, record.value());
-    assertEquals(1, content.getSchemaID());
-  }
-
   protected SchemaAndValue getJsonInputData() {
-    return new SnowflakeJsonConverter()
-        .toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
+    JsonConverter converter = new JsonConverter();
+    converter.configure(Map.of("schemas.enable", "false"), false);
+    return converter.toConnectData(topic, ("{\"name\":\"test\"}").getBytes(StandardCharsets.UTF_8));
   }
 }

@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.time.Duration;
-import net.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import net.snowflake.ingest.utils.SFException;
 
 /**

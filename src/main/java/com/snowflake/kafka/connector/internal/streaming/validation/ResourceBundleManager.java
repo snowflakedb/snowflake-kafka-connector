@@ -16,7 +16,7 @@ import java.util.Set;
  * @author tcruanes
  */
 public class ResourceBundleManager {
-  private static Map<String, ResourceBundleManager> resourceManagers =
+  private static final Map<String, ResourceBundleManager> resourceManagers =
       new HashMap<String, ResourceBundleManager>();
 
   private static final Object lockObject = new Object();
@@ -49,9 +49,9 @@ public class ResourceBundleManager {
       } catch (Throwable ex2) {
         throw new RuntimeException(
             "Can't load localized resource bundle due to "
-                + ex1.toString()
+                + ex1
                 + " and can't load default resource bundle due to "
-                + ex2.toString());
+                + ex2);
       }
     } finally {
       resourceBundle = bundle;
@@ -100,11 +100,6 @@ public class ResourceBundleManager {
    */
   public String getLocalizedMessage(String key, Object... args) {
     return MessageFormat.format(getLocalizedMessage(key), args);
-  }
-
-  /** @return Return the set of error messages for the current locale */
-  public ResourceBundle getResourceBundle() {
-    return resourceBundle;
   }
 
   public static ResourceBundleManager getSingleton(String bundleName) {

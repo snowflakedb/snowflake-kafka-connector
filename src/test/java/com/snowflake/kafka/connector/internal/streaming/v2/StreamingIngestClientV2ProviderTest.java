@@ -20,7 +20,7 @@ class StreamingIngestClientV2ProviderTest {
     connectorConfig.put(Utils.SF_ROLE, "TEST_ROLE");
 
     // When
-    Properties properties = StreamingIngestClientV2Provider.getClientProperties(connectorConfig);
+    Properties properties = StreamingIngestClientProvider.getClientProperties(connectorConfig);
 
     // Then
     assertThat(properties).isNotNull();

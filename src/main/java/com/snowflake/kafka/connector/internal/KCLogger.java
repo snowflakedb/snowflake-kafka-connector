@@ -10,7 +10,7 @@ public class KCLogger {
   public static final String MDC_CONN_CTX_KEY = "connector.context";
   private static boolean prependMdcContext;
   private static final Logger META_LOGGER = LoggerFactory.getLogger(KCLogger.class.getName());
-  private Logger logger;
+  private final Logger logger;
 
   /**
    * Enable or disables the MDC context. Only available for apache kafka versions after 2.3.0.

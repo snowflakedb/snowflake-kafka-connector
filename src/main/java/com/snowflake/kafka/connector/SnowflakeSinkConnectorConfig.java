@@ -16,11 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.Utils.isSnowpipeStreamingIngestion;
-
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -40,18 +37,6 @@ public class SnowflakeSinkConnectorConfig {
 
   // For tombstone records
   public static final String BEHAVIOR_ON_NULL_VALUES_CONFIG = "behavior.on.null.values";
-
-  // Buffer thresholds for Snowpipe
-  public static final String BUFFER_FLUSH_TIME_SEC = "buffer.flush.time";
-  public static final long BUFFER_FLUSH_TIME_SEC_DEFAULT = 120;
-  public static final long BUFFER_FLUSH_TIME_SEC_MIN = 10;
-
-  public static final String BUFFER_SIZE_BYTES = "buffer.size.bytes";
-  public static final long BUFFER_SIZE_BYTES_DEFAULT = 5000000;
-  public static final long BUFFER_SIZE_BYTES_MIN = 1;
-
-  public static final String BUFFER_COUNT_RECORDS = "buffer.count.records";
-  public static final long BUFFER_COUNT_RECORDS_DEFAULT = 10000;
 
   // Snowflake connection and database config
   public static final String SNOWFLAKE_URL = Utils.SF_URL;
@@ -107,43 +92,9 @@ public class SnowflakeSinkConnectorConfig {
   public static final String JMX_OPT = "jmx";
   public static final boolean JMX_OPT_DEFAULT = true;
 
-  // for Snowpipe vs Streaming Snowpipe
-  public static final String INGESTION_METHOD_OPT = "snowflake.ingestion.method";
-  public static final String INGESTION_METHOD_DEFAULT_SNOWPIPE =
-      IngestionMethodConfig.SNOWPIPE.toString();
-
-  // addresses https://snowflakecomputing.atlassian.net/browse/SNOW-1019628 - use new file cleaner
-  public static final String SNOWPIPE_FILE_CLEANER_FIX_ENABLED =
-      "snowflake.snowpipe.v2CleanerEnabled";
-  public static final String SNOWPIPE_FILE_CLEANER_THREADS = "snowflake.snowpipe.v2CleanerThreads";
-  // how often to run v2 cleaner
-  // low value may cause hitting "too many requests - 429 status code" while querying the internal
-  // stage
-  // setting it higher may be cost-effective when no messages land on a partition
-  // (https://snowflakecomputing.atlassian.net/browse/SNOW-1904571)
-  public static final String SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS =
-      "snowflake.snowpipe.v2CleanerIntervalSeconds";
-
-  public static final boolean SNOWPIPE_FILE_CLEANER_FIX_ENABLED_DEFAULT = true;
-  public static final int SNOWPIPE_FILE_CLEANER_THREADS_DEFAULT = 1;
-  public static final long SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS_DEFAULT = 61;
-
-  public static final String SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP =
-      "snowflake.snowpipe.v1Cleaner.enable.reprocessFiles.cleanup";
-  public static final boolean SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP_DEFAULT = true;
-
-  public static final String SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED =
-      "snowflake.snowpipe.stageFileNameExtensionEnabled";
-  public static final boolean SNOWPIPE_SINGLE_TABLE_MULTIPLE_TOPICS_FIX_ENABLED_DEFAULT = true;
-
-  // Whether to close streaming channels in parallel.
-  public static final String SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL =
-      "snowflake.streaming.closeChannelsInParallel.enabled";
-  public static final boolean SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT = true;
-
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
-  public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 30;
+  public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 1;
 
   public static final String SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES =
       "snowflake.streaming.max.memory.limit.bytes";
@@ -154,9 +105,6 @@ public class SnowflakeSinkConnectorConfig {
   // Iceberg
   public static final String ICEBERG_ENABLED = "snowflake.streaming.iceberg.enabled";
   public static final boolean ICEBERG_ENABLED_DEFAULT_VALUE = false;
-
-  public static final String SNOWPIPE_STREAMING_V2_ENABLED = "snowflake.streaming.v2.enabled";
-  public static final boolean SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE = false;
 
   // with this flag set to true the user is responsible
   // for creating the destination objects (pipe and the table)
@@ -179,9 +127,6 @@ public class SnowflakeSinkConnectorConfig {
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
-
-  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkConnectorConfig.class.getName());
-
   // For error handling
   public static final String ERROR_GROUP = "ERRORS";
   public static final String ERRORS_TOLERANCE_CONFIG = "errors.tolerance";
@@ -191,7 +136,6 @@ public class SnowflakeSinkConnectorConfig {
       "Behavior for tolerating errors during Sink connector's operation. 'NONE' is set as default"
           + " and denotes that it will be fail fast. i.e any error will result in an immediate task"
           + " failure. 'ALL'  skips over problematic records.";
-
   public static final String ERRORS_LOG_ENABLE_CONFIG = "errors.log.enable";
   public static final String ERRORS_LOG_ENABLE_DISPLAY = "Log Errors";
   public static final boolean ERRORS_LOG_ENABLE_DEFAULT = false;
@@ -199,7 +143,6 @@ public class SnowflakeSinkConnectorConfig {
       "If true, write/log each error along with details of the failed operation and record"
           + " properties to the Connect log. Default is 'false', so that only errors that are not"
           + " tolerated are reported.";
-
   public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG =
       "errors.deadletterqueue.topic.name";
   public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY =
@@ -209,41 +152,9 @@ public class SnowflakeSinkConnectorConfig {
       "Whether to output conversion errors to the dead letter queue "
           + "By default messages are not sent to the dead letter queue. "
           + "Requires property `errors.tolerance=all`.";
-
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG =
-      "enable.streaming.client.optimization";
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DISPLAY =
-      "Enable streaming client optimization";
-  public static final boolean ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT = true;
-  public static final String ENABLE_STREAMING_CLIENT_OPTIMIZATION_DOC =
-      "Whether to optimize the streaming client to reduce cost. Note that this may affect"
-          + " throughput or latency and can only be set if Streaming Snowpipe is enabled";
-
-  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG =
-      "enable.streaming.channel.offset.migration";
-  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY =
-      "Enable Streaming Channel Offset Migration";
-  public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT = true;
-  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC =
-      "This config is used to enable/disable streaming channel offset migration logic. If true, we"
-          + " will migrate offset token from channel name format V2 to name format v1. V2 channel"
-          + " format is deprecated and V1 will be used always, disabling this config could have"
-          + " ramifications. Please consult Snowflake support before setting this to false.";
-
-  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG =
-      "enable.streaming.channel.offset.verification";
-  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DISPLAY =
-      "Enable streaming channel offset verification function";
-  public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DEFAULT = true;
-  public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DOC =
-      "Whether to enable streaming channel offset verification function. The function checks only"
-          + " for incremental offsets (might contain gaps) and might signal false positives in case"
-          + " of SMT. Can only be set if Streaming Snowpipe is enabled";
-
   public static final String ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS =
       "enable.task.fail.on.authorization.errors";
   public static final boolean ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT = false;
-
   // MDC logging header
   public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
   public static final String ENABLE_MDC_LOGGING_DISPLAY = "Enable MDC logging";
@@ -251,7 +162,6 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ENABLE_MDC_LOGGING_DOC =
       "Enable MDC context to prepend log messages. Note that this is only available after Apache"
           + " Kafka 2.3";
-
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
    * before actually sending records to Kafka connector.
@@ -263,38 +173,44 @@ public class SnowflakeSinkConnectorConfig {
   public static final String KEY_CONVERTER_CONFIG_FIELD = "key.converter";
 
   public static final String VALUE_CONVERTER_CONFIG_FIELD = "value.converter";
-
   public static final String VALUE_SCHEMA_REGISTRY_CONFIG_FIELD =
       "value.converter.schema.registry.url";
-
   public static final Set<String> CUSTOM_SNOWFLAKE_CONVERTERS =
       Set.of(
           "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
+  /**
+   * Boolean Validator of passed booleans in configurations (TRUE or FALSE). This validator is case
+   * insensitive
+   */
+  public static final ConfigDef.Validator BOOLEAN_VALIDATOR =
+      new ConfigDef.Validator() {
+        private final ConfigDef.ValidString validator =
+            ConfigDef.ValidString.in(
+                Boolean.TRUE.toString().toLowerCase(Locale.ROOT),
+                Boolean.FALSE.toString().toLowerCase(Locale.ROOT));
+
+        @Override
+        public void ensureValid(String name, Object value) {
+          if (value instanceof String) {
+            value = ((String) value).toLowerCase(Locale.ROOT);
+          }
+          this.validator.ensureValid(name, value);
+        }
+      };
+
+  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkConnectorConfig.class.getName());
 
   public static void setDefaultValues(Map<String, String> config) {
-    setFieldToDefaultValues(config, BUFFER_COUNT_RECORDS, BUFFER_COUNT_RECORDS_DEFAULT, "");
-
-    setFieldToDefaultValues(config, BUFFER_SIZE_BYTES, BUFFER_SIZE_BYTES_DEFAULT, "bytes");
-
-    setFieldToDefaultValues(
-        config, BUFFER_FLUSH_TIME_SEC, BUFFER_FLUSH_TIME_SEC_DEFAULT, "seconds");
-
-    if (isSnowpipeStreamingIngestion(config)) {
-      setFieldToDefaultValues(
-          config,
+    if (!config.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
+      config.put(
           SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-          SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT,
-          "seconds");
-    }
-  }
-
-  static void setFieldToDefaultValues(
-      Map<String, String> config, String field, Object value, String unitName) {
-    if (!config.containsKey(field)) {
-      config.put(field, value + "");
-      LOGGER.info("{} set to default {} {}", field, value, unitName);
+          SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT + "");
+      LOGGER.info(
+          "{} set to default {} seconds",
+          SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
+          SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT);
     }
   }
 
@@ -449,24 +365,4 @@ public class SnowflakeSinkConnectorConfig {
       return name().toLowerCase(Locale.ROOT);
     }
   }
-
-  /**
-   * Boolean Validator of passed booleans in configurations (TRUE or FALSE). This validator is case
-   * insensitive
-   */
-  public static final ConfigDef.Validator BOOLEAN_VALIDATOR =
-      new ConfigDef.Validator() {
-        private final ConfigDef.ValidString validator =
-            ConfigDef.ValidString.in(
-                Boolean.TRUE.toString().toLowerCase(Locale.ROOT),
-                Boolean.FALSE.toString().toLowerCase(Locale.ROOT));
-
-        @Override
-        public void ensureValid(String name, Object value) {
-          if (value instanceof String) {
-            value = ((String) value).toLowerCase(Locale.ROOT);
-          }
-          this.validator.ensureValid(name, value);
-        }
-      };
 }

@@ -2,13 +2,11 @@ package com.snowflake.kafka.connector.internal;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.sink.SinkTaskContext;
 
 /** Background service of data sink, responsible to create/drop pipe and ingest/purge files */
 public interface SnowflakeSinkService {
@@ -58,9 +56,6 @@ public interface SnowflakeSinkService {
    */
   int getPartitionCount();
 
-  /** used for testing only */
-  void callAllGetOffset();
-
   /** terminate all tasks and close this service instance */
   void closeAll();
 
@@ -85,12 +80,6 @@ public interface SnowflakeSinkService {
    * @return true is closed
    */
   boolean isClosed();
-
-  /* Set Error reporter which can be used to send records to DLQ (Dead Letter Queue) */
-  default void setErrorReporter(KafkaRecordErrorReporter kafkaRecordErrorReporter) {}
-
-  /* Set the SinkTaskContext object available from SinkTask. It contains utility methods to from Kafka Connect Runtime. */
-  default void setSinkTaskContext(SinkTaskContext sinkTaskContext) {}
 
   /* Get metric registry of an associated partition */
   @VisibleForTesting

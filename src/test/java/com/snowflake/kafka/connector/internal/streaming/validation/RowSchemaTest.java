@@ -661,7 +661,7 @@ public class RowSchemaTest {
         if (isIceberg) {
           colBoolean.setSourceIcebergDataType("\"boolean\"");
         }
-        return Arrays.asList(colBoolean);
+        return List.of(colBoolean);
       }
 
       @ParameterizedTest
@@ -840,7 +840,7 @@ public class RowSchemaTest {
         colDecimal.setLogicalType("FIXED");
         colDecimal.setPrecision(38);
         colDecimal.setScale(0);
-        return Arrays.asList(colDecimal);
+        return List.of(colDecimal);
       }
 
       @ParameterizedTest
@@ -920,7 +920,7 @@ public class RowSchemaTest {
         colVariant.setPhysicalType("LOB");
         colVariant.setNullable(true);
         colVariant.setLogicalType("VARIANT");
-        return Arrays.asList(colVariant);
+        return List.of(colVariant);
       }
 
       @ParameterizedTest

@@ -1,14 +1,19 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
-import static com.snowflake.kafka.connector.Utils.*;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
+import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
+import static com.snowflake.kafka.connector.Utils.isUsingUserDefinedDatabaseObjects;
+import static com.snowflake.kafka.connector.Utils.isValidSnowflakeApplicationName;
+import static com.snowflake.kafka.connector.Utils.parseTopicToTableMap;
+import static com.snowflake.kafka.connector.Utils.validateProxySettings;
 
 import com.google.common.collect.ImmutableMap;
-import com.snowflake.kafka.connector.internal.BufferThreshold;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,22 +25,12 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       new KCLogger(DefaultConnectorConfigValidator.class.getName());
 
   private final StreamingConfigValidator streamingConfigValidator;
-  private final StreamingConfigValidator icebergConfigValidator;
 
-  public DefaultConnectorConfigValidator(
-      StreamingConfigValidator streamingConfigValidator,
-      StreamingConfigValidator icebergConfigValidator) {
+  public DefaultConnectorConfigValidator(StreamingConfigValidator streamingConfigValidator) {
     this.streamingConfigValidator = streamingConfigValidator;
-    this.icebergConfigValidator = icebergConfigValidator;
   }
 
-  /**
-   * Validate input configuration
-   *
-   * @param config configuration Map
-   * @return connector name
-   */
-  public String validateConfig(Map<String, String> config) {
+  public void validateConfig(Map<String, String> config) {
     Map<String, String> invalidConfigParams = new HashMap<String, String>();
 
     // define the input parameters / keys in one place as static constants,
@@ -52,77 +47,6 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               "{} is empty or invalid. It should match Snowflake object identifier syntax. Please"
                   + " see the documentation.",
               SnowflakeSinkConnectorConfig.NAME));
-    }
-
-    // If config doesnt have ingestion method defined, default is snowpipe or if snowpipe is
-    // explicitly passed in as ingestion method
-    // Below checks are just for snowpipe.
-    if (isSnowpipeIngestion(config)) {
-      invalidConfigParams.putAll(
-          BufferThreshold.validateBufferThreshold(config, IngestionMethodConfig.SNOWPIPE));
-
-      if (config.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)
-          && Boolean.parseBoolean(
-              config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG))) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
-            Utils.formatString(
-                "Schematization is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-            Utils.formatString(
-                "{} is only available with ingestion type: {}.",
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
-            Utils.formatString(
-                "{} is only available with ingestion type: {}.",
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-            Utils.formatString(
-                "{} is only available with ingestion type: {}.",
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-              SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG)
-          && Boolean.parseBoolean(
-              config.get(
-                  SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG))) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-            Utils.formatString(
-                "Streaming client optimization is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
-            Utils.formatString(
-                "Streaming client Channel migration is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
-      if (config.containsKey(
-          SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG)) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
-            Utils.formatString(
-                "Streaming channel offset verification function is only available with {}.",
-                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
-      }
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
@@ -245,7 +169,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
         invalidConfigParams.put(
             BEHAVIOR_ON_NULL_VALUES_CONFIG,
             Utils.formatString(
-                "Kafka config:{} error:{}",
+                "Kafka config: {} error: {}",
                 BEHAVIOR_ON_NULL_VALUES_CONFIG,
                 exception.getMessage()));
       }
@@ -255,18 +179,8 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       if (!(config.get(JMX_OPT).equalsIgnoreCase("true")
           || config.get(JMX_OPT).equalsIgnoreCase("false"))) {
         invalidConfigParams.put(
-            JMX_OPT, Utils.formatString("Kafka config:{} should either be true or false", JMX_OPT));
-      }
-    }
-
-    if (config.containsKey(SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP)) {
-      if (!(config.get(SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP).equalsIgnoreCase("true")
-          || config.get(SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP).equalsIgnoreCase("false"))) {
-        invalidConfigParams.put(
-            SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP,
-            Utils.formatString(
-                "Kafka config:{} should either be true or false",
-                SNOWPIPE_ENABLE_REPROCESS_FILES_CLEANUP));
+            JMX_OPT,
+            Utils.formatString("Kafka config: {} should either be true or false", JMX_OPT));
       }
     }
 
@@ -280,25 +194,16 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
         invalidConfigParams.put(
             SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
             Utils.formatString(
-                "Kafka config:{} should either be true or false",
+                "Kafka config: {} should either be true or false",
                 SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS));
       }
     }
 
-    // Check mutual exclusivity between SSv2 and Iceberg
-    if (isSnowpipeStreamingV2Enabled(config) && isIcebergEnabled(config)) {
+    if (isSchematizationEnabled(config)) {
       invalidConfigParams.put(
-          SNOWPIPE_STREAMING_V2_ENABLED,
+          ENABLE_SCHEMATIZATION_CONFIG,
           Utils.formatString(
-              "{} and {} are mutually exclusive and cannot both be enabled",
-              SNOWPIPE_STREAMING_V2_ENABLED,
-              ICEBERG_ENABLED));
-      invalidConfigParams.put(
-          ICEBERG_ENABLED,
-          Utils.formatString(
-              "{} and {} are mutually exclusive and cannot both be enabled",
-              ICEBERG_ENABLED,
-              SNOWPIPE_STREAMING_V2_ENABLED));
+              "Schematization is not available in Private Preview", ENABLE_SCHEMATIZATION_CONFIG));
     }
 
     // with schematization enabled user expects the connector to alter table (add columns) when new
@@ -318,12 +223,9 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
     invalidConfigParams.putAll(streamingConfigValidator.validate(config));
-    invalidConfigParams.putAll(icebergConfigValidator.validate(config));
 
     // logs and throws exception if there are invalid params
     handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));
-
-    return connectorName;
   }
 
   private void handleInvalidParameters(ImmutableMap<String, String> invalidConfigParams) {

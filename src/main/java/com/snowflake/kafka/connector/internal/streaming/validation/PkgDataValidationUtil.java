@@ -88,7 +88,7 @@ class PkgDataValidationUtil {
   // base64-encoded string, and we would like to serialize it as JSON array of numbers.
   static {
     SimpleModule module = new SimpleModule();
-    module.<byte[]>addSerializer(byte[].class, new ByteArraySerializer());
+    module.addSerializer(byte[].class, new ByteArraySerializer());
     module.addSerializer(ZonedDateTime.class, new ZonedDateTimeSerializer());
     module.addSerializer(LocalTime.class, new ToStringSerializer());
     module.addSerializer(OffsetTime.class, new ToStringSerializer());

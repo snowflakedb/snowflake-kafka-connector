@@ -4,17 +4,18 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.records.SnowflakeConverter;
-import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.storage.Converter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2OAuthIT extends SnowflakeSinkServiceV2BaseIT {
@@ -32,6 +33,7 @@ public class SnowflakeSinkServiceV2OAuthIT extends SnowflakeSinkServiceV2BaseIT 
   }
 
   @Test
+  @Disabled("TODO: fix this test when ssv2 officially support oauth client credentials flow")
   void shouldIngestDataWithOAuth() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreamingWithOAuth();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -43,7 +45,7 @@ public class SnowflakeSinkServiceV2OAuthIT extends SnowflakeSinkServiceV2BaseIT 
             .build();
     service.startPartition(table, new TopicPartition(topic, partition));
 
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    Converter converter = new JsonConverter();
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;

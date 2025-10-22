@@ -6,8 +6,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.FakeSnowflakeStreamingIngestChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientProvider;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.json.JsonConverter;
@@ -16,22 +19,26 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+/** Integration test for Single Message Transformations (SMT) with null value handling. */
 public class SmtIT extends ConnectClusterBaseIT {
 
   private String smtTopic;
   private String smtConnector;
+  private static final int PARTITION_COUNT = 1;
 
   @BeforeEach
   void before() {
     smtTopic = TestUtils.randomTableName();
     smtConnector = String.format("%s_connector", smtTopic);
-    connectCluster.kafka().createTopic(smtTopic);
+    connectCluster.kafka().createTopic(smtTopic, PARTITION_COUNT);
+    StreamingIngestClientProvider.setIngestClientSupplier(fakeClientSupplier);
   }
 
   @AfterEach
   void after() {
     connectCluster.kafka().deleteTopic(smtTopic);
     connectCluster.deleteConnector(smtConnector);
+    StreamingIngestClientProvider.resetIngestClientSupplier();
   }
 
   private Map<String, String> smtProperties(
@@ -57,6 +64,7 @@ public class SmtIT extends ConnectClusterBaseIT {
     connectCluster.configureConnector(
         smtConnector, smtProperties(smtTopic, smtConnector, behaviorOnNull));
     waitForConnectorRunning(smtConnector);
+    waitForOpenedFakeIngestClient(smtConnector);
 
     // when
     Stream.iterate(0, UnaryOperator.identity())
@@ -70,10 +78,16 @@ public class SmtIT extends ConnectClusterBaseIT {
         .pollInterval(Duration.ofSeconds(1))
         .untilAsserted(
             () -> {
-              assertThat(fakeStreamingClientHandler.ingestedRows()).hasSize(expectedRecordNumber);
-              assertThat(fakeStreamingClientHandler.getLatestCommittedOffsetTokensPerChannel())
-                  .hasSize(1)
-                  .containsValue("19");
+              assertThat(getOpenedFakeIngestClient(smtConnector).getAppendedRowCount())
+                  .isEqualTo(expectedRecordNumber);
+              Set<FakeSnowflakeStreamingIngestChannel> openedChannels =
+                  getOpenedFakeIngestClient(smtConnector).getOpenedChannels();
+              // get first open channel, there is going to be only one because partition count is 1
+              String offsetToken =
+                  openedChannels.stream().findFirst().orElseThrow().getLatestCommittedOffsetToken();
+
+              assertThat(openedChannels).hasSize(PARTITION_COUNT);
+              assertThat(offsetToken).isEqualTo("19");
             });
   }
 }

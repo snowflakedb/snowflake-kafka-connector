@@ -2,15 +2,14 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -38,64 +37,47 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   public ImmutableMap<String, String> validate(Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
-    // For snowpipe_streaming, role should be non empty
-    if (inputConfig.containsKey(INGESTION_METHOD_OPT)) {
+    // Validate Iceberg config
+    if (isIcebergEnabled(inputConfig)) {
+      invalidParams.put(ICEBERG_ENABLED, "Ingestion to Iceberg table is currently unsupported.");
+    }
+
+    invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
+    invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
+
+    validateRole(inputConfig)
+        .ifPresent(errorEntry -> invalidParams.put(errorEntry.getKey(), errorEntry.getValue()));
+
+    // Validate error handling configs
+    if (inputConfig.containsKey(ERRORS_TOLERANCE_CONFIG)) {
       try {
-        // This throws an exception if config value is invalid.
-        IngestionMethodConfig.VALIDATOR.ensureValid(
-            INGESTION_METHOD_OPT, inputConfig.get(INGESTION_METHOD_OPT));
-        if (inputConfig
-            .get(INGESTION_METHOD_OPT)
-            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE_STREAMING.toString())) {
-          invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
-          invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
-
-          validateRole(inputConfig)
-              .ifPresent(
-                  errorEntry -> invalidParams.put(errorEntry.getKey(), errorEntry.getValue()));
-
-          /**
-           * Only checking in streaming since we are utilizing the values before we send it to
-           * DLQ/output to log file
-           */
-          if (inputConfig.containsKey(ERRORS_TOLERANCE_CONFIG)) {
-            SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR.ensureValid(
-                ERRORS_TOLERANCE_CONFIG, inputConfig.get(ERRORS_TOLERANCE_CONFIG));
-          }
-          if (inputConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
-            BOOLEAN_VALIDATOR.ensureValid(
-                ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
-          }
-          if (inputConfig.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)) {
-            BOOLEAN_VALIDATOR.ensureValid(
-                ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
-                inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG));
-          }
-          if (inputConfig.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG)) {
-            BOOLEAN_VALIDATOR.ensureValid(
-                ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
-                inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG));
-          }
-
-          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
-            ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_CLIENT_LAG, invalidParams);
-          }
-
-          if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
-            ensureValidLong(
-                inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
-          }
-
-          // Valid schematization for Snowpipe Streaming
-          invalidParams.putAll(validateSchematizationConfig(inputConfig));
-        }
-      } catch (ConfigException exception) {
+        SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR.ensureValid(
+            ERRORS_TOLERANCE_CONFIG, inputConfig.get(ERRORS_TOLERANCE_CONFIG));
+      } catch (ConfigException e) {
         invalidParams.put(
-            INGESTION_METHOD_OPT,
+            ERRORS_TOLERANCE_CONFIG,
             Utils.formatString(
-                "Kafka config:{} error:{}", INGESTION_METHOD_OPT, exception.getMessage()));
+                "{} configuration error: {}", ERRORS_TOLERANCE_CONFIG, e.getMessage()));
       }
     }
+    if (inputConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
+      try {
+        BOOLEAN_VALIDATOR.ensureValid(
+            ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
+      } catch (ConfigException e) {
+        invalidParams.put(ERRORS_LOG_ENABLE_CONFIG, e.getMessage());
+      }
+    }
+    if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
+      ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_CLIENT_LAG, invalidParams);
+    }
+
+    if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
+      ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
+    }
+
+    // Validate schematization config
+    invalidParams.putAll(validateSchematizationConfig(inputConfig));
 
     return ImmutableMap.copyOf(invalidParams);
   }
@@ -104,9 +86,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     if (!inputConfig.containsKey(Utils.SF_ROLE)
         || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
       String missingRole =
-          String.format(
-              "Config:%s should be present if ingestionMethod is:%s",
-              Utils.SF_ROLE, inputConfig.get(INGESTION_METHOD_OPT));
+          String.format("Config: %s should be present for Snowpipe Streaming", Utils.SF_ROLE);
       return Optional.of(Map.entry(Utils.SF_ROLE, missingRole));
     }
     return Optional.empty();
@@ -125,30 +105,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     }
   }
 
-  private static void ensureValidIntWithMinimum(
-      Map<String, String> inputConfig,
-      String param,
-      int minimumValue,
-      Map<String, String> invalidParams) {
-    try {
-      int value = Integer.parseInt(inputConfig.get(param));
-      if (value < minimumValue) {
-        invalidParams.put(
-            param,
-            Utils.formatString(
-                param + " configuration must be at least {}. Given configuration was: {}",
-                minimumValue,
-                value));
-      }
-    } catch (NumberFormatException exception) {
-      invalidParams.put(
-          param,
-          Utils.formatString(
-              param + " configuration must be a parsable int. Given configuration was: {}",
-              inputConfig.get(param)));
-    }
-  }
-
   /**
    * Validates if the configs are allowed values when schematization is enabled.
    *
@@ -158,21 +114,26 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     Map<String, String> invalidParams = new HashMap<>();
 
     if (inputConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
-      BOOLEAN_VALIDATOR.ensureValid(
-          SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
-          inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+      try {
+        BOOLEAN_VALIDATOR.ensureValid(
+            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+            inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+      } catch (ConfigException e) {
+        invalidParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, e.getMessage());
+        return invalidParams;
+      }
 
       boolean isSchematizationEnabled =
           Boolean.parseBoolean(
               inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
 
       // Validate that schematization and streaming V2 are mutually exclusive
-      if (isSchematizationEnabled && Utils.isSnowpipeStreamingV2Enabled(inputConfig)) {
+      if (isSchematizationEnabled) {
         invalidParams.put(
             SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
             "Schematization is not yet supported with Snowpipe Streaming: High-Performance"
-                + " Architecture. Please set snowflake.enable.schematization to false when"
-                + " snowflake.streaming.v2.enabled is set to true.");
+                + " Architecture. ");
       }
 
       if (isSchematizationEnabled
@@ -207,9 +168,9 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
       invalidParams.put(
           inputConfigConverterField,
           Utils.formatString(
-              "Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
+              "Config: {} has provided value: {}. If ingestionMethod is: {}, Snowflake Custom"
                   + " Converters are not allowed. \n"
-                  + "Invalid Converters:{}",
+                  + "Invalid Converters: {}",
               inputConfigConverterField,
               inputConfig.get(inputConfigConverterField),
               IngestionMethodConfig.SNOWPIPE_STREAMING,

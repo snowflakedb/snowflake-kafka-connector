@@ -7,31 +7,22 @@ import static com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes.IC
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
-import com.snowflake.kafka.connector.internal.streaming.ChannelMigrationResponseCode;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
@@ -41,43 +32,28 @@ import net.snowflake.client.jdbc.cloud.storage.StageInfo;
  */
 public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService {
 
+  // User agent suffix we want to pass in to ingest service
+  public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
+  private static final long CREDENTIAL_EXPIRY_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(30);
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private final KCLogger LOGGER = new KCLogger(SnowflakeConnectionServiceV1.class.getName());
-
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
   private final String taskID;
   private final JdbcProperties jdbcProperties;
-
   private final SnowflakeURL url;
-  private final SnowflakeInternalStage internalStage;
-
   // This info is provided in the connector configuration
   // This property will be appeneded to user agent while calling snowpipe API in http request
   private final String kafkaProvider;
-
-  private StageInfo.StageType stageType;
-
-  private static final long CREDENTIAL_EXPIRY_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(30);
-
-  // User agent suffix we want to pass in to ingest service
-  public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
-
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-  public static class OffsetTokenMigrationRetryableException extends RuntimeException {
-    public OffsetTokenMigrationRetryableException(String message) {
-      super(message);
-    }
-  }
+  private final StageInfo.StageType stageType;
 
   SnowflakeConnectionServiceV1(
       JdbcProperties jdbcProperties,
       SnowflakeURL url,
       String connectorName,
       String taskID,
-      String kafkaProvider,
-      IngestionMethodConfig ingestionMethodConfig) {
+      String kafkaProvider) {
     this.jdbcProperties = jdbcProperties;
     this.connectorName = connectorName;
     this.taskID = taskID;
@@ -96,12 +72,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_1001.getException(e);
     }
-    long credentialExpireTimeMillis = CREDENTIAL_EXPIRY_TIMEOUT_MILLIS;
-    this.internalStage =
-        new SnowflakeInternalStage(
-            (SnowflakeConnectionV1) this.conn, credentialExpireTimeMillis, proxyProperties);
     this.telemetry =
-        SnowflakeTelemetryServiceFactory.builder(conn, ingestionMethodConfig)
+        SnowflakeTelemetryServiceFactory.builder(conn)
             .setAppName(this.connectorName)
             .setTaskID(this.taskID)
             .build();
@@ -246,67 +218,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public void createPipe(final String tableName, final String stageName, final String pipeName) {
-    createPipe(tableName, stageName, pipeName, false);
-  }
-
-  @Override
-  public void createStage(final String stageName, final boolean overwrite) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("stageName", stageName);
-
-    String query;
-    if (overwrite) {
-      query = "create or replace stage identifier(?)";
-    } else {
-      query = "create stage if not exists identifier(?)";
-    }
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, stageName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2008.getException(e);
-    }
-    LOGGER.info("create stage {}", stageName);
-  }
-
-  @Override
-  public void createStage(final String stageName) {
-    createStage(stageName, false);
-  }
-
-  @Override
   public boolean tableExist(final String tableName) {
     return describeTable(tableName).isPresent();
-  }
-
-  @Override
-  public boolean stageExist(final String stageName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    String query = "desc stage identifier(?)";
-    PreparedStatement stmt = null;
-    boolean exist;
-    try {
-      stmt = conn.prepareStatement(query);
-      stmt.setString(1, stageName);
-      stmt.execute();
-      exist = true;
-    } catch (SQLException e) {
-      LOGGER.debug("stage {} doesn't exists", stageName);
-      exist = false;
-    } finally {
-      if (stmt != null) {
-        try {
-          stmt.close();
-        } catch (SQLException e) {
-          e.printStackTrace();
-        }
-      }
-    }
-    return exist;
   }
 
   @Override
@@ -656,74 +569,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public boolean isStageCompatible(final String stageName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    boolean isCompatible = true;
-
-    if (!stageExist(stageName)) {
-      LOGGER.debug("stage {} doesn't exists", stageName);
-      isCompatible = false;
-    } else {
-      List<String> files = listStage(stageName, "");
-      for (String name : files) {
-        if (!FileNameUtils.verifyFileName(name)) {
-          LOGGER.info("file name {} in stage {} is not valid", name, stageName);
-          isCompatible = false;
-        }
-      }
-    }
-    LOGGER.info("Stage {} compatibility is {}", stageName, isCompatible);
-    return isCompatible;
-  }
-
-  @Override
-  public boolean isPipeCompatible(
-      final String tableName, final String stageName, final String pipeName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    InternalUtils.assertNotEmpty("pipeName", pipeName);
-    if (!pipeExist(pipeName)) {
-      return false;
-    }
-
-    String query = "desc pipe identifier(?)";
-    PreparedStatement stmt = null;
-    ResultSet result = null;
-    boolean compatible;
-    try {
-      stmt = conn.prepareStatement(query);
-      stmt.setString(1, pipeName);
-      result = stmt.executeQuery();
-      if (!result.next()) {
-        compatible = false;
-      } else {
-        String definition = result.getString("definition");
-        LOGGER.debug("pipe {} definition: {}", pipeName, definition);
-        compatible = definition.equalsIgnoreCase(pipeDefinition(tableName, stageName));
-      }
-
-    } catch (SQLException e) {
-      LOGGER.debug("pipe {} doesn't exists ", pipeName);
-      compatible = false;
-    } finally {
-      try {
-        if (stmt != null) {
-          stmt.close();
-        }
-        if (result != null) {
-          result.close();
-        }
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }
-
-    return compatible;
-  }
-
-  @Override
   public void databaseExists(String databaseName) {
     checkConnection();
     String query = "use database identifier(?)";
@@ -776,218 +621,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  // TODO - move to test-only class
-  public boolean dropStageIfEmpty(final String stageName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    if (!stageExist(stageName)) {
-      return false;
-    }
-    String query = "list @" + stageName;
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      ResultSet resultSet = stmt.executeQuery();
-      if (InternalUtils.resultSize(resultSet) == 0) {
-        dropStage(stageName);
-        stmt.close();
-        resultSet.close();
-        return true;
-      }
-      resultSet.close();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-    LOGGER.info("stage {} can't be dropped because it is not empty", stageName);
-    return false;
-  }
-
-  @Override
-  public void dropStage(final String stageName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    String query = "drop stage if exists identifier(?)";
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, stageName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-    LOGGER.info("stage {} dropped", stageName);
-  }
-
-  @Override
-  public void purgeStage(final String stageName, final List<String> files) {
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    for (String fileName : files) {
-      removeFile(stageName, fileName);
-    }
-
-    LOGGER.info(
-        "purged {} files from stage: {}, files: {}",
-        files.size(),
-        stageName,
-        String.join(", ", files));
-  }
-
-  @Override
-  public void moveToTableStage(
-      final String tableName, final String stageName, final List<String> files) {
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
-
-    for (String name : files) {
-      // get
-      InputStream file;
-      try {
-        file = sfconn.downloadStream(stageName, name, true);
-      } catch (Exception e) {
-        throw SnowflakeErrors.ERROR_2002.getException(e, this.telemetry);
-      }
-      // put
-      try {
-        sfconn.uploadStream(
-            "%" + tableName,
-            FileNameUtils.getPrefixFromFileName(name),
-            file,
-            FileNameUtils.removePrefixAndGZFromFileName(name),
-            true);
-      } catch (SQLException e) {
-        throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
-      }
-      LOGGER.info("moved file: {} from stage: {} to table stage: {}", name, stageName, tableName);
-      // remove
-      removeFile(stageName, name);
-    }
-  }
-
-  @Override
-  // TODO - move to test-only class
-  public void moveToTableStage(
-      final String tableName, final String stageName, final String prefix) {
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    List<String> files = listStage(stageName, prefix);
-    moveToTableStage(tableName, stageName, files);
-  }
-
-  @Override
-  public List<String> listStage(
-      final String stageName, final String prefix, final boolean isTableStage) {
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    String query;
-    int stageNameLength;
-    if (isTableStage) {
-      stageNameLength = 0;
-      query = "ls @%" + stageName;
-    } else {
-      stageNameLength = stageName.length() + 1; // stage name + '/'
-      query = "ls @" + stageName + "/" + prefix;
-    }
-    List<String> result;
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      ResultSet resultSet = stmt.executeQuery();
-
-      result = new LinkedList<>();
-      while (resultSet.next()) {
-        result.add(resultSet.getString("name").substring(stageNameLength));
-      }
-      stmt.close();
-      resultSet.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e, this.telemetry);
-    }
-    LOGGER.info("list stage {} retrieved {} file names", stageName, result.size());
-    return result;
-  }
-
-  @Override
-  public List<String> listStage(final String stageName, final String prefix) {
-    return listStage(stageName, prefix, false);
-  }
-
-  @Override
-  @Deprecated
-  // Only using it in test for performance testing
-  // TODO - move to test-only class
-  public void put(final String stageName, final String fileName, final String content) {
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
-    InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
-    try {
-      InternalUtils.backoffAndRetry(
-          telemetry,
-          SnowflakeInternalOperations.UPLOAD_FILE_TO_INTERNAL_STAGE,
-          () -> {
-            sfconn.uploadStream(
-                stageName,
-                FileNameUtils.getPrefixFromFileName(fileName),
-                input,
-                FileNameUtils.removePrefixAndGZFromFileName(fileName),
-                true);
-            return true;
-          });
-    } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_2003.getException(e);
-    }
-    LOGGER.debug("put file {} to stage {}", fileName, stageName);
-  }
-
-  @Override
-  public void putWithCache(final String stageName, final String fileName, final String content) {
-    // If we don't know the stage type yet, query that first.
-    if (stageType == null) {
-      stageType = internalStage.getStageType(stageName);
-    }
-    try {
-      InternalUtils.backoffAndRetry(
-          telemetry,
-          SnowflakeInternalOperations.UPLOAD_FILE_TO_INTERNAL_STAGE_NO_CONNECTION,
-          () -> {
-            internalStage.putWithCache(stageName, fileName, content, stageType);
-            return true;
-          });
-    } catch (Exception e) {
-      LOGGER.error(
-          "Put With Cache(uploadWithoutConnection) failed after multiple retries for stageName:{},"
-              + " stageType:{}, fullFilePath:{}",
-          stageName,
-          stageType,
-          fileName);
-      throw SnowflakeErrors.ERROR_2011.getException(e, this.telemetry);
-    }
-  }
-
-  @Override
-  public void putToTableStage(final String tableName, final String fileName, final byte[] content) {
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
-    InputStream input = new ByteArrayInputStream(content);
-
-    try {
-      InternalUtils.backoffAndRetry(
-          telemetry,
-          SnowflakeInternalOperations.UPLOAD_FILE_TO_TABLE_STAGE,
-          () -> {
-            sfconn.uploadStream(
-                "%" + tableName,
-                FileNameUtils.getPrefixFromFileName(fileName),
-                input,
-                FileNameUtils.removePrefixAndGZFromFileName(fileName),
-                true);
-            return true;
-          });
-    } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
-    }
-    LOGGER.info("put file: {} to table stage: {}", fileName, tableName);
-  }
-
-  @Override
   public SnowflakeTelemetryService getTelemetryClient() {
     return this.telemetry;
   }
@@ -1017,37 +650,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     return this.connectorName;
   }
 
-  @Override
-  public SnowflakeIngestionService buildIngestService(
-      final String stageName, final String pipeName) {
-    String account = url.getAccount();
-    String user = jdbcProperties.getProperty(InternalUtils.JDBC_USER);
-    String userAgentSuffixInHttpRequest =
-        String.format(USER_AGENT_SUFFIX_FORMAT, Utils.VERSION, kafkaProvider);
-    String host = url.getUrlWithoutPort();
-    int port = url.getPort();
-    String connectionScheme = url.getScheme();
-    String fullPipeName =
-        jdbcProperties.getProperty(InternalUtils.JDBC_DATABASE)
-            + "."
-            + jdbcProperties.getProperty(InternalUtils.JDBC_SCHEMA)
-            + "."
-            + pipeName;
-    PrivateKey privateKey = (PrivateKey) jdbcProperties.get(InternalUtils.JDBC_PRIVATE_KEY);
-    return SnowflakeIngestionServiceFactory.builder(
-            account,
-            user,
-            host,
-            port,
-            connectionScheme,
-            stageName,
-            fullPipeName,
-            privateKey,
-            userAgentSuffixInHttpRequest,
-            telemetry)
-        .build();
-  }
-
   /** make sure connection is not closed */
   private void checkConnection() {
     try {
@@ -1075,104 +677,9 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         + " t) file_format = (type = 'json')";
   }
 
-  /**
-   * Remove one file from given stage
-   *
-   * @param stageName stage name
-   * @param fileName file name
-   */
-  private void removeFile(String stageName, String fileName) {
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    String query = "rm @" + stageName + "/" + fileName;
-
-    try {
-      InternalUtils.backoffAndRetry(
-          telemetry,
-          SnowflakeInternalOperations.REMOVE_FILE_FROM_INTERNAL_STAGE,
-          () -> {
-            PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.execute();
-            stmt.close();
-            return true;
-          });
-    } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e, this.telemetry);
-    }
-    LOGGER.debug("deleted {} from stage {}", fileName, stageName);
-  }
-
   @Override
   public Connection getConnection() {
     return this.conn;
-  }
-
-  public SnowflakeInternalStage getInternalStage() {
-    return this.internalStage;
-  }
-
-  @Override
-  public ChannelMigrateOffsetTokenResponseDTO migrateStreamingChannelOffsetToken(
-      String tableName, String sourceChannelName, String destinationChannelName) {
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    InternalUtils.assertNotEmpty("sourceChannelName", sourceChannelName);
-    InternalUtils.assertNotEmpty("destinationChannelName", destinationChannelName);
-    String fullyQualifiedTableName =
-        jdbcProperties.getProperty(InternalUtils.JDBC_DATABASE)
-            + "."
-            + jdbcProperties.getProperty(InternalUtils.JDBC_SCHEMA)
-            + "."
-            + tableName;
-    String query = "select SYSTEM$SNOWPIPE_STREAMING_MIGRATE_CHANNEL_OFFSET_TOKEN((?), (?), (?));";
-
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, fullyQualifiedTableName);
-      stmt.setString(2, sourceChannelName);
-      stmt.setString(3, destinationChannelName);
-      ResultSet resultSet = stmt.executeQuery();
-
-      String migrateOffsetTokenResultFromSysFunc = null;
-      if (resultSet.next()) {
-        migrateOffsetTokenResultFromSysFunc = resultSet.getString(1 /*Only one column*/);
-      }
-      if (migrateOffsetTokenResultFromSysFunc == null) {
-        final String errorMsg =
-            String.format(
-                "No result found in Migrating OffsetToken through System Function for tableName:%s,"
-                    + " sourceChannel:%s, destinationChannel:%s",
-                fullyQualifiedTableName, sourceChannelName, destinationChannelName);
-        throw new OffsetTokenMigrationRetryableException(errorMsg);
-      }
-
-      ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
-          getChannelMigrateOffsetTokenResponseDTO(migrateOffsetTokenResultFromSysFunc);
-
-      LOGGER.info(
-          "Migrate OffsetToken response for table:{}, sourceChannel:{}, destinationChannel:{}"
-              + " is:{}",
-          tableName,
-          sourceChannelName,
-          destinationChannelName,
-          channelMigrateOffsetTokenResponseDTO);
-      if (!ChannelMigrationResponseCode.isChannelMigrationResponseSuccessful(
-          channelMigrateOffsetTokenResponseDTO)) {
-        String message =
-            ChannelMigrationResponseCode.getMessageByCode(
-                channelMigrateOffsetTokenResponseDTO.getResponseCode());
-        throw new OffsetTokenMigrationRetryableException(message);
-      }
-      return channelMigrateOffsetTokenResponseDTO;
-    } catch (SQLException | JsonProcessingException e) {
-      final String errorMsg =
-          String.format(
-              "Migrating OffsetToken for a SourceChannel:%s in table:%s failed due to"
-                  + " exceptionMessage:%s and stackTrace:%s",
-              sourceChannelName,
-              fullyQualifiedTableName,
-              e.getMessage(),
-              Arrays.toString(e.getStackTrace()));
-      throw new OffsetTokenMigrationRetryableException(errorMsg);
-    }
   }
 
   @Override

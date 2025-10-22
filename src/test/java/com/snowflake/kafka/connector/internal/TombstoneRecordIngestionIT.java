@@ -1,11 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.ConnectorConfigValidatorTest.COMMUNITY_CONVERTER_SUBSET;
-import static com.snowflake.kafka.connector.ConnectorConfigValidatorTest.CUSTOM_SNOWFLAKE_CONVERTERS;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
@@ -26,10 +23,11 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-public class TombstoneRecordIngestionIT {
+class TombstoneRecordIngestionIT {
   private final int partition = 0;
   private final String topic = "test";
   private String table;
@@ -37,7 +35,7 @@ public class TombstoneRecordIngestionIT {
   private Map<String, String> converterConfig;
 
   @BeforeEach
-  public void beforeEach() {
+  void beforeEach() {
     this.table = TestUtils.randomTableName();
 
     this.jsonConverter = new JsonConverter();
@@ -47,14 +45,14 @@ public class TombstoneRecordIngestionIT {
   }
 
   @AfterEach
-  public void afterEach() {
+  void afterEach() {
     TestUtils.dropTable(table);
   }
 
   @ParameterizedTest(name = "behavior: {0}")
   @EnumSource(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.class)
-  public void testStreamingTombstoneBehavior(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
+  void testStreamingTombstoneBehavior(SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior)
+      throws Exception {
     // setup
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     TopicPartition topicPartition = new TopicPartition(topic, partition);
@@ -81,7 +79,10 @@ public class TombstoneRecordIngestionIT {
 
   @ParameterizedTest(name = "behavior: {0}")
   @EnumSource(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.class)
-  public void testStreamingTombstoneBehaviorWithSchematization(
+  @Disabled(
+      "The schema evolution is not supported currently with ssv2, when it is this test should be"
+          + " enabled and adapted")
+  void testStreamingTombstoneBehaviorWithSchematization(
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
     // setup
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
@@ -104,39 +105,6 @@ public class TombstoneRecordIngestionIT {
 
     // cleanup
     service.closeAll();
-  }
-
-  @ParameterizedTest
-  @EnumSource(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.class)
-  public void testSnowpipeTombstoneBehavior(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
-    // setup
-    SnowflakeConnectionService conn = TestUtils.getConnectionService();
-    Map<String, String> connectorConfig = TestUtils.getConfig();
-    String stage = Utils.stageName(TestUtils.TEST_CONNECTOR_NAME, table);
-    String pipe = Utils.pipeName(TestUtils.TEST_CONNECTOR_NAME, table, partition);
-    TopicPartition topicPartition = new TopicPartition(topic, partition);
-    SnowflakeSinkService service =
-        SnowflakeSinkServiceFactory.builder(conn, connectorConfig)
-            .setRecordNumber(1)
-            .setErrorReporter(new InMemoryKafkaRecordErrorReporter())
-            .setSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .addTask(table, topicPartition)
-            .setBehaviorOnNullValuesConfig(behavior)
-            .build();
-
-    // create one normal record
-    SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);
-
-    // test
-    List<Converter> converters = new ArrayList<>(COMMUNITY_CONVERTER_SUBSET);
-    converters.addAll(CUSTOM_SNOWFLAKE_CONVERTERS);
-    this.testIngestTombstoneRunner(normalRecord, converters, service, behavior);
-
-    // cleanup
-    service.closeAll();
-    conn.dropStage(stage);
-    conn.dropPipe(pipe);
   }
 
   // all ingestion methods should have the same behavior for tombstone records
@@ -203,9 +171,8 @@ public class TombstoneRecordIngestionIT {
 
     // insert all records
     service.insert(sinkRecords);
-    service.callAllGetOffset();
 
-    // verify inserted
+    // verify inserted (offset updates happen automatically in streaming)
     int expectedOffset =
         behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT
             ? sinkRecords.size()

@@ -34,7 +34,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
 import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
@@ -139,8 +138,7 @@ public class TestUtils {
   private static JsonNode profileForStreaming = null;
 
   public static final String JSON_WITH_SCHEMA =
-      ""
-          + "{\n"
+      "{\n"
           + "  \"schema\": {\n"
           + "    \"type\": \"struct\",\n"
           + "    \"fields\": [\n"
@@ -198,6 +196,7 @@ public class TestUtils {
     configuration.put(Utils.SF_DATABASE, profileJson.get(DATABASE).asText());
     configuration.put(Utils.SF_SCHEMA, profileJson.get(SCHEMA).asText());
     configuration.put(Utils.SF_URL, profileJson.get(HOST).asText());
+    configuration.put(Utils.SF_ROLE, profileJson.get(ROLE).asText());
     configuration.put(Utils.SF_WAREHOUSE, profileJson.get(WAREHOUSE).asText());
 
     if (profileJson.has(AUTHENTICATOR)) {
@@ -288,9 +287,6 @@ public class TestUtils {
     configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     configuration.put(Utils.TASK_ID, "0");
     configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
-    configuration.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     return configuration;
   }
@@ -302,9 +298,6 @@ public class TestUtils {
       // On top of existing configurations, add
       configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
       configuration.put(Utils.TASK_ID, "0");
-      configuration.put(
-          SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-          IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     }
     configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
 
@@ -663,7 +656,7 @@ public class TestUtils {
       if (iteration > maxRetry) {
         throw new InterruptedException("Max retry exceeded");
       }
-      Thread.sleep(intervalSec * 1000);
+      Thread.sleep(intervalSec * 1000L);
       iteration += 1;
     }
   }
@@ -819,7 +812,7 @@ public class TestUtils {
   /** @deprecated use SnowflakeSinkConnectorConfigBuilder instead */
   @Deprecated
   public static Map<String, String> getConfig() {
-    return SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().build();
+    return SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
   }
 
   /**

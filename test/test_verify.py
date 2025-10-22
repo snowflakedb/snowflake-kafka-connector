@@ -451,8 +451,7 @@ class KafkaTest:
                 .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
                 .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
-                .replace("SNOWFLAKE_ROLE", testRole) \
-                .replace("$SNOWFLAKE_STREAMING_V2_ENABLED", self.connectorParameters.snowflake_streaming_v2_enabled)
+                .replace("SNOWFLAKE_ROLE", testRole)
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(fileContent)
 
@@ -530,24 +529,25 @@ def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, cloud_p
 
         ############################ Proxy End To End Test ############################
         # Don't run proxy tests locally
-        if skipProxy:
-            return
-
-        print("Running Proxy tests")
-
-        from test_suit.test_string_json_proxy import TestStringJsonProxy
-        from test_suites import EndToEndTestSuite
-
-        print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
-        print("Proxy Test should be the last test, since it modifies the JVM values")
-
-        proxy_tests_suite = [EndToEndTestSuite(
-            test_instance=TestStringJsonProxy(driver, nameSalt), run_in_confluent=True, run_in_apache=True, cloud_platform = CloudPlatform.ALL
-        )]
-
-        end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
-
-        execution(testSet, end_to_end_proxy_tests_suite, driver, nameSalt)
+        # TODO: proxy test has been disabled after removing ssv1 support. Return to this when able
+        # if skipProxy:
+        #     return
+        #
+        # print("Running Proxy tests")
+        #
+        # from test_suit.test_string_json_proxy import TestStringJsonProxy
+        # from test_suites import EndToEndTestSuite
+        #
+        # print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
+        # print("Proxy Test should be the last test, since it modifies the JVM values")
+        #
+        # proxy_tests_suite = [EndToEndTestSuite(
+        #     test_instance=TestStringJsonProxy(driver, nameSalt), run_in_confluent=True, run_in_apache=True, cloud_platform = CloudPlatform.ALL
+        # )]
+        #
+        # end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
+        #
+        # execution(testSet, end_to_end_proxy_tests_suite, driver, nameSalt)
         ############################ Proxy End To End Test End ############################
 
 

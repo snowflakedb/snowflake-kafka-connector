@@ -4,15 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RecordServiceFactory {
   public static RecordService createRecordService(
-      boolean isIcebergEnabled, boolean enableSchematization, boolean ssv2Enabled) {
+      boolean isIcebergEnabled, boolean enableSchematization) {
     ObjectMapper objectMapper = new ObjectMapper();
     if (isIcebergEnabled) {
       return new RecordService(
-          new IcebergTableStreamingRecordMapper(objectMapper, enableSchematization, ssv2Enabled),
-          objectMapper);
+          new IcebergTableStreamingRecordMapper(objectMapper, enableSchematization), objectMapper);
     } else {
       return new RecordService(
-          new SnowflakeTableStreamingRecordMapper(objectMapper, enableSchematization, ssv2Enabled),
+          new SnowflakeTableStreamingRecordMapper(objectMapper, enableSchematization),
           objectMapper);
     }
   }
