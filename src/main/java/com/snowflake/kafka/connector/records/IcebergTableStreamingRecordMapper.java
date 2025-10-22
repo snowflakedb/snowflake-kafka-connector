@@ -15,8 +15,8 @@ import java.util.Map;
 class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
 
   public IcebergTableStreamingRecordMapper(
-      ObjectMapper objectMapper, boolean schematizationEnabled, boolean ssv2Enabled) {
-    super(objectMapper, schematizationEnabled, ssv2Enabled);
+      ObjectMapper objectMapper, boolean schematizationEnabled) {
+    super(objectMapper, schematizationEnabled);
   }
 
   @Override

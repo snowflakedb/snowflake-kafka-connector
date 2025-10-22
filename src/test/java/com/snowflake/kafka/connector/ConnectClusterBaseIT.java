@@ -8,9 +8,7 @@ import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_C
 import static org.apache.kafka.connect.sink.SinkConnector.TOPICS_CONFIG;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.FakeStreamingClientHandler;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.connect.storage.StringConverter;
@@ -21,12 +19,20 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 
+/**
+ * Base class for integration tests using an embedded Kafka Connect cluster.
+ * 
+ * <p>NOTE: Tests extending this class currently use real Snowflake connections for SSv2.
+ * TODO: Implement a fake/mock infrastructure for SSv2 testing similar to the old SSv1 
+ * FakeStreamingClientHandler to enable faster, isolated testing without real Snowflake connections.
+ */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ConnectClusterBaseIT {
 
   protected EmbeddedConnectCluster connectCluster;
 
-  protected FakeStreamingClientHandler fakeStreamingClientHandler;
+  // TODO: Add SSv2 fake/mock infrastructure here when needed
+  // protected FakeStreamingClientV2Handler fakeStreamingClientV2Handler;
 
   static final Integer TASK_NUMBER = 1;
 
@@ -45,14 +51,13 @@ public abstract class ConnectClusterBaseIT {
 
   @BeforeEach
   public void beforeEach() {
-    StreamingClientProvider.reset();
-    fakeStreamingClientHandler = new FakeStreamingClientHandler();
-    StreamingClientProvider.overrideStreamingClientHandler(fakeStreamingClientHandler);
+    // TODO: Initialize SSv2 fake/mock infrastructure when implemented
+    // For now, tests will use real Snowflake connections
   }
 
   @AfterEach
   public void afterEach() {
-    StreamingClientProvider.reset();
+    // TODO: Clean up SSv2 fake/mock infrastructure when implemented
   }
 
   @AfterAll
@@ -69,7 +74,6 @@ public abstract class ConnectClusterBaseIT {
     config.put(CONNECTOR_CLASS_CONFIG, SnowflakeStreamingSinkConnector.class.getName());
     config.put(NAME, connectorName);
     config.put(TOPICS_CONFIG, topicName);
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "testrole_kafka");
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());

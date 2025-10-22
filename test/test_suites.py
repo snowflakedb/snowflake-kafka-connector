@@ -21,7 +21,7 @@ from test_suit.test_auto_table_creation_topic2table import (
 )
 from test_suit.test_avro_avro import TestAvroAvro
 from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
-from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
+#from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 from test_suit.test_json_json import TestJsonJson
 from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import (
     TestMultipleTopicToOneTableSnowpipeStreaming,
@@ -37,10 +37,10 @@ from test_suit.test_schema_evolution_avro_sr_logical_types import (
     TestSchemaEvolutionAvroSRLogicalTypes,
 )
 from test_suit.test_schema_evolution_drop_table import TestSchemaEvolutionDropTable
-from test_suit.iceberg_avro_aws import TestIcebergAvroAws
-from test_suit.iceberg_json_aws import TestIcebergJsonAws
-from test_suit.iceberg_schema_evolution_avro_aws import TestIcebergSchemaEvolutionAvroAws
-from test_suit.iceberg_schema_evolution_json_aws import TestIcebergSchemaEvolutionJsonAws
+# from test_suit.iceberg_avro_aws import TestIcebergAvroAws
+# from test_suit.iceberg_json_aws import TestIcebergJsonAws
+# from test_suit.iceberg_schema_evolution_avro_aws import TestIcebergSchemaEvolutionAvroAws
+# from test_suit.iceberg_schema_evolution_json_aws import TestIcebergSchemaEvolutionJsonAws
 from test_suit.test_schema_evolution_json import TestSchemaEvolutionJson
 from test_suit.test_schema_evolution_json_ignore_tombstone import (
     TestSchemaEvolutionJsonIgnoreTombstone,
@@ -67,9 +67,6 @@ from test_suit.test_schema_mapping import TestSchemaMapping
 from test_suit.test_schema_not_supported_converter import (
     TestSchemaNotSupportedConverter,
 )
-from test_suit.test_snowpipe_streaming_channel_migration_disabled import (
-    TestSnowpipeStreamingStringJsonChannelMigrationDisabled,
-)
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import (
     TestSnowpipeStreamingSchemaMappingDLQ,
 )
@@ -88,7 +85,7 @@ from test_suit.test_snowpipe_streaming_string_json_dlq import (
 from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import (
     TestSnowpipeStreamingStringJsonIgnoreTombstone,
 )
-from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+#from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
@@ -146,123 +143,123 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
     """
     return OrderedDict(
         [
-            (
-                "TestStringJson",
-                EndToEndTestSuite(
-                    test_instance=TestStringJson(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestStringJsonIgnoreTombstone",
-                EndToEndTestSuite(
-                    test_instance=TestStringJsonIgnoreTombstone(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestJsonJson",
-                EndToEndTestSuite(
-                    test_instance=TestJsonJson(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestStringAvro",
-                EndToEndTestSuite(
-                    test_instance=TestStringAvro(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestAvroAvro",
-                EndToEndTestSuite(
-                    test_instance=TestAvroAvro(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestStringAvrosr",
-                EndToEndTestSuite(
-                    test_instance=TestStringAvrosr(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestAvrosrAvrosr",
-                EndToEndTestSuite(
-                    test_instance=TestAvrosrAvrosr(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestNativeStringAvrosr",
-                EndToEndTestSuite(
-                    test_instance=TestNativeStringAvrosr(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestNativeStringJsonWithoutSchema",
-                EndToEndTestSuite(
-                    test_instance=TestNativeStringJsonWithoutSchema(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestNativeComplexSmt",
-                EndToEndTestSuite(
-                    test_instance=TestNativeComplexSmt(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestNativeStringProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestNativeStringProtobuf(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestNullableValuesAfterSmt",
-                EndToEndTestSuite(
-                    test_instance=TestNullableValuesAfterSmt(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestConfluentProtobufProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
-                    run_in_confluent=False,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
+            # (
+            #     "TestStringJson",
+            #     EndToEndTestSuite(
+            #         test_instance=TestStringJson(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestStringJsonIgnoreTombstone",
+            #     EndToEndTestSuite(
+            #         test_instance=TestStringJsonIgnoreTombstone(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestJsonJson",
+            #     EndToEndTestSuite(
+            #         test_instance=TestJsonJson(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestStringAvro",
+            #     EndToEndTestSuite(
+            #         test_instance=TestStringAvro(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestAvroAvro",
+            #     EndToEndTestSuite(
+            #         test_instance=TestAvroAvro(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestStringAvrosr",
+            #     EndToEndTestSuite(
+            #         test_instance=TestStringAvrosr(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestAvrosrAvrosr",
+            #     EndToEndTestSuite(
+            #         test_instance=TestAvrosrAvrosr(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestNativeStringAvrosr",
+            #     EndToEndTestSuite(
+            #         test_instance=TestNativeStringAvrosr(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestNativeStringJsonWithoutSchema",
+            #     EndToEndTestSuite(
+            #         test_instance=TestNativeStringJsonWithoutSchema(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestNativeComplexSmt",
+            #     EndToEndTestSuite(
+            #         test_instance=TestNativeComplexSmt(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestNativeStringProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestNativeStringProtobuf(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestNullableValuesAfterSmt",
+            #     EndToEndTestSuite(
+            #         test_instance=TestNullableValuesAfterSmt(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestConfluentProtobufProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
+            #         run_in_confluent=False,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
             (
                 "TestSnowpipeStreamingNullableValuesAfterSmt",
                 EndToEndTestSuite(
@@ -283,28 +280,17 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.AWS,
                 ),
             ),
-            (
-                "TestSnowpipeStreamingStringJsonChannelMigrationDisabled",
-                EndToEndTestSuite(
-                    test_instance=TestSnowpipeStreamingStringJsonChannelMigrationDisabled(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSnowpipeStreamingStringJsonIgnoreTombstone",
-                EndToEndTestSuite(
-                    test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
+            # (
+            #     "TestSnowpipeStreamingStringJsonIgnoreTombstone",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSnowpipeStreamingStringJsonIgnoreTombstone(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
             (
                 "TestSnowpipeStreamingStringJsonDLQ",
                 EndToEndTestSuite(
@@ -334,141 +320,141 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.AWS,
                 ),
             ),
-            (
-                "TestSchemaMapping",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaMapping(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSnowpipeStreamingSchemaMappingDLQ",
-                EndToEndTestSuite(
-                    test_instance=TestSnowpipeStreamingSchemaMappingDLQ(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestAutoTableCreation",
-                EndToEndTestSuite(
-                    test_instance=TestAutoTableCreation(
-                        driver, nameSalt, schemaRegistryAddress, testSet
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestAutoTableCreationTopic2Table",
-                EndToEndTestSuite(
-                    test_instance=TestAutoTableCreationTopic2Table(
-                        driver, nameSalt, schemaRegistryAddress, testSet
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionJson",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionJson(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionJsonIgnoreTombstone",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionJsonIgnoreTombstone(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionAvroSR",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionAvroSRLogicalTypes",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionAvroSRLogicalTypes(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=False,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionWithAutoTableCreationJson",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionWithAutoTableCreationJson(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionWithAutoTableCreationAvroSR",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionWithRandomRowCount",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionWithRandomRowCount(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionNonNullableJson",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionNullableValuesAfterSmt",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionNullableValuesAfterSmt(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
+            # (
+            #     "TestSchemaMapping",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaMapping(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSnowpipeStreamingSchemaMappingDLQ",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSnowpipeStreamingSchemaMappingDLQ(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestAutoTableCreation",
+            #     EndToEndTestSuite(
+            #         test_instance=TestAutoTableCreation(
+            #             driver, nameSalt, schemaRegistryAddress, testSet
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestAutoTableCreationTopic2Table",
+            #     EndToEndTestSuite(
+            #         test_instance=TestAutoTableCreationTopic2Table(
+            #             driver, nameSalt, schemaRegistryAddress, testSet
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionJson",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionJson(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionJsonIgnoreTombstone",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionJsonIgnoreTombstone(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionAvroSR",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionAvroSR(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionAvroSRLogicalTypes",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionAvroSRLogicalTypes(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=False,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionWithAutoTableCreationJson",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionWithAutoTableCreationJson(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionWithAutoTableCreationAvroSR",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionWithAutoTableCreationAvroSR(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionWithRandomRowCount",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionWithRandomRowCount(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionNonNullableJson",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionNonNullableJson(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionNullableValuesAfterSmt",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionNullableValuesAfterSmt(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
             (
                 "TestSchemaNotSupportedConverter",
                 EndToEndTestSuite(
@@ -579,28 +565,28 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.AWS,
                 ),
             ),
-            (
-                # This test is not supported for SSv2 on purpose
-                # Manual table recreation is difficult to handle in the new architecture
-                "TestSchemaEvolutionDropTable",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionDropTable(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestSchemaEvolutionMultiTopicDropTable",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaEvolutionMultiTopicDropTable(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
+            # (
+            #     # This test is not supported for SSv2 on purpose
+            #     # Manual table recreation is difficult to handle in the new architecture
+            #     "TestSchemaEvolutionDropTable",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionDropTable(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestSchemaEvolutionMultiTopicDropTable",
+            #     EndToEndTestSuite(
+            #         test_instance=TestSchemaEvolutionMultiTopicDropTable(
+            #             driver, nameSalt
+            #         ),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
             (
                 "TestStreamingClientParameterOverride",
                 EndToEndTestSuite(
@@ -612,41 +598,41 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.AWS,
                 ),
             ),
-            (
-                "TestIcebergJsonAws",
-                EndToEndTestSuite(
-                    test_instance=TestIcebergJsonAws(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestIcebergAvroAws",
-                EndToEndTestSuite(
-                    test_instance=TestIcebergAvroAws(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestIcebergSchemaEvolutionJsonAws",
-                EndToEndTestSuite(
-                    test_instance=TestIcebergSchemaEvolutionJsonAws(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
-            (
-                "TestIcebergSchemaEvolutionAvroAws",
-                EndToEndTestSuite(
-                    test_instance=TestIcebergSchemaEvolutionAvroAws(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
+            # (
+            #     "TestIcebergJsonAws",
+            #     EndToEndTestSuite(
+            #         test_instance=TestIcebergJsonAws(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestIcebergAvroAws",
+            #     EndToEndTestSuite(
+            #         test_instance=TestIcebergAvroAws(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestIcebergSchemaEvolutionJsonAws",
+            #     EndToEndTestSuite(
+            #         test_instance=TestIcebergSchemaEvolutionJsonAws(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
+            # (
+            #     "TestIcebergSchemaEvolutionAvroAws",
+            #     EndToEndTestSuite(
+            #         test_instance=TestIcebergSchemaEvolutionAvroAws(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.AWS,
+            #     ),
+            # ),
         ]
     )

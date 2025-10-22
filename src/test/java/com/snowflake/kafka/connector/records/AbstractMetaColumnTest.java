@@ -60,7 +60,7 @@ abstract class AbstractMetaColumnTest {
 
   @Test
   public void testKey() throws IOException {
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     SchemaAndValue input = getJsonInputData();
     long timestamp = System.currentTimeMillis();
 
@@ -102,7 +102,7 @@ abstract class AbstractMetaColumnTest {
             .withTimestamp(System.currentTimeMillis(), timestampType)
             .build();
 
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     service.setMetadataConfig(new SnowflakeMetadataConfig(config));
 
     // when
@@ -151,7 +151,7 @@ abstract class AbstractMetaColumnTest {
 
     Map<String, String> config = ImmutableMap.of(SNOWFLAKE_METADATA_ALL, "false");
 
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     service.setMetadataConfig(new SnowflakeMetadataConfig(config));
 
     // when
@@ -163,7 +163,7 @@ abstract class AbstractMetaColumnTest {
 
   @Test
   public void testTimeStamp() throws IOException {
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
     SchemaAndValue input = getJsonInputData();
     long timestamp = System.currentTimeMillis();
 
