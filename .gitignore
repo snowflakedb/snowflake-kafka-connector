@@ -14,3 +14,6 @@ docker-setup/connector-examples/*.json
 docker-setup/snowflake-kafka-docker
 .cache/
 licenses/
+test/apache_log/
+test/kafka_*
+test/confluent-*
