@@ -12,16 +12,6 @@ public enum IngestionMethodConfig {
   /* Snowpipe streaming (SSv2) - the only supported ingestion method */
   SNOWPIPE_STREAMING;
 
-  /**
-   * Returns the ingestion method.
-   *
-   * <p>Always returns {@link IngestionMethodConfig#SNOWPIPE_STREAMING} since it's the only
-   * supported method.
-   */
-  public static IngestionMethodConfig determineIngestionMethod() {
-    return SNOWPIPE_STREAMING;
-  }
-
   @Override
   public String toString() {
     return name().toLowerCase(Locale.ROOT);

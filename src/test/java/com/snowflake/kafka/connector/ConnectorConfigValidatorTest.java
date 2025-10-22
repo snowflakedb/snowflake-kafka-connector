@@ -331,35 +331,11 @@ public class ConnectorConfigValidatorTest {
         .hasMessageContaining("snowflake.ingestion.method");
   }
 
-  @Test
-  public void testDetermineIngestionMethod_nullOrEmptyInput() {
-    Map<String, String> config = getConfig();
-    assertEquals(
-        IngestionMethodConfig.SNOWPIPE_STREAMING, IngestionMethodConfig.determineIngestionMethod());
 
-    assertEquals(
-        IngestionMethodConfig.SNOWPIPE_STREAMING, IngestionMethodConfig.determineIngestionMethod());
-  }
 
-  @Test
-  public void testDetermineIngestionMethod_invalidIngestionMethod() {
-    Map<String, String> config = getConfig();    assertThatThrownBy(() -> IngestionMethodConfig.determineIngestionMethod())
-        .isInstanceOf(IllegalArgumentException.class);
-  }
 
-  @Test
-  public void testDetermineIngestionLoadMethod_validIngestionMethod() {
-    Map<String, String> config = getConfig();    assertEquals(
-        IngestionMethodConfig.SNOWPIPE_STREAMING,
-        IngestionMethodConfig.determineIngestionMethod());
-  }
 
-  @Test
-  public void testDetermineIngestionLoadMethod_validIngestionMethod_lowercase() {
-    Map<String, String> config = getConfig();    assertEquals(
-        IngestionMethodConfig.SNOWPIPE_STREAMING,
-        IngestionMethodConfig.determineIngestionMethod());
-  }
+
 
   /** These error tests are not going to enforce errors if they are not passed as configs. */
   @Test

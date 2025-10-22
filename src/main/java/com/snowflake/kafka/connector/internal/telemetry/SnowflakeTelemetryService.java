@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.telemetry;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -173,12 +172,10 @@ public abstract class SnowflakeTelemetryService {
    *
    * @return An ObjectNode which is by default always created with certain defined properties in it.
    */
-  protected ObjectNode getDefaultObjectNode(IngestionMethodConfig ingestionMethodConfig) {
+  protected ObjectNode getDefaultObjectNode() {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(APP_NAME, getAppName());
     msg.put(TASK_ID, getTaskID());
-    // Only SNOWPIPE_STREAMING is supported now
-    msg.put("ingestion_method", "SNOWPIPE_STREAMING");
     return msg;
   }
 

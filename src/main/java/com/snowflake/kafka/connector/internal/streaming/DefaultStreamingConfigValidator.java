@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.apache.kafka.common.config.ConfigException;
 
 public class DefaultStreamingConfigValidator implements StreamingConfigValidator {
 
@@ -101,31 +100,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     }
   }
 
-  private static void ensureValidIntWithMinimum(
-      Map<String, String> inputConfig,
-      String param,
-      int minimumValue,
-      Map<String, String> invalidParams) {
-    try {
-      int value = Integer.parseInt(inputConfig.get(param));
-      if (value < minimumValue) {
-        invalidParams.put(
-            param,
-            Utils.formatString(
-                param + " configuration must be at least {}. Given configuration was: {}",
-                minimumValue,
-                value));
-      }
-    } catch (NumberFormatException exception) {
-      invalidParams.put(
-          param,
-          Utils.formatString(
-              param + " configuration must be a parsable int. Given configuration was: {}",
-              inputConfig.get(param)));
-    }
-  }
-
-  /**
+    /**
    * Validates if the configs are allowed values when schematization is enabled.
    *
    * <p>return a map of invalid params

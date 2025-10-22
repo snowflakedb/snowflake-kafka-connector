@@ -34,7 +34,6 @@ public class InternalUtils {
   static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
   static final String JDBC_QUERY_RESULT_FORMAT = "JDBC_QUERY_RESULT_FORMAT";
   // internal parameters
-  static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
   private static final KCLogger LOGGER = new KCLogger(InternalUtils.class.getName());
 
@@ -142,9 +141,6 @@ public class InternalUtils {
     String oAuthClientSecret = "";
     String oAuthRefreshToken = "";
     String oAuthTokenEndpoint = "";
-
-    // OAuth access token
-    String token = "";
 
     for (Map.Entry<String, String> entry : conf.entrySet()) {
       // case insensitive

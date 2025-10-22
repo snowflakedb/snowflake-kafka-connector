@@ -17,6 +17,7 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.InternalUtils;
@@ -29,7 +30,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URI;
@@ -298,9 +298,8 @@ public class Utils {
    * Enable JVM proxy
    *
    * @param config connector configuration
-   * @return false if wrong config
    */
-  static boolean enableJVMProxy(Map<String, String> config) {
+  static void enableJVMProxy(Map<String, String> config) {
     String host =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
@@ -355,7 +354,6 @@ public class Utils {
       }
     }
 
-    return true;
   }
 
   /**
@@ -764,13 +762,7 @@ public class Utils {
     String payloadString =
         payload.entrySet().stream()
             .map(
-                e -> {
-                  try {
-                    return e.getKey() + "=" + URLEncoder.encode(e.getValue(), "UTF-8");
-                  } catch (UnsupportedEncodingException ex) {
-                    throw SnowflakeErrors.ERROR_1004.getException(ex);
-                  }
-                })
+                e -> e.getKey() + "=" + URLEncoder.encode(e.getValue(), UTF_8))
             .collect(Collectors.joining("&"));
     final StringEntity entity =
         new StringEntity(payloadString, ContentType.APPLICATION_FORM_URLENCODED);

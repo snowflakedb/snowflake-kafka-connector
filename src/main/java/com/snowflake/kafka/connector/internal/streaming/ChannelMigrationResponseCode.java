@@ -55,11 +55,6 @@ public enum ChannelMigrationResponseCode {
     return statusCode;
   }
 
-  @VisibleForTesting
-  public String getMessage() {
-    return message;
-  }
-
   public static String getMessageByCode(Long statusCode) {
     if (statusCode != null) {
       for (ChannelMigrationResponseCode code : values()) {

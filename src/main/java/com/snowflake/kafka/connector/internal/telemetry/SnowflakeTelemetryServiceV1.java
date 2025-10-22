@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+
 import java.sql.Connection;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
@@ -21,7 +21,7 @@ public class SnowflakeTelemetryServiceV1 extends SnowflakeTelemetryService {
 
   @Override
   public ObjectNode getObjectNode() {
-    ObjectNode objectNode = getDefaultObjectNode(IngestionMethodConfig.SNOWPIPE_STREAMING);
+    ObjectNode objectNode = getDefaultObjectNode();
     return objectNode;
   }
 }

@@ -9,21 +9,6 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
   long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
   /**
-   * This is the new channel Name format that was created. New channel name prefixes connector name
-   * in old format. Please note, we will not open channel with new format. We will run a migration
-   * function from this new channel format to old channel format and drop new channel format.
-   *
-   * @param channelNameFormatV1 Original format used.
-   * @param connectorName connector name used in SF config JSON.
-   * @return new channel name introduced as part of @see <a
-   *     href="https://github.com/snowflakedb/snowflake-kafka-connector/commit/3bf9106b22510c62068f7d2f7137b9e57989274c">
-   *     this change (released in version 2.1.0) </a>
-   */
-  static String generateChannelNameFormatV2(String channelNameFormatV1, String connectorName) {
-    return connectorName + "_" + channelNameFormatV1;
-  }
-
-  /**
    * Inserts the record into buffer
    *
    * <p>Step 1: Initializes this channel by fetching the offsetToken from Snowflake for the first
