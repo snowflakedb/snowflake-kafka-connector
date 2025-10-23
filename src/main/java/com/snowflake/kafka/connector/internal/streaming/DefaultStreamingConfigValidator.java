@@ -6,10 +6,13 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -18,6 +21,8 @@ import com.snowflake.kafka.connector.DefaultConnectorConfigValidator;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import org.apache.kafka.common.config.ConfigException;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -36,6 +41,11 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   public ImmutableMap<String, String> validate(Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
+    // Validate Iceberg config
+      if (isIcebergEnabled(inputConfig)) {
+          invalidParams.put(ICEBERG_ENABLED, "Ingestion to Iceberg table is currently unsupported.");
+      }
+
     // Validate streaming-specific configs (only SNOWPIPE_STREAMING is supported now)
     invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
     invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
@@ -45,22 +55,40 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
 
     // Validate error handling configs
     if (inputConfig.containsKey(ERRORS_TOLERANCE_CONFIG)) {
-      SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR.ensureValid(
-          ERRORS_TOLERANCE_CONFIG, inputConfig.get(ERRORS_TOLERANCE_CONFIG));
+      try {
+        SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR.ensureValid(
+            ERRORS_TOLERANCE_CONFIG, inputConfig.get(ERRORS_TOLERANCE_CONFIG));
+      } catch (ConfigException e) {
+        invalidParams.put(
+            ERRORS_TOLERANCE_CONFIG,
+            Utils.formatString("snowflake.ingestion.method configuration error: {}", e.getMessage()));
+      }
     }
     if (inputConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
-      BOOLEAN_VALIDATOR.ensureValid(
-          ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
+      try {
+        BOOLEAN_VALIDATOR.ensureValid(
+            ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
+      } catch (ConfigException e) {
+        invalidParams.put(ERRORS_LOG_ENABLE_CONFIG, e.getMessage());
+      }
     }
     if (inputConfig.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)) {
-      BOOLEAN_VALIDATOR.ensureValid(
-          ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
-          inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG));
+      try {
+        BOOLEAN_VALIDATOR.ensureValid(
+            ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
+            inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG));
+      } catch (ConfigException e) {
+        invalidParams.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, e.getMessage());
+      }
     }
     if (inputConfig.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG)) {
-      BOOLEAN_VALIDATOR.ensureValid(
-          ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
-          inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG));
+      try {
+        BOOLEAN_VALIDATOR.ensureValid(
+            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG,
+            inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG));
+      } catch (ConfigException e) {
+        invalidParams.put(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG, e.getMessage());
+      }
     }
 
     if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
@@ -74,7 +102,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     // Validate schematization config
     invalidParams.putAll(validateSchematizationConfig(inputConfig));
 
-    return ImmutableMap.copyOf(invalidParams);
+      return ImmutableMap.copyOf(invalidParams);
   }
 
   private static Optional<Map.Entry<String, String>> validateRole(Map<String, String> inputConfig) {
@@ -109,9 +137,14 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     Map<String, String> invalidParams = new HashMap<>();
 
     if (inputConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
-      BOOLEAN_VALIDATOR.ensureValid(
-          SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
-          inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+      try {
+        BOOLEAN_VALIDATOR.ensureValid(
+            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+            inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+      } catch (ConfigException e) {
+        invalidParams.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, e.getMessage());
+        return invalidParams;
+      }
 
       boolean isSchematizationEnabled =
           Boolean.parseBoolean(

@@ -26,18 +26,6 @@ public class StreamingUtils {
   public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
   public static final String STREAMING_CONSTANT_OAUTH_TOKEN_ENDPOINT = "oauth_token_endpoint";
 
-  // Offset verification function to verify that the current start offset has to incremental,
-  // note that there are some false positives when SMT is used.
-  public static final OffsetTokenVerificationFunction offsetTokenVerificationFunction =
-      (prevBatchEndOffset, curBatchStartOffset, curBatchEndOffset, rowCount) -> {
-        if (prevBatchEndOffset != null && curBatchStartOffset != null) {
-          long curStart = Long.parseLong(curBatchStartOffset);
-          long prevEnd = Long.parseLong(prevBatchEndOffset);
-          return curStart > prevEnd;
-        }
-        return true;
-      };
-
   /* Creates streaming client properties from snowflake KC config file. */
   public static Properties convertConfigForStreamingClient(Map<String, String> connectorConfig) {
     Properties streamingProperties = new Properties();

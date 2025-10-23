@@ -147,12 +147,14 @@ public class SnowflakeSinkConnectorConfig {
     public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DEFAULT = "";
     public static final String ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DOC =
         "Whether to output conversion errors to the dead letter queue " + "By default messages are not sent to the dead letter queue. " + "Requires property `errors.tolerance=all`.";
+    // TODO: lkucharski remove this option
     public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG = "enable.streaming.channel.offset.migration";
     public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY = "Enable Streaming Channel Offset Migration";
     public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT = true;
     public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC =
         "This config is used to enable/disable streaming channel offset migration logic. If true, we" + " will migrate offset token from channel name format V2 to name format v1. V2 channel" +
             " format is deprecated and V1 will be used always, disabling this config could have" + " ramifications. Please consult Snowflake support before setting this to false.";
+    // TODO: lkucharski remove this dead flag
     public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG = "enable.streaming.channel.offset.verification";
     public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DISPLAY = "Enable streaming channel offset verification function";
     public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DEFAULT = true;

@@ -26,22 +26,12 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
         new KCLogger(DefaultConnectorConfigValidator.class.getName());
 
     private final StreamingConfigValidator streamingConfigValidator;
-    private final StreamingConfigValidator icebergConfigValidator;
 
-    public DefaultConnectorConfigValidator(
-        StreamingConfigValidator streamingConfigValidator,
-        StreamingConfigValidator icebergConfigValidator) {
+    public DefaultConnectorConfigValidator(StreamingConfigValidator streamingConfigValidator) {
         this.streamingConfigValidator = streamingConfigValidator;
-        this.icebergConfigValidator = icebergConfigValidator;
     }
 
-    /**
-     * Validate input configuration
-     *
-     * @param config configuration Map
-     * @return connector name
-     */
-    public String validateConfig(Map<String, String> config) {
+    public void validateConfig(Map<String, String> config) {
         Map<String, String> invalidConfigParams = new HashMap<String, String>();
 
         // define the input parameters / keys in one place as static constants,
@@ -206,6 +196,15 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
             }
         }
 
+        if (isSchematizationEnabled(config)) {
+            invalidConfigParams.put(
+                ENABLE_SCHEMATIZATION_CONFIG,
+                Utils.formatString(
+                    "Schematization is not available in Private Preview",
+                    ENABLE_SCHEMATIZATION_CONFIG));
+        }
+
+
         // with schematization enabled user expects the connector to alter table (add columns) when new
         // fields arrive
         // so setting schematization to true and at the same time using user defined database objects
@@ -223,12 +222,9 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
         // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
         invalidConfigParams.putAll(streamingConfigValidator.validate(config));
-        invalidConfigParams.putAll(icebergConfigValidator.validate(config));
 
         // logs and throws exception if there are invalid params
         handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));
-
-        return connectorName;
     }
 
     private void handleInvalidParameters(ImmutableMap<String, String> invalidConfigParams) {
