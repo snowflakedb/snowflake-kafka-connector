@@ -324,17 +324,6 @@ public class ConnectorConfigValidatorTest {
         .hasMessageContaining(Utils.SF_ROLE);
   }
 
-  @Test
-  public void testIngestionTypeConfig_invalid_value() {
-    Map<String, String> config = getConfig();    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("snowflake.ingestion.method");
-  }
-
-
-
-
-
 
 
   /** These error tests are not going to enforce errors if they are not passed as configs. */
@@ -648,9 +637,6 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testStreamingProviderOverrideConfig_validWithSnowpipeStreaming() {
     Map<String, String> config = getConfig();
-    config.put(
-        "snowflake.ingestion.method",
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     config.put(
         SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,

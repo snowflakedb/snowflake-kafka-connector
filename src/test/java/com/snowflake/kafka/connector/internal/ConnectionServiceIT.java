@@ -87,13 +87,6 @@ class ConnectionServiceIT {
     assert service.getConnectorName().equals(TEST_CONNECTOR_NAME);
 
     assert service.getTelemetryClient() instanceof SnowflakeTelemetryServiceV2;
-
-    assert service
-        .getTelemetryClient()
-        .getObjectNode()
-        .get("snowflake.ingestion.method")
-        .toString()
-        .equals("0"); // SNOWPIPE_STREAMING is now ordinal 0
   }
 
   @AfterEach

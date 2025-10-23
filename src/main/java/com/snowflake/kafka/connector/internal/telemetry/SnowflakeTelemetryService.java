@@ -27,6 +27,7 @@ public abstract class SnowflakeTelemetryService {
   private static final String SOURCE = "source";
   private static final String TYPE = "type";
   private static final String KAFKA_CONNECTOR = "kafka_connector";
+  static final String INGESTION_METHOD = "snowflake.ingestion.method";
   private static final String DATA = "data";
   private static final String MAX_TASKS = "max_tasks";
   private static final String START_TIME = "start_time";
@@ -176,6 +177,7 @@ public abstract class SnowflakeTelemetryService {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(APP_NAME, getAppName());
     msg.put(TASK_ID, getTaskID());
+    msg.put(INGESTION_METHOD, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     return msg;
   }
 
