@@ -72,7 +72,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   }
 
   @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {true, false})
+  @ValueSource(booleans = {false}) // false only - oauth is not used for ssv2
   public void testSinkTask(boolean useOAuth) throws Exception {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
@@ -110,7 +110,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   }
 
   @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {true, false})
+  @ValueSource(booleans = {false}) // false only - oauth is not used for ssv2
   public void testSinkTaskWithMultipleOpenClose(boolean useOAuth) throws Exception {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
