@@ -109,7 +109,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     if (!inputConfig.containsKey(Utils.SF_ROLE)
         || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
       String missingRole =
-          String.format("Config:%s should be present for Snowpipe Streaming", Utils.SF_ROLE);
+          String.format("Config: %s should be present for Snowpipe Streaming", Utils.SF_ROLE);
       return Optional.of(Map.entry(Utils.SF_ROLE, missingRole));
     }
     return Optional.empty();
@@ -190,9 +190,9 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
       invalidParams.put(
           inputConfigConverterField,
           Utils.formatString(
-              "Config:{} has provided value:{}. If ingestionMethod is:{}, Snowflake Custom"
+              "Config: {} has provided value: {}. If ingestionMethod is: {}, Snowflake Custom"
                   + " Converters are not allowed. \n"
-                  + "Invalid Converters:{}",
+                  + "Invalid Converters: {}",
               inputConfigConverterField,
               inputConfig.get(inputConfigConverterField),
               IngestionMethodConfig.SNOWPIPE_STREAMING,

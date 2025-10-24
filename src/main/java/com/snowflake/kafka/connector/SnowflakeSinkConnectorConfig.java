@@ -99,7 +99,7 @@ public class SnowflakeSinkConnectorConfig {
     public static final boolean SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT = true;
 
     public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG = "snowflake.streaming.max.client.lag";
-    public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 30;
+    public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 1;
 
     public static final String SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES = "snowflake.streaming.max.memory.limit.bytes";
     public static final long SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES_DEFAULT = -1L;
@@ -201,7 +201,7 @@ public class SnowflakeSinkConnectorConfig {
 
     public static void setDefaultValues(Map<String, String> config) {
         if (!config.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
-            config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT + " seconds");
+            config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT + "");
             LOGGER.info("{} set to default {} seconds", SNOWPIPE_STREAMING_MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT);
         }
     }

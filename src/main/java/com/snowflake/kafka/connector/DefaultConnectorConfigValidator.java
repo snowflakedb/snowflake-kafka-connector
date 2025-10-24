@@ -166,7 +166,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
                 invalidConfigParams.put(
                     BEHAVIOR_ON_NULL_VALUES_CONFIG,
                     Utils.formatString(
-                        "Kafka config:{} error:{}",
+                        "Kafka config: {} error: {}",
                         BEHAVIOR_ON_NULL_VALUES_CONFIG,
                         exception.getMessage()));
             }
@@ -176,7 +176,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
             if (!(config.get(JMX_OPT).equalsIgnoreCase("true")
                 || config.get(JMX_OPT).equalsIgnoreCase("false"))) {
                 invalidConfigParams.put(
-                    JMX_OPT, Utils.formatString("Kafka config:{} should either be true or false", JMX_OPT));
+                    JMX_OPT, Utils.formatString("Kafka config: {} should either be true or false", JMX_OPT));
             }
         }
 
@@ -191,7 +191,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
                 invalidConfigParams.put(
                     SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
                     Utils.formatString(
-                        "Kafka config:{} should either be true or false",
+                        "Kafka config: {} should either be true or false",
                         SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS));
             }
         }
