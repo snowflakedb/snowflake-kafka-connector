@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
@@ -34,8 +35,11 @@ import java.time.Duration;
  * <p>This implementation uses the same squid.conf file as the CI pipeline
  * (.github/scripts/squid.conf) to ensure consistent behavior between local tests and CI
  * environment. The proxy requires basic authentication with username/password.
+ *
+ * <p>Can be used as a JUnit Rule to automatically manage the proxy lifecycle per test method,
+ * ensuring parallel test execution without port conflicts.
  */
-public class EmbeddedProxyServer {
+public class EmbeddedProxyServer extends ExternalResource {
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedProxyServer.class);
     private static final int SQUID_PORT = 3128;
     private static final String SQUID_CONF_PATH = ".github/scripts/squid.conf";
@@ -115,10 +119,6 @@ public class EmbeddedProxyServer {
                 username);
             LOGGER.info("Container ID: {}", proxyContainer.getContainerId());
             LOGGER.info("Proxy endpoint: localhost:{}", proxyContainer.getMappedPort(SQUID_PORT));
-            
-            LOGGER.info("================================================================================");
-            LOGGER.info("VERBOSE MODE: All proxy requests and responses will be logged below");
-            LOGGER.info("================================================================================");
         } catch (Exception e) {
             LOGGER.error("Failed to start proxy server", e);
             cleanup();
@@ -252,5 +252,43 @@ public class EmbeddedProxyServer {
             throw new IllegalStateException("Proxy server is not running");
         }
         return proxyContainer.getMappedPort(SQUID_PORT);
+    }
+
+    /**
+     * Gets the username configured for proxy authentication.
+     *
+     * @return the proxy username
+     */
+    public final String getUsername() {
+        return username;
+    }
+
+    /**
+     * Gets the password configured for proxy authentication.
+     *
+     * @return the proxy password
+     */
+    public final String getPassword() {
+        return password;
+    }
+
+    /**
+     * JUnit Rule lifecycle method - called before each test method. Automatically starts the proxy
+     * server.
+     */
+    @Override
+    protected final void before() {
+        start();
+    }
+
+    /**
+     * JUnit Rule lifecycle method - called after each test method. Automatically stops the proxy
+     * server.
+     */
+    @Override
+    protected final void after() {
+        if (isRunning()) {
+            stop();
+        }
     }
 }
