@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,8 +47,7 @@ public class SinkTaskIT {
   @After
   public void after() {
     TestUtils.dropTable(topicName);
-    snowflakeConnectionService.dropStage(Utils.stageName(TEST_CONNECTOR_NAME, topicName));
-    snowflakeConnectionService.dropPipe(Utils.pipeName(TEST_CONNECTOR_NAME, topicName, partition));
+    // SNOWPIPE_STREAMING doesn't use stages and pipes, only tables
   }
 
   @Test
@@ -84,7 +82,7 @@ public class SinkTaskIT {
     ObjectMapper objectMapper = new ObjectMapper();
     Schema snowflakeSchema = new SnowflakeJsonSchema();
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
-    for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
+    for (int i = 0; i < 10000L; ++i) {
       records.add(
           new SinkRecord(
               topicName,
@@ -122,7 +120,7 @@ public class SinkTaskIT {
 
     sinkTask.close(topicPartitions);
     sinkTask.stop();
-    assert offsetMap.get(topicPartitions.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+    assert offsetMap.get(topicPartitions.get(0)).offset() == 10000L;
   }
 
   @Test
@@ -151,7 +149,7 @@ public class SinkTaskIT {
     ObjectMapper objectMapper = new ObjectMapper();
     Schema snowflakeSchema = new SnowflakeJsonSchema();
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
-    for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
+    for (int i = 0; i < 10000L; ++i) {
       records.add(
           new SinkRecord(
               topicName,
@@ -235,7 +233,7 @@ public class SinkTaskIT {
     ObjectMapper objectMapper = new ObjectMapper();
     Schema snowflakeSchema = new SnowflakeJsonSchema();
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
-    for (int i = 0; i < BUFFER_COUNT_RECORDS_DEFAULT; ++i) {
+    for (int i = 0; i < 10000L; ++i) {
       records.add(
           new SinkRecord(
               topicName,
@@ -300,8 +298,8 @@ public class SinkTaskIT {
     // verify task1 stop logs
     Mockito.verify(logger, Mockito.times(1)).info(Mockito.contains("stop"));
 
-    assert offsetMap1.get(topicPartitions0.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
-    assert offsetMap0.get(topicPartitions1.get(0)).offset() == BUFFER_COUNT_RECORDS_DEFAULT;
+    assert offsetMap1.get(topicPartitions0.get(0)).offset() == 10000L;
+    assert offsetMap0.get(topicPartitions1.get(0)).offset() == 10000L;
   }
 
   @Test

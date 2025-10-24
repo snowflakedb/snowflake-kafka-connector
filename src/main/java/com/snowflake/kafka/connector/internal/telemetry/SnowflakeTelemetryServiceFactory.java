@@ -25,11 +25,8 @@ public class SnowflakeTelemetryServiceFactory {
      */
     public SnowflakeTelemetryServiceBuilder(
         Connection conn, IngestionMethodConfig ingestionMethodConfig) {
-      if (ingestionMethodConfig.equals(IngestionMethodConfig.SNOWPIPE)) {
-        this.service = new SnowflakeTelemetryServiceV1(conn);
-      } else {
-        this.service = new SnowflakeTelemetryServiceV2(conn);
-      }
+      // Only SNOWPIPE_STREAMING is supported now
+      this.service = new SnowflakeTelemetryServiceV2(conn);
     }
 
     /**

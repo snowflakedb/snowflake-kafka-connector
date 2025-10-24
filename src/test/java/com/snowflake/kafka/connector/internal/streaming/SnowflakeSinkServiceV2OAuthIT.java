@@ -15,6 +15,7 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2OAuthIT extends SnowflakeSinkServiceV2BaseIT {
@@ -32,6 +33,7 @@ public class SnowflakeSinkServiceV2OAuthIT extends SnowflakeSinkServiceV2BaseIT 
   }
 
   @Test
+  @Disabled("TODO: fix this test when ssv2 officially support oauth client credentials flow")
   void shouldIngestDataWithOAuth() throws Exception {
     Map<String, String> config = TestUtils.getConfForStreamingWithOAuth();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);

@@ -17,7 +17,6 @@
 package com.snowflake.kafka.connector;
 
 import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
-import com.snowflake.kafka.connector.config.IcebergConfigValidator;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -67,8 +66,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   private boolean setupComplete;
 
   private final ConnectorConfigValidator connectorConfigValidator =
-      new DefaultConnectorConfigValidator(
-          new DefaultStreamingConfigValidator(), new IcebergConfigValidator());
+      new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeStreamingSinkConnector() {

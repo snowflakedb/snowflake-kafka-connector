@@ -40,8 +40,7 @@ class TestPressureRestart(BaseE2eTest):
         # restart connector with different config
         self.configIncreamental = self.configIncreamental + 1
         if self.configIncreamental % 7 == 2:
-            configMap = {"buffer.size.bytes": str(6000000 + self.configIncreamental)}
-            self.driver.updateConnectorConfig(self.fileName, self.connectorName, configMap)
+            self.driver.restartConnector(self.connectorName)
         elif self.configIncreamental % 7 == 3:
             self.driver.restartConnector(self.connectorName)
         elif self.configIncreamental % 7 == 4:
