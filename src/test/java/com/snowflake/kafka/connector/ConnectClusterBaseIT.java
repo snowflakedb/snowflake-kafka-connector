@@ -21,9 +21,7 @@ import org.junit.jupiter.api.TestInstance;
 
 /**
  * Base class for integration tests using an embedded Kafka Connect cluster.
- * 
- * <p>NOTE: Tests extending this class currently use real Snowflake connections for SSv2.
- * TODO: Implement a fake/mock infrastructure for SSv2 testing similar to the old SSv1 
+ * TODO: Implement a fake/mock infrastructure for SSv2 testing similar to the old SSv1
  * FakeStreamingClientHandler to enable faster, isolated testing without real Snowflake connections.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

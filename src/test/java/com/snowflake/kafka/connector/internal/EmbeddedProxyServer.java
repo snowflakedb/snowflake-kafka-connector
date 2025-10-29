@@ -53,13 +53,6 @@ public class EmbeddedProxyServer extends ExternalResource {
     private GenericContainer<?> proxyContainer;
     private Path tempSquidConfFile;
 
-    /**
-     * Creates a new embedded proxy server with authentication. The server will use a Squid proxy
-     * running in a Docker container with a random available port on the host.
-     *
-     * @param username The username for proxy authentication
-     * @param password The password for proxy authentication
-     */
     public EmbeddedProxyServer(final String username, final String password) {
         this.username = username;
         this.password = password;
@@ -81,9 +74,7 @@ public class EmbeddedProxyServer extends ExternalResource {
             throw new IllegalStateException("Proxy server is already running");
         }
 
-        LOGGER.info(
-            "Starting Squid proxy server with configuration from {} (verbose logging enabled)", 
-            SQUID_CONF_RESOURCE);
+        LOGGER.info("Starting Squid proxy server with configuration from {} (verbose logging enabled)", SQUID_CONF_RESOURCE);
 
         try {
             // Load squid.conf from classpath resources
@@ -93,32 +84,23 @@ public class EmbeddedProxyServer extends ExternalResource {
 
             // Use official squid image from Docker Hub
             // Container is closed in stop() method
-            proxyContainer =
-                new GenericContainer<>(DockerImageName.parse("sameersbn/squid:3.5.27-2"))
-                    .withExposedPorts(SQUID_PORT)
-                    .withCopyFileToContainer(
-                        MountableFile.forHostPath(tempSquidConfFile.toAbsolutePath().toString()),
-                        "/etc/squid/squid.conf")
-                    .withEnv("SQUID_CONFIG_FILE", "/etc/squid/squid.conf")
-                    .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("Squid")))
-                    .waitingFor(Wait.forListeningPort())
-                    .withStartupTimeout(Duration.ofSeconds(60));
+            proxyContainer = new GenericContainer<>(DockerImageName.parse("sameersbn/squid:3.5.27-2"))
+                .withExposedPorts(SQUID_PORT)
+                .withCopyFileToContainer(MountableFile.forHostPath(tempSquidConfFile.toAbsolutePath().toString()), "/etc/squid/squid.conf")
+                .withEnv("SQUID_CONFIG_FILE", "/etc/squid/squid.conf")
+                .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("Squid")))
+                .waitingFor(Wait.forListeningPort())
+                .withStartupTimeout(Duration.ofSeconds(60));
 
             proxyContainer.start();
 
-            LOGGER.info(
-                "Squid proxy server started on localhost:{}, configuring authentication...",
-                proxyContainer.getMappedPort(SQUID_PORT));
+            LOGGER.info("Squid proxy server started on localhost:{}, configuring authentication...", proxyContainer.getMappedPort(SQUID_PORT));
 
             // Generate password file INSIDE the container using the container's htpasswd
             // This ensures compatibility with the container's basic_ncsa_auth helper
             configureAuthentication();
 
-            LOGGER.info(
-                "Squid proxy server ready on localhost:{} with authentication (user: {})",
-                proxyContainer.getMappedPort(SQUID_PORT),
-                username);
-            LOGGER.info("Container ID: {}", proxyContainer.getContainerId());
+            LOGGER.info("Squid proxy server ready on localhost:{} with authentication (user: {})", proxyContainer.getMappedPort(SQUID_PORT), username);
             LOGGER.info("Proxy endpoint: localhost:{}", proxyContainer.getMappedPort(SQUID_PORT));
         } catch (Exception e) {
             LOGGER.error("Failed to start proxy server", e);
@@ -137,18 +119,12 @@ public class EmbeddedProxyServer extends ExternalResource {
     private Path loadSquidConfFromResources() throws IOException {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(SQUID_CONF_RESOURCE)) {
             if (is == null) {
-                throw new RuntimeException(
-                    "Squid configuration file not found in classpath resources: " + SQUID_CONF_RESOURCE);
+                throw new RuntimeException("Squid configuration file not found in classpath resources: " + SQUID_CONF_RESOURCE);
             }
 
-            // Create temporary file
             Path tempFile = Files.createTempFile("squid-", ".conf");
-            
-            // Copy resource to temporary file
             Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
-            
             LOGGER.debug("Loaded squid.conf from resources to temporary file: {}", tempFile);
-            
             return tempFile;
         }
     }
@@ -162,14 +138,9 @@ public class EmbeddedProxyServer extends ExternalResource {
      */
     private void configureAuthentication() throws Exception {
         LOGGER.info("Installing apache2-utils and generating password file");
-        
-        // Install apache2-utils which contains htpasswd
         try {
             LOGGER.debug("Installing apache2-utils package...");
-            var installResult = proxyContainer.execInContainer(
-                "sh", "-c", 
-                "apt-get update -qq && apt-get install -y -qq apache2-utils 2>&1 | tail -5"
-            );
+            var installResult = proxyContainer.execInContainer("sh", "-c", "apt-get update -qq && apt-get install -y -qq apache2-utils 2>&1 | tail -5");
             if (installResult.getExitCode() != 0) {
                 LOGGER.error("Failed to install apache2-utils: {}", installResult.getStderr());
                 throw new RuntimeException("Could not install apache2-utils");
@@ -179,13 +150,11 @@ public class EmbeddedProxyServer extends ExternalResource {
             LOGGER.error("Failed to install apache2-utils", e);
             throw new RuntimeException("Failed to install apache2-utils: " + e.getMessage(), e);
         }
-        
+
         // Create password file using container's htpasswd (ensures compatibility)
         try {
             LOGGER.info("Generating password file using htpasswd");
-            var result = proxyContainer.execInContainer(
-                "htpasswd", "-bc", "/etc/squid/passwords", username, password
-            );
+            var result = proxyContainer.execInContainer("htpasswd", "-bc", "/etc/squid/passwords", username, password);
             LOGGER.debug("Password file created. Exit code: {}", result.getExitCode());
             if (result.getExitCode() != 0) {
                 LOGGER.error("htpasswd failed: {}", result.getStderr());
@@ -209,20 +178,16 @@ public class EmbeddedProxyServer extends ExternalResource {
         try {
             proxyContainer.execInContainer("supervisorctl", "restart", "squid");
             LOGGER.debug("Squid restart command sent");
-            
+
             // Wait for squid to restart and be ready
             Thread.sleep(3000);
             LOGGER.debug("Authentication configuration complete");
         } catch (Exception e) {
-            LOGGER.warn("Could not restart via supervisorctl, squid may pick up config automatically: {}", 
-                e.getMessage());
+            LOGGER.warn("Could not restart via supervisorctl, squid may pick up config automatically: {}", e.getMessage());
             // Continue anyway - squid might reload automatically or on next request
         }
     }
 
-    /**
-     * Cleans up resources including container and temporary files.
-     */
     private void cleanup() {
         if (proxyContainer != null) {
             try {
@@ -232,8 +197,7 @@ public class EmbeddedProxyServer extends ExternalResource {
             }
             proxyContainer = null;
         }
-        
-        // Clean up temporary squid.conf file
+
         if (tempSquidConfFile != null) {
             try {
                 Files.deleteIfExists(tempSquidConfFile);
@@ -255,13 +219,12 @@ public class EmbeddedProxyServer extends ExternalResource {
             throw new IllegalStateException("Proxy server is not running");
         }
 
-        LOGGER.info("Stopping Squid proxy server (Container ID: {})", 
-            proxyContainer.getContainerId());
-        
+        LOGGER.info("Stopping Squid proxy server (Container ID: {})", proxyContainer.getContainerId());
+
         LOGGER.info("================================================================================");
         LOGGER.info("END OF PROXY LOGS");
         LOGGER.info("================================================================================");
-        
+
         try {
             cleanup();
             LOGGER.info("Squid proxy server stopped successfully");
@@ -271,20 +234,10 @@ public class EmbeddedProxyServer extends ExternalResource {
         }
     }
 
-    /**
-     * Checks if the proxy server is currently running.
-     *
-     * @return true if the server is running, false otherwise
-     */
     public final boolean isRunning() {
         return proxyContainer != null && proxyContainer.isRunning();
     }
 
-    /**
-     * Gets the port the proxy server is listening on (mapped to localhost).
-     *
-     * @return the proxy server port on localhost
-     */
     public final int getPort() {
         if (proxyContainer == null) {
             throw new IllegalStateException("Proxy server is not running");
@@ -292,37 +245,19 @@ public class EmbeddedProxyServer extends ExternalResource {
         return proxyContainer.getMappedPort(SQUID_PORT);
     }
 
-    /**
-     * Gets the username configured for proxy authentication.
-     *
-     * @return the proxy username
-     */
     public final String getUsername() {
         return username;
     }
 
-    /**
-     * Gets the password configured for proxy authentication.
-     *
-     * @return the proxy password
-     */
     public final String getPassword() {
         return password;
     }
 
-    /**
-     * JUnit Rule lifecycle method - called before each test method. Automatically starts the proxy
-     * server.
-     */
     @Override
     protected final void before() {
         start();
     }
 
-    /**
-     * JUnit Rule lifecycle method - called after each test method. Automatically stops the proxy
-     * server.
-     */
     @Override
     protected final void after() {
         if (isRunning()) {

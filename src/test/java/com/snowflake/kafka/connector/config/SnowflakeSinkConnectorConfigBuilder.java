@@ -25,18 +25,13 @@ public class SnowflakeSinkConnectorConfigBuilder {
     private SnowflakeSinkConnectorConfigBuilder() {
     }
 
-    public static SnowflakeSinkConnectorConfigBuilder snowpipeConfig() {
-        return commonRequiredFields().withIngestionMethod(IngestionMethodConfig.SNOWPIPE_STREAMING);
-    }
-
     public static SnowflakeSinkConnectorConfigBuilder streamingConfig() {
-        return commonRequiredFields().withIngestionMethod(IngestionMethodConfig.SNOWPIPE_STREAMING);
+        return commonRequiredFields();
     }
 
     public static SnowflakeSinkConnectorConfigBuilder icebergConfig() {
         return commonRequiredFields()
             .withIcebergEnabled()
-            .withIngestionMethod(IngestionMethodConfig.SNOWPIPE_STREAMING)
             .withSchematizationEnabled(true);
     }
 
@@ -49,8 +44,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
             .withDatabase("testDatabase")
             .withUser("userName")
             .withPrivateKey("fdsfsdfsdfdsfdsrqwrwewrwrew42314424")
-            .withRole("role")
-            .withDefaultBufferConfig();
+            .withRole("role");
     }
 
     public SnowflakeSinkConnectorConfigBuilder withName(String name) {
@@ -90,17 +84,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
     public SnowflakeSinkConnectorConfigBuilder withPrivateKey(String privateKey) {
         config.put(Utils.SF_PRIVATE_KEY, privateKey);
-        return this;
-    }
-
-    public SnowflakeSinkConnectorConfigBuilder withDefaultBufferConfig() {
-        // Buffer configs removed (legacy SNOWPIPE mode) - method kept as no-op for compatibility
-        return this;
-    }
-
-    public SnowflakeSinkConnectorConfigBuilder withIngestionMethod(
-        IngestionMethodConfig ingestionMethod) {
-        // "snowflake.ingestion.method" removed - only SNOWPIPE_STREAMING supported - method kept as no-op
         return this;
     }
 

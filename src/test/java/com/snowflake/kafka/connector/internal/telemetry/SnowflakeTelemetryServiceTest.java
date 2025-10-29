@@ -207,30 +207,27 @@ public class SnowflakeTelemetryServiceTest {
             expectedProcessedOffset, dataNode.get(TelemetryConstants.PROCESSED_OFFSET).asLong());
         assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
 
-        // Only SNOWPIPE_STREAMING is supported
-        {
-            assertTrue(
-                dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME).asLong()
-                    == expectedTpChannelCreationTime);
-            assertTrue(
-                dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME).asLong()
-                    <= System.currentTimeMillis()
-                    && dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME).asLong()
-                    >= this.startTime);
-            assertEquals(
-                SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE.toString(),
-                allNode.get("type").asText());
-            assertEquals(
-                expectedLatestConsumerOffset,
-                dataNode.get(TelemetryConstants.LATEST_CONSUMER_OFFSET).asLong());
-            assertEquals(
-                expectedOffsetPersistedInSnowflake,
-                dataNode.get(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
-            assertEquals(
-                expectedTpChannelName,
-                dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_NAME).asText());
-            assertEquals(expectedConnectorName, dataNode.get(TelemetryConstants.CONNECTOR_NAME).asText());
-        }
+        assertTrue(
+            dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME).asLong()
+                == expectedTpChannelCreationTime);
+        assertTrue(
+            dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME).asLong()
+                <= System.currentTimeMillis()
+                && dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME).asLong()
+                >= this.startTime);
+        assertEquals(
+            SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE.toString(),
+            allNode.get("type").asText());
+        assertEquals(
+            expectedLatestConsumerOffset,
+            dataNode.get(TelemetryConstants.LATEST_CONSUMER_OFFSET).asLong());
+        assertEquals(
+            expectedOffsetPersistedInSnowflake,
+            dataNode.get(TelemetryConstants.OFFSET_PERSISTED_IN_SNOWFLAKE).asLong());
+        assertEquals(
+            expectedTpChannelName,
+            dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_NAME).asText());
+        assertEquals(expectedConnectorName, dataNode.get(TelemetryConstants.CONNECTOR_NAME).asText());
     }
 
     @ParameterizedTest
@@ -248,15 +245,12 @@ public class SnowflakeTelemetryServiceTest {
         final String expectedChannelName = "channelName";
         final long expectedChannelCreationTime = 1234;
 
-        // Only SNOWPIPE_STREAMING is supported
-        {
-            SnowflakeTelemetryChannelCreation channelCreation =
-                new SnowflakeTelemetryChannelCreation(
-                    expectedTableName, expectedChannelName, expectedChannelCreationTime);
-            channelCreation.setReuseTable(true);
+        SnowflakeTelemetryChannelCreation channelCreation =
+            new SnowflakeTelemetryChannelCreation(
+                expectedTableName, expectedChannelName, expectedChannelCreationTime);
+        channelCreation.setReuseTable(true);
 
-            partitionCreation = channelCreation;
-        }
+        partitionCreation = channelCreation;
 
         // when
         snowflakeTelemetryService.reportKafkaPartitionStart(partitionCreation);

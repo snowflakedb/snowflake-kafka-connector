@@ -75,14 +75,14 @@ public class ConnectorConfigValidatorTest {
 
     public static Stream<Arguments> validConfigs() {
         return Stream.of(
-            Arguments.of(SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().build()),
-            Arguments.of(SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().withUseUserDefinedDatabaseObjects(true).build()),
-            Arguments.of(SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().withSchematizationEnabled(false).build()));
+            Arguments.of(SnowflakeSinkConnectorConfigBuilder.streamingConfig().build()),
+            Arguments.of(SnowflakeSinkConnectorConfigBuilder.streamingConfig().withUseUserDefinedDatabaseObjects(true).build()),
+            Arguments.of(SnowflakeSinkConnectorConfigBuilder.streamingConfig().withSchematizationEnabled(false).build()));
     }
 
     static Stream<Arguments> invalidConfigs() {
         return Stream.of(
-            Arguments.of(SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().withSchematizationEnabled(true).build(), "Schematization is not yet supported"),
+            Arguments.of(SnowflakeSinkConnectorConfigBuilder.streamingConfig().withSchematizationEnabled(true).build(), "Schematization is not yet supported"),
             Arguments.of(SnowflakeSinkConnectorConfigBuilder.icebergConfig().withSchematizationEnabled(true).build(), "snowflake.streaming.iceberg.enabled"),
             Arguments.of(SnowflakeSinkConnectorConfigBuilder.icebergConfig().withSchematizationEnabled(false).build(), "snowflake.streaming.iceberg.enabled"),
             Arguments.of(SnowflakeSinkConnectorConfigBuilder.icebergConfig().build(), "snowflake.streaming.iceberg.enabled"));
@@ -105,13 +105,13 @@ public class ConnectorConfigValidatorTest {
 
     @Test
     public void testConfig() {
-        Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().build();
+        Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
         connectorConfigValidator.validateConfig(config);
     }
 
     @Test
     public void testConfig_ConvertedInvalidAppName() {
-        Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().withName("testConfig.snowflake-connector").build();
+        Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.streamingConfig().withName("testConfig.snowflake-connector").build();
 
         Utils.convertAppName(config);
 
@@ -524,7 +524,7 @@ public class ConnectorConfigValidatorTest {
 
     @Test
     public void testExternalOAuthConfig() {
-        Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().withAuthenticator(Utils.OAUTH).withOauthClientId("client_id").withOauthClientSecret("client_secret")
+        Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.streamingConfig().withAuthenticator(Utils.OAUTH).withOauthClientId("client_id").withOauthClientSecret("client_secret")
             .withOauthRefreshToken("refresh_token").withOauthTokenEndpoint("token_endpoint").build();
         connectorConfigValidator.validateConfig(config);
     }
