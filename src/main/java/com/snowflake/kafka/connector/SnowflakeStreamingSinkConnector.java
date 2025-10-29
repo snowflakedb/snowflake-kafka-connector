@@ -36,7 +36,7 @@ import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 
 /**
- * SnowflakeSinkConnector implements SinkConnector for Kafka Connect framework.
+ * SnowflakeStreamingSinkConnector implements SinkConnector for Kafka Connect framework.
  *
  * <p>Expected configuration: including topic names, partition numbers, snowflake connection info
  * and credentials info
@@ -44,9 +44,9 @@ import org.apache.kafka.connect.sink.SinkConnector;
  * <p>Creates snowflake internal stages, snowflake tables provides configuration to SinkTasks
  * running on Kafka Connect Workers.
  */
-public class SnowflakeSinkConnector extends SinkConnector {
+public class SnowflakeStreamingSinkConnector extends SinkConnector {
   // create logger without correlationId for now
-  private static KCLogger LOGGER = new KCLogger(SnowflakeSinkConnector.class.getName());
+  private static KCLogger LOGGER = new KCLogger(SnowflakeStreamingSinkConnector.class.getName());
 
   private Map<String, String> config; // connector configuration, provided by
   // user through kafka connect framework
@@ -60,7 +60,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   private long connectorStartTime;
 
   // Kafka Connect starts sink tasks without waiting for setup in
-  // SnowflakeSinkConnector to finish.
+  // SnowflakeStreamingSinkConnector to finish.
   // This causes race conditions for: config validation, tables and stages
   // creation, etc.
   // Using setupComplete to synchronize
@@ -71,7 +71,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
           new DefaultStreamingConfigValidator(), new IcebergConfigValidator());
 
   /** No-Arg constructor. Required by Kafka Connect framework */
-  public SnowflakeSinkConnector() {
+  public SnowflakeStreamingSinkConnector() {
     setupComplete = false;
   }
 
@@ -85,7 +85,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    LOGGER.info("SnowflakeSinkConnector:starting...");
+    LOGGER.info("SnowflakeStreamingSinkConnector:starting...");
 
     Utils.checkConnectorVersion();
 
@@ -120,7 +120,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
 
     setupComplete = true;
 
-    LOGGER.info("SnowflakeSinkConnector:started");
+    LOGGER.info("SnowflakeStreamingSinkConnector:started");
   }
 
   /**
@@ -134,7 +134,7 @@ public class SnowflakeSinkConnector extends SinkConnector {
   @Override
   public void stop() {
     setupComplete = false;
-    LOGGER.info("SnowflakeSinkConnector:stopped");
+    LOGGER.info("SnowflakeStreamingSinkConnector:stopped");
     telemetryClient.reportKafkaConnectStop(connectorStartTime);
   }
 
@@ -158,7 +158,8 @@ public class SnowflakeSinkConnector extends SinkConnector {
    * taskConfigs method returns a set of configurations for SinkTasks based on the current
    * configuration, producing at most 'maxTasks' configurations
    *
-   * @param maxTasks maximum number of SinkTasks for this instance of SnowflakeSinkConnector
+   * @param maxTasks maximum number of SinkTasks for this instance of
+   *     SnowflakeStreamingSinkConnector
    * @return a list containing 'maxTasks' copies of the configuration
    */
   @Override

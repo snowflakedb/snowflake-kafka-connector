@@ -1,7 +1,7 @@
 {
   "name": "SnowflakeSinkConnector_<alias>",
   "config": {
-    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector",
     "name": "SnowflakeSinkConnector_<alias>",
     "topics": "SnowflakeSink_<alias>",
     "tasks.max": "2",
