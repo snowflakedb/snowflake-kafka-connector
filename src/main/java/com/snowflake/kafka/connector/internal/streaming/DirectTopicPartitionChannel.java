@@ -40,6 +40,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.*;
+import net.snowflake.ingest.utils.ErrorCode;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -76,7 +77,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   // should be skipped
   private boolean needToSkipCurrentBatch = false;
 
-  private final SnowflakeStreamingIngestClient streamingIngestClient;
+  private SnowflakeStreamingIngestClient streamingIngestClient;
 
   // Topic partition Object from connect consisting of topic and partition
   private final TopicPartition topicPartition;
@@ -412,6 +413,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    */
   private void insertRowFallbackSupplier(Throwable ex)
       throws TopicPartitionChannelInsertionException {
+    if (isClientInvalidError(ex)) {
+      LOGGER.warn("Client is invalid, recreating client for channel: {}", getChannelNameFormatV1());
+      this.streamingIngestClient =
+          StreamingClientProvider.getStreamingClientProviderInstance().getClient(sfConnectorConfig);
+    }
     final long offsetRecoveredFromSnowflake =
         streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);
     throw new TopicPartitionChannelInsertionException(
@@ -476,6 +482,19 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   @VisibleForTesting
   public long fetchOffsetTokenWithRetry() {
     return offsetTokenExecutor.get(this::fetchLatestCommittedOffsetFromSnowflake);
+  }
+
+  /**
+   * Checks if the exception indicates a client invalidation error.
+   *
+   * @param e the exception to check
+   * @return true if the exception is a CLOSED_CLIENT error
+   */
+  private boolean isClientInvalidError(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    return ErrorCode.CLOSED_CLIENT.getMessageCode().equals(((SFException) e).getVendorCode());
   }
 
   /**
@@ -656,7 +675,17 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
     try {
       return OpenChannelRetryPolicy.executeWithRetry(
-          () -> streamingIngestClient.openChannel(channelRequest), this.channelNameFormatV1);
+          () -> {
+            if (!StreamingClientHandler.isClientValid(streamingIngestClient)) {
+              LOGGER.warn(
+                  "Client is invalid, recreating client for channel: {}", getChannelNameFormatV1());
+              this.streamingIngestClient =
+                  StreamingClientProvider.getStreamingClientProviderInstance()
+                      .getClient(sfConnectorConfig);
+            }
+            return streamingIngestClient.openChannel(channelRequest);
+          },
+          this.channelNameFormatV1);
     } catch (RuntimeException e) {
       LOGGER.error(
           "Failed to open channel {} after retries: {}",
