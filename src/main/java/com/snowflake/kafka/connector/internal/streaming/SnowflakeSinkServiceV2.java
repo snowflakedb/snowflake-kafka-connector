@@ -16,7 +16,7 @@ import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEv
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import com.snowflake.kafka.connector.internal.streaming.v2.SSv2PipeCreator;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientV2Provider;
+import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientProvider;
 import com.snowflake.kafka.connector.internal.streaming.validation.FailsafeRowSchemaProvider;
 import com.snowflake.kafka.connector.internal.streaming.validation.JWTManagerProvider;
 import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaManager;
@@ -66,7 +66,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
-    private static final StreamingIngestClientV2Provider streamingIngestClientV2Provider = new StreamingIngestClientV2Provider();
+    private static final StreamingIngestClientProvider streamingIngestClientProvider = new StreamingIngestClientProvider();
 
     // Used to connect to Snowflake, could be null during testing
     private final SnowflakeConnectionService conn;
@@ -237,7 +237,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         }
 
         return new SnowpipeStreamingV2PartitionChannel(tableName, schemaEvolutionEnabled, partitionChannelKey, topicPartition, this.conn, this.connectorConfig, streamingRecordService,
-            this.sinkTaskContext, this.enableCustomJMXMonitoring, this.metricsJmxReporter, streamingIngestClientV2Provider, rowSchemaManager, streamingErrorHandler);
+            this.sinkTaskContext, this.enableCustomJMXMonitoring, this.metricsJmxReporter, streamingIngestClientProvider, rowSchemaManager, streamingErrorHandler);
     }
 
     private void createPipeIfNotExists(String tableName) {
@@ -411,7 +411,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     @Override
     public void stop() {
         waitForAllChannelsToCommitData();
-        streamingIngestClientV2Provider.closeAll();
+        streamingIngestClientProvider.closeAll();
     }
 
     /* Undefined */

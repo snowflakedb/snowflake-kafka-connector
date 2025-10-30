@@ -21,16 +21,11 @@ import org.junit.jupiter.api.TestInstance;
 
 /**
  * Base class for integration tests using an embedded Kafka Connect cluster.
- * TODO: Implement a fake/mock infrastructure for SSv2 testing similar to the old SSv1
- * FakeStreamingClientHandler to enable faster, isolated testing without real Snowflake connections.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ConnectClusterBaseIT {
 
   protected EmbeddedConnectCluster connectCluster;
-
-  // TODO: Add SSv2 fake/mock infrastructure here when needed
-  // protected FakeStreamingClientV2Handler fakeStreamingClientV2Handler;
 
   static final Integer TASK_NUMBER = 1;
 
@@ -41,21 +36,10 @@ public abstract class ConnectClusterBaseIT {
     connectCluster =
         new EmbeddedConnectCluster.Builder()
             .name("kafka-push-connector-connect-cluster")
-            .numWorkers(3)
+            .numWorkers(1)
             .workerProps(workerConfig)
             .build();
     connectCluster.start();
-  }
-
-  @BeforeEach
-  public void beforeEach() {
-    // TODO: Initialize SSv2 fake/mock infrastructure when implemented
-    // For now, tests will use real Snowflake connections
-  }
-
-  @AfterEach
-  public void afterEach() {
-    // TODO: Clean up SSv2 fake/mock infrastructure when implemented
   }
 
   @AfterAll
