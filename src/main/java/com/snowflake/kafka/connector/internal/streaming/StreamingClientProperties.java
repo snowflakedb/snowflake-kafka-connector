@@ -94,9 +94,6 @@ public class StreamingClientProperties {
         overriddenValue ->
             parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue)));
 
-    // MAX_CHANNEL_SIZE_IN_BYTES can still be set via
-    // SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP
-
     Optional<String> snowpipeStreamingMaxMemoryLimit =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES));
     snowpipeStreamingMaxMemoryLimit.ifPresent(
