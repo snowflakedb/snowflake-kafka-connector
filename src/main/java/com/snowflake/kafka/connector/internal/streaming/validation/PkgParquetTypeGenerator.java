@@ -151,7 +151,6 @@ class PkgParquetTypeGenerator {
     return new PkgParquetTypeInfo(parquetType, metadata);
   }
 
-
   /**
    * Get the parquet type for column of Snowflake FIXED logical type.
    *

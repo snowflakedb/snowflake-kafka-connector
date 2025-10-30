@@ -5,12 +5,11 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTolerance;
 
-import net.snowflake.ingest.streaming.OffsetTokenVerificationFunction;
-import net.snowflake.ingest.utils.Constants;
 import com.snowflake.kafka.connector.Utils;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
+import net.snowflake.ingest.utils.Constants;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {

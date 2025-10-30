@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
-import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import com.snowflake.kafka.connector.Utils;
@@ -10,7 +9,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Supplier;
 
 /**
  * Lazily creates SnowflakeStreamingIngestClient instances. Only one instance per pipe/table is
@@ -25,20 +23,21 @@ public class StreamingIngestClientProvider {
   private static final String STREAMING_CLIENT_V2_PREFIX_NAME = "KC_CLIENT_V2_";
   private static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
   private static int createdClientId = 0;
-  private final static IngestClientSupplier DEFAULT_INGEST_CLIENT_SUPPLIER = new StandardIngestClientSupplier();
-  // this gets replaced during integration testing, we're setting a supplier that produces mocked IngestClient
+  private static final IngestClientSupplier DEFAULT_INGEST_CLIENT_SUPPLIER =
+      new StandardIngestClientSupplier();
+  // this gets replaced during integration testing, we're setting a supplier that produces mocked
+  // IngestClient
   private static IngestClientSupplier ingestClientSupplier = DEFAULT_INGEST_CLIENT_SUPPLIER;
-
 
   private final Map<String, SnowflakeStreamingIngestClient> pipeToClientMap = new HashMap<>();
 
-    public SnowflakeStreamingIngestClient getClient(
+  public SnowflakeStreamingIngestClient getClient(
       Map<String, String> connectorConfig,
       String pipeName,
       StreamingClientProperties streamingClientProperties) {
     synchronized (pipeToClientMap) {
       return pipeToClientMap.computeIfAbsent(
-              pipeName, k -> createClient(connectorConfig, pipeName, streamingClientProperties));
+          pipeName, k -> createClient(connectorConfig, pipeName, streamingClientProperties));
     }
   }
 
@@ -63,7 +62,8 @@ public class StreamingIngestClientProvider {
     String clientName = clientName(connectorConfig);
     String dbName = Utils.getDatabase(connectorConfig);
     String schemaName = Utils.getSchema(connectorConfig);
-    return ingestClientSupplier.get(clientName,dbName,schemaName,pipeName,connectorConfig,streamingClientProperties);
+    return ingestClientSupplier.get(
+        clientName, dbName, schemaName, pipeName, connectorConfig, streamingClientProperties);
   }
 
   private static String clientName(Map<String, String> connectorConfig) {
@@ -83,23 +83,28 @@ public class StreamingIngestClientProvider {
     return props;
   }
 
-    public static void setIngestClientSupplier(final IngestClientSupplier ingestClientSupplier) {
-        StreamingIngestClientProvider.ingestClientSupplier = ingestClientSupplier;
+  public static void setIngestClientSupplier(final IngestClientSupplier ingestClientSupplier) {
+    StreamingIngestClientProvider.ingestClientSupplier = ingestClientSupplier;
+  }
+
+  public static void resetIngestClientSupplier() {
+    StreamingIngestClientProvider.ingestClientSupplier = DEFAULT_INGEST_CLIENT_SUPPLIER;
+  }
+
+  static class StandardIngestClientSupplier implements IngestClientSupplier {
+
+    @Override
+    public SnowflakeStreamingIngestClient get(
+        final String clientName,
+        final String dbName,
+        final String schemaName,
+        final String pipeName,
+        Map<String, String> connectorConfig,
+        StreamingClientProperties streamingClientProperties) {
+      return SnowflakeStreamingIngestClientFactory.builder(clientName, dbName, schemaName, pipeName)
+          .setProperties(getClientProperties(connectorConfig))
+          .setParameterOverrides(streamingClientProperties.parameterOverrides)
+          .build();
     }
-
-    public static void resetIngestClientSupplier() {
-        StreamingIngestClientProvider.ingestClientSupplier = DEFAULT_INGEST_CLIENT_SUPPLIER;
-    }
-
-
-    static class StandardIngestClientSupplier implements IngestClientSupplier {
-
-      @Override
-      public SnowflakeStreamingIngestClient get(final String clientName, final String dbName, final String schemaName, final String pipeName, Map<String, String> connectorConfig, StreamingClientProperties streamingClientProperties) {
-              return SnowflakeStreamingIngestClientFactory.builder(clientName, dbName, schemaName, pipeName)
-                  .setProperties(getClientProperties(connectorConfig))
-                  .setParameterOverrides(streamingClientProperties.parameterOverrides)
-                  .build();
-      }
   }
 }

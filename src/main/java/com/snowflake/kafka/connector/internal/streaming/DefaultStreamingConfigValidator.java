@@ -8,7 +8,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 
@@ -19,12 +18,11 @@ import com.snowflake.kafka.connector.DefaultConnectorConfigValidator;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import org.apache.kafka.common.config.ConfigException;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.apache.kafka.common.config.ConfigException;
 
 public class DefaultStreamingConfigValidator implements StreamingConfigValidator {
 
@@ -40,9 +38,9 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     Map<String, String> invalidParams = new HashMap<>();
 
     // Validate Iceberg config
-      if (isIcebergEnabled(inputConfig)) {
-          invalidParams.put(ICEBERG_ENABLED, "Ingestion to Iceberg table is currently unsupported.");
-      }
+    if (isIcebergEnabled(inputConfig)) {
+      invalidParams.put(ICEBERG_ENABLED, "Ingestion to Iceberg table is currently unsupported.");
+    }
 
     // Validate streaming-specific configs (only SNOWPIPE_STREAMING is supported now)
     invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
@@ -59,7 +57,8 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
       } catch (ConfigException e) {
         invalidParams.put(
             ERRORS_TOLERANCE_CONFIG,
-            Utils.formatString("snowflake.ingestion.method configuration error: {}", e.getMessage()));
+            Utils.formatString(
+                "snowflake.ingestion.method configuration error: {}", e.getMessage()));
       }
     }
     if (inputConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
@@ -81,7 +80,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     // Validate schematization config
     invalidParams.putAll(validateSchematizationConfig(inputConfig));
 
-      return ImmutableMap.copyOf(invalidParams);
+    return ImmutableMap.copyOf(invalidParams);
   }
 
   private static Optional<Map.Entry<String, String>> validateRole(Map<String, String> inputConfig) {
@@ -107,7 +106,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     }
   }
 
-    /**
+  /**
    * Validates if the configs are allowed values when schematization is enabled.
    *
    * <p>return a map of invalid params
@@ -121,7 +120,8 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
             SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
             inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
       } catch (ConfigException e) {
-        invalidParams.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, e.getMessage());
+        invalidParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, e.getMessage());
         return invalidParams;
       }
 

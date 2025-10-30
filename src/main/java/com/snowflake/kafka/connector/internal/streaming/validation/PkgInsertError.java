@@ -28,7 +28,7 @@ class PkgInsertError {
     this.rowIndex = rowIndex;
   }
 
-    /** Set the extra column names in the input row compared with the table schema */
+  /** Set the extra column names in the input row compared with the table schema */
   public void setExtraColNames(List<String> extraColNames) {
     this.extraColNames = extraColNames;
   }

@@ -138,7 +138,6 @@ public class SnowflakeSinkTask extends SinkTask {
     return Optional.ofNullable(getConnection());
   }
 
-
   protected SnowflakeSinkService getSink() {
     try {
       waitFor(() -> sink != null && !sink.isClosed());
@@ -211,7 +210,7 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
     this.ingestionMethodConfig = ingestionType;
-    
+
     // Only SNOWPIPE_STREAMING is supported
     SchemaEvolutionService schemaEvolutionService =
         Utils.isIcebergEnabled(parsedConfig)

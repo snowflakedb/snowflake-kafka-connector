@@ -40,7 +40,6 @@ public class ConnectorIT {
     SNOWFLAKE_USER,
     SNOWFLAKE_SCHEMA,
     SNOWFLAKE_DATABASE,
-
     SNOWFLAKE_METADATA_ALL,
     SNOWFLAKE_METADATA_TOPIC,
     SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
@@ -72,7 +71,6 @@ public class ConnectorIT {
     return Utils.validateConfigToMap(result);
   }
 
-
   static Map<String, String> getEmptyConfig() {
     Map<String, String> config = new HashMap<>();
     return config;
@@ -93,7 +91,6 @@ public class ConnectorIT {
     config.remove(TASK_ID);
     return config;
   }
-
 
   @Test
   public void testValidateErrorConfigImproved() {
@@ -168,10 +165,7 @@ public class ConnectorIT {
     assertPropHasError(
         validateMap,
         new String[] {
-          SNOWFLAKE_USER,
-          SNOWFLAKE_URL,
-          SNOWFLAKE_SCHEMA,
-          SNOWFLAKE_DATABASE,
+          SNOWFLAKE_USER, SNOWFLAKE_URL, SNOWFLAKE_SCHEMA, SNOWFLAKE_DATABASE,
         });
   }
 
@@ -199,16 +193,10 @@ public class ConnectorIT {
   @Test
   public void testValidateErrorURLAccountConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(
-        SNOWFLAKE_URL, "wronggAccountt.snowflakecomputing.com:443");
+    config.put(SNOWFLAKE_URL, "wronggAccountt.snowflakecomputing.com:443");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
-        validateMap,
-        new String[] {
-          SNOWFLAKE_USER,
-          SNOWFLAKE_URL,
-          SNOWFLAKE_PRIVATE_KEY
-        });
+        validateMap, new String[] {SNOWFLAKE_USER, SNOWFLAKE_URL, SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
@@ -217,12 +205,7 @@ public class ConnectorIT {
     config.put(SNOWFLAKE_USER, "wrongUser");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
-        validateMap,
-        new String[] {
-          SNOWFLAKE_USER,
-          SNOWFLAKE_URL,
-          SNOWFLAKE_PRIVATE_KEY
-        });
+        validateMap, new String[] {SNOWFLAKE_USER, SNOWFLAKE_URL, SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
@@ -230,8 +213,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfig();
     config.put(SNOWFLAKE_PRIVATE_KEY, "wrongPassword");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
@@ -239,8 +221,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfig();
     config.put(SNOWFLAKE_PRIVATE_KEY, "");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
@@ -248,8 +229,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfig();
     config.remove(SNOWFLAKE_PRIVATE_KEY);
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
@@ -267,8 +247,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfigWithOAuth();
     config.remove(OAUTH_CLIENT_SECRET);
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {OAUTH_CLIENT_SECRET});
+    assertPropHasError(validateMap, new String[] {OAUTH_CLIENT_SECRET});
   }
 
   @Test
@@ -277,8 +256,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfigWithOAuth();
     config.remove(OAUTH_REFRESH_TOKEN);
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {OAUTH_REFRESH_TOKEN});
+    assertPropHasError(validateMap, new String[] {OAUTH_REFRESH_TOKEN});
   }
 
   @Test
@@ -316,8 +294,7 @@ public class ConnectorIT {
   @Test
   public void testValidateConfigProviderPassphraseConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(
-        SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${configProvider:/");
+    config.put(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${configProvider:/");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[] {});
   }
@@ -328,11 +305,7 @@ public class ConnectorIT {
     config.put(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, "wrongPassphrase");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
-        validateMap,
-        new String[] {
-          SNOWFLAKE_PRIVATE_KEY,
-          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
-        });
+        validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY, SNOWFLAKE_PRIVATE_KEY_PASSPHRASE});
   }
 
   @Test
@@ -356,11 +329,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfig();
     config.put(JVM_PROXY_HOST, "localhost");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap,
-        new String[] {
-          JVM_PROXY_HOST, JVM_PROXY_PORT
-        });
+    assertPropHasError(validateMap, new String[] {JVM_PROXY_HOST, JVM_PROXY_PORT});
   }
 
   @Test
@@ -368,11 +337,7 @@ public class ConnectorIT {
     Map<String, String> config = getCorrectConfig();
     config.put(JVM_PROXY_PORT, "8080");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap,
-        new String[] {
-          JVM_PROXY_HOST, JVM_PROXY_PORT
-        });
+    assertPropHasError(validateMap, new String[] {JVM_PROXY_HOST, JVM_PROXY_PORT});
   }
 
   @Test

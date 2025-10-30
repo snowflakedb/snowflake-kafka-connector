@@ -2,8 +2,6 @@ package com.snowflake.kafka.connector;
 
 import static org.apache.kafka.connect.runtime.ConnectorConfig.TRANSFORMS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.Map;
@@ -18,10 +16,10 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Integration test for Single Message Transformations (SMT) with null value handling.
- * 
- * <p>CURRENTLY DISABLED: This test requires SSv2 fake/mock infrastructure to verify
- * ingested rows without making actual Snowflake calls.
- * TODO: Re-enable after implementing SSv2 fake infrastructure.
+ *
+ * <p>CURRENTLY DISABLED: This test requires SSv2 fake/mock infrastructure to verify ingested rows
+ * without making actual Snowflake calls. TODO: Re-enable after implementing SSv2 fake
+ * infrastructure.
  */
 @Disabled("Requires SSv2 fake/mock infrastructure - to be implemented")
 public class SmtIT extends ConnectClusterBaseIT {
@@ -79,7 +77,8 @@ public class SmtIT extends ConnectClusterBaseIT {
     //     .pollInterval(Duration.ofSeconds(1))
     //     .untilAsserted(
     //         () -> {
-    //           assertThat(fakeStreamingClientV2Handler.ingestedRows()).hasSize(expectedRecordNumber);
+    //
+    // assertThat(fakeStreamingClientV2Handler.ingestedRows()).hasSize(expectedRecordNumber);
     //           assertThat(fakeStreamingClientV2Handler.getLatestCommittedOffsetTokensPerChannel())
     //               .hasSize(1)
     //               .containsValue("19");

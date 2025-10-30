@@ -96,7 +96,9 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
   }
 
   @Test
-  @Disabled("disabling this test for now. It may come in handy depending on how ssv2 schema evolution will be implemented")
+  @Disabled(
+      "disabling this test for now. It may come in handy depending on how ssv2 schema evolution"
+          + " will be implemented")
   public void testSchematizationWithTableCreationAndAvroInput() throws Exception {
     // given
     conn.createTableWithOnlyMetadataColumn(table);

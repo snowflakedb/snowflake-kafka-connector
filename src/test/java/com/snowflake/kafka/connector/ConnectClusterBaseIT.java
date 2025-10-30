@@ -8,20 +8,15 @@ import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_C
 import static org.apache.kafka.connect.sink.SinkConnector.TOPICS_CONFIG;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 
-/**
- * Base class for integration tests using an embedded Kafka Connect cluster.
- */
+/** Base class for integration tests using an embedded Kafka Connect cluster. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ConnectClusterBaseIT {
 

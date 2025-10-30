@@ -35,7 +35,7 @@ class MetaColumnIT {
 
     Map<String, String> config = TestUtils.getConfForStreaming();
     TopicPartition topicPartition = new TopicPartition(topic, partition);
-    
+
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -94,6 +94,3 @@ class MetaColumnIT {
     service.closeAll();
   }
 }
-
-
-

@@ -353,7 +353,6 @@ public class Utils {
         System.setProperty(HTTPS_PROXY_PASSWORD, password);
       }
     }
-
   }
 
   /**
@@ -761,8 +760,7 @@ public class Utils {
     // Encode and convert payload into string entity
     String payloadString =
         payload.entrySet().stream()
-            .map(
-                e -> e.getKey() + "=" + URLEncoder.encode(e.getValue(), UTF_8))
+            .map(e -> e.getKey() + "=" + URLEncoder.encode(e.getValue(), UTF_8))
             .collect(Collectors.joining("&"));
     final StringEntity entity =
         new StringEntity(payloadString, ContentType.APPLICATION_FORM_URLENCODED);

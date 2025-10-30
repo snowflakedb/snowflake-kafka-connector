@@ -26,7 +26,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-@Disabled("Disabling all iceberg tests. We need to adapt them after ICB support is introduced to ssv2")
+
+@Disabled(
+    "Disabling all iceberg tests. We need to adapt them after ICB support is introduced to ssv2")
 public class IcebergIngestionSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static final String RECORD_METADATA_TYPE =

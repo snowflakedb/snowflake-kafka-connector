@@ -29,12 +29,12 @@ public class SnowflakeConnectionServiceFactory {
     /** Underlying implementation - Check Enum {@link IngestionMethodConfig} */
     private IngestionMethodConfig ingestionMethodConfig;
 
-      // For testing only
+    // For testing only
     public Properties getProperties() {
       return this.jdbcProperties.getProperties();
     }
 
-      public SnowflakeConnectionServiceBuilder setTaskID(String taskID) {
+    public SnowflakeConnectionServiceBuilder setTaskID(String taskID) {
       this.taskID = taskID;
       return this;
     }

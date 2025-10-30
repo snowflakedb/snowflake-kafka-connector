@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector;
 
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,7 +75,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
-
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
     // Inits the sinktaskcontext
@@ -114,7 +111,6 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void testSinkTaskWithMultipleOpenClose(boolean useOAuth) throws Exception {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
     // Inits the sinktaskcontext

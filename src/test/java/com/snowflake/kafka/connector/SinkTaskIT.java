@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
@@ -14,7 +13,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.record.TimestampType;
@@ -29,7 +27,6 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.slf4j.Logger;
-import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 public class SinkTaskIT {
   private String topicName;
@@ -122,7 +119,12 @@ public class SinkTaskIT {
 
     // commit offset
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
-    await().atMost(30, TimeUnit.SECONDS).until( () -> sinkTask.getSink().getOffset(topicPartition) != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+    await()
+        .atMost(30, TimeUnit.SECONDS)
+        .until(
+            () ->
+                sinkTask.getSink().getOffset(topicPartition)
+                    != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
     offsetMap = sinkTask.preCommit(offsetMap);
 
@@ -213,7 +215,7 @@ public class SinkTaskIT {
     SnowflakeSinkTask task0 = new SnowflakeSinkTask();
 
     String task1Id = "1";
-      int partition1 = 1;
+    int partition1 = 1;
     Map<String, String> task1Config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(task1Config);
     task1Config.put(Utils.TASK_ID, task1Id);
@@ -227,13 +229,13 @@ public class SinkTaskIT {
 
     // open tasks
     ArrayList<TopicPartition> topicPartitions0 = new ArrayList<>();
-      final TopicPartition topicPartition0 = new TopicPartition(topicName, partition0);
-      topicPartitions0.add(topicPartition0);
+    final TopicPartition topicPartition0 = new TopicPartition(topicName, partition0);
+    topicPartitions0.add(topicPartition0);
     task0.open(topicPartitions0);
 
     ArrayList<TopicPartition> topicPartitions1 = new ArrayList<>();
-      final TopicPartition topicPartition1 = new TopicPartition(topicName, partition1);
-      topicPartitions1.add(topicPartition1);
+    final TopicPartition topicPartition1 = new TopicPartition(topicName, partition1);
+    topicPartitions1.add(topicPartition1);
     task1.open(topicPartitions1);
 
     // verify task1 open logs
@@ -247,8 +249,28 @@ public class SinkTaskIT {
     Schema snowflakeSchema = new SnowflakeJsonSchema();
     SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
     for (int i = 0; i < 10000L; ++i) {
-        records0.add(new SinkRecord(topicName, partition0, snowflakeSchema, content, snowflakeSchema, content, i, System.currentTimeMillis(), TimestampType.CREATE_TIME));
-        records1.add(new SinkRecord(topicName, partition1, snowflakeSchema, content, snowflakeSchema, content, i, System.currentTimeMillis(), TimestampType.CREATE_TIME));
+      records0.add(
+          new SinkRecord(
+              topicName,
+              partition0,
+              snowflakeSchema,
+              content,
+              snowflakeSchema,
+              content,
+              i,
+              System.currentTimeMillis(),
+              TimestampType.CREATE_TIME));
+      records1.add(
+          new SinkRecord(
+              topicName,
+              partition1,
+              snowflakeSchema,
+              content,
+              snowflakeSchema,
+              content,
+              i,
+              System.currentTimeMillis(),
+              TimestampType.CREATE_TIME));
     }
 
     task0.put(records0);
@@ -280,12 +302,22 @@ public class SinkTaskIT {
     // commit offset
     Map<TopicPartition, OffsetAndMetadata> offsetMap0 = new HashMap<>();
     offsetMap0.put(topicPartitions0.get(0), new OffsetAndMetadata(0));
-    await().atMost(30, TimeUnit.SECONDS).until( () -> task0.getSink().getOffset(topicPartition0) != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+    await()
+        .atMost(30, TimeUnit.SECONDS)
+        .until(
+            () ->
+                task0.getSink().getOffset(topicPartition0)
+                    != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
     offsetMap0 = task0.preCommit(offsetMap0);
 
     Map<TopicPartition, OffsetAndMetadata> offsetMap1 = new HashMap<>();
     offsetMap1.put(topicPartitions1.get(0), new OffsetAndMetadata(0));
-    await().atMost(30, TimeUnit.SECONDS).until( () -> task1.getSink().getOffset(topicPartition1) != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+    await()
+        .atMost(30, TimeUnit.SECONDS)
+        .until(
+            () ->
+                task1.getSink().getOffset(topicPartition1)
+                    != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
     offsetMap1 = task1.preCommit(offsetMap1);
     // verify task1 precommit logs

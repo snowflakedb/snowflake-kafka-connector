@@ -6,8 +6,8 @@ package com.snowflake.kafka.connector.internal;
  */
 public enum SnowflakeInternalOperations {
 
-    /* Either because of a purge file since they were ingested in SF table or because they were moved to table stage */
+  /* Either because of a purge file since they were ingested in SF table or because they were moved to table stage */
   REMOVE_FILE_FROM_INTERNAL_STAGE,
 
-    FETCH_OAUTH_TOKEN
+  FETCH_OAUTH_TOKEN
 }

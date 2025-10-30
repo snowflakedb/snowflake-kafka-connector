@@ -1,12 +1,12 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
-import net.snowflake.ingest.utils.SFException;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import java.time.Duration;
+import net.snowflake.ingest.utils.SFException;
 
 /**
  * Policy class that encapsulates retry logic for opening streaming channels with exponential

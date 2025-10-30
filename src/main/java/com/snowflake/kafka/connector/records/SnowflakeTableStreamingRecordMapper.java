@@ -14,8 +14,7 @@ import java.util.Map;
 
 class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
 
-  public SnowflakeTableStreamingRecordMapper(
-      ObjectMapper mapper, boolean schematizationEnabled) {
+  public SnowflakeTableStreamingRecordMapper(ObjectMapper mapper, boolean schematizationEnabled) {
     super(mapper, schematizationEnabled);
   }
 

@@ -102,7 +102,7 @@ public class ResourceBundleManager {
     return MessageFormat.format(getLocalizedMessage(key), args);
   }
 
-    public static ResourceBundleManager getSingleton(String bundleName) {
+  public static ResourceBundleManager getSingleton(String bundleName) {
     if (resourceManagers.get(bundleName) != null) return resourceManagers.get(bundleName);
 
     synchronized (lockObject) {

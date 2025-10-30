@@ -135,6 +135,6 @@ public class SnowflakeRecordContent {
    * @return true if content value is empty json node as well as isNullValueRecord is set to true.
    */
   public boolean isRecordContentValueNull() {
-      return content != null && content[0].isEmpty() && isNullValueRecord;
+    return content != null && content[0].isEmpty() && isNullValueRecord;
   }
 }

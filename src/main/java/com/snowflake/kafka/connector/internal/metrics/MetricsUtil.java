@@ -70,7 +70,7 @@ public class MetricsUtil {
    */
   public static final String PURGED_OFFSET = "purged-offset";
 
-    // Event Latency related constants
+  // Event Latency related constants
 
   public static final String LATENCY_SUB_DOMAIN = "latencies";
 

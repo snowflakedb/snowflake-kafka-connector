@@ -22,7 +22,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-@Disabled("TODO: lkucharki, this test was written for ssv1. Ssv2 does not support ICEBERG yet. When it does, enable the test and adapt it for ssv2")
+@Disabled(
+    "TODO: lkucharki, this test was written for ssv1. Ssv2 does not support ICEBERG yet. When it"
+        + " does, enable the test and adapt it for ssv2")
 public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static final String PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA =
