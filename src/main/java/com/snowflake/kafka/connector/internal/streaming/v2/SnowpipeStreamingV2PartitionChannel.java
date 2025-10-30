@@ -7,6 +7,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
@@ -41,7 +42,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   private static final KCLogger LOGGER =
       new KCLogger(SnowpipeStreamingV2PartitionChannel.class.getName());
   private final StreamingClientProperties streamingClientProperties;
-  private final StreamingIngestClientV2Provider streamingIngestClientV2Provider;
+  private final StreamingIngestClientProvider streamingIngestClientProvider;
 
   private SnowflakeStreamingIngestChannel channel;
 
@@ -113,7 +114,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
       SinkTaskContext sinkTaskContext,
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter,
-      StreamingIngestClientV2Provider streamingIngestClientV2Provider,
+      StreamingIngestClientProvider streamingIngestClientProvider,
       RowSchemaManager rowSchemaManager,
       StreamingErrorHandler streamingErrorHandler) {
     this.tableName = tableName;
@@ -123,7 +124,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     this.connectorConfig = connectorConfig;
     this.streamingRecordService = streamingRecordService;
     this.sinkTaskContext = sinkTaskContext;
-    this.streamingIngestClientV2Provider = streamingIngestClientV2Provider;
+    this.streamingIngestClientProvider = streamingIngestClientProvider;
     this.rowSchemaManager = rowSchemaManager;
     this.streamingErrorHandler = streamingErrorHandler;
 
@@ -268,7 +269,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.getChannelNameFormatV1());
 
-          streamingIngestClientV2Provider
+          streamingIngestClientProvider
               .getClient(connectorConfig, pipeName, streamingClientProperties)
               .initiateFlush();
 
@@ -494,8 +495,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    * @return new channel which was fetched after open/reopen
    */
   private SnowflakeStreamingIngestChannel openChannelForTable(String channelName) {
-    StreamingIngestClientV2Wrapper streamingIngestClient =
-        streamingIngestClientV2Provider.getClient(
+    SnowflakeStreamingIngestClient streamingIngestClient =
+        streamingIngestClientProvider.getClient(
             connectorConfig, pipeName, streamingClientProperties);
     OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
     if (result.getChannelStatus().getStatusCode().equals("SUCCESS")) {
@@ -586,20 +587,20 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     return channel.getFullyQualifiedChannelName();
   }
 
-  @Override
   @VisibleForTesting
+  @Override
   public long getOffsetPersistedInSnowflake() {
     return this.offsetPersistedInSnowflake.get();
   }
 
-  @Override
   @VisibleForTesting
+  @Override
   public long getProcessedOffset() {
     return this.processedOffset.get();
   }
 
-  @Override
   @VisibleForTesting
+  @Override
   public long getLatestConsumerOffset() {
     return this.currentConsumerGroupOffset.get();
   }

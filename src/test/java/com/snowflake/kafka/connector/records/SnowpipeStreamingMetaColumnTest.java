@@ -51,7 +51,7 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
     ObjectMapper mapper = new ObjectMapper();
     RecordService service =
         new RecordService(
-            fixedClock, new SnowflakeTableStreamingRecordMapper(mapper, false, false), mapper);
+            fixedClock, new SnowflakeTableStreamingRecordMapper(mapper, false), mapper);
 
     // when
     Map<String, Object> recordData = service.getProcessedRecordForStreamingIngest(record);
@@ -72,7 +72,7 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
             .withValue(input.value())
             .build();
 
-    RecordService service = RecordServiceFactory.createRecordService(false, false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false, false);
 
     Map<String, String> config =
         ImmutableMap.of(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "false");
@@ -88,16 +88,12 @@ class SnowpipeStreamingMetaColumnTest extends AbstractMetaColumnTest {
 
   private @Nullable JsonNode getMetadataNode(Map<String, Object> processedRecord) {
     return Optional.ofNullable(processedRecord.get(Utils.TABLE_COLUMN_METADATA))
-        .map(metadata -> assertInstanceOf(String.class, metadata))
+        .map(metadata -> assertInstanceOf(Map.class, metadata))
         .map(this::readJson)
         .orElse(null);
   }
 
-  private JsonNode readJson(String json) {
-    try {
-      return MAPPER.readTree(json);
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
+  private JsonNode readJson(Map map) {
+    return MAPPER.convertValue(map, JsonNode.class);
   }
 }

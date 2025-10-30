@@ -102,11 +102,6 @@ public class ResourceBundleManager {
     return MessageFormat.format(getLocalizedMessage(key), args);
   }
 
-  /** @return Return the set of error messages for the current locale */
-  public ResourceBundle getResourceBundle() {
-    return resourceBundle;
-  }
-
   public static ResourceBundleManager getSingleton(String bundleName) {
     if (resourceManagers.get(bundleName) != null) return resourceManagers.get(bundleName);
 

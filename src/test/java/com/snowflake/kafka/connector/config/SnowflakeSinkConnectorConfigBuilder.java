@@ -1,13 +1,14 @@
 package com.snowflake.kafka.connector.config;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
-import static com.snowflake.kafka.connector.Utils.*;
 import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
+import static com.snowflake.kafka.connector.Utils.SF_ROLE;
+import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
+import static com.snowflake.kafka.connector.Utils.SF_URL;
+import static com.snowflake.kafka.connector.Utils.SF_USER;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,19 +22,12 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   private SnowflakeSinkConnectorConfigBuilder() {}
 
-  public static SnowflakeSinkConnectorConfigBuilder snowpipeConfig() {
-    return commonRequiredFields().withIngestionMethod(IngestionMethodConfig.SNOWPIPE);
-  }
-
   public static SnowflakeSinkConnectorConfigBuilder streamingConfig() {
-    return commonRequiredFields().withIngestionMethod(IngestionMethodConfig.SNOWPIPE_STREAMING);
+    return commonRequiredFields();
   }
 
   public static SnowflakeSinkConnectorConfigBuilder icebergConfig() {
-    return commonRequiredFields()
-        .withIcebergEnabled()
-        .withIngestionMethod(IngestionMethodConfig.SNOWPIPE_STREAMING)
-        .withSchematizationEnabled(true);
+    return commonRequiredFields().withIcebergEnabled().withSchematizationEnabled(true);
   }
 
   private static SnowflakeSinkConnectorConfigBuilder commonRequiredFields() {
@@ -45,8 +39,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
         .withDatabase("testDatabase")
         .withUser("userName")
         .withPrivateKey("fdsfsdfsdfdsfdsrqwrwewrwrew42314424")
-        .withRole("role")
-        .withDefaultBufferConfig();
+        .withRole("role");
   }
 
   public SnowflakeSinkConnectorConfigBuilder withName(String name) {
@@ -56,6 +49,13 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public SnowflakeSinkConnectorConfigBuilder withTopics(String topics) {
     config.put(SnowflakeSinkConnectorConfig.TOPICS, topics);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withUseUserDefinedDatabaseObjects(boolean value) {
+    config.put(
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
+        "" + value);
     return this;
   }
 
@@ -84,25 +84,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
-  public SnowflakeSinkConnectorConfigBuilder withDefaultBufferConfig() {
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-        SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS_DEFAULT + "");
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-        SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES_DEFAULT + "");
-    config.put(
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-        SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC_DEFAULT + "");
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withIngestionMethod(
-      IngestionMethodConfig ingestionMethod) {
-    config.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, ingestionMethod.toString());
-    return this;
-  }
-
   public SnowflakeSinkConnectorConfigBuilder withIcebergEnabled() {
     config.put(SnowflakeSinkConnectorConfig.ICEBERG_ENABLED, "true");
     return this;
@@ -120,12 +101,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public SnowflakeSinkConnectorConfigBuilder withSchematizationEnabled(boolean enabled) {
     config.put(ENABLE_SCHEMATIZATION_CONFIG, Boolean.toString(enabled));
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withChannelOffsetTokenVerificationFunctionEnabled(
-      boolean enabled) {
-    config.put(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG, Boolean.toString(enabled));
     return this;
   }
 
@@ -151,11 +126,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public SnowflakeSinkConnectorConfigBuilder withOauthTokenEndpoint(String value) {
     config.put(Utils.SF_OAUTH_TOKEN_ENDPOINT, value);
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withSnowpipeStreamingV2Enabled() {
-    config.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED, "true");
     return this;
   }
 

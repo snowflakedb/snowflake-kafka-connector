@@ -151,11 +151,6 @@ class PkgParquetTypeGenerator {
     return new PkgParquetTypeInfo(parquetType, metadata);
   }
 
-  private static Type toUnshaded(
-      net.snowflake.ingest.internal.apache.parquet.schema.Type shadedParquetType) {
-    return null;
-  }
-
   /**
    * Get the parquet type for column of Snowflake FIXED logical type.
    *

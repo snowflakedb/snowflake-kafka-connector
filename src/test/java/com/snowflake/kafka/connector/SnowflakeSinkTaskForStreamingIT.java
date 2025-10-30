@@ -1,8 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -74,13 +70,10 @@ public class SnowflakeSinkTaskForStreamingIT {
   }
 
   @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {true, false})
+  @ValueSource(booleans = {false}) // false only - oauth is not used for ssv2
   public void testSinkTask(boolean useOAuth) throws Exception {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(BUFFER_COUNT_RECORDS, "1"); // override
-
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
@@ -114,13 +107,10 @@ public class SnowflakeSinkTaskForStreamingIT {
   }
 
   @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {true, false})
+  @ValueSource(booleans = {false}) // false only - oauth is not used for ssv2
   public void testSinkTaskWithMultipleOpenClose(boolean useOAuth) throws Exception {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(BUFFER_COUNT_RECORDS, "1"); // override
-
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
     // Inits the sinktaskcontext

@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.TestUtils.assertWithRetry;
 import static com.snowflake.kafka.connector.internal.TestUtils.tableSize;
 import static com.snowflake.kafka.connector.internal.streaming.AssertjDbWrapper.dbAssertThat;
@@ -65,7 +64,6 @@ class UserDefinedPipeAndTableIT {
   void setup() throws SQLException {
     config = TestUtils.getConfForStreaming();
     // Enable user defined table and pipe
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "true");
     table = TestUtils.randomTableName();
     topic = table;

@@ -17,12 +17,10 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static net.snowflake.ingest.utils.ParameterProvider.ENABLE_ICEBERG_STREAMING;
-import static net.snowflake.ingest.utils.ParameterProvider.MAX_CHANNEL_SIZE_IN_BYTES;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
 import static net.snowflake.ingest.utils.ParameterProvider.MAX_MEMORY_LIMIT_IN_BYTES;
 
@@ -46,9 +44,6 @@ import net.snowflake.ingest.utils.Constants;
 public class StreamingClientProperties {
   public static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
   public static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
-
-  private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
-
   // contains converted config properties that are loggable (not PII data)
   public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
       Stream.of(
@@ -57,7 +52,7 @@ public class StreamingClientProperties {
               Constants.USER,
               StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
           .collect(Collectors.toList());
-
+  private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
   public final Properties clientProperties;
   public final String clientName;
   public final Map<String, Object> parameterOverrides;
@@ -99,11 +94,6 @@ public class StreamingClientProperties {
         overriddenValue ->
             parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue)));
 
-    Optional<String> bufferMaxSizeBytes =
-        Optional.ofNullable(connectorConfig.get(BUFFER_SIZE_BYTES));
-    bufferMaxSizeBytes.ifPresent(
-        overriddenValue -> parameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, overriddenValue));
-
     Optional<String> snowpipeStreamingMaxMemoryLimit =
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES));
     snowpipeStreamingMaxMemoryLimit.ifPresent(
@@ -120,8 +110,6 @@ public class StreamingClientProperties {
    * SDK</a>
    *
    * <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
-   *
-   * <p>MAX_CHANNEL_SIZE_IN_BYTES can be provided in BUFFER_SIZE_BYTES
    *
    * <p>MAX_MEMORY_LIMIT_IN_BYTES can be provided in SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT. All the
    * listed above parameters can be provided in SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP as
@@ -140,7 +128,7 @@ public class StreamingClientProperties {
    *   <li>MAX_CLIENT_LAG will honor 60 seconds.
    * </ol>
    *
-   * If <b>snowflake.streaming.max.client.lag</b> is not provided, we pass in the map as is to
+   * <p>If <b>snowflake.streaming.max.client.lag</b> is not provided, we pass in the map as is to
    * Streaming Client (all lowercase keys).
    *
    * <p>Please note, Streaming Client
@@ -172,8 +160,6 @@ public class StreamingClientProperties {
               });
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap, MAX_CLIENT_LAG, SNOWPIPE_STREAMING_MAX_CLIENT_LAG);
-          overrideStreamingClientPropertyIfSet(
-              clientOverridePropertiesMap, MAX_CHANNEL_SIZE_IN_BYTES, BUFFER_SIZE_BYTES);
           overrideStreamingClientPropertyIfSet(
               clientOverridePropertiesMap,
               MAX_MEMORY_LIMIT_IN_BYTES,
