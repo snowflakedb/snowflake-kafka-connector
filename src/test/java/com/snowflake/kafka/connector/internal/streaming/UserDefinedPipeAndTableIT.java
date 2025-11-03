@@ -87,6 +87,7 @@ class UserDefinedPipeAndTableIT {
     TestUtils.dropPipe(pipe);
   }
 
+
   @Test
   public void test_streaming_ingestion_with_user_defined_table_and_pipe() throws Exception {
     SnowflakeSinkService service =
