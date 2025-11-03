@@ -407,6 +407,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         LOGGER.warn(
             "Could not close streaming ingest client: {}, reason: {}", clientName, e.getMessage());
       }
+    } else {
+      // Close via provider to remove it from the shared cache.
+      // This will break other SinkServices that may be using the client, but we are
+      // choosing to keep this legacy behavior to avoid possible memory leaks.
+      // Namely, SinkTask start() method calls closeAll() to flush any previous task.
+      SnowflakeStreamingIngestClient client =
+          StreamingClientProvider.getStreamingClientProviderInstance()
+              .getClient(this.connectorConfig);
+      StreamingClientProvider.getStreamingClientProviderInstance()
+          .closeClient(this.connectorConfig, client);
     }
   }
 
