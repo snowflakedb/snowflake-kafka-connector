@@ -7,6 +7,7 @@ class TestNativeStringAvrosr(BaseE2eTest):
         self.driver = driver
         self.fileName = "travis_correct_native_string_avrosr"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
 
         ValueSchemaStr = """
         {
@@ -20,6 +21,8 @@ class TestNativeStringAvrosr(BaseE2eTest):
         }
         """
         self.valueSchema = avro.loads(ValueSchemaStr)
+        
+        self.driver.create_table(self.tableName)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

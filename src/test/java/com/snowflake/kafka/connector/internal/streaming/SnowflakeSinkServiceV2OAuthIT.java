@@ -43,7 +43,7 @@ public class SnowflakeSinkServiceV2OAuthIT extends SnowflakeSinkServiceV2BaseIT 
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, new TopicPartition(topic, partition));
+    service.startPartition(new TopicPartition(topic, partition));
 
     Converter converter = new JsonConverter();
     SchemaAndValue input =

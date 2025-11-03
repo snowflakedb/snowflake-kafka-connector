@@ -12,6 +12,7 @@ class TestSchemaNotSupportedConverter(BaseE2eTest):
         self.driver = driver
         self.fileName = "travis_correct_schema_not_supported_converter"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
 
         self.driver.snowflake_conn.cursor().execute(
             'Create or replace table {} (PERFORMANCE_STRING STRING, "case_sensitive_PERFORMANCE_CHAR" CHAR, PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, INFO_ARRAY ARRAY, INFO VARIANT, INFO_OBJECT OBJECT)'.format(

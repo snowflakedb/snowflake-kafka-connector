@@ -57,15 +57,6 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
   }
 
   /**
-   * Close channel associated to this partition Not rethrowing connect exception because the
-   * connector will stop. Channel will eventually be reopened.
-   *
-   * @deprecated use {@link #closeChannelAsync()} instead.
-   */
-  @Deprecated
-  void closeChannel();
-
-  /**
    * Asynchronously closes a channel associated to this partition. Any {@link SFException} occurred
    * is swallowed and a successful {@link CompletableFuture} is returned instead.
    */

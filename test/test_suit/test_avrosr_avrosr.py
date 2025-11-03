@@ -8,6 +8,7 @@ class TestAvrosrAvrosr(BaseE2eTest):
         self.driver = driver
         self.fileName = "travis_correct_avrosr_avrosr"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
 
         KeySchemaStr = """
         {
@@ -40,6 +41,8 @@ class TestAvrosrAvrosr(BaseE2eTest):
         """
         self.keySchema = avro.loads(KeySchemaStr)
         self.valueSchema = avro.loads(ValueSchemaStr)
+        
+        self.driver.create_table(self.tableName)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

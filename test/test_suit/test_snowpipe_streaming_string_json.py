@@ -10,6 +10,7 @@ class TestSnowpipeStreamingStringJson(BaseE2eTest):
         self.driver = driver
         self.fileName = "travis_correct_snowpipe_streaming_string_json"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
 
         self.topicNum = 1
         self.partitionNum = 3
@@ -17,6 +18,7 @@ class TestSnowpipeStreamingStringJson(BaseE2eTest):
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
         self.driver.createTopics(self.topic, partitionNum=self.partitionNum, replicationNum=1)
+        self.driver.create_table(self.tableName)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

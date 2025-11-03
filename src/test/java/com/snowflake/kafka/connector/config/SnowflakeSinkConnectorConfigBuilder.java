@@ -52,13 +52,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
-  public SnowflakeSinkConnectorConfigBuilder withUseUserDefinedDatabaseObjects(boolean value) {
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
-        "" + value);
-    return this;
-  }
-
   public SnowflakeSinkConnectorConfigBuilder withUrl(String url) {
     config.put(SF_URL, url);
     return this;

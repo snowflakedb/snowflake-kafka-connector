@@ -13,15 +13,46 @@ public class InjectQueryRunnerExtension implements BeforeEachCallback, Parameter
   @Override
   public void beforeEach(final ExtensionContext context) throws Exception {
     final Object testInstance = context.getRequiredTestInstance();
-    final Class<?> testClass = testInstance.getClass();
+    injectFields(testInstance, testInstance.getClass());
+  }
 
-    // Inject QueryRunner into fields annotated with @InjectQueryRunner
+  private void injectFields(final Object testInstance, Class<?> testClass) throws Exception {
+    // Process fields in the current class
     for (final Field field : testClass.getDeclaredFields()) {
       if (field.isAnnotationPresent(InjectQueryRunner.class)) {
         field.setAccessible(true);
         field.set(testInstance, getQueryRunner());
       }
     }
+
+    // If this is a nested class, recursively process the enclosing class fields
+    Class<?> enclosingClass = testClass.getEnclosingClass();
+    if (enclosingClass != null) {
+      // Get the enclosing instance for nested classes
+      Field thisField = getEnclosingInstanceField(testClass);
+      if (thisField != null) {
+        thisField.setAccessible(true);
+        Object enclosingInstance = thisField.get(testInstance);
+        if (enclosingInstance != null) {
+          injectFields(enclosingInstance, enclosingClass);
+        }
+      }
+    }
+  }
+
+  private Field getEnclosingInstanceField(final Class<?> innerClass) {
+    try {
+      // Non-static inner classes have a synthetic field named "this$0" pointing to the enclosing
+      // instance
+      for (final Field field : innerClass.getDeclaredFields()) {
+        if (field.isSynthetic() && field.getName().startsWith("this$")) {
+          return field;
+        }
+      }
+    } catch (final Exception e) {
+      // If we can't find the field, return null
+    }
+    return null;
   }
 
   @Override

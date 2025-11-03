@@ -37,6 +37,7 @@ class TombstoneRecordIngestionIT {
   @BeforeEach
   void beforeEach() {
     this.table = TestUtils.randomTableName();
+    TestUtils.getConnectionServiceForStreaming().createTable(table);
 
     this.jsonConverter = new JsonConverter();
     this.converterConfig = new HashMap<>();
@@ -56,13 +57,16 @@ class TombstoneRecordIngestionIT {
     // setup
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     TopicPartition topicPartition = new TopicPartition(topic, partition);
+    Map<String, String> topic2Table = new HashMap<>();
+    topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
         StreamingSinkServiceBuilder.builder(
                 TestUtils.getConnectionServiceForStreaming(), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)
             .build();
-    service.startPartition(table, new TopicPartition(topic, partition));
+    service.startPartitions(Collections.singleton(topicPartition));
 
     Map<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "false");
@@ -88,13 +92,16 @@ class TombstoneRecordIngestionIT {
     Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
     connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     TopicPartition topicPartition = new TopicPartition(topic, partition);
+    Map<String, String> topic2Table = new HashMap<>();
+    topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
         StreamingSinkServiceBuilder.builder(
                 TestUtils.getConnectionServiceForStreaming(), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartitions(Collections.singleton(topicPartition));
 
     // create one normal record
     SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);

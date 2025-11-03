@@ -4,7 +4,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.ConnectClusterBaseIT;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientProvider;
+import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
 import java.time.Duration;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
@@ -23,15 +23,17 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
     topicName = TestUtils.randomTableName();
     connectorName = topicName + "_connector";
     connectCluster.kafka().createTopic(topicName, PARTITIONS_NUMBER);
+    TestUtils.getConnectionServiceForStreaming().createTable(topicName);
     // JVM scoped Ingest client mock
-    StreamingIngestClientProvider.setIngestClientSupplier(fakeClientSupplier);
+    StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
     generateKafkaMessages();
   }
 
   @AfterEach
   void tearDown() {
     connectCluster.kafka().deleteTopic(topicName);
-    StreamingIngestClientProvider.resetIngestClientSupplier();
+    StreamingClientManager.resetIngestClientSupplier();
+    TestUtils.dropTable(topicName);
   }
 
   private void generateKafkaMessages() {
