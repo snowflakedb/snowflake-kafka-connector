@@ -65,7 +65,7 @@
         <commons-compress.version>1.27.1</commons-compress.version>
         <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
         <snowflake-jdbc.version>3.26.1</snowflake-jdbc.version>
-        <snowflake-ingest-sdk.version>4.3.0</snowflake-ingest-sdk.version>
+        <snowflake-ingest-sdk.version>4.3.2</snowflake-ingest-sdk.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
     </properties>
