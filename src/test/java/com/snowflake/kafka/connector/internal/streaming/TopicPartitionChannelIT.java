@@ -35,12 +35,12 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.EnumSource;
 
 @ParameterizedClass
-@EnumSource(ChannelNameVersion.class)
+@EnumSource(ChannelNameFormatVersion.class)
 public class TopicPartitionChannelIT {
 
   private static final SnowflakeConnectionService conn =
       TestUtils.getConnectionServiceForStreaming();
-  @Parameter private ChannelNameVersion channelNameVersion;
+  @Parameter private ChannelNameFormatVersion channelNameFormatVersion;
   private String testTableName;
 
   private static final int PARTITION = 0, PARTITION_2 = 1;
@@ -57,7 +57,7 @@ public class TopicPartitionChannelIT {
     topicPartition2 = new TopicPartition(topic, PARTITION_2);
 
     String connectorName =
-        channelNameVersion == ChannelNameVersion.V2 ? conn.getConnectorName() : null;
+        channelNameFormatVersion == ChannelNameFormatVersion.V2 ? conn.getConnectorName() : null;
     testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(connectorName, topic, PARTITION);
     testChannelName2 =
         SnowflakeSinkServiceV2.partitionChannelKey(connectorName, topic, PARTITION_2);
@@ -77,7 +77,7 @@ public class TopicPartitionChannelIT {
   public void testAutoChannelReopenOn_OffsetTokenSFException() throws Exception {
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    channelNameVersion.setInConfig(config);
+    channelNameFormatVersion.setInConfig(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -136,7 +136,7 @@ public class TopicPartitionChannelIT {
   public void testInsertRowsOnChannelClosed() throws Exception {
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    channelNameVersion.setInConfig(config);
+    channelNameFormatVersion.setInConfig(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -200,7 +200,7 @@ public class TopicPartitionChannelIT {
   public void testAutoChannelReopen_InsertRowsSFException() throws Exception {
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    channelNameVersion.setInConfig(config);
+    channelNameFormatVersion.setInConfig(config);
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(topicPartition));
@@ -287,7 +287,7 @@ public class TopicPartitionChannelIT {
   public void testAutoChannelReopen_MultiplePartitionsInsertRowsSFException() throws Exception {
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    channelNameVersion.setInConfig(config);
+    channelNameFormatVersion.setInConfig(config);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -405,7 +405,7 @@ public class TopicPartitionChannelIT {
   public void testAutoChannelReopen_SinglePartitionsInsertRowsSFException() throws Exception {
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    channelNameVersion.setInConfig(config);
+    channelNameFormatVersion.setInConfig(config);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG, "true");
 
     InMemorySinkTaskContext inMemorySinkTaskContext =
@@ -478,7 +478,7 @@ public class TopicPartitionChannelIT {
   @Test
   public void testPartialBatchChannelInvalidationIngestion_schematization() throws Exception {
     Map<String, String> config = getConfForStreaming();
-    channelNameVersion.setInConfig(config);
+    channelNameFormatVersion.setInConfig(config);
     config.put(
         SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "500"); // we want to flush on record
     config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "500000");
@@ -533,12 +533,19 @@ public class TopicPartitionChannelIT {
     service.closeAll();
   }
 
-  boolean isMigrationTestDisabled() {
-    return channelNameVersion == ChannelNameVersion.V2;
+  /**
+   * Running migration tests is only valid for V1 channel names. Migration setting is mutually
+   * exclusive with usage of V2 channel names and tested in {@link
+   * com.snowflake.kafka.connector.ConnectorConfigValidatorTest}.
+   *
+   * @return true if the migration tests should be disabled
+   */
+  boolean isUsingChannelNameFormatV2() {
+    return channelNameFormatVersion == ChannelNameFormatVersion.V2;
   }
 
   @Test
-  @DisabledIf("isMigrationTestDisabled")
+  @DisabledIf("isUsingChannelNameFormatV2")
   public void testChannelMigrateOffsetTokenSystemFunction_NonNullOffsetTokenForSourceChannel()
       throws Exception {
     Map<String, String> config = getConfForStreaming();
@@ -621,7 +628,7 @@ public class TopicPartitionChannelIT {
   }
 
   @Test
-  @DisabledIf("isMigrationTestDisabled")
+  @DisabledIf("isUsingChannelNameFormatV2")
   public void testChannelMigrateOffsetTokenSystemFunction_NullOffsetTokenInFormatV2()
       throws Exception {
     Map<String, String> config = getConfForStreaming();
@@ -729,7 +736,7 @@ public class TopicPartitionChannelIT {
     // setup
     Map<String, String> config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    channelNameVersion.setInConfig(config);
+    channelNameFormatVersion.setInConfig(config);
     config.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(withSchematization));

@@ -18,7 +18,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 
-public enum ChannelNameVersion {
+public enum ChannelNameFormatVersion {
   V2, // Introduced and used in versions 2.1.0 and 2.1.1 only and possible to use in versions 3.4.0+
   V1; // Default version
 

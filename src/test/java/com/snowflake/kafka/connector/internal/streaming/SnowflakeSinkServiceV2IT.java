@@ -234,10 +234,10 @@ public class SnowflakeSinkServiceV2IT {
   @ParameterizedTest(name = "useOAuth: {0}, channelNameVersion: {1}")
   @CsvSource({"true,V1", "true,V2", "false,V1", "false,V2"})
   public void testStreamingIngest_multipleChannelPartitions_withMetrics(
-      boolean useOAuth, ChannelNameVersion channelNameVersion) throws Exception {
+      boolean useOAuth, ChannelNameFormatVersion channelNameFormatVersion) throws Exception {
     conn = getConn(useOAuth);
     String connectorName =
-        channelNameVersion == ChannelNameVersion.V2 ? conn.getConnectorName() : null;
+        channelNameFormatVersion == ChannelNameFormatVersion.V2 ? conn.getConnectorName() : null;
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 

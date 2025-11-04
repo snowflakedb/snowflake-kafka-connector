@@ -91,22 +91,22 @@ public class TopicPartitionChannelTest {
   private SFException SF_EXCEPTION = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
 
   private final boolean enableSchematization;
-  private final ChannelNameVersion channelNameVersion;
+  private final ChannelNameFormatVersion channelNameFormatVersion;
 
   public TopicPartitionChannelTest(
-      boolean enableSchematization, ChannelNameVersion channelNameVersion) {
+      boolean enableSchematization, ChannelNameFormatVersion channelNameFormatVersion) {
     this.enableSchematization = enableSchematization;
-    this.channelNameVersion = channelNameVersion;
+    this.channelNameFormatVersion = channelNameFormatVersion;
   }
 
   @Parameterized.Parameters(name = "enableSchematization={0}, channelNameVersion={1}")
   public static Collection<Object[]> input() {
     return Arrays.asList(
         new Object[][] {
-          {true, ChannelNameVersion.V1},
-          {false, ChannelNameVersion.V1},
-          {true, ChannelNameVersion.V2},
-          {false, ChannelNameVersion.V2}
+          {true, ChannelNameFormatVersion.V1},
+          {false, ChannelNameFormatVersion.V1},
+          {true, ChannelNameFormatVersion.V2},
+          {false, ChannelNameFormatVersion.V2}
         });
   }
 
@@ -127,7 +127,8 @@ public class TopicPartitionChannelTest {
     this.sfConnectorConfig.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(this.enableSchematization));
-    String connectorName = channelNameVersion == ChannelNameVersion.V2 ? TEST_CONNECTOR_NAME : null;
+    String connectorName =
+        channelNameFormatVersion == ChannelNameFormatVersion.V2 ? TEST_CONNECTOR_NAME : null;
     testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(connectorName, TOPIC, PARTITION);
   }
 
