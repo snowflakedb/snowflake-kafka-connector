@@ -588,6 +588,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @param topic topic name
    * @param partition partition number
    * @return combination of topic and partition, or connector name, topic and partition if v2 usage
+   *     is enabled
    */
   private String partitionChannelKey(String topic, int partition) {
     String connectorName = enableChannelNameV2Usage ? conn.getConnectorName() : null;

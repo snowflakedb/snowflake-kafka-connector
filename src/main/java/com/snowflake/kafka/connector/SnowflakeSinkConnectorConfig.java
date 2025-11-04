@@ -225,7 +225,7 @@ public class SnowflakeSinkConnectorConfig {
       "This config enables/disables usage of channel names that were used solely in Kafka"
           + " Connector versions 2.1.0 and 2.1.1 and is intended for users that previously"
           + " used these versions and did not update the connector since. Enabling this config in"
-          + " other case will result in data duplication.";
+          + " any other case will result in data duplication.";
 
   public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG =
       "enable.streaming.channel.offset.verification";
