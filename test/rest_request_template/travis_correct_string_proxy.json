@@ -9,6 +9,7 @@
     "snowflake.private.key.passphrase":"${file:./apache_properties/file-secrets.txt:PASSPHRASE}",
     "snowflake.database.name":"SNOWFLAKE_DATABASE",
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
+    "snowflake.role.name": "TESTROLE_KAFKA",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
     "value.converter":"com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
     "jvm.proxy.host": "localhost",

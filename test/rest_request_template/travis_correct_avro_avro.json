@@ -8,6 +8,7 @@
     "snowflake.private.key":"SNOWFLAKE_PRIVATE_KEY",
     "snowflake.database.name":"SNOWFLAKE_DATABASE",
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
+    "snowflake.role.name": "TESTROLE_KAFKA",
     "key.converter":"com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
     "value.converter":"com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry"
   }

@@ -95,7 +95,7 @@ public class ConnectorConfigDefinition {
             ConfigDef.Type.STRING,
             null,
             NON_EMPTY_STRING_VALIDATOR,
-            ConfigDef.Importance.LOW,
+            ConfigDef.Importance.HIGH,
             "Snowflake role: snowflake.role.name",
             SNOWFLAKE_LOGIN_INFO_DOC,
             6,

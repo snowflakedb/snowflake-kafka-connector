@@ -116,6 +116,7 @@ public class ConnectorConfigValidatorTest {
     SNOWFLAKE_DATABASE,
     SNOWFLAKE_SCHEMA,
     SNOWFLAKE_PRIVATE_KEY,
+    SNOWFLAKE_ROLE,
     BUFFER_SIZE_BYTES,
     BUFFER_COUNT_RECORDS
   })
@@ -840,6 +841,7 @@ public class ConnectorConfigValidatorTest {
         .hasMessageContaining(NAME)
         .hasMessageContaining(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC)
         .hasMessageContaining(SNOWFLAKE_URL)
+        .hasMessageContaining(SNOWFLAKE_ROLE)
         .hasMessageContaining(BUFFER_SIZE_BYTES);
   }
 
@@ -856,6 +858,7 @@ public class ConnectorConfigValidatorTest {
             SNOWFLAKE_USER,
             NAME,
             SNOWFLAKE_URL,
+            SNOWFLAKE_ROLE,
             BUFFER_SIZE_BYTES);
     List<String> paramsToRemove = new ArrayList<String>();
 

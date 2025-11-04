@@ -212,6 +212,12 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
           SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
           Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
     }
+
+    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE)) {
+      invalidConfigParams.put(
+          SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE,
+          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE));
+    }
     // jvm proxy settings
     invalidConfigParams.putAll(validateProxySettings(config));
 
