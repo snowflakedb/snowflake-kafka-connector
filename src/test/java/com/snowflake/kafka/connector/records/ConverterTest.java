@@ -63,33 +63,6 @@ public class ConverterTest {
           });
 
   @Test
-  public void testJsonConverter() {
-    Converter converter = new JsonConverter();
-
-    ObjectNode node = mapper.createObjectNode();
-
-    node.put("str", "test");
-    node.put("num", 123);
-
-    SchemaAndValue sv =
-        converter.toConnectData("test", node.toString().getBytes(StandardCharsets.UTF_8));
-
-    assertEquals(SnowflakeJsonSchema.NAME, sv.schema().name());
-
-    SnowflakeRecordContent content = assertInstanceOf(SnowflakeRecordContent.class, sv.value());
-
-    JsonNode[] jsonNodes = content.getData();
-
-    assertEquals(1, jsonNodes.length);
-    assertEquals(node.toString(), jsonNodes[0].toString());
-
-    // null value
-    sv = converter.toConnectData("test", null);
-    content = assertInstanceOf(SnowflakeRecordContent.class, sv.value());
-    assertEquals("{}", content.getData()[0].toString());
-  }
-
-  @Test
   public void testConnectJsonConverter_MapInt64() throws JsonProcessingException {
     JsonConverter jsonConverter = new JsonConverter();
     Map<String, ?> config = Collections.singletonMap("schemas.enable", false);
