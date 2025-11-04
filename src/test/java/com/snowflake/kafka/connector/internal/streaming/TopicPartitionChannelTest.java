@@ -464,7 +464,7 @@ public class TopicPartitionChannelTest {
             false,
             null,
             this.schemaEvolutionService);
-    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
+    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(0))
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
 
     Map<String, String> customSfConfig = new HashMap<>(sfConnectorConfig);
@@ -486,7 +486,7 @@ public class TopicPartitionChannelTest {
             false,
             null,
             this.schemaEvolutionService);
-    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(2))
+    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
 
     customSfConfig.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "false");
@@ -521,6 +521,8 @@ public class TopicPartitionChannelTest {
             mockSnowflakeConnectionService.migrateStreamingChannelOffsetToken(
                 anyString(), anyString(), Mockito.anyString()))
         .thenThrow(new RuntimeException("Exception migrating channel offset token"));
+    Map<String, String> customSfConfig = new HashMap<>(sfConnectorConfig);
+    customSfConfig.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "true");
     try {
       // checking default
       TopicPartitionChannel topicPartitionChannel =
@@ -530,7 +532,7 @@ public class TopicPartitionChannelTest {
               testChannelName,
               TEST_TABLE_NAME,
               true,
-              sfConnectorConfig,
+              customSfConfig,
               mockKafkaRecordErrorReporter,
               mockSinkTaskContext,
               mockSnowflakeConnectionService,
