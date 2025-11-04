@@ -4,6 +4,7 @@
     "connector.class":"com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector",
     "topics":"SNOWFLAKE_TEST_TOPIC",
     "snowflake.url.name":"SNOWFLAKE_HOST",
+    "snowflake.role.name": "SNOWFLAKE_ROLE",
     "snowflake.user.name":"SNOWFLAKE_USER",
     "snowflake.private.key":"SNOWFLAKE_PRIVATE_KEY",
     "snowflake.database.name":"SNOWFLAKE_DATABASE",

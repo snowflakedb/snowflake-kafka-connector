@@ -13,7 +13,7 @@
     "snowflake.private.key": "SNOWFLAKE_PRIVATE_KEY",
     "snowflake.database.name": "SNOWFLAKE_DATABASE",
     "snowflake.schema.name": "SNOWFLAKE_SCHEMA",
-    "snowflake.role.name": "TESTROLE_KAFKA",
+    "snowflake.role.name": "SNOWFLAKE_ROLE",
     "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
     "snowflake.streaming.max.client.lag": "10",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",

@@ -8,7 +8,7 @@
     "snowflake.private.key":"SNOWFLAKE_PRIVATE_KEY",
     "snowflake.database.name":"SNOWFLAKE_DATABASE",
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
-    "snowflake.role.name": "TESTROLE_KAFKA",
+    "snowflake.role.name": "SNOWFLAKE_ROLE",
     "key.converter":"io.confluent.connect.protobuf.ProtobufConverter",
     "key.converter.schema.registry.url":"CONFLUENT_SCHEMA_REGISTRY",
     "value.converter":"io.confluent.connect.protobuf.ProtobufConverter",
