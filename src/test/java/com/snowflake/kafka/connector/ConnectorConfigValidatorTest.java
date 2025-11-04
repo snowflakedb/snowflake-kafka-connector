@@ -646,14 +646,14 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void shouldThrowExceptionWhenBothSSv2AndIcebergEnabled() {
+  public void shouldValidateSSv2WithIcebergEnabled() {
+    // As of November 15, 2024, Snowflake supports Iceberg tables with Snowpipe Streaming
+    // See: https://docs.snowflake.com/en/release-notes/2024/other/2024-11-15-iceberg-tables-loading
     Map<String, String> config =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().withIcebergEnabled().build();
 
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("Ingestion to Iceberg table is currently unsupported")
-        .hasMessageContaining(ICEBERG_ENABLED);
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
   }
 
   @Test

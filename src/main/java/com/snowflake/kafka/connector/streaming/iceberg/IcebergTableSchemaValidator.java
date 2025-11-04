@@ -14,6 +14,7 @@ import java.util.Optional;
 public class IcebergTableSchemaValidator {
 
   private static final String SF_STRUCTURED_OBJECT = "OBJECT";
+  private static final String SF_VARIANT = "VARIANT";
 
   private final SnowflakeConnectionService snowflakeConnectionService;
 
@@ -41,9 +42,7 @@ public class IcebergTableSchemaValidator {
 
     metadata.ifPresent(
         m -> {
-          // if metadata column exists it must be of type OBJECT(), if not exists we create on our
-          // own this column
-          if (!isOfStructuredObjectType(m)) {
+          if (!isOfAcceptableType(m)) {
             throw SnowflakeErrors.ERROR_0032.getException("invalid_metadata_type");
           }
         });
@@ -69,12 +68,16 @@ public class IcebergTableSchemaValidator {
             .orElseThrow(
                 () -> SnowflakeErrors.ERROR_0032.getException("record_content_column_not_found"));
 
-    if (!isOfStructuredObjectType(recordContent)) {
+    if (!isOfAcceptableType(recordContent)) {
       throw SnowflakeErrors.ERROR_0032.getException("invalid_record_content_type");
     }
   }
 
-  private static boolean isOfStructuredObjectType(DescribeTableRow metadata) {
-    return metadata.getType().startsWith(SF_STRUCTURED_OBJECT);
+  /**
+   * Check if column type is acceptable for Iceberg tables. Accepts both VARIANT and OBJECT.
+   */
+  private static boolean isOfAcceptableType(DescribeTableRow column) {
+    String type = column.getType();
+    return type.equals(SF_VARIANT) || type.startsWith(SF_STRUCTURED_OBJECT);
   }
 }

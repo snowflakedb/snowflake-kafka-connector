@@ -149,8 +149,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query =
-        "ALTER ICEBERG TABLE identifier(?) ADD COLUMN IF NOT EXISTS RECORD_METADATA "
-            + ICEBERG_METADATA_OBJECT_SCHEMA;
+        "ALTER ICEBERG TABLE identifier(?) ADD COLUMN IF NOT EXISTS RECORD_METADATA VARIANT";
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
@@ -171,8 +170,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query =
-        "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE "
-            + ICEBERG_METADATA_OBJECT_SCHEMA;
+        "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE VARIANT";
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);

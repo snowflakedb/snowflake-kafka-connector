@@ -38,9 +38,11 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     Map<String, String> invalidParams = new HashMap<>();
 
     // Validate Iceberg config
-    if (isIcebergEnabled(inputConfig)) {
-      invalidParams.put(ICEBERG_ENABLED, "Ingestion to Iceberg table is currently unsupported.");
-    }
+    // Note: As of November 15, 2024, Snowflake supports Iceberg tables with Snowpipe Streaming
+    // See: https://docs.snowflake.com/en/release-notes/2024/other/2024-11-15-iceberg-tables-loading
+    // if (isIcebergEnabled(inputConfig)) {
+    //   invalidParams.put(ICEBERG_ENABLED, "Ingestion to Iceberg table is currently unsupported.");
+    // }
 
     invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
     invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));

@@ -16,17 +16,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-@Disabled(
-    "TODO: lkucharki, this test was written for ssv1. Ssv2 does not support ICEBERG yet. When it"
-        + " does, enable the test and adapt it for ssv2")
 public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
+  // Deprecated: Iceberg now uses VARIANT to align with FDN tables
+  @Deprecated
   private static final String PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA =
       "object("
           + "id_int8 NUMBER(10,0),"
@@ -39,6 +37,8 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
           + "approval BOOLEAN"
           + ")";
 
+  // Deprecated: Iceberg now uses VARIANT to align with FDN tables
+  @Deprecated
   private static final String COMPLEX_JSON_RECORD_CONTENT_OBJECT_SCHEMA =
       "object("
           + "id_int8 NUMBER(10,0),"
@@ -68,15 +68,15 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   @Override
   protected void createIcebergTable() {
+    // Iceberg now supports VARIANT, aligning with FDN tables
     createIcebergTableWithColumnClause(
         tableName,
         Utils.TABLE_COLUMN_METADATA
             + " "
-            + IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA
+            + IcebergDDLTypes.ICEBERG_METADATA_VARIANT_TYPE
             + ", "
             + Utils.TABLE_COLUMN_CONTENT
-            + " "
-            + COMPLEX_JSON_RECORD_CONTENT_OBJECT_SCHEMA);
+            + " VARIANT");
   }
 
   private static Stream<Arguments> prepareData() {
