@@ -208,12 +208,24 @@ public class SnowflakeSinkConnectorConfig {
       "enable.streaming.channel.offset.migration";
   public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DISPLAY =
       "Enable Streaming Channel Offset Migration";
-  public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT = true;
+  public static final boolean ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT = false;
   public static final String ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DOC =
       "This config is used to enable/disable streaming channel offset migration logic. If true, we"
           + " will migrate offset token from channel name format V2 to name format v1. V2 channel"
-          + " format is deprecated and V1 will be used always, disabling this config could have"
-          + " ramifications. Please consult Snowflake support before setting this to false.";
+          + " format is deprecated and V1 will be used unless explicit usage of V2 format is"
+          + " enabled, disabling this config could have ramifications. Please consult Snowflake"
+          + " support before setting this to false.";
+
+  public static final String ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG =
+      "enable.streaming.channel.name.format.v2.usage";
+  public static final String ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DISPLAY =
+      "Enable streaming channel name format v2 usage";
+  public static final boolean ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DEFAULT = false;
+  public static final String ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DOC =
+      "This config enables/disables usage of channel names that were used solely in Kafka"
+          + " Connector versions 2.1.0 and 2.1.1 and is intended for users that previously"
+          + " used these versions and did not update the connector since. Enabling this config in"
+          + " other case will result in data duplication.";
 
   public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG =
       "enable.streaming.channel.offset.verification";

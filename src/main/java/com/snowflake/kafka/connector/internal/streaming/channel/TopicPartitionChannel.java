@@ -78,7 +78,7 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
   /* Return true is channel is closed. Caller should handle the logic for reopening the channel if it is closed. */
   boolean isChannelClosed();
 
-  String getChannelNameFormatV1();
+  String getChannelName();
 
   void setLatestConsumerGroupOffset(long consumerOffset);
 }

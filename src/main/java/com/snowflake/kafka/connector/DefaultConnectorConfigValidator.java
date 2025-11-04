@@ -132,6 +132,13 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
                 "Streaming channel offset verification function is only available with {}.",
                 IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
       }
+      if (config.containsKey(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG)) {
+        invalidConfigParams.put(
+            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG,
+            Utils.formatString(
+                "Streaming channel name version is only available with {}.",
+                IngestionMethodConfig.SNOWPIPE_STREAMING.toString()));
+      }
     }
 
     if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)

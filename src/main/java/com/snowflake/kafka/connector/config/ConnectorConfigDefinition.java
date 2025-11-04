@@ -498,6 +498,16 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             11,
             ConfigDef.Width.NONE,
-            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DISPLAY);
+            ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_DISPLAY)
+        .define(
+            ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG,
+            ConfigDef.Type.BOOLEAN,
+            ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DEFAULT,
+            ConfigDef.Importance.LOW,
+            ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DOC,
+            CONNECTOR_CONFIG_DOC,
+            12,
+            ConfigDef.Width.NONE,
+            ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DISPLAY);
   }
 }
