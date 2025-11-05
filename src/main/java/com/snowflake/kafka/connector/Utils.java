@@ -37,9 +37,11 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -145,49 +147,120 @@ public class Utils {
    * <p>A URl connection timeout is added in case Maven repo is not reachable in a proxy'd
    * environment. Returning false from this method doesn't have any side effects to start the
    * connector.
+   *
+   * <p>Version upgrade logic:
+   *
+   * <ul>
+   *   <li>For versions &lt; 4.0.0: Only suggest versions &lt; 4.0.0 (stay within major version)
+   *   <li>For versions &gt;= 4.0.0: Suggest any version &gt; 4.0.0
+   *   <li>Never suggest RC (release candidate) versions
+   * </ul>
    */
   static boolean checkConnectorVersion() {
-    LOGGER.info("Current Snowflake Kafka Connector Version: {}", VERSION);
+    return checkConnectorVersion(VERSION, fetchAvailableVersionsFromMaven());
+  }
+
+  /**
+   * Check connector version with provided current version and available versions.
+   *
+   * @param currentVersionString current version string
+   * @param availableVersions list of available version strings from Maven
+   */
+  static boolean checkConnectorVersion(
+      String currentVersionString, List<String> availableVersions) {
+    LOGGER.info("Current Snowflake Kafka Connector Version: {}", currentVersionString);
     try {
-      String latestVersion = null;
-      int largestNumber = 0;
+      SemanticVersion currentVersion = new SemanticVersion(currentVersionString);
+      String recommendedVersion = findRecommendedVersion(currentVersion, availableVersions);
+
+      if (recommendedVersion != null) {
+        LOGGER.warn(
+            "Connector update is available, please upgrade Snowflake Kafka Connector ({} -> {})."
+                + " Please check release notes for breaking changes and upgrade procedures before"
+                + " installing.",
+            currentVersionString,
+            recommendedVersion);
+      }
+      return true;
+    } catch (Exception e) {
+      LOGGER.warn("can't verify latest connector version\n{}", e.getMessage());
+    }
+    return false;
+  }
+
+  /**
+   * Fetch available versions from Maven repository.
+   *
+   * @return list of available version strings
+   */
+  static List<String> fetchAvailableVersionsFromMaven() {
+    List<String> versions = new ArrayList<>();
+    try {
       URLConnection urlConnection = new URL(MVN_REPO).openConnection();
       urlConnection.setConnectTimeout(5000);
       urlConnection.setReadTimeout(5000);
       InputStream input = urlConnection.getInputStream();
       BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(input));
+
       String line;
-      Pattern pattern = Pattern.compile("(\\d+\\.\\d+\\.\\d+?)");
+      Pattern pattern = Pattern.compile("(\\d+\\.\\d+\\.\\d+(?:-[rR][cC]\\d*)?)");
+
       while ((line = bufferedReader.readLine()) != null) {
         Matcher matcher = pattern.matcher(line);
         if (matcher.find()) {
-          String version = matcher.group(1);
-          String[] numbers = version.split("\\.");
-          int num =
-              Integer.parseInt(numbers[0]) * 10000
-                  + Integer.parseInt(numbers[1]) * 100
-                  + Integer.parseInt(numbers[2]);
-          if (num > largestNumber) {
-            largestNumber = num;
-            latestVersion = version;
-          }
+          versions.add(matcher.group(1));
         }
       }
-
-      if (latestVersion == null) {
-        throw new Exception("can't retrieve version number from Maven repo");
-      } else if (!latestVersion.equals(VERSION)) {
-        LOGGER.warn(
-            "Connector update is available, please upgrade Snowflake Kafka Connector ({} -> {}) ",
-            VERSION,
-            latestVersion);
-      }
     } catch (Exception e) {
-      LOGGER.warn("can't verify latest connector version " + "from Maven Repo\n{}", e.getMessage());
-      return false;
+      LOGGER.warn("Failed to fetch versions from Maven: {}", e.getMessage());
+    }
+    return versions;
+  }
+
+  /**
+   * Find the recommended version to upgrade to based on current version and available versions.
+   * Package-private for testing.
+   *
+   * @param currentVersion the current connector version
+   * @param availableVersions list of available version strings
+   * @return recommended version string, or null if no upgrade is recommended
+   */
+  static String findRecommendedVersion(
+      SemanticVersion currentVersion, List<String> availableVersions) {
+    SemanticVersion highestCompatibleVersion = null;
+
+    for (String versionString : availableVersions) {
+      try {
+        SemanticVersion version = new SemanticVersion(versionString);
+
+        // Skip RC versions
+        if (version.isReleaseCandidate) {
+          continue;
+        }
+
+        // Skip versions that are not greater than current
+        if (version.compareTo(currentVersion) <= 0) {
+          continue;
+        }
+
+        // Apply major version boundary rules
+        if (currentVersion.major < 4) {
+          // For versions < 4.0.0, only suggest versions < 4.0.0
+          if (version.major >= 4) {
+            continue;
+          }
+        }
+
+        // Track the highest compatible version
+        if (highestCompatibleVersion == null || version.compareTo(highestCompatibleVersion) > 0) {
+          highestCompatibleVersion = version;
+        }
+      } catch (IllegalArgumentException e) {
+        LOGGER.warn("Could not parse version string {}", versionString, e);
+      }
     }
 
-    return true;
+    return highestCompatibleVersion != null ? highestCompatibleVersion.toString() : null;
   }
 
   /**
