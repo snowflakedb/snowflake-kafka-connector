@@ -72,11 +72,12 @@ public class StreamingIngestClientV2Provider {
         + createdClientId;
   }
 
-  private static Properties getClientProperties(Map<String, String> connectorConfig) {
+  static Properties getClientProperties(Map<String, String> connectorConfig) {
     final Properties props = new Properties();
     SnowflakeURL url = new SnowflakeURL(connectorConfig.get(Utils.SF_URL));
     props.put("private_key", connectorConfig.get(Utils.SF_PRIVATE_KEY));
     props.put("user", connectorConfig.get(Utils.SF_USER));
+    props.put("role", connectorConfig.get(Utils.SF_ROLE));
     props.put("account", url.getAccount());
     props.put("host", url.getUrlWithoutPort());
     return props;

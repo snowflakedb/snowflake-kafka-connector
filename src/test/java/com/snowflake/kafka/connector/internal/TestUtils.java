@@ -194,6 +194,7 @@ public class TestUtils {
 
     JsonNode profileJson = getProfile(profileFileName);
     configuration.put(Utils.SF_USER, profileJson.get(USER).asText());
+    configuration.put(Utils.SF_ROLE, profileJson.get(ROLE).asText());
     configuration.put(Utils.SF_DATABASE, profileJson.get(DATABASE).asText());
     configuration.put(Utils.SF_SCHEMA, profileJson.get(SCHEMA).asText());
     configuration.put(Utils.SF_URL, profileJson.get(HOST).asText());

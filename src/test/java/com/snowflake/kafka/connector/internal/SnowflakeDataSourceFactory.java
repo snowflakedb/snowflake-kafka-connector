@@ -30,6 +30,7 @@ public final class SnowflakeDataSourceFactory {
 
         // Extract properties from conf Map
         final String user = conf.get(Utils.SF_USER);
+        final String role = conf.get(Utils.SF_ROLE);
         final String privateKeyStr = conf.get(Utils.SF_PRIVATE_KEY);
         final String privateKeyPassphrase = conf.get(Utils.PRIVATE_KEY_PASSPHRASE);
         final String database = conf.get(Utils.SF_DATABASE);
@@ -64,6 +65,7 @@ public final class SnowflakeDataSourceFactory {
         connectionProperties.setProperty("user", user);
         connectionProperties.setProperty("db", database);
         connectionProperties.setProperty("schema", schema);
+        connectionProperties.setProperty("role", role);
         connectionProperties.setProperty("warehouse", warehouse);
 
         // JWT key pair auth - set private key
