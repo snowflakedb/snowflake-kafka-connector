@@ -402,7 +402,7 @@ public class ConnectorConfigValidatorTest {
     config.put(Utils.SF_ROLE, "ACCOUNTADMIN");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("snowflake.ingestion.method");
+        .hasMessageContaining(ERRORS_TOLERANCE_CONFIG);
   }
 
   @Test
