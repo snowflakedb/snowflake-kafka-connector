@@ -18,7 +18,6 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.records.RecordService.ISO_DATE_TIME_FORMAT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -44,7 +43,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.storage.Converter;
 import org.apache.kafka.connect.storage.SimpleHeaderConverter;
 import org.junit.jupiter.api.Test;
 
