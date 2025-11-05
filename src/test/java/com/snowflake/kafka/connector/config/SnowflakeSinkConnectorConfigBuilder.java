@@ -1,7 +1,9 @@
 package com.snowflake.kafka.connector.config;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_ENABLE_SINGLE_BUFFER;
 import static com.snowflake.kafka.connector.Utils.*;
 import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
@@ -152,6 +154,17 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public SnowflakeSinkConnectorConfigBuilder withOauthTokenEndpoint(String value) {
     config.put(Utils.SF_OAUTH_TOKEN_ENDPOINT, value);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withV2ChannelNaming() {
+    config.put(SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG, "true");
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withV2toV1ChannelNameMigrationEnabled(
+      final boolean enabled) {
+    config.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, Boolean.toString(enabled));
     return this;
   }
 

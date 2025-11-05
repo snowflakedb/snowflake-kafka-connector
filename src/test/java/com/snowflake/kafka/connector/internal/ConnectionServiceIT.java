@@ -440,7 +440,9 @@ public class ConnectionServiceIT {
     SnowflakeConnectionService conn =
         SnowflakeConnectionServiceFactory.builder().setProperties(testConfig).build();
     conn.createTable(tableName);
-    final String channelNameFormatV1 = SnowflakeSinkServiceV2.partitionChannelKey(tableName, 0);
+    final String channelNameFormatV1 =
+        SnowflakeSinkServiceV2.partitionChannelKey(
+            null /* connectorName - V1 format does not use */, tableName, 0);
 
     final String sourceChannelName =
         TopicPartitionChannel.generateChannelNameFormatV2(channelNameFormatV1, TEST_CONNECTOR_NAME);

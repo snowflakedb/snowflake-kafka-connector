@@ -81,8 +81,7 @@ public class TopicPartitionChannelTest {
 
   private static final int PARTITION = 0;
 
-  private static final String TEST_CHANNEL_NAME =
-      SnowflakeSinkServiceV2.partitionChannelKey(TOPIC, PARTITION);
+  private String testChannelName;
   private static final String TEST_TABLE_NAME = "TEST_TABLE";
 
   private TopicPartition topicPartition;
@@ -92,14 +91,23 @@ public class TopicPartitionChannelTest {
   private SFException SF_EXCEPTION = new SFException(ErrorCode.INVALID_CHANNEL, "INVALID_CHANNEL");
 
   private final boolean enableSchematization;
+  private final ChannelNameFormatVersion channelNameFormatVersion;
 
-  public TopicPartitionChannelTest(boolean enableSchematization) {
+  public TopicPartitionChannelTest(
+      boolean enableSchematization, ChannelNameFormatVersion channelNameFormatVersion) {
     this.enableSchematization = enableSchematization;
+    this.channelNameFormatVersion = channelNameFormatVersion;
   }
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameterized.Parameters(name = "enableSchematization={0}, channelNameVersion={1}")
   public static Collection<Object[]> input() {
-    return Arrays.asList(new Object[][] {{true}, {false}});
+    return Arrays.asList(
+        new Object[][] {
+          {true, ChannelNameFormatVersion.V1},
+          {false, ChannelNameFormatVersion.V1},
+          {true, ChannelNameFormatVersion.V2},
+          {false, ChannelNameFormatVersion.V2}
+        });
   }
 
   @Before
@@ -113,12 +121,15 @@ public class TopicPartitionChannelTest {
     Mockito.when(mockStreamingClient.isClosed()).thenReturn(false);
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
     this.topicPartition = new TopicPartition(TOPIC, PARTITION);
     this.sfConnectorConfig = TestUtils.getConfig();
     this.sfConnectorConfig.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         Boolean.toString(this.enableSchematization));
+    String connectorName =
+        channelNameFormatVersion == ChannelNameFormatVersion.V2 ? TEST_CONNECTOR_NAME : null;
+    testChannelName = SnowflakeSinkServiceV2.partitionChannelKey(connectorName, TOPIC, PARTITION);
   }
 
   @Test(expected = IllegalStateException.class)
@@ -127,7 +138,7 @@ public class TopicPartitionChannelTest {
     createTopicPartitionChannel(
         mockStreamingClient,
         topicPartition,
-        TEST_CHANNEL_NAME,
+        testChannelName,
         TEST_TABLE_NAME,
         sfConnectorConfig,
         mockKafkaRecordErrorReporter,
@@ -145,7 +156,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -166,7 +177,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -196,7 +207,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -235,14 +246,14 @@ public class TopicPartitionChannelTest {
     CompletableFuture mockFuture = Mockito.mock(CompletableFuture.class);
 
     Mockito.when(mockStreamingChannel.close()).thenReturn(mockFuture);
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
 
     Mockito.when(mockFuture.get()).thenThrow(new InterruptedException("Interrupted Exception"));
     TopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             sfConnectorConfig,
@@ -265,13 +276,13 @@ public class TopicPartitionChannelTest {
     closeChannelFuture.completeExceptionally(SF_EXCEPTION);
 
     Mockito.when(mockStreamingChannel.close()).thenReturn(closeChannelFuture);
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
 
     TopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             sfConnectorConfig,
@@ -296,13 +307,13 @@ public class TopicPartitionChannelTest {
   public void closeChannel_withSFExceptionThrown_swallowsException() {
     // given
     Mockito.when(mockStreamingChannel.close()).thenThrow(SF_EXCEPTION);
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
 
     TopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             sfConnectorConfig,
@@ -332,13 +343,13 @@ public class TopicPartitionChannelTest {
     closeChannelFuture.completeExceptionally(cause);
 
     Mockito.when(mockStreamingChannel.close()).thenReturn(closeChannelFuture);
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
 
     TopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             sfConnectorConfig,
@@ -370,13 +381,13 @@ public class TopicPartitionChannelTest {
     closeChannelFuture.completeExceptionally(SF_EXCEPTION);
 
     Mockito.when(mockStreamingChannel.close()).thenReturn(closeChannelFuture);
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
 
     TopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             sfConnectorConfig,
@@ -401,13 +412,13 @@ public class TopicPartitionChannelTest {
   public void closeChannelAsync_withSFExceptionThrown_swallowsException() {
     // given
     Mockito.when(mockStreamingChannel.close()).thenThrow(SF_EXCEPTION);
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
 
     TopicPartitionChannel topicPartitionChannel =
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             sfConnectorConfig,
@@ -431,7 +442,7 @@ public class TopicPartitionChannelTest {
   @Test
   public void testStreamingChannelMigrationEnabledAndDisabled() {
 
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
     Mockito.when(
             mockSnowflakeConnectionService.migrateStreamingChannelOffsetToken(
                 anyString(), anyString(), Mockito.anyString()))
@@ -442,7 +453,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             sfConnectorConfig,
@@ -454,7 +465,7 @@ public class TopicPartitionChannelTest {
             false,
             null,
             this.schemaEvolutionService);
-    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
+    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(0))
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
 
     Map<String, String> customSfConfig = new HashMap<>(sfConnectorConfig);
@@ -464,7 +475,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             customSfConfig,
@@ -476,7 +487,7 @@ public class TopicPartitionChannelTest {
             false,
             null,
             this.schemaEvolutionService);
-    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(2))
+    Mockito.verify(mockSnowflakeConnectionService, Mockito.times(1))
         .migrateStreamingChannelOffsetToken(anyString(), anyString(), anyString());
 
     customSfConfig.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "false");
@@ -487,7 +498,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             true,
             customSfConfig,
@@ -506,21 +517,23 @@ public class TopicPartitionChannelTest {
   @Test
   public void testStreamingChannelMigration_InvalidResponse() {
 
-    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(TEST_CHANNEL_NAME);
+    Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);
     Mockito.when(
             mockSnowflakeConnectionService.migrateStreamingChannelOffsetToken(
                 anyString(), anyString(), Mockito.anyString()))
         .thenThrow(new RuntimeException("Exception migrating channel offset token"));
+    Map<String, String> customSfConfig = new HashMap<>(sfConnectorConfig);
+    customSfConfig.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "true");
     try {
       // checking default
       TopicPartitionChannel topicPartitionChannel =
           createTopicPartitionChannel(
               mockStreamingClient,
               topicPartition,
-              TEST_CHANNEL_NAME,
+              testChannelName,
               TEST_TABLE_NAME,
               true,
-              sfConnectorConfig,
+              customSfConfig,
               mockKafkaRecordErrorReporter,
               mockSinkTaskContext,
               mockSnowflakeConnectionService,
@@ -546,7 +559,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -581,7 +594,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -612,7 +625,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -645,7 +658,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -674,7 +687,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -723,7 +736,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             mockStreamingClient,
             topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             sfConnectorConfig,
             mockKafkaRecordErrorReporter,
@@ -828,7 +841,7 @@ public class TopicPartitionChannelTest {
           createTopicPartitionChannel(
               mockStreamingClient,
               topicPartition,
-              TEST_CHANNEL_NAME,
+              testChannelName,
               TEST_TABLE_NAME,
               this.enableSchematization,
               sfConnectorConfigWithErrors,
@@ -882,7 +895,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             this.mockStreamingClient,
             this.topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             this.enableSchematization,
             this.sfConnectorConfig,
@@ -955,7 +968,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             this.mockStreamingClient,
             this.topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             this.enableSchematization,
             this.sfConnectorConfig,
@@ -987,7 +1000,7 @@ public class TopicPartitionChannelTest {
   public TopicPartitionChannel createTopicPartitionChannel(
       SnowflakeStreamingIngestClient streamingIngestClient,
       TopicPartition topicPartition,
-      final String channelNameFormatV1,
+      final String channelNameFormat,
       final String tableName,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
@@ -998,7 +1011,7 @@ public class TopicPartitionChannelTest {
     return new DirectTopicPartitionChannel(
         streamingIngestClient,
         topicPartition,
-        channelNameFormatV1,
+        channelNameFormat,
         tableName,
         sfConnectorConfig,
         kafkaRecordErrorReporter,
@@ -1081,7 +1094,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             this.mockStreamingClient,
             this.topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             this.enableSchematization,
             this.sfConnectorConfig,
@@ -1133,7 +1146,7 @@ public class TopicPartitionChannelTest {
         createTopicPartitionChannel(
             this.mockStreamingClient,
             this.topicPartition,
-            TEST_CHANNEL_NAME,
+            testChannelName,
             TEST_TABLE_NAME,
             this.enableSchematization,
             this.sfConnectorConfig,

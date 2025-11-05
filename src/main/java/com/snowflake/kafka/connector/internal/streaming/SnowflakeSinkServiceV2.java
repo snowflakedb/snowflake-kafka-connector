@@ -100,8 +100,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final boolean closeChannelsInParallel;
 
+  private final boolean enableChannelNameV2Usage;
+
   /**
-   * Key is formulated in {@link #partitionChannelKey(String, int)} }
+   * Key is formulated in {@link #partitionChannelKey(String, String, int)}
    *
    * <p>value is the Streaming Ingest Channel implementation (Wrapped around TopicPartitionChannel)
    */
@@ -163,6 +165,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         Optional.ofNullable(connectorConfig.get(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL))
             .map(Boolean::parseBoolean)
             .orElse(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL_DEFAULT);
+
+    this.enableChannelNameV2Usage =
+        Optional.ofNullable(
+                connectorConfig.get(
+                    SnowflakeSinkConnectorConfig
+                        .SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG))
+            .map(Boolean::parseBoolean)
+            .orElse(
+                SnowflakeSinkConnectorConfig
+                    .SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_DEFAULT);
 
     this.streamingIngestClient =
         StreamingClientProvider.getStreamingClientProviderInstance()
@@ -439,7 +451,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           }
           LOGGER.info(
               "Closing partitionChannel:{}, partition:{}, topic:{}",
-              topicPartitionChannel == null ? null : topicPartitionChannel.getChannelNameFormatV1(),
+              topicPartitionChannel == null ? null : topicPartitionChannel.getChannelName(),
               topicPartition.partition(),
               topicPartition.topic());
           partitionsToChannel.remove(partitionChannelKey);
@@ -460,7 +472,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     LOGGER.info(
         "Closing partitionChannel:{}, partition:{}, topic:{}",
-        topicPartitionChannel == null ? null : topicPartitionChannel.getChannelNameFormatV1(),
+        topicPartitionChannel == null ? null : topicPartitionChannel.getChannelName(),
         topicPartition.partition(),
         topicPartition.topic());
 
@@ -573,15 +585,34 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Gets a unique identifier consisting of connector name, topic name and partition number.
+   * Gets an unique identifier consisting of topic name and partition number. If v2 usage is
+   * enabled, connector name is also included as a prefix.
    *
    * @param topic topic name
    * @param partition partition number
-   * @return combinartion of topic and partition
+   * @return combination of topic and partition, or connector name, topic and partition if v2 usage
+   *     is enabled
+   */
+  private String partitionChannelKey(String topic, int partition) {
+    String connectorName = enableChannelNameV2Usage ? conn.getConnectorName() : null;
+    return partitionChannelKey(connectorName, topic, partition);
+  }
+
+  /**
+   * Gets a unique identifier consisting of connector name, topic name and partition number.
+   *
+   * @param connectorName connector name (if null, not included in the key)
+   * @param topic topic name
+   * @param partition partition number
+   * @return combination of topic and partition, or connector name, topic and partition if v2 usage
+   *     is enabled
    */
   @VisibleForTesting
-  public static String partitionChannelKey(String topic, int partition) {
-    return topic + "_" + partition;
+  public static String partitionChannelKey(String connectorName, String topic, int partition) {
+    final String channelNameV1 = topic + "_" + partition;
+    return connectorName != null
+        ? TopicPartitionChannel.generateChannelNameFormatV2(channelNameV1, connectorName)
+        : channelNameV1;
   }
 
   /* Used for testing */
@@ -593,7 +624,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /**
    * Used for testing Only
    *
-   * @param topicPartitionChannelKey look {@link #partitionChannelKey(String, int)} for key format
+   * @param topicPartitionChannelKey look {@link #partitionChannelKey(String, String, int)} for key
+   *     format
    * @return TopicPartitionChannel if present in partitionsToChannel Map else null
    */
   @VisibleForTesting
