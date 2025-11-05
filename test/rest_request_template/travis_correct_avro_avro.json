@@ -9,8 +9,9 @@
     "snowflake.private.key":"SNOWFLAKE_PRIVATE_KEY",
     "snowflake.database.name":"SNOWFLAKE_DATABASE",
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
-    "snowflake.role.name": "SNOWFLAKE_ROLE",
-    "key.converter":"com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
-    "value.converter":"com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry"
+    "key.converter":"org.apache.kafka.connect.serialization.AvroConverter",
+    "value.converter":"org.apache.kafka.connect.serialization.AvroConverter",
+    "value.converter.schemas.enable":"true",
+    "key.converter.schemas.enable":"true"
   }
 }

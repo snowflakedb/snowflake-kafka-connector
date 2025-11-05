@@ -11,6 +11,8 @@
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "key.converter":"org.apache.kafka.connect.json.JsonConverter",
     "value.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "key.converter.schemas.enable": "false",
     "snowflake.metadata.createtime":"false",
     "snowflake.metadata.topic":false
   }

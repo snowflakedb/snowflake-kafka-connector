@@ -10,6 +10,7 @@
     "snowflake.schema.name":"SNOWFLAKE_SCHEMA",
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
-    "value.converter":"com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry"
+    "value.converter":"org.apache.kafka.connect.serialization.AvroConverter",
+    "value.converter.schemas.enable": "false"
   }
 }

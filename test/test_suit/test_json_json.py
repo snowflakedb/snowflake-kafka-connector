@@ -30,11 +30,9 @@ class TestJsonJson(BaseE2eTest):
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"key":{"number":"0"},"offset":0,"partition":0}'
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{},"key":{"number":"0"},"offset":0,"partition":0,"topic":"travis_correct_json_json_\w*"}'
         goldContent = r'{"number":"0"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
-
-        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

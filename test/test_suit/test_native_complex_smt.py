@@ -30,12 +30,9 @@ class TestNativeComplexSmt(BaseE2eTest):
 
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.table)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"key":{"int":"\d"},"offset":\d,"partition":\d,' \
-                   r'"topic":"travis_correct_native_complex_smt_\w*"}'
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{},"key":{"int":"\d"},"offset":0,"partition":0,"topic":"travis_correct_native_complex_smt_\w*"}'
         goldContent = r'{"c1":{"int":"\d"}}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
-
-        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic, self.table)

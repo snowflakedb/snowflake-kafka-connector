@@ -293,9 +293,6 @@ class KafkaTest:
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Drop table {} ===".format(tableName))
         self.snowflake_conn.cursor().execute("DROP table IF EXISTS {}".format(tableName))
 
-        print(datetime.now().strftime("%H:%M:%S "), "=== Drop stage {} ===".format(stageName))
-        self.snowflake_conn.cursor().execute("DROP stage IF EXISTS {}".format(stageName))
-
         for p in range(partitionNumber):
             pipeName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_PIPE_{}_{}".format(connectorName, topicName, p)
             print(datetime.now().strftime("%H:%M:%S "), "=== Drop pipe {} ===".format(pipeName))
@@ -344,15 +341,6 @@ class KafkaTest:
 
     def select_number_of_records(self, table_name: str) -> str:
         return self.snowflake_conn.cursor().execute("SELECT count(*) FROM {}".format(table_name)).fetchone()[0]
-
-    def verifyStageIsCleaned(self, connectorName, topicName=""):
-        if topicName == "":
-            topicName = connectorName
-        stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
-
-        res = self.snowflake_conn.cursor().execute("list @{}".format(stageName)).fetchone()
-        if res is not None:
-            raise RetryableError("stage not cleaned up ")
 
     # validate content match gold regex
     def regexMatchOneLine(self, res, goldMetaRegex, goldContentRegex):

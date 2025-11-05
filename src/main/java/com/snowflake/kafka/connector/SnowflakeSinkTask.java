@@ -62,7 +62,7 @@ public class SnowflakeSinkTask extends SinkTask {
   // during task start, however if it is not set, it falls back to the static logger
   private static final KCLogger STATIC_LOGGER =
       new KCLogger(SnowflakeSinkTask.class.getName() + "_STATIC");
-  private final KCLogger DYNAMIC_LOGGER;
+  private KCLogger DYNAMIC_LOGGER;
 
   // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
   // not found

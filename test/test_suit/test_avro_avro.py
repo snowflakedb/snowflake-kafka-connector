@@ -31,13 +31,11 @@ class TestAvroAvro(BaseE2eTest):
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"key":[{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.",' \
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"key":[{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.",' \
                    r'"username":"miguno"},{"timestamp":\d*,"tweet":"Worksasintended.TerranisIMBA.",' \
                    r'"username":"BlizzardCS"}],"offset":0,"partition":0,"topic":"travis_correct_avro_avro_\w*"}'
         goldContent = r'{"timestamp":\d*,"tweet":"Rock:Nerfpaper,scissorsisfine.","username":"miguno"}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
-
-        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

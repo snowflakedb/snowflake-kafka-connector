@@ -143,15 +143,15 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
     """
     return OrderedDict(
         [
-            # (
-            #     "TestStringJson",
-            #     EndToEndTestSuite(
-            #         test_instance=TestStringJson(driver, nameSalt),
-            #         run_in_confluent=True,
-            #         run_in_apache=True,
-            #         cloud_platform=CloudPlatform.ALL,
-            #     ),
-            # ),
+            (
+                "TestStringJson",
+                EndToEndTestSuite(
+                    test_instance=TestStringJson(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=True,
+                    cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
             # (
             #     "TestStringJsonIgnoreTombstone",
             #     EndToEndTestSuite(
@@ -161,15 +161,15 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.ALL,
             #     ),
             # ),
-            # (
-            #     "TestJsonJson",
-            #     EndToEndTestSuite(
-            #         test_instance=TestJsonJson(driver, nameSalt),
-            #         run_in_confluent=True,
-            #         run_in_apache=True,
-            #         cloud_platform=CloudPlatform.ALL,
-            #     ),
-            # ),
+            (
+                "TestJsonJson",
+                EndToEndTestSuite(
+                    test_instance=TestJsonJson(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=True,
+                    cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
             # (
             #     "TestStringAvro",
             #     EndToEndTestSuite(
@@ -188,33 +188,33 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.ALL,
             #     ),
             # ),
-            # (
-            #     "TestStringAvrosr",
-            #     EndToEndTestSuite(
-            #         test_instance=TestStringAvrosr(driver, nameSalt),
-            #         run_in_confluent=True,
-            #         run_in_apache=False,
-            #         cloud_platform=CloudPlatform.ALL,
-            #     ),
-            # ),
-            # (
-            #     "TestAvrosrAvrosr",
-            #     EndToEndTestSuite(
-            #         test_instance=TestAvrosrAvrosr(driver, nameSalt),
-            #         run_in_confluent=True,
-            #         run_in_apache=False,
-            #         cloud_platform=CloudPlatform.ALL,
-            #     ),
-            # ),
-            # (
-            #     "TestNativeStringAvrosr",
-            #     EndToEndTestSuite(
-            #         test_instance=TestNativeStringAvrosr(driver, nameSalt),
-            #         run_in_confluent=True,
-            #         run_in_apache=False,
-            #         cloud_platform=CloudPlatform.ALL,
-            #     ),
-            # ),
+            (
+                "TestStringAvrosr",
+                EndToEndTestSuite(
+                    test_instance=TestStringAvrosr(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=False,
+                    cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
+            (
+                "TestAvrosrAvrosr",
+                EndToEndTestSuite(
+                    test_instance=TestAvrosrAvrosr(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=False,
+                    cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
+            (
+                "TestNativeStringAvrosr",
+                EndToEndTestSuite(
+                    test_instance=TestNativeStringAvrosr(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=False,
+                    cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
             # (
             #     "TestNativeStringJsonWithoutSchema",
             #     EndToEndTestSuite(
@@ -241,17 +241,17 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     run_in_apache=True,
                     cloud_platform=CloudPlatform.ALL,
                 ),
-            # ),
-            # (
-            #     "TestNullableValuesAfterSmt",
-            #     EndToEndTestSuite(
-            #         test_instance=TestNullableValuesAfterSmt(driver, nameSalt),
-            #         run_in_confluent=True,
-            #         run_in_apache=True,
-            #         cloud_platform=CloudPlatform.ALL,
-            #     ),
-            # ),
-            # (
+             ),
+            (
+                "TestNullableValuesAfterSmt",
+                EndToEndTestSuite(
+                    test_instance=TestNullableValuesAfterSmt(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=True,
+                    cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
+             (
                 "TestConfluentProtobufProtobuf",
                 EndToEndTestSuite(
                     test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),

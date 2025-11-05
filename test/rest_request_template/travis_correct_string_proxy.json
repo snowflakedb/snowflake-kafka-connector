@@ -12,6 +12,7 @@
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
     "value.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
     "jvm.proxy.host": "localhost",
     "jvm.proxy.port": "3128",
     "jvm.proxy.username": "admin",
