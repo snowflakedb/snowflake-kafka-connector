@@ -32,6 +32,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.storage.Converter;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,8 +66,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .build();
     service.startPartition(table, topicPartition);
 
-    Converter converter = new JsonConverter();
-    SchemaAndValue input =
+      Converter converter = buildJsonConverter();
+      SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
 
@@ -93,7 +94,15 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
-  @Test
+    private static @NotNull Converter buildJsonConverter() {
+        Converter converter = new JsonConverter();
+        HashMap<String, String> converterConfig = new HashMap<>();
+        converterConfig.put("schemas.enable", "false");
+        converter.configure(converterConfig, true);
+        return converter;
+    }
+
+    @Test
   public void testRebalanceOpenCloseIngestion()
       throws Exception { // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
@@ -102,8 +111,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .build();
     service.startPartition(table, topicPartition);
 
-    Converter converter = new JsonConverter();
-    SchemaAndValue input =
+        Converter converter = buildJsonConverter();
+        SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
 
@@ -140,8 +149,9 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .build();
     service.startPartition(table, topicPartition);
 
-    Converter converter = new JsonConverter();
-    SchemaAndValue input =
+      Converter converter = buildJsonConverter();
+
+      SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
 
@@ -814,8 +824,9 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .build();
     service.startPartition(table, topicPartition);
 
-    Converter converter = new JsonConverter();
-    SchemaAndValue input =
+      Converter converter = buildJsonConverter();
+
+      SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
 
     long offset = 0;
