@@ -91,10 +91,11 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
                 ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
                 inputConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG));
           }
-          if (inputConfig.containsKey(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG)) {
+          if (inputConfig.containsKey(
+              SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG)) {
             BOOLEAN_VALIDATOR.ensureValid(
-                ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG,
-                inputConfig.get(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG));
+                SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG,
+                inputConfig.get(SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG));
           }
           if (inputConfig.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG)) {
             BOOLEAN_VALIDATOR.ensureValid(
@@ -232,16 +233,18 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     Map<String, String> invalidConfigParams = new HashMap<>();
 
     boolean useV2Naming =
-        config.containsKey(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG)
-            ? Boolean.parseBoolean(config.get(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG))
-            : ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DEFAULT;
+        config.containsKey(SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG)
+            ? Boolean.parseBoolean(
+                config.get(SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG))
+            : SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_DEFAULT;
     boolean enableV2toV1NameMigration =
         config.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)
             ? Boolean.parseBoolean(config.get(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG))
             : ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
     if (useV2Naming && enableV2toV1NameMigration) {
       invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG,
+          SnowflakeSinkConnectorConfig
+              .SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG,
           Utils.formatString(
               "Using streaming channel name version V2 requires '{}' to be disabled.",
               ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG));

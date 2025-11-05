@@ -169,9 +169,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableChannelNameV2Usage =
         Optional.ofNullable(
                 connectorConfig.get(
-                    SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG))
+                    SnowflakeSinkConnectorConfig
+                        .SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG))
             .map(Boolean::parseBoolean)
-            .orElse(SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DEFAULT);
+            .orElse(
+                SnowflakeSinkConnectorConfig
+                    .SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_DEFAULT);
 
     this.streamingIngestClient =
         StreamingClientProvider.getStreamingClientProviderInstance()

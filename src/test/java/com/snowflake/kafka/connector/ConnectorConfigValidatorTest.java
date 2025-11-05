@@ -906,51 +906,45 @@ public class ConnectorConfigValidatorTest {
 
   @Test
   public void testStreamingNameV2Config_invalidWithSnowpipe() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE.toString());
-    config.put(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG, "true");
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.snowpipeConfig().withV2ChannelNaming().build();
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(
-            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG);
+            SnowflakeSinkConnectorConfig
+                .SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG);
   }
 
   @Test
   public void testStreamingNameV2Config_invalidWithSnowpipeStreaming_ifMigrationEnabled() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "true");
-    config.put(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG, "true");
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withV2toV1ChannelNameMigrationEnabled(true)
+            .withV2ChannelNaming()
+            .build();
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(
-            SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG);
+            SnowflakeSinkConnectorConfig
+                .SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG);
   }
 
   @Test
   public void testStreamingNameV2Config_validWithSnowpipeStreaming_byDefault() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG, "true");
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig().withV2ChannelNaming().build();
     connectorConfigValidator.validateConfig(config);
   }
 
   @Test
   public void testStreamingNameV2Config_validWithSnowpipeStreaming_ifMigrationDisabled() {
-    Map<String, String> config = getConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT,
-        IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG, "false");
-    config.put(ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG, "true");
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withV2toV1ChannelNameMigrationEnabled(false)
+            .withV2ChannelNaming()
+            .build();
     connectorConfigValidator.validateConfig(config);
   }
 

@@ -24,7 +24,7 @@ public enum ChannelNameFormatVersion {
 
   public void setInConfig(final java.util.Map<String, String> config) {
     config.put(
-        SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG,
+        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG,
         Boolean.toString(this == V2));
     if (this == V2) {
       config.put(

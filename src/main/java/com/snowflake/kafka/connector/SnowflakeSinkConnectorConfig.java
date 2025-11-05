@@ -216,16 +216,21 @@ public class SnowflakeSinkConnectorConfig {
           + " enabled, disabling this config could have ramifications. Please consult Snowflake"
           + " support before setting this to false.";
 
-  public static final String ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_CONFIG =
-      "enable.streaming.channel.name.format.v2.usage";
-  public static final String ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DISPLAY =
-      "Enable streaming channel name format v2 usage";
-  public static final boolean ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DEFAULT = false;
-  public static final String ENABLE_CHANNEL_NAME_FORMAT_V2_USAGE_DOC =
-      "This config enables/disables usage of channel names that were used solely in Kafka"
-          + " Connector versions 2.1.0 and 2.1.1 and is intended for users that previously"
-          + " used these versions and did not update the connector since. Enabling this config in"
-          + " any other case will result in data duplication.";
+  // related to ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG /
+  // enable.streaming.channel.offset.migration above
+  public static final String SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_CONFIG =
+      "snowflake.streaming.channel.name.include.connector.name";
+  public static final String SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_DISPLAY =
+      "Include the Connector Name in streaming channel name";
+  public static final boolean SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_DEFAULT =
+      false;
+  public static final String SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_DOC =
+      "If enabled, the Snowflake Streaming channel names are prefixed with the connector name. This"
+          + " config enables/disables usage of channel names that were used solely in Kafka"
+          + " Connector versions 2.1.0 and 2.1.1 and is intended for users that previously used"
+          + " these versions and did not update the connector since. IMPORTANT: Enabling this"
+          + " config in any other case will result in data duplication. Cannot be used together"
+          + " with `enable.streaming.channel.offset.migration=true`";
 
   public static final String ENABLE_CHANNEL_OFFSET_TOKEN_VERIFICATION_FUNCTION_CONFIG =
       "enable.streaming.channel.offset.verification";
