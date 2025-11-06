@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
+import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.makeChannelName;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.Gauge;
@@ -248,7 +249,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     // verify all metrics
     Map<String, Gauge> metricRegistry =
         service
-            .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
+            .getMetricRegistry(makeChannelName(TEST_CONNECTOR_NAME, topic, partition))
             .get()
             .getGauges();
     assert metricRegistry.size()
@@ -257,12 +258,12 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     // partition 1
     verifyPartitionMetrics(
         metricRegistry,
-        partitionChannelKey(topic, partition),
+        makeChannelName(TEST_CONNECTOR_NAME, topic, partition),
         NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
         recordsInPartition1 - 1);
     verifyPartitionMetrics(
         metricRegistry,
-        partitionChannelKey(topic, partition2),
+        makeChannelName(TEST_CONNECTOR_NAME, topic, partition2),
         NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
         recordsInPartition2 - 1);
 
@@ -274,7 +275,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     // verify metrics closed
     assert !service
-        .getMetricRegistry(SnowflakeSinkServiceV2.partitionChannelKey(topic, partition))
+        .getMetricRegistry(makeChannelName(TEST_CONNECTOR_NAME, topic, partition))
         .isPresent();
 
     Mockito.verify(telemetryService, Mockito.times(2))

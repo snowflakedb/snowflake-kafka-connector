@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
+import static com.snowflake.kafka.connector.Utils.NAME;
 import static com.snowflake.kafka.connector.Utils.getRole;
 import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
@@ -9,7 +11,6 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -78,6 +79,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Behavior to be set at the start of connector start. (For tombstone records)
   private final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
   private final MetricsJmxReporter metricsJmxReporter;
+  private final String connectorName;
   /**
    * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
    * org.apache.kafka.connect.sink.ErrantRecordReporter}
@@ -87,11 +89,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final SinkTaskContext sinkTaskContext;
   // Config set in JSON
   private final Map<String, String> connectorConfig;
-  /**
-   * Key is formulated in {@link #partitionChannelKey(String, int)} }
-   *
-   * <p>value is the Streaming Ingest Channel implementation (Wrapped around TopicPartitionChannel)
-   */
+
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
@@ -126,25 +124,40 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.behaviorOnNullValues = behaviorOnNullValues;
     this.partitionsToChannel = new HashMap<>();
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
-
-    // jmx
-    String connectorName =
-        Strings.isNullOrEmpty(this.conn.getConnectorName())
+    this.connectorName =
+        isNullOrEmpty(connectorConfig.get(NAME))
             ? "default_connector"
-            : this.conn.getConnectorName();
-    this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
+            : connectorConfig.get(NAME);
+    this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
   }
 
   /**
    * Gets a unique identifier consisting of connector name, topic name and partition number.
    *
-   * @param topic topic name
-   * @param partition partition number
-   * @return combinartion of topic and partition
+   * <p>Channel names are limited to 128 characters by Snowflake. If the combined name exceeds this
+   * limit, an exception will be thrown.
    */
   @VisibleForTesting
-  public static String partitionChannelKey(String topic, int partition) {
-    return topic + "_" + partition;
+  public static String makeChannelName(final String connectorName, final String topic, final int partition) {
+    final int MAX_CHANNEL_NAME_LENGTH = 128;
+    final String separator = "_";
+
+    String channelName = connectorName + separator + topic + separator + partition;
+
+    if (channelName.length() > MAX_CHANNEL_NAME_LENGTH) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Channel name exceeds maximum length of %d characters (actual: %d). "
+                  + "Channel name: '%s'. "
+                  + "Please use shorter connector name (current: %d chars) or topic name (current: %d chars).",
+              MAX_CHANNEL_NAME_LENGTH,
+              channelName.length(),
+              channelName,
+              connectorName.length(),
+              topic.length()));
+    }
+
+    return channelName;
   }
 
   /**
@@ -228,20 +241,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   private void createStreamingChannelForTopicPartition(
       final String tableName, final TopicPartition topicPartition, boolean schemaEvolutionEnabled) {
-    final String partitionChannelKey =
-        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+    final String channelName =
+        makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
     // Create new instance of TopicPartitionChannel which will always open the channel.
     partitionsToChannel.put(
-        partitionChannelKey,
+        channelName,
         createTopicPartitionChannel(
-            tableName, topicPartition, schemaEvolutionEnabled, partitionChannelKey));
+            tableName, topicPartition, schemaEvolutionEnabled, channelName));
   }
 
   private TopicPartitionChannel createTopicPartitionChannel(
       String tableName,
       TopicPartition topicPartition,
       boolean schemaEvolutionEnabled,
-      String partitionChannelKey) {
+      String channelName) {
 
     StreamingRecordService streamingRecordService =
         new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
@@ -261,7 +274,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return new SnowpipeStreamingV2PartitionChannel(
         tableName,
         schemaEvolutionEnabled,
-        partitionChannelKey,
+        channelName,
         topicPartition,
         this.conn,
         this.connectorConfig,
@@ -327,10 +340,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(SinkRecord record) {
-    String partitionChannelKey = partitionChannelKey(record.topic(), record.kafkaPartition());
+    String channelName = makeChannelName(this.connectorName, record.topic(), record.kafkaPartition());
     // init a new topic partition if it's not presented in cache or if channel is closed
-    if (!partitionsToChannel.containsKey(partitionChannelKey)
-        || partitionsToChannel.get(partitionChannelKey).isChannelClosed()) {
+    if (!partitionsToChannel.containsKey(channelName)
+        || partitionsToChannel.get(channelName).isChannelClosed()) {
       LOGGER.warn(
           "Topic: {} Partition: {} hasn't been initialized by OPEN function",
           record.topic(),
@@ -340,15 +353,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           new TopicPartition(record.topic(), record.kafkaPartition()));
     }
 
-    TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(partitionChannelKey);
+    TopicPartitionChannel channelPartition = partitionsToChannel.get(channelName);
+    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channelName);
     channelPartition.insertRecord(record, isFirstRowPerPartitionInBatch);
   }
 
   @Override
   public long getOffset(TopicPartition topicPartition) {
     String partitionChannelKey =
-        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+        makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
       long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
       partitionsToChannel.get(partitionChannelKey).setLatestConsumerGroupOffset(offset);
@@ -417,7 +430,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   private CompletableFuture<Void> closeTopicPartition(TopicPartition topicPartition) {
-    String key = partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+    String key = makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
 
     TopicPartitionChannel topicPartitionChannel = partitionsToChannel.get(key);
 
