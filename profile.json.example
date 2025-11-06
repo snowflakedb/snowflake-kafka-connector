@@ -1,7 +1,8 @@
 {
   "user": "user name",
+  "role": "user role",
   "private_key": "private key",
-  "host": "acountname.snowflakecomputing.com:443",
+  "host": "account_identifier.snowflakecomputing.com:443",
   "schema": "schema name",
   "database": "database name",
   "warehouse": "warehouse name"
