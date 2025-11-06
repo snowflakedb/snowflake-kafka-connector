@@ -125,9 +125,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.partitionsToChannel = new HashMap<>();
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
     this.connectorName =
-        isNullOrEmpty(connectorConfig.get(NAME))
-            ? "default_connector"
-            : connectorConfig.get(NAME);
+        isNullOrEmpty(connectorConfig.get(NAME)) ? "default_connector" : connectorConfig.get(NAME);
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
   }
 
@@ -138,7 +136,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * limit, an exception will be thrown.
    */
   @VisibleForTesting
-  public static String makeChannelName(final String connectorName, final String topic, final int partition) {
+  public static String makeChannelName(
+      final String connectorName, final String topic, final int partition) {
     final int MAX_CHANNEL_NAME_LENGTH = 128;
     final String separator = "_";
 
@@ -147,9 +146,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     if (channelName.length() > MAX_CHANNEL_NAME_LENGTH) {
       throw new IllegalArgumentException(
           String.format(
-              "Channel name exceeds maximum length of %d characters (actual: %d). "
-                  + "Channel name: '%s'. "
-                  + "Please use shorter connector name (current: %d chars) or topic name (current: %d chars).",
+              "Channel name exceeds maximum length of %d characters (actual: %d). Channel name:"
+                  + " '%s'. Please use shorter connector name (current: %d chars) or topic name"
+                  + " (current: %d chars).",
               MAX_CHANNEL_NAME_LENGTH,
               channelName.length(),
               channelName,
@@ -340,7 +339,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(SinkRecord record) {
-    String channelName = makeChannelName(this.connectorName, record.topic(), record.kafkaPartition());
+    String channelName =
+        makeChannelName(this.connectorName, record.topic(), record.kafkaPartition());
     // init a new topic partition if it's not presented in cache or if channel is closed
     if (!partitionsToChannel.containsKey(channelName)
         || partitionsToChannel.get(channelName).isChannelClosed()) {
@@ -430,7 +430,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   private CompletableFuture<Void> closeTopicPartition(TopicPartition topicPartition) {
-    String key = makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
+    String key =
+        makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
 
     TopicPartitionChannel topicPartitionChannel = partitionsToChannel.get(key);
 
