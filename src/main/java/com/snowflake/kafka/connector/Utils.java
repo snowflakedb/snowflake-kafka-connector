@@ -17,8 +17,7 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.internal.InternalUtils;
@@ -31,7 +30,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URI;
@@ -300,9 +298,8 @@ public class Utils {
    * Enable JVM proxy
    *
    * @param config connector configuration
-   * @return false if wrong config
    */
-  static boolean enableJVMProxy(Map<String, String> config) {
+  static void enableJVMProxy(Map<String, String> config) {
     String host =
         SnowflakeSinkConnectorConfig.getProperty(
             config, SnowflakeSinkConnectorConfig.JVM_PROXY_HOST);
@@ -356,8 +353,6 @@ public class Utils {
         System.setProperty(HTTPS_PROXY_PASSWORD, password);
       }
     }
-
-    return true;
   }
 
   /**
@@ -385,19 +380,6 @@ public class Utils {
   }
 
   /**
-   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE. If INGESTION_METHOD_OPT not specified,
-   * returns true as default.
-   *
-   * @param config input config object
-   */
-  static boolean isSnowpipeIngestion(Map<String, String> config) {
-    return !config.containsKey(INGESTION_METHOD_OPT)
-        || config
-            .get(INGESTION_METHOD_OPT)
-            .equalsIgnoreCase(IngestionMethodConfig.SNOWPIPE.toString());
-  }
-
-  /**
    * @param config config with applied default values
    * @return true when Iceberg mode is enabled.
    */
@@ -408,13 +390,6 @@ public class Utils {
   public static boolean isSchematizationEnabled(Map<String, String> config) {
     return Boolean.parseBoolean(
         config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
-  }
-
-  public static boolean isSnowpipeStreamingV2Enabled(Map<String, String> config) {
-    return Optional.ofNullable(
-            config.get(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED))
-        .map(Boolean::parseBoolean)
-        .orElse(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE);
   }
 
   public static boolean isUsingUserDefinedDatabaseObjects(Map<String, String> config) {
@@ -441,16 +416,6 @@ public class Utils {
 
   public static String getSchema(Map<String, String> config) {
     return config.get(SF_SCHEMA);
-  }
-
-  /**
-   * Returns whether INGESTION_METHOD_OPT is set to SNOWPIPE_STREAMING. If INGESTION_METHOD_OPT not
-   * specified, returns false as default.
-   *
-   * @param config input config object
-   */
-  public static boolean isSnowpipeStreamingIngestion(Map<String, String> config) {
-    return !isSnowpipeIngestion(config);
   }
 
   public static String getUser(Map<String, String> config) {
@@ -663,7 +628,7 @@ public class Utils {
     return pairs;
   }
 
-  static final String loginPropList[] = {SF_URL, SF_USER, SF_SCHEMA, SF_DATABASE};
+  static final String[] loginPropList = {SF_URL, SF_USER, SF_SCHEMA, SF_DATABASE};
 
   public static boolean isSingleFieldValid(Config result) {
     // if any single field validation failed
@@ -795,14 +760,7 @@ public class Utils {
     // Encode and convert payload into string entity
     String payloadString =
         payload.entrySet().stream()
-            .map(
-                e -> {
-                  try {
-                    return e.getKey() + "=" + URLEncoder.encode(e.getValue(), "UTF-8");
-                  } catch (UnsupportedEncodingException ex) {
-                    throw SnowflakeErrors.ERROR_1004.getException(ex);
-                  }
-                })
+            .map(e -> e.getKey() + "=" + URLEncoder.encode(e.getValue(), UTF_8))
             .collect(Collectors.joining("&"));
     final StringEntity entity =
         new StringEntity(payloadString, ContentType.APPLICATION_FORM_URLENCODED);

@@ -72,7 +72,7 @@ public class UtilsTest {
     assert topic2table.containsKey(dogTopicRegex);
     assert topic2table.containsValue(catTable);
     assert topic2table.containsValue(dogTable);
-    assert topic2table.keySet().size() == 2;
+    assert topic2table.size() == 2;
 
     // error: overlapping regex, same table
     assert TestUtils.assertError(
@@ -306,8 +306,7 @@ public class UtilsTest {
                 exceptionMessage,
                 Utils.GET_EXCEPTION_MISSING_CAUSE));
 
-    Exception stacktraceEx = new Exception(exceptionMessage);
-    stacktraceEx.initCause(cause);
+    Exception stacktraceEx = new Exception(exceptionMessage, cause);
     stacktraceEx.getCause().setStackTrace(stackTrace);
     assert Utils.getExceptionMessage(customMessage, stacktraceEx)
         .equals(

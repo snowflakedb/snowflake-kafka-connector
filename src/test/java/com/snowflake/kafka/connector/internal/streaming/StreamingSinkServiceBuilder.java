@@ -4,8 +4,6 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,7 +20,6 @@ public class StreamingSinkServiceBuilder {
   private Map<String, String> topicToTableMap = new HashMap<>();
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
-  private SchemaEvolutionService schemaEvolutionService;
 
   public static StreamingSinkServiceBuilder builder(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
@@ -37,10 +34,7 @@ public class StreamingSinkServiceBuilder {
         sinkTaskContext,
         enableCustomJMXMonitoring,
         topicToTableMap,
-        behaviorOnNullValues,
-        schemaEvolutionService == null
-            ? new SnowflakeSchemaEvolutionService(conn)
-            : schemaEvolutionService);
+        behaviorOnNullValues);
   }
 
   private StreamingSinkServiceBuilder(
@@ -72,12 +66,6 @@ public class StreamingSinkServiceBuilder {
   public StreamingSinkServiceBuilder withBehaviorOnNullValues(
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
     behaviorOnNullValues = behavior;
-    return this;
-  }
-
-  public StreamingSinkServiceBuilder withSchemaEvolutionService(
-      SchemaEvolutionService schemaEvolutionService) {
-    this.schemaEvolutionService = schemaEvolutionService;
     return this;
   }
 }

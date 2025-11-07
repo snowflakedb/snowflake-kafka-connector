@@ -50,7 +50,7 @@ class TestNullableValuesAfterSmt(BaseE2eTest):
         if expected_res != parsed_res:
             raise NonRetryableError(f"Invalid result values. Expected: {expected_res}, got: {parsed_res}")
 
-        self.driver.verifyStageIsCleaned(self.topic)
+
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic, self.table)

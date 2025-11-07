@@ -26,6 +26,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2AvroSchematizationIT {
@@ -95,6 +96,9 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
   }
 
   @Test
+  @Disabled(
+      "disabling this test for now. It may come in handy depending on how ssv2 schema evolution"
+          + " will be implemented")
   public void testSchematizationWithTableCreationAndAvroInput() throws Exception {
     // given
     conn.createTableWithOnlyMetadataColumn(table);

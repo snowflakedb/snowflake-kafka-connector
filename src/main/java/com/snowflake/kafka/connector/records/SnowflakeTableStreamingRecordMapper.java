@@ -14,9 +14,8 @@ import java.util.Map;
 
 class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
 
-  public SnowflakeTableStreamingRecordMapper(
-      ObjectMapper mapper, boolean schematizationEnabled, boolean ssv2Enabled) {
-    super(mapper, schematizationEnabled, ssv2Enabled);
+  public SnowflakeTableStreamingRecordMapper(ObjectMapper mapper, boolean schematizationEnabled) {
+    super(mapper, schematizationEnabled);
   }
 
   @Override
@@ -30,28 +29,19 @@ class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
     return streamingIngestRow;
   }
 
-  private Map<String, Object> getContent(RecordService.SnowflakeTableRow row)
-      throws JsonProcessingException {
-    if (ssv2Enabled) {
-      return getContentForSSv2(row);
-    } else {
-      return getContentForSSv1(row);
-    }
-  }
-
-  private Map<String, Object> getContentForSSv2(RecordService.SnowflakeTableRow row) {
+  private Map<String, Object> getContent(RecordService.SnowflakeTableRow row) {
     try {
       if (schematizationEnabled) {
-        return getContentForSchematizedSSv2(row);
+        return getContentForSchematized(row);
       } else {
-        return getContentForNonSchematizedSSv2(row);
+        return getContentForNonSchematized(row);
       }
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_0010.getException(e);
     }
   }
 
-  private Map<String, Object> getContentForNonSchematizedSSv2(RecordService.SnowflakeTableRow row) {
+  private Map<String, Object> getContentForNonSchematized(RecordService.SnowflakeTableRow row) {
     Map<String, Object> result = new HashMap<>();
     for (JsonNode node : row.getContent().getData()) {
       switch (node.getNodeType()) {
@@ -68,30 +58,17 @@ class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
     return result;
   }
 
-  private Map<String, Object> getContentForSchematizedSSv2(RecordService.SnowflakeTableRow row)
+  private Map<String, Object> getContentForSchematized(RecordService.SnowflakeTableRow row)
       throws JsonProcessingException {
     Map<String, Object> result = new HashMap<>();
     for (JsonNode node : row.getContent().getData()) {
-      result.putAll(getMapFromJsonNodeForStreamingIngest(node, false));
+      result.putAll(getMapFromJsonNodeForStreamingIngest(node));
     }
     return result;
   }
 
-  private Map<String, Object> getContentForSSv1(RecordService.SnowflakeTableRow row)
+  private Map<String, Object> getMapFromJsonNodeForStreamingIngest(JsonNode node)
       throws JsonProcessingException {
-    Map<String, Object> result = new HashMap<>();
-    for (JsonNode node : row.getContent().getData()) {
-      if (schematizationEnabled) {
-        result.putAll(getMapFromJsonNodeForStreamingIngest(node, true));
-      } else {
-        result.put(TABLE_COLUMN_CONTENT, mapper.writeValueAsString(node));
-      }
-    }
-    return result;
-  }
-
-  private Map<String, Object> getMapFromJsonNodeForStreamingIngest(
-      JsonNode node, boolean nestedObjectsAsString) throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
 
     // return empty if tombstone record
@@ -104,13 +81,12 @@ class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
       String columnName = columnNames.next();
       JsonNode columnNode = node.get(columnName);
       Object columnValue = getTextualValue(columnNode);
-      if (!nestedObjectsAsString) {
-        if (columnNode.isObject()) {
-          columnValue = mapper.convertValue(columnNode, OBJECTS_MAP_TYPE_REFERENCE);
-        }
-        if (columnNode.isArray()) {
-          columnValue = mapper.convertValue(columnNode, OBJECTS_LIST_TYPE_REFERENCE);
-        }
+      // SSv2 supports native objects and arrays
+      if (columnNode.isObject()) {
+        columnValue = mapper.convertValue(columnNode, OBJECTS_MAP_TYPE_REFERENCE);
+      }
+      if (columnNode.isArray()) {
+        columnValue = mapper.convertValue(columnNode, OBJECTS_LIST_TYPE_REFERENCE);
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
@@ -125,10 +101,6 @@ class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
   }
 
   private Object getMetadata(RecordService.SnowflakeTableRow row) throws JsonProcessingException {
-    if (ssv2Enabled) {
-      return getMapForMetadata(row.getMetadata());
-    } else {
-      return mapper.writeValueAsString(row.getMetadata());
-    }
+    return getMapForMetadata(row.getMetadata());
   }
 }

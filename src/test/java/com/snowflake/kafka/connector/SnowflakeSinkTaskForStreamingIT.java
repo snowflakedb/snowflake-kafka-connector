@@ -1,8 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +26,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -46,7 +43,7 @@ import org.slf4j.Logger;
 public class SnowflakeSinkTaskForStreamingIT {
 
   private String topicName;
-  private static int partition = 0;
+  private static final int partition = 0;
   private TopicPartition topicPartition;
 
   @Mock Logger logger = Mockito.mock(Logger.class);
@@ -73,14 +70,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     // return TestUtils.nBooleanProduct(2);
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {true, false})
-  public void testSinkTask(boolean useOAuth) throws Exception {
-    Map<String, String> config = getConfig(useOAuth);
+  @Test
+  public void testSinkTask() throws Exception {
+    Map<String, String> config = getConfig(false);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(BUFFER_COUNT_RECORDS, "1"); // override
-
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
@@ -114,13 +107,10 @@ public class SnowflakeSinkTaskForStreamingIT {
   }
 
   @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {true, false})
+  @ValueSource(booleans = {false}) // false only - oauth is not used for ssv2
   public void testSinkTaskWithMultipleOpenClose(boolean useOAuth) throws Exception {
     Map<String, String> config = getConfig(useOAuth);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(BUFFER_COUNT_RECORDS, "1"); // override
-
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
     // Inits the sinktaskcontext
@@ -131,7 +121,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
 
-    final long noOfRecords = 1l;
+    final long noOfRecords = 1L;
     final long lastOffsetNo = noOfRecords - 1;
 
     // send regular data

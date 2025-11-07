@@ -1,16 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_V2_ENABLED;
 import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.partitionChannelKey;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.Gauge;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
@@ -18,8 +13,6 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
-import com.snowflake.kafka.connector.records.SnowflakeConverter;
-import com.snowflake.kafka.connector.records.SnowflakeJsonConverter;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -38,6 +31,8 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.storage.Converter;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,16 +58,15 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testChannelCloseIngestion() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // opens a channel for partition 0, table and topic
+  public void testChannelCloseIngestion()
+      throws Exception { // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(table, topicPartition);
 
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    Converter converter = buildJsonConverter();
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
@@ -100,17 +94,24 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.closeAll();
   }
 
+  private static @NotNull Converter buildJsonConverter() {
+    Converter converter = new JsonConverter();
+    HashMap<String, String> converterConfig = new HashMap<>();
+    converterConfig.put("schemas.enable", "false");
+    converter.configure(converterConfig, true);
+    return converter;
+  }
+
   @Test
-  public void testRebalanceOpenCloseIngestion() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // opens a channel for partition 0, table and topic
+  public void testRebalanceOpenCloseIngestion()
+      throws Exception { // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(table, topicPartition);
 
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    Converter converter = buildJsonConverter();
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
@@ -140,16 +141,16 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testStreamingIngestion() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // opens a channel for partition 0, table and topic
+  public void testStreamingIngestion()
+      throws Exception { // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(table, topicPartition);
 
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    Converter converter = buildJsonConverter();
+
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
     long offset = 0;
@@ -197,9 +198,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testStreamingIngest_multipleChannelPartitions_withMetrics() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // set up telemetry service spy
+  public void testStreamingIngest_multipleChannelPartitions_withMetrics()
+      throws Exception { // set up telemetry service spy
     SnowflakeConnectionService connectionService = Mockito.spy(this.conn);
     connectionService.createTable(table);
     SnowflakeTelemetryServiceV2 telemetryService =
@@ -310,7 +310,6 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
   @Test
   public void testStreamingIngest_multipleChannelPartitionsWithTopic2Table() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     final int partitionCount = 3;
     final int recordsInEachPartition = 2;
     final int topicCount = 3;
@@ -372,7 +371,6 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
   @Test
   public void testStreamingIngest_startPartitionsWithMultipleChannelPartitions() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     final int partitionCount = 5;
     final int recordsInEachPartition = 2;
 
@@ -419,9 +417,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testNativeJsonInputIngestion() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // json without schema
+  public void testNativeJsonInputIngestion() throws Exception { // json without schema
     JsonConverter converter = new JsonConverter();
     HashMap<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "false");
@@ -512,9 +508,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testNativeAvroInputIngestion() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // avro
+  public void testNativeAvroInputIngestion() throws Exception { // avro
     SchemaBuilder schemaBuilder =
         SchemaBuilder.struct()
             .field("int8", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
@@ -667,9 +661,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testBrokenIngestion() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // Mismatched schema and value
+  public void testBrokenIngestion() throws Exception { // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
 
     long startOffset = 0;
@@ -728,9 +720,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void testBrokenRecordIngestionFollowedUpByValidRecord() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // Mismatched schema and value
+  public void testBrokenRecordIngestionFollowedUpByValidRecord()
+      throws Exception { // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
     SchemaAndValue correctInputValue = new SchemaAndValue(Schema.STRING_SCHEMA, "correct");
 
@@ -777,9 +768,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
    * being 2
    */
   @Test
-  public void testBrokenRecordIngestionAfterValidRecord() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
-    // Mismatched schema and value
+  public void testBrokenRecordIngestionAfterValidRecord()
+      throws Exception { // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
     SchemaAndValue correctInputValue = new SchemaAndValue(Schema.STRING_SCHEMA, "correct");
 
@@ -828,14 +818,14 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @Test
   public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets()
       throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(table, topicPartition);
 
-    SnowflakeConverter converter = new SnowflakeJsonConverter();
+    Converter converter = buildJsonConverter();
+
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
 
@@ -878,7 +868,6 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   /* Service start -> Insert -> Close. service start -> fetch the offsetToken, compare and ingest check data */
   @Test
   public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "true");
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -921,117 +910,5 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     assert service2.getOffset(topicPartition) == totalRecordsExpected;
 
     service2.closeAll();
-  }
-
-  // note this test relies on testrole_kafka and testrole_kafka_1 roles being granted to test_kafka
-  // user
-  @Test
-  public void testStreamingIngest_multipleChannel_distinctClients() throws Exception {
-    config.put(SNOWPIPE_STREAMING_V2_ENABLED, "false");
-    // create cat and dog configs and partitions
-    // one client is enabled but two clients should be created because different roles in config
-    String catTopic = "catTopic_" + TestUtils.randomTableName();
-    Map<String, String> catConfig = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(catConfig);
-    catConfig.put(Utils.SF_OAUTH_CLIENT_ID, "1");
-    catConfig.put(Utils.NAME, catTopic);
-
-    String dogTopic = "dogTopic_" + TestUtils.randomTableName();
-    Map<String, String> dogConfig = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(dogConfig);
-    dogConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
-    dogConfig.put(Utils.NAME, dogTopic);
-
-    String fishTopic = "fishTopic_" + TestUtils.randomTableName();
-    Map<String, String> fishConfig = TestUtils.getConfForStreaming();
-    SnowflakeSinkConnectorConfig.setDefaultValues(fishConfig);
-    fishConfig.put(Utils.SF_OAUTH_CLIENT_ID, "2");
-    fishConfig.put(Utils.NAME, fishTopic);
-    fishConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
-
-    // setup connection and create tables
-    TopicPartition catTp = new TopicPartition(catTopic, 0);
-    SnowflakeConnectionService catConn =
-        SnowflakeConnectionServiceFactory.builder().setProperties(catConfig).build();
-    catConn.createTable(catTopic);
-
-    TopicPartition dogTp = new TopicPartition(dogTopic, 1);
-    SnowflakeConnectionService dogConn =
-        SnowflakeConnectionServiceFactory.builder().setProperties(dogConfig).build();
-    dogConn.createTable(dogTopic);
-
-    TopicPartition fishTp = new TopicPartition(fishTopic, 1);
-    SnowflakeConnectionService fishConn =
-        SnowflakeConnectionServiceFactory.builder().setProperties(fishConfig).build();
-    fishConn.createTable(fishTopic);
-
-    // create the sink services
-    SnowflakeSinkService catService =
-        StreamingSinkServiceBuilder.builder(catConn, catConfig)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(catTp)))
-            .build();
-    catService.startPartition(catTopic, catTp);
-
-    SnowflakeSinkService dogService =
-        StreamingSinkServiceBuilder.builder(dogConn, dogConfig)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(dogTp)))
-            .build();
-    dogService.startPartition(dogTopic, dogTp);
-
-    SnowflakeSinkService fishService =
-        StreamingSinkServiceBuilder.builder(fishConn, fishConfig)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(fishTp)))
-            .build();
-    fishService.startPartition(fishTopic, fishTp);
-
-    // create records
-    final int catRecordCount = 9;
-    final int dogRecordCount = 3;
-    final int fishRecordCount = 1;
-
-    List<SinkRecord> catRecords =
-        TestUtils.createJsonStringSinkRecords(0, catRecordCount, catTp.topic(), catTp.partition());
-    List<SinkRecord> dogRecords =
-        TestUtils.createJsonStringSinkRecords(0, dogRecordCount, dogTp.topic(), dogTp.partition());
-    List<SinkRecord> fishRecords =
-        TestUtils.createJsonStringSinkRecords(
-            0, fishRecordCount, fishTp.topic(), fishTp.partition());
-
-    // insert records
-    catService.insert(catRecords);
-    dogService.insert(dogRecords);
-    fishService.insert(fishRecords);
-
-    // check data was ingested
-    TestUtils.assertWithRetry(() -> catService.getOffset(catTp) == catRecordCount, 20, 20);
-    TestUtils.assertWithRetry(() -> dogService.getOffset(dogTp) == dogRecordCount, 20, 20);
-    TestUtils.assertWithRetry(() -> fishService.getOffset(fishTp) == fishRecordCount, 20, 20);
-
-    // verify three clients were created
-    assert StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients()
-        .containsKey(new StreamingClientProperties(catConfig));
-    assert StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients()
-        .containsKey(new StreamingClientProperties(dogConfig));
-    assert StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients()
-        .containsKey(new StreamingClientProperties(fishConfig));
-
-    // close services
-    catService.closeAll();
-    dogService.closeAll();
-    fishService.closeAll();
-
-    // verify three clients were closed
-    assert !StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients()
-        .containsKey(new StreamingClientProperties(catConfig));
-    assert !StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients()
-        .containsKey(new StreamingClientProperties(dogConfig));
-    assert !StreamingClientProvider.getStreamingClientProviderInstance()
-        .getRegisteredClients()
-        .containsKey(new StreamingClientProperties(fishConfig));
   }
 }

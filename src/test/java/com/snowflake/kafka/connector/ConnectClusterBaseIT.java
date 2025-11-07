@@ -1,32 +1,32 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.Utils.SF_ROLE;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
 import static org.apache.kafka.connect.sink.SinkConnector.TOPICS_CONFIG;
+import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.FakeStreamingClientHandler;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProvider;
+import com.snowflake.kafka.connector.internal.streaming.FakeIngestClientSupplier;
+import com.snowflake.kafka.connector.internal.streaming.FakeSnowflakeStreamingIngestClient;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 
+/** Base class for integration tests using an embedded Kafka Connect cluster. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ConnectClusterBaseIT {
 
   protected EmbeddedConnectCluster connectCluster;
-
-  protected FakeStreamingClientHandler fakeStreamingClientHandler;
+  protected final FakeIngestClientSupplier fakeClientSupplier = new FakeIngestClientSupplier();
 
   static final Integer TASK_NUMBER = 1;
 
@@ -37,22 +37,10 @@ public abstract class ConnectClusterBaseIT {
     connectCluster =
         new EmbeddedConnectCluster.Builder()
             .name("kafka-push-connector-connect-cluster")
-            .numWorkers(3)
+            .numWorkers(1)
             .workerProps(workerConfig)
             .build();
     connectCluster.start();
-  }
-
-  @BeforeEach
-  public void beforeEach() {
-    StreamingClientProvider.reset();
-    fakeStreamingClientHandler = new FakeStreamingClientHandler();
-    StreamingClientProvider.overrideStreamingClientHandler(fakeStreamingClientHandler);
-  }
-
-  @AfterEach
-  public void afterEach() {
-    StreamingClientProvider.reset();
   }
 
   @AfterAll
@@ -63,17 +51,32 @@ public abstract class ConnectClusterBaseIT {
     }
   }
 
+  protected FakeSnowflakeStreamingIngestClient getOpenedFakeIngestClient(String connectorName) {
+    await("channelsCreated")
+        .atMost(Duration.ofSeconds(30))
+        .ignoreExceptions()
+        .until(
+            () ->
+                !getFakeSnowflakeStreamingIngestClient(connectorName)
+                    .getOpenedChannels()
+                    .isEmpty());
+
+    return getFakeSnowflakeStreamingIngestClient(connectorName);
+  }
+
+  protected void waitForOpenedFakeIngestClient(String connectorName) {
+    getOpenedFakeIngestClient(connectorName);
+  }
+
   protected final Map<String, String> defaultProperties(String topicName, String connectorName) {
     Map<String, String> config = TestUtils.getConf();
 
     config.put(CONNECTOR_CLASS_CONFIG, SnowflakeStreamingSinkConnector.class.getName());
     config.put(NAME, connectorName);
     config.put(TOPICS_CONFIG, topicName);
-    config.put(INGESTION_METHOD_OPT, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
-    config.put(Utils.SF_ROLE, "testrole_kafka");
+    config.put(SF_ROLE, config.get(Utils.SF_ROLE));
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
-    config.put(SNOWPIPE_STREAMING_CLOSE_CHANNELS_IN_PARALLEL, "true");
     config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
     config.put(VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
 
@@ -99,5 +102,13 @@ public abstract class ConnectClusterBaseIT {
     } catch (InterruptedException e) {
       throw new IllegalStateException("The connector is not running");
     }
+  }
+
+  private FakeSnowflakeStreamingIngestClient getFakeSnowflakeStreamingIngestClient(
+      String connectorName) {
+    return fakeClientSupplier.getFakeIngestClients().stream()
+        .filter((client) -> client.getConnectorName().equals(connectorName))
+        .findFirst()
+        .orElseThrow();
   }
 }

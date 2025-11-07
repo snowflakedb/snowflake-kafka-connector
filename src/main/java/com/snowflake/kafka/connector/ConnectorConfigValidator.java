@@ -10,5 +10,5 @@ public interface ConnectorConfigValidator {
    * @param config configuration Map
    * @return connector name
    */
-  String validateConfig(Map<String, String> config);
+  void validateConfig(Map<String, String> config);
 }

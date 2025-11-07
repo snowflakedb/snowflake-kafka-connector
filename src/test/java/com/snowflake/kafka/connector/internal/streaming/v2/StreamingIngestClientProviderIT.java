@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -16,10 +17,10 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.SAME_THREAD)
-public class StreamingIngestClientV2ProviderIT {
+public class StreamingIngestClientProviderIT {
 
   private static final KCLogger LOGGER =
-      new KCLogger(StreamingIngestClientV2ProviderIT.class.getName());
+      new KCLogger(StreamingIngestClientProviderIT.class.getName());
 
   // Shared resources created once for the entire test class
   private static Map<String, String> connectorConfig;
@@ -31,7 +32,7 @@ public class StreamingIngestClientV2ProviderIT {
   private static String testPipeName2;
 
   // Provider instance reset before each test
-  private StreamingIngestClientV2Provider provider;
+  private StreamingIngestClientProvider provider;
 
   @BeforeAll
   public static void setUpClass() {
@@ -64,7 +65,7 @@ public class StreamingIngestClientV2ProviderIT {
   @BeforeEach
   public void setUp() {
     // Create a fresh provider instance for each test to ensure test isolation
-    provider = new StreamingIngestClientV2Provider();
+    provider = new StreamingIngestClientProvider();
   }
 
   @AfterEach
@@ -94,7 +95,7 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testGetClient_FirstTime_CreatesNewClient() {
     // When
-    StreamingIngestClientV2Wrapper client =
+    SnowflakeStreamingIngestClient client =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // Then
@@ -104,11 +105,11 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testGetClient_SamePipeName_ReturnsExistingClient() {
     // Given
-    StreamingIngestClientV2Wrapper client1 =
+    SnowflakeStreamingIngestClient client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // When
-    StreamingIngestClientV2Wrapper client2 =
+    SnowflakeStreamingIngestClient client2 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // Then
@@ -120,9 +121,9 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testGetClient_DifferentPipeNames_CreatesDistinctClients() {
     // When
-    StreamingIngestClientV2Wrapper client1 =
+    SnowflakeStreamingIngestClient client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    StreamingIngestClientV2Wrapper client2 =
+    SnowflakeStreamingIngestClient client2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
 
     // Then
@@ -134,13 +135,13 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testGetClient_AfterClientClosed_CreatesNewClient() {
     // Given
-    StreamingIngestClientV2Wrapper client1 =
+    SnowflakeStreamingIngestClient client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
     // Close the client through the provider
     provider.close(testPipeName);
 
     // When
-    StreamingIngestClientV2Wrapper client2 =
+    SnowflakeStreamingIngestClient client2 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // Then
@@ -152,14 +153,14 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testClose_ExistingPipe_ClosesAndRemovesClient() {
     // Given
-    StreamingIngestClientV2Wrapper client =
+    SnowflakeStreamingIngestClient client =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
 
     // When
     provider.close(testPipeName);
 
     // Then - Verify new client is created for same pipe name
-    StreamingIngestClientV2Wrapper newClient =
+    SnowflakeStreamingIngestClient newClient =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
     assertThat(client).as("Should create new client after close").isNotEqualTo(newClient);
   }
@@ -173,18 +174,18 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testCloseAll_MultipleClients_ClosesAllClients() {
     // Given
-    StreamingIngestClientV2Wrapper client1 =
+    SnowflakeStreamingIngestClient client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    StreamingIngestClientV2Wrapper client2 =
+    SnowflakeStreamingIngestClient client2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
 
     // When
     provider.closeAll();
 
     // Then - Verify new clients are created after closeAll
-    StreamingIngestClientV2Wrapper newClient1 =
+    SnowflakeStreamingIngestClient newClient1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    StreamingIngestClientV2Wrapper newClient2 =
+    SnowflakeStreamingIngestClient newClient2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
 
     assertThat(client1).as("Should create new client after closeAll").isNotEqualTo(newClient1);
@@ -200,21 +201,21 @@ public class StreamingIngestClientV2ProviderIT {
   @Test
   public void testProvider_ReuseAfterPartialClose_WorksCorrectly() {
     // Given - Multiple clients
-    StreamingIngestClientV2Wrapper client1 =
+    SnowflakeStreamingIngestClient client1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
-    StreamingIngestClientV2Wrapper client2 =
+    SnowflakeStreamingIngestClient client2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
 
     // When - Close only one client
     provider.close(testPipeName);
 
     // Then - New client for first pipe should be created
-    StreamingIngestClientV2Wrapper newClient1 =
+    SnowflakeStreamingIngestClient newClient1 =
         provider.getClient(connectorConfig, testPipeName, streamingClientProperties);
     assertThat(client1).as("Should create new client for closed pipe").isNotEqualTo(newClient1);
 
     // Existing client for second pipe should be reused
-    StreamingIngestClientV2Wrapper sameClient2 =
+    SnowflakeStreamingIngestClient sameClient2 =
         provider.getClient(connectorConfig, testPipeName2, streamingClientProperties);
     assertThat(client2).as("Should reuse existing client for open pipe").isEqualTo(sameClient2);
   }

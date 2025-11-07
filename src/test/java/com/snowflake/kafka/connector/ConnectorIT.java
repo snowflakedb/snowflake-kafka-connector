@@ -1,5 +1,25 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JVM_PROXY_HOST;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JVM_PROXY_PORT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_URL;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_USER;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP;
 import static com.snowflake.kafka.connector.Utils.NAME;
 import static com.snowflake.kafka.connector.Utils.TASK_ID;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
@@ -15,23 +35,20 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 public class ConnectorIT {
-  static final String allPropertiesList[] = {
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE,
-    SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS,
-    SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES,
-    SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME,
-    SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
-    SnowflakeSinkConnectorConfig.JVM_PROXY_PORT,
-    SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
-    SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
+  static final String[] allPropertiesList = {
+    SNOWFLAKE_URL,
+    SNOWFLAKE_USER,
+    SNOWFLAKE_SCHEMA,
+    SNOWFLAKE_DATABASE,
+    SNOWFLAKE_METADATA_ALL,
+    SNOWFLAKE_METADATA_TOPIC,
+    SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
+    SNOWFLAKE_METADATA_CREATETIME,
+    TOPICS_TABLES_MAP,
+    SNOWFLAKE_PRIVATE_KEY,
+    JVM_PROXY_PORT,
+    JVM_PROXY_HOST,
+    SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
   };
 
   static final Set<String> allProperties = new HashSet<>(Arrays.asList(allPropertiesList));
@@ -48,41 +65,10 @@ public class ConnectorIT {
     }
   }
 
-  private static void assertPropNoError(
-      final Map<String, ConfigValue> validateMap, final String[] propArray) {
-    List<String> propList = Arrays.asList(propArray);
-    for (String prop : allProperties) {
-      if (propList.contains(prop)) {
-        assert validateMap.get(prop).errorMessages().isEmpty();
-      } else {
-        assert !validateMap.get(prop).errorMessages().isEmpty();
-      }
-    }
-  }
-
   private static Map<String, ConfigValue> toValidateMap(final Map<String, String> config) {
     SnowflakeStreamingSinkConnector sinkConnector = new SnowflakeStreamingSinkConnector();
     Config result = sinkConnector.validate(config);
     return Utils.validateConfigToMap(result);
-  }
-
-  static Map<String, String> getErrorConfig() {
-    Map<String, String> config = new HashMap<>();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL, "");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER, "");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, "");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, "");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA, "");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE, "");
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_COUNT_RECORDS, "0");
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_SIZE_BYTES, "0");
-    config.put(SnowflakeSinkConnectorConfig.BUFFER_FLUSH_TIME_SEC, "-1");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_ALL, "falseee");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_TOPIC, "falseee");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "falseee");
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_METADATA_CREATETIME, "falseee");
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "jfsja,,");
-    return config;
   }
 
   static Map<String, String> getEmptyConfig() {
@@ -107,17 +93,70 @@ public class ConnectorIT {
   }
 
   @Test
-  public void testValidateErrorConfig() {
-    Map<String, ConfigValue> validateMap = toValidateMap(getErrorConfig());
-    // all single field validation has error
-    assertPropNoError(
-        validateMap,
-        new String[] {
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
-          SnowflakeSinkConnectorConfig.JVM_PROXY_PORT,
-          SnowflakeSinkConnectorConfig.JVM_PROXY_HOST,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
-        });
+  public void testValidateErrorConfigImproved() {
+    // Given: a configuration with intentionally invalid values
+    Map<String, String> config = new HashMap<>();
+    config.put(SNOWFLAKE_URL, "");
+    config.put(SNOWFLAKE_USER, "");
+    config.put(SNOWFLAKE_DATABASE, "");
+    config.put(SNOWFLAKE_PRIVATE_KEY, "");
+    config.put(SNOWFLAKE_ROLE, "");
+    config.put(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, "");
+    config.put(SNOWFLAKE_SCHEMA, "");
+    config.put(SNOWFLAKE_METADATA_TOPIC, "falseee");
+    config.put(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "falseee");
+    config.put(SNOWFLAKE_METADATA_CREATETIME, "falseee");
+    config.put(TOPICS_TABLES_MAP, "jfsja,,");
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+
+    // Optional properties that should NOT have errors (even when empty or missing)
+    Set<String> optionalProperties =
+        new HashSet<>(
+            Arrays.asList(
+                SNOWFLAKE_PRIVATE_KEY,
+                JVM_PROXY_PORT,
+                JVM_PROXY_HOST,
+                SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
+                SNOWFLAKE_METADATA_ALL));
+
+    // Required properties or properties with format validation that SHOULD have errors
+    Set<String> requiredOrValidatedProperties =
+        new HashSet<>(
+            Arrays.asList(
+                SNOWFLAKE_URL, // empty string - required
+                SNOWFLAKE_USER, // empty string - required
+                SNOWFLAKE_DATABASE, // empty string - required
+                SNOWFLAKE_SCHEMA, // empty string - required
+                SNOWFLAKE_METADATA_TOPIC, // invalid boolean "falseee"
+                SnowflakeSinkConnectorConfig
+                    .SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, // invalid boolean "falseee"
+                SnowflakeSinkConnectorConfig
+                    .SNOWFLAKE_METADATA_CREATETIME, // invalid boolean "falseee"
+                TOPICS_TABLES_MAP // invalid format "jfsja,,"
+                ));
+
+    // Assert: optional properties should have NO errors
+    for (String optionalProp : optionalProperties) {
+      ConfigValue configValue = validateMap.get(optionalProp);
+      assert configValue != null
+          : String.format("Property '%s' not found in validation results", optionalProp);
+      assert configValue.errorMessages().isEmpty()
+          : String.format(
+              "Optional property '%s' should not have errors, but has: %s",
+              optionalProp, configValue.errorMessages());
+    }
+
+    // Assert: required/validated properties SHOULD have errors
+    for (String requiredProp : requiredOrValidatedProperties) {
+      ConfigValue configValue = validateMap.get(requiredProp);
+      assert configValue != null
+          : String.format("Property '%s' not found in validation results", requiredProp);
+      assert !configValue.errorMessages().isEmpty()
+          : String.format(
+              "Required/validated property '%s' should have validation errors but has none. "
+                  + "Current value: '%s'",
+              requiredProp, configValue.value());
+    }
   }
 
   @Test
@@ -126,10 +165,7 @@ public class ConnectorIT {
     assertPropHasError(
         validateMap,
         new String[] {
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE,
+          SNOWFLAKE_USER, SNOWFLAKE_URL, SNOWFLAKE_SCHEMA, SNOWFLAKE_DATABASE,
         });
   }
 
@@ -149,108 +185,92 @@ public class ConnectorIT {
   @Test
   public void testValidateErrorURLFormatConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL, "https://google.com");
+    config.put(SNOWFLAKE_URL, "https://google.com");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {SnowflakeSinkConnectorConfig.SNOWFLAKE_URL});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_URL});
   }
 
   @Test
   public void testValidateErrorURLAccountConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWFLAKE_URL, "wronggAccountt.snowflakecomputing.com:443");
+    config.put(SNOWFLAKE_URL, "wronggAccountt.snowflakecomputing.com:443");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
-        validateMap,
-        new String[] {
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY
-        });
+        validateMap, new String[] {SNOWFLAKE_USER, SNOWFLAKE_URL, SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
   public void testValidateErrorUserConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER, "wrongUser");
+    config.put(SNOWFLAKE_USER, "wrongUser");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
-        validateMap,
-        new String[] {
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY
-        });
+        validateMap, new String[] {SNOWFLAKE_USER, SNOWFLAKE_URL, SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
   public void testValidateErrorPasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, "wrongPassword");
+    config.put(SNOWFLAKE_PRIVATE_KEY, "wrongPassword");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
   public void testValidateEmptyPasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, "");
+    config.put(SNOWFLAKE_PRIVATE_KEY, "");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
   public void testValidateNullPasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
+    config.remove(SNOWFLAKE_PRIVATE_KEY);
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY});
   }
 
   @Test
   @Ignore("OAuth tests are temporary disabled")
   public void testValidateNullOAuthClientIdConfig() {
     Map<String, String> config = getCorrectConfigWithOAuth();
-    config.remove(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID);
+    config.remove(OAUTH_CLIENT_ID);
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID});
+    assertPropHasError(validateMap, new String[] {OAUTH_CLIENT_ID});
   }
 
   @Test
   @Ignore("OAuth tests are temporary disabled")
   public void testValidateNullOAuthClientSecretConfig() {
     Map<String, String> config = getCorrectConfigWithOAuth();
-    config.remove(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET);
+    config.remove(OAUTH_CLIENT_SECRET);
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET});
+    assertPropHasError(validateMap, new String[] {OAUTH_CLIENT_SECRET});
   }
 
   @Test
   @Ignore("OAuth tests are temporary disabled")
   public void testValidateNullOAuthRefreshTokenConfig() {
     Map<String, String> config = getCorrectConfigWithOAuth();
-    config.remove(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN);
+    config.remove(OAUTH_REFRESH_TOKEN);
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap, new String[] {SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN});
+    assertPropHasError(validateMap, new String[] {OAUTH_REFRESH_TOKEN});
   }
 
   @Test
   public void testValidateInvalidAuthenticator() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, "invalid_authenticator");
+    config.put(AUTHENTICATOR_TYPE, "invalid_authenticator");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE});
+    assertPropHasError(validateMap, new String[] {AUTHENTICATOR_TYPE});
   }
 
   @Test
   public void testValidateFilePasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, " ${file:/");
+    config.put(SNOWFLAKE_PRIVATE_KEY, " ${file:/");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[] {});
   }
@@ -258,7 +278,7 @@ public class ConnectorIT {
   @Test
   public void testValidateConfigProviderPasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, " ${configProvider:/");
+    config.put(SNOWFLAKE_PRIVATE_KEY, " ${configProvider:/");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[] {});
   }
@@ -266,7 +286,7 @@ public class ConnectorIT {
   @Test
   public void testValidateFilePassphraseConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${file:/");
+    config.put(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${file:/");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[] {});
   }
@@ -274,8 +294,7 @@ public class ConnectorIT {
   @Test
   public void testValidateConfigProviderPassphraseConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${configProvider:/");
+    config.put(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " ${configProvider:/");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(validateMap, new String[] {});
   }
@@ -283,93 +302,81 @@ public class ConnectorIT {
   @Test
   public void testValidateErrorPassphraseConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, "wrongPassphrase");
+    config.put(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, "wrongPassphrase");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
-        validateMap,
-        new String[] {
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
-        });
+        validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY, SNOWFLAKE_PRIVATE_KEY_PASSPHRASE});
   }
 
   @Test
   public void testValidateErrorDatabaseConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE, "wrongDatabase");
+    config.put(SNOWFLAKE_DATABASE, "wrongDatabase");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_DATABASE});
   }
 
   @Test
   public void testValidateErrorSchemaConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA, "wrongSchema");
+    config.put(SNOWFLAKE_SCHEMA, "wrongSchema");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA});
+    assertPropHasError(validateMap, new String[] {SNOWFLAKE_SCHEMA});
   }
 
   @Test
   public void testErrorProxyHostConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
+    config.put(JVM_PROXY_HOST, "localhost");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap,
-        new String[] {
-          SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT
-        });
+    assertPropHasError(validateMap, new String[] {JVM_PROXY_HOST, JVM_PROXY_PORT});
   }
 
   @Test
   public void testErrorProxyPortConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
+    config.put(JVM_PROXY_PORT, "8080");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(
-        validateMap,
-        new String[] {
-          SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, SnowflakeSinkConnectorConfig.JVM_PROXY_PORT
-        });
+    assertPropHasError(validateMap, new String[] {JVM_PROXY_HOST, JVM_PROXY_PORT});
   }
 
   @Test
   public void testProxyHostPortConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
+    config.put(JVM_PROXY_HOST, "localhost");
+    config.put(JVM_PROXY_PORT, "8080");
     Utils.validateProxySettings(config);
   }
 
   @Test
   public void testErrorProxyUsernameConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "user");
+    config.put(JVM_PROXY_HOST, "localhost");
+    config.put(JVM_PROXY_PORT, "8080");
+    config.put(JVM_PROXY_USERNAME, "user");
 
     Map<String, String> invalidConfigs = Utils.validateProxySettings(config);
-    assert invalidConfigs.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME);
+    assert invalidConfigs.containsKey(JVM_PROXY_USERNAME);
   }
 
   @Test
   public void testErrorProxyPasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "8080");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "pass");
+    config.put(JVM_PROXY_HOST, "localhost");
+    config.put(JVM_PROXY_PORT, "8080");
+    config.put(JVM_PROXY_PASSWORD, "pass");
 
     Map<String, String> invalidConfigs = Utils.validateProxySettings(config);
-    assert invalidConfigs.containsKey(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD);
+    assert invalidConfigs.containsKey(JVM_PROXY_PASSWORD);
   }
 
   @Test
   public void testProxyUsernamePasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "3128");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "admin");
-    config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD, "test");
+    config.put(JVM_PROXY_HOST, "localhost");
+    config.put(JVM_PROXY_PORT, "3128");
+    config.put(JVM_PROXY_USERNAME, "admin");
+    config.put(JVM_PROXY_PASSWORD, "test");
     Utils.validateProxySettings(config);
   }
 

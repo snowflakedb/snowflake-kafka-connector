@@ -7,7 +7,7 @@ import org.apache.kafka.connect.data.Schema;
 
 public class SnowflakeRecordContent {
 
-  private static ObjectMapper MAPPER = new ObjectMapper();
+  private static final ObjectMapper MAPPER = new ObjectMapper();
   public static int NON_AVRO_SCHEMA = -1;
   private final JsonNode[] content;
   private final byte[] brokenData;
@@ -135,9 +135,6 @@ public class SnowflakeRecordContent {
    * @return true if content value is empty json node as well as isNullValueRecord is set to true.
    */
   public boolean isRecordContentValueNull() {
-    if (content != null && content[0].isEmpty() && isNullValueRecord) {
-      return true;
-    }
-    return false;
+    return content != null && content[0].isEmpty() && isNullValueRecord;
   }
 }

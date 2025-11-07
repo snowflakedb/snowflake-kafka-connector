@@ -9,7 +9,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
@@ -67,7 +66,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
             .withErrorReporter(kafkaRecordErrorReporter)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
-            .withSchemaEvolutionService(new IcebergSchemaEvolutionService(conn))
             .build();
     service.startPartition(tableName, topicPartition);
   }

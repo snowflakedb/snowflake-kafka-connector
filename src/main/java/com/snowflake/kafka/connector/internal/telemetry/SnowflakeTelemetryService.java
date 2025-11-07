@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.telemetry;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -28,6 +27,7 @@ public abstract class SnowflakeTelemetryService {
   private static final String SOURCE = "source";
   private static final String TYPE = "type";
   private static final String KAFKA_CONNECTOR = "kafka_connector";
+  static final String INGESTION_METHOD = "snowflake.ingestion.method";
   private static final String DATA = "data";
   private static final String MAX_TASKS = "max_tasks";
   private static final String START_TIME = "start_time";
@@ -173,11 +173,11 @@ public abstract class SnowflakeTelemetryService {
    *
    * @return An ObjectNode which is by default always created with certain defined properties in it.
    */
-  protected ObjectNode getDefaultObjectNode(IngestionMethodConfig ingestionMethodConfig) {
+  protected ObjectNode getDefaultObjectNode() {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(APP_NAME, getAppName());
     msg.put(TASK_ID, getTaskID());
-    msg.put(SnowflakeSinkConnectorConfig.INGESTION_METHOD_OPT, ingestionMethodConfig.ordinal());
+    msg.put(INGESTION_METHOD, IngestionMethodConfig.SNOWPIPE_STREAMING.toString());
     return msg;
   }
 
@@ -242,15 +242,6 @@ public abstract class SnowflakeTelemetryService {
     // maxTasks value isn't visible if the user leaves it at default. So, null means not set
     dataObjectNode.put(MAX_TASKS, userProvidedConfig.get("tasks.max"));
 
-    dataObjectNode.put(BUFFER_SIZE_BYTES, userProvidedConfig.get(BUFFER_SIZE_BYTES));
-    dataObjectNode.put(BUFFER_COUNT_RECORDS, userProvidedConfig.get(BUFFER_COUNT_RECORDS));
-    dataObjectNode.put(BUFFER_FLUSH_TIME_SEC, userProvidedConfig.get(BUFFER_FLUSH_TIME_SEC));
-
-    // Set default to Snowpipe if not provided.
-    dataObjectNode.put(
-        INGESTION_METHOD_OPT,
-        userProvidedConfig.getOrDefault(INGESTION_METHOD_OPT, INGESTION_METHOD_DEFAULT_SNOWPIPE));
-
     // Key and value converters to gauge if Snowflake Native converters are used.
     dataObjectNode.put(
         KEY_CONVERTER_CONFIG_FIELD, userProvidedConfig.get(KEY_CONVERTER_CONFIG_FIELD));
@@ -264,27 +255,10 @@ public abstract class SnowflakeTelemetryService {
             ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_DEFAULT));
 
     dataObjectNode.put(
-        SNOWPIPE_STREAMING_V2_ENABLED,
-        userProvidedConfig.getOrDefault(
-            SNOWPIPE_STREAMING_V2_ENABLED,
-            String.valueOf(SNOWPIPE_STREAMING_V2_ENABLED_DEFAULT_VALUE)));
-
-    dataObjectNode.put(
         ICEBERG_ENABLED,
         userProvidedConfig.getOrDefault(
             ICEBERG_ENABLED, String.valueOf(ICEBERG_ENABLED_DEFAULT_VALUE)));
 
-    // Record whether streaming client optimization is enabled
-    dataObjectNode.put(
-        ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-        userProvidedConfig.getOrDefault(
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-            ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT + ""));
-    if (userProvidedConfig.containsKey(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG)) {
-      dataObjectNode.put(
-          ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG,
-          userProvidedConfig.get(ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG));
-    }
     // These are Optional, so we add only if it's provided in user config
     if (userProvidedConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
       dataObjectNode.put(

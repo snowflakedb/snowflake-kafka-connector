@@ -34,12 +34,11 @@ public class InternalUtils {
   static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
   static final String JDBC_QUERY_RESULT_FORMAT = "JDBC_QUERY_RESULT_FORMAT";
   // internal parameters
-  static final long MAX_RECOVERY_TIME = 10 * 24 * 3600 * 1000; // 10 days
 
   private static final KCLogger LOGGER = new KCLogger(InternalUtils.class.getName());
 
   // backoff with 1, 2, 4, 8 seconds
-  public static final int backoffSec[] = {0, 1, 2, 4, 8};
+  public static final int[] backoffSec = {0, 1, 2, 4, 8};
 
   /**
    * count the size of result set
@@ -111,14 +110,15 @@ public class InternalUtils {
 
   /**
    * Use this function if you want to create properties from user provided Snowflake kafka connector
-   * config. It assumes the caller wants to use this Property for Snowpipe based Kafka Connector.
+   * config. It assumes the caller wants to use this Property for Snowpipe Streaming based Kafka
+   * Connector.
    *
    * @param conf User provided kafka connector config
    * @param url target server url
    * @return Properties object which will be passed down to JDBC connection
    */
   static Properties createProperties(Map<String, String> conf, SnowflakeURL url) {
-    return createProperties(conf, url, IngestionMethodConfig.SNOWPIPE);
+    return createProperties(conf, url, IngestionMethodConfig.SNOWPIPE_STREAMING);
   }
 
   /**
@@ -142,9 +142,6 @@ public class InternalUtils {
     String oAuthClientSecret = "";
     String oAuthRefreshToken = "";
     String oAuthTokenEndpoint = "";
-
-    // OAuth access token
-    String token = "";
 
     for (Map.Entry<String, String> entry : conf.entrySet()) {
       // case insensitive

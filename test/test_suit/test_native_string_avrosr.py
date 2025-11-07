@@ -42,12 +42,9 @@ class TestNativeStringAvrosr(BaseE2eTest):
             "Select * from {} limit 1".format(self.topic)).fetchone()
 
         # "schema_id" is lost since they are using native avro converter
-        goldMeta = r'{"CreateTime":\d*,"offset":0,"partition":0,' \
-                   r'"topic":"travis_correct_native_string_avrosr_\w*"}'
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{},"offset":0,"partition":0,"topic":"travis_correct_native_string_avrosr_\w*"}'
         goldContent = r'{"firstName":"abc0","time":1835}'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
-
-        self.driver.verifyStageIsCleaned(self.topic)
 
     def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

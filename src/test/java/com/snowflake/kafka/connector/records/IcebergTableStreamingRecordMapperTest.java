@@ -73,7 +73,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, true);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then
@@ -86,14 +86,14 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false);
     IcebergTableStreamingRecordMapper mapperSchematization =
-        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, true);
     IcebergTableStreamingRecordMapper ssv2Mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false, true);
+        new IcebergTableStreamingRecordMapper(objectMapper, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
     Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, true);
-    Map<String, Object> resultSSv2 = ssv2Mapper.processSnowflakeRecord(row, true);
+    ssv2Mapper.processSnowflakeRecord(row, true);
 
     // Then
     assertThat(result.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
@@ -107,9 +107,9 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
 
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false);
     IcebergTableStreamingRecordMapper mapperSchematization =
-        new IcebergTableStreamingRecordMapper(objectMapper, true, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, true);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, false);
     Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, false);
 
@@ -125,7 +125,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
       throws JsonProcessingException {
     // When
     IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false, false);
+        new IcebergTableStreamingRecordMapper(objectMapper, false);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then

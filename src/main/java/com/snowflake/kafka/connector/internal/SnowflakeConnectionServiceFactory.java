@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.PROVIDER_CONFIG;
+import static com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig.SNOWPIPE_STREAMING;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -29,26 +29,9 @@ public class SnowflakeConnectionServiceFactory {
     /** Underlying implementation - Check Enum {@link IngestionMethodConfig} */
     private IngestionMethodConfig ingestionMethodConfig;
 
-    @VisibleForTesting
-    public SnowflakeConnectionServiceBuilder setProperties(Properties connectionProperties) {
-      this.jdbcProperties = JdbcProperties.create(connectionProperties);
-      this.ingestionMethodConfig = IngestionMethodConfig.SNOWPIPE;
-      return this;
-    }
-
     // For testing only
     public Properties getProperties() {
       return this.jdbcProperties.getProperties();
-    }
-
-    public SnowflakeConnectionServiceBuilder setURL(SnowflakeURL url) {
-      this.url = url;
-      return this;
-    }
-
-    public SnowflakeConnectionServiceBuilder setConnectorName(String name) {
-      this.connectorName = name;
-      return this;
     }
 
     public SnowflakeConnectionServiceBuilder setTaskID(String taskID) {
@@ -64,7 +47,7 @@ public class SnowflakeConnectionServiceFactory {
       this.kafkaProvider =
           SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
       this.connectorName = conf.get(Utils.NAME);
-      this.ingestionMethodConfig = IngestionMethodConfig.determineIngestionMethod(conf);
+      this.ingestionMethodConfig = SNOWPIPE_STREAMING;
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =
@@ -80,7 +63,7 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
       return new SnowflakeConnectionServiceV1(
-          jdbcProperties, url, connectorName, taskID, kafkaProvider, ingestionMethodConfig);
+          jdbcProperties, url, connectorName, taskID, kafkaProvider);
     }
   }
 }
