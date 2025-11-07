@@ -150,7 +150,7 @@ sleep 10
 echo -e "\n=== Java version used ==="
 java -version
 echo -e "\n=== Start Kafka Connect ==="
-$APACHE_FOLDER_NAME/bin/connect-distributed.sh $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG > $APACHE_LOG_PATH/kc.log 2>&1 &
+$APACHE_FOLDER_NAME/bin/connect-distributed.sh $SNOWFLAKE_APACHE_CONFIG_PATH/$SNOWFLAKE_KAFKA_CONNECT_CONFIG 2>&1 | tee $APACHE_LOG_PATH/kc.log &
 sleep 10
 
 # address of kafka
