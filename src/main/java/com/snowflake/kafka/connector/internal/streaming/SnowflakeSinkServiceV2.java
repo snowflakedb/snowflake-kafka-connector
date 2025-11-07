@@ -131,32 +131,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   /**
    * Gets a unique identifier consisting of connector name, topic name and partition number.
-   *
-   * <p>Channel names are limited to 128 characters by Snowflake. If the combined name exceeds this
-   * limit, an exception will be thrown.
    */
   @VisibleForTesting
   public static String makeChannelName(
       final String connectorName, final String topic, final int partition) {
-    final int MAX_CHANNEL_NAME_LENGTH = 128;
     final String separator = "_";
-
-    String channelName = connectorName + separator + topic + separator + partition;
-
-    if (channelName.length() > MAX_CHANNEL_NAME_LENGTH) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Channel name exceeds maximum length of %d characters (actual: %d). Channel name:"
-                  + " '%s'. Please use shorter connector name (current: %d chars) or topic name"
-                  + " (current: %d chars).",
-              MAX_CHANNEL_NAME_LENGTH,
-              channelName.length(),
-              channelName,
-              connectorName.length(),
-              topic.length()));
-    }
-
-    return channelName;
+    return connectorName + separator + topic + separator + partition;
   }
 
   /**
