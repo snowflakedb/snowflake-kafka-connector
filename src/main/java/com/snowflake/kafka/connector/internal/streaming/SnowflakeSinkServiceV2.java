@@ -129,9 +129,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
   }
 
-  /**
-   * Gets a unique identifier consisting of connector name, topic name and partition number.
-   */
+  /** Gets a unique identifier consisting of connector name, topic name and partition number. */
   @VisibleForTesting
   public static String makeChannelName(
       final String connectorName, final String topic, final int partition) {
