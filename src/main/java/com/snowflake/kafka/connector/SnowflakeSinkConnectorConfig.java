@@ -352,9 +352,7 @@ public class SnowflakeSinkConnectorConfig {
           }
         };
 
-    /**
-     * @return All valid enum values
-     */
+    /** @return All valid enum values */
     public static String[] names() {
       ErrorTolerance[] errorTolerances = values();
       String[] result = new String[errorTolerances.length];

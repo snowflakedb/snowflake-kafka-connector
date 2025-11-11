@@ -123,27 +123,19 @@ public interface SnowflakeConnectionService {
    */
   void dropPipe(String pipeName);
 
-  /**
-   * @return telemetry client
-   */
+  /** @return telemetry client */
   SnowflakeTelemetryService getTelemetryClient();
 
   /** Close Connection */
   void close();
 
-  /**
-   * @return true is connection is closed
-   */
+  /** @return true is connection is closed */
   boolean isClosed();
 
-  /**
-   * @return name of Kafka Connector instance
-   */
+  /** @return name of Kafka Connector instance */
   String getConnectorName();
 
-  /**
-   * @return the raw jdbc connection
-   */
+  /** @return the raw jdbc connection */
   Connection getConnection();
 
   /**
