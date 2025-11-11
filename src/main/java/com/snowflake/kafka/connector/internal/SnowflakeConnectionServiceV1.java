@@ -82,6 +82,24 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   @Override
   public void createTable(final String tableName, final boolean overwrite) {
+    createTable(tableName, overwrite, false);
+  }
+
+  @Override
+  public void createTable(final String tableName) {
+    createTable(tableName, false, false);
+  }
+
+  /**
+   * Create a table with two variant columns: RECORD_METADATA and RECORD_CONTENT
+   *
+   * @param tableName a string represents table name
+   * @param overwrite if true, execute "create or replace table" query; otherwise, run "create table
+   *     if not exists"
+   * @param enableChangeTracking if true, enable CHANGE_TRACKING on the table after creation
+   */
+  public void createTable(
+      final String tableName, final boolean overwrite, final boolean enableChangeTracking) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query;
@@ -104,15 +122,25 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     }
 
     LOGGER.info("create table {}", tableName);
-  }
 
-  @Override
-  public void createTable(final String tableName) {
-    createTable(tableName, false);
+    if (enableChangeTracking) {
+      enableChangeTrackingOnTable(tableName);
+    }
   }
 
   @Override
   public void createTableWithOnlyMetadataColumn(final String tableName) {
+    createTableWithOnlyMetadataColumn(tableName, false);
+  }
+
+  /**
+   * Create a table with only RECORD_METADATA column for snowpipe streaming
+   *
+   * @param tableName table name
+   * @param enableChangeTracking if true, enable CHANGE_TRACKING on the table after creation
+   */
+  public void createTableWithOnlyMetadataColumn(
+      final String tableName, final boolean enableChangeTracking) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String createTableQuery =
@@ -142,6 +170,10 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     }
 
     LOGGER.info("Created table {} with only RECORD_METADATA column", tableName);
+
+    if (enableChangeTracking) {
+      enableChangeTrackingOnTable(tableName);
+    }
   }
 
   @Override
@@ -726,6 +758,24 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.close();
     } catch (Exception e) {
       throw new RuntimeException("Error executing query: " + query, e);
+    }
+  }
+
+  @Override
+  public void enableChangeTrackingOnTable(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String enableChangeTrackingQuery = "alter table identifier(?) set CHANGE_TRACKING = true";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(enableChangeTrackingQuery);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+      LOGGER.info("Enabled CHANGE_TRACKING on table: {}", tableName);
+    } catch (SQLException e) {
+      // Log warning but don't fail - similar to schema evolution behavior
+      LOGGER.warn(
+          "Enable CHANGE_TRACKING failed on table: {}, message: {}", tableName, e.getMessage());
     }
   }
 

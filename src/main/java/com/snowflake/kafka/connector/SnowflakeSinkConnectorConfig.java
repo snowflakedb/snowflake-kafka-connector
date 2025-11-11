@@ -55,6 +55,8 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
   public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
+  public static final String ENABLE_CHANGE_TRACKING_CONFIG = "snowflake.enable.change.tracking";
+  public static final boolean ENABLE_CHANGE_TRACKING_DEFAULT = false;
 
   // Proxy Info
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
@@ -162,6 +164,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ENABLE_MDC_LOGGING_DOC =
       "Enable MDC context to prepend log messages. Note that this is only available after Apache"
           + " Kafka 2.3";
+
   /**
    * Used to serialize the incoming records to kafka connector. Note: Converter code is invoked
    * before actually sending records to Kafka connector.
@@ -180,6 +183,7 @@ public class SnowflakeSinkConnectorConfig {
           "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverterWithoutSchemaRegistry",
           "com.snowflake.kafka.connector.records.SnowflakeAvroConverter");
+
   /**
    * Boolean Validator of passed booleans in configurations (TRUE or FALSE). This validator is case
    * insensitive
@@ -348,7 +352,9 @@ public class SnowflakeSinkConnectorConfig {
           }
         };
 
-    /** @return All valid enum values */
+    /**
+     * @return All valid enum values
+     */
     public static String[] names() {
       ErrorTolerance[] errorTolerances = values();
       String[] result = new String[errorTolerances.length];

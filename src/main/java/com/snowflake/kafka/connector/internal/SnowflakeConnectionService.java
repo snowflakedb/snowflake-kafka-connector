@@ -123,19 +123,27 @@ public interface SnowflakeConnectionService {
    */
   void dropPipe(String pipeName);
 
-  /** @return telemetry client */
+  /**
+   * @return telemetry client
+   */
   SnowflakeTelemetryService getTelemetryClient();
 
   /** Close Connection */
   void close();
 
-  /** @return true is connection is closed */
+  /**
+   * @return true is connection is closed
+   */
   boolean isClosed();
 
-  /** @return name of Kafka Connector instance */
+  /**
+   * @return name of Kafka Connector instance
+   */
   String getConnectorName();
 
-  /** @return the raw jdbc connection */
+  /**
+   * @return the raw jdbc connection
+   */
   Connection getConnection();
 
   /**
@@ -189,4 +197,12 @@ public interface SnowflakeConnectionService {
    * @param parameters query parameters
    */
   void executeQueryWithParameters(String query, String... parameters);
+
+  /**
+   * Enable CHANGE_TRACKING on a table. This is typically called after creating a table
+   * automatically to enable change data capture capabilities.
+   *
+   * @param tableName table name
+   */
+  void enableChangeTrackingOnTable(String tableName);
 }
