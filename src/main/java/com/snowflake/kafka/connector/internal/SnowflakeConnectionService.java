@@ -9,7 +9,7 @@ import java.util.Optional;
 
 public interface SnowflakeConnectionService {
   /**
-   * Create a table with two variant columns: RECORD_METADATA and RECORD_CONTENT
+   * Create a table with one variant columns: RECORD_METADATA
    *
    * @param tableName a string represents table name
    * @param overwrite if true, execute "create or replace table" query; otherwise, run "create table
@@ -23,17 +23,6 @@ public interface SnowflakeConnectionService {
    * @param tableName table name
    */
   void createTable(String tableName);
-
-  /**
-   * create a snowpipe
-   *
-   * @param pipeName pipe name
-   * @param tableName table name
-   * @param stageName stage name
-   * @param overwrite if true, execute "create or replace pipe" statement, otherwise, run "create
-   *     pipe if not exists"
-   */
-  void createPipe(String tableName, String stageName, String pipeName, boolean overwrite);
 
   /**
    * check table existence
@@ -52,8 +41,7 @@ public interface SnowflakeConnectionService {
   boolean pipeExist(String pipeName);
 
   /**
-   * Check the given table has correct schema correct schema: (record_metadata variant,
-   * record_content variant)
+   * Check the given table has correct schema correct schema: (record_metadata variant)
    *
    * @param tableName table name
    * @return true if schema is correct, false is schema is incorrect or table does not exist

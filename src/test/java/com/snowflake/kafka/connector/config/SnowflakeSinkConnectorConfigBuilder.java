@@ -38,6 +38,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
         .withSchema("testSchema")
         .withDatabase("testDatabase")
         .withUser("userName")
+        .withSchematizationEnabled(true)
         .withPrivateKey("fdsfsdfsdfdsfdsrqwrwewrwrew42314424")
         .withRole("role");
   }

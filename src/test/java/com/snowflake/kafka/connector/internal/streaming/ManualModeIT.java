@@ -8,6 +8,7 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getTableRows;
 import static com.snowflake.kafka.connector.internal.TestUtils.tableSize;
 import static java.lang.String.format;
 import static org.apache.kafka.connect.data.Schema.STRING_SCHEMA;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -21,6 +22,7 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -80,8 +82,8 @@ class ManualModeIT {
       pipeName = PipeNameProvider.buildPipeName(tableName);
       queryRunner.execute(
           format(
-              "CREATE OR REPLACE PIPE %s AS COPY INTO %s FROM (SELECT $1:RECORD_CONTENT.city,"
-                  + " $1:RECORD_CONTENT.age,  $1:RECORD_CONTENT.married FROM TABLE(DATA_SOURCE(TYPE"
+              "CREATE OR REPLACE PIPE %s AS COPY INTO %s FROM (SELECT $1:city,"
+                  + " $1:age,  $1:married FROM TABLE(DATA_SOURCE(TYPE"
                   + " => 'STREAMING')))",
               pipeName, tableName));
     }
@@ -109,7 +111,7 @@ class ManualModeIT {
       Map<String, Object> expectedRow0Values = new HashMap<>();
       expectedRow0Values.put("CITY", "Pcim Górny");
       expectedRow0Values.put("AGE", 30L);
-      expectedRow0Values.put("MARRIED", false);
+      expectedRow0Values.put("MARRIED", true);
       assertEquals(expectedRow0Values, rows.get(0));
     }
   }
@@ -121,7 +123,8 @@ class ManualModeIT {
     void beforeEach() throws SQLException {
       queryRunner.execute(
           format(
-              "create or replace table %s (record_metadata variant, record_content variant)",
+              "create or replace table %s (record_metadata variant, city varchar, age number,"
+                  + " married boolean)",
               tableName));
     }
 
@@ -137,9 +140,11 @@ class ManualModeIT {
 
       // Assert that the table has exactly 2 rows and 2 columns
       assertTableRowCount(tableName, 2);
-      assertTableColumnCount(tableName, 2);
+      assertTableColumnCount(tableName, 4);
+      Collection<Object> valuesFromFirstRow =
+          getTableRows(tableName).stream().findFirst().orElseThrow().values();
+      assertThat(valuesFromFirstRow).contains(true, "Pcim Górny", 30L);
       assertTableHasColumn(tableName, "record_metadata");
-      assertTableHasColumn(tableName, "record_content");
     }
   }
 
@@ -147,7 +152,7 @@ class ManualModeIT {
     // this json row is sent twice to Kafka
     final byte[] jsonPayload =
         objectMapper
-            .writeValueAsString(Map.of("city", "Pcim Górny", "age", 30, "married", false))
+            .writeValueAsString(Map.of("city", "Pcim Górny", "age", 30, "married", true))
             .getBytes(StandardCharsets.UTF_8);
     Converter converter = new JsonConverter();
     final Map<String, String> converterConfig = new HashMap<>();

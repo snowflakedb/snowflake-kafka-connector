@@ -252,7 +252,7 @@ public abstract class SnowflakeTelemetryService {
     dataObjectNode.put(
         ENABLE_SCHEMATIZATION_CONFIG,
         userProvidedConfig.getOrDefault(
-            ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_DEFAULT));
+            ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_CONFIG_DEFAULT));
 
     dataObjectNode.put(
         ICEBERG_ENABLED,

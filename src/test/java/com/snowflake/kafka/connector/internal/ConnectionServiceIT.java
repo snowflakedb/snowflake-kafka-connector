@@ -84,7 +84,7 @@ class ConnectionServiceIT {
     // table exists
     assert conn.tableExist(tableName);
     // insert some value
-    TestUtils.executeQuery("insert into " + tableName + " values(123,123)");
+    TestUtils.executeQuery("insert into " + tableName + " values(123)");
     ResultSet resultSet = TestUtils.showTable(tableName);
     // value inserted
     assert InternalUtils.resultSize(resultSet) == 1;

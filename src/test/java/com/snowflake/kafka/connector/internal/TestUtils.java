@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -288,7 +289,10 @@ public class TestUtils {
     // On top of existing configurations, add
     configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     configuration.put(Utils.TASK_ID, "0");
-    configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
+    configuration.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
+    configuration.put(
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
 
     return configuration;
   }
@@ -301,7 +305,7 @@ public class TestUtils {
       configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
       configuration.put(Utils.TASK_ID, "0");
     }
-    configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
+    configuration.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
 
     return configuration;
   }

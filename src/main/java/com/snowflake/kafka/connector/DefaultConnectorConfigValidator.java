@@ -182,11 +182,10 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    if (isSchematizationEnabled(config)) {
+    if (!isSchematizationEnabled(config)) {
       invalidConfigParams.put(
           ENABLE_SCHEMATIZATION_CONFIG,
-          Utils.formatString(
-              "Schematization is not available in Private Preview", ENABLE_SCHEMATIZATION_CONFIG));
+          Utils.formatString("Schematization must be enabled", ENABLE_SCHEMATIZATION_CONFIG));
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING

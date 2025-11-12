@@ -54,7 +54,7 @@ public class SnowflakeSinkConnectorConfig {
   // For Snowpipe Streaming client
   public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
-  public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
+  public static final String ENABLE_SCHEMATIZATION_CONFIG_DEFAULT = "true";
 
   // Proxy Info
   public static final String JVM_PROXY_HOST = "jvm.proxy.host";
@@ -193,6 +193,13 @@ public class SnowflakeSinkConnectorConfig {
           "{} set to default {} seconds",
           SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
           SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT);
+    }
+    if (!config.containsKey(ENABLE_SCHEMATIZATION_CONFIG)) {
+      config.put(ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
+      LOGGER.info(
+          "{} set to default {} seconds",
+          ENABLE_SCHEMATIZATION_CONFIG,
+          ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
     }
   }
 
