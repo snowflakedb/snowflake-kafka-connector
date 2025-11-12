@@ -537,6 +537,15 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     return ErrorCode.CLOSED_CLIENT.getMessageCode().equals(((SFException) e).getVendorCode());
   }
 
+  /** Recreates the streaming ingest client if it's invalid when client optimization is enabled. */
+  private void recreateClientIfNeeded() {
+    if (enableClientOptimization && !StreamingClientHandler.isClientValid(streamingIngestClient)) {
+      LOGGER.warn("Client is invalid, recreating client for channel: {}", getChannelName());
+      this.streamingIngestClient =
+          StreamingClientProvider.getStreamingClientProviderInstance().getClient(sfConnectorConfig);
+    }
+  }
+
   /**
    * Invoked only when {@link InsertValidationResponse} has errors.
    *
@@ -852,14 +861,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     try {
       return OpenChannelRetryPolicy.executeWithRetry(
           () -> {
-            if (enableClientOptimization
-                && !StreamingClientHandler.isClientValid(streamingIngestClient)) {
-              LOGGER.warn(
-                  "Client is invalid, recreating client for channel: {}", getChannelName());
-              this.streamingIngestClient =
-                  StreamingClientProvider.getStreamingClientProviderInstance()
-                      .getClient(sfConnectorConfig);
-            }
+            recreateClientIfNeeded();
             return streamingIngestClient.openChannel(channelRequest);
           },
           this.channelName);
