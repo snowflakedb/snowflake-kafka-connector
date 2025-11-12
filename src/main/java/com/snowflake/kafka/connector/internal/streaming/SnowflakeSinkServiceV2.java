@@ -62,7 +62,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
-  private static final StreamingIngestClientProvider streamingIngestClientProvider =
+  private final StreamingIngestClientProvider streamingIngestClientProvider =
       new StreamingIngestClientProvider();
 
   // Used to connect to Snowflake, could be null during testing
