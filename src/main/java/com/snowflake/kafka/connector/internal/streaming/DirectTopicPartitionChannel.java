@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_CHANNEL_OFFSET_TOKEN_MIGRATION_DEFAULT;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingUtils.DURATION_BETWEEN_GET_OFFSET_TOKEN_RETRY;
@@ -50,6 +51,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import net.snowflake.ingest.streaming.*;
+import net.snowflake.ingest.utils.ErrorCode;
 import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -90,7 +92,10 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   // should be skipped
   private boolean needToSkipCurrentBatch = false;
 
-  private final SnowflakeStreamingIngestClient streamingIngestClient;
+  private SnowflakeStreamingIngestClient streamingIngestClient;
+
+  // Whether client optimization is enabled (shared client vs dedicated client per service)
+  private final boolean enableClientOptimization;
 
   // Topic partition Object from connect consisting of topic and partition
   private final TopicPartition topicPartition;
@@ -224,6 +229,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     this.channelName = Preconditions.checkNotNull(channelName);
     this.tableName = Preconditions.checkNotNull(tableName);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
+    this.enableClientOptimization =
+        Boolean.parseBoolean(
+            sfConnectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+                Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
     this.conn = conn;
@@ -498,6 +508,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    */
   private void insertRowFallbackSupplier(Throwable ex)
       throws TopicPartitionChannelInsertionException {
+    if (enableClientOptimization && isClientInvalidError(ex)) {
+      LOGGER.warn("Client is invalid, recreating client for channel: {}", getChannelName());
+      this.streamingIngestClient =
+          StreamingClientProvider.getStreamingClientProviderInstance().getClient(sfConnectorConfig);
+    }
     final long offsetRecoveredFromSnowflake =
         streamingApiFallbackSupplier(StreamingApiFallbackInvoker.INSERT_ROWS_FALLBACK);
     throw new TopicPartitionChannelInsertionException(
@@ -507,6 +522,28 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
             this.getChannelName(),
             offsetRecoveredFromSnowflake),
         ex);
+  }
+
+  /**
+   * Checks if the exception indicates a client invalidation error.
+   *
+   * @param e the exception to check
+   * @return true if the exception is a CLOSED_CLIENT error
+   */
+  private boolean isClientInvalidError(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    return ErrorCode.CLOSED_CLIENT.getMessageCode().equals(((SFException) e).getVendorCode());
+  }
+
+  /** Recreates the streaming ingest client if it's invalid when client optimization is enabled. */
+  private void recreateClientIfNeeded() {
+    if (enableClientOptimization && !StreamingClientHandler.isClientValid(streamingIngestClient)) {
+      LOGGER.warn("Client is invalid, recreating client for channel: {}", getChannelName());
+      this.streamingIngestClient =
+          StreamingClientProvider.getStreamingClientProviderInstance().getClient(sfConnectorConfig);
+    }
   }
 
   /**
@@ -823,7 +860,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
 
     try {
       return OpenChannelRetryPolicy.executeWithRetry(
-          () -> streamingIngestClient.openChannel(channelRequest), this.channelName);
+          () -> {
+            recreateClientIfNeeded();
+            return streamingIngestClient.openChannel(channelRequest);
+          },
+          this.channelName);
     } catch (RuntimeException e) {
       LOGGER.error(
           "Failed to open channel {} after retries: {}", this.channelName, e.getMessage(), e);

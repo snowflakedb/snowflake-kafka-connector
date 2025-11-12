@@ -119,6 +119,7 @@ public class TopicPartitionChannelTest {
     mockSnowflakeConnectionService = Mockito.mock(SnowflakeConnectionService.class);
     mockTelemetryService = Mockito.mock(SnowflakeTelemetryService.class);
     Mockito.when(mockStreamingClient.isClosed()).thenReturn(false);
+    Mockito.when(mockStreamingClient.getName()).thenReturn("test_client");
     Mockito.when(mockStreamingClient.openChannel(ArgumentMatchers.any(OpenChannelRequest.class)))
         .thenReturn(mockStreamingChannel);
     Mockito.when(mockStreamingChannel.getFullyQualifiedName()).thenReturn(testChannelName);

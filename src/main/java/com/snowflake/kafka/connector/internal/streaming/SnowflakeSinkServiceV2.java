@@ -90,8 +90,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private SinkTaskContext sinkTaskContext;
 
   // ------ Streaming Ingest ------ //
-  // needs url, username. p8 key, role name
-  private SnowflakeStreamingIngestClient streamingIngestClient;
+
+  // If client optimization is false, this field must be initialized with a dedicated client.
+  // Otherwise, client lifecycle is managed by the provider and this field must be null.
+  private SnowflakeStreamingIngestClient dedicatedStreamingIngestClient;
 
   // Config set in JSON
   private final Map<String, String> connectorConfig;
@@ -176,9 +178,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                 SnowflakeSinkConnectorConfig
                     .SNOWPIPE_STREAMING_CHANNEL_NAME_INCLUDE_CONNECTOR_NAME_DEFAULT);
 
-    this.streamingIngestClient =
-        StreamingClientProvider.getStreamingClientProviderInstance()
-            .getClient(this.connectorConfig);
+    boolean enableStreamingClientOptimization =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
+                Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
+    if (!enableStreamingClientOptimization) {
+      // When optimization is disabled, service must create and manage its own client
+      this.dedicatedStreamingIngestClient =
+          StreamingClientProvider.getStreamingClientProviderInstance()
+              .getClient(this.connectorConfig);
+    }
 
     this.partitionsToChannel = new HashMap<>();
 
@@ -274,8 +284,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       boolean hasSchemaEvolutionPermission,
       String partitionChannelKey) {
 
+    SnowflakeStreamingIngestClient client =
+        dedicatedStreamingIngestClient != null
+            ? dedicatedStreamingIngestClient
+            : StreamingClientProvider.getStreamingClientProviderInstance()
+                .getClient(this.connectorConfig);
+
     return new DirectTopicPartitionChannel(
-        this.streamingIngestClient,
+        client,
         topicPartition,
         partitionChannelKey, // Streaming channel name
         tableName,
@@ -382,8 +398,26 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     partitionsToChannel.clear();
 
-    StreamingClientProvider.getStreamingClientProviderInstance()
-        .closeClient(this.connectorConfig, this.streamingIngestClient);
+    if (dedicatedStreamingIngestClient != null) {
+      String clientName = dedicatedStreamingIngestClient.getName();
+      try {
+        dedicatedStreamingIngestClient.close();
+        LOGGER.info("Successfully closed streaming ingest client: {}", clientName);
+      } catch (Exception e) {
+        LOGGER.warn(
+            "Could not close streaming ingest client: {}, reason: {}", clientName, e.getMessage());
+      }
+    } else {
+      // Close via provider to remove it from the shared cache.
+      // This will break other SinkServices that may be using the client, but we are
+      // choosing to keep this legacy behavior to avoid possible memory leaks.
+      // Namely, SinkTask start() method calls closeAll() to flush any previous task.
+      SnowflakeStreamingIngestClient client =
+          StreamingClientProvider.getStreamingClientProviderInstance()
+              .getClient(this.connectorConfig);
+      StreamingClientProvider.getStreamingClientProviderInstance()
+          .closeClient(this.connectorConfig, client);
+    }
   }
 
   private void closeAllSequentially() {
@@ -487,22 +521,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void stop() {
-    final boolean isOptimizationEnabled =
-        Boolean.parseBoolean(
-            connectorConfig.getOrDefault(
-                SnowflakeSinkConnectorConfig.ENABLE_STREAMING_CLIENT_OPTIMIZATION_CONFIG,
-                Boolean.toString(ENABLE_STREAMING_CLIENT_OPTIMIZATION_DEFAULT)));
-    // when optimization is enabled single streamingIngestClient instance may be used by many
-    // SinkService instances
-    // stopping the client may cause unexpected behaviour
-    if (!isOptimizationEnabled) {
+    if (dedicatedStreamingIngestClient != null) {
       try {
-        StreamingClientProvider.getStreamingClientProviderInstance()
-            .closeClient(connectorConfig, this.streamingIngestClient);
+        String clientName = dedicatedStreamingIngestClient.getName();
+        dedicatedStreamingIngestClient.close();
+        LOGGER.info("Successfully closed streaming ingest client: {}", clientName);
       } catch (Exception e) {
         LOGGER.warn(
             "Could not close streaming ingest client {}. Reason: {}",
-            streamingIngestClient.getName(),
+            dedicatedStreamingIngestClient.getName(),
             e.getMessage());
       }
     }
@@ -618,7 +645,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /* Used for testing */
   @VisibleForTesting
   public SnowflakeStreamingIngestClient getStreamingIngestClient() {
-    return this.streamingIngestClient;
+    if (dedicatedStreamingIngestClient != null) {
+      return dedicatedStreamingIngestClient;
+    }
+    return StreamingClientProvider.getStreamingClientProviderInstance()
+        .getClient(this.connectorConfig);
   }
 
   /**
