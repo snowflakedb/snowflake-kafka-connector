@@ -19,15 +19,11 @@ import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelIns
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowSchema;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaManager;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import dev.failsafe.FailsafeExecutor;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -74,14 +70,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final String channelName;
 
-  /* table is required for opening the channel */
-  private final String tableName;
-
   /** Available from {@link SinkTask} which has access to various utility methods. */
   private final SinkTaskContext sinkTaskContext;
 
-  // Unlike SSv1 schema evolution is not supported yet, but ingestion to schematized table can
-  // happen
   private final boolean schematizationEnabled;
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
@@ -96,8 +87,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final FailsafeExecutor<Long> offsetTokenExecutor;
 
-  private final RowSchemaManager rowSchemaManager;
-
   private final String pipeName;
 
   private final Map<String, String> connectorConfig;
@@ -108,6 +97,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String tableName,
       String channelName,
       String pipeName,
+      boolean schematizationEnabled,
       TopicPartition topicPartition,
       SnowflakeConnectionService conn,
       Map<String, String> connectorConfig,
@@ -117,10 +107,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       MetricsJmxReporter metricsJmxReporter,
       String connectorName,
       String taskId,
-      RowSchemaManager rowSchemaManager,
       StreamingErrorHandler streamingErrorHandler) {
-    this.tableName = tableName;
-    this.schematizationEnabled = false;
+    this.schematizationEnabled = schematizationEnabled;
     this.channelName = channelName;
     this.topicPartition = topicPartition;
     this.connectorConfig = connectorConfig;
@@ -128,7 +116,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.sinkTaskContext = sinkTaskContext;
     this.connectorName = connectorName;
     this.taskId = taskId;
-    this.rowSchemaManager = rowSchemaManager;
     this.streamingErrorHandler = streamingErrorHandler;
 
     this.telemetryServiceV2 = conn.getTelemetryClient();
@@ -240,28 +227,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     try {
       final long kafkaOffset = kafkaSinkRecord.kafkaOffset();
       Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
-      if (schematizationEnabled) {
-        Optional<RowSchema.Error> error = validateRecord(transformedRecord);
-        if (error.isPresent()) {
-
-          LOGGER.info(
-              "Record doesn't match table schema. " + " topic={}, partition={}, offset={}",
-              kafkaSinkRecord.topic(),
-              kafkaSinkRecord.kafkaPartition(),
-              kafkaOffset);
-          streamingErrorHandler.handleError(List.of(error.get().cause()), kafkaSinkRecord);
-          this.processedOffset.set(kafkaOffset);
-          LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
-          return;
-        }
-      }
-
-      // for schema evolution all identifiers are quoted
-      // in SSv2 we still need quoted identifiers for ALTER TABLE statements
-      // but unquoted for map keys that are passed to ssv2
-      Map<String, Object> unquotedTransformedRecord = unquoteIdentifiers(transformedRecord);
       if (!transformedRecord.isEmpty()) {
-        insertRowWithFallback(unquotedTransformedRecord, kafkaOffset);
+        insertRowWithFallback(transformedRecord, kafkaOffset);
         this.processedOffset.set(kafkaOffset);
         LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
       }
@@ -272,12 +239,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           this.getChannelNameFormatV1(),
           ex);
     }
-  }
-
-  private Optional<RowSchema.Error> validateRecord(Map<String, Object> transformedRecord) {
-    Map<String, Object> fieldsToValidate = new HashMap<>(transformedRecord);
-    return Optional.ofNullable(
-        rowSchemaManager.get(tableName, connectorConfig).validate(fieldsToValidate));
   }
 
   @Override

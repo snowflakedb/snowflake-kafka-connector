@@ -15,6 +15,7 @@ import com.snowflake.kafka.connector.internal.streaming.FakeSnowflakeStreamingIn
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
 import org.junit.jupiter.api.AfterAll;
@@ -78,7 +79,8 @@ public abstract class ConnectClusterBaseIT {
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
     config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
-    config.put(VALUE_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
+    config.put(VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
+    config.put(VALUE_CONVERTER_SCHEMAS_ENABLE, "false");
 
     return config;
   }

@@ -57,13 +57,10 @@ public class RecordService {
 
   private final ObjectMapper mapper;
 
-  // deleted private to use these values in test
   static final String OFFSET = "offset";
   static final String TOPIC = "topic";
   static final String PARTITION = "partition";
   static final String KEY = "key";
-  static final String CONTENT = "content";
-  static final String META = "meta";
   static final String SCHEMA_ID = "schema_id";
   static final String CONNECTOR_PUSH_TIME = "SnowflakeConnectorPushTime";
   static final String KEY_SCHEMA_ID = "key_schema_id";
@@ -82,8 +79,6 @@ public class RecordService {
             return simpleDateFormat;
           });
 
-  public static final ThreadLocal<SimpleDateFormat> TIME_FORMAT =
-      ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss.SSSZ"));
   public static final ThreadLocal<SimpleDateFormat> TIME_FORMAT_STREAMING =
       ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss.SSSXXX"));
   static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
@@ -163,31 +158,6 @@ public class RecordService {
     }
 
     return new SnowflakeTableRow(valueContent, meta);
-  }
-
-  /**
-   * Given a single Record from put API, process it and convert it into a Json String.
-   *
-   * <p>Remember, Snowflake table has two columns, both of them are VARIANT columns whose contents
-   * are in JSON
-   *
-   * @param record record from Kafka
-   * @return Json String with metadata and actual Payload from Kafka Record
-   */
-  public String getProcessedRecordForSnowpipe(SinkRecord record) {
-    SnowflakeTableRow row =
-        processRecord(
-            record, /*connectorPushTime=*/ null); // ConnectorPushTime is not used for Snowpipe.
-    StringBuilder buffer = new StringBuilder();
-    for (JsonNode node : row.content.getData()) {
-      ObjectNode data = mapper.createObjectNode();
-      data.set(CONTENT, node);
-      if (metadataConfig.allFlag) {
-        data.set(META, row.metadata);
-      }
-      buffer.append(data.toString());
-    }
-    return buffer.toString();
   }
 
   /**
@@ -276,7 +246,7 @@ public class RecordService {
   private JsonNode parseHeaders(Headers headers) {
     ObjectNode result = mapper.createObjectNode();
     for (Header header : headers) {
-      result.set(header.key(), convertToJson(header.schema(), header.value(), false));
+      result.set(header.key(), convertToJson(header.schema(), header.value()));
     }
     return result;
   }
@@ -287,17 +257,15 @@ public class RecordService {
    *
    * @param schema schema of the object
    * @param logicalValue object to be converted
-   * @param isStreaming indicates whether this is part of snowpipe streaming
    * @return a JsonNode of the object
    */
-  public static JsonNode convertToJson(Schema schema, Object logicalValue, boolean isStreaming) {
+  public static JsonNode convertToJson(Schema schema, Object logicalValue) {
     if (logicalValue == null) {
       if (schema
           == null) // Any schema is valid and we don't have a default, so treat this as an optional
         // schema
         return null;
-      if (schema.defaultValue() != null)
-        return convertToJson(schema, schema.defaultValue(), isStreaming);
+      if (schema.defaultValue() != null) return convertToJson(schema, schema.defaultValue());
       if (schema.isOptional()) return JsonNodeFactory.instance.nullNode();
       throw SnowflakeErrors.ERROR_5015.getException(
           "Conversion error: null value for field that is required and has no default value");
@@ -333,9 +301,8 @@ public class RecordService {
                 ISO_DATE_TIME_FORMAT.get().format((java.util.Date) value));
           }
           if (schema != null && Time.LOGICAL_NAME.equals(schema.name())) {
-            ThreadLocal<SimpleDateFormat> format =
-                isStreaming ? TIME_FORMAT_STREAMING : TIME_FORMAT;
-            return JsonNodeFactory.instance.textNode(format.get().format((java.util.Date) value));
+            return JsonNodeFactory.instance.textNode(
+                TIME_FORMAT_STREAMING.get().format((java.util.Date) value));
           }
           return JsonNodeFactory.instance.numberNode((Integer) value);
         case INT64:
@@ -394,7 +361,7 @@ public class RecordService {
             ArrayNode list = JsonNodeFactory.instance.arrayNode();
             for (Object elem : collection) {
               Schema valueSchema = schema == null ? null : schema.valueSchema();
-              JsonNode fieldValue = convertToJson(valueSchema, elem, isStreaming);
+              JsonNode fieldValue = convertToJson(valueSchema, elem);
               list.add(fieldValue);
             }
             return list;
@@ -424,8 +391,8 @@ public class RecordService {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
               Schema keySchema = schema == null ? null : schema.keySchema();
               Schema valueSchema = schema == null ? null : schema.valueSchema();
-              JsonNode mapKey = convertToJson(keySchema, entry.getKey(), isStreaming);
-              JsonNode mapValue = convertToJson(valueSchema, entry.getValue(), isStreaming);
+              JsonNode mapKey = convertToJson(keySchema, entry.getKey());
+              JsonNode mapValue = convertToJson(valueSchema, entry.getValue());
 
               if (objectMode) obj.set(mapKey.asText(), mapValue);
               else list.add(JsonNodeFactory.instance.arrayNode().add(mapKey).add(mapValue));
@@ -439,7 +406,7 @@ public class RecordService {
               throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
             ObjectNode obj = JsonNodeFactory.instance.objectNode();
             for (Field field : schema.fields()) {
-              obj.set(field.name(), convertToJson(field.schema(), struct.get(field), isStreaming));
+              obj.set(field.name(), convertToJson(field.schema(), struct.get(field)));
             }
             return obj;
           }
