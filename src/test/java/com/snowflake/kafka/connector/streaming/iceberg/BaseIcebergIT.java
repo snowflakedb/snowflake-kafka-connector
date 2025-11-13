@@ -28,23 +28,41 @@ public class BaseIcebergIT {
   }
 
   protected static void createIcebergTable(String tableName) {
-    createIcebergTableWithColumnClause(tableName, "record_metadata object()");
+    createIcebergTable(tableName, false);
+  }
+
+  protected static void createIcebergTable(String tableName, boolean useVariant) {
+    String metadataType = useVariant ? "variant" : "object()";
+    createIcebergTableWithColumnClause(tableName, "record_metadata " + metadataType);
   }
 
   protected static void createIcebergTableNoSchemaEvolution(String tableName) {
+    createIcebergTableNoSchemaEvolution(tableName, false);
+  }
+
+  protected static void createIcebergTableNoSchemaEvolution(String tableName, boolean useVariant) {
+    String metadataType = useVariant ? "variant" : "object()";
+    String contentType = useVariant ? "variant" : "object()";
     createIcebergTableWithColumnClause(
-        tableName, "record_metadata object(), record_content object()");
+        tableName, "record_metadata " + metadataType + ", record_content " + contentType, useVariant);
   }
 
   protected static void createIcebergTableWithColumnClause(String tableName, String columnClause) {
+    createIcebergTableWithColumnClause(tableName, columnClause, false);
+  }
+  protected static void createIcebergTableWithColumnClause(String tableName, String columnClause, boolean useVariant) {
     String query =
         "create or replace iceberg table identifier(?) ("
             + columnClause
-            + ")"
+            + ") "
             + "external_volume = 'test_exvol' "
             + "catalog = 'SNOWFLAKE' "
             + "base_location = 'it' ";
-            //+ "iceberg_version = 3";
+
+    if (useVariant) {
+      query += "iceberg_version = 3";
+    }
+
     doExecuteQueryWithParameter(query, tableName);
     String allowStreamingIngestionQuery =
         "alter iceberg table identifier(?) set ALLOW_STREAMING_INGESTION_FOR_MANAGED_ICEBERG ="

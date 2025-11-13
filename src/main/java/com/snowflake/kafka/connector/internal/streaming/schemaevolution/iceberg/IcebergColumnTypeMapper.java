@@ -62,8 +62,6 @@ class IcebergColumnTypeMapper {
         return "ARRAY";
       case MAP:
         return "MAP";
-//      case VARIANT:
-//        return "VARIANT";
       default:
         throw SnowflakeErrors.ERROR_5025.getException(
             "Data type: " + apacheIcebergType.typeId().name());

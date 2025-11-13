@@ -213,7 +213,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     } else if (isIcebergEnabled(connectorConfig)) {
       icebergTableSchemaValidator.validateTable(
           tableName, getRole(connectorConfig), isSchematizationEnabled(connectorConfig));
-      icebergInitService.initializeIcebergTableProperties(tableName);
+      icebergInitService.initializeIcebergTableProperties(tableName, connectorConfig);
     } else {
       createTableIfNotExists(tableName);
     }
