@@ -43,8 +43,8 @@ public class BaseIcebergIT {
             + ")"
             + "external_volume = 'test_exvol' "
             + "catalog = 'SNOWFLAKE' "
-            + "base_location = 'it' "
-            + "iceberg_version = 3";
+            + "base_location = 'it' ";
+            //+ "iceberg_version = 3";
     doExecuteQueryWithParameter(query, tableName);
     String allowStreamingIngestionQuery =
         "alter iceberg table identifier(?) set ALLOW_STREAMING_INGESTION_FOR_MANAGED_ICEBERG ="

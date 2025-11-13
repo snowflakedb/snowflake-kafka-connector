@@ -159,14 +159,15 @@ public interface SnowflakeConnectionService {
   void createTableWithOnlyMetadataColumn(String tableName);
 
   /**
-   * Alter the RECORD_METADATA column to be of VARIANT type for iceberg tables.
+   * Alter the RECORD_METADATA column to be of the required structured OBJECT type for iceberg
+   * tables.
    *
    * @param tableName iceberg table name
    */
   void initializeMetadataColumnTypeForIceberg(String tableName);
 
   /**
-   * Add the RECORD_METADATA column as VARIANT to the iceberg table if it does not exist.
+   * Add the RECORD_METADATA column to the iceberg table if it does not exist.
    *
    * @param tableName iceberg table name
    */

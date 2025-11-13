@@ -4,12 +4,10 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
-import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -36,13 +34,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   @Override
   public ImmutableMap<String, String> validate(Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
-
-    // Validate Iceberg config
-    // Note: As of November 15, 2024, Snowflake supports Iceberg tables with Snowpipe Streaming
-    // See: https://docs.snowflake.com/en/release-notes/2024/other/2024-11-15-iceberg-tables-loading
-    // if (isIcebergEnabled(inputConfig)) {
-    //   invalidParams.put(ICEBERG_ENABLED, "Ingestion to Iceberg table is currently unsupported.");
-    // }
 
     invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
     invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));

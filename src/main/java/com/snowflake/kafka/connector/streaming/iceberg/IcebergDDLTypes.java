@@ -4,7 +4,6 @@ public class IcebergDDLTypes {
 
   public static String ICEBERG_METADATA_VARIANT_TYPE = "VARIANT";
 
-  @Deprecated
   public static String ICEBERG_METADATA_OBJECT_SCHEMA =
       "OBJECT("
           + "offset LONG,"

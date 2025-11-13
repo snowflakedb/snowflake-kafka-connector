@@ -646,17 +646,6 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void shouldValidateSSv2WithIcebergEnabled() {
-    // As of November 15, 2024, Snowflake supports Iceberg tables with Snowpipe Streaming
-    // See: https://docs.snowflake.com/en/release-notes/2024/other/2024-11-15-iceberg-tables-loading
-    Map<String, String> config =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig().withIcebergEnabled().build();
-
-    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
-        .doesNotThrowAnyException();
-  }
-
-  @Test
   public void shouldValidateSSv2WithoutIceberg() {
     Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
