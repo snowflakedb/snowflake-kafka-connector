@@ -5,11 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.*;
 
 public class IcebergInitServiceIT extends BaseIcebergIT {
 
   private static IcebergInitService icebergInitService;
+  private static Map<String, String> config;
 
   private String tableName;
 
@@ -18,6 +21,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
   public static void setup() {
     conn = TestUtils.getConnectionServiceForStreaming();
     icebergInitService = new IcebergInitService(conn);
+    config = new HashMap<>();
   }
 
   @BeforeEach
@@ -36,7 +40,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
     createIcebergTable(tableName);
 
     // when
-    icebergInitService.initializeIcebergTableProperties(tableName);
+    icebergInitService.initializeIcebergTableProperties(tableName, config);
 
     // then
     assertThat(describeRecordMetadataType(tableName))
@@ -64,7 +68,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
             + " SnowflakeConnectorPushTime BIGINT, headers MAP(VARCHAR, VARCHAR))");
 
     // when
-    icebergInitService.initializeIcebergTableProperties(tableName);
+    icebergInitService.initializeIcebergTableProperties(tableName, config);
 
     // then
     assertThat(describeRecordMetadataType(tableName))
@@ -84,7 +88,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
 
   @Test
   void shouldThrowExceptionWhenTableDoesNotExist() {
-    assertThatThrownBy(() -> icebergInitService.initializeIcebergTableProperties(tableName))
+    assertThatThrownBy(() -> icebergInitService.initializeIcebergTableProperties(tableName, config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class);
   }
 
@@ -94,7 +98,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
     createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
 
     // when
-    icebergInitService.initializeIcebergTableProperties(tableName);
+    icebergInitService.initializeIcebergTableProperties(tableName, config);
 
     // then
     assertThat(describeRecordMetadataType(tableName))

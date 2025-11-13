@@ -60,13 +60,13 @@
         <!--Compatible protobuf version https://github.com/confluentinc/common/blob/v7.7.0/pom.xml#L91 -->
         <protobuf.version>3.25.5</protobuf.version>
         <guava.version>33.4.0-jre</guava.version>
-        <iceberg.version>1.6.1</iceberg.version>
+        <iceberg.version>1.10.0</iceberg.version>
         <jackson.version>2.18.2</jackson.version>
         <commons-compress.version>1.27.1</commons-compress.version>
         <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
         <snowflake-jdbc.version>3.26.1</snowflake-jdbc.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
-        <parquet.version>1.14.4</parquet.version>
+        <parquet.version>1.16.0</parquet.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
     </properties>
 
@@ -630,7 +630,7 @@
         <dependency>
             <groupId>com.snowflake</groupId>
             <artifactId>snowpipe-streaming</artifactId>
-            <version>1.0.2</version>
+            <version>1.1.0</version>
         </dependency>
 
     </dependencies>

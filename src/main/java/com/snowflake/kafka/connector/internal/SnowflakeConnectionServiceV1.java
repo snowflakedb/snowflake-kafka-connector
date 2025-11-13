@@ -23,6 +23,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
@@ -145,12 +147,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public void addMetadataColumnForIcebergIfNotExists(String tableName) {
+  public void addMetadataColumnForIcebergIfNotExists(String tableName, Map<String, String> config) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query =
         "ALTER ICEBERG TABLE identifier(?) ADD COLUMN IF NOT EXISTS RECORD_METADATA "
-            + ICEBERG_METADATA_OBJECT_SCHEMA;
+            + IcebergDDLTypes.getMetadataType(config);
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
@@ -167,12 +169,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public void initializeMetadataColumnTypeForIceberg(String tableName) {
+  public void initializeMetadataColumnTypeForIceberg(String tableName, Map<String, String> config) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query =
         "ALTER ICEBERG TABLE identifier(?) ALTER COLUMN RECORD_METADATA SET DATA TYPE "
-            + ICEBERG_METADATA_OBJECT_SCHEMA;
+            + IcebergDDLTypes.getMetadataType(config);
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);

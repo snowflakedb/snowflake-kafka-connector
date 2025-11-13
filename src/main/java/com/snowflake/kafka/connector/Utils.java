@@ -387,6 +387,13 @@ public class Utils {
     return Boolean.parseBoolean(config.get(ICEBERG_ENABLED));
   }
 
+  public static boolean isIcebergUseVariantType(Map<String, String> config) {
+    return Boolean.parseBoolean(
+        config.getOrDefault(
+            SnowflakeSinkConnectorConfig.ICEBERG_USE_VARIANT_TYPE,
+            String.valueOf(SnowflakeSinkConnectorConfig.ICEBERG_USE_VARIANT_TYPE_DEFAULT)));
+  }
+
   public static boolean isSchematizationEnabled(Map<String, String> config) {
     return Boolean.parseBoolean(
         config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));

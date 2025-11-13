@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import java.util.Map;
 
 public class IcebergInitService {
 
@@ -13,9 +14,9 @@ public class IcebergInitService {
     this.snowflakeConnectionService = snowflakeConnectionService;
   }
 
-  public void initializeIcebergTableProperties(String tableName) {
+  public void initializeIcebergTableProperties(String tableName, Map<String, String> config) {
     LOGGER.info("Initializing properties for Iceberg table: {}", tableName);
-    snowflakeConnectionService.addMetadataColumnForIcebergIfNotExists(tableName);
-    snowflakeConnectionService.initializeMetadataColumnTypeForIceberg(tableName);
+    snowflakeConnectionService.addMetadataColumnForIcebergIfNotExists(tableName, config);
+    snowflakeConnectionService.initializeMetadataColumnTypeForIceberg(tableName, config);
   }
 }

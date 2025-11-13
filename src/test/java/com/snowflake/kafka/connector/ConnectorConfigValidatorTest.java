@@ -646,17 +646,6 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void shouldThrowExceptionWhenBothSSv2AndIcebergEnabled() {
-    Map<String, String> config =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig().withIcebergEnabled().build();
-
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("Ingestion to Iceberg table is currently unsupported")
-        .hasMessageContaining(ICEBERG_ENABLED);
-  }
-
-  @Test
   public void shouldValidateSSv2WithoutIceberg() {
     Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 

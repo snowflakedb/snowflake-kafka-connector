@@ -72,11 +72,13 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
         tableName,
         Utils.TABLE_COLUMN_METADATA
             + " "
-            + IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA
+            + IcebergDDLTypes.getMetadataType(config)
             + ", "
             + Utils.TABLE_COLUMN_CONTENT
             + " "
-            + COMPLEX_JSON_RECORD_CONTENT_OBJECT_SCHEMA);
+            + IcebergDDLTypes.getContentType(config, COMPLEX_JSON_RECORD_CONTENT_OBJECT_SCHEMA),
+            Utils.isIcebergUseVariantType(config)
+    );
   }
 
   private static Stream<Arguments> prepareData() {

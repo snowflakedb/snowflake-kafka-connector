@@ -37,6 +37,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected TopicPartition topicPartition;
   protected SnowflakeSinkService service;
   protected InMemoryKafkaRecordErrorReporter kafkaRecordErrorReporter;
+  protected Map<String, String> config;
   protected static final String simpleRecordJson = "{\"simple\": \"extra field\"}";
 
   @BeforeEach
@@ -44,7 +45,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     tableName = TestUtils.randomTableName();
     topic = tableName;
     topicPartition = new TopicPartition(topic, PARTITION);
-    Map<String, String> config = getConfForStreaming();
+    config = getConfForStreaming();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(ICEBERG_ENABLED, "TRUE");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, isSchemaEvolutionEnabled().toString());
@@ -52,6 +53,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
+    config.put(ICEBERG_USE_VARIANT_TYPE, "true");
 
     createIcebergTable();
     enableSchemaEvolution(tableName);

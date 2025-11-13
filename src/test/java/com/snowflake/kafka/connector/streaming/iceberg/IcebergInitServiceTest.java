@@ -5,6 +5,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class IcebergInitServiceTest {
@@ -14,10 +16,11 @@ class IcebergInitServiceTest {
 
   @Test
   void testInitializeIcebergTableProperties() {
-    icebergInitService.initializeIcebergTableProperties("test_table");
+    Map<String, String> config = new HashMap<>();
+    icebergInitService.initializeIcebergTableProperties("test_table", config);
 
-    verify(mockConnection).addMetadataColumnForIcebergIfNotExists("test_table");
-    verify(mockConnection).initializeMetadataColumnTypeForIceberg("test_table");
+    verify(mockConnection).addMetadataColumnForIcebergIfNotExists("test_table", config);
+    verify(mockConnection).initializeMetadataColumnTypeForIceberg("test_table", config);
     verifyNoMoreInteractions(mockConnection);
   }
 }

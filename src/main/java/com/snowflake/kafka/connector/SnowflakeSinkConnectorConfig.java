@@ -106,6 +106,10 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ICEBERG_ENABLED = "snowflake.streaming.iceberg.enabled";
   public static final boolean ICEBERG_ENABLED_DEFAULT_VALUE = false;
 
+  // Use VARIANT instead of OBJECT for Iceberg table columns (record_content, record_metadata)
+  public static final String ICEBERG_USE_VARIANT_TYPE = "snowflake.streaming.iceberg.use.variant";
+  public static final boolean ICEBERG_USE_VARIANT_TYPE_DEFAULT = false;
+
   // with this flag set to true the user is responsible
   // for creating the destination objects (pipe and the table)
   // when this feature is turned on the normal topic to table mapping applies but the connector
