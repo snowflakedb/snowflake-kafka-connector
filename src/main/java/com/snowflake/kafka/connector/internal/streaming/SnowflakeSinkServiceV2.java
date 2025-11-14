@@ -304,6 +304,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(SinkRecord record) {
+    LOGGER.trace("Inserting record: {}", record);
     String channelName =
         makeChannelName(this.connectorName, record.topic(), record.kafkaPartition());
     // init a new topic partition if it's not presented in cache or if channel is closed

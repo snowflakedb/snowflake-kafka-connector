@@ -201,12 +201,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     // for backwards compatibility - set the consumer offset to be the first one received from kafka
     if (currentConsumerGroupOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.currentConsumerGroupOffset.set(kafkaSinkRecord.kafkaOffset());
-      if (LOGGER.isDebugEnabled()) {
-        LOGGER.debug(
-            "Setting currentConsumerGroupOffset=[{}], channel=[{}]",
-            kafkaSinkRecord.kafkaOffset(),
-            channelName);
-      }
+      LOGGER.trace(
+          "Setting currentConsumerGroupOffset=[{}], channel=[{}]",
+          kafkaSinkRecord.kafkaOffset(),
+          channelName);
     }
 
     // Reset the value if it's a new batch
@@ -253,9 +251,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               kafkaOffset);
           streamingErrorHandler.handleError(List.of(error.get().cause()), kafkaSinkRecord);
           this.processedOffset.set(kafkaOffset);
-          if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
-          }
+          LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
           return;
         }
       }
@@ -267,9 +263,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       if (!transformedRecord.isEmpty()) {
         insertRowWithFallback(unquotedTransformedRecord, kafkaOffset);
         this.processedOffset.set(kafkaOffset);
-        if (LOGGER.isDebugEnabled()) {
-          LOGGER.debug("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
-        }
+        LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
       }
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
@@ -345,6 +339,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private void insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
     AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
         () -> {
+          LOGGER.trace("Inserting transformed record: {}, offset: {}", transformedRecord, offset);
           this.channel.appendRow(transformedRecord, Long.toString(offset));
           this.lastAppendRowsOffset = offset;
         },
@@ -641,19 +636,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   public void setLatestConsumerGroupOffset(long consumerOffset) {
     if (consumerOffset > this.currentConsumerGroupOffset.get()) {
       this.currentConsumerGroupOffset.set(consumerOffset);
-      if (LOGGER.isDebugEnabled()) {
-        LOGGER.debug(
-            "Setting currentConsumerGroupOffset=[{}], channel=[{}]", consumerOffset, channelName);
-      }
+      LOGGER.trace(
+          "Setting currentConsumerGroupOffset=[{}], channel=[{}]", consumerOffset, channelName);
     } else {
-      if (LOGGER.isDebugEnabled()) {
-        LOGGER.warn(
-            "Not setting currentConsumerGroupOffset=[{}] because consumerOffset=[{}] is <="
-                + " currentConsumerGroupOffset for channel=[{}]",
-            this.currentConsumerGroupOffset.get(),
-            consumerOffset,
-            channelName);
-      }
+      LOGGER.trace(
+          "Not setting currentConsumerGroupOffset=[{}] because consumerOffset=[{}] is <="
+              + " currentConsumerGroupOffset for channel=[{}]",
+          this.currentConsumerGroupOffset.get(),
+          consumerOffset,
+          channelName);
     }
   }
 

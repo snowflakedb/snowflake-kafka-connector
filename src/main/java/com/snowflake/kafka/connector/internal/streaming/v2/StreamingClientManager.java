@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import com.snowflake.kafka.connector.Utils;
@@ -61,13 +63,13 @@ public final class StreamingClientManager {
       final StreamingClientProperties streamingClientProperties) {
 
     // Validate inputs
-    if (connectorName == null || connectorName.trim().isEmpty()) {
+    if (isNullOrEmpty(connectorName)) {
       throw new IllegalArgumentException("connectorName cannot be null or empty");
     }
-    if (taskId == null || taskId.trim().isEmpty()) {
+    if (isNullOrEmpty(taskId)) {
       throw new IllegalArgumentException("taskId cannot be null or empty");
     }
-    if (pipeName == null || pipeName.trim().isEmpty()) {
+    if (isNullOrEmpty(pipeName)) {
       throw new IllegalArgumentException("pipeName cannot be null or empty");
     }
 
@@ -148,14 +150,13 @@ public final class StreamingClientManager {
                     "Creating new streaming client for pipe: {}, connector: {}",
                     pipeName,
                     connectorName);
-                return createClient(
-                    connectorName, pipeName, connectorConfig, streamingClientProperties);
+                return createClient(pipeName, connectorConfig, streamingClientProperties);
               });
 
       // Track that this task is using this pipe
       pipeToTasks.computeIfAbsent(pipeName, k -> ConcurrentHashMap.newKeySet()).add(taskId);
 
-      LOGGER.debug(
+      LOGGER.info(
           "Task {} now using pipe {} for connector {}, total tasks on this pipe: {}",
           taskId,
           pipeName,
@@ -193,7 +194,6 @@ public final class StreamingClientManager {
   }
 
   private static SnowflakeStreamingIngestClient createClient(
-      final String connectorName,
       final String pipeName,
       final Map<String, String> connectorConfig,
       final StreamingClientProperties streamingClientProperties) {
