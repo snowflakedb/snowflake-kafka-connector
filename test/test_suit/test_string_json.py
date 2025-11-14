@@ -9,6 +9,9 @@ class TestStringJson(BaseE2eTest):
         self.fileName = "travis_correct_string_json"
         self.topic = self.fileName + nameSalt
         self.recordCount = 100
+        self.tableName = self.fileName + nameSalt
+        
+        self.driver.create_table(self.tableName)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

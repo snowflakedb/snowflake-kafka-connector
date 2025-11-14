@@ -42,7 +42,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -392,16 +391,6 @@ public class Utils {
         config.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
   }
 
-  public static boolean isUsingUserDefinedDatabaseObjects(Map<String, String> config) {
-    return Optional.ofNullable(
-            config.get(
-                SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS))
-        .map(Boolean::parseBoolean)
-        .orElse(
-            SnowflakeSinkConnectorConfig
-                .SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS_DEFAULT_VALUE);
-  }
-
   /**
    * @param config config with applied default values
    * @return role specified in rhe config
@@ -473,7 +462,7 @@ public class Utils {
    * @param topic2table topic to table map
    * @return valid table name
    */
-  public static String tableName(String topic, Map<String, String> topic2table) {
+  public static String getTableName(String topic, Map<String, String> topic2table) {
     return generateValidName(topic, topic2table);
   }
 

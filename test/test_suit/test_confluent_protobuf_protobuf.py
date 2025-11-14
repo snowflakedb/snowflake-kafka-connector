@@ -12,6 +12,7 @@ class TestConfluentProtobufProtobuf(BaseE2eTest):
         self.driver = driver
         self.fileName = "travis_correct_confluent_protobuf_protobuf"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
 
         self.sensor = sensor_pb2.SensorReading()
         self.sensor.dateTime = 1234
@@ -39,6 +40,8 @@ class TestConfluentProtobufProtobuf(BaseE2eTest):
             'value.serializer': self.valueProtobufSerializer}
 
         self.protobufProducer = SerializingProducer(producer_conf)
+        
+        self.driver.create_table(self.tableName)
 
 
     def getConfigFileName(self):

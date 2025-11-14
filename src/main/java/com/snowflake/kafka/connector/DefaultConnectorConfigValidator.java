@@ -4,9 +4,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIO
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
 import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
-import static com.snowflake.kafka.connector.Utils.isUsingUserDefinedDatabaseObjects;
 import static com.snowflake.kafka.connector.Utils.isValidSnowflakeApplicationName;
 import static com.snowflake.kafka.connector.Utils.parseTopicToTableMap;
 import static com.snowflake.kafka.connector.Utils.validateProxySettings;
@@ -184,41 +182,11 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    if (config.containsKey(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)) {
-      if (!(config
-              .get(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)
-              .equalsIgnoreCase("true")
-          || config
-              .get(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)
-              .equalsIgnoreCase("false"))) {
-        invalidConfigParams.put(
-            SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
-            Utils.formatString(
-                "Kafka config: {} should either be true or false",
-                SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS));
-      }
-    }
-
     if (isSchematizationEnabled(config)) {
       invalidConfigParams.put(
           ENABLE_SCHEMATIZATION_CONFIG,
           Utils.formatString(
               "Schematization is not available in Private Preview", ENABLE_SCHEMATIZATION_CONFIG));
-    }
-
-    // with schematization enabled user expects the connector to alter table (add columns) when new
-    // fields arrive
-    // so setting schematization to true and at the same time using user defined database objects
-    // makes no sense because the connector should not modify the TABLE and PIPE created by the user
-    // (as per contract).
-    if (isSchematizationEnabled(config) && isUsingUserDefinedDatabaseObjects(config)) {
-      invalidConfigParams.put(
-          SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
-          Utils.formatString(
-              "{} and {} are mutually exclusive. If schematization is enabled then you need to"
-                  + " allow connector to alter target table and pipe.",
-              SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
-              ENABLE_SCHEMATIZATION_CONFIG));
     }
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING

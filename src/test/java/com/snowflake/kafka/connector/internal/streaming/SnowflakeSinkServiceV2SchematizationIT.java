@@ -53,7 +53,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     config.put("schemas.enable", "false");
     config.put(ERRORS_TOLERANCE_CONFIG, "all");
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
-    pipe = PipeNameProvider.pipeName(config, table);
+    pipe = PipeNameProvider.buildPipeName(table);
   }
 
   @AfterEach
@@ -74,7 +74,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     // The first insert should fail and schema evolution will kick in to update the schema
     service.insert(Collections.singletonList(jsonRecordValue));
@@ -91,25 +91,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
-  public void testSchemaEvolutionNotAvailableInSsv2() {
-    // given
-    SinkRecord jsonRecordValue = createComplexTestRecord(partition, 0);
-    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
-    service =
-        StreamingSinkServiceBuilder.builder(conn, config)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withErrorReporter(errorReporter)
-            .build();
-    service.startPartition(table, topicPartition);
-
-    // when
-    service.insert(Collections.singletonList(jsonRecordValue));
-
-    // then
-    Assertions.assertEquals(1, errorReporter.getReportedRecords().size());
-  }
-
-  @Test
   @Disabled(
       "disabling this test for now. It may come in handy depending on how ssv2 schema evolution"
           + " will be implemented")
@@ -120,7 +101,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     // The first insert should fail and schema evolution will kick in to add the column
     service.insert(Collections.singletonList(jsonRecordValue));
@@ -163,7 +144,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     service.insert(
         Arrays.asList(
@@ -190,6 +171,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @Test
   public void snowflakeSinkTask_put_whenJsonRecordCannotBeSchematized_sendRecordToDLQ() {
     // given
+    conn.createTableWithOnlyMetadataColumn(table);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
@@ -198,7 +180,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withErrorReporter(errorReporter)
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     // Create a record that cannot be schematized (array at root level)
     String notSchematizeableJsonRecord = "[{\"name\":\"sf\",\"answer\":42}]";
@@ -212,6 +194,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   }
 
   @Test
+  @Disabled("Enable this and adapt when SSV2 implement schematization and schema evolution")
   void shouldSendRecordToDlqIfSchemaNotMatched() {
     // given
 
@@ -229,7 +212,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withErrorReporter(errorReporter)
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     // when
     service.insert(invalidBooleanRecord);
@@ -255,7 +238,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     SinkRecord timestampRecord = createKafkaRecordWithSchema(timestampWithSchemaExample(), 0);
     service.insert(Collections.singletonList(timestampRecord));

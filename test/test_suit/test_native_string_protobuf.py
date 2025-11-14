@@ -7,6 +7,7 @@ class TestNativeStringProtobuf(BaseE2eTest):
         self.driver = driver
         self.fileName = "travis_correct_native_string_protobuf"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
 
         self.sensor = sensor_pb2.SensorReading()
         self.sensor.dateTime = 1234
@@ -23,6 +24,8 @@ class TestNativeStringProtobuf(BaseE2eTest):
         self.sensor.bytes_val = b'\xDE\xAD'
         self.sensor.double_array_val.extend([1/3, 32.21, 434324321])
         self.sensor.uint64_val = (1 << 64) - 1
+        
+        self.driver.create_table(self.tableName)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

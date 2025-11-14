@@ -15,7 +15,6 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLA
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_USER;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
@@ -25,7 +24,6 @@ import static com.snowflake.kafka.connector.Utils.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
 import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
-import static com.snowflake.kafka.connector.internal.TestUtils.getConfForStreaming;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -65,10 +63,6 @@ public class ConnectorConfigValidatorTest {
   public static Stream<Arguments> validConfigs() {
     return Stream.of(
         Arguments.of(SnowflakeSinkConnectorConfigBuilder.streamingConfig().build()),
-        Arguments.of(
-            SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-                .withUseUserDefinedDatabaseObjects(true)
-                .build()),
         Arguments.of(
             SnowflakeSinkConnectorConfigBuilder.streamingConfig()
                 .withSchematizationEnabled(false)
@@ -703,33 +697,5 @@ public class ConnectorConfigValidatorTest {
 
     assertThatCode(() -> connectorConfigValidator.validateConfig(config))
         .doesNotThrowAnyException();
-  }
-
-  @Test
-  public void test_snowpipe_streaming_use_user_defined_database_objects() {
-    Map<String, String> config = getConfForStreaming();
-    connectorConfigValidator.validateConfig(config);
-    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "False");
-    connectorConfigValidator.validateConfig(config);
-    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "True");
-    connectorConfigValidator.validateConfig(config);
-    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "INVALID");
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS);
-  }
-
-  @Test
-  public void
-      test_snowpipe_streaming_use_user_defined_database_objects_invalid_with_schematization_enabled() {
-    Map<String, String> config = getConfForStreaming();
-    config.put(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS, "true");
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
-
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS)
-        .hasMessageContaining(ENABLE_SCHEMATIZATION_CONFIG)
-        .hasMessageContaining("mutually exclusive");
   }
 }

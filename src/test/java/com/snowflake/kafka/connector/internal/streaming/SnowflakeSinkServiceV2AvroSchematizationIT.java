@@ -155,7 +155,7 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, new TopicPartition(topic, PARTITION));
+    service.startPartition(new TopicPartition(topic, PARTITION));
     return service;
   }
 
@@ -165,7 +165,6 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     AvroConverter avroConverter = prepareAvroConverter();
 
     byte[] converted = avroConverter.fromConnectData(topic, data.schema(), data);
-    conn.createTableWithOnlyMetadataColumn(table);
 
     SchemaAndValue avroInputValue = avroConverter.toConnectData(topic, converted);
 

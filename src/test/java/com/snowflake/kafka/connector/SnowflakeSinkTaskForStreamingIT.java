@@ -57,6 +57,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void beforeEach() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
+    TestUtils.getConnectionServiceForStreaming().createTable(topicName);
   }
 
   @AfterEach
@@ -314,8 +315,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.open(testPartitions);
 
     // verify expected num tasks opened
-    Mockito.verify(serviceSpy, Mockito.times(1))
-        .startPartitions(Mockito.anyCollection(), Mockito.anyMap());
+    Mockito.verify(serviceSpy, Mockito.times(1)).startPartitions(Mockito.anyCollection());
 
     for (String topicStr : expectedTopic2TableConfig.keySet()) {
       TopicPartition topic = null;

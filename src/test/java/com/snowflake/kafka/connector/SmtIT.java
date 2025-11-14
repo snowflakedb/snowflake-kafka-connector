@@ -7,7 +7,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.FakeSnowflakeStreamingIngestChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientProvider;
+import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
@@ -31,14 +31,16 @@ public class SmtIT extends ConnectClusterBaseIT {
     smtTopic = TestUtils.randomTableName();
     smtConnector = String.format("%s_connector", smtTopic);
     connectCluster.kafka().createTopic(smtTopic, PARTITION_COUNT);
-    StreamingIngestClientProvider.setIngestClientSupplier(fakeClientSupplier);
+    TestUtils.getConnectionServiceForStreaming().createTable(smtTopic);
+    StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
   }
 
   @AfterEach
   void after() {
     connectCluster.kafka().deleteTopic(smtTopic);
     connectCluster.deleteConnector(smtConnector);
-    StreamingIngestClientProvider.resetIngestClientSupplier();
+    StreamingClientManager.resetIngestClientSupplier();
+    TestUtils.dropTable(smtTopic);
   }
 
   private Map<String, String> smtProperties(

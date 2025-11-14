@@ -42,6 +42,7 @@ public class SinkTaskProxyIT {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
+    config.put(Utils.TASK_ID, "0");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "wronghost");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, "9093"); // wrongport
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME, "user");
@@ -105,6 +106,7 @@ public class SinkTaskProxyIT {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
+    config.put(Utils.TASK_ID, "0");
     int proxyPort = proxyServer.getPort();
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST, "localhost");
     config.put(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT, String.valueOf(proxyPort));

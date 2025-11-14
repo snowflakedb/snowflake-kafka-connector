@@ -13,7 +13,7 @@ class TestSnowpipeStreamingNullableValuesAfterSmt(BaseE2eTest):
         self.fileName = 'snowpipe_streaming_nullable_values_after_smt'
         self.table = self.fileName + nameSalt
         self.topic = self.table
-
+        self.driver.create_table(self.table)
         self.total_events = 200
 
     def getConfigFileName(self):

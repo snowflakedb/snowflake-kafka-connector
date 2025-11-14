@@ -21,6 +21,10 @@ class TestPressure(BaseE2eTest):
         for t in range(self.topicNum):
             self.driver.createTopics(self.topics[t], self.partitionNum, 1)
 
+        for t in range(self.topicNum):
+            self.driver.create_table(self.topics[t])
+
+
         sleep(5)
 
     def getConfigFileName(self):
