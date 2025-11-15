@@ -2,6 +2,7 @@ from test_suit.test_utils import RetryableError, NonRetryableError
 from time import sleep
 from confluent_kafka import avro
 from test_suit.base_e2e import BaseE2eTest
+from snowflake.connector import DictCursor
 
 # SR -> Schema Registry
 # Runs only in confluent test suite environment
@@ -33,7 +34,7 @@ class TestSnowpipeStreamingStringAvroSR(BaseE2eTest):
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
         self.driver.createTopics(self.topic, partitionNum=self.partitionNum, replicationNum=1)
-        self.driver.create_table(self.tableName)
+        self.driver.snowflake_conn.cursor().execute(f"""create or replace table {self.tableName} (record_metadata variant, id number, firstName string, time number, someFloat number, someFloatNaN string)""")
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -61,15 +62,13 @@ class TestSnowpipeStreamingStringAvroSR(BaseE2eTest):
             print("Topic:" + self.topic + " count is exactly " + str(self.recordNum * self.partitionNum))
 
         # for duplicates
-        res = self.driver.snowflake_conn.cursor().execute("Select record_metadata:\"offset\"::string as OFFSET_NO,record_metadata:\"partition\"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1".format(self.topic)).fetchone()
+        res = self.driver.snowflake_conn.cursor().execute("""Select record_metadata:"offset"::string as OFFSET_NO,record_metadata:"partition"::string as PARTITION_NO from {} group by OFFSET_NO, PARTITION_NO having count(*)>1""".format(self.topic)).fetchone()
         print("Duplicates:{}".format(res))
         if res is not None:
             raise NonRetryableError("Duplication detected")
 
         # for uniqueness in offset numbers
-        rows = self.driver.snowflake_conn.cursor().execute("Select count(distinct record_metadata:\"offset\"::number) as UNIQUE_OFFSETS,record_metadata:\"partition\"::number as PARTITION_NO from {} group by PARTITION_NO order by PARTITION_NO".format(self.topic)).fetchall()
-
-        print(rows)
+        rows = self.driver.snowflake_conn.cursor().execute("""Select count(distinct record_metadata:"offset"::number) as UNIQUE_OFFSETS,record_metadata:"partition"::number as PARTITION_NO from {} group by PARTITION_NO order by PARTITION_NO""".format(self.topic)).fetchall()
 
         if rows is None:
             raise NonRetryableError("Unique offsets for partitions not found")

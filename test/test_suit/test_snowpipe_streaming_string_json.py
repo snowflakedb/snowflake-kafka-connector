@@ -18,7 +18,7 @@ class TestSnowpipeStreamingStringJson(BaseE2eTest):
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
         self.driver.createTopics(self.topic, partitionNum=self.partitionNum, replicationNum=1)
-        self.driver.create_table(self.tableName)
+        self.driver.snowflake_conn.cursor().execute(f"""create or replace table {self.tableName} (record_metadata variant, fieldName varchar)""")
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -38,16 +38,16 @@ class TestSnowpipeStreamingStringJson(BaseE2eTest):
             # send two less record because we are sending tombstone records. tombstone ingestion is enabled by default
             for e in range(self.recordNum - 2):
                 value.append(json.dumps(
-                    {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
+                    {'fieldName': str(e)}
                 ).encode('utf-8'))
 
             # append tombstone except for 2.5.1 due to this bug: https://issues.apache.org/jira/browse/KAFKA-10477
             if self.driver.testVersion == '2.5.1':
                 value.append(json.dumps(
-                    {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum - 1)}
+                    {'fieldName': str(self.recordNum - 1)}
                 ).encode('utf-8'))
                 value.append(json.dumps(
-                    {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(self.recordNum)}
+                    {'fieldName': str(self.recordNum)}
                 ).encode('utf-8'))
             else:
                 value.append(None)

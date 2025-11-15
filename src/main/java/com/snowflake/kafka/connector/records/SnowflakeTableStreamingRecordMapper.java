@@ -6,7 +6,6 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -82,7 +81,7 @@ class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
       JsonNode columnNode = node.get(columnName);
       Object columnValue = getTextualValue(columnNode);
       // SSv2 supports native objects and arrays
-      if (columnNode.isObject()) {
+      if (columnNode.isObject()) { // TODO: lkucharski przetestowac te branche
         columnValue = mapper.convertValue(columnNode, OBJECTS_MAP_TYPE_REFERENCE);
       }
       if (columnNode.isArray()) {
@@ -90,7 +89,9 @@ class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
       }
       // while the value is always dumped into a string, the Streaming Ingest SDK
       // will transform the value according to its type in the table
-      streamingIngestRow.put(Utils.quoteNameIfNeeded(columnName), columnValue);
+      // TODO: lkucharski what happens if there are spaces or special characters?
+      streamingIngestRow.put(columnName, columnValue);
+      //      streamingIngestRow.put(Utils.quoteNameIfNeeded(columnName), columnValue);
     }
     // Thrown an exception if the input JsonNode is not in the expected format
     if (streamingIngestRow.isEmpty()) {

@@ -70,8 +70,7 @@ public class ConverterTest {
     jsonMap.put("test", Integer.MAX_VALUE);
     SchemaAndValue schemaAndValue =
         jsonConverter.toConnectData("test", mapper.writeValueAsBytes(jsonMap));
-    JsonNode result =
-        RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value(), false);
+    JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
 
     ObjectNode expected = mapper.createObjectNode();
     expected.put("test", Integer.MAX_VALUE);
@@ -112,7 +111,7 @@ public class ConverterTest {
     SchemaAndValue schemaInputValue = jsonConverter.toConnectData("test", value.getBytes());
 
     JsonNode result =
-        RecordService.convertToJson(schemaInputValue.schema(), schemaInputValue.value(), false);
+        RecordService.convertToJson(schemaInputValue.schema(), schemaInputValue.value());
     System.out.println("Record Service result:" + result + " Thread :" + Thread.currentThread());
 
     String exptectedDateTimeFormatStr =
@@ -130,7 +129,7 @@ public class ConverterTest {
     jsonMap.put("test", new BigDecimal("999999999999999999999999999999999999999"));
     SchemaAndValue schemaAndValue =
         jsonConverter.toConnectData("test", mapper.writeValueAsBytes(jsonMap));
-    RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value(), false);
+    RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
 
     ObjectNode expected = mapper.createObjectNode();
     expected.put("test", new BigDecimal("999999999999999999999999999999999999999"));
@@ -146,8 +145,7 @@ public class ConverterTest {
     SchemaAndValue schemaAndValue =
         headerConverter.toConnectHeader(
             "test", "h1", rawHeader.getBytes(StandardCharsets.US_ASCII));
-    JsonNode result =
-        RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value(), false);
+    JsonNode result = RecordService.convertToJson(schemaAndValue.schema(), schemaAndValue.value());
 
     ObjectNode expected = mapper.createObjectNode();
     String expectedTimestampValue =

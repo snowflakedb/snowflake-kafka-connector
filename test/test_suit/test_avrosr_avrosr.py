@@ -1,3 +1,4 @@
+from snowflake.connector import DictCursor
 from test_suit.test_utils import RetryableError, NonRetryableError
 from confluent_kafka import avro
 from test_suit.base_e2e import BaseE2eTest
@@ -41,8 +42,10 @@ class TestAvrosrAvrosr(BaseE2eTest):
         """
         self.keySchema = avro.loads(KeySchemaStr)
         self.valueSchema = avro.loads(ValueSchemaStr)
-        
-        self.driver.create_table(self.tableName)
+        self.driver.snowflake_conn.cursor().execute(f"""create or replace table {self.tableName} (record_metadata variant, id number,
+        firstName varchar, time number, someFloat number, someFloatNaN varchar, someFloatPositiveInfinity varchar, someFloatNegativeInfinity varchar,
+          someDouble number, someDoubleNaN varchar, someDoublePositiveInfinity varchar, someDoubleNegativeInfinity varchar )""")
+
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -76,11 +79,22 @@ class TestAvrosrAvrosr(BaseE2eTest):
         elif res != 100:
             raise NonRetryableError("Number of record in table is different from number of record sent")
         # validate content of line 1
-        res = self.driver.snowflake_conn.cursor().execute(
+        res = self.driver.snowflake_conn.cursor(DictCursor).execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
         goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{},"key":{"id":0},"offset":0,"partition":0,"topic":"travis_correct_avrosr_avrosr_\w*"}'
-        goldContent = r'{"firstName":"abc0","id":0,"someDouble":15.1,"someDoubleNaN":"NaN","someDoubleNegativeInfinity":"-Infinity","someDoublePositiveInfinity":"Infinity","someFloat":21.37,"someFloatNaN":"NaN","someFloatNegativeInfinity":"-Infinity","someFloatPositiveInfinity":"Infinity","time":1835}'
-        self.driver.regexMatchOneLine(res, goldMeta, goldContent)
+        assert res['ID'] == 0
+        assert res['FIRSTNAME'] == "abc0"
+        assert res['TIME'] == 1835
+        assert res['SOMEFLOAT'] == 21
+        assert res['SOMEFLOATNAN'] == 'NaN'
+        assert res['SOMEFLOATPOSITIVEINFINITY'] == 'Inf'
+        assert res['SOMEFLOATNEGATIVEINFINITY'] == '-Inf'
+        assert res['SOMEDOUBLE'] == 15
+        assert res['SOMEDOUBLENAN'] == 'NaN'
+        assert res['SOMEDOUBLEPOSITIVEINFINITY'] == 'Inf'
+        assert res['SOMEDOUBLENEGATIVEINFINITY'] == '-Inf'
+        self.driver.regexMatchMeta(res['RECORD_METADATA'], goldMeta)
 
-    def clean(self):
+
+def clean(self):
         self.driver.cleanTableStagePipe(self.topic)

@@ -75,7 +75,7 @@ class IcebergTableSchemaResolver {
 
   private List<IcebergColumnTree> getTableSchemaFromJson(
       SinkRecord record, Set<String> columnsToEvolve) {
-    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
 
     return Streams.stream(recordNode.fields())
         .map(IcebergColumnJsonValuePair::from)
