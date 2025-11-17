@@ -26,7 +26,7 @@ public class TopicToTableModeExtractor {
    */
   public static Topic2TableMode determineTopic2TableMode(
       Map<String, String> topic2TableMap, String topic) {
-    String tableName = Utils.tableName(topic, topic2TableMap);
+    String tableName = Utils.getTableName(topic, topic2TableMap);
     return topic2TableMap.values().stream()
                 .filter(table -> table.equalsIgnoreCase(tableName))
                 .count()

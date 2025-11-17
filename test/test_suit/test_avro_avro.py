@@ -7,6 +7,9 @@ class TestAvroAvro(BaseE2eTest):
         self.driver = driver
         self.fileName = "travis_correct_avro_avro"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
+        
+        self.driver.create_table(self.tableName)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

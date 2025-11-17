@@ -9,6 +9,7 @@ class TestNativeComplexSmt(BaseE2eTest):
         self.fileName = "travis_correct_native_complex_smt"
         self.topic = self.fileName + nameSalt
         self.table = self.topic
+        self.driver.create_table(self.table)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

@@ -49,7 +49,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   public void setup() {
     config = TestUtils.getConfForStreaming();
     conn.createTable(table);
-    pipe = PipeNameProvider.pipeName(config, table);
+    pipe = PipeNameProvider.buildPipeName(table);
   }
 
   @AfterEach
@@ -65,7 +65,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     Converter converter = buildJsonConverter();
     SchemaAndValue input =
@@ -110,7 +110,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     Converter converter = buildJsonConverter();
     SchemaAndValue input =
@@ -148,7 +148,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     Converter converter = buildJsonConverter();
 
@@ -214,8 +214,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .withEnableCustomJMXMetrics(true)
             .build();
 
-    service.startPartition(table, topicPartition);
-    service.startPartition(table, new TopicPartition(topic, partition2));
+    service.startPartition(topicPartition);
+    service.startPartition(new TopicPartition(topic, partition2));
 
     final int recordsInPartition1 = 2;
     final int recordsInPartition2 = 5;
@@ -315,14 +315,13 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     final int recordsInEachPartition = 2;
     final int topicCount = 3;
 
+    Map<String, String> topic2Table = new HashMap<>();
     ArrayList<String> topics = new ArrayList<>();
     for (int topic = 0; topic < topicCount; topic++) {
-      topics.add(TestUtils.randomTableName());
+      final String topicName = TestUtils.randomTableName();
+      topics.add(topicName);
+      topic2Table.put(topicName, table);
     }
-
-    // only insert fist topic to topicTable
-    Map<String, String> topic2Table = new HashMap<>();
-    topic2Table.put(topics.get(0), table);
 
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
@@ -332,7 +331,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     for (int topic = 0; topic < topicCount; topic++) {
       for (int partition = 0; partition < partitionCount; partition++) {
-        service.startPartition(topics.get(topic), new TopicPartition(topics.get(topic), partition));
+        service.startPartition(new TopicPartition(topics.get(topic), partition));
       }
 
       List<SinkRecord> records = new ArrayList<>();
@@ -345,16 +344,13 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
       service.insert(records);
     }
 
+    TestUtils.assertWithRetry(
+        () -> TestUtils.tableSize(table) == recordsInEachPartition * partitionCount * topicCount,
+        10,
+        20);
+
     for (int topic = 0; topic < topicCount; topic++) {
       int finalTopic = topic;
-      TestUtils.assertWithRetry(
-          () -> {
-            service.insert(new ArrayList<>()); // trigger time based flush
-            return TestUtils.tableSize(topics.get(finalTopic))
-                == recordsInEachPartition * partitionCount;
-          },
-          10,
-          20);
 
       for (int partition = 0; partition < partitionCount; partition++) {
         int finalPartition = partition;
@@ -375,18 +371,19 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     final int partitionCount = 5;
     final int recordsInEachPartition = 2;
 
-    SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .build();
-
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     for (int partition = 0; partition < partitionCount; partition++) {
       topicPartitions.add(new TopicPartition(topic, partition));
     }
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
-    service.startPartitions(topicPartitions, topic2Table);
+    SnowflakeSinkService service =
+        StreamingSinkServiceBuilder.builder(conn, config)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withTopicToTableMap(topic2Table)
+            .build();
+
+    service.startPartitions(topicPartitions);
 
     List<SinkRecord> records = new ArrayList<>();
     for (int partition = 0; partition < partitionCount; partition++) {
@@ -495,7 +492,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     service.insert(noSchemaRecordValue);
     service.insert(schemaRecordValue);
@@ -650,7 +647,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     service.insert(avroRecordValue);
     service.insert(avroRecordKey);
@@ -703,7 +700,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withErrorReporter(errorReporter)
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     service.insert(brokenValue);
     service.insert(brokenKey);
@@ -745,7 +742,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withErrorReporter(errorReporter)
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     service.insert(brokenValue);
     service.insert(brokenKey);
@@ -797,7 +794,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .withErrorReporter(errorReporter)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     service.insert(correctValue);
     service.insert(brokenValue);
@@ -823,7 +820,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     Converter converter = buildJsonConverter();
 
@@ -849,7 +846,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service2.startPartition(table, topicPartition);
+    service2.startPartition(topicPartition);
     offset = 1;
     // Create sink record
     SinkRecord record2 =
@@ -873,7 +870,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     final long noOfRecords = 10;
     // send regular data
@@ -894,7 +891,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service2.startPartition(table, topicPartition);
+    service2.startPartition(topicPartition);
 
     final long startOffsetAlreadyInserted = 5;
     records =

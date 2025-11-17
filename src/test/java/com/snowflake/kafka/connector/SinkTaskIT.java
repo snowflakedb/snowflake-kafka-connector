@@ -44,6 +44,7 @@ public class SinkTaskIT {
   public void setup() {
     topicName = TestUtils.randomTableName();
     snowflakeConnectionService = TestUtils.getConnectionService();
+    snowflakeConnectionService.createTable(topicName);
   }
 
   @After
@@ -64,6 +65,7 @@ public class SinkTaskIT {
   public void testSinkTask() throws Exception {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(Utils.TASK_ID, "0");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
     sinkTask.start(config);
@@ -136,6 +138,7 @@ public class SinkTaskIT {
   public void testSinkTaskNegative() throws Exception {
     Map<String, String> config = TestUtils.getConf();
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    config.put(Utils.TASK_ID, "0");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
     sinkTask.start(config);
@@ -333,7 +336,7 @@ public class SinkTaskIT {
     task1.stop();
 
     // verify task1 stop logs
-    Mockito.verify(logger, Mockito.times(1)).info(Mockito.contains("stop"));
+    Mockito.verify(logger, Mockito.times(2)).info(Mockito.contains("stop"));
 
     assert offsetMap0.get(topicPartitions0.get(0)).offset() == 10000L;
     assert offsetMap1.get(topicPartitions1.get(0)).offset() == 10000L;

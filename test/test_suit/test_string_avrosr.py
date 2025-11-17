@@ -21,6 +21,9 @@ class TestStringAvrosr(BaseE2eTest):
         }
         """
         self.valueSchema = avro.loads(ValueSchemaStr)
+        self.tableName = self.fileName + nameSalt
+        
+        self.driver.create_table(self.tableName)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

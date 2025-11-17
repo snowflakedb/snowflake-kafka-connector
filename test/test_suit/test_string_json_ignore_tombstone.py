@@ -8,7 +8,10 @@ class TestStringJsonIgnoreTombstone(BaseE2eTest):
         self.driver = driver
         self.fileName = "test_string_json_ignore_tombstone"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
         self.recordCount = 100
+        
+        self.driver.create_table(self.tableName)
 
     def getConfigFileName(self):
         return self.fileName + ".json"

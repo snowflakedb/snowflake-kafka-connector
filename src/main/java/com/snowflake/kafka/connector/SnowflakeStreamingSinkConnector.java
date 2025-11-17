@@ -132,20 +132,13 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
    */
   @Override
   public void stop() {
+    LOGGER.info("SnowflakeStreamingSinkConnector connector stopping...");
     setupComplete = false;
-    LOGGER.info("SnowflakeStreamingSinkConnector:stopped");
-    telemetryClient.reportKafkaConnectStop(connectorStartTime);
-  }
 
-  // TODO (post GA): override reconfigure(java.util.Map<java.lang.String,java
-  // .lang.String> props)
-  // Default implementation shuts down all external network connections.
-  // We can make it more efficient by identifying configuration changes,
-  // creating new snowflake internal stages, new snowflake tables, new pipes,
-  // for newly added topics;
-  // and cleaning up stages for topics that are not in the new configuration,
-  // and
-  // cleaning up pipes for partitions that are not in the new configuration.
+    if (telemetryClient != null) {
+      telemetryClient.reportKafkaConnectStop(connectorStartTime);
+    }
+  }
 
   /** @return Sink task class */
   @Override
@@ -163,6 +156,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
    */
   @Override
   public List<Map<String, String>> taskConfigs(final int maxTasks) {
+    LOGGER.info("taskConfigs called with maxTasks: {}", maxTasks);
     // wait for setup to complete
     int counter = 0;
     while (counter < 120) // poll for 120*5 seconds (10 mins) maximum

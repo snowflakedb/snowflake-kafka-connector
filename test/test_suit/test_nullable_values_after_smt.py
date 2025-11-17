@@ -5,7 +5,6 @@ from test_suit.base_e2e import BaseE2eTest
 
 
 # Testing behavior for behavior.on.null.values = IGNORE and SMTs that can return null values.
-# Uses a Snowpipe based connector.
 class TestNullableValuesAfterSmt(BaseE2eTest):
 
     def __init__(self, driver, nameSalt):
@@ -13,8 +12,8 @@ class TestNullableValuesAfterSmt(BaseE2eTest):
         self.fileName = 'nullable_values_after_smt'
         self.table = self.fileName + nameSalt
         self.topic = self.table
-
         self.total_events = 200
+        self.driver.create_table(self.table)
 
     def getConfigFileName(self):
         return self.fileName + '.json'

@@ -14,12 +14,13 @@ class TestMultipleTopicToOneTableSnowpipeStreaming(BaseE2eTest):
         self.partitionNum = 3
         self.recordNum = 1000
         self.tableName = self.fileName + nameSalt
-
         for i in range(self.topicNum):
             self.topics.append(self.fileName + nameSalt + str(i))
 
             # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
             self.driver.createTopics(self.topics[-1], partitionNum=self.partitionNum, replicationNum=1)
+        
+        self.driver.create_table(self.tableName)
         
 
     def getConfigFileName(self):

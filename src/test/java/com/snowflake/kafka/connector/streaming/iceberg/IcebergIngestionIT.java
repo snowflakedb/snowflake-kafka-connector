@@ -67,7 +67,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .build();
-    service.startPartition(tableName, topicPartition);
+    service.startPartition(topicPartition);
   }
 
   @AfterEach

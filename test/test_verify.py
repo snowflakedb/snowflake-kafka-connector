@@ -288,7 +288,6 @@ class KafkaTest:
         if topicName == "":
             topicName = connectorName
         tableName = topicName
-        stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Drop table {} ===".format(tableName))
         self.snowflake_conn.cursor().execute("DROP table IF EXISTS {}".format(tableName))
@@ -317,6 +316,27 @@ class KafkaTest:
             ;
         """.format(table_name, external_volume, table_name)
         self.snowflake_conn.cursor().execute(sql)
+
+    def create_table(self, table_name: str):
+        sql = """
+                CREATE TABLE IF NOT EXISTS {} (
+                    RECORD_METADATA VARIANT,
+                    RECORD_CONTENT VARIANT
+                )
+            """.format(table_name)
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Creating table {table_name} ===")
+        print(datetime.now().strftime("%H:%M:%S "), f"{sql}")
+        self.snowflake_conn.cursor().execute(sql)
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Table {table_name} created ===")
+
+    def drop_table(self, table_name: str):
+        sql = """
+                DROP TABLE IF EXISTS {}
+            """.format(table_name)
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Dropping table {table_name} ===")
+        self.snowflake_conn.cursor().execute(sql)
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Table {table_name} dropped ===")
+
 
     def create_iceberg_table_with_sample_content(self, table_name: str, external_volume: str):
         sql = """

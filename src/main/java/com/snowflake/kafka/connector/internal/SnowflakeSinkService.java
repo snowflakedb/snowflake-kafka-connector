@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -13,19 +12,17 @@ public interface SnowflakeSinkService {
   /**
    * Start the Task. This should handle any configuration parsing and one-time setup of the task.
    *
-   * @param tableName destination table name
    * @param topicPartition TopicPartition passed from Kafka
    */
-  void startPartition(String tableName, TopicPartition topicPartition);
+  void startPartition(TopicPartition topicPartition);
 
   /**
    * Start a collection of TopicPartition. This should handle any configuration parsing and one-time
    * setup of the task.
    *
    * @param partitions collection of topic partitions
-   * @param topic2Table a mapping from topic to table
    */
-  void startPartitions(Collection<TopicPartition> partitions, Map<String, String> topic2Table);
+  void startPartitions(Collection<TopicPartition> partitions);
 
   /**
    * call pipe to insert a collections of JSON records will trigger time based flush

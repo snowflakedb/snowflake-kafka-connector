@@ -12,6 +12,7 @@ class TestSnowpipeStreamingSchemaMappingDLQ(BaseE2eTest):
         self.driver = driver
         self.fileName = "snowpipe_streaming_schema_mapping_dlq"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
         # Both for correct and incorrect data
         self.recordNum = 10
 

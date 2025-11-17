@@ -96,20 +96,20 @@ public class UtilsTest {
   }
 
   @Test
-  public void testTableName() {
+  public void testGetTableName() {
     Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
 
-    assert Utils.tableName("ab@cd", topic2table).equals("abcd");
-    assert Utils.tableName("1234", topic2table).equals("_1234");
+    assert Utils.getTableName("ab@cd", topic2table).equals("abcd");
+    assert Utils.getTableName("1234", topic2table).equals("_1234");
 
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.tableName("", topic2table));
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.tableName(null, topic2table));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table));
 
     String topic = "bc*def";
-    assert Utils.tableName(topic, topic2table).equals("bc_def_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table).equals("bc_def_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert Utils.tableName(topic, topic2table).equals("_12345_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table).equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -144,7 +144,7 @@ public class UtilsTest {
   }
 
   @Test
-  public void testTableNameRegex() {
+  public void testGetTableNameRegex() {
     String catTable = "cat_table";
     String dogTable = "dog_table";
     String catTopicRegex = ".*_cat";
@@ -155,14 +155,14 @@ public class UtilsTest {
         Utils.parseTopicToTableMap(
             Utils.formatString("{}:{},{}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable));
 
-    assert Utils.tableName("calico_cat", topic2table).equals(catTable);
-    assert Utils.tableName("orange_cat", topic2table).equals(catTable);
-    assert Utils.tableName("_cat", topic2table).equals(catTable);
-    assert Utils.tableName("corgi_dog", topic2table).equals(dogTable);
+    assert Utils.getTableName("calico_cat", topic2table).equals(catTable);
+    assert Utils.getTableName("orange_cat", topic2table).equals(catTable);
+    assert Utils.getTableName("_cat", topic2table).equals(catTable);
+    assert Utils.getTableName("corgi_dog", topic2table).equals(dogTable);
 
     // test new topic should not have wildcard
     String topic = "bird.*";
-    assert Utils.tableName(topic, topic2table).equals("bird_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table).equals("bird_" + Math.abs(topic.hashCode()));
   }
 
   @Test
