@@ -198,7 +198,7 @@ public class SnowflakeSinkConnectorConfig {
     if (!config.containsKey(ENABLE_SCHEMATIZATION_CONFIG)) {
       config.put(ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
       LOGGER.info(
-          "{} set to default {} seconds",
+          "{} set to default {}",
           ENABLE_SCHEMATIZATION_CONFIG,
           ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
     }
