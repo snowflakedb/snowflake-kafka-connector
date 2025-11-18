@@ -29,6 +29,8 @@ import org.apache.kafka.common.config.ConfigDef;
 /** A class representing config given by the user */
 public class SnowflakeSinkConnectorConfig {
 
+  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkConnectorConfig.class.getName());
+
   public static final String NAME = Utils.NAME;
   public static final String TOPICS = "topics";
 
@@ -107,6 +109,20 @@ public class SnowflakeSinkConnectorConfig {
   public static final String ICEBERG_ENABLED = "snowflake.streaming.iceberg.enabled";
   public static final boolean ICEBERG_ENABLED_DEFAULT_VALUE = false;
 
+  // Caching
+  public static final String CACHE_TABLE_EXISTS = "snowflake.cache.table.exists";
+  public static final boolean CACHE_TABLE_EXISTS_DEFAULT = true;
+  public static final String CACHE_TABLE_EXISTS_EXPIRE_MS =
+      "snowflake.cache.table.exists.expire.ms";
+  public static final long CACHE_TABLE_EXISTS_EXPIRE_MS_DEFAULT = 5 * 60 * 1000L;
+  public static final long CACHE_TABLE_EXISTS_EXPIRE_MS_MIN = 1L;
+
+  public static final String CACHE_PIPE_EXISTS = "snowflake.cache.pipe.exists";
+  public static final boolean CACHE_PIPE_EXISTS_DEFAULT = true;
+  public static final String CACHE_PIPE_EXISTS_EXPIRE_MS = "snowflake.cache.pipe.exists.expire.ms";
+  public static final long CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT = 5 * 60 * 1000L;
+  public static final long CACHE_PIPE_EXISTS_EXPIRE_MS_MIN = 1L;
+
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
   public static final boolean REBALANCING_DEFAULT = false;
@@ -183,8 +199,6 @@ public class SnowflakeSinkConnectorConfig {
         }
       };
 
-  private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkConnectorConfig.class.getName());
-
   public static void setDefaultValues(Map<String, String> config) {
     if (!config.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
       config.put(
@@ -201,6 +215,29 @@ public class SnowflakeSinkConnectorConfig {
           "{} set to default {}",
           ENABLE_SCHEMATIZATION_CONFIG,
           ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
+    }
+    if (!config.containsKey(CACHE_TABLE_EXISTS)) {
+      config.put(CACHE_TABLE_EXISTS, String.valueOf(CACHE_TABLE_EXISTS_DEFAULT));
+      LOGGER.info("{} set to default {}", CACHE_TABLE_EXISTS, CACHE_TABLE_EXISTS_DEFAULT);
+    }
+    if (!config.containsKey(CACHE_TABLE_EXISTS_EXPIRE_MS)) {
+      config.put(
+          CACHE_TABLE_EXISTS_EXPIRE_MS, String.valueOf(CACHE_TABLE_EXISTS_EXPIRE_MS_DEFAULT));
+      LOGGER.info(
+          "{} set to default {} ms",
+          CACHE_TABLE_EXISTS_EXPIRE_MS,
+          CACHE_TABLE_EXISTS_EXPIRE_MS_DEFAULT);
+    }
+    if (!config.containsKey(CACHE_PIPE_EXISTS)) {
+      config.put(CACHE_PIPE_EXISTS, String.valueOf(CACHE_PIPE_EXISTS_DEFAULT));
+      LOGGER.info("{} set to default {}", CACHE_PIPE_EXISTS, CACHE_PIPE_EXISTS_DEFAULT);
+    }
+    if (!config.containsKey(CACHE_PIPE_EXISTS_EXPIRE_MS)) {
+      config.put(CACHE_PIPE_EXISTS_EXPIRE_MS, String.valueOf(CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT));
+      LOGGER.info(
+          "{} set to default {} ms",
+          CACHE_PIPE_EXISTS_EXPIRE_MS,
+          CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT);
     }
   }
 

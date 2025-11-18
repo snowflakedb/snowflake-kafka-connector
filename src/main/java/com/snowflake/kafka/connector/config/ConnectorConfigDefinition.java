@@ -1,11 +1,15 @@
 package com.snowflake.kafka.connector.config;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static org.apache.kafka.common.config.ConfigDef.Importance.*;
+import static org.apache.kafka.common.config.ConfigDef.Range.*;
+import static org.apache.kafka.common.config.ConfigDef.Type.*;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigDef.Width;
 
 /** This class is a placeholder for config definition in Apache Kafka specific format */
 public class ConnectorConfigDefinition {
@@ -27,363 +31,407 @@ public class ConnectorConfigDefinition {
         // snowflake login info
         .define(
             SNOWFLAKE_URL,
-            ConfigDef.Type.STRING,
+            STRING,
             null,
             NON_EMPTY_STRING_VALIDATOR,
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Snowflake account url",
             SNOWFLAKE_LOGIN_INFO_DOC,
             0,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_URL)
         .define(
             SNOWFLAKE_USER,
-            ConfigDef.Type.STRING,
+            STRING,
             null,
             NON_EMPTY_STRING_VALIDATOR,
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Snowflake user name",
             SNOWFLAKE_LOGIN_INFO_DOC,
             1,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_USER)
         .define(
             SNOWFLAKE_PRIVATE_KEY,
-            ConfigDef.Type.PASSWORD,
+            PASSWORD,
             "",
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Private key for Snowflake user",
             SNOWFLAKE_LOGIN_INFO_DOC,
             2,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_PRIVATE_KEY)
         .define(
             SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
-            ConfigDef.Type.PASSWORD,
+            PASSWORD,
             "",
-            ConfigDef.Importance.LOW,
+            LOW,
             "Passphrase of private key if encrypted",
             SNOWFLAKE_LOGIN_INFO_DOC,
             3,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_PRIVATE_KEY_PASSPHRASE)
         .define(
             SNOWFLAKE_DATABASE,
-            ConfigDef.Type.STRING,
+            STRING,
             null,
             NON_EMPTY_STRING_VALIDATOR,
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Snowflake database name",
             SNOWFLAKE_LOGIN_INFO_DOC,
             4,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_DATABASE)
         .define(
             SNOWFLAKE_SCHEMA,
-            ConfigDef.Type.STRING,
+            STRING,
             null,
             NON_EMPTY_STRING_VALIDATOR,
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Snowflake database schema name",
             SNOWFLAKE_LOGIN_INFO_DOC,
             5,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_SCHEMA)
         .define(
             SNOWFLAKE_ROLE,
-            ConfigDef.Type.STRING,
+            STRING,
             null,
             NON_EMPTY_STRING_VALIDATOR,
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Snowflake role: snowflake.role.name",
             SNOWFLAKE_LOGIN_INFO_DOC,
             6,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_ROLE)
         .define(
             AUTHENTICATOR_TYPE,
-            ConfigDef.Type.STRING, // TODO: SNOW-889748 change to enum and add validator
+            STRING, // TODO: SNOW-889748 change to enum and add validator
             Utils.SNOWFLAKE_JWT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Authenticator for JDBC and streaming ingest sdk",
             SNOWFLAKE_LOGIN_INFO_DOC,
             7,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             AUTHENTICATOR_TYPE)
         .define(
             OAUTH_CLIENT_ID,
-            ConfigDef.Type.STRING,
+            STRING,
             "",
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Client id of target OAuth integration",
             SNOWFLAKE_LOGIN_INFO_DOC,
             8,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             OAUTH_CLIENT_ID)
         .define(
             OAUTH_CLIENT_SECRET,
-            ConfigDef.Type.PASSWORD,
+            PASSWORD,
             "",
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Client secret of target OAuth integration",
             SNOWFLAKE_LOGIN_INFO_DOC,
             9,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             OAUTH_CLIENT_SECRET)
         .define(
             OAUTH_REFRESH_TOKEN,
-            ConfigDef.Type.PASSWORD,
+            PASSWORD,
             "",
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Refresh token for OAuth",
             SNOWFLAKE_LOGIN_INFO_DOC,
             10,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             OAUTH_REFRESH_TOKEN)
         .define(
             OAUTH_TOKEN_ENDPOINT,
-            ConfigDef.Type.STRING,
+            STRING,
             null,
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "OAuth token endpoint url",
             SNOWFLAKE_LOGIN_INFO_DOC,
             11,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             OAUTH_TOKEN_ENDPOINT)
         // proxy
         .define(
             JVM_PROXY_HOST,
-            ConfigDef.Type.STRING,
+            STRING,
             "",
-            ConfigDef.Importance.LOW,
+            LOW,
             "JVM option: https.proxyHost",
             PROXY_INFO_DOC,
             0,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             JVM_PROXY_HOST)
         .define(
             JVM_PROXY_PORT,
-            ConfigDef.Type.STRING,
+            STRING,
             "",
-            ConfigDef.Importance.LOW,
+            LOW,
             "JVM option: https.proxyPort",
             PROXY_INFO_DOC,
             1,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             JVM_PROXY_PORT)
         .define(
             JVM_NON_PROXY_HOSTS,
-            ConfigDef.Type.STRING,
+            STRING,
             "",
-            ConfigDef.Importance.LOW,
+            LOW,
             "JVM option: http.nonProxyHosts",
             PROXY_INFO_DOC,
             2,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             JVM_NON_PROXY_HOSTS)
         .define(
             JVM_PROXY_USERNAME,
-            ConfigDef.Type.STRING,
+            STRING,
             "",
-            ConfigDef.Importance.LOW,
+            LOW,
             "JVM proxy username",
             PROXY_INFO_DOC,
             3,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             JVM_PROXY_USERNAME)
         .define(
             JVM_PROXY_PASSWORD,
-            ConfigDef.Type.PASSWORD,
+            PASSWORD,
             "",
-            ConfigDef.Importance.LOW,
+            LOW,
             "JVM proxy password",
             PROXY_INFO_DOC,
             4,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             JVM_PROXY_PASSWORD)
         // Connector Config
         .define(
             TOPICS_TABLES_MAP,
-            ConfigDef.Type.STRING,
+            STRING,
             "",
             TOPIC_TO_TABLE_VALIDATOR,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Map of topics to tables (optional). Format : comma-separated tuples, e.g."
                 + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
             CONNECTOR_CONFIG_DOC,
             0,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             TOPICS_TABLES_MAP)
         .define(
             SNOWFLAKE_METADATA_ALL,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             SNOWFLAKE_METADATA_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Flag to control whether there is metadata collected. If set to false, all metadata"
                 + " will be dropped",
             SNOWFLAKE_METADATA_FLAGS_DOC,
             0,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_METADATA_ALL)
         .define(
             SNOWFLAKE_METADATA_CREATETIME,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             SNOWFLAKE_METADATA_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Flag to control whether createtime is collected in snowflake metadata",
             SNOWFLAKE_METADATA_FLAGS_DOC,
             1,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_METADATA_CREATETIME)
         .define(
             SNOWFLAKE_METADATA_TOPIC,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             SNOWFLAKE_METADATA_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Flag to control whether kafka topic name is collected in snowflake metadata",
             SNOWFLAKE_METADATA_FLAGS_DOC,
             2,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_METADATA_TOPIC)
         .define(
             SNOWFLAKE_METADATA_OFFSET_AND_PARTITION,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             SNOWFLAKE_METADATA_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Flag to control whether kafka partition and offset are collected in snowflake"
                 + " metadata",
             SNOWFLAKE_METADATA_FLAGS_DOC,
             3,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_METADATA_OFFSET_AND_PARTITION)
         .define(
             SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Flag to control whether ConnectorPushTime is collected in snowflake metadata for"
                 + " Snowpipe Streaming",
             SNOWFLAKE_METADATA_FLAGS_DOC,
             4,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME)
         .define(
             PROVIDER_CONFIG,
-            ConfigDef.Type.STRING,
+            STRING,
             SnowflakeSinkConnectorConfig.KafkaProvider.UNKNOWN.name(),
             KAFKA_PROVIDER_VALIDATOR,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Whether kafka is running on Confluent code, self hosted or other managed service")
         .define(
             BEHAVIOR_ON_NULL_VALUES_CONFIG,
-            ConfigDef.Type.STRING,
+            STRING,
             SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT.toString(),
             SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR,
-            ConfigDef.Importance.LOW,
+            LOW,
             "How to handle records with a null value (i.e. Kafka tombstone records)."
                 + " Valid options are 'DEFAULT' and 'IGNORE'.",
             CONNECTOR_CONFIG_DOC,
             4,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             BEHAVIOR_ON_NULL_VALUES_CONFIG)
         .define(
             JMX_OPT,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             JMX_OPT_DEFAULT,
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "Whether to enable JMX MBeans for custom SF metrics")
         .define(
             REBALANCING,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             REBALANCING_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Whether to trigger a rebalancing by exceeding the max poll interval (Used only in"
                 + " testing)")
         .define(
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-            ConfigDef.Type.LONG,
+            LONG,
             StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC,
-            ConfigDef.Range.atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
-            ConfigDef.Importance.LOW,
+            atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
+            LOW,
             "Decide how often the buffer in the Ingest SDK will be flushed",
             CONNECTOR_CONFIG_DOC,
             6,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWPIPE_STREAMING_MAX_CLIENT_LAG)
         .define(
             SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES,
-            ConfigDef.Type.LONG,
+            LONG,
             SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Memory limit for ingest sdk client in bytes.")
         .define(
             SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-            ConfigDef.Type.STRING,
+            STRING,
             "",
             STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR,
-            ConfigDef.Importance.LOW,
+            LOW,
             "Map of Key value pairs representing Streaming Client Properties to Override. These are"
                 + " optional and recommended to use ONLY after consulting Snowflake Support. Format"
                 + " : comma-separated tuples, e.g.:"
                 + " MAX_CLIENT_LAG:5000,other_key:value...",
             CONNECTOR_CONFIG_DOC,
             0,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
         .define(
             ERRORS_TOLERANCE_CONFIG,
-            ConfigDef.Type.STRING,
+            STRING,
             ERRORS_TOLERANCE_DEFAULT,
             SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR,
-            ConfigDef.Importance.LOW,
+            LOW,
             ERRORS_TOLERANCE_DOC,
             ERROR_GROUP,
             0,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             ERRORS_TOLERANCE_DISPLAY)
         .define(
             ERRORS_LOG_ENABLE_CONFIG,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             ERRORS_LOG_ENABLE_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             ERRORS_LOG_ENABLE_DOC,
             ERROR_GROUP,
             1,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             ERRORS_LOG_ENABLE_DISPLAY)
         .define(
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
-            ConfigDef.Type.STRING,
+            STRING,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DOC,
             ERROR_GROUP,
             2,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DISPLAY)
         .define(
             ENABLE_MDC_LOGGING_CONFIG,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             ENABLE_MDC_LOGGING_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             ENABLE_MDC_LOGGING_DOC,
             CONNECTOR_CONFIG_DOC,
             8,
-            ConfigDef.Width.NONE,
+            Width.NONE,
             ENABLE_MDC_LOGGING_DISPLAY)
         .define(
             ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT,
-            ConfigDef.Importance.LOW,
+            LOW,
             "If set to true the Connector will fail its tasks when authorization error from"
                 + " Snowflake occurred")
         .define(
             ICEBERG_ENABLED,
-            ConfigDef.Type.BOOLEAN,
+            BOOLEAN,
             ICEBERG_ENABLED_DEFAULT_VALUE,
-            ConfigDef.Importance.HIGH,
+            HIGH,
             "When set to true the connector will ingest data into the Iceberg table. Check the"
-                + " official Snowflake documentation for the prerequisites.");
+                + " official Snowflake documentation for the prerequisites.")
+        .define(
+            CACHE_TABLE_EXISTS,
+            BOOLEAN,
+            CACHE_TABLE_EXISTS_DEFAULT,
+            LOW,
+            "Enable caching for Snowflake table existence checks to reduce database queries",
+            CONNECTOR_CONFIG_DOC,
+            9,
+            Width.NONE,
+            CACHE_TABLE_EXISTS)
+        .define(
+            CACHE_TABLE_EXISTS_EXPIRE_MS,
+            LONG,
+            CACHE_TABLE_EXISTS_EXPIRE_MS_DEFAULT,
+            atLeast(CACHE_TABLE_EXISTS_EXPIRE_MS_MIN),
+            LOW,
+            "Cache expiration time in milliseconds for table existence checks. Must be a positive"
+                + " number.",
+            CONNECTOR_CONFIG_DOC,
+            10,
+            Width.NONE,
+            CACHE_TABLE_EXISTS_EXPIRE_MS)
+        .define(
+            CACHE_PIPE_EXISTS,
+            BOOLEAN,
+            CACHE_PIPE_EXISTS_DEFAULT,
+            LOW,
+            "Enable caching for pipe existence checks to reduce database queries",
+            CONNECTOR_CONFIG_DOC,
+            11,
+            Width.NONE,
+            CACHE_PIPE_EXISTS)
+        .define(
+            CACHE_PIPE_EXISTS_EXPIRE_MS,
+            LONG,
+            CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT,
+            atLeast(CACHE_PIPE_EXISTS_EXPIRE_MS_MIN),
+            LOW,
+            "Cache expiration time in milliseconds for pipe existence checks. Must be a positive"
+                + " number.",
+            CONNECTOR_CONFIG_DOC,
+            12,
+            Width.NONE,
+            CACHE_PIPE_EXISTS_EXPIRE_MS);
   }
 }
