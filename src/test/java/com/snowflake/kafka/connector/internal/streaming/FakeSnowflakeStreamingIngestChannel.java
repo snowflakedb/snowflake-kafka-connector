@@ -1,9 +1,13 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static java.util.List.copyOf;
+
 import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -20,10 +24,11 @@ public class FakeSnowflakeStreamingIngestChannel
   private final SnowflakeStreamingIngestClient owningClient;
   /** Lock used to protect the buffers from concurrent read/write */
   private final Lock bufferLock;
+  /** Collection of all rows appended to this channel */
+  private final List<Map<String, Object>> appendedRows;
 
-  private boolean closed;
+  private volatile boolean closed;
   private String offsetToken;
-  private int appendedRowsCount;
 
   public FakeSnowflakeStreamingIngestChannel(
       SnowflakeStreamingIngestClient owningClient, String pipeName, String channelName) {
@@ -31,6 +36,7 @@ public class FakeSnowflakeStreamingIngestChannel
     this.pipeName = pipeName;
     this.channelName = channelName;
     this.bufferLock = new ReentrantLock();
+    this.appendedRows = new ArrayList<>();
   }
 
   @Override
@@ -81,9 +87,13 @@ public class FakeSnowflakeStreamingIngestChannel
 
   @Override
   public void appendRow(final Map<String, Object> row, final String offsetToken) {
-    // fake client don't care about the data appended we need to keep track of the offset
-    this.offsetToken = offsetToken;
-    this.appendedRowsCount++;
+    bufferLock.lock();
+    try {
+      this.appendedRows.add(row);
+      this.offsetToken = offsetToken;
+    } finally {
+      bufferLock.unlock();
+    }
   }
 
   @Override
@@ -91,8 +101,16 @@ public class FakeSnowflakeStreamingIngestChannel
       final Iterable<Map<String, Object>> rows,
       final String startOffsetToken,
       final String endOffsetToken) {
-    // fake client don't care about the data appended we need to keep track of the offset
-    this.offsetToken = endOffsetToken;
+
+    bufferLock.lock();
+    try {
+      for (Map<String, Object> row : rows) {
+        this.appendedRows.add(row);
+      }
+      this.offsetToken = endOffsetToken;
+    } finally {
+      bufferLock.unlock();
+    }
   }
 
   @Override
@@ -127,7 +145,21 @@ public class FakeSnowflakeStreamingIngestChannel
   }
 
   public int getAppendedRowsCount() {
-    return appendedRowsCount;
+    bufferLock.lock();
+    try {
+      return this.appendedRows.size();
+    } finally {
+      bufferLock.unlock();
+    }
+  }
+
+  public List<Map<String, Object>> getAppendedRows() {
+    bufferLock.lock();
+    try {
+      return copyOf(appendedRows);
+    } finally {
+      bufferLock.unlock();
+    }
   }
 
   @Override
