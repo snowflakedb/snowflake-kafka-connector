@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -75,14 +76,15 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
             buildRowWithDefaultMetadata("{}"), Map.of(TABLE_COLUMN_METADATA, FULL_SSV2_METADATA)),
         Arguments.of(
             buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
-            Map.of(TABLE_COLUMN_METADATA, FULL_SSV2_METADATA, "\"KEY\"", "value")),
+            Map.of(TABLE_COLUMN_METADATA, FULL_SSV2_METADATA, "key", "value")),
         Arguments.of(
             buildRowWithDefaultMetadata("{\"key\": []}"),
-            Map.of(TABLE_COLUMN_METADATA, FULL_SSV2_METADATA, "\"KEY\"", List.of())));
+            Map.of(TABLE_COLUMN_METADATA, FULL_SSV2_METADATA, "key", List.of())));
   }
 
   @ParameterizedTest
   @MethodSource("ssv2NoSchematizationData")
+  @Disabled("RECORD_CONTENT/Bag of bits feature is disabled")
   public void shouldMapDataForSsv2(
       RecordService.SnowflakeTableRow row, Map<String, Object> expected)
       throws JsonProcessingException {

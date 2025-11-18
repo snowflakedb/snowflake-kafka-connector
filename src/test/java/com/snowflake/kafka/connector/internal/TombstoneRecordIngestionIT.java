@@ -1,6 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.ConnectorConfigValidatorTest.COMMUNITY_CONVERTER_SUBSET;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionServiceForStreaming;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
@@ -37,7 +40,12 @@ class TombstoneRecordIngestionIT {
   @BeforeEach
   void beforeEach() {
     this.table = TestUtils.randomTableName();
-    TestUtils.getConnectionServiceForStreaming().createTable(table);
+    getConnectionServiceForStreaming()
+        .executeQueryWithParameters(
+            format(
+                "create or replace table %s (record_metadata variant, gender varchar, regionid"
+                    + " varchar)",
+                table));
 
     this.jsonConverter = new JsonConverter();
     this.converterConfig = new HashMap<>();
@@ -60,8 +68,7 @@ class TombstoneRecordIngestionIT {
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(
-                TestUtils.getConnectionServiceForStreaming(), connectorConfig)
+        StreamingSinkServiceBuilder.builder(getConnectionServiceForStreaming(), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)
@@ -95,8 +102,7 @@ class TombstoneRecordIngestionIT {
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(
-                TestUtils.getConnectionServiceForStreaming(), connectorConfig)
+        StreamingSinkServiceBuilder.builder(getConnectionServiceForStreaming(), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)
@@ -187,5 +193,15 @@ class TombstoneRecordIngestionIT {
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 20);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 20);
+
+    // assert that one row have values in those columns
+    assertThat(
+            TestUtils.getTableRows(table).stream()
+                .filter(
+                    row ->
+                        "FEMALE".equals(row.get("GENDER"))
+                            && "Region_5".equals(row.get("REGIONID")))
+                .count())
+        .isEqualTo(1);
   }
 }

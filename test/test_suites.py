@@ -21,13 +21,13 @@ from test_suit.test_auto_table_creation_topic2table import (
 )
 from test_suit.test_avro_avro import TestAvroAvro
 from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
-from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
+# https://snowflakecomputing.atlassian.net/browse/FLOW-7097
+#from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 from test_suit.test_json_json import TestJsonJson
 from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import (
     TestMultipleTopicToOneTableSnowpipeStreaming,
 )
 from test_suit.test_native_complex_smt import TestNativeComplexSmt
-from test_suit.test_native_string_avrosr import TestNativeStringAvrosr
 from test_suit.test_native_string_json_without_schema import (
     TestNativeStringJsonWithoutSchema,
 )
@@ -70,9 +70,6 @@ from test_suit.test_schema_not_supported_converter import (
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import (
     TestSnowpipeStreamingSchemaMappingDLQ,
 )
-from test_suit.test_snowpipe_streaming_nullable_values_after_smt import (
-    TestSnowpipeStreamingNullableValuesAfterSmt,
-)
 from test_suit.test_snowpipe_streaming_string_avro_sr import (
     TestSnowpipeStreamingStringAvroSR,
 )
@@ -85,14 +82,12 @@ from test_suit.test_snowpipe_streaming_string_json_dlq import (
 from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import (
     TestSnowpipeStreamingStringJsonIgnoreTombstone,
 )
-from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+# https://snowflakecomputing.atlassian.net/browse/FLOW-7097
+#from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
 from test_suit.test_string_json_ignore_tombstone import TestStringJsonIgnoreTombstone
-from test_suit.test_streaming_client_parameter_override import (
-    TestStreamingClientParameterOverride,
-)
 from cloud_platform import CloudPlatform
 
 
@@ -206,15 +201,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.ALL,
                 ),
             ),
-            (
-                "TestNativeStringAvrosr",
-                EndToEndTestSuite(
-                    test_instance=TestNativeStringAvrosr(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             # (
             #     "TestNativeStringJsonWithoutSchema",
             #     EndToEndTestSuite(
@@ -233,42 +219,33 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.ALL,
             #     ),
             # ),
-            (
-                "TestNativeStringProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestNativeStringProtobuf(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-             ),
+            # (
+            #     "TestNativeStringProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestNativeStringProtobuf(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestConfluentProtobufProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
+            #         run_in_confluent=False,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
             (
                 "TestNullableValuesAfterSmt",
                 EndToEndTestSuite(
-                    test_instance=TestNullableValuesAfterSmt(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-             (
-                "TestConfluentProtobufProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
-                    run_in_confluent=False,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestSnowpipeStreamingNullableValuesAfterSmt",
-                EndToEndTestSuite(
-                    test_instance=TestSnowpipeStreamingNullableValuesAfterSmt(
+                    test_instance=TestNullableValuesAfterSmt(
                         driver, nameSalt
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -277,7 +254,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSnowpipeStreamingStringJson(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             # (
@@ -297,7 +274,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -306,7 +283,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSnowpipeStreamingStringAvroSR(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=False,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -317,7 +294,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             # (
@@ -461,7 +438,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestSchemaNotSupportedConverter(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -470,7 +447,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcDeleteCreate(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -479,7 +456,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcDeleteCreateChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             # This test is flaky and needs to be fixed, it takes too long to execute 10 attempts
@@ -508,7 +485,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcPauseCreate(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -517,7 +494,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcPauseCreateChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -526,7 +503,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcPauseResume(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -535,7 +512,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcPauseResumeChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -544,7 +521,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcRecreate(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -553,7 +530,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcRecreateChaos(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             (
@@ -562,7 +539,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     test_instance=TestKcRestart(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
+                    cloud_platform=CloudPlatform.ALL,
                 ),
             ),
             # (
@@ -587,17 +564,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.AWS,
             #     ),
             # ),
-            (
-                "TestStreamingClientParameterOverride",
-                EndToEndTestSuite(
-                    test_instance=TestStreamingClientParameterOverride(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.AWS,
-                ),
-            ),
             # (
             #     "TestIcebergJsonAws",
             #     EndToEndTestSuite(

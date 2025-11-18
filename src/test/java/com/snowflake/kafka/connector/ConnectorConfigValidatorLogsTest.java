@@ -38,7 +38,6 @@ public class ConnectorConfigValidatorLogsTest {
     testConf.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
     testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, testKey);
     testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, testPasswd);
-
     // when
     connectorConfigValidator.validateConfig(testConf);
 

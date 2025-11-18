@@ -23,11 +23,6 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
-import com.snowflake.kafka.connector.internal.streaming.validation.FailsafeRowSchemaProvider;
-import com.snowflake.kafka.connector.internal.streaming.validation.JWTManagerProvider;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaManager;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaProvider;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowsetApiRowSchemaProvider;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.RecordServiceFactory;
 import java.util.Collection;
@@ -231,16 +226,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         new StreamingErrorHandler(
             connectorConfig, kafkaRecordErrorReporter, this.conn.getTelemetryClient());
 
-    RowSchemaProvider rowSchemaProvider =
-        new FailsafeRowSchemaProvider(
-            new RowsetApiRowSchemaProvider(JWTManagerProvider.fromConfig(connectorConfig)));
-    RowSchemaManager rowSchemaManager = new RowSchemaManager(rowSchemaProvider);
-
     final SnowpipeStreamingPartitionChannel partitionChannel =
         new SnowpipeStreamingPartitionChannel(
             tableName,
             channelName,
             pipeName,
+            isSchematizationEnabled(connectorConfig),
             topicPartition,
             this.conn,
             this.connectorConfig,
@@ -250,7 +241,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.metricsJmxReporter,
             this.connectorName,
             this.taskId,
-            rowSchemaManager,
             streamingErrorHandler);
 
     partitionsToChannel.put(channelName, partitionChannel);
@@ -458,13 +448,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                 .getMetricsJmxReporter()
                 .getMetricRegistry())
         : Optional.empty();
-  }
-
-  @VisibleForTesting
-  protected Optional<TopicPartitionChannel> getTopicPartitionChannelFromCacheKey(
-      final String topicPartitionChannelKey) {
-    return Optional.ofNullable(
-        this.partitionsToChannel.getOrDefault(topicPartitionChannelKey, null));
   }
 
   // ------ Streaming Ingest Related Functions ------ //
