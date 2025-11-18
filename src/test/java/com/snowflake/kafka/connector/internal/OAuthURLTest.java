@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -16,10 +17,17 @@ class OAuthURLTest {
     return Stream.of(
         Arguments.of(
             "https://localhost:8085/push/token",
-            List.of("https", "localhost:8085", "/push/token", true)),
-        Arguments.of("localhost:8085", List.of("https", "localhost:8085", "", true)),
-        Arguments.of("http://localhost:8085", List.of("http", "localhost:8085", "", false)),
-        Arguments.of("localhost", List.of("https", "localhost:443", "", true)));
+            ImmutableList.of("https", "localhost:8085", "/push/token", true)),
+        Arguments.of("localhost:8085", ImmutableList.of("https", "localhost:8085", "", true)),
+        Arguments.of(
+            "http://localhost:8085", ImmutableList.of("http", "localhost:8085", "", false)),
+        Arguments.of("localhost", ImmutableList.of("https", "localhost:443", "", true)),
+        Arguments.of(
+            "https://login.test.com/xxxxxxx/oauth2/v2.0/token",
+            ImmutableList.of("https", "login.test.com:443", "/xxxxxxx/oauth2/v2.0/token", true)),
+        Arguments.of(
+            "https://example.com/my-api/v2.0/get-token",
+            ImmutableList.of("https", "example.com:443", "/my-api/v2.0/get-token", true)));
   }
 
   @ParameterizedTest(name = "url: {0}, parsed: {1}")
