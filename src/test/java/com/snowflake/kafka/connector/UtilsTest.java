@@ -1,9 +1,13 @@
 package com.snowflake.kafka.connector;
 
+import static java.util.Arrays.*;
+import static java.util.Collections.*;
+
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -336,5 +340,148 @@ public class UtilsTest {
     Assert.assertEquals("\"abc\"", Utils.quoteNameIfNeeded("\"abc\""));
     Assert.assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("ABC"));
     Assert.assertEquals("\"A\"", Utils.quoteNameIfNeeded("a"));
+  }
+
+  @Test
+  public void testSemanticVersionParsing() {
+    // Test standard version parsing
+    SemanticVersion version311 = new SemanticVersion("3.1.1");
+    Assert.assertEquals(3, version311.major);
+    Assert.assertEquals(1, version311.minor);
+    Assert.assertEquals(1, version311.patch);
+    Assert.assertFalse(version311.isReleaseCandidate);
+    Assert.assertEquals("3.1.1", version311.originalVersion);
+
+    // Test version with RC suffix
+    SemanticVersion version400rc = new SemanticVersion("4.0.0-rc");
+    Assert.assertEquals(4, version400rc.major);
+    Assert.assertEquals(0, version400rc.minor);
+    Assert.assertEquals(0, version400rc.patch);
+    Assert.assertTrue(version400rc.isReleaseCandidate);
+    Assert.assertEquals("4.0.0-rc", version400rc.originalVersion);
+
+    // Test version with RC1 suffix
+    SemanticVersion version401rc1 = new SemanticVersion("4.0.1-RC1");
+    Assert.assertEquals(4, version401rc1.major);
+    Assert.assertEquals(0, version401rc1.minor);
+    Assert.assertEquals(1, version401rc1.patch);
+    Assert.assertTrue(version401rc1.isReleaseCandidate);
+    Assert.assertEquals("4.0.1-RC1", version401rc1.originalVersion);
+  }
+
+  @Test
+  public void testSemanticVersionComparison() {
+    SemanticVersion v310 = new SemanticVersion("3.1.0");
+    SemanticVersion v311 = new SemanticVersion("3.1.1");
+    SemanticVersion v320 = new SemanticVersion("3.2.0");
+    SemanticVersion v400 = new SemanticVersion("4.0.0");
+    SemanticVersion v401 = new SemanticVersion("4.0.1");
+    SemanticVersion v501 = new SemanticVersion("5.0.1");
+
+    // Test less than
+    Assert.assertTrue(v310.compareTo(v311) < 0);
+    Assert.assertTrue(v311.compareTo(v320) < 0);
+    Assert.assertTrue(v320.compareTo(v400) < 0);
+    Assert.assertTrue(v400.compareTo(v401) < 0);
+    Assert.assertTrue(v310.compareTo(v501) < 0);
+
+    // Test greater than
+    Assert.assertTrue(v311.compareTo(v310) > 0);
+    Assert.assertTrue(v320.compareTo(v311) > 0);
+    Assert.assertTrue(v400.compareTo(v320) > 0);
+    Assert.assertTrue(v401.compareTo(v400) > 0);
+    Assert.assertTrue(v501.compareTo(v401) > 0);
+
+    // Test equals
+    SemanticVersion v311_2 = new SemanticVersion("3.1.1");
+    Assert.assertEquals(0, v311.compareTo(v311_2));
+    Assert.assertEquals(v311, v311_2);
+
+    // Test RC versions are treated same as non-RC for comparison (major.minor.patch only)
+    SemanticVersion v400rc = new SemanticVersion("4.0.0-rc");
+    Assert.assertEquals(0, v400.compareTo(v400rc));
+  }
+
+  @Test
+  public void testSemanticVersionInvalidFormat() {
+    try {
+      new SemanticVersion("invalid");
+      Assert.fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("Invalid version format"));
+    }
+
+    try {
+      new SemanticVersion("1.2");
+      Assert.fail("Should have thrown IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("Invalid version format"));
+    }
+  }
+
+  @Test
+  public void testFindRecommendedVersion() {
+    //  v4.0.0 should recommend v5.0.0 (highest available)
+    List<String> availableVersions = asList("3.3.1", "4.0.0", "4.0.1", "4.1.0", "5.0.0");
+
+    SemanticVersion current = new SemanticVersion("4.0.0");
+    String recommended = Utils.findRecommendedVersion(current, availableVersions);
+
+    Assert.assertEquals("5.0.0", recommended);
+  }
+
+  @Test
+  public void testFindRecommendedVersionFiltersRCVersions() {
+    // Scenario 3: Should not recommend RC versions
+    List<String> availableVersions = asList("3.1.1", "3.2.0-rc", "3.2.0-RC1", "4.0.0-rc");
+
+    SemanticVersion current = new SemanticVersion("4.1.1");
+    String recommended = Utils.findRecommendedVersion(current, availableVersions);
+
+    Assert.assertNull(recommended); // No stable version available newer than 3.1.1
+  }
+
+  @Test
+  public void testFindRecommendedVersionNoUpgradeAvailable() {
+    //  Current is already latest
+    List<String> availableVersions = asList("4.1.0", "4.2.0", "4.3.1");
+
+    SemanticVersion current = new SemanticVersion("4.3.1");
+    String recommended = Utils.findRecommendedVersion(current, availableVersions);
+
+    Assert.assertNull(recommended);
+  }
+
+  @Test
+  public void testFindRecommendedVersionWithEmptyList() {
+    //  Empty version list should return null
+    List<String> availableVersions = emptyList();
+
+    SemanticVersion current = new SemanticVersion("3.1.1");
+    String recommended = Utils.findRecommendedVersion(current, availableVersions);
+
+    Assert.assertNull(recommended);
+  }
+
+  @Test
+  public void testFindRecommendedVersionWithInvalidVersions() {
+    //  Invalid versions should be skipped
+    List<String> availableVersions = asList("3.1.1", "invalid", "3.2.0", "bad.version", "3.3.0");
+
+    SemanticVersion current = new SemanticVersion("3.1.1");
+    String recommended = Utils.findRecommendedVersion(current, availableVersions);
+
+    Assert.assertEquals("3.3.0", recommended);
+  }
+
+  @Test
+  public void testFindRecommendedVersionOnlyRCVersionsAvailable() {
+    //  Only RC versions newer than current - should return null
+    List<String> availableVersions = asList("3.1.0", "3.1.1", "3.2.0-RC", "3.3.0-rc1");
+
+    SemanticVersion current = new SemanticVersion("3.1.1");
+    String recommended = Utils.findRecommendedVersion(current, availableVersions);
+
+    Assert.assertNull(recommended);
   }
 }
