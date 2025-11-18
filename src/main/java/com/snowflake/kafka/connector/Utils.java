@@ -151,8 +151,8 @@ public class Utils {
    * <p>Version upgrade logic:
    *
    * <ul>
-   *   <li>For versions &lt; 4.0.0: Only suggest versions &lt; 4.0.0 (stay within major version)
-   *   <li>For versions &gt;= 4.0.0: Suggest any version &gt; 4.0.0
+   *   <li>Suggest only version that is newer than current version. If many new versions available
+   *       suggest the most recent one.
    *   <li>Never suggest RC (release candidate) versions
    * </ul>
    */
@@ -241,14 +241,6 @@ public class Utils {
         // Skip versions that are not greater than current
         if (version.compareTo(currentVersion) <= 0) {
           continue;
-        }
-
-        // Apply major version boundary rules
-        if (currentVersion.major < 4) {
-          // For versions < 4.0.0, only suggest versions < 4.0.0
-          if (version.major >= 4) {
-            continue;
-          }
         }
 
         // Track the highest compatible version

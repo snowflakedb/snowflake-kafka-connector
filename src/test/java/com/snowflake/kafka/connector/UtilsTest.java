@@ -420,31 +420,8 @@ public class UtilsTest {
   }
 
   @Test
-  public void testFindRecommendedVersionWithMockData() {
-    // Scenario 1: v3.1.1 should recommend v3.3.1, not v4.0.0
-    List<String> availableVersions =
-        asList(
-            "3.1.0",
-            "3.1.1",
-            "3.1.2",
-            "3.2.0",
-            "3.3.0",
-            "3.3.1",
-            "3.4.1-RC1",
-            "4.0.0-rc",
-            "4.0.0",
-            "4.0.1",
-            "5.0.1");
-
-    SemanticVersion current = new SemanticVersion("3.1.1");
-    String recommended = Utils.findRecommendedVersion(current, availableVersions);
-
-    Assert.assertEquals("3.3.1", recommended);
-  }
-
-  @Test
-  public void testFindRecommendedVersionFor4xShouldSuggest5x() {
-    // Scenario 2: v4.0.0 should recommend v5.0.0 (highest available)
+  public void testFindRecommendedVersion() {
+    //  v4.0.0 should recommend v5.0.0 (highest available)
     List<String> availableVersions = asList("3.3.1", "4.0.0", "4.0.1", "4.1.0", "5.0.0");
 
     SemanticVersion current = new SemanticVersion("4.0.0");
@@ -458,7 +435,7 @@ public class UtilsTest {
     // Scenario 3: Should not recommend RC versions
     List<String> availableVersions = asList("3.1.1", "3.2.0-rc", "3.2.0-RC1", "4.0.0-rc");
 
-    SemanticVersion current = new SemanticVersion("3.1.1");
+    SemanticVersion current = new SemanticVersion("4.1.1");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
     Assert.assertNull(recommended); // No stable version available newer than 3.1.1
@@ -466,29 +443,18 @@ public class UtilsTest {
 
   @Test
   public void testFindRecommendedVersionNoUpgradeAvailable() {
-    // Scenario 4: Current is already latest
-    List<String> availableVersions = asList("3.1.0", "3.2.0", "3.3.1");
+    //  Current is already latest
+    List<String> availableVersions = asList("4.1.0", "4.2.0", "4.3.1");
 
-    SemanticVersion current = new SemanticVersion("3.3.1");
+    SemanticVersion current = new SemanticVersion("4.3.1");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
     Assert.assertNull(recommended);
   }
 
   @Test
-  public void testFindRecommendedVersionWithMajorBoundary() {
-    // Scenario 5: v3.9.9 should not see v4.0.0
-    List<String> availableVersions = asList("3.9.9", "4.0.0", "4.0.1", "5.0.0");
-
-    SemanticVersion current = new SemanticVersion("3.9.9");
-    String recommended = Utils.findRecommendedVersion(current, availableVersions);
-
-    Assert.assertNull(recommended); // No v3.x available newer than 3.9.9
-  }
-
-  @Test
   public void testFindRecommendedVersionWithEmptyList() {
-    // Scenario 6: Empty version list should return null
+    //  Empty version list should return null
     List<String> availableVersions = emptyList();
 
     SemanticVersion current = new SemanticVersion("3.1.1");
@@ -499,7 +465,7 @@ public class UtilsTest {
 
   @Test
   public void testFindRecommendedVersionWithInvalidVersions() {
-    // Scenario 7: Invalid versions should be skipped
+    //  Invalid versions should be skipped
     List<String> availableVersions = asList("3.1.1", "invalid", "3.2.0", "bad.version", "3.3.0");
 
     SemanticVersion current = new SemanticVersion("3.1.1");
@@ -509,19 +475,8 @@ public class UtilsTest {
   }
 
   @Test
-  public void testFindRecommendedVersionCrossingMajorBoundaryFor4x() {
-    // Scenario 8: v4.0.1 should be able to upgrade to v5.x and v6.x
-    List<String> availableVersions = asList("3.3.1", "4.0.1", "4.1.0", "5.0.0", "6.0.0");
-
-    SemanticVersion current = new SemanticVersion("4.0.1");
-    String recommended = Utils.findRecommendedVersion(current, availableVersions);
-
-    Assert.assertEquals("6.0.0", recommended); // Should suggest highest version >= 4.0.0
-  }
-
-  @Test
   public void testFindRecommendedVersionOnlyRCVersionsAvailable() {
-    // Scenario 9: Only RC versions newer than current - should return null
+    //  Only RC versions newer than current - should return null
     List<String> availableVersions = asList("3.1.0", "3.1.1", "3.2.0-RC", "3.3.0-rc1");
 
     SemanticVersion current = new SemanticVersion("3.1.1");
