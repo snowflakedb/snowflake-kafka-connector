@@ -11,8 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
 public class FakeSnowflakeStreamingIngestChannel
@@ -22,8 +20,6 @@ public class FakeSnowflakeStreamingIngestChannel
   private final String channelName;
   /** Reference to the client that owns this channel */
   private final SnowflakeStreamingIngestClient owningClient;
-  /** Lock used to protect the buffers from concurrent read/write */
-  private final Lock bufferLock;
   /** Collection of all rows appended to this channel */
   private final List<Map<String, Object>> appendedRows;
 
@@ -35,7 +31,6 @@ public class FakeSnowflakeStreamingIngestChannel
     this.owningClient = owningClient;
     this.pipeName = pipeName;
     this.channelName = channelName;
-    this.bufferLock = new ReentrantLock();
     this.appendedRows = new ArrayList<>();
   }
 
@@ -86,41 +81,26 @@ public class FakeSnowflakeStreamingIngestChannel
   }
 
   @Override
-  public void appendRow(final Map<String, Object> row, final String offsetToken) {
-    bufferLock.lock();
-    try {
-      this.appendedRows.add(row);
-      this.offsetToken = offsetToken;
-    } finally {
-      bufferLock.unlock();
-    }
+  public synchronized void appendRow(final Map<String, Object> row, final String offsetToken) {
+    this.appendedRows.add(row);
+    this.offsetToken = offsetToken;
   }
 
   @Override
-  public void appendRows(
+  public synchronized void appendRows(
       final Iterable<Map<String, Object>> rows,
       final String startOffsetToken,
       final String endOffsetToken) {
 
-    bufferLock.lock();
-    try {
-      for (Map<String, Object> row : rows) {
-        this.appendedRows.add(row);
-      }
-      this.offsetToken = endOffsetToken;
-    } finally {
-      bufferLock.unlock();
+    for (Map<String, Object> row : rows) {
+      this.appendedRows.add(row);
     }
+    this.offsetToken = endOffsetToken;
   }
 
   @Override
-  public String getLatestCommittedOffsetToken() {
-    bufferLock.lock();
-    try {
-      return offsetToken;
-    } finally {
-      bufferLock.unlock();
-    }
+  public synchronized String getLatestCommittedOffsetToken() {
+    return offsetToken;
   }
 
   @Override
@@ -144,22 +124,12 @@ public class FakeSnowflakeStreamingIngestChannel
     throw new UnsupportedOperationException();
   }
 
-  public int getAppendedRowsCount() {
-    bufferLock.lock();
-    try {
-      return this.appendedRows.size();
-    } finally {
-      bufferLock.unlock();
-    }
+  public synchronized int getAppendedRowsCount() {
+    return this.appendedRows.size();
   }
 
-  public List<Map<String, Object>> getAppendedRows() {
-    bufferLock.lock();
-    try {
-      return copyOf(appendedRows);
-    } finally {
-      bufferLock.unlock();
-    }
+  public synchronized List<Map<String, Object>> getAppendedRows() {
+    return copyOf(appendedRows);
   }
 
   @Override
