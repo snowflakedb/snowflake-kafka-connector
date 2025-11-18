@@ -64,9 +64,9 @@ class KafkaTest:
         self.httpHeader = {'Content-type': 'application/json', 'Accept': 'application/json'}
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
-        self.VERIFY_INTERVAL = 10  # verify every 60 secs
-        self.MAX_RETRY = 60  # max wait time 10 mins
-        self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
+        self.VERIFY_INTERVAL = 10  # verify every 10 secs
+        self.MAX_RETRY = 60  # max wait time 1 min
+        self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 5000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
