@@ -74,14 +74,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * org.apache.kafka.connect.sink.ErrantRecordReporter}
    */
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
-
   /* SinkTaskContext has access to all methods/APIs available to talk to Kafka Connect runtime*/
   private final SinkTaskContext sinkTaskContext;
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
-
   // Cache for schema evolution
   private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
   // Set that keeps track of the channels that have been seen per input batch
