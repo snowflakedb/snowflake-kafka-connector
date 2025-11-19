@@ -2,11 +2,13 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.awaitility.Awaitility.await;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.ConnectClusterBaseIT;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientProvider;
+import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
 import java.time.Duration;
-import java.util.stream.IntStream;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,30 +19,35 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
 
   private String topicName;
   private String connectorName;
+  private ObjectMapper mapper = new ObjectMapper();
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws JsonProcessingException {
     topicName = TestUtils.randomTableName();
     connectorName = topicName + "_connector";
     connectCluster.kafka().createTopic(topicName, PARTITIONS_NUMBER);
+    TestUtils.getConnectionServiceForStreaming().createTable(topicName);
     // JVM scoped Ingest client mock
-    StreamingIngestClientProvider.setIngestClientSupplier(fakeClientSupplier);
+    StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
     generateKafkaMessages();
   }
 
   @AfterEach
   void tearDown() {
     connectCluster.kafka().deleteTopic(topicName);
-    StreamingIngestClientProvider.resetIngestClientSupplier();
+    StreamingClientManager.resetIngestClientSupplier();
+    TestUtils.dropTable(topicName);
   }
 
-  private void generateKafkaMessages() {
-    IntStream.range(0, PARTITIONS_NUMBER)
-        .forEach(
-            partition ->
-                connectCluster
-                    .kafka()
-                    .produce(topicName, partition, "key-" + partition, "message-" + partition));
+  private void generateKafkaMessages() throws JsonProcessingException {
+    final Map<String, String> payload = Map.of("key1", "value1", "key2", "value2");
+
+    int bound = PARTITIONS_NUMBER;
+    for (int partition = 0; partition < bound; partition++) {
+      connectCluster
+          .kafka()
+          .produce(topicName, partition, "key-" + partition, mapper.writeValueAsString(payload));
+    }
   }
 
   @Test

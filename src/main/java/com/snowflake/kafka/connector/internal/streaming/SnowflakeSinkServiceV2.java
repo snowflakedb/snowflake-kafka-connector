@@ -1,15 +1,17 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
-import static com.snowflake.kafka.connector.Utils.getRole;
+import static com.snowflake.kafka.connector.Utils.NAME;
+import static com.snowflake.kafka.connector.Utils.getTableName;
 import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
-import static com.snowflake.kafka.connector.Utils.isUsingUserDefinedDatabaseObjects;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider.buildDefaultPipeName;
+import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider.buildPipeName;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -20,19 +22,10 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
-import com.snowflake.kafka.connector.internal.streaming.v2.SSv2PipeCreator;
-import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingV2PartitionChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingIngestClientProvider;
-import com.snowflake.kafka.connector.internal.streaming.validation.FailsafeRowSchemaProvider;
-import com.snowflake.kafka.connector.internal.streaming.validation.JWTManagerProvider;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaManager;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaProvider;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowsetApiRowSchemaProvider;
+import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
 import com.snowflake.kafka.connector.records.RecordService;
 import com.snowflake.kafka.connector.records.RecordServiceFactory;
-import com.snowflake.kafka.connector.streaming.iceberg.IcebergInitService;
-import com.snowflake.kafka.connector.streaming.iceberg.IcebergTableSchemaValidator;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
@@ -63,23 +57,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
-  private static final StreamingIngestClientProvider streamingIngestClientProvider =
-      new StreamingIngestClientProvider();
-
   // Used to connect to Snowflake, could be null during testing
   private final SnowflakeConnectionService conn;
 
   private final RecordService recordService;
-
-  private final IcebergTableSchemaValidator icebergTableSchemaValidator;
-  private final IcebergInitService icebergInitService;
 
   private final Map<String, String> topicToTableMap;
 
   // Behavior to be set at the start of connector start. (For tombstone records)
   private final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
   private final MetricsJmxReporter metricsJmxReporter;
-
+  private final String connectorName;
+  private final String taskId;
   /**
    * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
    * org.apache.kafka.connect.sink.ErrantRecordReporter}
@@ -91,11 +80,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Config set in JSON
   private final Map<String, String> connectorConfig;
 
-  /**
-   * Key is formulated in {@link #partitionChannelKey(String, int)} }
-   *
-   * <p>value is the Streaming Ingest Channel implementation (Wrapped around TopicPartitionChannel)
-   */
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
 
   // Cache for schema evolution
@@ -126,30 +110,38 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.recordService =
         RecordServiceFactory.createRecordService(
             isIcebergEnabled(connectorConfig), isSchematizationEnabled(connectorConfig));
-    this.icebergTableSchemaValidator = new IcebergTableSchemaValidator(conn);
-    this.icebergInitService = new IcebergInitService(conn);
     this.behaviorOnNullValues = behaviorOnNullValues;
     this.partitionsToChannel = new HashMap<>();
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
 
-    // jmx
-    String connectorName =
-        Strings.isNullOrEmpty(this.conn.getConnectorName())
-            ? "default_connector"
-            : this.conn.getConnectorName();
-    this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), connectorName);
+    // Extract and validate connector name - must not be null or empty
+    this.connectorName = connectorConfig.get(NAME);
+    if (isNullOrEmpty(this.connectorName)) {
+      throw new IllegalArgumentException(
+          "Connector name ('" + NAME + "') must be set in configuration and cannot be empty");
+    }
+
+    // Extract and validate task ID - must not be null or empty
+    this.taskId = connectorConfig.get(Utils.TASK_ID);
+    if (this.taskId == null || this.taskId.trim().isEmpty()) {
+      throw new IllegalArgumentException(
+          "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
+    }
+
+    this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
+
+    LOGGER.info(
+        "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}",
+        this.connectorName,
+        this.taskId);
   }
 
-  /**
-   * Gets a unique identifier consisting of connector name, topic name and partition number.
-   *
-   * @param topic topic name
-   * @param partition partition number
-   * @return combinartion of topic and partition
-   */
+  /** Gets a unique identifier consisting of connector name, topic name and partition number. */
   @VisibleForTesting
-  public static String partitionChannelKey(String topic, int partition) {
-    return topic + "_" + partition;
+  public static String makeChannelName(
+      final String connectorName, final String topic, final int partition) {
+    final String separator = "_";
+    return connectorName + separator + topic + separator + partition;
   }
 
   /**
@@ -162,11 +154,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
-  public void startPartition(String tableName, TopicPartition topicPartition) {
-    tableActionsOnStartPartition(tableName);
-    // Create channel for the given partition
-    createStreamingChannelForTopicPartition(
-        tableName, topicPartition, tableName2SchemaEvolutionPermission.get(tableName));
+  public void startPartition(TopicPartition topicPartition) {
+    startPartitions(Set.of(topicPartition));
   }
 
   /**
@@ -174,55 +163,44 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * TopicPartitionChannel}
    *
    * @param partitions collection of topic partition
-   * @param topic2Table map of topic to table name
    */
   @Override
-  public void startPartitions(
-      Collection<TopicPartition> partitions, Map<String, String> topic2Table) {
-    partitions.stream()
-        .map(TopicPartition::topic)
-        .distinct()
-        .forEach(topic -> perTopicActionsOnStartPartitions(topic, topic2Table));
-    partitions.forEach(
-        tp -> {
-          String tableName = Utils.tableName(tp.topic(), topic2Table);
-          createStreamingChannelForTopicPartition(
-              tableName, tp, tableName2SchemaEvolutionPermission.get(tableName));
-        });
-  }
+  public void startPartitions(Collection<TopicPartition> partitions) {
+    LOGGER.info(
+        "Starting {} partitions for connector: {}, task: {}",
+        partitions.size(),
+        this.connectorName,
+        this.taskId);
 
-  private void perTopicActionsOnStartPartitions(String topic, Map<String, String> topic2Table) {
-    String tableName = Utils.tableName(topic, topic2Table);
-    tableActionsOnStartPartition(tableName);
-  }
+    final Map<String, String> tableToPipeMapping = new HashMap<>();
 
-  private void tableActionsOnStartPartition(String tableName) {
+    final Collection<String> topics =
+        partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
 
-    final String destinationPipeName = PipeNameProvider.pipeName(connectorConfig, tableName);
-    final boolean usingUserDefinedDatabaseObjects =
-        isUsingUserDefinedDatabaseObjects(connectorConfig);
-    final boolean tableExists = this.conn.tableExist(tableName);
-    final boolean pipeExists = this.conn.pipeExist(destinationPipeName);
+    for (String topic : topics) {
+      final String tableName = getTableName(topic, this.topicToTableMap);
 
-    // if the user is using their own database objects (tables/pipes) we must make sure the table
-    // exists
-    if (usingUserDefinedDatabaseObjects) {
+      final boolean tableExists = this.conn.tableExist(tableName);
       if (!tableExists) {
         throw SnowflakeErrors.ERROR_5029.getException(
             "Table name: " + tableName, this.conn.getTelemetryClient());
       }
-      if (!pipeExists) {
-        throw SnowflakeErrors.ERROR_5030.getException(
-            "Pipe name: " + destinationPipeName, this.conn.getTelemetryClient());
-      }
-    } else if (isIcebergEnabled(connectorConfig)) {
-      icebergTableSchemaValidator.validateTable(
-          tableName, getRole(connectorConfig), isSchematizationEnabled(connectorConfig));
-      icebergInitService.initializeIcebergTableProperties(tableName);
-    } else {
-      createTableIfNotExists(tableName);
+
+      // not an error, by convention we're looking for the same name as table
+      final boolean pipeExists = this.conn.pipeExist(tableName);
+      // use pipe created by the user instead of the default pipe
+      final String targetPipeName =
+          pipeExists ? buildPipeName(tableName) : buildDefaultPipeName(tableName);
+      tableToPipeMapping.put(tableName, targetPipeName);
+      LOGGER.info(
+          "Table: {}, pipe exists: {}, using pipe: {}", tableName, pipeExists, targetPipeName);
     }
-    populateSchemaEvolutionPermissions(tableName);
+
+    for (TopicPartition topicPartition : partitions) {
+      final String tableName = getTableName(topicPartition.topic(), this.topicToTableMap);
+      final String targetPipeName = tableToPipeMapping.get(tableName);
+      createStreamingChannelForTopicPartition(tableName, targetPipeName, topicPartition);
+    }
   }
 
   /**
@@ -232,21 +210,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * presented or not.
    */
   private void createStreamingChannelForTopicPartition(
-      final String tableName, final TopicPartition topicPartition, boolean schemaEvolutionEnabled) {
-    final String partitionChannelKey =
-        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
-    // Create new instance of TopicPartitionChannel which will always open the channel.
-    partitionsToChannel.put(
-        partitionChannelKey,
-        createTopicPartitionChannel(
-            tableName, topicPartition, schemaEvolutionEnabled, partitionChannelKey));
-  }
+      final String tableName, final String pipeName, final TopicPartition topicPartition) {
+    final String channelName =
+        makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
 
-  private TopicPartitionChannel createTopicPartitionChannel(
-      String tableName,
-      TopicPartition topicPartition,
-      boolean schemaEvolutionEnabled,
-      String partitionChannelKey) {
+    LOGGER.info(
+        "Creating streaming channel for topic: {}, partition: {}, table: {}, pipe: {}, channel: {}",
+        topicPartition.topic(),
+        topicPartition.partition(),
+        tableName,
+        pipeName,
+        channelName);
 
     StreamingRecordService streamingRecordService =
         new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
@@ -255,34 +229,25 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         new StreamingErrorHandler(
             connectorConfig, kafkaRecordErrorReporter, this.conn.getTelemetryClient());
 
-    RowSchemaProvider rowSchemaProvider =
-        new FailsafeRowSchemaProvider(
-            new RowsetApiRowSchemaProvider(JWTManagerProvider.fromConfig(connectorConfig)));
-    RowSchemaManager rowSchemaManager = new RowSchemaManager(rowSchemaProvider);
-    if (!isUsingUserDefinedDatabaseObjects(connectorConfig)) {
-      createPipeIfNotExists(tableName);
-    }
+    final SnowpipeStreamingPartitionChannel partitionChannel =
+        new SnowpipeStreamingPartitionChannel(
+            tableName,
+            channelName,
+            pipeName,
+            isSchematizationEnabled(connectorConfig),
+            topicPartition,
+            this.conn,
+            this.connectorConfig,
+            streamingRecordService,
+            this.sinkTaskContext,
+            this.enableCustomJMXMonitoring,
+            this.metricsJmxReporter,
+            this.connectorName,
+            this.taskId,
+            streamingErrorHandler);
 
-    return new SnowpipeStreamingV2PartitionChannel(
-        tableName,
-        schemaEvolutionEnabled,
-        partitionChannelKey,
-        topicPartition,
-        this.conn,
-        this.connectorConfig,
-        streamingRecordService,
-        this.sinkTaskContext,
-        this.enableCustomJMXMonitoring,
-        this.metricsJmxReporter,
-        streamingIngestClientProvider,
-        rowSchemaManager,
-        streamingErrorHandler);
-  }
-
-  private void createPipeIfNotExists(String tableName) {
-    SSv2PipeCreator ssv2PipeCreator =
-        new SSv2PipeCreator(conn, PipeNameProvider.pipeName(connectorConfig, tableName), tableName);
-    ssv2PipeCreator.createPipeIfNotExists();
+    partitionsToChannel.put(channelName, partitionChannel);
+    LOGGER.info("Successfully created streaming channel: {}", channelName);
   }
 
   private void waitForAllChannelsToCommitData() {
@@ -332,32 +297,33 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(SinkRecord record) {
-    String partitionChannelKey = partitionChannelKey(record.topic(), record.kafkaPartition());
+    LOGGER.trace("Inserting record: {}", record);
+    String channelName =
+        makeChannelName(this.connectorName, record.topic(), record.kafkaPartition());
     // init a new topic partition if it's not presented in cache or if channel is closed
-    if (!partitionsToChannel.containsKey(partitionChannelKey)
-        || partitionsToChannel.get(partitionChannelKey).isChannelClosed()) {
+    if (!partitionsToChannel.containsKey(channelName)
+        || partitionsToChannel.get(channelName).isChannelClosed()) {
       LOGGER.warn(
           "Topic: {} Partition: {} hasn't been initialized by OPEN function",
           record.topic(),
           record.kafkaPartition());
-      startPartition(
-          Utils.tableName(record.topic(), this.topicToTableMap),
-          new TopicPartition(record.topic(), record.kafkaPartition()));
+      startPartition(new TopicPartition(record.topic(), record.kafkaPartition()));
     }
 
-    TopicPartitionChannel channelPartition = partitionsToChannel.get(partitionChannelKey);
-    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(partitionChannelKey);
+    TopicPartitionChannel channelPartition = partitionsToChannel.get(channelName);
+    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channelName);
     channelPartition.insertRecord(record, isFirstRowPerPartitionInBatch);
   }
 
   @Override
   public long getOffset(TopicPartition topicPartition) {
     String partitionChannelKey =
-        partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+        makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
       long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
       partitionsToChannel.get(partitionChannelKey).setLatestConsumerGroupOffset(offset);
-
+      LOGGER.info(
+          "Fetched snowflake commited offset: [{}] for channel [{}]", offset, partitionChannelKey);
       return offset;
     } else {
       LOGGER.warn(
@@ -375,8 +341,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
+    LOGGER.info(
+        "Closing all {} partition channels for connector: {}, task: {}",
+        partitionsToChannel.size(),
+        this.connectorName,
+        this.taskId);
     closeAllInParallel();
     partitionsToChannel.clear();
+    LOGGER.info(
+        "Completed closing all partition channels for connector: {}, task: {}",
+        this.connectorName,
+        this.taskId);
   }
 
   private void closeAllInParallel() {
@@ -409,20 +384,26 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void close(Collection<TopicPartition> partitions) {
+    LOGGER.info(
+        "Closing {} partitions for connector: {}, task: {}",
+        partitions.size(),
+        this.connectorName,
+        this.taskId);
 
     CompletableFuture<?>[] futures =
         partitions.stream().map(this::closeTopicPartition).toArray(CompletableFuture[]::new);
 
     CompletableFuture.allOf(futures).join();
     LOGGER.info(
-        "Closing {} partitions and remaining partitions which are not closed are:{}, with size:{}",
+        "Closed {} partitions, remaining partitions which are not closed are:{}, with size:{}",
         partitions.size(),
         partitionsToChannel.keySet().toString(),
         partitionsToChannel.size());
   }
 
   private CompletableFuture<Void> closeTopicPartition(TopicPartition topicPartition) {
-    String key = partitionChannelKey(topicPartition.topic(), topicPartition.partition());
+    String key =
+        makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
 
     TopicPartitionChannel topicPartitionChannel = partitionsToChannel.get(key);
 
@@ -443,8 +424,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void stop() {
+    LOGGER.info(
+        "Stopping SnowflakeSinkServiceV2 for connector: {}, task: {}",
+        this.connectorName,
+        this.taskId);
     waitForAllChannelsToCommitData();
-    streamingIngestClientProvider.closeAll();
+
+    // Release all streaming clients used by this service
+    // Clients will only be closed if no other tasks are using them
+    StreamingClientManager.closeTaskClients(connectorName, taskId);
   }
 
   /* Undefined */
@@ -463,19 +451,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                 .getMetricsJmxReporter()
                 .getMetricRegistry())
         : Optional.empty();
-  }
-
-  /**
-   * Used for testing Only
-   *
-   * @param topicPartitionChannelKey look {@link #partitionChannelKey(String, int)} for key format
-   * @return TopicPartitionChannel if present in partitionsToChannel Map else null
-   */
-  @VisibleForTesting
-  protected Optional<TopicPartitionChannel> getTopicPartitionChannelFromCacheKey(
-      final String topicPartitionChannelKey) {
-    return Optional.ofNullable(
-        this.partitionsToChannel.getOrDefault(topicPartitionChannelKey, null));
   }
 
   // ------ Streaming Ingest Related Functions ------ //

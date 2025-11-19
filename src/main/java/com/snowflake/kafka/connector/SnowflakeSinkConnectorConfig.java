@@ -54,7 +54,7 @@ public class SnowflakeSinkConnectorConfig {
   // For Snowpipe Streaming client
   public static final String SNOWFLAKE_ROLE = Utils.SF_ROLE;
   public static final String ENABLE_SCHEMATIZATION_CONFIG = "snowflake.enable.schematization";
-  public static final String ENABLE_SCHEMATIZATION_DEFAULT = "false";
+  public static final String ENABLE_SCHEMATIZATION_CONFIG_DEFAULT = "true";
   public static final String ENABLE_CHANGE_TRACKING_CONFIG = "snowflake.enable.change.tracking";
   public static final boolean ENABLE_CHANGE_TRACKING_DEFAULT = false;
 
@@ -96,6 +96,7 @@ public class SnowflakeSinkConnectorConfig {
 
   public static final String SNOWPIPE_STREAMING_MAX_CLIENT_LAG =
       "snowflake.streaming.max.client.lag";
+  public static final String VALUE_CONVERTER_SCHEMAS_ENABLE = "value.converter.schemas.enable";
   public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 1;
 
   public static final String SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES =
@@ -107,24 +108,6 @@ public class SnowflakeSinkConnectorConfig {
   // Iceberg
   public static final String ICEBERG_ENABLED = "snowflake.streaming.iceberg.enabled";
   public static final boolean ICEBERG_ENABLED_DEFAULT_VALUE = false;
-
-  // with this flag set to true the user is responsible
-  // for creating the destination objects (pipe and the table)
-  // when this feature is turned on the normal topic to table mapping applies but the connector
-  // expects the user to create the pipe and table with the same names
-  // so if the user is consuming from TOPIC1 then
-  // he needs to manually create TOPIC1 table and TOPIC1 pipe
-  // When the name of the topic has been mapped to a different
-  // table name in topic2table mapping then mapped name should be used.
-  // This one-to-one mapping between table and pipe
-  // is to allow use of the INTERACTIVE TABLES.
-  // Currently, when the user creates interactive
-  // table (via sql) the pipe with the same name is
-  // created automatically
-  public static final String SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS =
-      "snowflake.streaming.use.user.defined.database.objects";
-  public static final boolean SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS_DEFAULT_VALUE =
-      false;
 
   // TESTING
   public static final String REBALANCING = "snowflake.test.rebalancing";
@@ -215,6 +198,13 @@ public class SnowflakeSinkConnectorConfig {
           "{} set to default {} seconds",
           SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
           SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT);
+    }
+    if (!config.containsKey(ENABLE_SCHEMATIZATION_CONFIG)) {
+      config.put(ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
+      LOGGER.info(
+          "{} set to default {}",
+          ENABLE_SCHEMATIZATION_CONFIG,
+          ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
     }
   }
 

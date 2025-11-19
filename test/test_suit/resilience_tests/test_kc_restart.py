@@ -20,6 +20,7 @@ class TestKcRestart(BaseE2eTest):
         self.nameSalt = nameSalt
         self.fileName = "test_kc_restart"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
         self.connectorName = self.fileName + nameSalt
 
         self.sleepTime = 10
@@ -32,6 +33,7 @@ class TestKcRestart(BaseE2eTest):
 
         # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
         self.driver.createTopics(self.topic, self.partitionNum, 1)
+        self.driver.snowflake_conn.cursor().execute(f"""create or replace table {self.tableName} (record_metadata variant, column1 varchar)""")
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -78,7 +80,7 @@ class TestKcRestart(BaseE2eTest):
         value = []
         for e in range(self.recordNum):
             value.append(json.dumps(
-                {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
+                {'column1': str(e)}
             ).encode('utf-8'))
         self.driver.sendBytesData(self.topic, value, key, 0)
         self.expectedsends = self.expectedsends + 1

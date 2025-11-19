@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector.internal;
 
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_HOST;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Utils.HTTPS_PROXY_PORT;
@@ -47,6 +48,7 @@ import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -78,6 +80,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 
 public class TestUtils {
   // test profile properties
+  private static final KCLogger log = new KCLogger(TestUtils.class.getName());
   private static final String USER = "user";
   private static final String DATABASE = "database";
   private static final String SCHEMA = "schema";
@@ -286,7 +289,10 @@ public class TestUtils {
     // On top of existing configurations, add
     configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
     configuration.put(Utils.TASK_ID, "0");
-    configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
+    configuration.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
+    configuration.put(
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
+        SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
 
     return configuration;
   }
@@ -299,7 +305,7 @@ public class TestUtils {
       configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
       configuration.put(Utils.TASK_ID, "0");
     }
-    configuration.put(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
+    configuration.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
 
     return configuration;
   }
@@ -352,6 +358,7 @@ public class TestUtils {
   static ResultSet executeQuery(String query) {
     try {
       Statement statement = TestSnowflakeConnection.getConnection().createStatement();
+      log.debug("Executing query: {}", query);
       return statement.executeQuery(query);
     }
     // if ANY exceptions occur, an illegal state has been reached
@@ -586,7 +593,9 @@ public class TestUtils {
     ResultSet result = executeQuery(query);
 
     if (result.next()) {
-      return result.getInt("rows");
+      final int rows = result.getInt("rows");
+      log.debug("{} table size is: {}", tableName, rows);
+      return rows;
     }
 
     return 0;
@@ -933,6 +942,72 @@ public class TestUtils {
     ResultSet result = executeQuery(getRowQuery);
     result.next();
     return result.getInt(1);
+  }
+
+  public static int getNumberOfColumns(String tableName) throws SQLException {
+    String getRowQuery = "select * from " + tableName + " limit 1";
+    ResultSet result = executeQuery(getRowQuery);
+    return result.getMetaData().getColumnCount();
+  }
+
+  public static void assertTableRowCount(String tableName, int expectedRowCount)
+      throws SQLException {
+    int actualRowCount = getNumberOfRows(tableName);
+    if (actualRowCount != expectedRowCount) {
+      throw new AssertionError(
+          String.format(
+              "Expected table %s to have %d rows, but it has %d rows",
+              tableName, expectedRowCount, actualRowCount));
+    }
+  }
+
+  public static void assertTableColumnCount(String tableName, int expectedColumnCount)
+      throws SQLException {
+    int actualColumnCount = getNumberOfColumns(tableName);
+    if (actualColumnCount != expectedColumnCount) {
+      throw new AssertionError(
+          String.format(
+              "Expected table %s to have %d columns, but it has %d columns",
+              tableName, expectedColumnCount, actualColumnCount));
+    }
+  }
+
+  public static void assertTableHasColumn(String tableName, String columnName) throws SQLException {
+    String getRowQuery = "select * from " + tableName + " limit 1";
+    ResultSet result = executeQuery(getRowQuery);
+    ResultSetMetaData metaData = result.getMetaData();
+    boolean found = false;
+    for (int i = 1; i <= metaData.getColumnCount(); i++) {
+      if (metaData.getColumnName(i).equalsIgnoreCase(columnName)) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      throw new AssertionError(
+          String.format(
+              "Expected table %s to have column %s, but it was not found", tableName, columnName));
+    }
+  }
+
+  public static List<Map<String, Object>> getTableRows(String tableName) throws SQLException {
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String getRowQuery = "select * from " + tableName;
+    ResultSet result = executeQuery(getRowQuery);
+    ResultSetMetaData metaData = result.getMetaData();
+    int columnCount = metaData.getColumnCount();
+
+    List<Map<String, Object>> rows = new ArrayList<>();
+    while (result.next()) {
+      Map<String, Object> row = new HashMap<>();
+      for (int i = 1; i <= columnCount; i++) {
+        String columnName = metaData.getColumnName(i);
+        Object value = result.getObject(i);
+        row.put(columnName, value);
+      }
+      rows.add(row);
+    }
+    return rows;
   }
 
   /**

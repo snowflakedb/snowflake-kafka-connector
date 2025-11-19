@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import static com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA;
 
@@ -104,13 +103,9 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query;
     if (overwrite) {
-      query =
-          "create or replace table identifier(?) (record_metadata "
-              + "variant, record_content variant)";
+      query = "create or replace table identifier(?) (record_metadata variant)";
     } else {
-      query =
-          "create table if not exists identifier(?) (record_metadata "
-              + "variant, record_content variant)";
+      query = "create table if not exists identifier(?) (record_metadata variant)";
     }
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
@@ -221,35 +216,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public void createPipe(
-      final String tableName,
-      final String stageName,
-      final String pipeName,
-      final boolean overwrite) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    InternalUtils.assertNotEmpty("stageName", stageName);
-    InternalUtils.assertNotEmpty("pipeName", pipeName);
-
-    String query;
-    if (overwrite) {
-      query = "create or replace pipe identifier(?) ";
-    } else {
-      query = "create pipe if not exists identifier(?) ";
-    }
-    try {
-      query += "as " + pipeDefinition(tableName, stageName);
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, pipeName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2009.getException(e);
-    }
-    LOGGER.info("create pipe: {}", pipeName);
-  }
-
-  @Override
   public boolean tableExist(final String tableName) {
     return describeTable(tableName).isPresent();
   }
@@ -295,7 +261,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.setString(1, tableName);
       result = stmt.executeQuery();
       boolean hasMeta = false;
-      boolean hasContent = false;
       boolean allNullable = true;
       while (result.next()) {
         switch (result.getString(1)) {
@@ -304,18 +269,13 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
               hasMeta = true;
             }
             break;
-          case TABLE_COLUMN_CONTENT:
-            if (result.getString(2).equals("VARIANT")) {
-              hasContent = true;
-            }
-            break;
           default:
             if (result.getString(4).equals("N")) {
               allNullable = false;
             }
         }
       }
-      compatible = hasMeta && hasContent && allNullable;
+      compatible = hasMeta && allNullable;
     } catch (SQLException e) {
       LOGGER.debug("Table {} doesn't exist. Exception {}", tableName, e.getStackTrace());
       compatible = false;

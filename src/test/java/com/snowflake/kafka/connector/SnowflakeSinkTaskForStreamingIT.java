@@ -1,5 +1,8 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionServiceForStreaming;
+import static java.lang.String.format;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -57,6 +60,9 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void beforeEach() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
+    getConnectionServiceForStreaming()
+        .executeQueryWithParameters(
+            format("create or replace table %s (record_metadata variant, f1 varchar)", topicName));
   }
 
   @AfterEach
@@ -175,7 +181,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     LinkedList<String> metadataResult = new LinkedList<>();
 
     while (resultSet.next()) {
-      contentResult.add(resultSet.getString("RECORD_CONTENT"));
+      contentResult.add(resultSet.getString("F1"));
       metadataResult.add(resultSet.getString("RECORD_METADATA"));
     }
     resultSet.close();
@@ -206,8 +212,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     testTopicToTableRegexMain(config);
   }
 
-  // runner for topic to table regex testing, used to test both streaming and snowpipe scenarios.
-  // Unfortunately cannot be moved to test utils due to the scope of some static variables
   public static void testTopicToTableRegexMain(Map<String, String> config) {
     // constants
     String catTable = "cat_table";
@@ -314,8 +318,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.open(testPartitions);
 
     // verify expected num tasks opened
-    Mockito.verify(serviceSpy, Mockito.times(1))
-        .startPartitions(Mockito.anyCollection(), Mockito.anyMap());
+    Mockito.verify(serviceSpy, Mockito.times(1)).startPartitions(Mockito.anyCollection());
 
     for (String topicStr : expectedTopic2TableConfig.keySet()) {
       TopicPartition topic = null;

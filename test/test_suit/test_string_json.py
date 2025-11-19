@@ -9,9 +9,11 @@ class TestStringJson(BaseE2eTest):
         self.fileName = "travis_correct_string_json"
         self.topic = self.fileName + nameSalt
         self.recordCount = 100
+        self.tableName = self.fileName + nameSalt
+        self.driver.snowflake_conn.cursor().execute(f"""create or replace table {self.tableName} (record_metadata variant, "number" varchar)""")
 
     def getConfigFileName(self):
-        return self.fileName + ".json"
+            return self.fileName + ".json"
 
     def send(self):
         value = []
@@ -49,8 +51,8 @@ class TestStringJson(BaseE2eTest):
             goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{"header1":"value1","header2":"[]"},"offset":0,"partition":0,"topic":"travis_correct_string_json_\w*"}'
 
         res = self.driver.snowflake_conn.cursor().execute(
-            "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldContent = r'{"number":"0"}'
+            """Select * from {}""".format(self.topic)).fetchone()
+        goldContent = r'0'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
 

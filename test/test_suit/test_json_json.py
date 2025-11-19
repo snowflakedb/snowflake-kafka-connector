@@ -8,6 +8,10 @@ class TestJsonJson(BaseE2eTest):
         self.driver = driver
         self.fileName = "travis_correct_json_json"
         self.topic = self.fileName + nameSalt
+        self.tableName = self.fileName + nameSalt
+        self.driver.snowflake_conn.cursor().execute(f"""create or replace table {self.tableName} (record_metadata variant, "number" varchar)""")
+
+
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -31,7 +35,7 @@ class TestJsonJson(BaseE2eTest):
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
         goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{},"key":{"number":"0"},"offset":0,"partition":0,"topic":"travis_correct_json_json_\w*"}'
-        goldContent = r'{"number":"0"}'
+        goldContent = r'0'
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
     def clean(self):

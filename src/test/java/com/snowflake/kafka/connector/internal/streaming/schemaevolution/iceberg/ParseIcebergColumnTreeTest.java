@@ -94,7 +94,7 @@ public class ParseIcebergColumnTreeTest {
   void parseFromJsonRecordSchema(String jsonString, String expectedType) {
     // given
     SinkRecord record = createKafkaRecord(jsonString);
-    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
     IcebergColumnJsonValuePair columnValuePair =
         IcebergColumnJsonValuePair.from(recordNode.fields().next());
     // when
@@ -161,7 +161,7 @@ public class ParseIcebergColumnTreeTest {
 
     // tree parsed from a record
     SinkRecord record = createKafkaRecord(recordJson);
-    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value(), true);
+    JsonNode recordNode = RecordService.convertToJson(record.valueSchema(), record.value());
     IcebergColumnJsonValuePair columnValuePair =
         IcebergColumnJsonValuePair.from(recordNode.fields().next());
 

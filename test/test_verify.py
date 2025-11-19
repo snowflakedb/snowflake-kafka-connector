@@ -64,9 +64,9 @@ class KafkaTest:
         self.httpHeader = {'Content-type': 'application/json', 'Accept': 'application/json'}
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
-        self.VERIFY_INTERVAL = 60  # verify every 60 secs
-        self.MAX_RETRY = 10  # max wait time 10 mins
-        self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 10000 data was in the queue
+        self.VERIFY_INTERVAL = 10  # verify every 10 secs
+        self.MAX_RETRY = 60  # max wait time 1 min
+        self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 5000 data was in the queue
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
@@ -288,7 +288,6 @@ class KafkaTest:
         if topicName == "":
             topicName = connectorName
         tableName = topicName
-        stageName = "SNOWFLAKE_KAFKA_CONNECTOR_{}_STAGE_{}".format(connectorName, topicName)
 
         print(datetime.now().strftime("\n%H:%M:%S "), "=== Drop table {} ===".format(tableName))
         self.snowflake_conn.cursor().execute("DROP table IF EXISTS {}".format(tableName))
@@ -317,6 +316,26 @@ class KafkaTest:
             ;
         """.format(table_name, external_volume, table_name)
         self.snowflake_conn.cursor().execute(sql)
+
+    def create_table(self, table_name: str):
+        sql = """
+                CREATE TABLE IF NOT EXISTS {} (
+                    RECORD_METADATA VARIANT
+                )
+            """.format(table_name)
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Creating table {table_name} ===")
+        print(datetime.now().strftime("%H:%M:%S "), f"{sql}")
+        self.snowflake_conn.cursor().execute(sql)
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Table {table_name} created ===")
+
+    def drop_table(self, table_name: str):
+        sql = """
+                DROP TABLE IF EXISTS {}
+            """.format(table_name)
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Dropping table {table_name} ===")
+        self.snowflake_conn.cursor().execute(sql)
+        print(datetime.now().strftime("%H:%M:%S "), f"=== Table {table_name} dropped ===")
+
 
     def create_iceberg_table_with_sample_content(self, table_name: str, external_volume: str):
         sql = """
@@ -356,6 +375,14 @@ class KafkaTest:
         if re.search(goldContentRegex, content) is None:
             raise test_suit.test_utils.NonRetryableError("Record content:\n{}\ndoes not match gold regex "
                                                          "label:\n{}".format(content, goldContentRegex))
+
+    def regexMatchMeta(self, meta, goldMetaRegex):
+        meta = meta.replace(" ", "").replace("\n", "")
+        goldMetaRegex = "^" + goldMetaRegex.replace("\"", "\\\"").replace("{", "\\{").replace("}", "\\}") \
+            .replace("[", "\\[").replace("]", "\\]").replace("+", "\\+") + "$"
+        if re.search(goldMetaRegex, meta) is None:
+            raise test_suit.test_utils.NonRetryableError("Record meta data:\n{}\ndoes not match gold regex "
+                                                         "label:\n{}".format(meta, goldMetaRegex))
 
     def updateConnectorConfig(self, fileName, connectorName, configMap):
         with open('./rest_request_generated/' + fileName + '.json') as f:
@@ -443,7 +470,7 @@ class KafkaTest:
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(fileContent)
 
-        MAX_RETRY = 3
+        MAX_RETRY = 9
         retry = 0
         delete_url = "http://{}/connectors/{}".format(self.kafkaConnectAddress, snowflake_connector_name)
         post_url = "http://{}/connectors".format(self.kafkaConnectAddress)
@@ -458,8 +485,8 @@ class KafkaTest:
                 print('An exception occurred: {}'.format(e))
                 pass
             print(datetime.now().strftime("\n%H:%M:%S "),
-                  "=== sleep for 30 secs to wait for kafka connect to accept connection ===")
-            sleep(30)
+                  "=== sleep for 10 secs to wait for kafka connect to accept connection ===")
+            sleep(10)
             retry += 1
         if retry == MAX_RETRY:
             print("Kafka Delete request not successful:{0}".format(delete_url))

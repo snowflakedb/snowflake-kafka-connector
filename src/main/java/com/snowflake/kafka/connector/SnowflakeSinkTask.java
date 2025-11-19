@@ -26,9 +26,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.SchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergSchemaEvolutionService;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.snowflake.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Arrays;
 import java.util.Collection;
@@ -155,7 +152,11 @@ public class SnowflakeSinkTask extends SinkTask {
 
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
-    this.taskConfigId = parsedConfig.getOrDefault(Utils.TASK_ID, "-1");
+    this.taskConfigId = parsedConfig.get(Utils.TASK_ID);
+    if (this.taskConfigId == null || this.taskConfigId.trim().isEmpty()) {
+      throw new IllegalArgumentException(
+          "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
+    }
 
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
@@ -202,11 +203,6 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
 
-    SchemaEvolutionService schemaEvolutionService =
-        Utils.isIcebergEnabled(parsedConfig)
-            ? new IcebergSchemaEvolutionService(conn)
-            : new SnowflakeSchemaEvolutionService(conn);
-
     this.sink =
         new SnowflakeSinkServiceV2(
             conn,
@@ -232,6 +228,7 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void stop() {
+    this.DYNAMIC_LOGGER.info("stopping task {}", this.taskConfigId);
     if (this.sink != null) {
       this.sink.stop();
     }
@@ -249,7 +246,7 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    this.sink.startPartitions(partitions, this.topic2table);
+    this.sink.startPartitions(partitions);
     this.DYNAMIC_LOGGER.info(
         "task opened with {} partitions, execution time: {} milliseconds",
         partitions.size(),
@@ -267,6 +264,8 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void close(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
+    this.DYNAMIC_LOGGER.info(
+        "closing task {} with {} partitions", this.taskConfigId, partitions.size());
     if (this.sink != null) {
       this.sink.close(partitions);
     }

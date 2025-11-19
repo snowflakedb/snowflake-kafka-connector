@@ -42,7 +42,7 @@ public class SnowflakeSinkServiceV2LegacyIT extends SnowflakeSinkServiceV2BaseIT
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
-    service.startPartition(table, topicPartition);
+    service.startPartition(topicPartition);
 
     final long noOfRecords = 50;
     List<SinkRecord> sinkRecords =

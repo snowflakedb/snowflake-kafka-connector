@@ -6,19 +6,19 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIngestClient {
 
   private final String pipeName;
   private final String connectorName;
-  private final Set<FakeSnowflakeStreamingIngestChannel> openedChannels =
-      new ConcurrentSkipListSet<>();
+  private final List<FakeSnowflakeStreamingIngestChannel> openedChannels =
+      Collections.synchronizedList(new ArrayList<>());
   private final Map<String, String> channelNameToOffsetTokens = new ConcurrentHashMap<>();
   private boolean closed = false;
 
@@ -120,7 +120,7 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
     throw new UnsupportedOperationException();
   }
 
-  public Set<FakeSnowflakeStreamingIngestChannel> getOpenedChannels() {
+  public List<FakeSnowflakeStreamingIngestChannel> getOpenedChannels() {
     return openedChannels;
   }
 

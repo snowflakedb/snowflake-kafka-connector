@@ -5,7 +5,6 @@ from test_suit.base_e2e import BaseE2eTest
 
 
 # Testing behavior for behavior.on.null.values = IGNORE and SMTs that can return null values.
-# Uses a Snowpipe based connector.
 class TestNullableValuesAfterSmt(BaseE2eTest):
 
     def __init__(self, driver, nameSalt):
@@ -13,8 +12,10 @@ class TestNullableValuesAfterSmt(BaseE2eTest):
         self.fileName = 'nullable_values_after_smt'
         self.table = self.fileName + nameSalt
         self.topic = self.table
-
         self.total_events = 200
+        self.driver.create_table(self.table)
+        # the configuration contains SMT only content of optionalField is sent to our connector after SMT, that is why the created table has only three columns
+        self.driver.snowflake_conn.cursor().execute(f"create or replace table {self.table} (index number, from_optional_field boolean, record_metadata variant)")
 
     def getConfigFileName(self):
         return self.fileName + '.json'
@@ -34,18 +35,18 @@ class TestNullableValuesAfterSmt(BaseE2eTest):
 
     def verify(self, round):
         cur = self.driver.snowflake_conn.cursor(DictCursor)
-        res = cur.execute(f'select record_content, record_metadata:offset::number as offset from {self.table}').fetchall()
+        # the configuration contains SMT only content of optionalField is sent to our connector after SMT, that is why the select has only three columns
+        res = cur.execute(f'select index, from_optional_field, record_metadata:offset::number as offset from {self.table}').fetchall()
 
         if len(res) == 0:
             raise RetryableError()
         elif len(res) != 100:
             raise NonRetryableError('Number of record in table is different from number of expected records')
 
-        # Originally RECORD_CONTENT is returned as a json string.
-        parsed_res = [{'RECORD_CONTENT': json.loads(rec['RECORD_CONTENT']), 'OFFSET': rec['OFFSET']} for rec in res]
+        parsed_res = [{'index': rec['INDEX'], 'from_optional_field': rec['FROM_OPTIONAL_FIELD'], 'offset': rec['OFFSET']} for rec in res]
 
         expected_idx = range(0, self.total_events, 2) # Only every other event is going to be ingested.
-        expected_res = [{'RECORD_CONTENT': {'index': idx, 'from_optional_field': True}, 'OFFSET': idx} for idx in expected_idx]
+        expected_res = [{'index': idx, 'from_optional_field': True, 'offset': idx} for idx in expected_idx]
 
         if expected_res != parsed_res:
             raise NonRetryableError(f"Invalid result values. Expected: {expected_res}, got: {parsed_res}")

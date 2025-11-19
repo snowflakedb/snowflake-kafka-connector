@@ -17,8 +17,6 @@
 
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS;
-
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -148,8 +146,11 @@ public enum SnowflakeErrors {
       "Check Snowflake Kafka Connector docs for details"),
   ERROR_0033(
       "0033",
-      "Iceberg ingestion not supported by Snowpipe Streaming v2",
-      "Use Snowpipe Streaming v1 instead"),
+      "Invalid OAuth URL",
+      "OAuth URL format: '[http://|https://]<oauth_server>[:<port>][/<path>]'. Protocol defaults"
+          + " to 'https://'. Port defaults to 443 for https and 80 for http. Path may contain"
+          + " alphanumeric characters, dots, hyphens, and forward slashes (e.g.,"
+          + " 'login.example.com/oauth2/v2.0/token')."),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",
@@ -370,32 +371,9 @@ public enum SnowflakeErrors {
       "Failed to open Snowpipe Streaming v2 channel"),
   ERROR_5029(
       "5029",
-      "Destination table does not exist. The "
-          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
-          + " property is set to true. In this"
-          + " mode destination tables and pipes need to be created manually beforehand. With the "
-          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
-          + " parameter set to true, the table name and pipe names must be equal.",
-      "Destination table does not exist. The "
-          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
-          + " property is set to true. In this"
-          + " mode destination tables and pipes need to be created manually beforehand. With the "
-          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
-          + " parameter set to true, the table name and pipe names must be equal."),
-  ERROR_5030(
-      "5030",
-      "Destination pipe does not exist. The "
-          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
-          + " property is set to true. In this"
-          + " mode destination tables and pipes need to be created manually beforehand. With the "
-          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
-          + " parameter set to true, the table name and pipe names must be equal.",
-      "Destination pipe does not exist. The "
-          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
-          + " property is set to true. In this"
-          + " mode destination tables and pipes need to be created manually beforehand. With the "
-          + SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS
-          + " parameter set to true, the table name and pipe names must be equal.");
+      "Destination table does not exist",
+      "Destination table does not exist. Please ensure the destination table exists in Snowflake"
+          + " before starting the connector.");
 
   // properties
 

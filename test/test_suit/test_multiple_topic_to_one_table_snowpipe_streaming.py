@@ -14,13 +14,12 @@ class TestMultipleTopicToOneTableSnowpipeStreaming(BaseE2eTest):
         self.partitionNum = 3
         self.recordNum = 1000
         self.tableName = self.fileName + nameSalt
-
         for i in range(self.topicNum):
             self.topics.append(self.fileName + nameSalt + str(i))
 
             # create topic and partitions in constructor since the post REST api will automatically create topic with only one partition
             self.driver.createTopics(self.topics[-1], partitionNum=self.partitionNum, replicationNum=1)
-        
+        self.driver.snowflake_conn.cursor().execute(f"""create or replace table {self.tableName} (record_metadata variant, field1 varchar)""")
 
     def getConfigFileName(self):
         return self.fileName + ".json"
@@ -41,7 +40,7 @@ class TestMultipleTopicToOneTableSnowpipeStreaming(BaseE2eTest):
                 value = []
                 for e in range(self.recordNum):
                     value.append(json.dumps(
-                        {'numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber': str(e)}
+                        {'field1': str(e)}
                     ).encode('utf-8'))
                 self.driver.sendBytesData(topic, value, key, partition=p)
                 sleep(2)
@@ -91,6 +90,5 @@ class TestMultipleTopicToOneTableSnowpipeStreaming(BaseE2eTest):
                     raise NonRetryableError("Topics and partitions count doesnt match")
 
     def clean(self):
-        # dropping of stage and pipe doesnt apply for snowpipe streaming. (It executes drop if exists)
         self.driver.cleanTableStagePipe(self.tableName, "", self.partitionNum)
         return

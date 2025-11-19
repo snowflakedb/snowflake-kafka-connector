@@ -38,6 +38,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
         .withSchema("testSchema")
         .withDatabase("testDatabase")
         .withUser("userName")
+        .withSchematizationEnabled(true)
         .withPrivateKey("fdsfsdfsdfdsfdsrqwrwewrwrew42314424")
         .withRole("role");
   }
@@ -49,13 +50,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public SnowflakeSinkConnectorConfigBuilder withTopics(String topics) {
     config.put(SnowflakeSinkConnectorConfig.TOPICS, topics);
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withUseUserDefinedDatabaseObjects(boolean value) {
-    config.put(
-        SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_USE_USER_DEFINED_DATABASE_OBJECTS,
-        "" + value);
     return this;
   }
 

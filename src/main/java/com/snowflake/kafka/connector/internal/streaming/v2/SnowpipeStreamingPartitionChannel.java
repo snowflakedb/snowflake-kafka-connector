@@ -19,15 +19,11 @@ import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelIns
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowSchema;
-import com.snowflake.kafka.connector.internal.streaming.validation.RowSchemaManager;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import dev.failsafe.FailsafeExecutor;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -38,11 +34,12 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
-public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChannel {
+public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel {
   private static final KCLogger LOGGER =
-      new KCLogger(SnowpipeStreamingV2PartitionChannel.class.getName());
+      new KCLogger(SnowpipeStreamingPartitionChannel.class.getName());
   private final StreamingClientProperties streamingClientProperties;
-  private final StreamingIngestClientProvider streamingIngestClientProvider;
+  private final String connectorName;
+  private final String taskId;
 
   private SnowflakeStreamingIngestChannel channel;
 
@@ -73,14 +70,9 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   private final String channelName;
 
-  /* table is required for opening the channel */
-  private final String tableName;
-
   /** Available from {@link SinkTask} which has access to various utility methods. */
   private final SinkTaskContext sinkTaskContext;
 
-  // Unlike SSv1 schema evolution is not supported yet, but ingestion to schematized table can
-  // happen
   private final boolean schematizationEnabled;
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
@@ -95,18 +87,17 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   private final FailsafeExecutor<Long> offsetTokenExecutor;
 
-  private final RowSchemaManager rowSchemaManager;
-
   private final String pipeName;
 
   private final Map<String, String> connectorConfig;
 
   private final StreamingErrorHandler streamingErrorHandler;
 
-  public SnowpipeStreamingV2PartitionChannel(
+  public SnowpipeStreamingPartitionChannel(
       String tableName,
-      final boolean schematizationEnabled,
       String channelName,
+      String pipeName,
+      boolean schematizationEnabled,
       TopicPartition topicPartition,
       SnowflakeConnectionService conn,
       Map<String, String> connectorConfig,
@@ -114,23 +105,31 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
       SinkTaskContext sinkTaskContext,
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter,
-      StreamingIngestClientProvider streamingIngestClientProvider,
-      RowSchemaManager rowSchemaManager,
+      String connectorName,
+      String taskId,
       StreamingErrorHandler streamingErrorHandler) {
-    this.tableName = tableName;
     this.schematizationEnabled = schematizationEnabled;
     this.channelName = channelName;
     this.topicPartition = topicPartition;
     this.connectorConfig = connectorConfig;
     this.streamingRecordService = streamingRecordService;
     this.sinkTaskContext = sinkTaskContext;
-    this.streamingIngestClientProvider = streamingIngestClientProvider;
-    this.rowSchemaManager = rowSchemaManager;
+    this.connectorName = connectorName;
+    this.taskId = taskId;
     this.streamingErrorHandler = streamingErrorHandler;
 
     this.telemetryServiceV2 = conn.getTelemetryClient();
-    this.pipeName = PipeNameProvider.pipeName(connectorConfig, tableName);
+    this.pipeName = pipeName;
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
+
+    LOGGER.info(
+        "Initializing SnowpipeStreamingPartitionChannel for table: {}, channel: {}, pipe: {},"
+            + " topic: {}, partition: {}",
+        tableName,
+        channelName,
+        pipeName,
+        topicPartition.topic(),
+        topicPartition.partition());
 
     this.channel = openChannelForTable(channelName);
     this.offsetTokenExecutor =
@@ -142,19 +141,20 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
                     StreamingApiFallbackInvoker.GET_OFFSET_TOKEN_FALLBACK));
 
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
+    LOGGER.info(
+        "Initializing offsetPersistedInSnowflake=[{}], channel=[{}]",
+        lastCommittedOffsetToken,
+        channelName);
     this.offsetPersistedInSnowflake.set(lastCommittedOffsetToken);
+    LOGGER.info(
+        "Initializing processedOffset=[{}], channel=[{}]", lastCommittedOffsetToken, channelName);
     this.processedOffset.set(lastCommittedOffsetToken);
 
-    // setup telemetry and metrics
-    String connectorName =
-        conn == null || conn.getConnectorName() == null || conn.getConnectorName().isEmpty()
-            ? "default_connector_name"
-            : conn.getConnectorName();
     final long startTime = System.currentTimeMillis();
     this.snowflakeTelemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             tableName,
-            connectorName,
+            this.connectorName,
             channelName,
             startTime,
             enableCustomJMXMonitoring,
@@ -188,6 +188,10 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     // for backwards compatibility - set the consumer offset to be the first one received from kafka
     if (currentConsumerGroupOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       this.currentConsumerGroupOffset.set(kafkaSinkRecord.kafkaOffset());
+      LOGGER.trace(
+          "Setting currentConsumerGroupOffset=[{}], channel=[{}]",
+          kafkaSinkRecord.kafkaOffset(),
+          channelName);
     }
 
     // Reset the value if it's a new batch
@@ -221,28 +225,12 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
 
   private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
+      final long kafkaOffset = kafkaSinkRecord.kafkaOffset();
       Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
-      if (schematizationEnabled) {
-        Optional<RowSchema.Error> error = validateRecord(transformedRecord);
-        if (error.isPresent()) {
-          LOGGER.info(
-              "Record doesn't match table schema. " + " topic={}, partition={}, offset={}",
-              kafkaSinkRecord.topic(),
-              kafkaSinkRecord.kafkaPartition(),
-              kafkaSinkRecord.kafkaOffset());
-          streamingErrorHandler.handleError(List.of(error.get().cause()), kafkaSinkRecord);
-          this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
-          return;
-        }
-      }
-
-      // for schema evolution all identifiers are quoted
-      // in SSv2 we still need quoted identifiers for ALTER TABLE statements
-      // but unquoted for map keys that are passed to ssv2
-      Map<String, Object> unquotedTransformedRecord = unquoteIdentifiers(transformedRecord);
       if (!transformedRecord.isEmpty()) {
-        insertRowWithFallback(unquotedTransformedRecord, kafkaSinkRecord.kafkaOffset());
-        this.processedOffset.set(kafkaSinkRecord.kafkaOffset());
+        insertRowWithFallback(transformedRecord, kafkaOffset);
+        this.processedOffset.set(kafkaOffset);
+        LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
       }
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
@@ -251,12 +239,6 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
           this.getChannelNameFormatV1(),
           ex);
     }
-  }
-
-  private Optional<RowSchema.Error> validateRecord(Map<String, Object> transformedRecord) {
-    Map<String, Object> fieldsToValidate = new HashMap<>(transformedRecord);
-    return Optional.ofNullable(
-        rowSchemaManager.get(tableName, connectorConfig).validate(fieldsToValidate));
   }
 
   @Override
@@ -269,8 +251,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.getChannelNameFormatV1());
 
-          streamingIngestClientProvider
-              .getClient(connectorConfig, pipeName, streamingClientProperties)
+          StreamingClientManager.getClient(
+                  connectorName, taskId, pipeName, connectorConfig, streamingClientProperties)
               .initiateFlush();
 
           WaitForLastOffsetCommittedPolicy.getPolicy(
@@ -318,6 +300,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   private void insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
     AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
         () -> {
+          LOGGER.trace("Inserting transformed record: {}, offset: {}", transformedRecord, offset);
           this.channel.appendRow(transformedRecord, Long.toString(offset));
           this.lastAppendRowsOffset = offset;
         },
@@ -371,6 +354,10 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    */
   private long streamingApiFallbackSupplier(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
+    LOGGER.info(
+        "{} Channel recovery initiated for channel: {}",
+        streamingApiFallbackInvoker,
+        this.getChannelNameFormatV1());
     SnowflakeStreamingIngestChannel newChannel = openChannelForTable(channelName);
 
     LOGGER.warn(
@@ -427,6 +414,10 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
     // Need to update the in memory processed offset otherwise if same offset is send again, it
     // might get rejected.
     this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
+    LOGGER.info(
+        "Reset channel metadata after recovery offsetPersistedInSnowflake=[{}], channel=[{}]",
+        offsetRecoveredFromSnowflake,
+        channelName);
     this.processedOffset.set(offsetRecoveredFromSnowflake);
 
     // Set the flag so that any leftover rows should be skipped, it will be
@@ -455,10 +446,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    *     snowflake.
    */
   private long fetchLatestCommittedOffsetFromSnowflake() {
-    LOGGER.debug(
-        "Fetching last committed offset for partition channel:{}", this.getChannelNameFormatV1());
-    SnowflakeStreamingIngestChannel channelToGetOffset = this.channel;
-    return fetchLatestOffsetFromChannel(channelToGetOffset);
+    return fetchLatestOffsetFromChannel(this.channel);
   }
 
   private long fetchLatestOffsetFromChannel(SnowflakeStreamingIngestChannel channel) {
@@ -496,12 +484,17 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
    */
   private SnowflakeStreamingIngestChannel openChannelForTable(String channelName) {
     SnowflakeStreamingIngestClient streamingIngestClient =
-        streamingIngestClientProvider.getClient(
-            connectorConfig, pipeName, streamingClientProperties);
+        StreamingClientManager.getClient(
+            connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
     OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
     if (result.getChannelStatus().getStatusCode().equals("SUCCESS")) {
+      LOGGER.info("Successfully opened streaming channel: {}", channelName);
       return result.getChannel();
     } else {
+      LOGGER.error(
+          "Failed to open channel: {}, error code: {}",
+          channelName,
+          result.getChannelStatus().getStatusCode());
       throw ERROR_5028.getException(
           String.format(
               "Failed to open channel %s. Error code %s",
@@ -510,25 +503,8 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   }
 
   @Override
-  public void closeChannel() {
-    try {
-      closeChannelAsync().get();
-    } catch (Exception e) {
-      final String errMsg =
-          String.format(
-              "Failure closing Streaming Channel name:%s msg:%s",
-              this.getChannelNameFormatV1(), e.getMessage());
-      this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      LOGGER.error(
-          "Closing Streaming Channel={} encountered an exception: {}",
-          this.getChannelNameFormatV1(),
-          e.getClass().getSimpleName(),
-          e);
-    }
-  }
-
-  @Override
   public CompletableFuture<Void> closeChannelAsync() {
+    LOGGER.info("Closing streaming channel: {}", this.getChannelNameFormatV1());
     return closeChannelWrapped()
         .thenAccept(__ -> onCloseChannelSuccess())
         .exceptionally(this::tryRecoverFromCloseChannelError);
@@ -547,6 +523,7 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   }
 
   private void onCloseChannelSuccess() {
+    LOGGER.info("Successfully closed streaming channel: {}", this.getChannelNameFormatV1());
     this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
     this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
   }
@@ -620,6 +597,15 @@ public class SnowpipeStreamingV2PartitionChannel implements TopicPartitionChanne
   public void setLatestConsumerGroupOffset(long consumerOffset) {
     if (consumerOffset > this.currentConsumerGroupOffset.get()) {
       this.currentConsumerGroupOffset.set(consumerOffset);
+      LOGGER.trace(
+          "Setting currentConsumerGroupOffset=[{}], channel=[{}]", consumerOffset, channelName);
+    } else {
+      LOGGER.trace(
+          "Not setting currentConsumerGroupOffset=[{}] because consumerOffset=[{}] is <="
+              + " currentConsumerGroupOffset for channel=[{}]",
+          this.currentConsumerGroupOffset.get(),
+          consumerOffset,
+          channelName);
     }
   }
 
