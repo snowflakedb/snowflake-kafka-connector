@@ -90,7 +90,7 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
       logStatsIfNeeded();
       return result;
     } catch (Exception e) {
-      throw new RuntimeException("Error accessing pipe exists cache for pipe: {}" + pipeName, e);
+      throw new RuntimeException("Error accessing pipe exists cache for pipe: " + pipeName, e);
     }
   }
 
