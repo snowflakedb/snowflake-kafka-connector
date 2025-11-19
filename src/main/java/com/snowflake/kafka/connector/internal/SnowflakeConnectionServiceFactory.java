@@ -26,6 +26,9 @@ public class SnowflakeConnectionServiceFactory {
     // This property will be appeneded to user agent while calling snowpipe API in http request
     private String kafkaProvider = null;
 
+    // Enable CHANGE_TRACKING on the table after creation
+    private boolean enableChangeTracking = false;
+
     /** Underlying implementation - Check Enum {@link IngestionMethodConfig} */
     private IngestionMethodConfig ingestionMethodConfig;
 
@@ -47,6 +50,11 @@ public class SnowflakeConnectionServiceFactory {
       this.kafkaProvider =
           SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
       this.connectorName = conf.get(Utils.NAME);
+      this.enableChangeTracking =
+          Boolean.parseBoolean(
+              conf.getOrDefault(
+                  SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_CONFIG,
+                  Boolean.toString(SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_DEFAULT)));
       this.ingestionMethodConfig = SNOWPIPE_STREAMING;
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
@@ -63,7 +71,12 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
       return new SnowflakeConnectionServiceV1(
-          jdbcProperties, url, connectorName, taskID, kafkaProvider);
+          jdbcProperties,
+          url,
+          connectorName,
+          taskID,
+          kafkaProvider,
+          enableChangeTracking);
     }
   }
 }

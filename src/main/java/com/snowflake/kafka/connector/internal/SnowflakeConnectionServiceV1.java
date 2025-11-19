@@ -46,19 +46,22 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   // This property will be appeneded to user agent while calling snowpipe API in http request
   private final String kafkaProvider;
   private final StageInfo.StageType stageType;
+  private final boolean enableChangeTracking;
 
   SnowflakeConnectionServiceV1(
       JdbcProperties jdbcProperties,
       SnowflakeURL url,
       String connectorName,
       String taskID,
-      String kafkaProvider) {
+      String kafkaProvider,
+      boolean enableChangeTracking) {
     this.jdbcProperties = jdbcProperties;
     this.connectorName = connectorName;
     this.taskID = taskID;
     this.url = url;
     this.stageType = null;
     this.kafkaProvider = kafkaProvider;
+    this.enableChangeTracking = enableChangeTracking;
     Properties proxyProperties = jdbcProperties.getProxyProperties();
     Properties combinedProperties = jdbcProperties.getProperties();
     try {
@@ -81,12 +84,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   @Override
   public void createTable(final String tableName, final boolean overwrite) {
-    createTable(tableName, overwrite, false);
+    createTable(tableName, overwrite, this.enableChangeTracking);
   }
 
   @Override
   public void createTable(final String tableName) {
-    createTable(tableName, false, false);
+    createTable(tableName, false, this.enableChangeTracking);
   }
 
   /**
@@ -125,7 +128,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   @Override
   public void createTableWithOnlyMetadataColumn(final String tableName) {
-    createTableWithOnlyMetadataColumn(tableName, false);
+    createTableWithOnlyMetadataColumn(tableName, this.enableChangeTracking);
   }
 
   /**
