@@ -143,8 +143,8 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
 
   @Override
   public void createTable(String tableName) {
-      delegate.createTable(tableName);
-      tableExistsCache.invalidate(tableName);
+    delegate.createTable(tableName);
+    tableExistsCache.invalidate(tableName);
   }
 
   @Override
@@ -255,12 +255,11 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     delegate.appendMetaColIfNotExist(tableName);
   }
 
-    /** Logs cache statistics periodically based on operation count. */
-    private void logStatsIfNeeded() {
-        long count = operationCount.incrementAndGet();
-        if (count % STATS_LOG_INTERVAL == 0) {
-            logCacheStatistics();
-        }
+  /** Logs cache statistics periodically based on operation count. */
+  private void logStatsIfNeeded() {
+    long count = operationCount.incrementAndGet();
+    if (count % STATS_LOG_INTERVAL == 0) {
+      logCacheStatistics();
     }
-
+  }
 }
