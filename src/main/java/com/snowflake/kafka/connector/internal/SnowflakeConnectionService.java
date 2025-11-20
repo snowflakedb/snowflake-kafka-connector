@@ -104,13 +104,6 @@ public interface SnowflakeConnectionService {
    */
   void schemaExists(String schemaName);
 
-  /**
-   * drop snowpipe
-   *
-   * @param pipeName pipe name
-   */
-  void dropPipe(String pipeName);
-
   /** @return telemetry client */
   SnowflakeTelemetryService getTelemetryClient();
 

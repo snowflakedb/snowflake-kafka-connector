@@ -147,7 +147,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * <p>Initializes the Channel and partitionsToChannel map with new instance of {@link
    * TopicPartitionChannel}
    *
-   * @param tableName destination table name
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
