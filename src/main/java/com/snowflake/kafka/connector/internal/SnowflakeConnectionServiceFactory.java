@@ -71,12 +71,7 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
       return new SnowflakeConnectionServiceV1(
-          jdbcProperties,
-          url,
-          connectorName,
-          taskID,
-          kafkaProvider,
-          enableChangeTracking);
+          jdbcProperties, url, connectorName, taskID, kafkaProvider, enableChangeTracking);
     }
   }
 }
