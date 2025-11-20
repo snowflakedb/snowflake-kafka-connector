@@ -384,6 +384,17 @@ public class ConnectorConfigDefinition {
             ICEBERG_ENABLED_DEFAULT_VALUE,
             ConfigDef.Importance.HIGH,
             "When set to true the connector will ingest data into the Iceberg table. Check the"
-                + " official Snowflake documentation for the prerequisites.");
+                + " official Snowflake documentation for the prerequisites.")
+        .define(
+            ENABLE_CHANGE_TRACKING_CONFIG,
+            ConfigDef.Type.BOOLEAN,
+            ENABLE_CHANGE_TRACKING_DEFAULT,
+            ConfigDef.Importance.LOW,
+            "Enable CHANGE_TRACKING on automatically created tables. When set to true, the"
+                + " connector will enable change tracking on tables it creates automatically.",
+            CONNECTOR_CONFIG_DOC,
+            9,
+            ConfigDef.Width.NONE,
+            ENABLE_CHANGE_TRACKING_CONFIG);
   }
 }

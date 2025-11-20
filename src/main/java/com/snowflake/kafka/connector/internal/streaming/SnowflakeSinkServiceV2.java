@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
@@ -452,6 +453,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // ------ Streaming Ingest Related Functions ------ //
   private void createTableIfNotExists(final String tableName) {
+    boolean enableChangeTracking =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_CONFIG,
+                String.valueOf(SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_DEFAULT)));
+
     if (this.conn.tableExist(tableName)) {
       if (!isSchematizationEnabled(connectorConfig)) {
         if (this.conn.isTableCompatible(tableName)) {
@@ -468,9 +475,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       if (isSchematizationEnabled(connectorConfig)) {
         // Always create the table with RECORD_METADATA only and rely on schema evolution to update
         // the schema
-        this.conn.createTableWithOnlyMetadataColumn(tableName);
+        ((SnowflakeConnectionServiceV1) this.conn)
+            .createTableWithOnlyMetadataColumn(tableName, enableChangeTracking);
       } else {
-        this.conn.createTable(tableName);
+        ((SnowflakeConnectionServiceV1) this.conn)
+            .createTable(tableName, false, enableChangeTracking);
       }
     }
 
