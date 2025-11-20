@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
+
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
@@ -22,14 +24,15 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   private static final KCLogger LOGGER =
       new KCLogger(CachingSnowflakeConnectionService.class.getName());
 
-  private static final long STATS_LOG_INTERVAL = 1000; // Log stats every 1000 operations
+  private static final long CACHE_STATS_LOG_INTERVAL_MS = MINUTES.toMillis(5);
+  private static final int CACHE_SIZE = 100;
   private final SnowflakeConnectionService delegate;
   private final Cache<String, Boolean> tableExistsCache;
   private final Cache<String, Boolean> pipeExistsCache;
   private final boolean tableExistsCacheEnabled;
   private final boolean pipeExistsCacheEnabled;
 
-  private final AtomicLong operationCount = new AtomicLong(0);
+  private final AtomicLong lastStatsLogTimestamp = new AtomicLong(System.currentTimeMillis());
 
   /**
    * Creates a cached wrapper around an existing SnowflakeConnectionService.
@@ -39,7 +42,6 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
    */
   public CachingSnowflakeConnectionService(
       SnowflakeConnectionService delegate, CachingConfig cachingConfig) {
-    final int cacheSize = 100;
     this.delegate = delegate;
     this.tableExistsCacheEnabled = cachingConfig.isTableExistsCacheEnabled();
     this.pipeExistsCacheEnabled = cachingConfig.isPipeExistsCacheEnabled();
@@ -47,12 +49,12 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
         CacheBuilder.newBuilder()
             .expireAfterWrite(cachingConfig.getTableExistsCacheExpireMs(), TimeUnit.MILLISECONDS)
             .recordStats()
-            .maximumSize(cacheSize)
+            .maximumSize(CACHE_SIZE)
             .build();
     this.pipeExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(cachingConfig.getPipeExistsCacheExpireMs(), TimeUnit.MILLISECONDS)
-            .maximumSize(cacheSize)
+            .maximumSize(CACHE_SIZE)
             .recordStats()
             .build();
 
@@ -206,12 +208,6 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
-  public void dropPipe(String pipeName) {
-    delegate.dropPipe(pipeName);
-    pipeExistsCache.invalidate(pipeName);
-  }
-
-  @Override
   public SnowflakeTelemetryService getTelemetryClient() {
     return delegate.getTelemetryClient();
   }
@@ -255,10 +251,11 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     delegate.appendMetaColIfNotExist(tableName);
   }
 
-  /** Logs cache statistics periodically based on operation count. */
   private void logStatsIfNeeded() {
-    long count = operationCount.incrementAndGet();
-    if (count % STATS_LOG_INTERVAL == 0) {
+    final long now = System.currentTimeMillis();
+    final long lastLogged = lastStatsLogTimestamp.get();
+    if (now - lastLogged >= CACHE_STATS_LOG_INTERVAL_MS
+        && lastStatsLogTimestamp.compareAndSet(lastLogged, now)) {
       logCacheStatistics();
     }
   }

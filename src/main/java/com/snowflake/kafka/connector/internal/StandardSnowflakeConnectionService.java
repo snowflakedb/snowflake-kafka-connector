@@ -543,24 +543,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
-  public void dropPipe(final String pipeName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("pipeName", pipeName);
-    String query = "drop pipe if exists identifier(?)";
-
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, pipeName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-
-    LOGGER.info("pipe {} dropped", pipeName);
-  }
-
-  @Override
   public SnowflakeTelemetryService getTelemetryClient() {
     return this.telemetry;
   }
