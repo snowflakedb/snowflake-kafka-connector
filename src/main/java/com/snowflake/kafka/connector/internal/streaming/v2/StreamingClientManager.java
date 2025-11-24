@@ -217,13 +217,13 @@ public final class StreamingClientManager {
     final Properties props = new Properties();
     SnowflakeURL url = new SnowflakeURL(connectorConfig.get(Utils.SF_URL));
     props.put("private_key", connectorConfig.get(Utils.SF_PRIVATE_KEY));
-    
+
     // Add private key passphrase if present (required for encrypted private keys)
     String passphrase = connectorConfig.get(Utils.PRIVATE_KEY_PASSPHRASE);
     if (passphrase != null && !isBlank(passphrase)) {
       props.put("private_key_passphrase", passphrase);
     }
-    
+
     props.put("user", connectorConfig.get(Utils.SF_USER));
     props.put("role", connectorConfig.get(Utils.SF_ROLE));
     props.put("account", url.getAccount());
