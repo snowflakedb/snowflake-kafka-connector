@@ -128,13 +128,14 @@ public class StreamingClientManagerIT {
   }
 
   @Test
-  void test_GetClientProperties_includes_role() {
+  void test_GetClientProperties_includes_all_needed_properties() {
     // Given
     Map<String, String> connectorConfig = new HashMap<>();
     connectorConfig.put(Utils.SF_URL, "https://test.snowflakecomputing.com");
     connectorConfig.put(Utils.SF_PRIVATE_KEY, "test_private_key");
     connectorConfig.put(Utils.SF_USER, "test_user");
     connectorConfig.put(Utils.SF_ROLE, "TEST_ROLE");
+    connectorConfig.put(Utils.PRIVATE_KEY_PASSPHRASE, "test_passphrase");
 
     // When
     Properties properties = StreamingClientManager.getClientProperties(connectorConfig);
@@ -143,7 +144,9 @@ public class StreamingClientManagerIT {
     assertThat(properties).isNotNull();
     assertThat(properties.getProperty("role")).isEqualTo("TEST_ROLE");
     assertThat(properties.getProperty("user")).isEqualTo("test_user");
+    assertThat(properties.getProperty("host")).isEqualTo("test.snowflakecomputing.com");
     assertThat(properties.getProperty("private_key")).isEqualTo("test_private_key");
+    assertThat(properties.getProperty("private_key_passphrase")).isEqualTo("test_passphrase");
   }
 
   @Test
