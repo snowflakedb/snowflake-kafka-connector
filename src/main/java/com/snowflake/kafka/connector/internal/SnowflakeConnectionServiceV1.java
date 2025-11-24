@@ -501,7 +501,11 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
     boolean hasPermission = hasRolePrivilege && hasTableOptionEnabled;
     LOGGER.info(
-        String.format("Table: %s has schema evolution permission: %s", tableName, hasPermission));
+        "Table {} has enable_schema_evolution -> {}. Role {} has evolve_schema/ownership -> {}.",
+        tableName,
+        hasTableOptionEnabled,
+        role,
+        hasRolePrivilege);
     return hasPermission;
   }
 
