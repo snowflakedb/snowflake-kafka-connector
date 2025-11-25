@@ -1,11 +1,12 @@
 package com.snowflake.kafka.connector.internal;
 
+import static org.apache.commons.lang3.StringUtils.isBlank;
+
 import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DateFormat;
@@ -16,8 +17,6 @@ import java.util.Properties;
 import java.util.TimeZone;
 import net.snowflake.client.core.SFSessionProperty;
 import net.snowflake.ingest.connection.IngestStatus;
-
-import static org.apache.commons.lang3.StringUtils.isBlank;
 
 public class InternalUtils {
   // JDBC parameter list
@@ -70,8 +69,6 @@ public class InternalUtils {
     }
   }
 
-
-
   /**
    * convert a timestamp to Date String
    *
@@ -101,8 +98,10 @@ public class InternalUtils {
    * @param url target server url
    * @return Properties object which will be passed down to JDBC connection
    */
-  static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(Map<String, String> conf, SnowflakeURL url) {
-    return makeJdbcDriverPropertiesFromConnectorConfiguration(conf, url, IngestionMethodConfig.SNOWPIPE_STREAMING);
+  static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(
+      Map<String, String> conf, SnowflakeURL url) {
+    return makeJdbcDriverPropertiesFromConnectorConfiguration(
+        conf, url, IngestionMethodConfig.SNOWPIPE_STREAMING);
   }
 
   /**
@@ -114,7 +113,9 @@ public class InternalUtils {
    * @return a Properties instance
    */
   static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(
-      Map<String, String> connectorConfiguration, SnowflakeURL url, IngestionMethodConfig ingestionMethodConfig) {
+      Map<String, String> connectorConfiguration,
+      SnowflakeURL url,
+      IngestionMethodConfig ingestionMethodConfig) {
     Properties properties = new Properties();
 
     // decrypt rsa key
@@ -171,12 +172,11 @@ public class InternalUtils {
       properties.put(JDBC_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     }
     if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)) {
-        if (isBlank(privateKey)){
-            throw SnowflakeErrors.ERROR_0013.getException();
-        }
-        properties.put(
-            JDBC_PRIVATE_KEY,
-            PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
+      if (isBlank(privateKey)) {
+        throw SnowflakeErrors.ERROR_0013.getException();
+      }
+      properties.put(
+          JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
     } else if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.OAUTH)) {
       // OAuth auth
       if (oAuthClientId.isEmpty()) {

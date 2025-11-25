@@ -9,7 +9,6 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
-
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -133,7 +132,7 @@ public class StreamingClientManagerIT {
   @Test
   void test_GetClientProperties_includes_all_needed_properties() {
     // Given
-      String privateKey = generatePemPrivateKey();
+    String privateKey = generatePemPrivateKey();
     Map<String, String> connectorConfig = new HashMap<>();
     connectorConfig.put(Utils.SF_URL, "https://test.snowflakecomputing.com");
     connectorConfig.put(Utils.SF_PRIVATE_KEY, privateKey);

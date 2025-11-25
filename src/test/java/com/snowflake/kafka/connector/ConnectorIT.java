@@ -23,8 +23,8 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TOPICS_
 import static com.snowflake.kafka.connector.Utils.NAME;
 import static com.snowflake.kafka.connector.Utils.TASK_ID;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-import static com.snowflake.kafka.connector.internal.TestUtils.transformProfileFileToConnectorConfiguration;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfWithOAuth;
+import static com.snowflake.kafka.connector.internal.TestUtils.transformProfileFileToConnectorConfiguration;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;

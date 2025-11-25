@@ -69,7 +69,8 @@ public final class SnowflakeDataSourceFactory {
         connectionProperties.setProperty("warehouse", warehouse);
 
         // JWT key pair auth - set private key
-        final PrivateKey privateKey = PrivateKeyTool.parsePrivateKey(privateKeyStr,  privateKeyPassphrase);
+        final PrivateKey privateKey =
+            PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
         connectionProperties.put("privateKey", privateKey);
 
         // Create connection factory with Snowflake driver

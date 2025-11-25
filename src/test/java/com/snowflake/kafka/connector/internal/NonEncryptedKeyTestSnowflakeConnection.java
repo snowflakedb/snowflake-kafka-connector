@@ -14,12 +14,13 @@ public class NonEncryptedKeyTestSnowflakeConnection {
   /** Given a profile file path name, generate a connection by constructing a snowflake driver. */
   public static Connection getConnection() throws Exception {
 
-      Map<String, String> connectorConfiguration = transformProfileFileToConnectorConfiguration(false);
-    SnowflakeURL url =
-        new SnowflakeURL(connectorConfiguration.get(Utils.SF_URL));
+    Map<String, String> connectorConfiguration =
+        transformProfileFileToConnectorConfiguration(false);
+    SnowflakeURL url = new SnowflakeURL(connectorConfiguration.get(Utils.SF_URL));
 
     Properties properties =
-        InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(connectorConfiguration, url);
+        InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(
+            connectorConfiguration, url);
 
     return new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
   }

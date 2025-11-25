@@ -68,7 +68,8 @@ class TombstoneRecordIngestionIT {
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(getConnectionServiceForStreaming(false), connectorConfig)
+        StreamingSinkServiceBuilder.builder(
+                getConnectionServiceForStreaming(false), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)
@@ -102,7 +103,8 @@ class TombstoneRecordIngestionIT {
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(getConnectionServiceForStreaming(false), connectorConfig)
+        StreamingSinkServiceBuilder.builder(
+                getConnectionServiceForStreaming(false), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)

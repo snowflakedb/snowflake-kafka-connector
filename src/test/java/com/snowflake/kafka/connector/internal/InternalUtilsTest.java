@@ -18,11 +18,12 @@ public class InternalUtilsTest {
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0002, () -> PrivateKeyTool.parsePrivateKey("adfsfsaff", null));
 
-    Map<String, String> connectorConfiguration = TestUtils.transformProfileFileToConnectorConfiguration(true);
+    Map<String, String> connectorConfiguration =
+        TestUtils.transformProfileFileToConnectorConfiguration(true);
     String privateKey = connectorConfiguration.get(Utils.SF_PRIVATE_KEY);
     String pass = connectorConfiguration.get(Utils.SF_PRIVATE_KEY_PASSPHRASE);
     // no exception
-      PrivateKeyTool.parsePrivateKey(privateKey, pass);
+    PrivateKeyTool.parsePrivateKey(privateKey, pass);
     StringBuilder builder = new StringBuilder();
     builder.append("-----BEGIN RSA PRIVATE KEY-----\n");
     for (int i = 0; i < privateKey.length(); i++) {
@@ -34,7 +35,7 @@ public class InternalUtilsTest {
     builder.append("\n-----END RSA PRIVATE KEY-----");
     String originalKey = builder.toString();
     // no exception
-      PrivateKeyTool.parsePrivateKey(originalKey, pass);
+    PrivateKeyTool.parsePrivateKey(originalKey, pass);
   }
 
   @Test

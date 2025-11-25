@@ -41,8 +41,9 @@ import org.mockito.Mockito;
 
 public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
-    private static final boolean USE_ENCRYPTED_KEY = true;
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming(USE_ENCRYPTED_KEY);
+  private static final boolean USE_ENCRYPTED_KEY = true;
+  private final SnowflakeConnectionService conn =
+      TestUtils.getConnectionServiceForStreaming(USE_ENCRYPTED_KEY);
   private Map<String, String> config;
   private String pipe;
 

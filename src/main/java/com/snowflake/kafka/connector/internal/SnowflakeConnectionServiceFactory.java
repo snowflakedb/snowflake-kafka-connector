@@ -45,7 +45,8 @@ public class SnowflakeConnectionServiceFactory {
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =
-          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(conf, this.url, SNOWPIPE_STREAMING);
+          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(
+              conf, this.url, SNOWPIPE_STREAMING);
       Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(conf);
       this.jdbcProperties =
           JdbcProperties.create(connectionProperties, proxyProperties, jdbcPropertiesMap);
