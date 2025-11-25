@@ -43,7 +43,7 @@ public class StreamingClientPropertiesTest {
     String overrideValue = "10";
 
     // setup config with all loggable properties and parameter override
-    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
+    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
     connectorConfig.put(Utils.NAME, "testName");
     connectorConfig.put(Utils.SF_URL, "testUrl");
     connectorConfig.put(Utils.SF_ROLE, "testRole");
