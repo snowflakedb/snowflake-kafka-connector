@@ -23,7 +23,7 @@ import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TOPICS_
 import static com.snowflake.kafka.connector.Utils.NAME;
 import static com.snowflake.kafka.connector.Utils.TASK_ID;
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-import static com.snowflake.kafka.connector.internal.TestUtils.getConf;
+import static com.snowflake.kafka.connector.internal.TestUtils.transformProfileFileToConnectorConfiguration;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfWithOAuth;
 
 import java.util.*;
@@ -77,7 +77,7 @@ public class ConnectorIT {
   }
 
   static Map<String, String> getCorrectConfig() {
-    Map<String, String> config = getConf();
+    Map<String, String> config = transformProfileFileToConnectorConfiguration(false);
     config.remove(Utils.SF_WAREHOUSE);
     config.remove(Utils.NAME);
     config.remove(TASK_ID);
@@ -382,7 +382,7 @@ public class ConnectorIT {
 
   @Test
   public void testConnectorComprehensive() {
-    Map<String, String> config = getConf();
+    Map<String, String> config = transformProfileFileToConnectorConfiguration(false);
     SnowflakeStreamingSinkConnector sinkConnector = new SnowflakeStreamingSinkConnector();
     sinkConnector.start(config);
     assert sinkConnector.taskClass().equals(SnowflakeSinkTask.class);
@@ -396,7 +396,7 @@ public class ConnectorIT {
 
   @Test
   public void testConnectorComprehensiveNegative() throws Exception {
-    Map<String, String> config = getConf();
+    Map<String, String> config = transformProfileFileToConnectorConfiguration(false);
     SnowflakeStreamingSinkConnector sinkConnector = new SnowflakeStreamingSinkConnector();
     ExecutorService testThread = Executors.newSingleThreadExecutor();
     testThread.submit(

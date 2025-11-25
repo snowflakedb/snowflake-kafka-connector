@@ -43,7 +43,7 @@ public class SmtIT extends ConnectClusterBaseIT {
     tableName = topicName;
     connectorName = String.format("%s_connector", topicName);
     connectCluster.kafka().createTopic(topicName, PARTITION_COUNT);
-    TestUtils.getConnectionServiceForStreaming().createTable(topicName);
+    TestUtils.getConnectionServiceForStreaming(true).createTable(topicName);
     StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
   }
 

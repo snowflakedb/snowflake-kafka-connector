@@ -48,7 +48,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void beforeEach() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
-    getConnectionServiceForStreaming()
+    getConnectionServiceForStreaming(true)
         .executeQueryWithParameters(
             format("create or replace table %s (record_metadata variant, f1 varchar)", topicName));
   }
@@ -322,7 +322,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   private Map<String, String> getConfig(boolean useOAuth) {
     if (!useOAuth) {
-      return TestUtils.getConfForStreaming();
+      return TestUtils.getConnectorConfigurationForStreaming(false);
     } else {
       return TestUtils.getConfForStreamingWithOAuth();
     }

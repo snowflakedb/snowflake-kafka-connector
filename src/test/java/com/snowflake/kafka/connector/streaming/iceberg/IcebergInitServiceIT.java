@@ -16,7 +16,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
   @BeforeAll
   // overrides the base class @BeforeAll
   public static void setup() {
-    conn = TestUtils.getConnectionServiceForStreaming();
+    conn = TestUtils.getConnectionServiceForStreaming(true);
     icebergInitService = new IcebergInitService(conn);
   }
 

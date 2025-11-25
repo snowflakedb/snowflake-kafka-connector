@@ -22,7 +22,7 @@ public class IcebergTableSchemaValidatorIT extends BaseIcebergIT {
   @BeforeAll
   // overrides the base class @BeforeAll
   public static void setup() {
-    conn = TestUtils.getConnectionServiceForStreaming();
+    conn = TestUtils.getConnectionServiceForStreaming(false);
     schemaValidator = new IcebergTableSchemaValidator(conn);
   }
 

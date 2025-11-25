@@ -70,12 +70,11 @@ public abstract class ConnectClusterBaseIT {
   }
 
   protected final Map<String, String> defaultProperties(String topicName, String connectorName) {
-    Map<String, String> config = TestUtils.getConf();
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
 
     config.put(CONNECTOR_CLASS_CONFIG, SnowflakeStreamingSinkConnector.class.getName());
     config.put(NAME, connectorName);
     config.put(TOPICS_CONFIG, topicName);
-    config.put(SF_ROLE, config.get(Utils.SF_ROLE));
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
     config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());

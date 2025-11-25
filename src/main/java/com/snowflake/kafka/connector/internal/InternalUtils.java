@@ -5,9 +5,7 @@ import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import java.security.KeyFactory;
-import java.security.PrivateKey;
-import java.security.spec.PKCS8EncodedKeySpec;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DateFormat;
@@ -17,9 +15,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
 import net.snowflake.client.core.SFSessionProperty;
-import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
-import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
+
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 public class InternalUtils {
   // JDBC parameter list
@@ -72,21 +70,7 @@ public class InternalUtils {
     }
   }
 
-  public static PrivateKey parsePrivateKey(String key) {
-    // remove header, footer, and line breaks
-    key = key.replaceAll("-+[A-Za-z ]+-+", "");
-    key = key.replaceAll("\\s", "");
 
-    java.security.Security.addProvider(new BouncyCastleProvider());
-    byte[] encoded = Base64.decodeBase64(key);
-    try {
-      KeyFactory kf = KeyFactory.getInstance("RSA");
-      PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
-      return kf.generatePrivate(keySpec);
-    } catch (Exception e) {
-      throw SnowflakeErrors.ERROR_0002.getException(e);
-    }
-  }
 
   /**
    * convert a timestamp to Date String
@@ -117,20 +101,20 @@ public class InternalUtils {
    * @param url target server url
    * @return Properties object which will be passed down to JDBC connection
    */
-  static Properties createProperties(Map<String, String> conf, SnowflakeURL url) {
-    return createProperties(conf, url, IngestionMethodConfig.SNOWPIPE_STREAMING);
+  static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(Map<String, String> conf, SnowflakeURL url) {
+    return makeJdbcDriverPropertiesFromConnectorConfiguration(conf, url, IngestionMethodConfig.SNOWPIPE_STREAMING);
   }
 
   /**
    * create a properties for snowflake connection
    *
-   * @param conf a map contains all parameters
+   * @param connectorConfiguration a map contains all parameters
    * @param url target server url
    * @param ingestionMethodConfig which ingestion method is provided.
    * @return a Properties instance
    */
-  static Properties createProperties(
-      Map<String, String> conf, SnowflakeURL url, IngestionMethodConfig ingestionMethodConfig) {
+  static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(
+      Map<String, String> connectorConfiguration, SnowflakeURL url, IngestionMethodConfig ingestionMethodConfig) {
     Properties properties = new Properties();
 
     // decrypt rsa key
@@ -143,7 +127,7 @@ public class InternalUtils {
     String oAuthRefreshToken = "";
     String oAuthTokenEndpoint = "";
 
-    for (Map.Entry<String, String> entry : conf.entrySet()) {
+    for (Map.Entry<String, String> entry : connectorConfiguration.entrySet()) {
       // case insensitive
       switch (entry.getKey().toLowerCase()) {
         case Utils.SF_DATABASE:
@@ -161,7 +145,7 @@ public class InternalUtils {
         case Utils.SF_WAREHOUSE:
           properties.put(JDBC_WAREHOUSE, entry.getValue());
           break;
-        case Utils.PRIVATE_KEY_PASSPHRASE:
+        case Utils.SF_PRIVATE_KEY_PASSPHRASE:
           privateKeyPassphrase = entry.getValue();
           break;
         case Utils.SF_AUTHENTICATOR:
@@ -183,19 +167,16 @@ public class InternalUtils {
       }
     }
 
-    // Set credential
     if (!properties.containsKey(JDBC_AUTHENTICATOR)) {
       properties.put(JDBC_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
     }
     if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)) {
-      // JWT key pair auth
-      if (!privateKeyPassphrase.isEmpty()) {
+        if (isBlank(privateKey)){
+            throw SnowflakeErrors.ERROR_0013.getException();
+        }
         properties.put(
             JDBC_PRIVATE_KEY,
-            EncryptionUtils.parseEncryptedPrivateKey(privateKey, privateKeyPassphrase));
-      } else if (!privateKey.isEmpty()) {
-        properties.put(JDBC_PRIVATE_KEY, parsePrivateKey(privateKey));
-      }
+            PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
     } else if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.OAUTH)) {
       // OAuth auth
       if (oAuthClientId.isEmpty()) {
@@ -209,7 +190,7 @@ public class InternalUtils {
       }
       URL oauthUrl =
           oAuthTokenEndpoint.isEmpty()
-              ? new SnowflakeURL(conf.get(Utils.SF_URL))
+              ? new SnowflakeURL(connectorConfiguration.get(Utils.SF_URL))
               : OAuthURL.from(oAuthTokenEndpoint);
 
       String accessToken =
@@ -240,7 +221,7 @@ public class InternalUtils {
     properties.put(SFSessionProperty.ALLOW_UNDERSCORES_IN_HOST.getPropertyKey(), "true");
 
     if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE_STREAMING) {
-      final String providedSFRoleInConfig = conf.get(Utils.SF_ROLE);
+      final String providedSFRoleInConfig = connectorConfiguration.get(Utils.SF_ROLE);
       if (!Strings.isNullOrEmpty(providedSFRoleInConfig)) {
         LOGGER.info("Using provided role {} for JDBC connection.", providedSFRoleInConfig);
         properties.put(SFSessionProperty.ROLE, providedSFRoleInConfig);

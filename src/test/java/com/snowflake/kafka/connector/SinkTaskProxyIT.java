@@ -39,7 +39,7 @@ public class SinkTaskProxyIT {
   @Test(expected = SnowflakeKafkaConnectorException.class)
   @Ignore
   public void testSinkTaskProxyConfigMock() {
-    Map<String, String> config = TestUtils.getConf();
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     config.put(Utils.TASK_ID, "0");
@@ -77,7 +77,7 @@ public class SinkTaskProxyIT {
    */
   @Test
   public void testProxyJvmPropertiesConfiguration() {
-    Map<String, String> config = TestUtils.getConf();
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     // Configure proxy settings
@@ -103,7 +103,7 @@ public class SinkTaskProxyIT {
 
   @Test
   public void testSinkTaskProxyConfig() {
-    Map<String, String> config = TestUtils.getConf();
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
 
     config.put(Utils.TASK_ID, "0");

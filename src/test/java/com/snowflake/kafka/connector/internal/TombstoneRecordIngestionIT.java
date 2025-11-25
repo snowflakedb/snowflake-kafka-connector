@@ -40,7 +40,7 @@ class TombstoneRecordIngestionIT {
   @BeforeEach
   void beforeEach() {
     this.table = TestUtils.randomTableName();
-    getConnectionServiceForStreaming()
+    getConnectionServiceForStreaming(false)
         .executeQueryWithParameters(
             format(
                 "create or replace table %s (record_metadata variant, gender varchar, regionid"
@@ -63,12 +63,12 @@ class TombstoneRecordIngestionIT {
   void testStreamingTombstoneBehavior(SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior)
       throws Exception {
     // setup
-    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(getConnectionServiceForStreaming(), connectorConfig)
+        StreamingSinkServiceBuilder.builder(getConnectionServiceForStreaming(false), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)
@@ -96,13 +96,13 @@ class TombstoneRecordIngestionIT {
   void testStreamingTombstoneBehaviorWithSchematization(
       SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
     // setup
-    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
     connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(getConnectionServiceForStreaming(), connectorConfig)
+        StreamingSinkServiceBuilder.builder(getConnectionServiceForStreaming(false), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)

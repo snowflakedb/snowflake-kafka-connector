@@ -44,7 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class StreamingManualModeIT {
 
   private final ObjectMapper objectMapper = new ObjectMapper();
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
+  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming(true);
 
   private String tableName;
   private String topicName;
@@ -55,7 +55,7 @@ class StreamingManualModeIT {
 
   @BeforeEach
   void beforeEach() throws SQLException {
-    final Map<String, String> config = TestUtils.getConfForStreaming();
+    final Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(true);
     tableName = TestUtils.randomTableName();
     topicName = tableName;
     topicPartition = new TopicPartition(topicName, 0);

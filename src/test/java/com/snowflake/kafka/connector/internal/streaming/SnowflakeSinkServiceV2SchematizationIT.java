@@ -39,14 +39,14 @@ import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkServiceV2BaseIT {
 
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
+  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming(false);
   private Map<String, String> config;
   private SnowflakeSinkService service;
   private String pipe;
 
   @BeforeEach
   public void setup() {
-    config = TestUtils.getConfForStreaming();
+    config = TestUtils.getConnectorConfigurationForStreaming(false);
     config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(VALUE_CONVERTER_CONFIG_FIELD, "org.apache.kafka.connect.json.JsonConverter");
     config.put(VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");

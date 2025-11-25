@@ -46,7 +46,7 @@ public class SnowflakeSinkConnectorConfig {
   public static final String SNOWFLAKE_PRIVATE_KEY = Utils.SF_PRIVATE_KEY;
   public static final String SNOWFLAKE_DATABASE = Utils.SF_DATABASE;
   public static final String SNOWFLAKE_SCHEMA = Utils.SF_SCHEMA;
-  public static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.PRIVATE_KEY_PASSPHRASE;
+  public static final String SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = Utils.SF_PRIVATE_KEY_PASSPHRASE;
   public static final String AUTHENTICATOR_TYPE = Utils.SF_AUTHENTICATOR;
   public static final String OAUTH_CLIENT_ID = Utils.SF_OAUTH_CLIENT_ID;
   public static final String OAUTH_CLIENT_SECRET = Utils.SF_OAUTH_CLIENT_SECRET;

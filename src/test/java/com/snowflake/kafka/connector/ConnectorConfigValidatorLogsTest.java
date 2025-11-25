@@ -1,16 +1,20 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
+import static com.snowflake.kafka.connector.internal.TestUtils.generateAESKey;
+import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKey;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
-import com.snowflake.kafka.connector.internal.EncryptionUtils;
-import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.util.Map;
@@ -30,10 +34,11 @@ public class ConnectorConfigValidatorLogsTest {
       new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
   @Test
-  public void testRSAPasswordOutput() throws IOException, OperatorCreationException {
+  public void testRSAPasswordOutput() throws Exception {
     // given
+    PrivateKey privateKey = generatePrivateKey();
     String testPasswd = "TestPassword1234!";
-    String testKey = generateAESKey(TestUtils.getPrivateKey(), testPasswd.toCharArray());
+    String testKey = generateAESKey(privateKey, testPasswd.toCharArray());
     Map<String, String> testConf = getConfig();
     testConf.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
     testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, testKey);
@@ -42,7 +47,7 @@ public class ConnectorConfigValidatorLogsTest {
     connectorConfigValidator.validateConfig(testConf);
 
     // then
-    EncryptionUtils.parseEncryptedPrivateKey(testKey, testPasswd);
+    PrivateKeyTool.parsePrivateKey(testKey, testPasswd);
     Assertions.assertFalse(logFileContains(testPasswd));
   }
 
@@ -65,19 +70,5 @@ public class ConnectorConfigValidatorLogsTest {
     return false;
   }
 
-  private String generateAESKey(PrivateKey key, char[] passwd)
-      throws IOException, OperatorCreationException {
-    Security.addProvider(new BouncyCastleFipsProvider());
-    StringWriter writer = new StringWriter();
-    JcaPEMWriter pemWriter = new JcaPEMWriter(writer);
-    PKCS8EncryptedPrivateKeyInfoBuilder pkcs8EncryptedPrivateKeyInfoBuilder =
-        new JcaPKCS8EncryptedPrivateKeyInfoBuilder(key);
-    pemWriter.writeObject(
-        pkcs8EncryptedPrivateKeyInfoBuilder.build(
-            new JcePKCSPBEOutputEncryptorBuilder(NISTObjectIdentifiers.id_aes256_CBC)
-                .setProvider("BCFIPS")
-                .build(passwd)));
-    pemWriter.close();
-    return writer.toString();
-  }
+
 }

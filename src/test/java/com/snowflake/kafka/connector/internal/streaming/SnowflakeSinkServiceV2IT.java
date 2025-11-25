@@ -41,13 +41,14 @@ import org.mockito.Mockito;
 
 public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
+    private static final boolean USE_ENCRYPTED_KEY = true;
+  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming(USE_ENCRYPTED_KEY);
   private Map<String, String> config;
   private String pipe;
 
   @BeforeEach
   public void setup() {
-    config = TestUtils.getConfForStreaming();
+    config = TestUtils.getConnectorConfigurationForStreaming(USE_ENCRYPTED_KEY);
     conn.createTable(table);
     pipe = PipeNameProvider.buildPipeName(table);
   }
