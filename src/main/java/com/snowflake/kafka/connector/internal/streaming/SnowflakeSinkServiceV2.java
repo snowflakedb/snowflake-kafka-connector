@@ -2,10 +2,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.NAME;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
 import static com.snowflake.kafka.connector.Utils.getTableName;
 import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
-import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider.buildDefaultPipeName;
 import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider.buildPipeName;
@@ -106,8 +104,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
     this.topicToTableMap = topicToTableMap;
     this.recordService =
-        RecordServiceFactory.createRecordService(
-            isIcebergEnabled(connectorConfig), isSchematizationEnabled(connectorConfig));
+        RecordServiceFactory.createRecordService(isIcebergEnabled(connectorConfig));
     this.behaviorOnNullValues = behaviorOnNullValues;
     this.partitionsToChannel = new HashMap<>();
     this.tableName2SchemaEvolutionPermission = new HashMap<>();
@@ -231,7 +228,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             tableName,
             channelName,
             pipeName,
-            isSchematizationEnabled(connectorConfig),
             topicPartition,
             this.conn,
             this.connectorConfig,
@@ -453,49 +449,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // ------ Streaming Ingest Related Functions ------ //
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
-      if (!isSchematizationEnabled(connectorConfig)) {
-        if (this.conn.isTableCompatible(tableName)) {
-          LOGGER.info("Using existing table {}.", tableName);
-        } else {
-          throw SnowflakeErrors.ERROR_5003.getException(
-              "table name: " + tableName, this.conn.getTelemetryClient());
-        }
-      } else {
-        this.conn.appendMetaColIfNotExist(tableName);
-      }
+      LOGGER.info("Using existing table {}.", tableName);
+      this.conn.appendMetaColIfNotExist(tableName);
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      if (isSchematizationEnabled(connectorConfig)) {
-        // Always create the table with RECORD_METADATA only and rely on schema evolution to update
-        // the schema
-        this.conn.createTableWithOnlyMetadataColumn(tableName);
-      } else {
-        this.conn.createTable(tableName);
-      }
-    }
-
-    // Populate schema evolution cache if needed
-    populateSchemaEvolutionPermissions(tableName);
-  }
-
-  private void populateSchemaEvolutionPermissions(String tableName) {
-    if (!tableName2SchemaEvolutionPermission.containsKey(tableName)) {
-      if (isSchematizationEnabled(connectorConfig)) {
-        boolean hasSchemaEvolutionPermission =
-            conn != null
-                && conn.hasSchemaEvolutionPermission(
-                    tableName, connectorConfig.get(SNOWFLAKE_ROLE_NAME));
-        LOGGER.info(
-            "[SCHEMA_EVOLUTION_CACHE] Setting {} for table {}",
-            hasSchemaEvolutionPermission,
-            tableName);
-        tableName2SchemaEvolutionPermission.put(tableName, hasSchemaEvolutionPermission);
-      } else {
-        LOGGER.info(
-            "[SCHEMA_EVOLUTION_CACHE] Schematization disabled. Setting false for table {}",
-            tableName);
-        tableName2SchemaEvolutionPermission.put(tableName, false);
-      }
+      this.conn.createTableWithOnlyMetadataColumn(tableName);
     }
   }
 }

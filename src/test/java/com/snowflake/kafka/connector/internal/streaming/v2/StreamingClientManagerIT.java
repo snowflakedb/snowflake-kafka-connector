@@ -40,8 +40,8 @@ public class StreamingClientManagerIT {
     testConnectorName = "TEST_CONNECTOR_" + salt;
     pipe1 = table1 + DEFAULT_PIPE_NAME_SUFFIX;
     pipe2 = table2 + DEFAULT_PIPE_NAME_SUFFIX;
-    connectionService.createTable(table1);
-    connectionService.createTable(table2);
+    connectionService.createTableWithMetadataColumn(table1);
+    connectionService.createTableWithMetadataColumn(table2);
   }
 
   @AfterEach

@@ -45,11 +45,6 @@ public class BaseIcebergIT {
             + "catalog = 'SNOWFLAKE'"
             + "base_location = 'it' iceberg_version = 3";
     doExecuteQueryWithParameter(query, tableName);
-    //    String allowStreamingIngestionQuery =
-    //        "alter iceberg table identifier(?) set ALLOW_STREAMING_INGESTION_FOR_MANAGED_ICEBERG
-    // ="
-    //            + " true;";
-    //    doExecuteQueryWithParameter(allowStreamingIngestionQuery, tableName);
   }
 
   private static void doExecuteQueryWithParameter(String query, String tableName) {

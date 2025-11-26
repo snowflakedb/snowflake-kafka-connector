@@ -58,7 +58,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
-  public void createTable(final String tableName, final boolean overwrite) {
+  public void createTableWithMetadataColumn(final String tableName, final boolean overwrite) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query;
@@ -80,8 +80,8 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
-  public void createTable(final String tableName) {
-    createTable(tableName, false);
+  public void createTableWithMetadataColumn(final String tableName) {
+    createTableWithMetadataColumn(tableName, false);
   }
 
   @Override

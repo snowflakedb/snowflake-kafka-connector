@@ -15,14 +15,14 @@ public interface SnowflakeConnectionService {
    * @param overwrite if true, execute "create or replace table" query; otherwise, run "create table
    *     if not exists"
    */
-  void createTable(String tableName, boolean overwrite);
+  void createTableWithMetadataColumn(String tableName, boolean overwrite);
 
   /**
    * create table is not exists
    *
    * @param tableName table name
    */
-  void createTable(String tableName);
+  void createTableWithMetadataColumn(String tableName);
 
   /**
    * check table existence

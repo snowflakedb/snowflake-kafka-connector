@@ -41,7 +41,7 @@ public class SmtIT extends ConnectClusterBaseIT {
     topicName = TestUtils.randomTableName();
     connectorName = String.format("%s_connector", topicName);
     connectCluster.kafka().createTopic(topicName, PARTITION_COUNT);
-    TestUtils.getConnectionServiceWithEncryptedKey().createTable(topicName);
+    TestUtils.getConnectionServiceWithEncryptedKey().createTableWithMetadataColumn(topicName);
     StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
   }
 

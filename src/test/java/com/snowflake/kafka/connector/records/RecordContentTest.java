@@ -155,7 +155,7 @@ public class RecordContentTest {
   @MethodSource("invalidPutKeyInputSource")
   public void recordService_putKey_whenInvalidInput_throwException(Schema keySchema, Object key) {
     // given
-    RecordService service = RecordServiceFactory.createRecordService(false, false);
+    RecordService service = RecordServiceFactory.createRecordService(false);
     SinkRecord record =
         SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
             .withKeySchema(keySchema)

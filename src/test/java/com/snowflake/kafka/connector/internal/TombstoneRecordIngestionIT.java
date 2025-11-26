@@ -6,7 +6,6 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
@@ -98,7 +97,7 @@ class TombstoneRecordIngestionIT {
       ConnectorConfigTools.BehaviorOnNullValues behavior) throws Exception {
     // setup
     Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION, "true");
+
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);

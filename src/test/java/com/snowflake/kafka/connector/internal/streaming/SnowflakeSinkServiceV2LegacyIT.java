@@ -22,7 +22,7 @@ public class SnowflakeSinkServiceV2LegacyIT extends SnowflakeSinkServiceV2BaseIT
 
   @BeforeEach
   public void setup() {
-    conn.createTable(table);
+    conn.createTableWithMetadataColumn(table);
   }
 
   @AfterEach

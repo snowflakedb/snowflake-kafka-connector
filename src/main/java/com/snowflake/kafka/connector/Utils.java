@@ -323,11 +323,6 @@ public class Utils {
     return Boolean.parseBoolean(config.get(SNOWFLAKE_STREAMING_ICEBERG_ENABLED));
   }
 
-  public static boolean isSchematizationEnabled(Map<String, String> config) {
-    return Boolean.parseBoolean(
-        config.get(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION));
-  }
-
   /**
    * @param config config with applied default values
    * @return role specified in rhe config

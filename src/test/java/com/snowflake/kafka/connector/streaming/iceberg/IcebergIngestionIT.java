@@ -47,9 +47,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
     ConnectorConfigTools.setDefaultValues(config);
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED, "TRUE");
-    config.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-        isSchemaEvolutionEnabled().toString());
     // "snowflake.streaming.max.client.lag" = 1 second, for faster tests
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(

@@ -24,11 +24,9 @@ abstract class StreamingRecordMapper {
       new TypeReference<>() {};
 
   protected final ObjectMapper mapper;
-  protected final boolean schematizationEnabled;
 
-  public StreamingRecordMapper(ObjectMapper mapper, boolean schematizationEnabled) {
+  public StreamingRecordMapper(ObjectMapper mapper) {
     this.mapper = mapper;
-    this.schematizationEnabled = schematizationEnabled;
   }
 
   abstract Map<String, Object> processSnowflakeRecord(

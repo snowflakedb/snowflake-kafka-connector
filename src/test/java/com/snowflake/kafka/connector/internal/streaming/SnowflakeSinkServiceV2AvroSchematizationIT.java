@@ -189,7 +189,6 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
 
   private Map<String, String> prepareConfig() {
     Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION, "true");
     config.put(
         KafkaConnectorConfigParams.VALUE_CONVERTER, "io.confluent.connect.avro.AvroConverter");
     config.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMA_REGISTRY_URL, "http://fake-url");

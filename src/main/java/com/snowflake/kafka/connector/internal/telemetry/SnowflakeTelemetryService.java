@@ -249,13 +249,6 @@ public abstract class SnowflakeTelemetryService {
         KafkaConnectorConfigParams.VALUE_CONVERTER,
         userProvidedConfig.get(KafkaConnectorConfigParams.VALUE_CONVERTER));
 
-    // Record whether schematization is used
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT));
-
     dataObjectNode.put(
         KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
         userProvidedConfig.getOrDefault(

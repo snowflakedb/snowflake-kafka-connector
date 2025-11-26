@@ -77,7 +77,7 @@ class ConnectionServiceIT {
     // table doesn't exist
     assert !conn.tableExist(tableName);
     // create table
-    conn.createTable(tableName);
+    conn.createTableWithMetadataColumn(tableName);
     // table exists
     assert conn.tableExist(tableName);
     // insert some value
@@ -86,12 +86,12 @@ class ConnectionServiceIT {
     // value inserted
     assert InternalUtils.resultSize(resultSet) == 1;
     // create table if not exists
-    conn.createTable(tableName);
+    conn.createTableWithMetadataColumn(tableName);
     resultSet = TestUtils.showTable(tableName);
     // table hasn't been overwritten
     assert InternalUtils.resultSize(resultSet) == 1;
     // overwrite table
-    conn.createTable(tableName, true);
+    conn.createTableWithMetadataColumn(tableName, true);
     resultSet = TestUtils.showTable(tableName);
     // new table
     assert InternalUtils.resultSize(resultSet) == 0;

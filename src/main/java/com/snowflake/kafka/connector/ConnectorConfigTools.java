@@ -52,15 +52,6 @@ public class ConnectorConfigTools {
           KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG,
           KafkaConnectorConfigParams.SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT);
     }
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION)) {
-      config.put(
-          KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-          KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT);
-      LOGGER.info(
-          "{} set to default {}",
-          KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-          KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT);
-    }
     if (!config.containsKey(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS)) {
       config.put(
           KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
