@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkServiceV2BaseIT {
 
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming(false);
+  private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
   private Map<String, String> config;
   private SnowflakeSinkService service;
   private String pipe;

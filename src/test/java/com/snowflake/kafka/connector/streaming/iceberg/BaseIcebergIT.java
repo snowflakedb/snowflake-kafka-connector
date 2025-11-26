@@ -19,7 +19,7 @@ public class BaseIcebergIT {
 
   @BeforeAll
   public static void setup() {
-    conn = TestUtils.getConnectionServiceForStreaming(true);
+    conn = TestUtils.getConnectionServiceWithEncryptedKey();
   }
 
   @AfterAll

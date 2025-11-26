@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.ConnectorConfigValidatorTest.COMMUNITY_CONVERTER_SUBSET;
-import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionServiceForStreaming;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionService;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,7 +40,7 @@ class TombstoneRecordIngestionIT {
   @BeforeEach
   void beforeEach() {
     this.table = TestUtils.randomTableName();
-    getConnectionServiceForStreaming(false)
+    getConnectionService()
         .executeQueryWithParameters(
             format(
                 "create or replace table %s (record_metadata variant, gender varchar, regionid"
@@ -68,8 +68,7 @@ class TombstoneRecordIngestionIT {
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(
-                getConnectionServiceForStreaming(false), connectorConfig)
+        StreamingSinkServiceBuilder.builder(getConnectionService(), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)
@@ -103,8 +102,7 @@ class TombstoneRecordIngestionIT {
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(
-                getConnectionServiceForStreaming(false), connectorConfig)
+        StreamingSinkServiceBuilder.builder(getConnectionService(), connectorConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .withBehaviorOnNullValues(behavior)

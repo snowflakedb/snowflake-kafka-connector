@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2LegacyIT extends SnowflakeSinkServiceV2BaseIT {
 
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming(false);
+  private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
 
   @BeforeEach
   public void setup() {

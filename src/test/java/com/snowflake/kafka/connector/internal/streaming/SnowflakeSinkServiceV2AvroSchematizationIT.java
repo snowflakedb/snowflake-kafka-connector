@@ -86,7 +86,7 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
   void before() {
     table = TestUtils.randomTableName();
     topic = table;
-    conn = TestUtils.getConnectionServiceForStreaming(true);
+    conn = TestUtils.getConnectionServiceWithEncryptedKey();
     topicPartition = new TopicPartition(topic, PARTITION);
   }
 

@@ -44,7 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class StreamingManualModeIT {
 
   private final ObjectMapper objectMapper = new ObjectMapper();
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming(true);
+  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceWithEncryptedKey();
 
   private String tableName;
   private String topicName;

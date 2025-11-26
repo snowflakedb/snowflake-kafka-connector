@@ -518,11 +518,9 @@ public class TestUtils {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConfWithOAuth()).build();
   }
 
-  /** @return snowflake streaming ingest connection for test */
-  public static SnowflakeConnectionService getConnectionServiceForStreaming(
-      boolean takeEncryptedKey) {
+  public static SnowflakeConnectionService getConnectionServiceWithEncryptedKey() {
     return SnowflakeConnectionServiceFactory.builder()
-        .setProperties(getConnectorConfigurationForStreaming(takeEncryptedKey))
+        .setProperties(getConnectorConfigurationForStreaming(true))
         .build();
   }
 

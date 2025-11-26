@@ -30,7 +30,7 @@ public class StreamingClientManagerIT {
   public void setUp() {
     final long salt = System.currentTimeMillis();
     final SnowflakeConnectionService connectionService =
-        TestUtils.getConnectionServiceForStreaming(true);
+        TestUtils.getConnectionServiceWithEncryptedKey();
     connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
     streamingClientProperties = new StreamingClientProperties(connectorConfig);
     table1 = "table1" + salt;
