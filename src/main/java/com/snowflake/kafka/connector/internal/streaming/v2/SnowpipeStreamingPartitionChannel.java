@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5027;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5028;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.ingest.streaming.InsertValidationResponse;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -27,7 +28,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
-import net.snowflake.ingest.streaming.InsertValidationResponse;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;

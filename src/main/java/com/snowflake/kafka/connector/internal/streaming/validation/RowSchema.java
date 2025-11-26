@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.validation;
 import static net.snowflake.ingest.utils.Utils.concatDotPath;
 
 import com.snowflake.kafka.connector.internal.streaming.common.ColumnProperties;
+import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergDataTypeParser;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -10,7 +11,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.snowflake.ingest.utils.IcebergDataTypeParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;

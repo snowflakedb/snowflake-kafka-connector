@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming.channel;
 
+import com.snowflake.ingest.streaming.SFException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import net.snowflake.ingest.utils.SFException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionChannel {

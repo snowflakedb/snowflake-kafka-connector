@@ -21,8 +21,8 @@ public interface ExposingInternalsTopicPartitionChannel {
    *
    * <p>If it returns a valid offset number, that number is returned back to caller.
    *
-   * <p>If {@link net.snowflake.ingest.utils.SFException} is thrown, we will retry for max 3 times.
-   * (Including the original try)
+   * <p>If {@link com.snowflake.ingest.streaming.SFException} is thrown, we will retry for max 3
+   * times. (Including the original try)
    *
    * <p>Upon reaching the limit of maxRetries, we will {@link Fallback} to opening a channel and
    * fetching offsetToken again.

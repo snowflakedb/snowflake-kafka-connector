@@ -68,6 +68,7 @@
         <slf4j-api.version>2.0.17</slf4j-api.version>
         <parquet.version>1.14.4</parquet.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
+        <caffeine.version>3.2.3</caffeine.version>
     </properties>
 
 
@@ -300,19 +301,6 @@
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java-util</artifactId>
             <version>${protobuf.version}</version>
-        </dependency>
-
-        <!-- Ingest SDK for copy staged file into snowflake table -->
-        <dependency>
-            <groupId>net.snowflake</groupId>
-            <artifactId>snowflake-ingest-sdk</artifactId>
-            <version>3.1.2</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>net.snowflake</groupId>
-                    <artifactId>snowflake-jdbc</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -625,6 +613,12 @@
             <groupId>com.snowflake</groupId>
             <artifactId>snowpipe-streaming</artifactId>
             <version>1.1.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>${caffeine.version}</version>
         </dependency>
 
     </dependencies>
