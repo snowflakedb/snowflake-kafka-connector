@@ -38,8 +38,8 @@ import org.junit.jupiter.api.Test;
 
 public class StreamingClientPropertiesTest {
 
-  private static final String EXAMPLE_PARAM1 = "EXAMPLE_PARAM1".toLowerCase();
-  private static final String EXAMPLE_PARAM2 = "EXAMPLE_PARAM2".toLowerCase();
+  static final String EXAMPLE_PARAM1 = "EXAMPLE_PARAM1".toLowerCase();
+  static final String EXAMPLE_PARAM2 = "EXAMPLE_PARAM2".toLowerCase();
 
   @Test
   public void testGetValidProperties() {

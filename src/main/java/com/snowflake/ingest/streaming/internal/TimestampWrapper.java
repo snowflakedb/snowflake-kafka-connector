@@ -49,4 +49,20 @@ public class TimestampWrapper {
     }
     return fcpInt;
   }
+
+  public long getEpochSecond() {
+    return epoch;
+  }
+
+  public int getFraction() {
+    return fraction;
+  }
+
+  public int getTimezoneOffsetSeconds() {
+    return timezoneOffsetSeconds;
+  }
+
+  public int getTimeZoneIndex() {
+    return timezoneOffsetSeconds / 60 + 1440;
+  }
 }
