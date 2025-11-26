@@ -1,13 +1,8 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.CONNECTOR_CLASS_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
-import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
-import static org.apache.kafka.connect.sink.SinkConnector.TOPICS_CONFIG;
 import static org.awaitility.Awaitility.await;
 
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.FakeIngestClientSupplier;
 import com.snowflake.kafka.connector.internal.streaming.FakeSnowflakeStreamingIngestClient;
@@ -15,6 +10,8 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.runtime.ConnectorConfig;
+import org.apache.kafka.connect.sink.SinkConnector;
 import org.apache.kafka.connect.storage.StringConverter;
 import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
 import org.junit.jupiter.api.AfterAll;
@@ -71,14 +68,15 @@ public abstract class ConnectClusterBaseIT {
   protected final Map<String, String> defaultProperties(String topicName, String connectorName) {
     Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
 
-    config.put(CONNECTOR_CLASS_CONFIG, SnowflakeStreamingSinkConnector.class.getName());
-    config.put(NAME, connectorName);
-    config.put(TOPICS_CONFIG, topicName);
-    config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
-    config.put(TASKS_MAX_CONFIG, TASK_NUMBER.toString());
-    config.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
-    config.put(VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
-    config.put(VALUE_CONVERTER_SCHEMAS_ENABLE, "false");
+    config.put(SinkConnector.TOPICS_CONFIG, topicName);
+    config.put(
+        ConnectorConfig.CONNECTOR_CLASS_CONFIG, SnowflakeStreamingSinkConnector.class.getName());
+    config.put(ConnectorConfig.TASKS_MAX_CONFIG, TASK_NUMBER.toString());
+    config.put(ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
+    config.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
+    config.put(KafkaConnectorConfigParams.NAME, connectorName);
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
+    config.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE, "false");
 
     return config;
   }

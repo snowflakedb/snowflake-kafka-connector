@@ -1,19 +1,21 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BehaviorOnNullValues.VALIDATOR;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS_EXPIRE_MS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS_EXPIRE_MS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.JMX_OPT;
+import static com.snowflake.kafka.connector.ConnectorConfigTools.BehaviorOnNullValues.VALIDATOR;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JMX_OPT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
 import static com.snowflake.kafka.connector.Utils.isValidSnowflakeApplicationName;
 import static com.snowflake.kafka.connector.Utils.parseTopicToTableMap;
 import static com.snowflake.kafka.connector.Utils.validateProxySettings;
 
 import com.google.common.collect.ImmutableMap;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
@@ -41,139 +43,79 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
     // instead of using the values directly
 
     // unique name of this connector instance
-    String connectorName = config.getOrDefault(SnowflakeSinkConnectorConfig.NAME, "");
+    String connectorName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     if (connectorName.isEmpty() || !isValidSnowflakeApplicationName(connectorName)) {
       invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.NAME,
+          KafkaConnectorConfigParams.NAME,
           Utils.formatString(
               "{} is empty or invalid. It should match Snowflake object identifier syntax. Please"
                   + " see the documentation.",
-              SnowflakeSinkConnectorConfig.NAME));
+              KafkaConnectorConfigParams.NAME));
     }
 
-    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)
-        && parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP))
+    if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)
+        && parseTopicToTableMap(config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP))
             == null) {
       invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
+          KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
           Utils.formatString(
               "Invalid {} config format: {}",
-              SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP,
-              config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)));
+              KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+              config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)));
     }
 
     // sanity check
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE)) {
+    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME)) {
       invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE,
+          KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME,
           Utils.formatString(
-              "{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_DATABASE));
+              "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME));
     }
 
     // sanity check
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA)) {
+    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME)) {
       invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA,
-          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_SCHEMA));
+          KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME,
+          Utils.formatString(
+              "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
     }
 
-    switch (config
-        .getOrDefault(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.SNOWFLAKE_JWT)
-        .toLowerCase()) {
-        // TODO: SNOW-889748 change to enum
-      case Utils.SNOWFLAKE_JWT:
-        if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
-          invalidConfigParams.put(
-              SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
-              Utils.formatString(
-                  "{} cannot be empty when using {} authenticator.",
-                  SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY,
-                  Utils.SNOWFLAKE_JWT));
-        }
-        break;
-      case Utils.OAUTH:
-        if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID)) {
-          invalidConfigParams.put(
-              SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID,
-              Utils.formatString(
-                  "{} cannot be empty when using {} authenticator.",
-                  SnowflakeSinkConnectorConfig.OAUTH_CLIENT_ID,
-                  Utils.OAUTH));
-        }
-        if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET)) {
-          invalidConfigParams.put(
-              SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET,
-              Utils.formatString(
-                  "{} cannot be empty when using {} authenticator.",
-                  SnowflakeSinkConnectorConfig.OAUTH_CLIENT_SECRET,
-                  Utils.OAUTH));
-        }
-        if (!config.containsKey(SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN)) {
-          invalidConfigParams.put(
-              SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN,
-              Utils.formatString(
-                  "{} cannot be empty when using {} authenticator.",
-                  SnowflakeSinkConnectorConfig.OAUTH_REFRESH_TOKEN,
-                  Utils.OAUTH));
-        }
-        break;
-      default:
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE,
-            Utils.formatString(
-                "{} should be one of {} or {}.",
-                SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE,
-                Utils.SNOWFLAKE_JWT,
-                Utils.OAUTH));
+    if (!config.containsKey(SNOWFLAKE_PRIVATE_KEY)) {
+      invalidConfigParams.put(
+          SNOWFLAKE_PRIVATE_KEY, Utils.formatString("{} cannot be empty", SNOWFLAKE_PRIVATE_KEY));
     }
 
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_USER)) {
+    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME)) {
       invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_USER,
-          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_USER));
+          KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
+          Utils.formatString(
+              "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME));
     }
 
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_URL)) {
+    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME)) {
       invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_URL,
-          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_URL));
+          KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+          Utils.formatString("{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
     }
 
-    if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE)) {
+    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)) {
       invalidConfigParams.put(
-          SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE,
-          Utils.formatString("{} cannot be empty.", SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE));
+          KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
+          Utils.formatString(
+              "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
     }
     // jvm proxy settings
     invalidConfigParams.putAll(validateProxySettings(config));
 
-    // set jdbc logging directory
-    Utils.setJDBCLoggingDirectory();
-
-    // validate whether kafka provider config is a valid value
-    if (config.containsKey(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG)) {
-      try {
-        SnowflakeSinkConnectorConfig.KafkaProvider.of(
-            config.get(SnowflakeSinkConnectorConfig.PROVIDER_CONFIG));
-      } catch (IllegalArgumentException exception) {
-        invalidConfigParams.put(
-            SnowflakeSinkConnectorConfig.PROVIDER_CONFIG,
-            Utils.formatString("Kafka provider config error:{}", exception.getMessage()));
-      }
-    }
-
-    if (config.containsKey(BEHAVIOR_ON_NULL_VALUES_CONFIG)) {
+    if (config.containsKey(BEHAVIOR_ON_NULL_VALUES)) {
       try {
         // This throws an exception if config value is invalid.
-        VALIDATOR.ensureValid(
-            BEHAVIOR_ON_NULL_VALUES_CONFIG, config.get(BEHAVIOR_ON_NULL_VALUES_CONFIG));
+        VALIDATOR.ensureValid(BEHAVIOR_ON_NULL_VALUES, config.get(BEHAVIOR_ON_NULL_VALUES));
       } catch (ConfigException exception) {
         invalidConfigParams.put(
-            BEHAVIOR_ON_NULL_VALUES_CONFIG,
+            BEHAVIOR_ON_NULL_VALUES,
             Utils.formatString(
-                "Kafka config: {} error: {}",
-                BEHAVIOR_ON_NULL_VALUES_CONFIG,
-                exception.getMessage()));
+                "Kafka config: {} error: {}", BEHAVIOR_ON_NULL_VALUES, exception.getMessage()));
       }
     }
 
@@ -188,8 +130,8 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     if (!isSchematizationEnabled(config)) {
       invalidConfigParams.put(
-          ENABLE_SCHEMATIZATION_CONFIG,
-          Utils.formatString("Schematization must be enabled", ENABLE_SCHEMATIZATION_CONFIG));
+          SNOWFLAKE_ENABLE_SCHEMATIZATION,
+          Utils.formatString("Schematization must be enabled", SNOWFLAKE_ENABLE_SCHEMATIZATION));
     }
 
     validateCacheConfig(config, invalidConfigParams);

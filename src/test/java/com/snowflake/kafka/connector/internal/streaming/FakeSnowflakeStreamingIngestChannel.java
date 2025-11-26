@@ -4,7 +4,6 @@ import static java.util.List.copyOf;
 
 import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
-import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,17 +17,13 @@ public class FakeSnowflakeStreamingIngestChannel
 
   private final String pipeName;
   private final String channelName;
-  /** Reference to the client that owns this channel */
-  private final SnowflakeStreamingIngestClient owningClient;
   /** Collection of all rows appended to this channel */
   private final List<Map<String, Object>> appendedRows;
 
   private volatile boolean closed;
   private String offsetToken;
 
-  public FakeSnowflakeStreamingIngestChannel(
-      SnowflakeStreamingIngestClient owningClient, String pipeName, String channelName) {
-    this.owningClient = owningClient;
+  public FakeSnowflakeStreamingIngestChannel(String pipeName, String channelName) {
     this.pipeName = pipeName;
     this.channelName = channelName;
     this.appendedRows = new ArrayList<>();

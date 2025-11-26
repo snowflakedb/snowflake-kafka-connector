@@ -1,9 +1,9 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS_EXPIRE_MS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS_EXPIRE_MS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

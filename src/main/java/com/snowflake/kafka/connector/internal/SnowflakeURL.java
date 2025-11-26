@@ -17,7 +17,6 @@
 
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -79,22 +78,7 @@ public class SnowflakeURL implements URL {
     }
 
     jdbcUrl = "jdbc:snowflake://" + url + ":" + port;
-    if (enableJDBCTrace()) {
-      LOGGER.info("enabling JDBC tracing");
-      jdbcUrl = jdbcUrl + "/?tracing=ALL";
-    }
-
     LOGGER.debug("parsed Snowflake URL: {}", urlStr);
-  }
-
-  /**
-   * Read environment variable JDBC_TRACE to check whether trace is enabled
-   *
-   * @return whether to enable JDBC trace
-   */
-  boolean enableJDBCTrace() {
-    String enableJDBCTrace = System.getenv(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_TRACE);
-    return enableJDBCTrace != null && enableJDBCTrace.toLowerCase().contains("true");
   }
 
   String getJdbcUrl() {
@@ -105,7 +89,6 @@ public class SnowflakeURL implements URL {
     return account;
   }
 
-  @Override
   public boolean sslEnabled() {
     return ssl;
   }
@@ -138,10 +121,5 @@ public class SnowflakeURL implements URL {
   @Override
   public String hostWithPort() {
     return getFullUrl();
-  }
-
-  @Override
-  public String path() {
-    return OAuthConstants.TOKEN_REQUEST_ENDPOINT;
   }
 }

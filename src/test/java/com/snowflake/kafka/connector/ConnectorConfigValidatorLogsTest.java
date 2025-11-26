@@ -1,10 +1,10 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.internal.TestUtils.generateAESKey;
 import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKey;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import java.io.BufferedReader;
@@ -28,9 +28,9 @@ public class ConnectorConfigValidatorLogsTest {
     String testPasswd = "TestPassword1234!";
     String testKey = generateAESKey(privateKey, testPasswd.toCharArray());
     Map<String, String> testConf = getConfig();
-    testConf.remove(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY);
-    testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY, testKey);
-    testConf.put(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, testPasswd);
+    testConf.remove(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
+    testConf.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, testKey);
+    testConf.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, testPasswd);
     // when
     connectorConfigValidator.validateConfig(testConf);
 

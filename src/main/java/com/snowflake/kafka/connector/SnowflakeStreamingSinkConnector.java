@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -92,7 +93,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     connectorStartTime = System.currentTimeMillis();
     config = new HashMap<>(parsedConfig);
 
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    ConnectorConfigTools.setDefaultValues(config);
 
     // modify invalid connector name
     Utils.convertAppName(config);
@@ -103,8 +104,8 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     KCLogger.toggleGlobalMdcLoggingContext(
         Boolean.parseBoolean(
             config.getOrDefault(
-                SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_CONFIG,
-                SnowflakeSinkConnectorConfig.ENABLE_MDC_LOGGING_DEFAULT)));
+                KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
+                KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_DEFAULT)));
 
     // enable proxy
     Utils.enableJVMProxy(config);
@@ -211,15 +212,15 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
       Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
     }
 
-    // If using snowflake_jwt and authentication, and private key or private key passphrase is
+    // If private key or private key passphrase is
     // provided through a config provider, skip validation
-    if (isUsingJWT(connectorConfigs) && isUsingConfigProvider(connectorConfigs)) {
+    if (isUsingConfigProviderForPrivateKey(connectorConfigs)) {
       return result;
     }
 
     // We don't validate name, since it is not included in the return value
     // so just put a test connector here
-    connectorConfigs.put(Utils.NAME, "TEST_CONNECTOR");
+    connectorConfigs.put(KafkaConnectorConfigParams.NAME, "TEST_CONNECTOR");
     SnowflakeConnectionService testConnection;
     try {
       testConnection =
@@ -232,46 +233,40 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
       switch (e.getCode()) {
         case "1001":
           // Could be caused by invalid url, invalid user name, invalid password.
-          Utils.updateConfigErrorMessage(result, Utils.SF_URL, ": Cannot connect to Snowflake");
           Utils.updateConfigErrorMessage(
-              result, Utils.SF_PRIVATE_KEY, ": Cannot connect to Snowflake");
-          Utils.updateConfigErrorMessage(result, Utils.SF_USER, ": Cannot connect to Snowflake");
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+              ": Cannot connect to Snowflake");
+          Utils.updateConfigErrorMessage(
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+              ": Cannot connect to Snowflake");
+          Utils.updateConfigErrorMessage(
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
+              ": Cannot connect to Snowflake");
           break;
         case "0007":
-          Utils.updateConfigErrorMessage(result, Utils.SF_URL, " is not a valid snowflake url");
+          Utils.updateConfigErrorMessage(
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+              " is not a valid snowflake url");
           break;
         case "0018":
-          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY_PASSPHRASE, " is not valid");
-          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " is not valid");
+          Utils.updateConfigErrorMessage(
+              result, KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, " is not valid");
+          Utils.updateConfigErrorMessage(
+              result, KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, " is not valid");
           break;
         case "0013":
-          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " must be non-empty");
-          break;
-        case "0026":
           Utils.updateConfigErrorMessage(
-              result,
-              Utils.SF_OAUTH_CLIENT_ID,
-              " must be non-empty when using oauth authenticator");
-          break;
-        case "0027":
-          Utils.updateConfigErrorMessage(
-              result,
-              Utils.SF_OAUTH_CLIENT_SECRET,
-              " must be non-empty when using oauth authenticator");
-          break;
-        case "0028":
-          Utils.updateConfigErrorMessage(
-              result,
-              Utils.SF_OAUTH_REFRESH_TOKEN,
-              " must be non-empty when using oauth authenticator");
-          break;
-        case "0029":
-          Utils.updateConfigErrorMessage(
-              result, Utils.SF_AUTHENTICATOR, " is not a valid authenticator");
+              result, KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, " must be non-empty");
           break;
         case "0002":
           Utils.updateConfigErrorMessage(
-              result, Utils.SF_PRIVATE_KEY, " must be a valid PEM RSA private key");
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+              " must be a valid PEM RSA private key");
           break;
         default:
           throw e; // Shouldn't reach here, so crash.
@@ -280,11 +275,13 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     }
 
     try {
-      testConnection.databaseExists(connectorConfigs.get(Utils.SF_DATABASE));
+      testConnection.databaseExists(
+          connectorConfigs.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME));
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
       if (e.getCode().equals("2001")) {
-        Utils.updateConfigErrorMessage(result, Utils.SF_DATABASE, " database does not exist");
+        Utils.updateConfigErrorMessage(
+            result, KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, " database does not exist");
       } else {
         throw e;
       }
@@ -292,11 +289,13 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     }
 
     try {
-      testConnection.schemaExists(connectorConfigs.get(Utils.SF_SCHEMA));
+      testConnection.schemaExists(
+          connectorConfigs.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
       if (e.getCode().equals("2001")) {
-        Utils.updateConfigErrorMessage(result, Utils.SF_SCHEMA, " schema does not exist");
+        Utils.updateConfigErrorMessage(
+            result, KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, " schema does not exist");
       } else {
         throw e;
       }
@@ -307,21 +306,18 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     return result;
   }
 
-  private static boolean isUsingConfigProvider(Map<String, String> connectorConfigs) {
+  private static boolean isUsingConfigProviderForPrivateKey(Map<String, String> connectorConfigs) {
     Pattern configProviderPrefix = Pattern.compile("[$][{][a-zA-Z]+:");
 
     return configProviderPrefix
-            .matcher(connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, ""))
+            .matcher(
+                connectorConfigs.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, ""))
             .find()
         || configProviderPrefix
-            .matcher(connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY_PASSPHRASE, ""))
+            .matcher(
+                connectorConfigs.getOrDefault(
+                    KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, ""))
             .find();
-  }
-
-  private static boolean isUsingJWT(Map<String, String> connectorConfigs) {
-    return connectorConfigs
-        .getOrDefault(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT)
-        .equals(Utils.SNOWFLAKE_JWT);
   }
 
   /** @return connector version */

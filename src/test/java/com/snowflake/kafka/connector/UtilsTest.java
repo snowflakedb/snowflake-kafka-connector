@@ -3,14 +3,13 @@ package com.snowflake.kafka.connector;
 import static java.util.Arrays.*;
 import static java.util.Collections.*;
 
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
@@ -26,7 +25,7 @@ public class UtilsTest {
     assert result.isEmpty();
 
     // has map
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "aaa:bbb," + "ccc:ddd");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, "aaa:bbb," + "ccc:ddd");
     result = SnowflakeSinkTask.getTopicToTableMap(config);
     assert result.size() == 2;
     assert result.containsKey("aaa");
@@ -35,7 +34,7 @@ public class UtilsTest {
     assert result.get("ccc").equals("ddd");
 
     // has map, but invalid data
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "12321");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, "12321");
     result = SnowflakeSinkTask.getTopicToTableMap(config);
     assert result.isEmpty();
   }
@@ -183,22 +182,22 @@ public class UtilsTest {
   public void testConvertAppName() {
     HashMap<String, String> config = new HashMap<String, String>();
 
-    config.put(SnowflakeSinkConnectorConfig.NAME, "_aA1");
+    config.put(KafkaConnectorConfigParams.NAME, "_aA1");
     Utils.convertAppName(config);
-    assert config.get(SnowflakeSinkConnectorConfig.NAME).equals("_aA1");
+    assert config.get(KafkaConnectorConfigParams.NAME).equals("_aA1");
 
-    config.put(SnowflakeSinkConnectorConfig.NAME, "-_aA1");
+    config.put(KafkaConnectorConfigParams.NAME, "-_aA1");
     Utils.convertAppName(config);
-    assert config.get(SnowflakeSinkConnectorConfig.NAME).equals("___aA1_44483871");
+    assert config.get(KafkaConnectorConfigParams.NAME).equals("___aA1_44483871");
 
-    config.put(SnowflakeSinkConnectorConfig.NAME, "_aA1-");
+    config.put(KafkaConnectorConfigParams.NAME, "_aA1-");
     Utils.convertAppName(config);
-    assert config.get(SnowflakeSinkConnectorConfig.NAME).equals("_aA1__90688251");
+    assert config.get(KafkaConnectorConfigParams.NAME).equals("_aA1__90688251");
 
-    config.put(SnowflakeSinkConnectorConfig.NAME, "testApp.snowflake-connector");
+    config.put(KafkaConnectorConfigParams.NAME, "testApp.snowflake-connector");
     Utils.convertAppName(config);
     assert config
-        .get(SnowflakeSinkConnectorConfig.NAME)
+        .get(KafkaConnectorConfigParams.NAME)
         .equals("testApp_snowflake_connector_36242259");
   }
 
@@ -209,27 +208,6 @@ public class UtilsTest {
     assert !Utils.isValidSnowflakeApplicationName("1aA_-");
     assert !Utils.isValidSnowflakeApplicationName("_1.a$");
     assert !Utils.isValidSnowflakeApplicationName("(1.f$-_");
-  }
-
-  @Test
-  public void testSetJDBCLoggingDir() {
-    String defaultTmpDir = System.getProperty(Utils.JAVA_IO_TMPDIR);
-
-    Utils.setJDBCLoggingDirectory();
-    assert !System.getProperty(Utils.JAVA_IO_TMPDIR).isEmpty();
-
-    environmentVariables.set(
-        SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_LOG_DIR, "/dummy_dir_not_exist");
-    Utils.setJDBCLoggingDirectory();
-    assert !System.getProperty(Utils.JAVA_IO_TMPDIR).equals("/dummy_dir_not_exist");
-
-    environmentVariables.set(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_LOG_DIR, "/usr");
-    Utils.setJDBCLoggingDirectory();
-    assert System.getProperty(Utils.JAVA_IO_TMPDIR).equals("/usr");
-
-    environmentVariables.set(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_LOG_DIR, defaultTmpDir);
-    Utils.setJDBCLoggingDirectory();
-    assert System.getProperty(Utils.JAVA_IO_TMPDIR).equals(defaultTmpDir);
   }
 
   @Test
@@ -315,23 +293,6 @@ public class UtilsTest {
     assert Utils.getExceptionMessage(customMessage, stacktraceEx)
         .equals(
             Utils.formatString(Utils.GET_EXCEPTION_FORMAT, customMessage, exceptionMessage, "[]"));
-  }
-
-  @Test
-  @Ignore("OAuth tests are temporary disabled")
-  public void testGetSnowflakeOAuthAccessToken() {
-    Map<String, String> config = TestUtils.getConfForStreamingWithOAuth();
-    if (config != null) {
-      SnowflakeURL url = new SnowflakeURL(config.get(Utils.SF_URL));
-      Utils.getSnowflakeOAuthAccessToken(
-          url,
-          config.get(Utils.SF_OAUTH_CLIENT_ID),
-          config.get(Utils.SF_OAUTH_CLIENT_SECRET),
-          config.get(Utils.SF_OAUTH_REFRESH_TOKEN));
-      TestUtils.assertError(
-          SnowflakeErrors.ERROR_1004,
-          () -> Utils.getSnowflakeOAuthAccessToken(url, "INVALID", "INVALID", "INVALID"));
-    }
   }
 
   @Test

@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
-import com.snowflake.kafka.connector.Constants;
+import static com.snowflake.kafka.connector.Constants.DEFAULT_PIPE_NAME_SUFFIX;
 
 /** Class that generates pipe name for Snowpipe Streaming v2 */
 public final class PipeNameProvider {
@@ -10,6 +10,6 @@ public final class PipeNameProvider {
   }
 
   public static String buildDefaultPipeName(String table) {
-    return table + Constants.DEFAULT_PIPE_NAME_SUFFIX;
+    return table + DEFAULT_PIPE_NAME_SUFFIX;
   }
 }

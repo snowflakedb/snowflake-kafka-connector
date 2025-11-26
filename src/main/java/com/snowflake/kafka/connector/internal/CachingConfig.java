@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import java.util.Map;
 import java.util.Optional;
 
@@ -45,24 +45,24 @@ public final class CachingConfig {
   public static CachingConfig fromConfig(final Map<String, String> config) {
 
     boolean tableExistsCacheEnabled =
-        Optional.ofNullable(config.get(SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS))
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS))
             .map(Boolean::parseBoolean)
-            .orElse(SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS_DEFAULT);
+            .orElse(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_DEFAULT);
 
     long tableExistsCacheExpireMs =
-        Optional.ofNullable(config.get(SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS_EXPIRE_MS))
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS))
             .map(Long::parseLong)
-            .orElse(SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS_EXPIRE_MS_DEFAULT);
+            .orElse(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS_DEFAULT);
 
     boolean pipeExistsCacheEnabled =
-        Optional.ofNullable(config.get(SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS))
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS))
             .map(Boolean::parseBoolean)
-            .orElse(SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS_DEFAULT);
+            .orElse(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_DEFAULT);
 
     long pipeExistsCacheExpireMs =
-        Optional.ofNullable(config.get(SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS_EXPIRE_MS))
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS))
             .map(Long::parseLong)
-            .orElse(SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT);
+            .orElse(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT);
 
     // Validate expiration times are positive
     if (tableExistsCacheExpireMs <= 0) {

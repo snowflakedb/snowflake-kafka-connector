@@ -26,9 +26,6 @@ abstract class StreamingRecordMapperTest {
           + "\"header3\": 3.5}"
           + "}";
 
-  protected static final String fullMetadataWithoutWhitespace =
-      fullMetadataJsonExample.replaceAll("\\s+", "");
-
   protected static RecordService.SnowflakeTableRow buildRowWithDefaultMetadata(String content)
       throws JsonProcessingException {
     return buildRow(content, fullMetadataJsonExample);

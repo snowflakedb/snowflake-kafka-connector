@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMA_REGISTRY_URL;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.awaitility.Awaitility.await;
 
@@ -47,9 +47,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @BeforeEach
   public void setup() {
     config = TestUtils.getConnectorConfigurationForStreaming(false);
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, "true");
-    config.put(VALUE_CONVERTER_CONFIG_FIELD, "org.apache.kafka.connect.json.JsonConverter");
-    config.put(VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
+    config.put(SNOWFLAKE_ENABLE_SCHEMATIZATION, "true");
+    config.put(VALUE_CONVERTER, "org.apache.kafka.connect.json.JsonConverter");
+    config.put(VALUE_CONVERTER_SCHEMA_REGISTRY_URL, "http://fake-url");
     config.put("schemas.enable", "false");
     config.put(ERRORS_TOLERANCE_CONFIG, "all");
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
@@ -131,10 +131,9 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
           + " will be implemented")
   void testSkippingOffsetsInSchemaEvolution() throws Exception {
     long maxClientLagSeconds = 1L;
-    long schemaEvolutionDelayMs = 3 * 1000L; // must be enough for sdk to flush and commit
     long assertionSleepTimeMs = 6 * 1000L;
 
-    config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, String.valueOf(maxClientLagSeconds));
+    config.put(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, String.valueOf(maxClientLagSeconds));
 
     // setup a table with a single field
     conn.createTableWithOnlyMetadataColumn(table);

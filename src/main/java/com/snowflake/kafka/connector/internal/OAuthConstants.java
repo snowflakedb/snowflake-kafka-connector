@@ -25,11 +25,4 @@ package com.snowflake.kafka.connector.internal;
  */
 public class OAuthConstants {
   public static final String TOKEN_REQUEST_ENDPOINT = "/oauth/token-request";
-  public static final String OAUTH_CONTENT_TYPE_HEADER = "application/x-www-form-urlencoded";
-  public static final String BASIC_AUTH_HEADER_PREFIX = "Basic ";
-  public static final String GRANT_TYPE_PARAM = "grant_type";
-  public static final String REFRESH_TOKEN = "refresh_token";
-  public static final String ACCESS_TOKEN = "access_token";
-  public static final String REDIRECT_URI = "redirect_uri";
-  public static final String DEFAULT_REDIRECT_URI = "https://localhost.com/oauth";
 }

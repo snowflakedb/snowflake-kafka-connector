@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -18,8 +18,8 @@ public class StreamingSinkServiceBuilder {
   private SinkTaskContext sinkTaskContext = new InMemorySinkTaskContext(Collections.emptySet());
   private boolean enableCustomJMXMonitoring = false;
   private Map<String, String> topicToTableMap = new HashMap<>();
-  private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues =
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
+  private ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues =
+      ConnectorConfigTools.BehaviorOnNullValues.DEFAULT;
 
   public static StreamingSinkServiceBuilder builder(
       SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
@@ -64,7 +64,7 @@ public class StreamingSinkServiceBuilder {
   }
 
   public StreamingSinkServiceBuilder withBehaviorOnNullValues(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) {
+      ConnectorConfigTools.BehaviorOnNullValues behavior) {
     behaviorOnNullValues = behavior;
     return this;
   }

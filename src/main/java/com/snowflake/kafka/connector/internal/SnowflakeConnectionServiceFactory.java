@@ -1,9 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig.SNOWPIPE_STREAMING;
-
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import java.util.Map;
 import java.util.Properties;
 
@@ -19,9 +16,6 @@ public class SnowflakeConnectionServiceFactory {
     private String connectorName;
     private String taskID = "-1";
 
-    /** Underlying implementation - Check Enum {@link IngestionMethodConfig} */
-    private IngestionMethodConfig ingestionMethodConfig;
-
     // Store the full config map to pass to connection service for caching configuration
     private Map<String, String> config;
 
@@ -36,17 +30,16 @@ public class SnowflakeConnectionServiceFactory {
     }
 
     public SnowflakeConnectionServiceBuilder setProperties(Map<String, String> conf) {
-      if (!conf.containsKey(Utils.SF_URL)) {
+      if (!conf.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME)) {
         throw SnowflakeErrors.ERROR_0017.getException();
       }
-      this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
-      this.connectorName = conf.get(Utils.NAME);
+      this.url = new SnowflakeURL(conf.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
+      this.connectorName = conf.get(KafkaConnectorConfigParams.NAME);
       this.config = conf; // Store the config for caching configuration
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =
-          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(
-              conf, this.url, SNOWPIPE_STREAMING);
+          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(conf, this.url);
       Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(conf);
       this.jdbcProperties =
           JdbcProperties.create(connectionProperties, proxyProperties, jdbcPropertiesMap);

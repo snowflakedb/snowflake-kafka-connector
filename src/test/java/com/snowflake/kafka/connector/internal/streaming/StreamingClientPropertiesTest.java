@@ -17,19 +17,19 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.DEFAULT_CLIENT_NAME;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.LOGGABLE_STREAMING_CONFIG_PROPERTIES;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.STREAMING_CLIENT_PREFIX_NAME;
 import static net.snowflake.ingest.utils.ParameterProvider.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -43,16 +43,16 @@ public class StreamingClientPropertiesTest {
     String overrideValue = "10";
 
     // setup config with all loggable properties and parameter override
-    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
-    connectorConfig.put(Utils.NAME, "testName");
-    connectorConfig.put(Utils.SF_URL, "testUrl");
-    connectorConfig.put(Utils.SF_ROLE, "testRole");
-    connectorConfig.put(Utils.SF_USER, "testUser");
-    connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
-    connectorConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overrideValue);
+    Map<String, String> connectorConfig = getConnectorConfigurationForStreaming(false);
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, "testName");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "testUrl");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
+    connectorConfig.put(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, overrideValue);
 
     Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
-    String expectedClientName = STREAMING_CLIENT_PREFIX_NAME + connectorConfig.get(Utils.NAME);
+    String expectedClientName =
+        STREAMING_CLIENT_PREFIX_NAME + connectorConfig.get(KafkaConnectorConfigParams.NAME);
     Map<String, String> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overrideValue));
 
@@ -85,7 +85,7 @@ public class StreamingClientPropertiesTest {
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:1,MAX_MEMORY_LIMIT_IN_BYTES:2");
 
     Map<String, String> expectedParameterOverrides = new HashMap<>();
@@ -106,7 +106,7 @@ public class StreamingClientPropertiesTest {
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:1,MAX_MEMORY_LIMIT_IN_BYTES:2");
 
     Map<String, String> expectedParameterOverrides = new HashMap<>();
@@ -124,19 +124,19 @@ public class StreamingClientPropertiesTest {
   public void testValidPropertiesWithOverriddenStreamingPropertiesMap_withoutMaxClientLagInMap() {
     String overrideValue = "10";
 
-    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
-    connectorConfig.put(Utils.NAME, "testName");
-    connectorConfig.put(Utils.SF_URL, "testUrl");
-    connectorConfig.put(Utils.SF_ROLE, "testRole");
-    connectorConfig.put(Utils.SF_USER, "testUser");
-    connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
-    connectorConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overrideValue);
+    Map<String, String> connectorConfig = getConnectorConfigurationForStreaming(true);
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, "testName");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "testUrl");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
+    connectorConfig.put(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, overrideValue);
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:10000000,ENABLE_SNOWPIPE_STREAMING_JMX_METRICS:false");
 
     Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
-    String expectedClientName = STREAMING_CLIENT_PREFIX_NAME + connectorConfig.get(Utils.NAME);
+    String expectedClientName =
+        STREAMING_CLIENT_PREFIX_NAME + connectorConfig.get(KafkaConnectorConfigParams.NAME);
     Map<String, String> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overrideValue));
     expectedParameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, "10000000");
@@ -155,19 +155,19 @@ public class StreamingClientPropertiesTest {
   public void testValidPropertiesWithOverriddenStreamingPropertiesMap_withMaxClientLagInMap() {
     String overrideValue = "10";
 
-    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
-    connectorConfig.put(Utils.NAME, "testName");
-    connectorConfig.put(Utils.SF_URL, "testUrl");
-    connectorConfig.put(Utils.SF_ROLE, "testRole");
-    connectorConfig.put(Utils.SF_USER, "testUser");
-    connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
-    connectorConfig.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, overrideValue);
+    Map<String, String> connectorConfig = getConnectorConfigurationForStreaming(true);
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, "testName");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "testUrl");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
+    connectorConfig.put(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, overrideValue);
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES:10000000,MAX_CLIENT_LAG:100");
 
     Properties expectedProps = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
-    String expectedClientName = STREAMING_CLIENT_PREFIX_NAME + connectorConfig.get(Utils.NAME);
+    String expectedClientName =
+        STREAMING_CLIENT_PREFIX_NAME + connectorConfig.get(KafkaConnectorConfigParams.NAME);
     Map<String, String> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overrideValue));
     expectedParameterOverrides.put(MAX_CHANNEL_SIZE_IN_BYTES, "10000000");
@@ -193,14 +193,13 @@ public class StreamingClientPropertiesTest {
 
   @Test
   public void testInvalidStreamingClientPropertiesMap() {
-    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
-    connectorConfig.put(Utils.NAME, "testName");
-    connectorConfig.put(Utils.SF_URL, "testUrl");
-    connectorConfig.put(Utils.SF_ROLE, "testRole");
-    connectorConfig.put(Utils.SF_USER, "testUser");
-    connectorConfig.put(Utils.SF_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
+    Map<String, String> connectorConfig = getConnectorConfigurationForStreaming(true);
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, "testName");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "testUrl");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "MAX_CHANNEL_SIZE_IN_BYTES->10000000,MAX_CLIENT_LAG100");
 
     // test get properties
@@ -210,11 +209,11 @@ public class StreamingClientPropertiesTest {
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
           .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
+          .contains(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
     }
 
     connectorConfig.put(
-        SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "MAX_CHANNEL_SIZE_IN_BYTES->10000000");
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "MAX_CHANNEL_SIZE_IN_BYTES->10000000");
 
     // test get properties
     try {
@@ -223,17 +222,17 @@ public class StreamingClientPropertiesTest {
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
           .getMessage()
-          .contains(SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
+          .contains(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
     }
   }
 
   @Test
   public void testStreamingClientPropertiesEquality() {
-    Map<String, String> config1 = TestUtils.getConnectorConfigurationForStreaming(true);
-    config1.put(Utils.NAME, "catConnector");
+    Map<String, String> config1 = getConnectorConfigurationForStreaming(true);
+    config1.put(KafkaConnectorConfigParams.NAME, "catConnector");
 
-    Map<String, String> config2 = TestUtils.getConnectorConfigurationForStreaming(true);
-    config1.put(Utils.NAME, "dogConnector");
+    Map<String, String> config2 = getConnectorConfigurationForStreaming(true);
+    config1.put(KafkaConnectorConfigParams.NAME, "dogConnector");
 
     // get properties
     StreamingClientProperties prop1 = new StreamingClientProperties(config1);
@@ -242,8 +241,8 @@ public class StreamingClientPropertiesTest {
     assert prop1.equals(prop2);
     assert prop1.hashCode() == prop2.hashCode();
 
-    config1.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
-    config2.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "10");
+    config1.put(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
+    config2.put(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "10");
 
     prop1 = new StreamingClientProperties(config1);
     prop2 = new StreamingClientProperties(config2);

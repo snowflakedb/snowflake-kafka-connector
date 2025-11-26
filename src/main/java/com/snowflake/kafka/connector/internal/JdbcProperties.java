@@ -19,14 +19,6 @@ public class JdbcProperties {
     return properties;
   }
 
-  public String getProperty(String key) {
-    return properties.getProperty(key);
-  }
-
-  public Object get(String key) {
-    return properties.get(key);
-  }
-
   public Properties getProxyProperties() {
     return proxyProperties;
   }
@@ -52,11 +44,6 @@ public class JdbcProperties {
     Properties combinedProperties = mergeProperties(proxyAndConnection, jdbcPropertiesMap);
 
     return new JdbcProperties(combinedProperties, proxyProperties);
-  }
-
-  /** Test method */
-  static JdbcProperties create(Properties connectionProperties) {
-    return create(connectionProperties, new Properties(), new Properties());
   }
 
   private static void detectOverrides(Properties proxyAndConnection, Properties jdbcPropertiesMap) {

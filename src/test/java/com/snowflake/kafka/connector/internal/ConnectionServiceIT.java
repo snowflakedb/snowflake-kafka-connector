@@ -2,14 +2,12 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
-import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +19,7 @@ class ConnectionServiceIT {
   private final String topicName = TestUtils.randomTopicName();
 
   @Test
-  void testEncryptedKey() throws IOException, OperatorCreationException {
+  void testEncryptedKey() {
     // no exception
     SnowflakeConnectionServiceFactory.builder()
         .setProperties(TestUtils.transformProfileFileToConnectorConfiguration(true))
@@ -29,28 +27,25 @@ class ConnectionServiceIT {
   }
 
   @Test
-  void testOAuthAZ() {
-    Map<String, String> confWithOAuth = TestUtils.getConfWithOAuth();
-    assert confWithOAuth.containsKey(Utils.SF_OAUTH_CLIENT_ID);
-    SnowflakeConnectionServiceFactory.builder().setProperties(TestUtils.getConfWithOAuth()).build();
-  }
-
-  @Test
   void testSetSSLProperties() {
     Map<String, String> testConfig = TestUtils.transformProfileFileToConnectorConfiguration(false);
-    testConfig.put(Utils.SF_URL, "https://sfctest0.snowflakecomputing.com");
+    testConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://sfctest0.snowflakecomputing.com");
     assert SnowflakeConnectionServiceFactory.builder()
         .setProperties(testConfig)
         .getProperties()
         .getProperty(InternalUtils.JDBC_SSL)
         .equals("on");
-    testConfig.put(Utils.SF_URL, "sfctest0.snowflakecomputing.com");
+    testConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "sfctest0.snowflakecomputing.com");
     assert SnowflakeConnectionServiceFactory.builder()
         .setProperties(testConfig)
         .getProperties()
         .getProperty(InternalUtils.JDBC_SSL)
         .equals("on");
-    testConfig.put(Utils.SF_URL, "http://sfctest0.snowflakecomputing.com:400");
+    testConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+        "http://sfctest0.snowflakecomputing.com:400");
     assert SnowflakeConnectionServiceFactory.builder()
         .setProperties(testConfig)
         .getProperties()
@@ -62,7 +57,7 @@ class ConnectionServiceIT {
   void createConnectionService_SnowpipeStreaming() {
 
     Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    ConnectorConfigTools.setDefaultValues(config);
     SnowflakeConnectionService service =
         SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 

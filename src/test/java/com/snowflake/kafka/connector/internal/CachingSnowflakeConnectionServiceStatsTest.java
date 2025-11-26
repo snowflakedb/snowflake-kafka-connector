@@ -1,9 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_PIPE_EXISTS_EXPIRE_MS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CACHE_TABLE_EXISTS_EXPIRE_MS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 

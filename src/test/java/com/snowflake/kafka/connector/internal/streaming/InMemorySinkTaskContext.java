@@ -32,24 +32,12 @@ public class InMemorySinkTaskContext implements SinkTaskContext {
     this.offsets.put(tp, offset);
   }
 
-  public Map<TopicPartition, Long> offsets() {
-    return this.offsets;
-  }
-
   public void timeout(long timeoutMs) {
     this.timeoutMs = timeoutMs;
   }
 
-  public long timeout() {
-    return this.timeoutMs;
-  }
-
   public Set<TopicPartition> assignment() {
     return this.assignment;
-  }
-
-  public void setAssignment(Set<TopicPartition> nextAssignment) {
-    this.assignment = nextAssignment;
   }
 
   public void pause(TopicPartition... partitions) {}

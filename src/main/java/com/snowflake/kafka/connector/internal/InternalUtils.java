@@ -2,11 +2,8 @@ package com.snowflake.kafka.connector.internal;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-import com.google.common.base.Strings;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
-import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DateFormat;
@@ -16,9 +13,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
 import net.snowflake.client.core.SFSessionProperty;
-import net.snowflake.ingest.connection.IngestStatus;
 
 public class InternalUtils {
+  // authenticator type
+  public static final String SNOWFLAKE_JWT = "snowflake_jwt";
   // JDBC parameter list
   static final String JDBC_DATABASE = "db";
   static final String JDBC_SCHEMA = "schema";
@@ -27,15 +25,11 @@ public class InternalUtils {
   static final String JDBC_SSL = "ssl";
   static final String JDBC_SESSION_KEEP_ALIVE = "client_session_keep_alive";
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
-  static final String JDBC_AUTHENTICATOR = SFSessionProperty.AUTHENTICATOR.getPropertyKey();
   static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
   static final String JDBC_QUERY_RESULT_FORMAT = "JDBC_QUERY_RESULT_FORMAT";
   // internal parameters
 
   private static final KCLogger LOGGER = new KCLogger(InternalUtils.class.getName());
-
-  // backoff with 1, 2, 4, 8 seconds
-  public static final int[] backoffSec = {0, 1, 2, 4, 8};
 
   /**
    * count the size of result set
@@ -90,116 +84,49 @@ public class InternalUtils {
   }
 
   /**
-   * Use this function if you want to create properties from user provided Snowflake kafka connector
-   * config. It assumes the caller wants to use this Property for Snowpipe Streaming based Kafka
-   * Connector.
-   *
-   * @param conf User provided kafka connector config
-   * @param url target server url
-   * @return Properties object which will be passed down to JDBC connection
-   */
-  static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(
-      Map<String, String> conf, SnowflakeURL url) {
-    return makeJdbcDriverPropertiesFromConnectorConfiguration(
-        conf, url, IngestionMethodConfig.SNOWPIPE_STREAMING);
-  }
-
-  /**
    * create a properties for snowflake connection
    *
    * @param connectorConfiguration a map contains all parameters
    * @param url target server url
-   * @param ingestionMethodConfig which ingestion method is provided.
    * @return a Properties instance
    */
   static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(
-      Map<String, String> connectorConfiguration,
-      SnowflakeURL url,
-      IngestionMethodConfig ingestionMethodConfig) {
+      Map<String, String> connectorConfiguration, SnowflakeURL url) {
     Properties properties = new Properties();
 
     // decrypt rsa key
     String privateKey = "";
     String privateKeyPassphrase = "";
 
-    // OAuth params
-    String oAuthClientId = "";
-    String oAuthClientSecret = "";
-    String oAuthRefreshToken = "";
-    String oAuthTokenEndpoint = "";
-
     for (Map.Entry<String, String> entry : connectorConfiguration.entrySet()) {
       // case insensitive
       switch (entry.getKey().toLowerCase()) {
-        case Utils.SF_DATABASE:
+        case KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME:
           properties.put(JDBC_DATABASE, entry.getValue());
           break;
-        case Utils.SF_PRIVATE_KEY:
+        case KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY:
           privateKey = entry.getValue();
           break;
-        case Utils.SF_SCHEMA:
+        case KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME:
           properties.put(JDBC_SCHEMA, entry.getValue());
           break;
-        case Utils.SF_USER:
+        case KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME:
           properties.put(JDBC_USER, entry.getValue());
           break;
-        case Utils.SF_WAREHOUSE:
-          properties.put(JDBC_WAREHOUSE, entry.getValue());
-          break;
-        case Utils.SF_PRIVATE_KEY_PASSPHRASE:
+        case KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE:
           privateKeyPassphrase = entry.getValue();
           break;
-        case Utils.SF_AUTHENTICATOR:
-          properties.put(JDBC_AUTHENTICATOR, entry.getValue());
-          break;
-        case Utils.SF_OAUTH_CLIENT_ID:
-          oAuthClientId = entry.getValue();
-          break;
-        case Utils.SF_OAUTH_CLIENT_SECRET:
-          oAuthClientSecret = entry.getValue();
-          break;
-        case Utils.SF_OAUTH_REFRESH_TOKEN:
-          oAuthRefreshToken = entry.getValue();
-          break;
-        case Utils.SF_OAUTH_TOKEN_ENDPOINT:
-          oAuthTokenEndpoint = entry.getValue();
         default:
           // ignore unrecognized keys
       }
     }
 
-    if (!properties.containsKey(JDBC_AUTHENTICATOR)) {
-      properties.put(JDBC_AUTHENTICATOR, Utils.SNOWFLAKE_JWT);
+    properties.put(SFSessionProperty.AUTHENTICATOR.getPropertyKey(), SNOWFLAKE_JWT);
+    if (isBlank(privateKey)) {
+      throw SnowflakeErrors.ERROR_0013.getException();
     }
-    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)) {
-      if (isBlank(privateKey)) {
-        throw SnowflakeErrors.ERROR_0013.getException();
-      }
-      properties.put(
-          JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
-    } else if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.OAUTH)) {
-      // OAuth auth
-      if (oAuthClientId.isEmpty()) {
-        throw SnowflakeErrors.ERROR_0026.getException();
-      }
-      if (oAuthClientSecret.isEmpty()) {
-        throw SnowflakeErrors.ERROR_0027.getException();
-      }
-      if (oAuthRefreshToken.isEmpty()) {
-        throw SnowflakeErrors.ERROR_0028.getException();
-      }
-      URL oauthUrl =
-          oAuthTokenEndpoint.isEmpty()
-              ? new SnowflakeURL(connectorConfiguration.get(Utils.SF_URL))
-              : OAuthURL.from(oAuthTokenEndpoint);
-
-      String accessToken =
-          Utils.getSnowflakeOAuthAccessToken(
-              oauthUrl, oAuthClientId, oAuthClientSecret, oAuthRefreshToken);
-      properties.put(JDBC_TOKEN, accessToken);
-    } else {
-      throw SnowflakeErrors.ERROR_0029.getException();
-    }
+    properties.put(
+        JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
 
     // set ssl
     if (url.sslEnabled()) {
@@ -211,31 +138,7 @@ public class InternalUtils {
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
     // SNOW-989387 - Set query resultset format to JSON as a workaround
     properties.put(JDBC_QUERY_RESULT_FORMAT, "json");
-
-    /**
-     * Behavior change in JDBC release 3.13.25
-     *
-     * @see <a href="https://community.snowflake.com/s/article/JDBC-Driver-Release-Notes">Snowflake
-     *     Documentation Release Notes </a>
-     */
     properties.put(SFSessionProperty.ALLOW_UNDERSCORES_IN_HOST.getPropertyKey(), "true");
-
-    if (ingestionMethodConfig == IngestionMethodConfig.SNOWPIPE_STREAMING) {
-      final String providedSFRoleInConfig = connectorConfiguration.get(Utils.SF_ROLE);
-      if (!Strings.isNullOrEmpty(providedSFRoleInConfig)) {
-        LOGGER.info("Using provided role {} for JDBC connection.", providedSFRoleInConfig);
-        properties.put(SFSessionProperty.ROLE, providedSFRoleInConfig);
-      } else {
-        LOGGER.info(
-            "Snowflake role is not provided, user's default role will be used for JDBC connection");
-      }
-    }
-
-    // required parameter check, the OAuth parameter is already checked when fetching access token
-    if (properties.getProperty(JDBC_AUTHENTICATOR).equals(Utils.SNOWFLAKE_JWT)
-        && !properties.containsKey(JDBC_PRIVATE_KEY)) {
-      throw SnowflakeErrors.ERROR_0013.getException();
-    }
 
     if (!properties.containsKey(JDBC_SCHEMA)) {
       throw SnowflakeErrors.ERROR_0014.getException();
@@ -262,27 +165,27 @@ public class InternalUtils {
   protected static Properties generateProxyParametersIfRequired(Map<String, String> conf) {
     Properties proxyProperties = new Properties();
     // Set proxyHost and proxyPort only if both of them are present and are non null
-    if (conf.get(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST) != null
-        && conf.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT) != null) {
+    if (conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST) != null
+        && conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT) != null) {
       proxyProperties.put(SFSessionProperty.USE_PROXY.getPropertyKey(), "true");
       proxyProperties.put(
           SFSessionProperty.PROXY_HOST.getPropertyKey(),
-          conf.get(SnowflakeSinkConnectorConfig.JVM_PROXY_HOST));
+          conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
       proxyProperties.put(
           SFSessionProperty.PROXY_PORT.getPropertyKey(),
-          conf.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PORT));
+          conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT));
 
       // nonProxyHosts parameter is not required. Check if it was set or not.
-      if (conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS) != null) {
+      if (conf.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS) != null) {
         proxyProperties.put(
             SFSessionProperty.NON_PROXY_HOSTS.getPropertyKey(),
-            conf.get(SnowflakeSinkConnectorConfig.JVM_NON_PROXY_HOSTS));
+            conf.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS));
       }
 
       // For username and password, check if host and port are given.
       // If they are given, check if username and password are non null
-      String username = conf.get(SnowflakeSinkConnectorConfig.JVM_PROXY_USERNAME);
-      String password = conf.get(SnowflakeSinkConnectorConfig.JVM_PROXY_PASSWORD);
+      String username = conf.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
+      String password = conf.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
 
       if (username != null && password != null) {
         proxyProperties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), username);
@@ -293,7 +196,7 @@ public class InternalUtils {
   }
 
   protected static Properties parseJdbcPropertiesMap(Map<String, String> conf) {
-    String jdbcConfigMapInput = conf.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_MAP);
+    String jdbcConfigMapInput = conf.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP);
     if (jdbcConfigMapInput == null) {
       return new Properties();
     }
@@ -303,80 +206,8 @@ public class InternalUtils {
     return properties;
   }
 
-  /**
-   * convert ingest status to ingested file status
-   *
-   * @param status an ingest status
-   * @return an ingest file status
-   */
-  static IngestedFileStatus convertIngestStatus(IngestStatus status) {
-    switch (status) {
-      case LOADED:
-        return IngestedFileStatus.LOADED;
-
-      case LOAD_IN_PROGRESS:
-        return IngestedFileStatus.LOAD_IN_PROGRESS;
-
-      case PARTIALLY_LOADED:
-        return IngestedFileStatus.PARTIALLY_LOADED;
-
-      case LOAD_FAILED:
-
-      default:
-        return IngestedFileStatus.FAILED;
-    }
-  }
-
-  /**
-   * ingested file status some status are grouped as 'finalized' status (LOADED, PARTIALLY_LOADED,
-   * FAILED) -- we can purge these files others are grouped as 'not_finalized'
-   */
-  enum IngestedFileStatus // for ingest sdk
-  {
-    LOADED,
-    PARTIALLY_LOADED,
-    FAILED,
-    // partially_loaded, or failed
-    LOAD_IN_PROGRESS,
-    NOT_FOUND,
-  }
-
   /** Interfaces to define the lambda function to be used by backoffAndRetry */
   public interface backoffFunction {
     Object apply() throws Exception;
-  }
-
-  /**
-   * Backoff logic
-   *
-   * @param telemetry telemetry service
-   * @param operation Internal Operation Type which corresponds to the lambda function runnable
-   * @param runnable the lambda function itself
-   * @return the object that the function returns
-   * @throws Exception if the runnable function throws exception
-   */
-  public static Object backoffAndRetry(
-      final SnowflakeTelemetryService telemetry,
-      final SnowflakeInternalOperations operation,
-      final backoffFunction runnable)
-      throws Exception {
-    Exception finalException = null;
-    for (final int iteration : backoffSec) {
-      if (iteration != 0) {
-        Thread.sleep(iteration * 1000L);
-        LOGGER.debug("Retry Count:{} for operation:{}", iteration, operation);
-      }
-      try {
-        return runnable.apply();
-      } catch (Exception e) {
-        finalException = e;
-        LOGGER.error(
-            "Retry count:{} caught an exception for operation:{} with message:{}",
-            iteration,
-            operation,
-            e.getMessage());
-      }
-    }
-    throw SnowflakeErrors.ERROR_2010.getException(finalException, telemetry);
   }
 }

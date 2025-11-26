@@ -17,7 +17,7 @@
 
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 
@@ -61,34 +61,40 @@ public enum SnowflakeErrors {
   ERROR_0013(
       "0013",
       "Missed private key in connector config",
-      "private key must be provided with " + Utils.SF_PRIVATE_KEY + " parameter"),
+      "private key must be provided with "
+          + KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY
+          + " parameter"),
   ERROR_0014(
       "0014",
       "Missed snowflake schema name in connector config",
-      "snowflake schema name must be provided with " + Utils.SF_SCHEMA + " " + "parameter"),
+      "snowflake schema name must be provided with "
+          + KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME
+          + " "
+          + "parameter"),
   ERROR_0015(
       "0015",
       "Missed snowflake database name in connector config ",
-      "snowflake database name must be provided with " + Utils.SF_DATABASE + " " + "parameter"),
+      "snowflake database name must be provided with "
+          + KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME
+          + " "
+          + "parameter"),
   ERROR_0016(
       "0016",
       "Missed snowflake user name in connector config ",
-      "snowflake user name must be provided with " + Utils.SF_USER + " parameter"),
+      "snowflake user name must be provided with "
+          + KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME
+          + " parameter"),
   ERROR_0017(
       "0017",
       "Missed snowflake url in connector config ",
       "snowflake URL must be provided with "
-          + Utils.SF_URL
+          + KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME
           + " parameter, e.g. 'accountname.snoflakecomputing.com'"),
   ERROR_0018(
       "0018",
       "Invalid encrypted private key or passphrase",
       "failed to decrypt private key. Please verify input private key and passphrase. Snowflake"
           + " Kafka Connector only supports encryption algorithms in FIPS 140-2"),
-  ERROR_0019(
-      "0019",
-      "Invalid record data",
-      "Unrecognizable record content, please use Snowflake Converters"),
   ERROR_0020("0020", "Invalid topic name", "Topic name is empty String or null"),
   ERROR_0021("0021", "Invalid topic2table map", "Failed to parse topic2table map"),
   ERROR_0022(
@@ -103,39 +109,14 @@ public enum SnowflakeErrors {
       "0024",
       "Reader schema invalid",
       "A reader schema is provided but can not be parsed as an Avro schema"),
-  ERROR_0025(
-      "0025",
-      "Duplicate case-insensitive column names detected",
-      "Duplicate case-insensitive column names detected. Schematization currently does not support"
-          + " this."),
-  ERROR_0026(
-      "0026",
-      "Missed oauth client id in connector config",
-      "oauth_client_id must be provided with "
-          + Utils.SF_OAUTH_CLIENT_ID
-          + " parameter when using oauth as authenticator"),
-  ERROR_0027(
-      "0027",
-      "Missed oauth client secret in connector config",
-      "oauth_client_secret must be provided with "
-          + Utils.SF_OAUTH_CLIENT_SECRET
-          + " parameter when using oauth as authenticator"),
-  ERROR_0028(
-      "0028",
-      "Missed oauth refresh token in connector config",
-      "oauth_refresh_token must be provided with "
-          + Utils.SF_OAUTH_REFRESH_TOKEN
-          + " parameter when using oauth as authenticator"),
-  ERROR_0029(
-      "0029", "Invalid authenticator", "Authenticator should be either oauth or snowflake_jwt"),
   ERROR_0030(
       "0030",
       String.format(
           "Invalid %s map",
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP),
+          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP),
       String.format(
           "Failed to parse %s map",
-          SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)),
+          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)),
   ERROR_0031(
       "0031",
       "Failed to combine JDBC properties",
@@ -156,10 +137,6 @@ public enum SnowflakeErrors {
       "1001",
       "Failed to connect to Snowflake Server",
       "Snowflake connection issue, reported by Snowflake JDBC"),
-  ERROR_1002(
-      "1002",
-      "Failed to connect to Snowflake Ingestion Service Endpoint",
-      "Ingestion Service connection issue, reported by Ingest SDK"),
   ERROR_1003(
       "1003",
       "Snowflake connection is closed",
@@ -170,29 +147,10 @@ public enum SnowflakeErrors {
       "1005",
       "Task failed due to authorization error",
       "Set `enable.task.fail.on.authorization.errors=false` to avoid this behavior"),
-  ERROR_1006(
-      "1006",
-      "Error while obtaining public key from the private key",
-      "Check private key validity"),
-  ERROR_1007(
-      "1007",
-      "Fetching table schema from Snowflake failed",
-      "It is either a connection error or Snowflake instance is not responding"),
   // SQL issues 2---
   ERROR_2001(
       "2001", "Failed to prepare SQL statement", "SQL Exception, reported by Snowflake JDBC"),
 
-  ERROR_2002(
-      "2002",
-      "Failed to download file",
-      "Failed to download file from Snowflake Stage though JDBC"),
-
-  ERROR_2003(
-      "2003", "Failed to upload file", "Failed to upload file to Snowflake Stage though JDBC"),
-  ERROR_2004(
-      "2004",
-      "Failed to retrieve list of files",
-      "Failed to retrieve list of files on Stage though JDBC"),
   ERROR_2005("2005", "Failed to close connection", "Failed to close snowflake JDBC connection"),
   ERROR_2006(
       "2006", "Failed to connection status", "Failed to retrieve Snowflake JDBC connection Status"),
@@ -200,19 +158,7 @@ public enum SnowflakeErrors {
       "2007",
       "Failed to create table",
       "Failed to create table on Snowflake, please check that you have permission to do so."),
-  ERROR_2008(
-      "2008",
-      "Failed to create stage",
-      "Failed to create stage on Snowflake, please check that you have permission to do so."),
-  ERROR_2009(
-      "2009",
-      "Failed to create pipe",
-      "Failed to create pipe on Snowflake, please check that you have permission to do so."),
   ERROR_2010("2010", "Max retry exceeded", "Api retry exceeded the max retry limit"),
-  ERROR_2011(
-      "2011",
-      "Failed to upload file with cache",
-      "Failed to upload file to Snowflake Stage though credential caching"),
   ERROR_2012(
       "2012",
       "Failed to append RECORD_METADATA column",
@@ -241,72 +187,13 @@ public enum SnowflakeErrors {
       "Failed to add RECORD_METADATA column for iceberg",
       "Failed to add RECORD_METADATA column with required format for iceberg."),
 
-  // Snowpipe related issues 3---
-  ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),
-
-  ERROR_3002("3002", "Failed to read load history", "Exception reported by Ingest SDK"),
-
-  ERROR_3003("3003", "Timeout when checking ingest report", "Exceed respond time limitation"),
-
-  ERROR_3004(
-      "3004",
-      "Snowpipe is not found",
-      "Snowpipe object should be created in the connector and registered " + "to pipe list"),
-  ERROR_3005(
-      "3005",
-      "Failed to create pipe",
-      "User may have insufficient privileges. If this persists, please "
-          + "contact Snowflake support. "),
-
-  // deprecated - ERROR_3006("3006", "Failed to configure client status", "Exception reported by
-  // Ingest SDK"),
-  // deprecated - ERROR_3007("3007", "Failed to get client status", "Exception reported by Ingest
-  // SDK"),
-  // deprecated - ERROR_3008("3008", "Failed to ingest file with client info", "Exception reported
-  // by Ingest SDK"),
-
-  // Wrong result issues 4---
-  ERROR_4001("4001", "Unexpected Result", "Get wrong results from Snowflake service"),
-  // Connector internal errors 5---
-  ERROR_5001(
-      "5001",
-      "Failed to create json encoder",
-      "Failed to create json encoder in Snowflake Avro Converter"),
-  ERROR_5002(
-      "5002",
-      "Not support data source connector",
-      "Snowflake converter doesn't support data source connector yet"),
   ERROR_5003("5003", "Incompatible table", "Table doesn't have a compatible schema"),
-  ERROR_5004(
-      "5004",
-      "Incompatible stage",
-      "Stage contains files that were not created by the Snowflake Kafka "
-          + "Connector. The stage needs a careful cleanup."),
-  ERROR_5005(
-      "5005",
-      "Incompatible pipe",
-      "Pipe exists, but is incompatable with Snowflake Kafka Connector and "
-          + "must be dropped before restarting the connector."),
-  ERROR_5006(
-      "5006",
-      "Connector stopped due to invalid configuration",
-      "Exception while creating or validating table, stage, or pipe."),
   ERROR_5007(
       "5007",
       "SnowflakeStreamingSinkConnector timeout",
       "SnowflakeStreamingSinkConnector timed out. Tables or stages are not yet "
           + "available for data ingestion to start. If this persists, please "
           + "contact Snowflake support."),
-  ERROR_5008(
-      "5008",
-      "SnowflakeSinkTask timeout",
-      "SnowflakeStreamingSinkConnector timed out. Tables or stages are not yet "
-          + "available for data ingestion to start. If this persists, please "
-          + "contact Snowflake support."),
-  ERROR_5009(
-      "5009",
-      "Partition is not found in task buffer",
-      "This should not happen, please contact Snowflake support."),
   ERROR_5010(
       "5010",
       "Connection is null or closed",
@@ -326,34 +213,9 @@ public enum SnowflakeErrors {
       "5015",
       "Invalid SinkRecord received",
       "Error parsing SinkRecord of native converter or SinkRecord header"),
-  ERROR_5016(
-      "5016",
-      "Invalid SinkRecord received",
-      "SinkRecord.value and SinkRecord.valueSchema cannot be null unless tombstone record ingestion"
-          + " is enabled (see "
-          + SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG
-          + " for more information."),
-  ERROR_5017(
-      "5017", "Invalid api call to cached put", "Cached put only support AWS, Azure and GCS."),
-  ERROR_5018("5018", "Failed to execute cached put", "Error in cached put command"),
-  ERROR_5019("5019", "Failed to get stage storage type", "Error in get storage type"),
   ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid"),
-  ERROR_5021(
-      "5021",
-      "Failed to get data schema",
-      "Failed to get data schema. Unrecognizable data type in JSON object"),
   ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema"),
 
-  ERROR_5023(
-      "5023",
-      "Failure in Streaming Channel Offset Migration Response",
-      "Streaming Channel Offset Migration from Source to Destination Channel has no/invalid"
-          + " response, please contact Snowflake Support"),
-  ERROR_5024(
-      "5024",
-      "Timeout while waiting for file cleaner to start",
-      "Could not allocate thread for file cleaner to start processing in given time. If problem"
-          + " persists, please try setting snowflake.snowpipe.use_new_cleaner to false"),
   ERROR_5025(
       "5025", "Unexpected data type", "Unexpected data type encountered during schema evolution."),
   ERROR_5026(

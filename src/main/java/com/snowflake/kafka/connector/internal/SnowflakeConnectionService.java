@@ -59,14 +59,6 @@ public interface SnowflakeConnectionService {
   boolean hasSchemaEvolutionPermission(String tableName, String role);
 
   /**
-   * Alter table to add columns according to a map from columnNames to their types
-   *
-   * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their columnInfos
-   */
-  void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
-
-  /**
    * Alter iceberg table to modify columns datatype
    *
    * @param tableName the name of the table
@@ -81,14 +73,6 @@ public interface SnowflakeConnectionService {
    * @param columnInfosMap the mapping from the columnNames to their columnInfos
    */
   void appendColumnsToIcebergTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
-
-  /**
-   * Alter table to drop non-nullability of a list of columns
-   *
-   * @param tableName the name of the table
-   * @param columnNames the list of columnNames
-   */
-  void alterNonNullableColumns(String tableName, List<String> columnNames);
 
   /**
    * check if a given database exists

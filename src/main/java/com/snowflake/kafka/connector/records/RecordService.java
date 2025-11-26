@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.math.BigDecimal;
@@ -436,9 +436,8 @@ public class RecordService {
    *     null case
    */
   public boolean shouldSkipNullValue(
-      SinkRecord record,
-      final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
-    if (behaviorOnNullValues == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT) {
+      SinkRecord record, final ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues) {
+    if (behaviorOnNullValues == ConnectorConfigTools.BehaviorOnNullValues.DEFAULT) {
       return false;
     } else {
       boolean isRecordValueNull = false;

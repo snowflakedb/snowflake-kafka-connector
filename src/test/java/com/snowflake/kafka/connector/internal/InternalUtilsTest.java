@@ -2,14 +2,13 @@ package com.snowflake.kafka.connector.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import net.snowflake.ingest.connection.IngestStatus;
 import org.junit.jupiter.api.Test;
 
 public class InternalUtilsTest {
@@ -20,8 +19,10 @@ public class InternalUtilsTest {
 
     Map<String, String> connectorConfiguration =
         TestUtils.transformProfileFileToConnectorConfiguration(true);
-    String privateKey = connectorConfiguration.get(Utils.SF_PRIVATE_KEY);
-    String pass = connectorConfiguration.get(Utils.SF_PRIVATE_KEY_PASSPHRASE);
+    String privateKey =
+        connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
+    String pass =
+        connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
     // no exception
     PrivateKeyTool.parsePrivateKey(privateKey, pass);
     StringBuilder builder = new StringBuilder();
@@ -36,18 +37,6 @@ public class InternalUtilsTest {
     String originalKey = builder.toString();
     // no exception
     PrivateKeyTool.parsePrivateKey(originalKey, pass);
-  }
-
-  @Test
-  public void testIngestStatusConversion() {
-    assert InternalUtils.convertIngestStatus(IngestStatus.LOADED)
-        == InternalUtils.IngestedFileStatus.LOADED;
-    assert InternalUtils.convertIngestStatus(IngestStatus.LOAD_IN_PROGRESS)
-        == InternalUtils.IngestedFileStatus.LOAD_IN_PROGRESS;
-    assert InternalUtils.convertIngestStatus(IngestStatus.PARTIALLY_LOADED)
-        == InternalUtils.IngestedFileStatus.PARTIALLY_LOADED;
-    assert InternalUtils.convertIngestStatus(IngestStatus.LOAD_FAILED)
-        == InternalUtils.IngestedFileStatus.FAILED;
   }
 
   @Test
@@ -88,7 +77,6 @@ public class InternalUtilsTest {
     assert prop.containsKey(InternalUtils.JDBC_PRIVATE_KEY);
     assert prop.containsKey(InternalUtils.JDBC_SCHEMA);
     assert prop.containsKey(InternalUtils.JDBC_USER);
-    assert prop.containsKey(InternalUtils.JDBC_WAREHOUSE);
     assert prop.containsKey(InternalUtils.JDBC_SESSION_KEEP_ALIVE);
     assert prop.containsKey(InternalUtils.JDBC_SSL);
 
@@ -103,7 +91,7 @@ public class InternalUtilsTest {
         SnowflakeErrors.ERROR_0013,
         () -> {
           Map<String, String> t = new HashMap<>(config);
-          t.remove(Utils.SF_PRIVATE_KEY);
+          t.remove(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
           InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
 
@@ -111,7 +99,7 @@ public class InternalUtilsTest {
         SnowflakeErrors.ERROR_0014,
         () -> {
           Map<String, String> t = new HashMap<>(config);
-          t.remove(Utils.SF_SCHEMA);
+          t.remove(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
           InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
 
@@ -119,7 +107,7 @@ public class InternalUtilsTest {
         SnowflakeErrors.ERROR_0015,
         () -> {
           Map<String, String> t = new HashMap<>(config);
-          t.remove(Utils.SF_DATABASE);
+          t.remove(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
           InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
 
@@ -127,7 +115,7 @@ public class InternalUtilsTest {
         SnowflakeErrors.ERROR_0016,
         () -> {
           Map<String, String> t = new HashMap<>(config);
-          t.remove(Utils.SF_USER);
+          t.remove(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
           InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
   }

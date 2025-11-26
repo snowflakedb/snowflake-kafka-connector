@@ -32,7 +32,6 @@ public class SmtIT extends ConnectClusterBaseIT {
   public static final String RECORD_CONTENT = "record_content";
   private String topicName;
   private String connectorName;
-  private String tableName;
   private ObjectMapper objectMapper = new ObjectMapper();
 
   @InjectQueryRunner private QueryRunner queryRunner;
@@ -40,7 +39,6 @@ public class SmtIT extends ConnectClusterBaseIT {
   @BeforeEach
   void before() {
     topicName = TestUtils.randomTableName();
-    tableName = topicName;
     connectorName = String.format("%s_connector", topicName);
     connectCluster.kafka().createTopic(topicName, PARTITION_COUNT);
     TestUtils.getConnectionServiceWithEncryptedKey().createTable(topicName);

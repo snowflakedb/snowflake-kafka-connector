@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWFLAKE_ROLE;
-import static com.snowflake.kafka.connector.Utils.NAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.NAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
 import static com.snowflake.kafka.connector.Utils.getTableName;
 import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
@@ -12,7 +12,8 @@ import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvid
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -64,7 +65,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Map<String, String> topicToTableMap;
 
   // Behavior to be set at the start of connector start. (For tombstone records)
-  private final SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
+  private final ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues;
   private final MetricsJmxReporter metricsJmxReporter;
   private final String connectorName;
   private final String taskId;
@@ -85,7 +86,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
-  private boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
+  private boolean enableCustomJMXMonitoring = KafkaConnectorConfigParams.JMX_OPT_DEFAULT;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -94,7 +95,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SinkTaskContext sinkTaskContext,
       boolean enableCustomJMXMonitoring,
       Map<String, String> topicToTableMap,
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues) {
+      ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -483,7 +484,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         boolean hasSchemaEvolutionPermission =
             conn != null
                 && conn.hasSchemaEvolutionPermission(
-                    tableName, connectorConfig.get(SNOWFLAKE_ROLE));
+                    tableName, connectorConfig.get(SNOWFLAKE_ROLE_NAME));
         LOGGER.info(
             "[SCHEMA_EVOLUTION_CACHE] Setting {} for table {}",
             hasSchemaEvolutionPermission,

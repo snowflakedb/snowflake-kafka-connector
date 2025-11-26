@@ -3,10 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import static com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.internal.streaming.ChannelMigrateOffsetTokenResponseDTO;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -393,18 +390,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   /**
-   * Alter table to add columns according to a map from columnNames to their types
-   *
-   * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their infos
-   */
-  @Override
-  public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
-    LOGGER.debug("Appending columns to snowflake table");
-    appendColumnsToTable(tableName, columnInfosMap, false);
-  }
-
-  /**
    * Alter iceberg table to add columns according to a map from columnNames to their types
    *
    * @param tableName the name of the table
@@ -462,51 +447,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2015.getException(e);
     }
-  }
-
-  /**
-   * Alter table to drop non-nullability of a list of columns
-   *
-   * @param tableName the name of the table
-   * @param columnNames the list of columnNames
-   */
-  @Override
-  public void alterNonNullableColumns(String tableName, List<String> columnNames) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder dropNotNullQuery = new StringBuilder("alter table identifier(?) alter ");
-    boolean isFirstColumn = true;
-    StringBuilder logColumn = new StringBuilder("[");
-    for (String columnName : columnNames) {
-      if (isFirstColumn) {
-        isFirstColumn = false;
-      } else {
-        dropNotNullQuery.append(", ");
-        logColumn.append(", ");
-      }
-      dropNotNullQuery
-          .append(columnName)
-          .append(" drop not null, ")
-          .append(columnName)
-          .append(
-              " comment 'column altered to be nullable by schema evolution from Snowflake Kafka"
-                  + " Connector'");
-      logColumn.append(columnName);
-    }
-    try {
-      LOGGER.info("Trying to run query: {}", dropNotNullQuery.toString());
-      PreparedStatement stmt = conn.prepareStatement(dropNotNullQuery.toString());
-      stmt.setString(1, tableName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2016.getException(e);
-    }
-
-    logColumn
-        .insert(0, "Following columns' non-nullabilty was dropped for table {}:\n")
-        .append("]");
-    LOGGER.info(logColumn.toString(), tableName);
   }
 
   @Override
@@ -650,15 +590,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     } catch (Exception e) {
       throw new RuntimeException("Error executing query: " + query, e);
     }
-  }
-
-  @VisibleForTesting
-  protected ChannelMigrateOffsetTokenResponseDTO getChannelMigrateOffsetTokenResponseDTO(
-      String migrateOffsetTokenResultFromSysFunc) throws JsonProcessingException {
-    ChannelMigrateOffsetTokenResponseDTO channelMigrateOffsetTokenResponseDTO =
-        OBJECT_MAPPER.readValue(
-            migrateOffsetTokenResultFromSysFunc, ChannelMigrateOffsetTokenResponseDTO.class);
-    return channelMigrateOffsetTokenResponseDTO;
   }
 
   public static class FormattingUtils {
