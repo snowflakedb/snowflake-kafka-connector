@@ -6,6 +6,7 @@ import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5030;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.ChannelStatus;
+import com.snowflake.ingest.streaming.InsertValidationResponse;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
