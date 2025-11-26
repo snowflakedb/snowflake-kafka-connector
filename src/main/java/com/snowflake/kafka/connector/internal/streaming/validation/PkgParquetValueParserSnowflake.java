@@ -4,12 +4,12 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
+import com.snowflake.kafka.connector.Utils;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.ZoneId;
 import java.util.Optional;
-import net.snowflake.ingest.utils.Utils;
 import org.apache.parquet.schema.PrimitiveType;
 
 /** Parses a user Snowflake column value into Parquet internal representation for buffering. */
@@ -154,7 +154,8 @@ class PkgParquetValueParserSnowflake {
         intVal = PkgDataValidationUtil.validateAndParseDate(columnName, value, insertRowsCurrIndex);
         break;
       case TIME:
-        Utils.assertNotNull("Unexpected null scale for TIME data type", scale);
+        com.snowflake.kafka.connector.Utils.assertNotNull(
+            "Unexpected null scale for TIME data type", scale);
         intVal =
             PkgDataValidationUtil.validateAndParseTime(
                     columnName, value, scale, insertRowsCurrIndex)

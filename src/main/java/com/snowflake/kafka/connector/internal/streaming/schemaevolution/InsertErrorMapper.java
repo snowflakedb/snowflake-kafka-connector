@@ -2,9 +2,9 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.snowflake.ingest.streaming.InsertValidationResponse;
 import java.util.List;
 import java.util.Optional;
-import net.snowflake.ingest.streaming.InsertValidationResponse;
 
 public class InsertErrorMapper {
 

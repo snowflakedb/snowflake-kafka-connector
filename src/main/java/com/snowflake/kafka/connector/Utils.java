@@ -348,6 +348,31 @@ public class Utils {
     return config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
   }
 
+  /** Asserts that the provided value is not {@code null}. */
+  public static void assertNotNull(String name, Object value) {
+    if (value == null) {
+      throw new IllegalArgumentException(name + " cannot be null");
+    }
+  }
+
+  /**
+   * Concatenates the provided path segments into a dot-delimited string while escaping any literal
+   * dots.
+   */
+  public static String concatDotPath(String... path) {
+    StringBuilder sb = new StringBuilder();
+    for (String segment : path) {
+      if (segment == null) {
+        throw new IllegalArgumentException("Path cannot be null");
+      }
+      if (sb.length() > 0) {
+        sb.append('.');
+      }
+      sb.append(segment.replace("\\", "\\\\").replace(".", "\\."));
+    }
+    return sb.toString();
+  }
+
   /**
    * Class for returned GeneratedName. isNameFromMap equal to True indicates that the name was
    * resolved by using the map passed to appropriate function. {@link

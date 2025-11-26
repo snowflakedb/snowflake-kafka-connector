@@ -2,11 +2,11 @@ package com.snowflake.kafka.connector.internal.streaming.schemaevolution;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.snowflake.ingest.streaming.InsertValidationResponse;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
-import net.snowflake.ingest.streaming.InsertValidationResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
