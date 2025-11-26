@@ -86,7 +86,7 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
   void before() {
     table = TestUtils.randomTableName();
     topic = table;
-    conn = TestUtils.getConnectionServiceForStreaming();
+    conn = TestUtils.getConnectionServiceWithEncryptedKey();
     topicPartition = new TopicPartition(topic, PARTITION);
   }
 
@@ -187,7 +187,7 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
   }
 
   private Map<String, String> prepareConfig() {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
     config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
     config.put(
         SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,

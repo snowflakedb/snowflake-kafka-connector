@@ -241,7 +241,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
           Utils.updateConfigErrorMessage(result, Utils.SF_URL, " is not a valid snowflake url");
           break;
         case "0018":
-          Utils.updateConfigErrorMessage(result, Utils.PRIVATE_KEY_PASSPHRASE, " is not valid");
+          Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY_PASSPHRASE, " is not valid");
           Utils.updateConfigErrorMessage(result, Utils.SF_PRIVATE_KEY, " is not valid");
           break;
         case "0013":
@@ -314,7 +314,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
             .matcher(connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY, ""))
             .find()
         || configProviderPrefix
-            .matcher(connectorConfigs.getOrDefault(Utils.PRIVATE_KEY_PASSPHRASE, ""))
+            .matcher(connectorConfigs.getOrDefault(Utils.SF_PRIVATE_KEY_PASSPHRASE, ""))
             .find();
   }
 

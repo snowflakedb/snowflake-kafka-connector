@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionServiceForStreaming;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionServiceWithEncryptedKey;
 import static java.lang.String.format;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -48,7 +48,7 @@ public class SnowflakeSinkTaskForStreamingIT {
   public void beforeEach() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
-    getConnectionServiceForStreaming()
+    getConnectionServiceWithEncryptedKey()
         .executeQueryWithParameters(
             format("create or replace table %s (record_metadata variant, f1 varchar)", topicName));
   }
@@ -322,7 +322,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   private Map<String, String> getConfig(boolean useOAuth) {
     if (!useOAuth) {
-      return TestUtils.getConfForStreaming();
+      return TestUtils.getConnectorConfigurationForStreaming(false);
     } else {
       return TestUtils.getConfForStreamingWithOAuth();
     }

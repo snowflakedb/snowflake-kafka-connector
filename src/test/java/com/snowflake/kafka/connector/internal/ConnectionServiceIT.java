@@ -5,9 +5,11 @@ import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NA
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,10 +21,10 @@ class ConnectionServiceIT {
   private final String topicName = TestUtils.randomTopicName();
 
   @Test
-  void testEncryptedKey() {
+  void testEncryptedKey() throws IOException, OperatorCreationException {
     // no exception
     SnowflakeConnectionServiceFactory.builder()
-        .setProperties(TestUtils.getConfWithEncryptedKey())
+        .setProperties(TestUtils.transformProfileFileToConnectorConfiguration(true))
         .build();
   }
 
@@ -35,7 +37,7 @@ class ConnectionServiceIT {
 
   @Test
   void testSetSSLProperties() {
-    Map<String, String> testConfig = TestUtils.getConf();
+    Map<String, String> testConfig = TestUtils.transformProfileFileToConnectorConfiguration(false);
     testConfig.put(Utils.SF_URL, "https://sfctest0.snowflakecomputing.com");
     assert SnowflakeConnectionServiceFactory.builder()
         .setProperties(testConfig)
@@ -59,7 +61,7 @@ class ConnectionServiceIT {
   @Test
   void createConnectionService_SnowpipeStreaming() {
 
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     SnowflakeConnectionService service =
         SnowflakeConnectionServiceFactory.builder().setProperties(config).build();

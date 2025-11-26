@@ -75,7 +75,7 @@ public class Utils {
   public static final String SF_PRIVATE_KEY = "snowflake.private.key";
   public static final String SF_URL = "snowflake.url.name";
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
-  public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
+  public static final String SF_PRIVATE_KEY_PASSPHRASE = "snowflake.private.key.passphrase";
   public static final String SF_AUTHENTICATOR =
       "snowflake.authenticator"; // TODO: SNOW-889748 change to enum
   public static final String SF_OAUTH_CLIENT_ID = "snowflake.oauth.client.id";

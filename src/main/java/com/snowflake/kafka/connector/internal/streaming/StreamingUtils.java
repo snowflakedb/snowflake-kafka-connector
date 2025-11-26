@@ -71,7 +71,7 @@ public class StreamingUtils {
         });
 
     connectorConfig.computeIfPresent(
-        Utils.PRIVATE_KEY_PASSPHRASE,
+        Utils.SF_PRIVATE_KEY_PASSPHRASE,
         (key, value) -> {
           if (!value.isEmpty()) {
             streamingProperties.put(Constants.PRIVATE_KEY_PASSPHRASE, value);

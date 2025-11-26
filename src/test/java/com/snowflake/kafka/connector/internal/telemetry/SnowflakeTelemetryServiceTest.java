@@ -276,7 +276,7 @@ public class SnowflakeTelemetryServiceTest {
   }
 
   private Map<String, String> createConnectorConfig(IngestionMethodConfig ingestionMethodConfig) {
-    return TestUtils.getConfForStreaming();
+    return TestUtils.getConnectorConfigurationForStreaming(false);
   }
 
   private SnowflakeTelemetryService createSnowflakeTelemetryService(
