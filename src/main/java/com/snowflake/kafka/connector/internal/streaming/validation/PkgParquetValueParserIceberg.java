@@ -4,8 +4,8 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
+import static com.snowflake.kafka.connector.Utils.concatDotPath;
 import static com.snowflake.kafka.connector.internal.streaming.validation.PkgDataValidationUtil.checkFixedLengthByteArray;
-import static net.snowflake.ingest.utils.Utils.concatDotPath;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import net.snowflake.ingest.utils.Constants;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
@@ -34,6 +33,9 @@ import org.apache.parquet.schema.Type.Repetition;
 
 /** Parses a user Iceberg column value into Parquet internal representation for buffering. */
 class PkgParquetValueParserIceberg {
+
+  private static final int BINARY_COLUMN_MAX_SIZE = 8 * 1024 * 1024;
+  private static final int VARCHAR_COLUMN_MAX_SIZE = 16 * 1024 * 1024;
 
   /**
    * Parses a user column value into Parquet internal representation for buffering.
@@ -246,13 +248,13 @@ class PkgParquetValueParserIceberg {
     if (logicalTypeAnnotation == null) {
       byte[] bytes =
           PkgDataValidationUtil.validateAndParseBinary(
-              path, value, Optional.of(Constants.BINARY_COLUMN_MAX_SIZE), insertRowsCurrIndex);
+              path, value, Optional.of(BINARY_COLUMN_MAX_SIZE), insertRowsCurrIndex);
       return bytes;
     }
     if (logicalTypeAnnotation instanceof StringLogicalTypeAnnotation) {
       String string =
           PkgDataValidationUtil.validateAndParseString(
-              path, value, Optional.of(Constants.VARCHAR_COLUMN_MAX_SIZE), insertRowsCurrIndex);
+              path, value, Optional.of(VARCHAR_COLUMN_MAX_SIZE), insertRowsCurrIndex);
       return string.getBytes(StandardCharsets.UTF_8);
     }
     throw new PkgSFException(

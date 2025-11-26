@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
-import static net.snowflake.ingest.utils.Utils.concatDotPath;
+import static com.snowflake.kafka.connector.Utils.concatDotPath;
 
 import com.snowflake.kafka.connector.internal.streaming.common.ColumnProperties;
 import com.snowflake.kafka.connector.internal.streaming.schemaevolution.iceberg.IcebergDataTypeParser;
