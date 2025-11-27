@@ -36,18 +36,15 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   private final String connectorName;
   private final String taskID;
   private final boolean enableChangeTracking;
-  private final String kafkaProvider;
 
   StandardSnowflakeConnectionService(
       JdbcProperties jdbcProperties,
       SnowflakeURL url,
       String connectorName,
       String taskID,
-      String kafkaProvider,
       boolean enableChangeTracking) {
     this.connectorName = connectorName;
     this.taskID = taskID;
-    this.kafkaProvider = kafkaProvider;
     this.enableChangeTracking = enableChangeTracking;
 
     Properties proxyProperties = jdbcProperties.getProxyProperties();

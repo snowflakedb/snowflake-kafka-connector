@@ -20,11 +20,6 @@ public class SnowflakeConnectionServiceFactory {
     private String connectorName;
     private String taskID = "-1";
 
-    // whether kafka is hosted on premise or on confluent cloud.
-    // This info is provided in the connector configuration
-    // This property will be appeneded to user agent while calling snowpipe API in http request
-    private String kafkaProvider = null;
-
     // Enable CHANGE_TRACKING on the table after creation
     private boolean enableChangeTracking = false;
 
@@ -74,7 +69,7 @@ public class SnowflakeConnectionServiceFactory {
 
       SnowflakeConnectionService baseService =
           new StandardSnowflakeConnectionService(
-              jdbcProperties, url, connectorName, taskID, kafkaProvider, enableChangeTracking);
+              jdbcProperties, url, connectorName, taskID, enableChangeTracking);
 
       CachingConfig cachingConfig = CachingConfig.fromConfig(config);
       return new CachingSnowflakeConnectionService(baseService, cachingConfig);
