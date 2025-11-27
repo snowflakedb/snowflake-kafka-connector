@@ -17,7 +17,6 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceV1;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
@@ -148,7 +147,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * <p>Initializes the Channel and partitionsToChannel map with new instance of {@link
    * TopicPartitionChannel}
    *
-   * @param tableName destination table name
    * @param topicPartition TopicPartition passed from Kafka
    */
   @Override
@@ -475,11 +473,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       if (isSchematizationEnabled(connectorConfig)) {
         // Always create the table with RECORD_METADATA only and rely on schema evolution to update
         // the schema
-        ((SnowflakeConnectionServiceV1) this.conn)
-            .createTableWithOnlyMetadataColumn(tableName, enableChangeTracking);
+        this.conn.createTableWithOnlyMetadataColumn(tableName);
       } else {
-        ((SnowflakeConnectionServiceV1) this.conn)
-            .createTable(tableName, false, enableChangeTracking);
+        this.conn.createTable(tableName, false);
       }
     }
 

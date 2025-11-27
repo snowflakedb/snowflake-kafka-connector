@@ -20,48 +20,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
  * and SF through JDBC connection.
  */
-public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService {
+public class StandardSnowflakeConnectionService implements SnowflakeConnectionService {
 
-  // User agent suffix we want to pass in to ingest service
-  public static final String USER_AGENT_SUFFIX_FORMAT = "SFKafkaConnector/%s provider/%s";
-  private static final long CREDENTIAL_EXPIRY_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(30);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private final KCLogger LOGGER = new KCLogger(SnowflakeConnectionServiceV1.class.getName());
+  private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
   private final String taskID;
-  private final JdbcProperties jdbcProperties;
-  private final SnowflakeURL url;
-  // This info is provided in the connector configuration
-  // This property will be appeneded to user agent while calling snowpipe API in http request
-  private final String kafkaProvider;
-  private final StageInfo.StageType stageType;
   private final boolean enableChangeTracking;
+  private final String kafkaProvider;
 
-  SnowflakeConnectionServiceV1(
+  StandardSnowflakeConnectionService(
       JdbcProperties jdbcProperties,
       SnowflakeURL url,
       String connectorName,
       String taskID,
       String kafkaProvider,
       boolean enableChangeTracking) {
-    this.jdbcProperties = jdbcProperties;
     this.connectorName = connectorName;
     this.taskID = taskID;
-    this.url = url;
-    this.stageType = null;
     this.kafkaProvider = kafkaProvider;
     this.enableChangeTracking = enableChangeTracking;
+
     Properties proxyProperties = jdbcProperties.getProxyProperties();
     Properties combinedProperties = jdbcProperties.getProperties();
     try {
@@ -225,6 +213,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   @Override
   public boolean pipeExist(final String pipeName) {
+    LOGGER.info("Calling DESCRIBE PIPE {}", pipeName);
     checkConnection();
     InternalUtils.assertNotEmpty("pipeName", pipeName);
     String query = "desc pipe identifier(?)";
@@ -304,7 +293,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  // TODO - use describeTable()
   public void appendMetaColIfNotExist(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -597,25 +585,6 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  // TODO - move to test-only class
-  public void dropPipe(final String pipeName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("pipeName", pipeName);
-    String query = "drop pipe if exists identifier(?)";
-
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, pipeName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
-    }
-
-    LOGGER.info("pipe {} dropped", pipeName);
-  }
-
-  @Override
   public SnowflakeTelemetryService getTelemetryClient() {
     return this.telemetry;
   }
@@ -679,6 +648,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
 
   @Override
   public Optional<List<DescribeTableRow>> describeTable(String tableName) {
+    LOGGER.info("Calling DESCRIBE TABLE {}", tableName);
     checkConnection();
     String query = "desc table identifier(?)";
     PreparedStatement stmt = null;

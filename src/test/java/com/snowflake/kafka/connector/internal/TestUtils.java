@@ -27,6 +27,8 @@ import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_PORT;
 import static com.snowflake.kafka.connector.Utils.HTTP_PROXY_USER;
 import static com.snowflake.kafka.connector.Utils.HTTP_USE_PROXY;
 import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
+import static com.snowflake.kafka.connector.Utils.SF_PRIVATE_KEY;
+import static com.snowflake.kafka.connector.Utils.SF_PRIVATE_KEY_PASSPHRASE;
 import static com.snowflake.kafka.connector.Utils.buildOAuthHttpPostRequest;
 import static com.snowflake.kafka.connector.Utils.getSnowflakeOAuthToken;
 
@@ -42,9 +44,14 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.io.File;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.Security;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -77,6 +84,13 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfoBuilder;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS8EncryptedPrivateKeyInfoBuilder;
+import org.bouncycastle.pkcs.jcajce.JcePKCSPBEOutputEncryptorBuilder;
 
 public class TestUtils {
   // test profile properties
@@ -127,8 +141,6 @@ public class TestUtils {
   public static final String PROFILE_PATH = "profile.json";
 
   private static final ObjectMapper mapper = new ObjectMapper();
-
-  private static Map<String, String> conf = null;
 
   private static Map<String, String> confWithOAuth = null;
 
@@ -189,24 +201,39 @@ public class TestUtils {
     }
   }
 
-  /** load all login info a Map from profile file */
-  private static Map<String, String> getPropertiesMapFromProfile(final String profileFileName) {
+  public static PrivateKey generatePrivateKey() {
+    KeyPairGenerator keyPairGenerator = null;
+    try {
+      keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+    } catch (final NoSuchAlgorithmException e) {
+      throw new RuntimeException(e);
+    }
+    keyPairGenerator.initialize(2048);
+    KeyPair keyPair = keyPairGenerator.generateKeyPair();
+    return keyPair.getPrivate();
+  }
+
+  public static Map<String, String> transformProfileFileToConnectorConfiguration(
+      boolean takeEncryptedKeyAndPassword) {
     Map<String, String> configuration = new HashMap<>();
 
-    JsonNode profileJson = getProfile(profileFileName);
+    JsonNode profileJson = getProfile(PROFILE_PATH);
     configuration.put(Utils.SF_USER, profileJson.get(USER).asText());
     configuration.put(Utils.SF_ROLE, profileJson.get(ROLE).asText());
     configuration.put(Utils.SF_DATABASE, profileJson.get(DATABASE).asText());
     configuration.put(Utils.SF_SCHEMA, profileJson.get(SCHEMA).asText());
     configuration.put(Utils.SF_URL, profileJson.get(HOST).asText());
-    configuration.put(Utils.SF_ROLE, profileJson.get(ROLE).asText());
     configuration.put(Utils.SF_WAREHOUSE, profileJson.get(WAREHOUSE).asText());
+    if (takeEncryptedKeyAndPassword) {
+      configuration.put(SF_PRIVATE_KEY, profileJson.get(ENCRYPTED_PRIVATE_KEY).asText());
+      configuration.put(
+          SF_PRIVATE_KEY_PASSPHRASE, profileJson.get(PRIVATE_KEY_PASSPHRASE).asText());
+    } else {
+      configuration.put(SF_PRIVATE_KEY, profileJson.get(PRIVATE_KEY).asText());
+    }
 
     if (profileJson.has(AUTHENTICATOR)) {
       configuration.put(Utils.SF_AUTHENTICATOR, profileJson.get(AUTHENTICATOR).asText());
-    }
-    if (profileJson.has(PRIVATE_KEY)) {
-      configuration.put(Utils.SF_PRIVATE_KEY, profileJson.get(PRIVATE_KEY).asText());
     }
     if (profileJson.has(OAUTH_CLIENT_ID)) {
       configuration.put(Utils.SF_OAUTH_CLIENT_ID, profileJson.get(OAUTH_CLIENT_ID).asText());
@@ -223,77 +250,28 @@ public class TestUtils {
       configuration.put(
           Utils.SF_OAUTH_TOKEN_ENDPOINT, profileJson.get(OAUTH_TOKEN_ENDPOINT).asText());
     }
-
     // password only appears in test profile
     if (profileJson.has(PASSWORD)) {
       configuration.put(PASSWORD, profileJson.get(PASSWORD).asText());
     }
-
     configuration.put(Utils.NAME, TEST_CONNECTOR_NAME);
-
     // enable test query mark
     configuration.put(Utils.TASK_ID, "");
 
     return configuration;
   }
 
-  static String getEncryptedPrivateKey() {
-    return getProfile(PROFILE_PATH).get(ENCRYPTED_PRIVATE_KEY).asText();
-  }
-
-  static String getPrivateKeyPassphrase() {
-    return getProfile(PROFILE_PATH).get(PRIVATE_KEY_PASSPHRASE).asText();
-  }
-
-  /**
-   * read private key string from test profile
-   *
-   * @return a string value represents private key
-   */
-  public static String getKeyString() {
-    return getConf().get(Utils.SF_PRIVATE_KEY);
-  }
-
-  public static PrivateKey getPrivateKey() {
-    return InternalUtils.parsePrivateKey(TestUtils.getKeyString());
-  }
-
-  /**
-   * read conf file
-   *
-   * @return a map of parameters
-   */
-  public static Map<String, String> getConfFromFileName(final String profileFileName) {
-    if (profileFileName.equalsIgnoreCase(PROFILE_PATH)) {
-      if (conf == null) {
-        conf = getPropertiesMapFromProfile(profileFileName);
-      }
-      return new HashMap<>(conf);
-    } else {
-      if (confForStreaming == null) {
-        confForStreaming = getPropertiesMapFromProfile(profileFileName);
-      }
-      return new HashMap<>(confForStreaming);
-    }
-  }
-
   /* Get configuration map from profile path. Used against prod deployment of Snowflake */
-  public static Map<String, String> getConf() {
-    return getConfFromFileName(PROFILE_PATH);
-  }
-
-  /* Get configuration map from profile path. Used against prod deployment of Snowflake */
-  public static Map<String, String> getConfForStreaming() {
-    Map<String, String> configuration = getConfFromFileName(PROFILE_PATH);
-
-    // On top of existing configurations, add
-    configuration.put(Utils.SF_ROLE, getProfile(PROFILE_PATH).get(ROLE).asText());
+  public static Map<String, String> getConnectorConfigurationForStreaming(
+      boolean takeEncryptedKey) {
+    Map<String, String> configuration =
+        transformProfileFileToConnectorConfiguration(takeEncryptedKey);
+    // On top of existing properties, add
     configuration.put(Utils.TASK_ID, "0");
     configuration.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
     configuration.put(
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
         SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG_DEFAULT);
-
     return configuration;
   }
 
@@ -311,23 +289,26 @@ public class TestUtils {
   }
 
   /** @return JDBC config with encrypted private key */
-  static Map<String, String> getConfWithEncryptedKey() {
-    if (conf == null) {
-      getPropertiesMapFromProfile(PROFILE_PATH);
-    }
-    Map<String, String> config = new HashMap<>(conf);
-
-    config.remove(Utils.SF_PRIVATE_KEY);
-    config.put(Utils.SF_PRIVATE_KEY, getEncryptedPrivateKey());
-    config.put(Utils.PRIVATE_KEY_PASSPHRASE, getPrivateKeyPassphrase());
-
-    return config;
+  public static String generateAESKey(PrivateKey key, char[] passwd)
+      throws IOException, OperatorCreationException {
+    Security.addProvider(new BouncyCastleFipsProvider());
+    StringWriter writer = new StringWriter();
+    JcaPEMWriter pemWriter = new JcaPEMWriter(writer);
+    PKCS8EncryptedPrivateKeyInfoBuilder pkcs8EncryptedPrivateKeyInfoBuilder =
+        new JcaPKCS8EncryptedPrivateKeyInfoBuilder(key);
+    pemWriter.writeObject(
+        pkcs8EncryptedPrivateKeyInfoBuilder.build(
+            new JcePKCSPBEOutputEncryptorBuilder(NISTObjectIdentifiers.id_aes256_CBC)
+                .setProvider("BCFIPS")
+                .build(passwd)));
+    pemWriter.close();
+    return writer.toString();
   }
 
   public static Map<String, String> getConfWithOAuth() {
     // Return null if we don't have the corresponding OAuth required configuration in the config
     // file
-    Map<String, String> conf = getConf();
+    Map<String, String> conf = transformProfileFileToConnectorConfiguration(false);
     if (!conf.containsKey(Utils.SF_OAUTH_CLIENT_ID)
         || !conf.containsKey(Utils.SF_OAUTH_CLIENT_SECRET)) {
       return null;
@@ -357,7 +338,8 @@ public class TestUtils {
    */
   static ResultSet executeQuery(String query) {
     try {
-      Statement statement = TestSnowflakeConnection.getConnection().createStatement();
+      Statement statement =
+          NonEncryptedKeyTestSnowflakeConnection.getConnection().createStatement();
       log.debug("Executing query: {}", query);
       return statement.executeQuery(query);
     }
@@ -375,7 +357,8 @@ public class TestUtils {
    */
   public static void executeQueryWithParameter(String query, String parameter) {
     try {
-      executeQueryWithParameter(TestSnowflakeConnection.getConnection(), query, parameter);
+      executeQueryWithParameter(
+          NonEncryptedKeyTestSnowflakeConnection.getConnection(), query, parameter);
     } catch (Exception e) {
       throw new RuntimeException("Error executing query: " + query, e);
     }
@@ -412,7 +395,10 @@ public class TestUtils {
       String query, String parameter, Function<ResultSet, T> resultCollector) {
     try {
       return executeQueryAndCollectResult(
-          TestSnowflakeConnection.getConnection(), query, parameter, resultCollector);
+          NonEncryptedKeyTestSnowflakeConnection.getConnection(),
+          query,
+          parameter,
+          resultCollector);
     } catch (Exception e) {
       throw new RuntimeException("Error executing query: " + query, e);
     }
@@ -497,18 +483,6 @@ public class TestUtils {
     return randomName("topic");
   }
 
-  /**
-   * retrieve one properties
-   *
-   * @param name property name
-   * @return property value
-   */
-  private static String getPropertyValueFromKey(String name) {
-    Map<String, String> properties = getConf();
-
-    return properties.get(name);
-  }
-
   static SnowflakeURL getUrl() {
     if (url == null) {
       url = new SnowflakeURL(getProfile(PROFILE_PATH).get(HOST).asText());
@@ -534,7 +508,9 @@ public class TestUtils {
 
   /** @return snowflake connection for test */
   public static SnowflakeConnectionService getConnectionService() {
-    return SnowflakeConnectionServiceFactory.builder().setProperties(getConf()).build();
+    return SnowflakeConnectionServiceFactory.builder()
+        .setProperties(transformProfileFileToConnectorConfiguration(false))
+        .build();
   }
 
   /** @return snowflake connection using OAuth authentication for test */
@@ -542,9 +518,10 @@ public class TestUtils {
     return SnowflakeConnectionServiceFactory.builder().setProperties(getConfWithOAuth()).build();
   }
 
-  /** @return snowflake streaming ingest connection for test */
-  public static SnowflakeConnectionService getConnectionServiceForStreaming() {
-    return SnowflakeConnectionServiceFactory.builder().setProperties(getConfForStreaming()).build();
+  public static SnowflakeConnectionService getConnectionServiceWithEncryptedKey() {
+    return SnowflakeConnectionServiceFactory.builder()
+        .setProperties(getConnectorConfigurationForStreaming(true))
+        .build();
   }
 
   /** @return snowflake streaming ingest connection using OAuth authentication for test */

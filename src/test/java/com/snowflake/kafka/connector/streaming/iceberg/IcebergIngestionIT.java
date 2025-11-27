@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
 import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
-import static com.snowflake.kafka.connector.internal.TestUtils.getConfForStreaming;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -44,7 +44,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     tableName = TestUtils.randomTableName();
     topic = tableName;
     topicPartition = new TopicPartition(topic, PARTITION);
-    Map<String, String> config = getConfForStreaming();
+    Map<String, String> config = getConnectorConfigurationForStreaming(false);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     config.put(ICEBERG_ENABLED, "TRUE");
     config.put(ENABLE_SCHEMATIZATION_CONFIG, isSchemaEvolutionEnabled().toString());

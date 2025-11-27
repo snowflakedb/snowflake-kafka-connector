@@ -25,14 +25,14 @@ public final class SnowflakeDataSourceFactory {
       return dataSource;
     } else {
       try {
-        final Map<String, String> conf = TestUtils.getConfForStreaming();
+        final Map<String, String> conf = TestUtils.getConnectorConfigurationForStreaming(false);
         final SnowflakeURL url = new SnowflakeURL(conf.get(Utils.SF_URL));
 
         // Extract properties from conf Map
         final String user = conf.get(Utils.SF_USER);
         final String role = conf.get(Utils.SF_ROLE);
         final String privateKeyStr = conf.get(Utils.SF_PRIVATE_KEY);
-        final String privateKeyPassphrase = conf.get(Utils.PRIVATE_KEY_PASSPHRASE);
+        final String privateKeyPassphrase = conf.get(Utils.SF_PRIVATE_KEY_PASSPHRASE);
         final String database = conf.get(Utils.SF_DATABASE);
         final String schema = conf.get(Utils.SF_SCHEMA);
         final String warehouse = conf.get(Utils.SF_WAREHOUSE);
@@ -69,13 +69,8 @@ public final class SnowflakeDataSourceFactory {
         connectionProperties.setProperty("warehouse", warehouse);
 
         // JWT key pair auth - set private key
-        final PrivateKey privateKey;
-        if (privateKeyPassphrase != null && !privateKeyPassphrase.isEmpty()) {
-          privateKey =
-              EncryptionUtils.parseEncryptedPrivateKey(privateKeyStr, privateKeyPassphrase);
-        } else {
-          privateKey = InternalUtils.parsePrivateKey(privateKeyStr);
-        }
+        final PrivateKey privateKey =
+            PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
         connectionProperties.put("privateKey", privateKey);
 
         // Create connection factory with Snowflake driver

@@ -6,8 +6,11 @@ import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import java.security.PrivateKey;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -83,7 +86,7 @@ public final class StreamingClientManager {
     if (ingestClients == null) {
       return 0;
     }
-    ;
+
     return ingestClients.pipeToTasks.values().stream()
         .filter(tasks -> tasks.contains(taskId))
         .count();
@@ -215,7 +218,13 @@ public final class StreamingClientManager {
   static Properties getClientProperties(final Map<String, String> connectorConfig) {
     final Properties props = new Properties();
     SnowflakeURL url = new SnowflakeURL(connectorConfig.get(Utils.SF_URL));
-    props.put("private_key", connectorConfig.get(Utils.SF_PRIVATE_KEY));
+    final String privateKeyStr = connectorConfig.get(Utils.SF_PRIVATE_KEY);
+    final String privateKeyPassphrase = connectorConfig.get(Utils.SF_PRIVATE_KEY_PASSPHRASE);
+    final PrivateKey privateKey =
+        PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
+    final String privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
+    // SSV2 sdk can only work with non-encrypted private keys
+    props.put("private_key", privateKeyEncoded);
     props.put("user", connectorConfig.get(Utils.SF_USER));
     props.put("role", connectorConfig.get(Utils.SF_ROLE));
     props.put("account", url.getAccount());

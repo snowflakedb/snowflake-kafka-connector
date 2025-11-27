@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2LegacyIT extends SnowflakeSinkServiceV2BaseIT {
 
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceForStreaming();
+  private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
 
   @BeforeEach
   public void setup() {
@@ -35,7 +35,7 @@ public class SnowflakeSinkServiceV2LegacyIT extends SnowflakeSinkServiceV2BaseIT
       "This test is flaky. Runs locally. Instead of time based waits it should be reimplemented to"
           + " check if proper lag has been set in overrideProperties in Ingest SDK client")
   public void testStreamingIngestionValidClientLag() throws Exception {
-    Map<String, String> config = TestUtils.getConfForStreaming();
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
     config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "7");
 
     SnowflakeSinkService service =

@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static com.snowflake.kafka.connector.Constants.DEFAULT_PIPE_NAME_SUFFIX;
+import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKey;
 import static org.assertj.core.api.Assertions.*;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
@@ -8,6 +9,7 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -28,8 +30,8 @@ public class StreamingClientManagerIT {
   public void setUp() {
     final long salt = System.currentTimeMillis();
     final SnowflakeConnectionService connectionService =
-        TestUtils.getConnectionServiceForStreaming();
-    connectorConfig = TestUtils.getConfForStreaming();
+        TestUtils.getConnectionServiceWithEncryptedKey();
+    connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
     streamingClientProperties = new StreamingClientProperties(connectorConfig);
     table1 = "table1" + salt;
     table2 = "table2" + salt;
@@ -128,11 +130,12 @@ public class StreamingClientManagerIT {
   }
 
   @Test
-  void test_GetClientProperties_includes_role() {
+  void test_GetClientProperties_includes_all_needed_properties() {
     // Given
+    String privateKey = generatePemPrivateKey();
     Map<String, String> connectorConfig = new HashMap<>();
     connectorConfig.put(Utils.SF_URL, "https://test.snowflakecomputing.com");
-    connectorConfig.put(Utils.SF_PRIVATE_KEY, "test_private_key");
+    connectorConfig.put(Utils.SF_PRIVATE_KEY, privateKey);
     connectorConfig.put(Utils.SF_USER, "test_user");
     connectorConfig.put(Utils.SF_ROLE, "TEST_ROLE");
 
@@ -143,7 +146,8 @@ public class StreamingClientManagerIT {
     assertThat(properties).isNotNull();
     assertThat(properties.getProperty("role")).isEqualTo("TEST_ROLE");
     assertThat(properties.getProperty("user")).isEqualTo("test_user");
-    assertThat(properties.getProperty("private_key")).isEqualTo("test_private_key");
+    assertThat(properties.getProperty("host")).isEqualTo("test.snowflakecomputing.com");
+    assertThat(properties.getProperty("private_key")).isEqualTo(privateKey);
   }
 
   @Test
@@ -173,6 +177,10 @@ public class StreamingClientManagerIT {
   private SnowflakeStreamingIngestClient getClient(String task, String pipe) {
     return StreamingClientManager.getClient(
         testConnectorName, task, pipe, connectorConfig, streamingClientProperties);
+  }
+
+  private String generatePemPrivateKey() {
+    return Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded());
   }
 
   private void closeTaskClients(String task) {

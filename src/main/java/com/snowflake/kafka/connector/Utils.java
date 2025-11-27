@@ -65,7 +65,7 @@ import org.apache.kafka.common.config.ConfigValue;
 public class Utils {
 
   // Connector version, change every release
-  public static final String VERSION = "4.0.0-rc2";
+  public static final String VERSION = "4.0.0-rc3";
 
   // connector parameter list
   public static final String NAME = "name";
@@ -75,7 +75,7 @@ public class Utils {
   public static final String SF_PRIVATE_KEY = "snowflake.private.key";
   public static final String SF_URL = "snowflake.url.name";
   public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
-  public static final String PRIVATE_KEY_PASSPHRASE = "snowflake.private.key" + ".passphrase";
+  public static final String SF_PRIVATE_KEY_PASSPHRASE = "snowflake.private.key.passphrase";
   public static final String SF_AUTHENTICATOR =
       "snowflake.authenticator"; // TODO: SNOW-889748 change to enum
   public static final String SF_OAUTH_CLIENT_ID = "snowflake.oauth.client.id";

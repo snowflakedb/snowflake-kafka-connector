@@ -16,15 +16,18 @@ public class InternalUtilsTest {
   @Test
   public void testPrivateKey() {
     assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0002, () -> InternalUtils.parsePrivateKey("adfsfsaff"));
+        SnowflakeErrors.ERROR_0002, () -> PrivateKeyTool.parsePrivateKey("adfsfsaff", null));
 
-    String key = TestUtils.getKeyString();
+    Map<String, String> connectorConfiguration =
+        TestUtils.transformProfileFileToConnectorConfiguration(true);
+    String privateKey = connectorConfiguration.get(Utils.SF_PRIVATE_KEY);
+    String pass = connectorConfiguration.get(Utils.SF_PRIVATE_KEY_PASSPHRASE);
     // no exception
-    InternalUtils.parsePrivateKey(key);
+    PrivateKeyTool.parsePrivateKey(privateKey, pass);
     StringBuilder builder = new StringBuilder();
     builder.append("-----BEGIN RSA PRIVATE KEY-----\n");
-    for (int i = 0; i < key.length(); i++) {
-      builder.append(key.charAt(i));
+    for (int i = 0; i < privateKey.length(); i++) {
+      builder.append(privateKey.charAt(i));
       if ((i + 1) % 64 == 0) {
         builder.append("\n");
       }
@@ -32,7 +35,7 @@ public class InternalUtilsTest {
     builder.append("\n-----END RSA PRIVATE KEY-----");
     String originalKey = builder.toString();
     // no exception
-    InternalUtils.parsePrivateKey(originalKey);
+    PrivateKeyTool.parsePrivateKey(originalKey, pass);
   }
 
   @Test
@@ -77,10 +80,10 @@ public class InternalUtilsTest {
   }
 
   @Test
-  public void testCreateProperties() {
-    Map<String, String> config = TestUtils.getConf();
+  public void testMakeJdbcDriverPropertiesFromConnectorConfiguration() {
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(true);
     SnowflakeURL url = TestUtils.getUrl();
-    Properties prop = InternalUtils.createProperties(config, url);
+    Properties prop = InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(config, url);
     assert prop.containsKey(InternalUtils.JDBC_DATABASE);
     assert prop.containsKey(InternalUtils.JDBC_PRIVATE_KEY);
     assert prop.containsKey(InternalUtils.JDBC_SCHEMA);
@@ -101,7 +104,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(Utils.SF_PRIVATE_KEY);
-          InternalUtils.createProperties(t, url);
+          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
 
     assert TestUtils.assertError(
@@ -109,7 +112,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(Utils.SF_SCHEMA);
-          InternalUtils.createProperties(t, url);
+          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
 
     assert TestUtils.assertError(
@@ -117,7 +120,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(Utils.SF_DATABASE);
-          InternalUtils.createProperties(t, url);
+          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
 
     assert TestUtils.assertError(
@@ -125,7 +128,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(Utils.SF_USER);
-          InternalUtils.createProperties(t, url);
+          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
   }
 

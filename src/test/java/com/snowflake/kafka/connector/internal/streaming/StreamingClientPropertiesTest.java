@@ -43,7 +43,7 @@ public class StreamingClientPropertiesTest {
     String overrideValue = "10";
 
     // setup config with all loggable properties and parameter override
-    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
     connectorConfig.put(Utils.NAME, "testName");
     connectorConfig.put(Utils.SF_URL, "testUrl");
     connectorConfig.put(Utils.SF_ROLE, "testRole");
@@ -124,7 +124,7 @@ public class StreamingClientPropertiesTest {
   public void testValidPropertiesWithOverriddenStreamingPropertiesMap_withoutMaxClientLagInMap() {
     String overrideValue = "10";
 
-    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
     connectorConfig.put(Utils.NAME, "testName");
     connectorConfig.put(Utils.SF_URL, "testUrl");
     connectorConfig.put(Utils.SF_ROLE, "testRole");
@@ -155,7 +155,7 @@ public class StreamingClientPropertiesTest {
   public void testValidPropertiesWithOverriddenStreamingPropertiesMap_withMaxClientLagInMap() {
     String overrideValue = "10";
 
-    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
     connectorConfig.put(Utils.NAME, "testName");
     connectorConfig.put(Utils.SF_URL, "testUrl");
     connectorConfig.put(Utils.SF_ROLE, "testRole");
@@ -193,7 +193,7 @@ public class StreamingClientPropertiesTest {
 
   @Test
   public void testInvalidStreamingClientPropertiesMap() {
-    Map<String, String> connectorConfig = TestUtils.getConfForStreaming();
+    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
     connectorConfig.put(Utils.NAME, "testName");
     connectorConfig.put(Utils.SF_URL, "testUrl");
     connectorConfig.put(Utils.SF_ROLE, "testRole");
@@ -229,10 +229,10 @@ public class StreamingClientPropertiesTest {
 
   @Test
   public void testStreamingClientPropertiesEquality() {
-    Map<String, String> config1 = TestUtils.getConfForStreaming();
+    Map<String, String> config1 = TestUtils.getConnectorConfigurationForStreaming(true);
     config1.put(Utils.NAME, "catConnector");
 
-    Map<String, String> config2 = TestUtils.getConfForStreaming();
+    Map<String, String> config2 = TestUtils.getConnectorConfigurationForStreaming(true);
     config1.put(Utils.NAME, "dogConnector");
 
     // get properties

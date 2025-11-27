@@ -1,12 +1,11 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionServiceForStreaming;
+import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionServiceWithEncryptedKey;
 import static java.lang.String.format;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -33,11 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.Spy;
-import org.slf4j.Logger;
 
 /**
  * Sink Task IT test which uses {@link
@@ -49,18 +44,11 @@ public class SnowflakeSinkTaskForStreamingIT {
   private static final int partition = 0;
   private TopicPartition topicPartition;
 
-  @Mock Logger logger = Mockito.mock(Logger.class);
-
-  @InjectMocks @Spy
-  private KCLogger kcLogger = Mockito.spy(new KCLogger(this.getClass().getName()));
-
-  @InjectMocks private SnowflakeSinkTask sinkTask1 = new SnowflakeSinkTask();
-
   @BeforeEach
   public void beforeEach() {
     topicName = TestUtils.randomTableName();
     topicPartition = new TopicPartition(topicName, partition);
-    getConnectionServiceForStreaming()
+    getConnectionServiceWithEncryptedKey()
         .executeQueryWithParameters(
             format("create or replace table %s (record_metadata variant, f1 varchar)", topicName));
   }
@@ -334,7 +322,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
   private Map<String, String> getConfig(boolean useOAuth) {
     if (!useOAuth) {
-      return TestUtils.getConfForStreaming();
+      return TestUtils.getConnectorConfigurationForStreaming(false);
     } else {
       return TestUtils.getConfForStreamingWithOAuth();
     }

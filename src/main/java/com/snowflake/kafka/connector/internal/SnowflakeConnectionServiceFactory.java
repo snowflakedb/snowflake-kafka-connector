@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.PROVIDER_CONFIG;
 import static com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig.SNOWPIPE_STREAMING;
 
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
@@ -32,6 +31,9 @@ public class SnowflakeConnectionServiceFactory {
     /** Underlying implementation - Check Enum {@link IngestionMethodConfig} */
     private IngestionMethodConfig ingestionMethodConfig;
 
+    // Store the full config map to pass to connection service for caching configuration
+    private Map<String, String> config;
+
     // For testing only
     public Properties getProperties() {
       return this.jdbcProperties.getProperties();
@@ -47,19 +49,18 @@ public class SnowflakeConnectionServiceFactory {
         throw SnowflakeErrors.ERROR_0017.getException();
       }
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
-      this.kafkaProvider =
-          SnowflakeSinkConnectorConfig.KafkaProvider.of(conf.get(PROVIDER_CONFIG)).name();
       this.connectorName = conf.get(Utils.NAME);
+      this.config = conf;
       this.enableChangeTracking =
           Boolean.parseBoolean(
               conf.getOrDefault(
                   SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_CONFIG,
                   Boolean.toString(SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_DEFAULT)));
-      this.ingestionMethodConfig = SNOWPIPE_STREAMING;
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =
-          InternalUtils.createProperties(conf, this.url, ingestionMethodConfig);
+          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(
+              conf, this.url, SNOWPIPE_STREAMING);
       Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(conf);
       this.jdbcProperties =
           JdbcProperties.create(connectionProperties, proxyProperties, jdbcPropertiesMap);
@@ -70,8 +71,13 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("jdbcProperties", jdbcProperties);
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
-      return new SnowflakeConnectionServiceV1(
-          jdbcProperties, url, connectorName, taskID, kafkaProvider, enableChangeTracking);
+
+      SnowflakeConnectionService baseService =
+          new StandardSnowflakeConnectionService(
+              jdbcProperties, url, connectorName, taskID, kafkaProvider, enableChangeTracking);
+
+      CachingConfig cachingConfig = CachingConfig.fromConfig(config);
+      return new CachingSnowflakeConnectionService(baseService, cachingConfig);
     }
   }
 }
