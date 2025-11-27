@@ -1,10 +1,13 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadExample;
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadWithWrongValueTypeExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.IcebergVersion.V2;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayload;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadWithWrongValueType;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonRecordValueExample;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonWithSchema;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
@@ -15,6 +18,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,8 +26,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @Disabled(
-    "TODO: lkucharki, this test was written for ssv1. Ssv2 does not support ICEBERG yet. When it"
-        + " does, enable the test and adapt it for ssv2")
+    "We don't enable this test suite because xp fails to log any issues that happen during"
+        + " conversion of data we're sending to ICeberg objects. Working blind is too time"
+        + " consuming. Tracker https://snowflakecomputing.atlassian.net/browse/SNOW-2856015")
 public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static final String PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA =
@@ -60,18 +65,24 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
           + PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA
           + ")";
 
-  @Override
+  @BeforeEach
   protected void createIcebergTable() {
     createIcebergTableWithColumnClause(
-        tableName, "RECORD_METADATA VARIANT, RECORD_CONTENT VARIANT");
+        tableName,
+        Utils.TABLE_COLUMN_METADATA
+            + " "
+            + IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA
+            + ", "
+            + Utils.TABLE_COLUMN_CONTENT
+            + " "
+            + COMPLEX_JSON_RECORD_CONTENT_OBJECT_SCHEMA,
+        V2);
   }
 
   private static Stream<Arguments> prepareData() {
     return Stream.of(
-        Arguments.of(
-            "Complex JSON with schema", ComplexJsonRecord.complexJsonWithSchemaExample, true),
-        Arguments.of(
-            "Complex JSON without schema", ComplexJsonRecord.complexJsonPayloadExample, false));
+        Arguments.of("Complex JSON with schema", complexJsonWithSchema, true),
+        Arguments.of("Complex JSON without schema", complexJsonPayload, false));
   }
 
   @ParameterizedTest(name = "{0}")
@@ -95,16 +106,16 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
   @Test
   void shouldSendValueWithWrongTypeToDLQ() throws Exception {
     SinkRecord wrongValueRecord1 =
-        createKafkaRecord(complexJsonPayloadWithWrongValueTypeExample, 0, false);
+        createKafkaRecord(complexJsonPayloadWithWrongValueType, 0, false);
     SinkRecord wrongValueRecord2 =
-        createKafkaRecord(complexJsonPayloadWithWrongValueTypeExample, 2, false);
+        createKafkaRecord(complexJsonPayloadWithWrongValueType, 2, false);
     service.insert(
         Arrays.asList(
             wrongValueRecord1,
-            createKafkaRecord(complexJsonPayloadExample, 1, false),
+            createKafkaRecord(complexJsonPayload, 1, false),
             wrongValueRecord2,
-            createKafkaRecord(complexJsonPayloadExample, 3, false),
-            createKafkaRecord(complexJsonPayloadExample, 4, false)));
+            createKafkaRecord(complexJsonPayload, 3, false),
+            createKafkaRecord(complexJsonPayload, 4, false)));
     waitForOffset(5);
 
     assertRecordsInTable(Arrays.asList(1L, 3L, 4L));

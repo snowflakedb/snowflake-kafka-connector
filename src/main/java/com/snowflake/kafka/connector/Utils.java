@@ -94,7 +94,7 @@ public class Utils {
    *   <li>Never suggest RC (release candidate) versions
    * </ul>
    */
-  static boolean checkConnectorVersion() {
+  public static boolean checkConnectorVersion() {
     return checkConnectorVersion(VERSION, fetchAvailableVersionsFromMaven());
   }
 
@@ -172,7 +172,7 @@ public class Utils {
         SemanticVersion version = new SemanticVersion(versionString);
 
         // Skip RC versions
-        if (version.isReleaseCandidate) {
+        if (version.isReleaseCandidate()) {
           continue;
         }
 
@@ -198,7 +198,7 @@ public class Utils {
    *
    * @param config connector configuration
    */
-  static ImmutableMap<String, String> validateProxySettings(Map<String, String> config) {
+  public static ImmutableMap<String, String> validateProxySettings(Map<String, String> config) {
     Map<String, String> invalidConfigParams = new HashMap<String, String>();
 
     String host =
@@ -238,7 +238,7 @@ public class Utils {
    *
    * @param config connector configuration
    */
-  static void enableJVMProxy(Map<String, String> config) {
+  public static void enableJVMProxy(Map<String, String> config) {
     String host =
         ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_HOST);
     String port =
@@ -307,7 +307,7 @@ public class Utils {
    * @param appName snowflake application name
    * @return true if given application name is valid
    */
-  static boolean isValidSnowflakeApplicationName(String appName) {
+  public static boolean isValidSnowflakeApplicationName(String appName) {
     return appName.matches("^[-_a-zA-Z]{1}[-_$a-zA-Z0-9]+$");
   }
 

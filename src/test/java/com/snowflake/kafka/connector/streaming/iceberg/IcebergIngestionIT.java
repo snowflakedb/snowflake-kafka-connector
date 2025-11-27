@@ -51,22 +51,17 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
         KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
         ConnectorConfigTools.ErrorTolerance.ALL.toString());
     config.put(KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
-
-    createIcebergTable();
-    enableSchemaEvolution(tableName);
-
     // only insert fist topic to topicTable
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, tableName);
 
     kafkaRecordErrorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(snowflakeDatabase, config)
             .withErrorReporter(kafkaRecordErrorReporter)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withTopicToTableMap(topic2Table)
             .build();
-    service.startPartition(topicPartition);
   }
 
   @AfterEach
@@ -76,8 +71,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     }
     dropIcebergTable(tableName);
   }
-
-  protected abstract void createIcebergTable();
 
   protected void waitForOffset(long targetOffset) throws Exception {
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == targetOffset);

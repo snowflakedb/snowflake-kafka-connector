@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -15,6 +17,21 @@ import java.util.Objects;
 import org.assertj.core.api.Assertions;
 
 public class ComplexJsonRecord {
+
+  public static final String complexJsonPayload =
+      loadJsonResource("/com/snowflake/kafka/connector/complexJsonPayload.json");
+
+  public static final String complexJsonPayloadEncapsulated =
+      "{" + "\"record_content\": " + complexJsonPayload + "}";
+
+  public static final String complexJsonPayloadWithWrongValueType =
+      loadJsonResource("/com/snowflake/kafka/connector/complexJsonPayloadWithWrongValueType.json");
+
+  public static final String complexJsonWithSchema =
+      loadJsonResource("/com/snowflake/kafka/connector/complexJsonWithSchema.json");
+
+  private static final ObjectMapper MAPPER =
+      new ObjectMapper().configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   public static final ComplexJsonRecord complexJsonRecordValueExample =
       new ComplexJsonRecord(
@@ -34,215 +51,16 @@ public class ComplexJsonRecord {
           PrimitiveJsonRecord.primitiveJsonRecordValueExample,
           PrimitiveJsonRecord.primitiveJsonRecordValueExample);
 
-  public static final String complexJsonPayloadExample =
-      "{"
-          + "  \"id_int8\": 8,"
-          + "  \"id_int16\": 16,"
-          + "  \"id_int32\": 32,"
-          + "  \"id_int64\": 64,"
-          + "  \"description\": \"dogs are the best\","
-          + "  \"rating_float32\": 0.5,"
-          + "  \"rating_float64\": 0.25,"
-          + "  \"approval\": true,"
-          + "  \"array1\": [1, 2, 3],"
-          + "  \"array2\": [\"a\", \"b\", \"c\"],"
-          + "  \"array3\": [true],"
-          + "  \"array4\": [1, 4],"
-          + "  \"array5\": [[7, 8, 9], [10, 11, 12]],"
-          + "  \"nestedRecord\": "
-          + PrimitiveJsonRecord.primitiveJsonExample
-          + ","
-          + "  \"nestedRecord2\": "
-          + PrimitiveJsonRecord.primitiveJsonExample
-          + "}";
-
-  public static final String complexJsonPayloadWithWrongValueTypeExample =
-      "{"
-          + "  \"id_int8\": 8,"
-          + "  \"id_int16\": 16,"
-          + "  \"id_int32\": 32,"
-          + "  \"id_int64\": 64,"
-          + "  \"description\": \"dogs are the best\","
-          + "  \"rating_float32\": 0.5,"
-          + "  \"rating_float64\": 0.25,"
-          + "  \"approval\": true,"
-          + "  \"array1\": [1, 2, 3],"
-          + "  \"array2\": [\"a\", \"b\", \"c\"],"
-          + "  \"array3\": [true],"
-          + "  \"array4\": [1, 4],"
-          + "  \"array5\": [[7, 8, 9], [10, 11, 12]],"
-          + "  \"nestedRecord\": "
-          + PrimitiveJsonRecord.primitiveJsonExample
-          + ","
-          + "  \"nestedRecord2\": 25"
-          + "}";
-
-  public static final String complexJsonWithSchemaExample =
-      "{"
-          + "  \"schema\": {"
-          + "    \"type\": \"struct\","
-          + "    \"fields\": ["
-          + "      {"
-          + "        \"field\": \"id_int8\","
-          + "        \"type\": \"int8\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int16\","
-          + "        \"type\": \"int16\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int32\","
-          + "        \"type\": \"int32\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int64\","
-          + "        \"type\": \"int64\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"description\","
-          + "        \"type\": \"string\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"rating_float32\","
-          + "        \"type\": \"float\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"rating_float64\","
-          + "        \"type\": \"double\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"approval\","
-          + "        \"type\": \"boolean\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"array1\","
-          + "          \"type\": \"array\","
-          + "          \"items\": {"
-          + "            \"type\": \"int32\""
-          + "          }"
-          + "      },"
-          + "      {"
-          + "        \"field\": \"array2\","
-          + "          \"type\": \"array\","
-          + "          \"items\": {"
-          + "            \"type\": \"string\""
-          + "          }"
-          + "      },"
-          + "      {"
-          + "        \"field\": \"array3\","
-          + "          \"type\": \"array\","
-          + "          \"items\": {"
-          + "            \"type\": \"boolean\""
-          + "          }"
-          + "      },"
-          + "      {"
-          + "        \"field\": \"array4\","
-          + "          \"type\": \"array\","
-          + "          \"items\": {"
-          + "            \"type\": \"int32\""
-          + "          },"
-          + "          \"optional\": true"
-          + "      },"
-          + "      {"
-          + "        \"field\": \"array5\","
-          + "          \"type\": \"array\","
-          + "          \"items\": {"
-          + "            \"type\": \"array\","
-          + "          \"items\": {"
-          + "            \"type\": \"int32\""
-          + "          }"
-          + "          }"
-          + "      },"
-          + "      {"
-          + "        \"field\": \"nestedRecord\","
-          + "          \"type\": \"struct\","
-          + "          \"fields\": ["
-          + "            {"
-          + "              \"field\": \"id_int8\","
-          + "              \"type\": \"int8\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"id_int16\","
-          + "              \"type\": \"int16\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"id_int32\","
-          + "              \"type\": \"int32\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"id_int64\","
-          + "              \"type\": \"int64\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"description\","
-          + "              \"type\": \"string\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"rating_float32\","
-          + "              \"type\": \"float\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"rating_float64\","
-          + "              \"type\": \"double\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"approval\","
-          + "              \"type\": \"boolean\""
-          + "            }"
-          + "          ],"
-          + "          \"optional\": true,"
-          + "          \"name\": \"sf.kc.test\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"nestedRecord2\","
-          + "          \"type\": \"struct\","
-          + "          \"fields\": ["
-          + "            {"
-          + "              \"field\": \"id_int8\","
-          + "              \"type\": \"int8\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"id_int16\","
-          + "              \"type\": \"int16\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"id_int32\","
-          + "              \"type\": \"int32\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"id_int64\","
-          + "              \"type\": \"int64\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"description\","
-          + "              \"type\": \"string\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"rating_float32\","
-          + "              \"type\": \"float\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"rating_float64\","
-          + "              \"type\": \"double\""
-          + "            },"
-          + "            {"
-          + "              \"field\": \"approval\","
-          + "              \"type\": \"boolean\""
-          + "            }"
-          + "          ],"
-          + "          \"optional\": true,"
-          + "          \"name\": \"sf.kc.test\""
-          + "      }"
-          + "    ],"
-          + "    \"optional\": false,"
-          + "    \"name\": \"sf.kc.test\""
-          + "  },"
-          + "  \"payload\": "
-          + complexJsonPayloadExample
-          + "}";
-
-  private static final ObjectMapper MAPPER =
-      new ObjectMapper().configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
+  private static String loadJsonResource(final String resourcePath) {
+    try (InputStream is = ComplexJsonRecord.class.getResourceAsStream(resourcePath)) {
+      if (is == null) {
+        throw new RuntimeException("Resource not found: " + resourcePath);
+      }
+      return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to load resource: " + resourcePath, e);
+    }
+  }
 
   private final Long idInt8;
 

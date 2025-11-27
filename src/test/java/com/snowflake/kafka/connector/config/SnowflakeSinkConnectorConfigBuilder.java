@@ -24,10 +24,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return commonRequiredFields();
   }
 
-  public static SnowflakeSinkConnectorConfigBuilder icebergConfig() {
-    return commonRequiredFields().withIcebergEnabled();
-  }
-
   private static SnowflakeSinkConnectorConfigBuilder commonRequiredFields() {
     return new SnowflakeSinkConnectorConfigBuilder()
         .withName("test")

@@ -1,0 +1,27 @@
+{
+  "id_int8": 8,
+  "id_int16": 16,
+  "id_int32": 32,
+  "id_int64": 64,
+  "description": "dogs are the best",
+  "rating_float32": 0.5,
+  "rating_float64": 0.25,
+  "approval": true,
+  "array1": [1, 2, 3],
+  "array2": ["a", "b", "c"],
+  "array3": [true],
+  "array4": [1, 4],
+  "array5": [[7, 8, 9], [10, 11, 12]],
+  "nestedRecord": {
+    "id_int8": 8,
+    "id_int16": 16,
+    "id_int32": 32,
+    "id_int64": 64,
+    "description": "dogs are the best",
+    "rating_float32": 0.5,
+    "rating_float64": 0.25,
+    "approval": true
+  },
+  "nestedRecord2": 25
+}
+
