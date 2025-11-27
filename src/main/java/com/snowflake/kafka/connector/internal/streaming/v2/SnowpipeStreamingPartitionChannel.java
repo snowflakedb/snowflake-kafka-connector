@@ -4,7 +4,6 @@ import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5027;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5028;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.ingest.streaming.InsertValidationResponse;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -291,11 +290,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    *
    * <p>Note that insertRows API does perform channel validation which might throw SFException if
    * channel is invalidated.
-   *
-   * <p>It can also send errors {@link InsertValidationResponse.InsertError} in form of response
-   * inside {@link InsertValidationResponse}
-   *
-   * @return InsertValidationResponse a response that wraps around InsertValidationResponse
    */
   private void insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
     AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
