@@ -118,4 +118,28 @@ class ConnectionServiceIT {
     service.close();
     assert service.isClosed();
   }
+
+  @Test
+  void testEnableChangeTracking() throws SQLException {
+    // create table without change tracking
+    conn.createTable(tableName);
+    assert conn.tableExist(tableName);
+    // verify change tracking is off by default
+    assert !isChangeTrackingEnabled(tableName);
+
+    // enable change tracking
+    conn.enableChangeTrackingOnTable(tableName);
+    // verify change tracking is on
+    assert isChangeTrackingEnabled(tableName);
+
+    TestUtils.dropTable(tableName);
+  }
+
+  private boolean isChangeTrackingEnabled(String tableName) throws SQLException {
+    ResultSet rs = TestUtils.executeQuery("SHOW TABLES LIKE '" + tableName + "'");
+    if (rs.next()) {
+      return "ON".equalsIgnoreCase(rs.getString("change_tracking"));
+    }
+    return false;
+  }
 }

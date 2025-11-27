@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig.SNOWPIPE_STREAMING;
 
+import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.util.Map;
@@ -18,6 +19,9 @@ public class SnowflakeConnectionServiceFactory {
     private SnowflakeURL url;
     private String connectorName;
     private String taskID = "-1";
+
+    // Enable CHANGE_TRACKING on the table after creation
+    private boolean enableChangeTracking = false;
 
     /** Underlying implementation - Check Enum {@link IngestionMethodConfig} */
     private IngestionMethodConfig ingestionMethodConfig;
@@ -41,7 +45,12 @@ public class SnowflakeConnectionServiceFactory {
       }
       this.url = new SnowflakeURL(conf.get(Utils.SF_URL));
       this.connectorName = conf.get(Utils.NAME);
-      this.config = conf; // Store the config for caching configuration
+      this.config = conf;
+      this.enableChangeTracking =
+          Boolean.parseBoolean(
+              conf.getOrDefault(
+                  SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_CONFIG,
+                  Boolean.toString(SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_DEFAULT)));
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =
@@ -59,7 +68,8 @@ public class SnowflakeConnectionServiceFactory {
       InternalUtils.assertNotEmpty("connectorName", connectorName);
 
       SnowflakeConnectionService baseService =
-          new StandardSnowflakeConnectionService(jdbcProperties, url, connectorName, taskID);
+          new StandardSnowflakeConnectionService(
+              jdbcProperties, url, connectorName, taskID, enableChangeTracking);
 
       CachingConfig cachingConfig = CachingConfig.fromConfig(config);
       return new CachingSnowflakeConnectionService(baseService, cachingConfig);

@@ -35,11 +35,18 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
   private final String taskID;
+  private final boolean enableChangeTracking;
 
   StandardSnowflakeConnectionService(
-      JdbcProperties jdbcProperties, SnowflakeURL url, String connectorName, String taskID) {
+      JdbcProperties jdbcProperties,
+      SnowflakeURL url,
+      String connectorName,
+      String taskID,
+      boolean enableChangeTracking) {
     this.connectorName = connectorName;
     this.taskID = taskID;
+    this.enableChangeTracking = enableChangeTracking;
+
     Properties proxyProperties = jdbcProperties.getProxyProperties();
     Properties combinedProperties = jdbcProperties.getProperties();
     try {
@@ -62,6 +69,24 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
 
   @Override
   public void createTable(final String tableName, final boolean overwrite) {
+    createTable(tableName, overwrite, this.enableChangeTracking);
+  }
+
+  @Override
+  public void createTable(final String tableName) {
+    createTable(tableName, false, this.enableChangeTracking);
+  }
+
+  /**
+   * Create a table with two variant columns: RECORD_METADATA and RECORD_CONTENT
+   *
+   * @param tableName a string represents table name
+   * @param overwrite if true, execute "create or replace table" query; otherwise, run "create table
+   *     if not exists"
+   * @param enableChangeTracking if true, enable CHANGE_TRACKING on the table after creation
+   */
+  public void createTable(
+      final String tableName, final boolean overwrite, final boolean enableChangeTracking) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String query;
@@ -80,15 +105,25 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
 
     LOGGER.info("create table {}", tableName);
-  }
 
-  @Override
-  public void createTable(final String tableName) {
-    createTable(tableName, false);
+    if (enableChangeTracking) {
+      enableChangeTrackingOnTable(tableName);
+    }
   }
 
   @Override
   public void createTableWithOnlyMetadataColumn(final String tableName) {
+    createTableWithOnlyMetadataColumn(tableName, this.enableChangeTracking);
+  }
+
+  /**
+   * Create a table with only RECORD_METADATA column for snowpipe streaming
+   *
+   * @param tableName table name
+   * @param enableChangeTracking if true, enable CHANGE_TRACKING on the table after creation
+   */
+  public void createTableWithOnlyMetadataColumn(
+      final String tableName, final boolean enableChangeTracking) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String createTableQuery =
@@ -118,6 +153,10 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
 
     LOGGER.info("Created table {} with only RECORD_METADATA column", tableName);
+
+    if (enableChangeTracking) {
+      enableChangeTrackingOnTable(tableName);
+    }
   }
 
   @Override
@@ -649,6 +688,24 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       stmt.close();
     } catch (Exception e) {
       throw new RuntimeException("Error executing query: " + query, e);
+    }
+  }
+
+  @Override
+  public void enableChangeTrackingOnTable(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String enableChangeTrackingQuery = "alter table identifier(?) set CHANGE_TRACKING = true";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(enableChangeTrackingQuery);
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+      LOGGER.info("Enabled CHANGE_TRACKING on table: {}", tableName);
+    } catch (SQLException e) {
+      // Log warning but don't fail - similar to schema evolution behavior
+      LOGGER.warn(
+          "Enable CHANGE_TRACKING failed on table: {}, message: {}", tableName, e.getMessage());
     }
   }
 

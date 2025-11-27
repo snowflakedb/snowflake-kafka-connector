@@ -451,6 +451,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // ------ Streaming Ingest Related Functions ------ //
   private void createTableIfNotExists(final String tableName) {
+    boolean enableChangeTracking =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_CONFIG,
+                String.valueOf(SnowflakeSinkConnectorConfig.ENABLE_CHANGE_TRACKING_DEFAULT)));
+
     if (this.conn.tableExist(tableName)) {
       if (!isSchematizationEnabled(connectorConfig)) {
         if (this.conn.isTableCompatible(tableName)) {
@@ -469,7 +475,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         // the schema
         this.conn.createTableWithOnlyMetadataColumn(tableName);
       } else {
-        this.conn.createTable(tableName);
+        this.conn.createTable(tableName, false);
       }
     }
 

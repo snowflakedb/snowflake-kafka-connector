@@ -251,6 +251,11 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     delegate.appendMetaColIfNotExist(tableName);
   }
 
+  @Override
+  public void enableChangeTrackingOnTable(String tableName) {
+    delegate.enableChangeTrackingOnTable(tableName);
+  }
+
   private void logStatsIfNeeded() {
     final long now = System.currentTimeMillis();
     final long lastLogged = lastStatsLogTimestamp.get();

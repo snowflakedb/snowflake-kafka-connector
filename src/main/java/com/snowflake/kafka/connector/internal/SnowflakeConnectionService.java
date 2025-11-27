@@ -170,4 +170,12 @@ public interface SnowflakeConnectionService {
    * @param parameters query parameters
    */
   void executeQueryWithParameters(String query, String... parameters);
+
+  /**
+   * Enable CHANGE_TRACKING on a table. This is typically called after creating a table
+   * automatically to enable change data capture capabilities.
+   *
+   * @param tableName table name
+   */
+  void enableChangeTrackingOnTable(String tableName);
 }
