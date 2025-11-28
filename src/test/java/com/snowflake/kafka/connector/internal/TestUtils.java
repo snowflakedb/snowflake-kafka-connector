@@ -25,8 +25,6 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_PORT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_USER;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_USE_PROXY;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
@@ -215,7 +213,7 @@ public class TestUtils {
     // On top of existing properties, add
     configuration.put(Utils.TASK_ID, "0");
     configuration.put(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
-    configuration.put(SNOWFLAKE_ENABLE_SCHEMATIZATION, SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT);
+
     return configuration;
   }
 

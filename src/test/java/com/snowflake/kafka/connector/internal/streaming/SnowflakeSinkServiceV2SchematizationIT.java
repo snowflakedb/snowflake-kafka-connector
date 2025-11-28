@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMA_REGISTRY_URL;
@@ -47,7 +46,6 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
   @BeforeEach
   public void setup() {
     config = TestUtils.getConnectorConfigurationForStreaming(false);
-    config.put(SNOWFLAKE_ENABLE_SCHEMATIZATION, "true");
     config.put(VALUE_CONVERTER, "org.apache.kafka.connect.json.JsonConverter");
     config.put(VALUE_CONVERTER_SCHEMA_REGISTRY_URL, "http://fake-url");
     config.put("schemas.enable", "false");

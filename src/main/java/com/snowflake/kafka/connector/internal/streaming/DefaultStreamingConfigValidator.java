@@ -105,31 +105,13 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   private static Map<String, String> validateSchematizationConfig(Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
-    if (inputConfig.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION)) {
-      try {
-        BOOLEAN_VALIDATOR.ensureValid(
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-            inputConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION));
-      } catch (ConfigException e) {
-        invalidParams.put(
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION, e.getMessage());
-        return invalidParams;
-      }
-
-      boolean isSchematizationEnabled =
-          Boolean.parseBoolean(
-              inputConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION));
-
-      if (isSchematizationEnabled
-          && inputConfig.get(VALUE_CONVERTER) != null
-          && (inputConfig.get(VALUE_CONVERTER).contains(STRING_CONVERTER_KEYWORD)
-              || inputConfig.get(VALUE_CONVERTER).contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
-        invalidParams.put(
-            inputConfig.get(VALUE_CONVERTER),
-            Utils.formatString(
-                "The value converter:{} is not supported with schematization.",
-                inputConfig.get(VALUE_CONVERTER)));
-      }
+    if (inputConfig.get(VALUE_CONVERTER) != null
+        && (inputConfig.get(VALUE_CONVERTER).contains(STRING_CONVERTER_KEYWORD)
+            || inputConfig.get(VALUE_CONVERTER).contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
+      invalidParams.put(
+          inputConfig.get(VALUE_CONVERTER),
+          Utils.formatString(
+              "The value converter:{} is not supported.", inputConfig.get(VALUE_CONVERTER)));
     }
 
     return invalidParams;

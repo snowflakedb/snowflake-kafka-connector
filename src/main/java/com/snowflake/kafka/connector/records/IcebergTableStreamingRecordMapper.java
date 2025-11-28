@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.records;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import static com.snowflake.kafka.connector.records.RecordService.*;
 
@@ -14,9 +13,8 @@ import java.util.Map;
 
 class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
 
-  public IcebergTableStreamingRecordMapper(
-      ObjectMapper objectMapper, boolean schematizationEnabled) {
-    super(objectMapper, schematizationEnabled);
+  public IcebergTableStreamingRecordMapper(ObjectMapper objectMapper) {
+    super(objectMapper);
   }
 
   @Override
@@ -24,20 +22,12 @@ class IcebergTableStreamingRecordMapper extends StreamingRecordMapper {
       throws JsonProcessingException {
     final Map<String, Object> streamingIngestRow = new HashMap<>();
     for (JsonNode node : row.getContent().getData()) {
-      if (schematizationEnabled) {
-        streamingIngestRow.putAll(getMapForSchematization(node));
-      } else {
-        streamingIngestRow.put(TABLE_COLUMN_CONTENT, getMapForNoSchematization(node));
-      }
+      streamingIngestRow.putAll(getMapForSchematization(node));
     }
     if (includeMetadata) {
       streamingIngestRow.put(TABLE_COLUMN_METADATA, getMapForMetadata(row.getMetadata()));
     }
     return streamingIngestRow;
-  }
-
-  private Map<String, Object> getMapForNoSchematization(JsonNode node) {
-    return mapper.convertValue(node, OBJECTS_MAP_TYPE_REFERENCE);
   }
 
   private Map<String, Object> getMapForSchematization(JsonNode node) {

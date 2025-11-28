@@ -72,8 +72,7 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
       String description, SnowflakeTableRow row, Map<String, Object> expected)
       throws JsonProcessingException {
     // When
-    IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
+    IcebergTableStreamingRecordMapper mapper = new IcebergTableStreamingRecordMapper(objectMapper);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
 
     // Then
@@ -85,18 +84,12 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
   void shouldMapMetadata(String description, SnowflakeTableRow row, Map<String, Object> expected)
       throws JsonProcessingException {
     // When
-    IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
     IcebergTableStreamingRecordMapper mapperSchematization =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
-    IcebergTableStreamingRecordMapper ssv2Mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
-    Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
+        new IcebergTableStreamingRecordMapper(objectMapper);
     Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, true);
-    ssv2Mapper.processSnowflakeRecord(row, true);
+    mapperSchematization.processSnowflakeRecord(row, true);
 
     // Then
-    assertThat(result.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
     assertThat(resultSchematized.get(Utils.TABLE_COLUMN_METADATA)).isEqualTo(expected);
   }
 
@@ -106,30 +99,10 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
     SnowflakeTableRow row = buildRowWithDefaultMetadata(primitiveJsonExample);
 
     // When
-    IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
-    IcebergTableStreamingRecordMapper mapperSchematization =
-        new IcebergTableStreamingRecordMapper(objectMapper, true);
+    IcebergTableStreamingRecordMapper mapper = new IcebergTableStreamingRecordMapper(objectMapper);
     Map<String, Object> result = mapper.processSnowflakeRecord(row, false);
-    Map<String, Object> resultSchematized = mapperSchematization.processSnowflakeRecord(row, false);
-
     // Then
     assertThat(result).doesNotContainKey(Utils.TABLE_COLUMN_METADATA);
-    assertThat(resultSchematized).doesNotContainKey(Utils.TABLE_COLUMN_METADATA);
-  }
-
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("prepareNoSchematizationData")
-  void shouldMapRecord_schematizationDisabled(
-      String description, SnowflakeTableRow row, Map<String, Object> expected)
-      throws JsonProcessingException {
-    // When
-    IcebergTableStreamingRecordMapper mapper =
-        new IcebergTableStreamingRecordMapper(objectMapper, false);
-    Map<String, Object> result = mapper.processSnowflakeRecord(row, true);
-
-    // Then
-    assertThat(result).isEqualTo(expected);
   }
 
   private static Stream<Arguments> prepareSchematizationData() throws JsonProcessingException {
@@ -262,101 +235,6 @@ class IcebergTableStreamingRecordMapperTest extends StreamingRecordMapperTest {
             "Metadata with null field value",
             buildRow("{}", "{\"offset\": null}"),
             mapWithNullableValuesOf("offset", null, "headers", ImmutableMap.of())));
-  }
-
-  private static Stream<Arguments> prepareNoSchematizationData() throws JsonProcessingException {
-    return Stream.of(
-        Arguments.of(
-            "Empty JSON",
-            buildRowWithDefaultMetadata("{}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of(),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "Simple JSON",
-            buildRowWithDefaultMetadata("{\"key\": \"value\"}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("key", "value"),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "UPPERCASE key JSON",
-            buildRowWithDefaultMetadata("{\"KEY\": \"value\"}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("KEY", "value"),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "JSON with different primitive types",
-            buildRowWithDefaultMetadata(primitiveJsonExample),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                primitiveJsonAsMap,
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "Nested array",
-            buildRowWithDefaultMetadata(
-                "{\"key\": [" + primitiveJsonExample + ", " + primitiveJsonExample + "]}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("key", List.of(primitiveJsonAsMap, primitiveJsonAsMap)),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "Empty nested array",
-            buildRowWithDefaultMetadata("{\"key\": []}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("key", List.of()),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "Empty object",
-            buildRowWithDefaultMetadata("{\"key\": {}}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("key", ImmutableMap.of()),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "Nested object",
-            buildRowWithDefaultMetadata("{\"key\":" + primitiveJsonExample + "}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("key", primitiveJsonAsMap),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "Double nested object",
-            buildRowWithDefaultMetadata("{\"key\":{\"key2\":" + primitiveJsonExample + "}}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                ImmutableMap.of("key", ImmutableMap.of("key2", primitiveJsonAsMap)),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)),
-        Arguments.of(
-            "Nested objects and primitive types",
-            buildRowWithDefaultMetadata(
-                primitiveJsonExample.replaceFirst("}", "")
-                    + ",\"key\":"
-                    + primitiveJsonExample
-                    + "}"),
-            ImmutableMap.of(
-                Utils.TABLE_COLUMN_CONTENT,
-                addToMap(primitiveJsonAsMap, "key", primitiveJsonAsMap),
-                Utils.TABLE_COLUMN_METADATA,
-                fullMetadataJsonAsMap)));
-  }
-
-  private static <T> Map<String, T> addToMap(Map<String, T> map, String key, T value) {
-    HashMap<String, T> newMap = new HashMap<>(map);
-    newMap.put(key, value);
-    return newMap;
   }
 
   private static <T> Map<String, ?> mapWithNullableValuesOf(String key, T value) {

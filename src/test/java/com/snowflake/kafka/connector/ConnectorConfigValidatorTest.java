@@ -14,7 +14,6 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PORT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME;
@@ -60,19 +59,11 @@ public class ConnectorConfigValidatorTest {
   public static Stream<Arguments> validConfigs() {
     return Stream.of(
         Arguments.of(SnowflakeSinkConnectorConfigBuilder.streamingConfig().build()),
-        Arguments.of(
-            SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-                .withSchematizationEnabled(true)
-                .build()));
+        Arguments.of(SnowflakeSinkConnectorConfigBuilder.streamingConfig().build()));
   }
 
   static Stream<Arguments> invalidConfigs() {
     return Stream.of(
-        Arguments.of(
-            SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-                .withSchematizationEnabled(false)
-                .build(),
-            "Schematization must be enabled"),
         Arguments.of(
             SnowflakeSinkConnectorConfigBuilder.icebergConfig().withIcebergEnabled().build(),
             "snowflake.streaming.iceberg.enabled"),
@@ -415,9 +406,8 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
-  public void testSchematizationWithUnsupportedConverter() {
+  public void testUnsupportedConverter() {
     Map<String, String> config = getConfig();
-    config.put(SNOWFLAKE_ENABLE_SCHEMATIZATION, "true");
     config.put(
         KafkaConnectorConfigParams.VALUE_CONVERTER,
         "org.apache.kafka.connect.storage.StringConverter");

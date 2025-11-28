@@ -72,8 +72,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   /** Available from {@link SinkTask} which has access to various utility methods. */
   private final SinkTaskContext sinkTaskContext;
 
-  private final boolean schematizationEnabled;
-
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
 
   private final StreamingRecordService streamingRecordService;
@@ -96,7 +94,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String tableName,
       String channelName,
       String pipeName,
-      boolean schematizationEnabled,
       TopicPartition topicPartition,
       SnowflakeConnectionService conn,
       Map<String, String> connectorConfig,
@@ -107,7 +104,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String connectorName,
       String taskId,
       StreamingErrorHandler streamingErrorHandler) {
-    this.schematizationEnabled = schematizationEnabled;
     this.channelName = channelName;
     this.topicPartition = topicPartition;
     this.connectorConfig = connectorConfig;

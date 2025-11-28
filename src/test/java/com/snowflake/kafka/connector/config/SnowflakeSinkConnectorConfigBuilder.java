@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.config;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME;
@@ -26,7 +25,7 @@ public class SnowflakeSinkConnectorConfigBuilder {
   }
 
   public static SnowflakeSinkConnectorConfigBuilder icebergConfig() {
-    return commonRequiredFields().withIcebergEnabled().withSchematizationEnabled(true);
+    return commonRequiredFields().withIcebergEnabled();
   }
 
   private static SnowflakeSinkConnectorConfigBuilder commonRequiredFields() {
@@ -37,7 +36,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
         .withSchema("testSchema")
         .withDatabase("testDatabase")
         .withUser("userName")
-        .withSchematizationEnabled(true)
         .withPrivateKey("fdsfsdfsdfdsfdsrqwrwewrwrew42314424")
         .withRole("role");
   }
@@ -89,11 +87,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
 
   public SnowflakeSinkConnectorConfigBuilder withoutRole() {
     config.remove(SNOWFLAKE_ROLE_NAME);
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withSchematizationEnabled(boolean enabled) {
-    config.put(SNOWFLAKE_ENABLE_SCHEMATIZATION, Boolean.toString(enabled));
     return this;
   }
 

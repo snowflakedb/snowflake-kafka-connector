@@ -7,9 +7,7 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JMX_OPT;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
-import static com.snowflake.kafka.connector.Utils.isSchematizationEnabled;
 import static com.snowflake.kafka.connector.Utils.isValidSnowflakeApplicationName;
 import static com.snowflake.kafka.connector.Utils.parseTopicToTableMap;
 import static com.snowflake.kafka.connector.Utils.validateProxySettings;
@@ -126,12 +124,6 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
             JMX_OPT,
             Utils.formatString("Kafka config: {} should either be true or false", JMX_OPT));
       }
-    }
-
-    if (!isSchematizationEnabled(config)) {
-      invalidConfigParams.put(
-          SNOWFLAKE_ENABLE_SCHEMATIZATION,
-          Utils.formatString("Schematization must be enabled", SNOWFLAKE_ENABLE_SCHEMATIZATION));
     }
 
     validateCacheConfig(config, invalidConfigParams);

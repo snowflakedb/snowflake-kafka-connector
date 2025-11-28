@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.records;
 
-import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_CONTENT;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -13,8 +12,8 @@ import java.util.Map;
 
 class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
 
-  public SnowflakeTableStreamingRecordMapper(ObjectMapper mapper, boolean schematizationEnabled) {
-    super(mapper, schematizationEnabled);
+  public SnowflakeTableStreamingRecordMapper(ObjectMapper mapper) {
+    super(mapper);
   }
 
   @Override
@@ -30,31 +29,10 @@ class SnowflakeTableStreamingRecordMapper extends StreamingRecordMapper {
 
   private Map<String, Object> getContent(RecordService.SnowflakeTableRow row) {
     try {
-      if (schematizationEnabled) {
-        return getContentForSchematized(row);
-      } else {
-        return getContentForNonSchematized(row);
-      }
+      return getContentForSchematized(row);
     } catch (Exception e) {
       throw SnowflakeErrors.ERROR_0010.getException(e);
     }
-  }
-
-  private Map<String, Object> getContentForNonSchematized(RecordService.SnowflakeTableRow row) {
-    Map<String, Object> result = new HashMap<>();
-    for (JsonNode node : row.getContent().getData()) {
-      switch (node.getNodeType()) {
-        case OBJECT:
-          result.put(TABLE_COLUMN_CONTENT, mapper.convertValue(node, OBJECTS_MAP_TYPE_REFERENCE));
-          break;
-        case ARRAY:
-          result.put(TABLE_COLUMN_CONTENT, mapper.convertValue(node, OBJECTS_LIST_TYPE_REFERENCE));
-          break;
-        default:
-          result.put(TABLE_COLUMN_CONTENT, node.asText());
-      }
-    }
-    return result;
   }
 
   private Map<String, Object> getContentForSchematized(RecordService.SnowflakeTableRow row)
