@@ -5,7 +5,7 @@ import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKe
 import static org.assertj.core.api.Assertions.*;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
@@ -134,10 +134,11 @@ public class StreamingClientManagerIT {
     // Given
     String privateKey = generatePemPrivateKey();
     Map<String, String> connectorConfig = new HashMap<>();
-    connectorConfig.put(Utils.SF_URL, "https://test.snowflakecomputing.com");
-    connectorConfig.put(Utils.SF_PRIVATE_KEY, privateKey);
-    connectorConfig.put(Utils.SF_USER, "test_user");
-    connectorConfig.put(Utils.SF_ROLE, "TEST_ROLE");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://test.snowflakecomputing.com");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, privateKey);
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "test_user");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "TEST_ROLE");
 
     // When
     Properties properties = StreamingClientManager.getClientProperties(connectorConfig);

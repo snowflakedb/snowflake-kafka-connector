@@ -70,7 +70,7 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
             null,
             Instant.now());
     final FakeSnowflakeStreamingIngestChannel channel =
-        new FakeSnowflakeStreamingIngestChannel(this, pipeName, channelName);
+        new FakeSnowflakeStreamingIngestChannel(pipeName, channelName);
     openedChannels.add(channel);
     return new OpenChannelResult(channel, channelStatus);
   }

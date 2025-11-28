@@ -6,6 +6,7 @@ import static java.lang.String.format;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -21,7 +22,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -29,9 +29,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 /**
@@ -58,16 +55,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     TestUtils.dropTable(topicName);
   }
 
-  private static Stream<Arguments> oAuthAndSingleBufferParameters() {
-    return Stream.of(Arguments.of(false, false), Arguments.of(false, true));
-    // OAuth tests are temporary disabled
-    // return TestUtils.nBooleanProduct(2);
-  }
-
   @Test
   public void testSinkTask() throws Exception {
-    Map<String, String> config = getConfig(false);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    Map<String, String> config = getConfig();
+    ConnectorConfigTools.setDefaultValues(config);
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
@@ -100,11 +91,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     sinkTask.stop();
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {false}) // false only - oauth is not used for ssv2
-  public void testSinkTaskWithMultipleOpenClose(boolean useOAuth) throws Exception {
-    Map<String, String> config = getConfig(useOAuth);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+  @Test
+  public void testSinkTaskWithMultipleOpenClose() throws Exception {
+    Map<String, String> config = getConfig();
+    ConnectorConfigTools.setDefaultValues(config);
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
     // Inits the sinktaskcontext
@@ -192,10 +182,9 @@ public class SnowflakeSinkTaskForStreamingIT {
     assert partitionsInTable.size() == 2;
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {true, false})
-  public void testTopicToTableRegex(boolean useOAuth) {
-    Map<String, String> config = getConfig(useOAuth);
+  @Test
+  public void testTopicToTableRegex() {
+    Map<String, String> config = getConfig();
 
     testTopicToTableRegexMain(config);
   }
@@ -287,7 +276,8 @@ public class SnowflakeSinkTaskForStreamingIT {
       List<String> partitionStrList,
       Map<String, String> expectedTopic2TableConfig) {
     // setup
-    connectorBaseConfig.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, topic2tableRegex);
+    connectorBaseConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, topic2tableRegex);
 
     // setup partitions
     List<TopicPartition> testPartitions = new ArrayList<>();
@@ -310,7 +300,6 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     for (String topicStr : expectedTopic2TableConfig.keySet()) {
       TopicPartition topic = null;
-      String table = expectedTopic2TableConfig.get(topicStr);
       for (TopicPartition currTp : testPartitions) {
         if (currTp.topic().equals(topicStr)) {
           topic = currTp;
@@ -320,11 +309,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     }
   }
 
-  private Map<String, String> getConfig(boolean useOAuth) {
-    if (!useOAuth) {
-      return TestUtils.getConnectorConfigurationForStreaming(false);
-    } else {
-      return TestUtils.getConfForStreamingWithOAuth();
-    }
+  private Map<String, String> getConfig() {
+
+    return TestUtils.getConnectorConfigurationForStreaming(false);
   }
 }

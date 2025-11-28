@@ -1,14 +1,13 @@
 package com.snowflake.kafka.connector.config;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG;
-import static com.snowflake.kafka.connector.Utils.SF_DATABASE;
-import static com.snowflake.kafka.connector.Utils.SF_ROLE;
-import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
-import static com.snowflake.kafka.connector.Utils.SF_URL;
-import static com.snowflake.kafka.connector.Utils.SF_USER;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
-import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,82 +43,57 @@ public class SnowflakeSinkConnectorConfigBuilder {
   }
 
   public SnowflakeSinkConnectorConfigBuilder withName(String name) {
-    config.put(Utils.NAME, name);
+    config.put(KafkaConnectorConfigParams.NAME, name);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withTopics(String topics) {
-    config.put(SnowflakeSinkConnectorConfig.TOPICS, topics);
+    config.put(KafkaConnectorConfigParams.TOPICS, topics);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withUrl(String url) {
-    config.put(SF_URL, url);
+    config.put(SNOWFLAKE_URL_NAME, url);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withDatabase(String database) {
-    config.put(SF_DATABASE, database);
+    config.put(SNOWFLAKE_DATABASE_NAME, database);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withSchema(String schema) {
-    config.put(SF_SCHEMA, schema);
+    config.put(SNOWFLAKE_SCHEMA_NAME, schema);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withUser(String user) {
-    config.put(SF_USER, user);
+    config.put(SNOWFLAKE_USER_NAME, user);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withPrivateKey(String privateKey) {
-    config.put(Utils.SF_PRIVATE_KEY, privateKey);
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, privateKey);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withIcebergEnabled() {
-    config.put(SnowflakeSinkConnectorConfig.ICEBERG_ENABLED, "true");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED, "true");
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withRole(String role) {
-    config.put(SF_ROLE, role);
+    config.put(SNOWFLAKE_ROLE_NAME, role);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withoutRole() {
-    config.remove(SF_ROLE);
+    config.remove(SNOWFLAKE_ROLE_NAME);
     return this;
   }
 
   public SnowflakeSinkConnectorConfigBuilder withSchematizationEnabled(boolean enabled) {
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, Boolean.toString(enabled));
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withAuthenticator(String value) {
-    config.put(Utils.SF_AUTHENTICATOR, value);
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withOauthClientId(String value) {
-    config.put(Utils.SF_OAUTH_CLIENT_ID, value);
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withOauthClientSecret(String value) {
-    config.put(Utils.SF_OAUTH_CLIENT_SECRET, value);
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withOauthRefreshToken(String value) {
-    config.put(Utils.SF_OAUTH_REFRESH_TOKEN, value);
-    return this;
-  }
-
-  public SnowflakeSinkConnectorConfigBuilder withOauthTokenEndpoint(String value) {
-    config.put(Utils.SF_OAUTH_TOKEN_ENDPOINT, value);
+    config.put(SNOWFLAKE_ENABLE_SCHEMATIZATION, Boolean.toString(enabled));
     return this;
   }
 

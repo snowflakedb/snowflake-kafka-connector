@@ -176,11 +176,6 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
-  public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
-    delegate.appendColumnsToTable(tableName, columnInfosMap);
-  }
-
-  @Override
   public void alterColumnsDataTypeIcebergTable(
       String tableName, Map<String, ColumnInfos> columnInfosMap) {
     delegate.alterColumnsDataTypeIcebergTable(tableName, columnInfosMap);
@@ -190,11 +185,6 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   public void appendColumnsToIcebergTable(
       String tableName, Map<String, ColumnInfos> columnInfosMap) {
     delegate.appendColumnsToIcebergTable(tableName, columnInfosMap);
-  }
-
-  @Override
-  public void alterNonNullableColumns(String tableName, List<String> columnNames) {
-    delegate.alterNonNullableColumns(tableName, columnNames);
   }
 
   @Override

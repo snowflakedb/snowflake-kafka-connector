@@ -1,27 +1,23 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.BOOLEAN_VALIDATOR;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.CUSTOM_SNOWFLAKE_CONVERTERS;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ICEBERG_ENABLED;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.ConnectorConfigTools.BOOLEAN_VALIDATOR;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
 import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.DefaultConnectorConfigValidator;
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import org.apache.kafka.common.config.ConfigException;
 
 public class DefaultStreamingConfigValidator implements StreamingConfigValidator {
@@ -29,7 +25,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   private static final KCLogger LOGGER =
       new KCLogger(DefaultConnectorConfigValidator.class.getName());
 
-  private static final Set<String> DISALLOWED_CONVERTERS_STREAMING = CUSTOM_SNOWFLAKE_CONVERTERS;
   private static final String STRING_CONVERTER_KEYWORD = "StringConverter";
   private static final String BYTE_ARRAY_CONVERTER_KEYWORD = "ByteArrayConverter";
 
@@ -39,11 +34,10 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
 
     // Validate Iceberg config
     if (isIcebergEnabled(inputConfig)) {
-      invalidParams.put(ICEBERG_ENABLED, "Ingestion to Iceberg table is currently unsupported.");
+      invalidParams.put(
+          SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
+          "Ingestion to Iceberg table is currently unsupported.");
     }
-
-    invalidParams.putAll(validateConfigConverters(KEY_CONVERTER_CONFIG_FIELD, inputConfig));
-    invalidParams.putAll(validateConfigConverters(VALUE_CONVERTER_CONFIG_FIELD, inputConfig));
 
     validateRole(inputConfig)
         .ifPresent(errorEntry -> invalidParams.put(errorEntry.getKey(), errorEntry.getValue()));
@@ -51,7 +45,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
     // Validate error handling configs
     if (inputConfig.containsKey(ERRORS_TOLERANCE_CONFIG)) {
       try {
-        SnowflakeSinkConnectorConfig.ErrorTolerance.VALIDATOR.ensureValid(
+        ConnectorConfigTools.ErrorTolerance.VALIDATOR.ensureValid(
             ERRORS_TOLERANCE_CONFIG, inputConfig.get(ERRORS_TOLERANCE_CONFIG));
       } catch (ConfigException e) {
         invalidParams.put(
@@ -68,12 +62,8 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
         invalidParams.put(ERRORS_LOG_ENABLE_CONFIG, e.getMessage());
       }
     }
-    if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
-      ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_CLIENT_LAG, invalidParams);
-    }
-
-    if (inputConfig.containsKey(SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES)) {
-      ensureValidLong(inputConfig, SNOWPIPE_STREAMING_MAX_MEMORY_LIMIT_IN_BYTES, invalidParams);
+    if (inputConfig.containsKey(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG)) {
+      ensureValidLong(inputConfig, SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, invalidParams);
     }
 
     // Validate schematization config
@@ -83,11 +73,13 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   }
 
   private static Optional<Map.Entry<String, String>> validateRole(Map<String, String> inputConfig) {
-    if (!inputConfig.containsKey(Utils.SF_ROLE)
-        || Strings.isNullOrEmpty(inputConfig.get(Utils.SF_ROLE))) {
+    if (!inputConfig.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)
+        || Strings.isNullOrEmpty(inputConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME))) {
       String missingRole =
-          String.format("Config: %s should be present for Snowpipe Streaming", Utils.SF_ROLE);
-      return Optional.of(Map.entry(Utils.SF_ROLE, missingRole));
+          String.format(
+              "Config: %s should be present for Snowpipe Streaming",
+              KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
+      return Optional.of(Map.entry(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, missingRole));
     }
     return Optional.empty();
   }
@@ -113,60 +105,31 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   private static Map<String, String> validateSchematizationConfig(Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
-    if (inputConfig.containsKey(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG)) {
+    if (inputConfig.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION)) {
       try {
         BOOLEAN_VALIDATOR.ensureValid(
-            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG,
-            inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+            inputConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION));
       } catch (ConfigException e) {
         invalidParams.put(
-            SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, e.getMessage());
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION, e.getMessage());
         return invalidParams;
       }
 
       boolean isSchematizationEnabled =
           Boolean.parseBoolean(
-              inputConfig.get(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG));
+              inputConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION));
 
       if (isSchematizationEnabled
-          && inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD) != null
-          && (inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD).contains(STRING_CONVERTER_KEYWORD)
-              || inputConfig
-                  .get(VALUE_CONVERTER_CONFIG_FIELD)
-                  .contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
+          && inputConfig.get(VALUE_CONVERTER) != null
+          && (inputConfig.get(VALUE_CONVERTER).contains(STRING_CONVERTER_KEYWORD)
+              || inputConfig.get(VALUE_CONVERTER).contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
         invalidParams.put(
-            inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD),
+            inputConfig.get(VALUE_CONVERTER),
             Utils.formatString(
                 "The value converter:{} is not supported with schematization.",
-                inputConfig.get(VALUE_CONVERTER_CONFIG_FIELD)));
+                inputConfig.get(VALUE_CONVERTER)));
       }
-    }
-
-    return invalidParams;
-  }
-
-  /**
-   * Validates if key and value converters are allowed values if {@link
-   * IngestionMethodConfig#SNOWPIPE_STREAMING} is used.
-   *
-   * <p>Map if invalid parameters
-   */
-  private static Map<String, String> validateConfigConverters(
-      final String inputConfigConverterField, Map<String, String> inputConfig) {
-    Map<String, String> invalidParams = new HashMap<>();
-
-    if (inputConfig.containsKey(inputConfigConverterField)
-        && DISALLOWED_CONVERTERS_STREAMING.contains(inputConfig.get(inputConfigConverterField))) {
-      invalidParams.put(
-          inputConfigConverterField,
-          Utils.formatString(
-              "Config: {} has provided value: {}. If ingestionMethod is: {}, Snowflake Custom"
-                  + " Converters are not allowed. \n"
-                  + "Invalid Converters: {}",
-              inputConfigConverterField,
-              inputConfig.get(inputConfigConverterField),
-              IngestionMethodConfig.SNOWPIPE_STREAMING,
-              Iterables.toString(DISALLOWED_CONVERTERS_STREAMING)));
     }
 
     return invalidParams;

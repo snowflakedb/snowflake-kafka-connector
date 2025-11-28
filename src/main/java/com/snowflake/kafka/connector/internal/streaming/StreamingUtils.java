@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_LOG_ENABLE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.ErrorTolerance;
+import static com.snowflake.kafka.connector.ConnectorConfigTools.ErrorTolerance;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
 
-import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
@@ -18,92 +18,45 @@ public class StreamingUtils {
 
   // TODO: Modify STREAMING_CONSTANT to Constants. after SNOW-352846 is released
   public static final String STREAMING_CONSTANT_AUTHORIZATION_TYPE = "authorization_type";
-  public static final String STREAMING_CONSTANT_JWT = "JWT";
-  public static final String STREAMING_CONSTANT_OAUTH = "OAuth";
-  public static final String STREAMING_CONSTANT_OAUTH_CLIENT_ID = "oauth_client_id";
-  public static final String STREAMING_CONSTANT_OAUTH_CLIENT_SECRET = "oauth_client_secret";
-  public static final String STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN = "oauth_refresh_token";
-  public static final String STREAMING_CONSTANT_OAUTH_TOKEN_ENDPOINT = "oauth_token_endpoint";
 
   /* Creates streaming client properties from snowflake KC config file. */
   public static Properties convertConfigForStreamingClient(Map<String, String> connectorConfig) {
     Properties streamingProperties = new Properties();
 
     connectorConfig.computeIfPresent(
-        Utils.SF_URL,
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
         (key, value) -> {
           streamingProperties.put(Constants.ACCOUNT_URL, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
-        Utils.SF_ROLE,
+        KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
         (key, value) -> {
           streamingProperties.put(Constants.ROLE, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
-        Utils.SF_USER,
+        KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
         (key, value) -> {
           streamingProperties.put(Constants.USER, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
-        Utils.SF_AUTHENTICATOR,
-        (key, value) -> {
-          if (value.equals(Utils.SNOWFLAKE_JWT)) {
-            streamingProperties.put(STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_JWT);
-          }
-          if (value.equals(Utils.OAUTH)) {
-            streamingProperties.put(
-                STREAMING_CONSTANT_AUTHORIZATION_TYPE, STREAMING_CONSTANT_OAUTH);
-          }
-          return value;
-        });
-
-    connectorConfig.computeIfPresent(
-        Utils.SF_PRIVATE_KEY,
+        KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
         (key, value) -> {
           streamingProperties.put(Constants.PRIVATE_KEY, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
-        Utils.SF_PRIVATE_KEY_PASSPHRASE,
+        KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
         (key, value) -> {
           if (!value.isEmpty()) {
             streamingProperties.put(Constants.PRIVATE_KEY_PASSPHRASE, value);
           }
-          return value;
-        });
-
-    connectorConfig.computeIfPresent(
-        Utils.SF_OAUTH_CLIENT_ID,
-        (key, value) -> {
-          streamingProperties.put(STREAMING_CONSTANT_OAUTH_CLIENT_ID, value);
-          return value;
-        });
-
-    connectorConfig.computeIfPresent(
-        Utils.SF_OAUTH_CLIENT_SECRET,
-        (key, value) -> {
-          streamingProperties.put(STREAMING_CONSTANT_OAUTH_CLIENT_SECRET, value);
-          return value;
-        });
-
-    connectorConfig.computeIfPresent(
-        Utils.SF_OAUTH_REFRESH_TOKEN,
-        (key, value) -> {
-          streamingProperties.put(STREAMING_CONSTANT_OAUTH_REFRESH_TOKEN, value);
-          return value;
-        });
-
-    connectorConfig.computeIfPresent(
-        Utils.SF_OAUTH_TOKEN_ENDPOINT,
-        (key, value) -> {
-          streamingProperties.put(STREAMING_CONSTANT_OAUTH_TOKEN_ENDPOINT, value);
           return value;
         });
 

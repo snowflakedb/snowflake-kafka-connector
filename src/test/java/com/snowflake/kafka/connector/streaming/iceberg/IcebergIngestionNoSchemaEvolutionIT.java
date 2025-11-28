@@ -5,7 +5,6 @@ import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRec
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonRecordValueExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.MetadataRecord;
@@ -69,14 +68,7 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
   @Override
   protected void createIcebergTable() {
     createIcebergTableWithColumnClause(
-        tableName,
-        Utils.TABLE_COLUMN_METADATA
-            + " "
-            + IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA
-            + ", "
-            + Utils.TABLE_COLUMN_CONTENT
-            + " "
-            + COMPLEX_JSON_RECORD_CONTENT_OBJECT_SCHEMA);
+        tableName, "RECORD_METADATA VARIANT, RECORD_CONTENT VARIANT");
   }
 
   private static Stream<Arguments> prepareData() {

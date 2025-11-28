@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import java.security.PrivateKey;
 import java.util.Map;
 import java.util.Properties;
@@ -16,6 +16,7 @@ import org.apache.commons.pool2.impl.GenericObjectPool;
 /** Factory class for creating DataSource instances using Apache Commons DBCP2 for testing. */
 public final class SnowflakeDataSourceFactory {
 
+  public static final String SF_WAREHOUSE = "sfwarehouse"; // for test only
   private static DataSource dataSource;
 
   private SnowflakeDataSourceFactory() {}
@@ -26,42 +27,29 @@ public final class SnowflakeDataSourceFactory {
     } else {
       try {
         final Map<String, String> conf = TestUtils.getConnectorConfigurationForStreaming(false);
-        final SnowflakeURL url = new SnowflakeURL(conf.get(Utils.SF_URL));
+        final SnowflakeURL url =
+            new SnowflakeURL(conf.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
 
         // Extract properties from conf Map
-        final String user = conf.get(Utils.SF_USER);
-        final String role = conf.get(Utils.SF_ROLE);
-        final String privateKeyStr = conf.get(Utils.SF_PRIVATE_KEY);
-        final String privateKeyPassphrase = conf.get(Utils.SF_PRIVATE_KEY_PASSPHRASE);
-        final String database = conf.get(Utils.SF_DATABASE);
-        final String schema = conf.get(Utils.SF_SCHEMA);
-        final String warehouse = conf.get(Utils.SF_WAREHOUSE);
-        String authenticator = conf.get(Utils.SF_AUTHENTICATOR);
+        final String user = conf.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
+        final String role = conf.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
+        final String privateKeyStr = conf.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
+        final String privateKeyPassphrase =
+            conf.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
+        final String database = conf.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
+        final String schema = conf.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
+        final String warehouse = conf.get(SF_WAREHOUSE);
 
         // Assert all required properties are present
         assert user != null : "User must not be null";
         assert privateKeyStr != null : "Private key must not be null";
-        assert url != null : "Snowflake URL must not be null";
         assert database != null : "Database must not be null";
         assert schema != null : "Schema must not be null";
         assert warehouse != null : "Warehouse must not be null";
 
-        // Set authenticator (default to JWT if not specified)
-        if (authenticator == null || authenticator.isEmpty()) {
-          authenticator = Utils.SNOWFLAKE_JWT;
-        }
-
-        // Only support JWT authentication for now (standard for tests)
-        if (!Utils.SNOWFLAKE_JWT.equals(authenticator)) {
-          throw new UnsupportedOperationException(
-              "SnowflakeDataSourceFactory currently only supports JWT authentication. "
-                  + "Found authenticator: "
-                  + authenticator);
-        }
-
         // Build connection properties
         final Properties connectionProperties = new Properties();
-        connectionProperties.setProperty("authenticator", authenticator);
+        connectionProperties.setProperty("authenticator", "snowflake_jwt");
         connectionProperties.setProperty("user", user);
         connectionProperties.setProperty("db", database);
         connectionProperties.setProperty("schema", schema);

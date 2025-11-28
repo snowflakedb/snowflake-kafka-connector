@@ -4,6 +4,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
@@ -211,22 +212,25 @@ public final class StreamingClientManager {
 
   private static String clientName(final Map<String, String> connectorConfig) {
     return STREAMING_CLIENT_V2_PREFIX_NAME
-        + connectorConfig.getOrDefault(Utils.NAME, DEFAULT_CLIENT_NAME)
+        + connectorConfig.getOrDefault(KafkaConnectorConfigParams.NAME, DEFAULT_CLIENT_NAME)
         + createdClientId.incrementAndGet();
   }
 
   static Properties getClientProperties(final Map<String, String> connectorConfig) {
     final Properties props = new Properties();
-    SnowflakeURL url = new SnowflakeURL(connectorConfig.get(Utils.SF_URL));
-    final String privateKeyStr = connectorConfig.get(Utils.SF_PRIVATE_KEY);
-    final String privateKeyPassphrase = connectorConfig.get(Utils.SF_PRIVATE_KEY_PASSPHRASE);
+    SnowflakeURL url =
+        new SnowflakeURL(connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
+    final String privateKeyStr =
+        connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
+    final String privateKeyPassphrase =
+        connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
     final PrivateKey privateKey =
         PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
     final String privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
-    // SSV2 sdk can only work with non-encrypted private keys
     props.put("private_key", privateKeyEncoded);
-    props.put("user", connectorConfig.get(Utils.SF_USER));
-    props.put("role", connectorConfig.get(Utils.SF_ROLE));
+
+    props.put("user", connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME));
+    props.put("role", connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
     props.put("account", url.getAccount());
     props.put("host", url.getUrlWithoutPort());
     return props;

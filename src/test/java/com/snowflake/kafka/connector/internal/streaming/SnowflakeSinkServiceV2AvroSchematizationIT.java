@@ -4,7 +4,8 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getTableContentOn
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.awaitility.Awaitility.await;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -188,12 +189,11 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
 
   private Map<String, String> prepareConfig() {
     Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
-    config.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION, "true");
     config.put(
-        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD,
-        "io.confluent.connect.avro.AvroConverter");
-    config.put(SnowflakeSinkConnectorConfig.VALUE_SCHEMA_REGISTRY_CONFIG_FIELD, "http://fake-url");
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+        KafkaConnectorConfigParams.VALUE_CONVERTER, "io.confluent.connect.avro.AvroConverter");
+    config.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMA_REGISTRY_URL, "http://fake-url");
+    ConnectorConfigTools.setDefaultValues(config);
     return config;
   }
 

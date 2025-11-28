@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -26,7 +27,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
-import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -61,14 +61,6 @@ public class SnowflakeSinkTask extends SinkTask {
       new KCLogger(SnowflakeSinkTask.class.getName() + "_STATIC");
   private KCLogger DYNAMIC_LOGGER;
 
-  // After 5 put operations, we will insert a sleep which will cause a rebalance since heartbeat is
-  // not found
-  private final int REBALANCING_THRESHOLD = 10;
-
-  // This value should be more than max.poll.interval.ms
-  // check connect-distributed.properties file used to start kafka connect
-  private final int rebalancingSleepTime = 370000;
-
   private SnowflakeSinkService sink = null;
   private Map<String, String> topic2table = null;
 
@@ -79,11 +71,6 @@ public class SnowflakeSinkTask extends SinkTask {
 
   // tracks number of tasks the config wants to create
   private String taskConfigId = "-1";
-
-  // Rebalancing Test
-  private boolean enableRebalancing = SnowflakeSinkConnectorConfig.REBALANCING_DEFAULT;
-  // After REBALANCING_THRESHOLD put operations, insert a thread.sleep which will trigger rebalance
-  private int rebalancingCounter = 0;
 
   private long taskStartTime;
 
@@ -163,33 +150,27 @@ public class SnowflakeSinkTask extends SinkTask {
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 
-    // generate metadataConfig table
-    SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(parsedConfig);
-
     // enable jvm proxy
     Utils.enableJVMProxy(parsedConfig);
 
     // Falling back to default behavior which is to ingest an empty json string if we get null
     // value. (Tombstone record)
-    SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior =
-        SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT;
-    if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG)) {
+    ConnectorConfigTools.BehaviorOnNullValues behavior =
+        ConnectorConfigTools.BehaviorOnNullValues.DEFAULT;
+    if (parsedConfig.containsKey(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES)) {
       // we can always assume here that value passed in would be an allowed value, otherwise the
       // connector would never start or reach the sink task stage
       behavior =
-          SnowflakeSinkConnectorConfig.BehaviorOnNullValues.valueOf(
-              parsedConfig.get(SnowflakeSinkConnectorConfig.BEHAVIOR_ON_NULL_VALUES_CONFIG));
+          ConnectorConfigTools.BehaviorOnNullValues.valueOf(
+              parsedConfig.get(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES));
     }
 
     // we would have already validated the config inside SFConnector start()
-    boolean enableCustomJMXMonitoring = SnowflakeSinkConnectorConfig.JMX_OPT_DEFAULT;
-    if (parsedConfig.containsKey(SnowflakeSinkConnectorConfig.JMX_OPT)) {
+    boolean enableCustomJMXMonitoring = KafkaConnectorConfigParams.JMX_OPT_DEFAULT;
+    if (parsedConfig.containsKey(KafkaConnectorConfigParams.JMX_OPT)) {
       enableCustomJMXMonitoring =
-          Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.JMX_OPT));
+          Boolean.parseBoolean(parsedConfig.get(KafkaConnectorConfigParams.JMX_OPT));
     }
-
-    enableRebalancing =
-        Boolean.parseBoolean(parsedConfig.get(SnowflakeSinkConnectorConfig.REBALANCING));
 
     KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 
@@ -287,9 +268,6 @@ public class SnowflakeSinkTask extends SinkTask {
 
     final long recordSize = records.size();
     DYNAMIC_LOGGER.debug("Calling PUT with {} records", recordSize);
-    if (enableRebalancing && recordSize > 0) {
-      processRebalancingTest();
-    }
 
     final long startTime = System.currentTimeMillis();
 
@@ -369,9 +347,10 @@ public class SnowflakeSinkTask extends SinkTask {
    * @return result map
    */
   static Map<String, String> getTopicToTableMap(Map<String, String> config) {
-    if (config.containsKey(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP)) {
+    if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)) {
       Map<String, String> result =
-          Utils.parseTopicToTableMap(config.get(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP));
+          Utils.parseTopicToTableMap(
+              config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
       if (result != null) {
         return result;
       }
@@ -421,20 +400,6 @@ public class SnowflakeSinkTask extends SinkTask {
         this.DYNAMIC_LOGGER.info("Successfully " + logExecutionContent);
       } else {
         this.DYNAMIC_LOGGER.debug("Successfully " + logExecutionContent);
-      }
-    }
-  }
-
-  /** When rebalancing test is enabled, trigger sleep after rebalacing threshold is reached */
-  void processRebalancingTest() {
-    rebalancingCounter++;
-    if (rebalancingCounter == REBALANCING_THRESHOLD) {
-      try {
-        this.DYNAMIC_LOGGER.debug(
-            "[TEST_ONLY] Sleeping :{} ms to trigger a rebalance", rebalancingSleepTime);
-        Thread.sleep(rebalancingSleepTime);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
       }
     }
   }

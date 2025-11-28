@@ -1,9 +1,9 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -45,13 +45,17 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     topic = tableName;
     topicPartition = new TopicPartition(topic, PARTITION);
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
-    config.put(ICEBERG_ENABLED, "TRUE");
-    config.put(ENABLE_SCHEMATIZATION_CONFIG, isSchemaEvolutionEnabled().toString());
+    ConnectorConfigTools.setDefaultValues(config);
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED, "TRUE");
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+        isSchemaEvolutionEnabled().toString());
     // "snowflake.streaming.max.client.lag" = 1 second, for faster tests
-    config.put(SNOWPIPE_STREAMING_MAX_CLIENT_LAG, "1");
-    config.put(ERRORS_TOLERANCE_CONFIG, SnowflakeSinkConnectorConfig.ErrorTolerance.ALL.toString());
-    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
+    config.put(
+        KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
+        ConnectorConfigTools.ErrorTolerance.ALL.toString());
+    config.put(KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
 
     createIcebergTable();
     enableSchemaEvolution(tableName);
@@ -123,10 +127,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
   protected List<RecordWithMetadata<PrimitiveJsonRecord>> selectAllSchematizedRecords() {
     return select(tableName, selectAllSortByOffset, PrimitiveJsonRecord::fromSchematizedResult);
-  }
-
-  protected List<RecordWithMetadata<PrimitiveJsonRecord>> selectAllFromRecordContent() {
-    return select(tableName, selectAllSortByOffset, PrimitiveJsonRecord::fromRecordContentColumn);
   }
 
   protected List<RecordWithMetadata<ComplexJsonRecord>>

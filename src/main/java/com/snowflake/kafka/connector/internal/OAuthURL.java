@@ -70,12 +70,10 @@ public class OAuthURL implements URL {
     }
   }
 
-  @Override
   public boolean sslEnabled() {
     return ssl;
   }
 
-  @Override
   public String path() {
     return path;
   }

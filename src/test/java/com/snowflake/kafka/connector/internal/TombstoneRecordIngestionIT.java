@@ -5,7 +5,8 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getConnectionServ
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
@@ -59,8 +60,8 @@ class TombstoneRecordIngestionIT {
   }
 
   @ParameterizedTest(name = "behavior: {0}")
-  @EnumSource(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.class)
-  void testStreamingTombstoneBehavior(SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior)
+  @EnumSource(ConnectorConfigTools.BehaviorOnNullValues.class)
+  void testStreamingTombstoneBehavior(ConnectorConfigTools.BehaviorOnNullValues behavior)
       throws Exception {
     // setup
     Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
@@ -89,15 +90,15 @@ class TombstoneRecordIngestionIT {
   }
 
   @ParameterizedTest(name = "behavior: {0}")
-  @EnumSource(SnowflakeSinkConnectorConfig.BehaviorOnNullValues.class)
+  @EnumSource(ConnectorConfigTools.BehaviorOnNullValues.class)
   @Disabled(
       "The schema evolution is not supported currently with ssv2, when it is this test should be"
           + " enabled and adapted")
   void testStreamingTombstoneBehaviorWithSchematization(
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior) throws Exception {
+      ConnectorConfigTools.BehaviorOnNullValues behavior) throws Exception {
     // setup
     Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
-    connectorConfig.put(SnowflakeSinkConnectorConfig.ENABLE_SCHEMATIZATION_CONFIG, "true");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION, "true");
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, table);
@@ -125,7 +126,7 @@ class TombstoneRecordIngestionIT {
       SinkRecord normalRecord,
       List<Converter> converters,
       SnowflakeSinkService service,
-      SnowflakeSinkConnectorConfig.BehaviorOnNullValues behavior)
+      ConnectorConfigTools.BehaviorOnNullValues behavior)
       throws Exception {
     int offset = 1; // normalRecord should be offset 0
     List<SinkRecord> sinkRecords = new ArrayList<>();
@@ -187,9 +188,7 @@ class TombstoneRecordIngestionIT {
 
     // verify inserted (offset updates happen automatically in streaming)
     int expectedOffset =
-        behavior == SnowflakeSinkConnectorConfig.BehaviorOnNullValues.DEFAULT
-            ? sinkRecords.size()
-            : 1;
+        behavior == ConnectorConfigTools.BehaviorOnNullValues.DEFAULT ? sinkRecords.size() : 1;
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == expectedOffset, 10, 20);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition)) == expectedOffset, 10, 20);

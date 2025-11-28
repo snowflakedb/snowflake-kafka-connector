@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.*;
-
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -244,31 +243,39 @@ public abstract class SnowflakeTelemetryService {
 
     // Key and value converters to gauge if Snowflake Native converters are used.
     dataObjectNode.put(
-        KEY_CONVERTER_CONFIG_FIELD, userProvidedConfig.get(KEY_CONVERTER_CONFIG_FIELD));
+        KafkaConnectorConfigParams.KEY_CONVERTER,
+        userProvidedConfig.get(KafkaConnectorConfigParams.KEY_CONVERTER));
     dataObjectNode.put(
-        VALUE_CONVERTER_CONFIG_FIELD, userProvidedConfig.get(VALUE_CONVERTER_CONFIG_FIELD));
+        KafkaConnectorConfigParams.VALUE_CONVERTER,
+        userProvidedConfig.get(KafkaConnectorConfigParams.VALUE_CONVERTER));
 
     // Record whether schematization is used
     dataObjectNode.put(
-        ENABLE_SCHEMATIZATION_CONFIG,
+        KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
         userProvidedConfig.getOrDefault(
-            ENABLE_SCHEMATIZATION_CONFIG, ENABLE_SCHEMATIZATION_CONFIG_DEFAULT));
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT));
 
     dataObjectNode.put(
-        ICEBERG_ENABLED,
+        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
         userProvidedConfig.getOrDefault(
-            ICEBERG_ENABLED, String.valueOf(ICEBERG_ENABLED_DEFAULT_VALUE)));
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
+            String.valueOf(
+                KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED_DEFAULT)));
 
     // These are Optional, so we add only if it's provided in user config
-    if (userProvidedConfig.containsKey(SNOWPIPE_STREAMING_MAX_CLIENT_LAG)) {
+    if (userProvidedConfig.containsKey(
+        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG)) {
       dataObjectNode.put(
-          SNOWPIPE_STREAMING_MAX_CLIENT_LAG,
-          userProvidedConfig.get(SNOWPIPE_STREAMING_MAX_CLIENT_LAG));
+          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG,
+          userProvidedConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG));
     }
-    if (userProvidedConfig.containsKey(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
+    if (userProvidedConfig.containsKey(
+        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
       dataObjectNode.put(
-          SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-          userProvidedConfig.get(SNOWPIPE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
+          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+          userProvidedConfig.get(
+              KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
     }
   }
 
@@ -277,7 +284,6 @@ public abstract class SnowflakeTelemetryService {
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_PIPE_USAGE("kafka_pipe_usage"),
-    KAFKA_PIPE_START("kafka_pipe_start"),
     KAFKA_CHANNEL_USAGE("kafka_channel_usage"),
     KAFKA_CHANNEL_START("kafka_channel_start");
 

@@ -1,13 +1,14 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.KEY_CONVERTER_CONFIG_FIELD;
-import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.KEY_CONVERTER;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
 import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.INGESTION_METHOD;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -47,12 +48,11 @@ public class SnowflakeTelemetryServiceTest {
   @EnumSource(value = IngestionMethodConfig.class)
   public void testReportKafkaConnectStart(IngestionMethodConfig ingestionMethodConfig) {
     // given
-    Map<String, String> connectorConfig = createConnectorConfig(ingestionMethodConfig);
-    connectorConfig.put(KEY_CONVERTER_CONFIG_FIELD, KAFKA_STRING_CONVERTER);
-    connectorConfig.put(
-        SnowflakeSinkConnectorConfig.VALUE_CONVERTER_CONFIG_FIELD, KAFKA_CONFLUENT_AVRO_CONVERTER);
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(KEY_CONVERTER, KAFKA_STRING_CONVERTER);
+    connectorConfig.put(KafkaConnectorConfigParams.VALUE_CONVERTER, KAFKA_CONFLUENT_AVRO_CONVERTER);
     SnowflakeTelemetryService snowflakeTelemetryService =
-        createSnowflakeTelemetryService(ingestionMethodConfig, connectorConfig);
+        createSnowflakeTelemetryService(connectorConfig);
 
     // when
     snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
@@ -85,9 +85,9 @@ public class SnowflakeTelemetryServiceTest {
   @EnumSource(value = IngestionMethodConfig.class)
   public void testReportKafkaConnectStop(IngestionMethodConfig ingestionMethodConfig) {
     // given
-    Map<String, String> connectorConfig = createConnectorConfig(ingestionMethodConfig);
+    Map<String, String> connectorConfig = createConnectorConfig();
     SnowflakeTelemetryService snowflakeTelemetryService =
-        createSnowflakeTelemetryService(ingestionMethodConfig, connectorConfig);
+        createSnowflakeTelemetryService(connectorConfig);
 
     // when
     snowflakeTelemetryService.reportKafkaConnectStop(System.currentTimeMillis());
@@ -116,9 +116,9 @@ public class SnowflakeTelemetryServiceTest {
   @EnumSource(value = IngestionMethodConfig.class)
   public void testReportKafkaConnectFatalError(IngestionMethodConfig ingestionMethodConfig) {
     // given
-    Map<String, String> connectorConfig = createConnectorConfig(ingestionMethodConfig);
+    Map<String, String> connectorConfig = createConnectorConfig();
     SnowflakeTelemetryService snowflakeTelemetryService =
-        createSnowflakeTelemetryService(ingestionMethodConfig, connectorConfig);
+        createSnowflakeTelemetryService(connectorConfig);
     String expectedException =
         SnowflakeErrors.ERROR_0003.getException("test exception").getMessage();
 
@@ -150,20 +150,16 @@ public class SnowflakeTelemetryServiceTest {
   @EnumSource(value = IngestionMethodConfig.class)
   public void testReportKafkaPartitionUsage(IngestionMethodConfig ingestionMethodConfig) {
     // given
-    Map<String, String> connectorConfig = createConnectorConfig(ingestionMethodConfig);
+    Map<String, String> connectorConfig = createConnectorConfig();
     SnowflakeTelemetryService snowflakeTelemetryService =
-        createSnowflakeTelemetryService(ingestionMethodConfig, connectorConfig);
+        createSnowflakeTelemetryService(connectorConfig);
 
     // expected values
     final String expectedTableName = "tableName";
-    final String expectedStageName = "stageName";
-    final String expectedPipeName = "pipeName";
     final String expectedConnectorName = "connectorName";
     final String expectedTpChannelName = "channelName";
     final long expectedTpChannelCreationTime = 1234;
     final long expectedProcessedOffset = 1;
-    final long expectedFlushedOffset = 2;
-    final long expectedCommittedOffset = 3;
     final long expectedOffsetPersistedInSnowflake = 4;
     final long expectedLatestConsumerOffset = 5;
 
@@ -229,14 +225,12 @@ public class SnowflakeTelemetryServiceTest {
   @EnumSource(value = IngestionMethodConfig.class)
   public void testReportKafkaPartitionStart(IngestionMethodConfig ingestionMethodConfig) {
     // given
-    Map<String, String> connectorConfig = createConnectorConfig(ingestionMethodConfig);
+    Map<String, String> connectorConfig = createConnectorConfig();
     SnowflakeTelemetryService snowflakeTelemetryService =
-        createSnowflakeTelemetryService(ingestionMethodConfig, connectorConfig);
+        createSnowflakeTelemetryService(connectorConfig);
 
     SnowflakeTelemetryBasicInfo partitionCreation;
     final String expectedTableName = "tableName";
-    final String expectedStageName = "stageName";
-    final String expectedPipeName = "pipeName";
     final String expectedChannelName = "channelName";
     final long expectedChannelCreationTime = 1234;
 
@@ -275,16 +269,16 @@ public class SnowflakeTelemetryServiceTest {
         dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_NAME).asText());
   }
 
-  private Map<String, String> createConnectorConfig(IngestionMethodConfig ingestionMethodConfig) {
+  private Map<String, String> createConnectorConfig() {
     return TestUtils.getConnectorConfigurationForStreaming(false);
   }
 
   private SnowflakeTelemetryService createSnowflakeTelemetryService(
-      IngestionMethodConfig ingestionMethodConfig, Map<String, String> connectorConfig) {
+      Map<String, String> connectorConfig) {
     SnowflakeTelemetryService snowflakeTelemetryService;
 
     snowflakeTelemetryService = new SnowflakeTelemetryServiceV2(mockTelemetryClient);
-    SnowflakeSinkConnectorConfig.setDefaultValues(connectorConfig);
+    ConnectorConfigTools.setDefaultValues(connectorConfig);
 
     snowflakeTelemetryService.setAppName("TEST_APP");
     snowflakeTelemetryService.setTaskID("1");
@@ -300,16 +294,12 @@ public class SnowflakeTelemetryServiceTest {
   }
 
   private void validateKeyAndValueConverter(JsonNode dataNode) {
-    assertTrue(dataNode.has(KEY_CONVERTER_CONFIG_FIELD));
-    assertTrue(
-        dataNode.get(KEY_CONVERTER_CONFIG_FIELD).asText().equalsIgnoreCase(KAFKA_STRING_CONVERTER));
+    assertTrue(dataNode.has(KEY_CONVERTER));
+    assertTrue(dataNode.get(KEY_CONVERTER).asText().equalsIgnoreCase(KAFKA_STRING_CONVERTER));
 
-    assertTrue(dataNode.has(VALUE_CONVERTER_CONFIG_FIELD));
+    assertTrue(dataNode.has(VALUE_CONVERTER));
     assertTrue(
-        dataNode
-            .get(VALUE_CONVERTER_CONFIG_FIELD)
-            .asText()
-            .equalsIgnoreCase(KAFKA_CONFLUENT_AVRO_CONVERTER));
+        dataNode.get(VALUE_CONVERTER).asText().equalsIgnoreCase(KAFKA_CONFLUENT_AVRO_CONVERTER));
   }
 
   public static class MockTelemetryClient implements Telemetry {

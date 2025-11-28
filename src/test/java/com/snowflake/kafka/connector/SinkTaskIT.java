@@ -64,7 +64,7 @@ public class SinkTaskIT {
   @Test
   public void testSinkTask() throws Exception {
     Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(true);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    ConnectorConfigTools.setDefaultValues(config);
     config.put(Utils.TASK_ID, "0");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
@@ -137,7 +137,7 @@ public class SinkTaskIT {
   @Test
   public void testSinkTaskNegative() throws Exception {
     Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(true);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    ConnectorConfigTools.setDefaultValues(config);
     config.put(Utils.TASK_ID, "0");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
@@ -212,14 +212,14 @@ public class SinkTaskIT {
     String task0Id = "0";
     int partition0 = 0;
     Map<String, String> task0Config = TestUtils.transformProfileFileToConnectorConfiguration(false);
-    SnowflakeSinkConnectorConfig.setDefaultValues(task0Config);
+    ConnectorConfigTools.setDefaultValues(task0Config);
     task0Config.put(Utils.TASK_ID, task0Id);
     SnowflakeSinkTask task0 = new SnowflakeSinkTask();
 
     String task1Id = "1";
     int partition1 = 1;
     Map<String, String> task1Config = TestUtils.transformProfileFileToConnectorConfiguration(false);
-    SnowflakeSinkConnectorConfig.setDefaultValues(task1Config);
+    ConnectorConfigTools.setDefaultValues(task1Config);
     task1Config.put(Utils.TASK_ID, task1Id);
 
     // start tasks
@@ -345,7 +345,7 @@ public class SinkTaskIT {
   @Test
   public void testTopicToTableRegex() {
     Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
-    SnowflakeSinkConnectorConfig.setDefaultValues(config);
+    ConnectorConfigTools.setDefaultValues(config);
 
     SnowflakeSinkTaskForStreamingIT.testTopicToTableRegexMain(config);
   }
