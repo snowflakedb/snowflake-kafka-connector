@@ -19,9 +19,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
-import static net.snowflake.ingest.utils.ParameterProvider.ENABLE_ICEBERG_STREAMING;
-import static net.snowflake.ingest.utils.ParameterProvider.MAX_CLIENT_LAG;
+import static com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams.MAX_CLIENT_LAG;
 
+import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
@@ -32,7 +32,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import net.snowflake.ingest.utils.Constants;
 
 /**
  * Object to convert and store properties for {@link
@@ -42,20 +41,19 @@ import net.snowflake.ingest.utils.Constants;
 public class StreamingClientProperties {
   public static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
   public static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
+
   // contains converted config properties that are loggable (not PII data)
   public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
       Stream.of(
-              Constants.ACCOUNT_URL,
-              Constants.ROLE,
-              Constants.USER,
+              StreamingIngestClientConfigParams.ACCOUNT_URL,
+              StreamingIngestClientConfigParams.ROLE,
+              StreamingIngestClientConfigParams.USER,
               StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
           .collect(Collectors.toList());
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
   public final Properties clientProperties;
   public final String clientName;
   public final Map<String, Object> parameterOverrides;
-
-  public final boolean isIcebergEnabled;
 
   /**
    * Creates non-null properties, client name and parameter overrides for the {@link
@@ -75,8 +73,6 @@ public class StreamingClientProperties {
 
     this.clientProperties = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
 
-    this.isIcebergEnabled = Utils.isIcebergEnabled(connectorConfig);
-
     this.clientName =
         STREAMING_CLIENT_PREFIX_NAME
             + connectorConfig.getOrDefault(
@@ -85,9 +81,6 @@ public class StreamingClientProperties {
 
     // Override only if the streaming client properties are explicitly set in config
     this.parameterOverrides = new HashMap<>();
-    if (isIcebergEnabled) {
-      parameterOverrides.put(ENABLE_ICEBERG_STREAMING, "true");
-    }
     Optional<String> snowpipeStreamingMaxClientLag =
         Optional.ofNullable(connectorConfig.get(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG));
     snowpipeStreamingMaxClientLag.ifPresent(
@@ -204,8 +197,7 @@ public class StreamingClientProperties {
   public boolean equals(Object other) {
     return other.getClass().equals(StreamingClientProperties.class)
         && ((StreamingClientProperties) other).clientProperties.equals(this.clientProperties)
-        && ((StreamingClientProperties) other).parameterOverrides.equals(this.parameterOverrides)
-        && ((StreamingClientProperties) other).isIcebergEnabled == this.isIcebergEnabled;
+        && ((StreamingClientProperties) other).parameterOverrides.equals(this.parameterOverrides);
   }
 
   /**
@@ -216,6 +208,6 @@ public class StreamingClientProperties {
    */
   @Override
   public int hashCode() {
-    return Objects.hash(this.clientProperties, this.parameterOverrides, this.isIcebergEnabled);
+    return Objects.hash(this.clientProperties, this.parameterOverrides);
   }
 }

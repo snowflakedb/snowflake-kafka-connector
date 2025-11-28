@@ -4,7 +4,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming.validation;
 
-import static net.snowflake.ingest.utils.Utils.concatDotPath;
+import static com.snowflake.kafka.connector.Utils.concatDotPath;
 
 import java.util.ArrayList;
 import java.util.Collections;

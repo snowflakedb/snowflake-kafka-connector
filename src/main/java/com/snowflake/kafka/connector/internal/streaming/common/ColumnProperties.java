@@ -40,18 +40,6 @@ public class ColumnProperties {
     this.icebergColumnSchema = columnMetadata.getSourceIcebergDataType();
   }
 
-  public ColumnProperties(net.snowflake.ingest.streaming.internal.ColumnProperties sdkProps) {
-    this(
-        sdkProps.getType(),
-        sdkProps.getLogicalType(),
-        sdkProps.getPrecision(),
-        sdkProps.getScale(),
-        sdkProps.getByteLength() == null ? null : Long.valueOf(sdkProps.getByteLength()),
-        sdkProps.getLength() == null ? null : Long.valueOf(sdkProps.getLength()),
-        sdkProps.isNullable(),
-        sdkProps.getIcebergSchema());
-  }
-
   public ColumnProperties(
       String type,
       String logicalType,

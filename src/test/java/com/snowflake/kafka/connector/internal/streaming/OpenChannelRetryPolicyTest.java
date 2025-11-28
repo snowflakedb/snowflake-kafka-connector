@@ -4,11 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import dev.failsafe.function.CheckedSupplier;
 import java.util.concurrent.atomic.AtomicInteger;
-import net.snowflake.ingest.utils.ErrorCode;
-import net.snowflake.ingest.utils.SFException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -67,7 +66,7 @@ public class OpenChannelRetryPolicyTest {
   void shouldNotRetryOnSFExceptionWithout429() {
     // Given
     SFException nonRetryableException =
-        new SFException(ErrorCode.OPEN_CHANNEL_FAILURE, "Some other error");
+        new SFException("OPEN_CHANNEL_FAILURE", "Some other error", 400, "BAD_REQUEST");
     AtomicInteger attemptCount = new AtomicInteger(0);
     CheckedSupplier<SnowflakeStreamingIngestChannel> supplier =
         () -> {
@@ -88,7 +87,8 @@ public class OpenChannelRetryPolicyTest {
   @Test
   void shouldRetryMultipleTimesOn429Exception() {
     // Given
-    SFException exception429 = new SFException(ErrorCode.INTERNAL_ERROR, EXCEPTION_429_MSG);
+    SFException exception429 =
+        new SFException("INTERNAL_ERROR", EXCEPTION_429_MSG, 429, "TOO_MANY_REQUESTS");
     AtomicInteger attemptCount = new AtomicInteger(0);
 
     CheckedSupplier<SnowflakeStreamingIngestChannel> supplier =

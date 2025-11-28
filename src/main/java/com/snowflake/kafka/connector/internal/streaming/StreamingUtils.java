@@ -6,13 +6,14 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
-import net.snowflake.ingest.utils.Constants;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {
+
   public static final long STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC =
       Duration.ofSeconds(1).getSeconds();
 
@@ -26,37 +27,28 @@ public class StreamingUtils {
     connectorConfig.computeIfPresent(
         KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
         (key, value) -> {
-          streamingProperties.put(Constants.ACCOUNT_URL, value);
+          streamingProperties.put(StreamingIngestClientConfigParams.ACCOUNT_URL, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
         (key, value) -> {
-          streamingProperties.put(Constants.ROLE, value);
+          streamingProperties.put(StreamingIngestClientConfigParams.ROLE, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
         (key, value) -> {
-          streamingProperties.put(Constants.USER, value);
+          streamingProperties.put(StreamingIngestClientConfigParams.USER, value);
           return value;
         });
 
     connectorConfig.computeIfPresent(
         KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
         (key, value) -> {
-          streamingProperties.put(Constants.PRIVATE_KEY, value);
-          return value;
-        });
-
-    connectorConfig.computeIfPresent(
-        KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
-        (key, value) -> {
-          if (!value.isEmpty()) {
-            streamingProperties.put(Constants.PRIVATE_KEY_PASSPHRASE, value);
-          }
+          streamingProperties.put(StreamingIngestClientConfigParams.PRIVATE_KEY, value);
           return value;
         });
 

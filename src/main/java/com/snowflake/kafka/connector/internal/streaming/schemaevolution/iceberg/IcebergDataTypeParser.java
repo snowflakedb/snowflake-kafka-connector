@@ -8,8 +8,6 @@ import com.google.common.collect.Lists;
 import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nonnull;
-import net.snowflake.ingest.utils.ErrorCode;
-import net.snowflake.ingest.utils.SFException;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.JsonUtil;
@@ -77,8 +75,7 @@ public class IcebergDataTypeParser {
           parquetType = typeToMessageType.struct(icebergType.asStructType(), repetition, id, name);
           break;
         default:
-          throw new SFException(
-              ErrorCode.INTERNAL_ERROR,
+          throw new IllegalArgumentException(
               String.format(
                   "Cannot convert Iceberg column to parquet type, name=%s, dataType=%s",
                   name, icebergDataType));

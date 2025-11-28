@@ -97,7 +97,8 @@ ADDITIONAL_LICENSES_MAP = {
     "org.apache.iceberg:iceberg-core": APACHE_LICENSE,
     "org.apache.iceberg:iceberg-common": APACHE_LICENSE,
     "io.airlift:aircompressor": APACHE_LICENSE,
-    "org.roaringbitmap:RoaringBitmap": APACHE_LICENSE
+    "org.roaringbitmap:RoaringBitmap": APACHE_LICENSE,
+    "org.jspecify:jspecify": APACHE_LICENSE
 }
 
 
