@@ -47,7 +47,7 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
               "objectAsJsonStringHeader",
               "{\"key1\":\"value1\",\"key2\":\"value2\"}"));
 
-  public static Stream<Arguments> ssv2SchematizationData() throws JsonProcessingException {
+  public static Stream<Arguments> ssv2Data() throws JsonProcessingException {
     return Stream.of(
         Arguments.of(buildRow("{}", "{}"), Map.of(TABLE_COLUMN_METADATA, EMPTY_SSV2_METADATA)),
         Arguments.of(
@@ -61,7 +61,7 @@ public class SnowflakeTableStreamingRecordMapperTest extends StreamingRecordMapp
   }
 
   @ParameterizedTest
-  @MethodSource("ssv2SchematizationData")
+  @MethodSource("ssv2Data")
   public void shouldMapDataForSsv2Schematization(
       RecordService.SnowflakeTableRow row, Map<String, Object> expected)
       throws JsonProcessingException {

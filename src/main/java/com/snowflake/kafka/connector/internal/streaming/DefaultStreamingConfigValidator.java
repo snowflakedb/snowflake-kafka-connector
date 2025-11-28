@@ -111,8 +111,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
       invalidParams.put(
           inputConfig.get(VALUE_CONVERTER),
           Utils.formatString(
-              "The value converter:{} is not supported with schematization.",
-              inputConfig.get(VALUE_CONVERTER)));
+              "The value converter:{} is not supported.", inputConfig.get(VALUE_CONVERTER)));
     }
 
     return invalidParams;
