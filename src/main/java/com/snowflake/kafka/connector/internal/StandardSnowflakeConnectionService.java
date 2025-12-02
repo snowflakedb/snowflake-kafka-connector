@@ -4,7 +4,6 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import static com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.sql.Connection;
@@ -12,12 +11,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.stream.Collectors;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 /**
@@ -99,19 +95,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       stmt.close();
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2007.getException(e);
-    }
-
-    // Enable schema evolution by default if the table is created by the connector
-    String enableSchemaEvolutionQuery =
-        "alter table identifier(?) set ENABLE_SCHEMA_EVOLUTION = true";
-    try {
-      PreparedStatement stmt = conn.prepareStatement(enableSchemaEvolutionQuery);
-      stmt.setString(1, tableName);
-      stmt.executeQuery();
-    } catch (SQLException e) {
-      // Skip the error given that schema evolution is still under PrPr
-      LOGGER.warn(
-          "Enable schema evolution failed on table: {}, message: {}", tableName, e.getMessage());
     }
 
     LOGGER.info("Created table {} with only RECORD_METADATA column", tableName);
@@ -289,166 +272,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
   }
 
-  /**
-   * Check whether the user has the role privilege to do schema evolution and whether the schema
-   * evolution option is enabled on the table
-   *
-   * @param tableName the name of the table
-   * @param role the role of the user
-   * @return whether schema evolution has the required permission to be performed
-   */
-  @Override
-  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
-    LOGGER.info("Checking schema evolution permission for table {}", tableName);
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "show grants on table identifier(?)";
-    List<String> schemaEvolutionAllowedPrivilegeList =
-        Arrays.asList("EVOLVE SCHEMA", "ALL", "OWNERSHIP");
-    ResultSet result = null;
-    // whether the role has the privilege to do schema evolution (EVOLVE SCHEMA / ALL / OWNERSHIP)
-    boolean hasRolePrivilege = false;
-    String myRole = FormattingUtils.formatName(role);
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      result = stmt.executeQuery();
-      while (result.next()) {
-        if (!result.getString("grantee_name").equals(myRole)) {
-          continue;
-        }
-        if (schemaEvolutionAllowedPrivilegeList.contains(
-            result.getString("privilege").toUpperCase())) {
-          hasRolePrivilege = true;
-        }
-      }
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2017.getException(e);
-    }
-
-    // whether the table has ENABLE_SCHEMA_EVOLUTION option set to true on the table.
-    boolean hasTableOptionEnabled = false;
-    query = "show tables like '" + tableName + "' limit 1";
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      result = stmt.executeQuery();
-      while (result.next()) {
-        String enableSchemaEvolution = "N";
-        try {
-          enableSchemaEvolution = result.getString("enable_schema_evolution");
-        } catch (SQLException e) {
-          // Do nothing since schema evolution is still in PrPr
-        }
-        if (enableSchemaEvolution.equals("Y")) {
-          hasTableOptionEnabled = true;
-        }
-      }
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2017.getException(e);
-    }
-
-    boolean hasPermission = hasRolePrivilege && hasTableOptionEnabled;
-    LOGGER.info(
-        String.format("Table: %s has schema evolution permission: %s", tableName, hasPermission));
-    return hasPermission;
-  }
-
-  /**
-   * Alter iceberg table to modify columns datatype
-   *
-   * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their infos
-   */
-  @Override
-  public void alterColumnsDataTypeIcebergTable(
-      String tableName, Map<String, ColumnInfos> columnInfosMap) {
-    LOGGER.debug("Modifying data types of iceberg table columns");
-    String alterSetDatatypeQuery = generateAlterSetDataTypeQuery(columnInfosMap);
-    executeStatement(tableName, alterSetDatatypeQuery);
-  }
-
-  private String generateAlterSetDataTypeQuery(Map<String, ColumnInfos> columnsToModify) {
-    StringBuilder setDataTypeQuery = new StringBuilder("alter iceberg ");
-    setDataTypeQuery.append("table identifier(?) alter column ");
-
-    String columnsPart =
-        columnsToModify.entrySet().stream()
-            .map(
-                column -> {
-                  String columnName = column.getKey();
-                  String dataType = column.getValue().getColumnType();
-                  return columnName + " set data type " + dataType;
-                })
-            .collect(Collectors.joining(", "));
-
-    setDataTypeQuery.append(columnsPart);
-
-    return setDataTypeQuery.toString();
-  }
-
-  /**
-   * Alter iceberg table to add columns according to a map from columnNames to their types
-   *
-   * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their infos
-   */
-  @Override
-  public void appendColumnsToIcebergTable(
-      String tableName, Map<String, ColumnInfos> columnInfosMap) {
-    LOGGER.debug("Appending columns to iceberg table");
-    appendColumnsToTable(tableName, columnInfosMap, true);
-  }
-
-  private void appendColumnsToTable(
-      String tableName, Map<String, ColumnInfos> columnInfosMap, boolean isIcebergTable) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    StringBuilder appendColumnQuery = new StringBuilder("alter ");
-    if (isIcebergTable) {
-      appendColumnQuery.append("iceberg ");
-    }
-    appendColumnQuery.append("table identifier(?) add column if not exists ");
-    boolean first = true;
-    StringBuilder logColumn = new StringBuilder("[");
-
-    for (String columnName : columnInfosMap.keySet()) {
-      if (first) {
-        first = false;
-      } else {
-        appendColumnQuery.append(", if not exists ");
-        logColumn.append(",");
-      }
-      ColumnInfos columnInfos = columnInfosMap.get(columnName);
-
-      appendColumnQuery
-          .append(columnName)
-          .append(" ")
-          .append(columnInfos.getColumnType())
-          .append(columnInfos.getDdlComments());
-      logColumn.append(columnName).append(" (").append(columnInfosMap.get(columnName)).append(")");
-    }
-
-    executeStatement(tableName, appendColumnQuery.toString());
-
-    logColumn.insert(0, "Following columns created for table {}:\n").append("]");
-    LOGGER.info(logColumn.toString(), tableName);
-  }
-
-  private void executeStatement(String tableName, String query) {
-    try {
-      LOGGER.info("Trying to run query: {}", query);
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2015.getException(e);
-    }
-  }
-
   @Override
   public void databaseExists(String databaseName) {
     checkConnection();
@@ -589,23 +412,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       stmt.close();
     } catch (Exception e) {
       throw new RuntimeException("Error executing query: " + query, e);
-    }
-  }
-
-  public static class FormattingUtils {
-    /**
-     * Transform the objectName to uppercase unless it is enclosed in double quotes
-     *
-     * <p>In that case, drop the quotes and leave it as it is.
-     *
-     * @param objectName name of the snowflake object, could be tableName, columnName, roleName,
-     *     etc.
-     * @return Transformed objectName
-     */
-    public static String formatName(String objectName) {
-      return (objectName.charAt(0) == '"' && objectName.charAt(objectName.length() - 1) == '"')
-          ? objectName.substring(1, objectName.length() - 1)
-          : objectName.toUpperCase();
     }
   }
 }

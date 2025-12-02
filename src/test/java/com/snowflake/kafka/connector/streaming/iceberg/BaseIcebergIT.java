@@ -3,12 +3,10 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryAndCollectResult;
 import static com.snowflake.kafka.connector.internal.TestUtils.executeQueryWithParameter;
 
-import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.function.Function;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,11 +27,6 @@ public class BaseIcebergIT {
 
   protected static void createIcebergTable(String tableName) {
     createIcebergTableWithColumnClause(tableName, "record_metadata object()");
-  }
-
-  protected static void createIcebergTableNoSchemaEvolution(String tableName) {
-    createIcebergTableWithColumnClause(
-        tableName, "record_metadata object(), record_content object()");
   }
 
   protected static void createIcebergTableWithColumnClause(String tableName, String columnClause) {
@@ -84,10 +77,5 @@ public class BaseIcebergIT {
           }
           throw new IllegalArgumentException("RECORD_METADATA column not found in the table");
         });
-  }
-
-  protected static List<DescribeTableRow> describeTable(String tableName) {
-    return conn.describeTable(tableName)
-        .orElseThrow(() -> new IllegalArgumentException("Table not found"));
   }
 }

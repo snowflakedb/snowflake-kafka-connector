@@ -16,7 +16,6 @@ class ConnectionServiceIT {
 
   private final String tableName = TestUtils.randomTableName();
   private final String tableName1 = TestUtils.randomTableName();
-  private final String topicName = TestUtils.randomTopicName();
 
   @Test
   void testEncryptedKey() {

@@ -12,18 +12,13 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.DefaultConnectorConfigValidator;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.common.config.ConfigException;
 
 public class DefaultStreamingConfigValidator implements StreamingConfigValidator {
-
-  private static final KCLogger LOGGER =
-      new KCLogger(DefaultConnectorConfigValidator.class.getName());
 
   private static final String STRING_CONVERTER_KEYWORD = "StringConverter";
   private static final String BYTE_ARRAY_CONVERTER_KEYWORD = "ByteArrayConverter";
