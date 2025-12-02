@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.NAME;
 import static com.snowflake.kafka.connector.Utils.getTableName;
-import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider.buildDefaultPipeName;
 import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider.buildPipeName;
@@ -22,8 +21,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
-import com.snowflake.kafka.connector.records.RecordService;
-import com.snowflake.kafka.connector.records.RecordServiceFactory;
+import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,7 +56,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Used to connect to Snowflake, could be null during testing
   private final SnowflakeConnectionService conn;
 
-  private final RecordService recordService;
+  private final SnowflakeMetadataConfig metadataConfig;
 
   private final Map<String, String> topicToTableMap;
 
@@ -101,8 +99,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.sinkTaskContext = sinkTaskContext;
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
     this.topicToTableMap = topicToTableMap;
-    this.recordService =
-        RecordServiceFactory.createRecordService(isIcebergEnabled(connectorConfig));
+    this.metadataConfig = new SnowflakeMetadataConfig(connectorConfig);
     this.behaviorOnNullValues = behaviorOnNullValues;
     this.partitionsToChannel = new HashMap<>();
 
@@ -214,7 +211,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         channelName);
 
     StreamingRecordService streamingRecordService =
-        new StreamingRecordService(this.recordService, this.kafkaRecordErrorReporter);
+        new StreamingRecordService(this.kafkaRecordErrorReporter, this.metadataConfig);
 
     StreamingErrorHandler streamingErrorHandler =
         new StreamingErrorHandler(
@@ -269,7 +266,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     channelsVisitedPerBatch.clear();
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
-      if (recordService.shouldSkipNullValue(record, behaviorOnNullValues)) {
+      if (shouldSkipNullValue(record)) {
         continue;
       }
 
@@ -303,6 +300,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     TopicPartitionChannel channelPartition = partitionsToChannel.get(channelName);
     boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channelName);
     channelPartition.insertRecord(record, isFirstRowPerPartitionInBatch);
+  }
+
+  private boolean shouldSkipNullValue(SinkRecord record) {
+    if (behaviorOnNullValues == ConnectorConfigTools.BehaviorOnNullValues.DEFAULT) {
+      return false;
+    }
+    if (record.value() == null) {
+      LOGGER.debug(
+          "Null valued record from topic '{}', partition {} and offset {} was skipped.",
+          record.topic(),
+          record.kafkaPartition(),
+          record.kafkaOffset());
+      return true;
+    }
+    return false;
   }
 
   @Override

@@ -210,9 +210,7 @@ public enum SnowflakeErrors {
       "Failed to put records",
       "SinkTask hasn't been initialized before calling PUT function"),
   ERROR_5015(
-      "5015",
-      "Invalid SinkRecord received",
-      "Error parsing SinkRecord of native converter or SinkRecord header"),
+      "5015", "Invalid SinkRecord received", "Error parsing SinkRecord value or SinkRecord header"),
   ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid"),
   ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema"),
 

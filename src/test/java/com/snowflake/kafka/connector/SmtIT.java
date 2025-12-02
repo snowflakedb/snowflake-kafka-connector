@@ -99,8 +99,9 @@ public class SmtIT extends ConnectClusterBaseIT {
   }
 
   @ParameterizedTest
-  @CsvSource({"DEFAULT, 20", "IGNORE, 10"})
-  void testIfSmtReturningNullsIngestDataCorrectly(String behaviorOnNull, int expectedRecordNumber) {
+  @CsvSource({"DEFAULT, 10, 18", "IGNORE, 0, -1"}) // -1 means No offset registered
+  void testIfSmtReturningNullsIngestDataCorrectly(
+      String behaviorOnNull, int expectedRecordNumber, int expectedLastOffset) {
     // given
     connectCluster.configureConnector(
         connectorName, smtProperties(topicName, connectorName, behaviorOnNull));
@@ -108,12 +109,18 @@ public class SmtIT extends ConnectClusterBaseIT {
     waitForOpenedFakeIngestClient(connectorName);
 
     // when
+    // Send 20 messages: 10x "{}" (becomes null after ExtractField SMT) alternating with
+    // 10x {"message":"value"} (becomes String "value" after SMT - treated as broken record)
     Stream.iterate(0, UnaryOperator.identity())
         .limit(10)
         .flatMap(v -> Stream.of("{}", "{\"message\":\"value\"}"))
         .forEach(message -> connectCluster.kafka().produce(topicName, message));
 
     // then
+    // For DEFAULT mode: 10 tombstones are inserted at even offsets (0,2,4,...,18), last offset=18
+    // For IGNORE mode: nulls are skipped, broken records don't insert, no rows appended
+    final String expectedOffsetToken =
+        expectedLastOffset >= 0 ? String.valueOf(expectedLastOffset) : null;
     await()
         .timeout(Duration.ofSeconds(30))
         .pollInterval(Duration.ofSeconds(1))
@@ -127,7 +134,7 @@ public class SmtIT extends ConnectClusterBaseIT {
               String offsetToken = openedChannels.get(0).getLatestCommittedOffsetToken();
 
               assertThat(openedChannels).hasSize(PARTITION_COUNT);
-              assertThat(offsetToken).isEqualTo("19");
+              assertThat(offsetToken).isEqualTo(expectedOffsetToken);
             });
   }
 

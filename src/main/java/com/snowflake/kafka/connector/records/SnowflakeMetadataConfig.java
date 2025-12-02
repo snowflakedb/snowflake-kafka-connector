@@ -42,6 +42,10 @@ public class SnowflakeMetadataConfig {
             .orElse(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT);
   }
 
+  public boolean shouldIncludeAllMetadata() {
+    return allFlag;
+  }
+
   private static boolean getMetadataProperty(Map<String, String> config, String property) {
     String value =
         Optional.ofNullable(config.get(property))
@@ -50,6 +54,7 @@ public class SnowflakeMetadataConfig {
     return Boolean.parseBoolean(value);
   }
 
+  @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("createtimeFlag", createtimeFlag)

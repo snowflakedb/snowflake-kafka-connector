@@ -77,12 +77,12 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     // The first insert should fail and schema evolution will kick in to update the schema
     service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
-        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
+        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 5, 20);
     TestUtils.checkTableSchema(table, SchematizationTestUtils.SF_JSON_SCHEMA_FOR_TABLE_CREATION);
 
     // Retry the insert should succeed now with the updated schema
     service.insert(Collections.singletonList(jsonRecordValue));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
 
     TestUtils.checkTableContentOneRow(
         table, SchematizationTestUtils.CONTENT_FOR_JSON_TABLE_CREATION);
@@ -104,23 +104,23 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     // The first insert should fail and schema evolution will kick in to add the column
     service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
-        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
+        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 5, 20);
 
     // The second insert should fail again and schema evolution will kick in to update the
     // first not-nullable column nullability
     service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
-        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
+        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 5, 20);
 
     // The third insert should fail again and schema evolution will kick in to update the
     // second not-nullable column nullability
     service.insert(Collections.singletonList(jsonRecordValue));
     TestUtils.assertWithRetry(
-        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
+        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 5, 20);
 
     // Retry the insert should succeed now with the updated schema
     service.insert(Collections.singletonList(jsonRecordValue));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
   }
 
   @Test
@@ -242,7 +242,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     // Wait for schema evolution to complete
     TestUtils.assertWithRetry(
-        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
+        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 5, 20);
 
     Map<String, String> expectedSchema =
         Map.of("RECORD_METADATA", "VARIANT", "TIMESTAMP_RECEIVED", "TIMESTAMP_NTZ");
@@ -250,7 +250,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
     // Retry the insert should succeed now with the updated schema
     service.insert(Collections.singletonList(timestampRecord));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
 
     // Verify the timestamp content was inserted correctly
     Map<String, Object> expectedContent = new HashMap<>();
@@ -262,7 +262,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     // Insert another record with the same schema to ensure it works consistently
     SinkRecord timestampRecord2 = createKafkaRecordWithSchema(timestampWithSchemaExample(), 1);
     service.insert(Collections.singletonList(timestampRecord2));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 2, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 2, 5, 20);
   }
 
   private SinkRecord createComplexTestRecord(int partition, long offset) {

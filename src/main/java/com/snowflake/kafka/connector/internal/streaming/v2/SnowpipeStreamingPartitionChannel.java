@@ -224,9 +224,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
       if (!transformedRecord.isEmpty()) {
         insertRowWithFallback(transformedRecord, kafkaOffset);
-        this.processedOffset.set(kafkaOffset);
-        LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
       }
+      // Always update processedOffset after transformData, even for empty/broken records
+      // Empty records are already reported to DLQ in transformData if needed
+      this.processedOffset.set(kafkaOffset);
+      LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(

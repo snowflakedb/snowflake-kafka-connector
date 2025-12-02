@@ -81,7 +81,7 @@ class TestAvrosrAvrosr(BaseE2eTest):
         # validate content of line 1
         res = self.driver.snowflake_conn.cursor(DictCursor).execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
-        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{},"key":{"id":0},"offset":0,"partition":0,"topic":"travis_correct_avrosr_avrosr_\w*"}'
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"key":{"id":0},"offset":0,"partition":0,"topic":"travis_correct_avrosr_avrosr_\w*"}'
         assert res['ID'] == 0
         assert res['FIRSTNAME'] == "abc0"
         assert res['TIME'] == 1835

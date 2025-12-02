@@ -34,8 +34,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
-import com.snowflake.kafka.connector.records.SnowflakeJsonSchema;
-import com.snowflake.kafka.connector.records.SnowflakeRecordContent;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -61,7 +59,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Function;
-import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -476,32 +473,20 @@ public class TestUtils {
   }
 
   public static void assertWithRetry(AssertFunction func) throws Exception {
-    assertWithRetry(func, 20, 5);
+    assertWithRetry(func, 5, 20);
   }
 
   /* Generate (noOfRecords - startOffset) for a given topic and partition. */
   public static List<SinkRecord> createJsonStringSinkRecords(
       final long startOffset, final long noOfRecords, final String topicName, final int partitionNo)
       throws Exception {
-    ArrayList<SinkRecord> records = new ArrayList<>();
-    String json = "{ \"f1\" : \"v1\" } ";
-    ObjectMapper objectMapper = new ObjectMapper();
-    Schema snowflakeSchema = new SnowflakeJsonSchema();
-    SnowflakeRecordContent content = new SnowflakeRecordContent(objectMapper.readTree(json));
-    for (long i = startOffset; i < startOffset + noOfRecords; ++i) {
-      records.add(
-          new SinkRecord(
-              topicName,
-              partitionNo,
-              snowflakeSchema,
-              content,
-              snowflakeSchema,
-              content,
-              i,
-              System.currentTimeMillis(),
-              TimestampType.CREATE_TIME));
-    }
-    return records;
+    return createJsonRecords(
+        startOffset,
+        noOfRecords,
+        topicName,
+        partitionNo,
+        null,
+        Collections.singletonMap("schemas.enable", Boolean.toString(false)));
   }
 
   /* Generate (noOfRecords - startOffset) blank records for a given topic and partition. */
