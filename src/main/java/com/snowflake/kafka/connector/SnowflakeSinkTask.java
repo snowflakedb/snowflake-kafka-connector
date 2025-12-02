@@ -25,6 +25,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import java.util.Arrays;
@@ -76,6 +77,9 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private final SnowflakeSinkTaskAuthorizationExceptionTracker authorizationExceptionTracker =
       new SnowflakeSinkTaskAuthorizationExceptionTracker();
+
+  // Stores channel error exception detected in preCommit to fail on next put() call
+  private volatile SnowflakeKafkaConnectorException channelErrorToFailOn = null;
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
@@ -266,6 +270,13 @@ public class SnowflakeSinkTask extends SinkTask {
   public void put(final Collection<SinkRecord> records) {
     this.authorizationExceptionTracker.throwExceptionIfAuthorizationFailed();
 
+    // Check for channel errors detected in preCommit and fail the task
+    if (this.channelErrorToFailOn != null) {
+      SnowflakeKafkaConnectorException error = this.channelErrorToFailOn;
+      this.channelErrorToFailOn = null; // Clear so we don't throw again on restart
+      throw new ConnectException(error.getMessage(), error);
+    }
+
     final long recordSize = records.size();
     DYNAMIC_LOGGER.debug("Calling PUT with {} records", recordSize);
 
@@ -319,6 +330,13 @@ public class SnowflakeSinkTask extends SinkTask {
               committedOffsets.put(topicPartition, new OffsetAndMetadata(offset));
             }
           });
+    } catch (SnowflakeKafkaConnectorException e) {
+      this.authorizationExceptionTracker.reportPrecommitException(e);
+      this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
+      // Channel error count exceeded - store to fail on next put() call
+      if (e.checkErrorCode(SnowflakeErrors.ERROR_5030)) {
+        this.channelErrorToFailOn = e;
+      }
     } catch (Exception e) {
       this.authorizationExceptionTracker.reportPrecommitException(e);
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());

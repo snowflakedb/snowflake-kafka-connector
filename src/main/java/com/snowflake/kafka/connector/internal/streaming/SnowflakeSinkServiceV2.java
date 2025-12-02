@@ -81,6 +81,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // default is true unless the configuration provided is false;
   // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
   private boolean enableCustomJMXMonitoring = KafkaConnectorConfigParams.JMX_OPT_DEFAULT;
+  // Whether to tolerate errors during ingestion (based on errors.tolerance config)
+  private final boolean tolerateErrors;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -118,11 +120,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
+    this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
 
     LOGGER.info(
-        "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}",
+        "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {}",
         this.connectorName,
-        this.taskId);
+        this.taskId,
+        this.tolerateErrors);
   }
 
   /** Gets a unique identifier consisting of connector name, topic name and partition number. */
@@ -314,8 +318,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     String partitionChannelKey =
         makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
     if (partitionsToChannel.containsKey(partitionChannelKey)) {
-      long offset = partitionsToChannel.get(partitionChannelKey).getOffsetSafeToCommitToKafka();
-      partitionsToChannel.get(partitionChannelKey).setLatestConsumerGroupOffset(offset);
+      TopicPartitionChannel channel = partitionsToChannel.get(partitionChannelKey);
+      channel.checkChannelStatusAndLogErrors(tolerateErrors);
+      long offset = channel.getOffsetSafeToCommitToKafka();
+      channel.setLatestConsumerGroupOffset(offset);
       LOGGER.info(
           "Fetched snowflake commited offset: [{}] for channel [{}]", offset, partitionChannelKey);
       return offset;

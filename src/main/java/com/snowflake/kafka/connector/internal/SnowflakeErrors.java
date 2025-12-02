@@ -233,7 +233,11 @@ public enum SnowflakeErrors {
       "5029",
       "Destination table does not exist",
       "Destination table does not exist. Please ensure the destination table exists in Snowflake"
-          + " before starting the connector.");
+          + " before starting the connector."),
+  ERROR_5030(
+      "5030",
+      "Channel error count threshold exceeded",
+      "Channel has reported errors during data ingestion. Check the channel history for details.");
 
   // properties
 

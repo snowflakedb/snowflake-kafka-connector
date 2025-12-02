@@ -2,8 +2,10 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5027;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5028;
+import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5030;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
@@ -594,6 +596,61 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           this.currentConsumerGroupOffset.get(),
           consumerOffset,
           channelName);
+    }
+  }
+
+  @Override
+  public void checkChannelStatusAndLogErrors(final boolean tolerateErrors) {
+    final ChannelStatus status = channel.getChannelStatus();
+    logChannelStatus(status);
+    handleChannelErrors(status, tolerateErrors);
+  }
+
+  private void logChannelStatus(final ChannelStatus status) {
+    LOGGER.info(
+        "Channel status for channel=[{}]: databaseName=[{}], schemaName=[{}], pipeName=[{}],"
+            + " channelName=[{}], statusCode=[{}], latestCommittedOffsetToken=[{}],"
+            + " createdOn=[{}], rowsInsertedCount=[{}], rowsParsedCount=[{}],"
+            + " rowsErrorCount=[{}], lastErrorOffsetTokenUpperBound=[{}],"
+            + " lastErrorMessage=[{}], lastErrorTimestamp=[{}],"
+            + " serverAvgProcessingLatency=[{}], lastRefreshedOn=[{}]",
+        this.getChannelNameFormatV1(),
+        status.getDatabaseName(),
+        status.getSchemaName(),
+        status.getPipeName(),
+        status.getChannelName(),
+        status.getStatusCode(),
+        status.getLatestCommittedOffsetToken(),
+        status.getCreatedOn(),
+        status.getRowsInsertedCount(),
+        status.getRowsParsedCount(),
+        status.getRowsErrorCount(),
+        status.getLastErrorOffsetTokenUpperBound(),
+        status.getLastErrorMessage(),
+        status.getLastErrorTimestamp(),
+        status.getServerAvgProcessingLatency(),
+        status.getLastRefreshedOn());
+  }
+
+  private void handleChannelErrors(final ChannelStatus status, final boolean tolerateErrors) {
+    final long rowsErrorCount = status.getRowsErrorCount();
+    if (rowsErrorCount > 0) {
+      final String errorMessage =
+          String.format(
+              "Channel [%s] has %d errors. Last error message: %s, last error timestamp: %s,"
+                  + " last error offset token upper bound: %s",
+              this.getChannelNameFormatV1(),
+              rowsErrorCount,
+              status.getLastErrorMessage(),
+              status.getLastErrorTimestamp(),
+              status.getLastErrorOffsetTokenUpperBound());
+
+      if (tolerateErrors) {
+        LOGGER.warn(errorMessage);
+      } else {
+        this.telemetryServiceV2.reportKafkaConnectFatalError(errorMessage);
+        throw ERROR_5030.getException(errorMessage);
+      }
     }
   }
 
