@@ -55,7 +55,6 @@ class SnowflakeSinkRecordTest {
     assertFalse(record.isBroken());
     assertFalse(record.isTombstone());
     assertEquals(SnowflakeSinkRecord.RecordState.VALID, record.getState());
-    assertEquals(SnowflakeSinkRecord.NON_AVRO_SCHEMA, record.getSchemaID());
 
     Map<String, Object> content = record.getContent();
     assertEquals("test", content.get("name"));

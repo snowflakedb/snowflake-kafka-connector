@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.records;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.record.TimestampType;
@@ -20,15 +21,11 @@ public final class SnowflakeSinkRecord {
   static final String TOPIC = "topic";
   static final String PARTITION = "partition";
   static final String KEY = "key";
-  static final String SCHEMA_ID = "schema_id";
   static final String CONNECTOR_PUSH_TIME = "SnowflakeConnectorPushTime";
   static final String HEADERS = "headers";
 
-  public static final int NON_AVRO_SCHEMA = -1;
-
   private final Map<String, Object> content;
   private final Map<String, Object> metadata;
-  private final int schemaID;
   private final RecordState state;
 
   public enum RecordState {
@@ -38,10 +35,9 @@ public final class SnowflakeSinkRecord {
   }
 
   private SnowflakeSinkRecord(
-      Map<String, Object> content, Map<String, Object> metadata, int schemaID, RecordState state) {
+      Map<String, Object> content, Map<String, Object> metadata, RecordState state) {
     this.content = content;
     this.metadata = metadata;
-    this.schemaID = schemaID;
     this.state = state;
   }
 
@@ -71,10 +67,9 @@ public final class SnowflakeSinkRecord {
       Map<String, Object> content =
           KafkaRecordConverter.convertToMap(record.valueSchema(), record.value());
 
-      Map<String, Object> metadata =
-          buildMetadata(record, metadataConfig, connectorPushTime, NON_AVRO_SCHEMA);
+      Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
 
-      return new SnowflakeSinkRecord(content, metadata, NON_AVRO_SCHEMA, RecordState.VALID);
+      return new SnowflakeSinkRecord(content, metadata, RecordState.VALID);
     } catch (Exception e) {
       return createBrokenRecord(record, metadataConfig, connectorPushTime);
     }
@@ -82,26 +77,20 @@ public final class SnowflakeSinkRecord {
 
   private static SnowflakeSinkRecord createTombstoneRecord(
       SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
-    Map<String, Object> metadata =
-        buildMetadata(record, metadataConfig, connectorPushTime, NON_AVRO_SCHEMA);
-    return new SnowflakeSinkRecord(
-        new HashMap<>(), metadata, NON_AVRO_SCHEMA, RecordState.TOMBSTONE);
+    Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
+    return new SnowflakeSinkRecord(Collections.emptyMap(), metadata, RecordState.TOMBSTONE);
   }
 
   private static SnowflakeSinkRecord createBrokenRecord(
       SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
-    Map<String, Object> metadata =
-        buildMetadataSafe(record, metadataConfig, connectorPushTime, NON_AVRO_SCHEMA);
-    return new SnowflakeSinkRecord(new HashMap<>(), metadata, NON_AVRO_SCHEMA, RecordState.BROKEN);
+    Map<String, Object> metadata = buildMetadataSafe(record, metadataConfig, connectorPushTime);
+    return new SnowflakeSinkRecord(Collections.emptyMap(), metadata, RecordState.BROKEN);
   }
 
   private static Map<String, Object> buildMetadataSafe(
-      SinkRecord record,
-      SnowflakeMetadataConfig metadataConfig,
-      Instant connectorPushTime,
-      int schemaID) {
+      SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
     final Map<String, Object> metadata =
-        buildMetadataBase(record, metadataConfig, connectorPushTime, schemaID);
+        buildMetadataBase(record, metadataConfig, connectorPushTime);
 
     // For broken records, store key as string if conversion fails
     if (record.key() != null) {
@@ -126,12 +115,9 @@ public final class SnowflakeSinkRecord {
   }
 
   private static Map<String, Object> buildMetadata(
-      SinkRecord record,
-      SnowflakeMetadataConfig metadataConfig,
-      Instant connectorPushTime,
-      int schemaID) {
+      SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
     final Map<String, Object> metadata =
-        buildMetadataBase(record, metadataConfig, connectorPushTime, schemaID);
+        buildMetadataBase(record, metadataConfig, connectorPushTime);
 
     // Add key to metadata
     addKeyToMetadata(record, metadata);
@@ -145,10 +131,7 @@ public final class SnowflakeSinkRecord {
   }
 
   private static Map<String, Object> buildMetadataBase(
-      SinkRecord record,
-      SnowflakeMetadataConfig metadataConfig,
-      Instant connectorPushTime,
-      int schemaID) {
+      SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
     final Map<String, Object> metadata = new HashMap<>();
 
     if (metadataConfig.topicFlag) {
@@ -163,10 +146,6 @@ public final class SnowflakeSinkRecord {
     if (record.timestampType() != TimestampType.NO_TIMESTAMP_TYPE
         && metadataConfig.createtimeFlag) {
       metadata.put(record.timestampType().name, record.timestamp());
-    }
-
-    if (schemaID != NON_AVRO_SCHEMA) {
-      metadata.put(SCHEMA_ID, schemaID);
     }
 
     if (connectorPushTime != null && metadataConfig.connectorPushTimeFlag) {
@@ -210,10 +189,6 @@ public final class SnowflakeSinkRecord {
 
   public Map<String, Object> getMetadata() {
     return metadata;
-  }
-
-  public int getSchemaID() {
-    return schemaID;
   }
 
   public RecordState getState() {

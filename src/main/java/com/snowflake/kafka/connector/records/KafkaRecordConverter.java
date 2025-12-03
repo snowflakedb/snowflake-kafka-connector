@@ -4,7 +4,9 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -12,7 +14,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
 import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -30,17 +31,11 @@ public final class KafkaRecordConverter {
 
   private static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
 
-  private static final ThreadLocal<SimpleDateFormat> ISO_DATE_TIME_FORMAT =
-      ThreadLocal.withInitial(
-          () -> {
-            SimpleDateFormat simpleDateFormat =
-                new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-            return simpleDateFormat;
-          });
+  private static final DateTimeFormatter ISO_DATE_TIME_FORMAT =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
 
-  private static final ThreadLocal<SimpleDateFormat> TIME_FORMAT =
-      ThreadLocal.withInitial(() -> new SimpleDateFormat("HH:mm:ss.SSSXXX"));
+  private static final DateTimeFormatter TIME_FORMAT =
+      DateTimeFormatter.ofPattern("HH:mm:ss.SSSXXX").withZone(ZoneId.systemDefault());
 
   private KafkaRecordConverter() {}
 
@@ -101,7 +96,7 @@ public final class KafkaRecordConverter {
   }
 
   private static Map<String, Object> convertStructToMap(Struct struct) {
-    Map<String, Object> result = new LinkedHashMap<>();
+    Map<String, Object> result = new HashMap<>();
     Schema schema = struct.schema();
     for (Field field : schema.fields()) {
       if (LOGGER.isTraceEnabled()) {
@@ -280,11 +275,11 @@ public final class KafkaRecordConverter {
   private static Object convertInt32(Schema schema, Object value) {
     if (schema != null && Date.LOGICAL_NAME.equals(schema.name())) {
       LOGGER.trace("Converting INT32 Date logical type to ISO format");
-      return ISO_DATE_TIME_FORMAT.get().format((java.util.Date) value);
+      return ISO_DATE_TIME_FORMAT.format(((java.util.Date) value).toInstant());
     }
     if (schema != null && Time.LOGICAL_NAME.equals(schema.name())) {
       LOGGER.trace("Converting INT32 Time logical type to time format");
-      return TIME_FORMAT.get().format((java.util.Date) value);
+      return TIME_FORMAT.format(((java.util.Date) value).toInstant());
     }
     LOGGER.trace("Passthrough for INT32 value");
     return value;

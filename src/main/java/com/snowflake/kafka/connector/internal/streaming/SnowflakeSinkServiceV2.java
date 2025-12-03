@@ -210,9 +210,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         pipeName,
         channelName);
 
-    StreamingRecordService streamingRecordService =
-        new StreamingRecordService(this.kafkaRecordErrorReporter, this.metadataConfig);
-
     StreamingErrorHandler streamingErrorHandler =
         new StreamingErrorHandler(
             connectorConfig, kafkaRecordErrorReporter, this.conn.getTelemetryClient());
@@ -225,7 +222,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             topicPartition,
             this.conn,
             this.connectorConfig,
-            streamingRecordService,
+            this.kafkaRecordErrorReporter,
+            this.metadataConfig,
             this.sinkTaskContext,
             this.enableCustomJMXMonitoring,
             this.metricsJmxReporter,
@@ -262,25 +260,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(final Collection<SinkRecord> records) {
-    // note that records can be empty but, we will still need to check for time based flush
     channelsVisitedPerBatch.clear();
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
         continue;
       }
-
-      // While inserting into buffer, we will check for count threshold and buffered bytes
-      // threshold.
       insert(record);
     }
   }
 
   /**
    * Inserts individual records into buffer. It fetches the TopicPartitionChannel from the map and
-   * then each partition(Streaming channel) calls its respective insertRows API
-   *
-   * @param record record content
+   * then each partition(Streaming channel) calls its respective appendRows API
    */
   @Override
   public void insert(SinkRecord record) {

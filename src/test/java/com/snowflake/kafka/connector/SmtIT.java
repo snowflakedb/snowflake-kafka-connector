@@ -138,6 +138,29 @@ public class SmtIT extends ConnectClusterBaseIT {
             });
   }
 
+  @Test
+  void testIfSmtExtractingNestedStructuresWorksCorrectly() {
+    connectCluster.configureConnector(
+        connectorName, smtProperties(topicName, connectorName, "IGNORE"));
+    waitForConnectorRunning(connectorName);
+    waitForOpenedFakeIngestClient(connectorName);
+    final String message = "{\"message\":{\"title\":\"abcd\", \"length\":5999}}";
+    connectCluster.kafka().produce(topicName, message);
+    await()
+        .timeout(Duration.ofSeconds(30))
+        .pollInterval(Duration.ofSeconds(2))
+        .untilAsserted(
+            () -> {
+              assertThat(getOpenedFakeIngestClient(connectorName).getAppendedRowCount())
+                  .isEqualTo(1);
+              List<FakeSnowflakeStreamingIngestChannel> openedChannels =
+                  getOpenedFakeIngestClient(connectorName).getOpenedChannels();
+              // get first open channel, there is going to be only one because partition count is 1
+              String offsetToken = openedChannels.get(0).getLatestCommittedOffsetToken();
+              assertThat(offsetToken).isEqualTo("0");
+            });
+  }
+
   private Map<String, String> smtProperties(
       String smtTopic, String smtConnector, String behaviorOnNull) {
     Map<String, String> config = defaultProperties(smtTopic, smtConnector);
