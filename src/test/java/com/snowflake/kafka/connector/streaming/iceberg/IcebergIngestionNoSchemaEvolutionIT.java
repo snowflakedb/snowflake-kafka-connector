@@ -61,11 +61,6 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
           + ")";
 
   @Override
-  protected Boolean isSchemaEvolutionEnabled() {
-    return false;
-  }
-
-  @Override
   protected void createIcebergTable() {
     createIcebergTableWithColumnClause(
         tableName, "RECORD_METADATA VARIANT, RECORD_CONTENT VARIANT");

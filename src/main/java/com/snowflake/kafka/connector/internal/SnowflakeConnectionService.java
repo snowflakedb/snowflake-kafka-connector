@@ -1,10 +1,8 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public interface SnowflakeConnectionService {
@@ -47,32 +45,6 @@ public interface SnowflakeConnectionService {
    * @return true if schema is correct, false is schema is incorrect or table does not exist
    */
   boolean isTableCompatible(String tableName);
-
-  /**
-   * Check whether the user has the role privilege to do schema evolution and whether the schema
-   * evolution option is enabled on the table
-   *
-   * @param tableName the name of the table
-   * @param role the role of the user
-   * @return whether table and role has the required permission to perform schema evolution
-   */
-  boolean hasSchemaEvolutionPermission(String tableName, String role);
-
-  /**
-   * Alter iceberg table to modify columns datatype
-   *
-   * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their columnInfos
-   */
-  void alterColumnsDataTypeIcebergTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
-
-  /**
-   * Alter iceberg table to add columns according to a map from columnNames to their types
-   *
-   * @param tableName the name of the table
-   * @param columnInfosMap the mapping from the columnNames to their columnInfos
-   */
-  void appendColumnsToIcebergTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
 
   /**
    * check if a given database exists

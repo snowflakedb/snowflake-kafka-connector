@@ -5,11 +5,9 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
-import com.snowflake.kafka.connector.internal.streaming.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -168,23 +166,6 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   @Override
   public boolean isTableCompatible(String tableName) {
     return delegate.isTableCompatible(tableName);
-  }
-
-  @Override
-  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
-    return delegate.hasSchemaEvolutionPermission(tableName, role);
-  }
-
-  @Override
-  public void alterColumnsDataTypeIcebergTable(
-      String tableName, Map<String, ColumnInfos> columnInfosMap) {
-    delegate.alterColumnsDataTypeIcebergTable(tableName, columnInfosMap);
-  }
-
-  @Override
-  public void appendColumnsToIcebergTable(
-      String tableName, Map<String, ColumnInfos> columnInfosMap) {
-    delegate.appendColumnsToIcebergTable(tableName, columnInfosMap);
   }
 
   @Override

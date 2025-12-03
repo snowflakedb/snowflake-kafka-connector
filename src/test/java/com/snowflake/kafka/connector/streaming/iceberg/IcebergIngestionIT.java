@@ -10,7 +10,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
-import com.snowflake.kafka.connector.streaming.iceberg.sql.PrimitiveJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -37,7 +36,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected TopicPartition topicPartition;
   protected SnowflakeSinkService service;
   protected InMemoryKafkaRecordErrorReporter kafkaRecordErrorReporter;
-  protected static final String simpleRecordJson = "{\"simple\": \"extra field\"}";
 
   @BeforeEach
   public void setUp() {
@@ -81,8 +79,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
   protected abstract void createIcebergTable();
 
-  protected abstract Boolean isSchemaEvolutionEnabled();
-
   protected void waitForOffset(long targetOffset) throws Exception {
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == targetOffset);
   }
@@ -121,10 +117,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
           + ") "
           + "SELECT * FROM extracted_data "
           + "ORDER BY offset_extracted asc;";
-
-  protected List<RecordWithMetadata<PrimitiveJsonRecord>> selectAllSchematizedRecords() {
-    return select(tableName, selectAllSortByOffset, PrimitiveJsonRecord::fromSchematizedResult);
-  }
 
   protected List<RecordWithMetadata<ComplexJsonRecord>>
       selectAllComplexJsonRecordFromRecordContent() {

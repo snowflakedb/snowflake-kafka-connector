@@ -78,8 +78,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Map<String, String> connectorConfig;
 
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
-  // Cache for schema evolution
-  private final Map<String, Boolean> tableName2SchemaEvolutionPermission;
   // Set that keeps track of the channels that have been seen per input batch
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
   // default is true unless the configuration provided is false;
@@ -107,7 +105,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         RecordServiceFactory.createRecordService(isIcebergEnabled(connectorConfig));
     this.behaviorOnNullValues = behaviorOnNullValues;
     this.partitionsToChannel = new HashMap<>();
-    this.tableName2SchemaEvolutionPermission = new HashMap<>();
 
     // Extract and validate connector name - must not be null or empty
     this.connectorName = connectorConfig.get(NAME);
