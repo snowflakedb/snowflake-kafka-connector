@@ -25,6 +25,9 @@ class AppendRowWithRetryAndFallbackPolicy {
   /** Delay before next retry attempt. */
   private static final Duration RETRY_DELAY = Duration.ofSeconds(5);
 
+  /** Delay before fallback attempt (channel reopening). */
+  private static final Duration FALLBACK_DELAY = Duration.ofSeconds(1);
+
   /** Random jitter added to retry delays to prevent potential partition starving. */
   private static final Duration JITTER_DURATION = Duration.ofMillis(200);
 
@@ -32,7 +35,7 @@ class AppendRowWithRetryAndFallbackPolicy {
    * Executes the provided append row action with fallback handling.
    *
    * <p>On {@link SFException}, it will execute the fallback supplier to reopen the channel and
-   * reset offsets, then throw a custom exception.
+   * reset offsets after a delay with jitter to prevent retry storms.
    *
    * @param appendRowAction the action to execute (typically channel.appendRow call)
    * @param fallbackSupplier the fallback action to execute on failure (channel reopening logic)
@@ -44,10 +47,29 @@ class AppendRowWithRetryAndFallbackPolicy {
       FallbackSupplierWithException fallbackSupplier,
       String channelName) {
 
+    // Create a retry policy for the fallback channel recovery operation
+    RetryPolicy<Void> fallbackRetryPolicy =
+        RetryPolicy.<Void>builder()
+            .handle(Exception.class) // Handle any exception during fallback
+            .withDelay(FALLBACK_DELAY)
+            .withJitter(JITTER_DURATION)
+            .onRetry(
+                event ->
+                    LOGGER.warn(
+                        "Retrying channel recovery attempt #{} for channel: {} due to: {}",
+                        event.getAttemptCount(),
+                        channelName,
+                        event.getLastException().getMessage()))
+            .build();
+
     Fallback<Void> reopenChannelFallbackExecutor =
         Fallback.<Void>builder(
                 executionAttemptedEvent -> {
-                  fallbackSupplier.execute(executionAttemptedEvent.getLastException());
+                  // Execute fallback with retry policy and delay
+                  Failsafe.with(fallbackRetryPolicy)
+                      .run(
+                          () ->
+                              fallbackSupplier.execute(executionAttemptedEvent.getLastException()));
                 })
             .handle(SFException.class)
             .onFailedAttempt(
