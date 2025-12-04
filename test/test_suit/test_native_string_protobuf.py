@@ -48,7 +48,7 @@ class TestNativeStringProtobuf(BaseE2eTest):
             "Select * from {} limit 1".format(self.topic)).fetchone()
 
         # "schema_id" is lost since they are using native avro converter
-        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{},"offset":0,"partition":0,' \
+        goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,""offset":0,"partition":0,' \
                    r'"topic":"travis_correct_native_string_protobuf_\w*"}'
         goldContent = r'{"bytes_val":"3q0=","dateTime":1234,"device":{"deviceID":"555-4321","enabled":true},' \
                       r'"double_array_val":[0.3333333333333333,32.21,4.343243210000000e+08],' \

@@ -99,8 +99,9 @@ public class SmtIT extends ConnectClusterBaseIT {
   }
 
   @ParameterizedTest
-  @CsvSource({"DEFAULT, 20", "IGNORE, 10"})
-  void testIfSmtReturningNullsIngestDataCorrectly(String behaviorOnNull, int expectedRecordNumber) {
+  @CsvSource({"DEFAULT, 10, 18", "IGNORE, 0, -1"}) // -1 means No offset registered
+  void testIfSmtReturningNullsIngestDataCorrectly(
+      String behaviorOnNull, int expectedRecordNumber, int expectedLastOffset) {
     // given
     connectCluster.configureConnector(
         connectorName, smtProperties(topicName, connectorName, behaviorOnNull));
@@ -108,12 +109,18 @@ public class SmtIT extends ConnectClusterBaseIT {
     waitForOpenedFakeIngestClient(connectorName);
 
     // when
+    // Send 20 messages: 10x "{}" (becomes null after ExtractField SMT) alternating with
+    // 10x {"message":"value"} (becomes String "value" after SMT - treated as broken record)
     Stream.iterate(0, UnaryOperator.identity())
         .limit(10)
         .flatMap(v -> Stream.of("{}", "{\"message\":\"value\"}"))
         .forEach(message -> connectCluster.kafka().produce(topicName, message));
 
     // then
+    // For DEFAULT mode: 10 tombstones are inserted at even offsets (0,2,4,...,18), last offset=18
+    // For IGNORE mode: nulls are skipped, broken records don't insert, no rows appended
+    final String expectedOffsetToken =
+        expectedLastOffset >= 0 ? String.valueOf(expectedLastOffset) : null;
     await()
         .timeout(Duration.ofSeconds(30))
         .pollInterval(Duration.ofSeconds(1))
@@ -127,7 +134,30 @@ public class SmtIT extends ConnectClusterBaseIT {
               String offsetToken = openedChannels.get(0).getLatestCommittedOffsetToken();
 
               assertThat(openedChannels).hasSize(PARTITION_COUNT);
-              assertThat(offsetToken).isEqualTo("19");
+              assertThat(offsetToken).isEqualTo(expectedOffsetToken);
+            });
+  }
+
+  @Test
+  void testIfSmtExtractingNestedStructuresWorksCorrectly() {
+    connectCluster.configureConnector(
+        connectorName, smtProperties(topicName, connectorName, "IGNORE"));
+    waitForConnectorRunning(connectorName);
+    waitForOpenedFakeIngestClient(connectorName);
+    final String message = "{\"message\":{\"title\":\"abcd\", \"length\":5999}}";
+    connectCluster.kafka().produce(topicName, message);
+    await()
+        .timeout(Duration.ofSeconds(30))
+        .pollInterval(Duration.ofSeconds(2))
+        .untilAsserted(
+            () -> {
+              assertThat(getOpenedFakeIngestClient(connectorName).getAppendedRowCount())
+                  .isEqualTo(1);
+              List<FakeSnowflakeStreamingIngestChannel> openedChannels =
+                  getOpenedFakeIngestClient(connectorName).getOpenedChannels();
+              // get first open channel, there is going to be only one because partition count is 1
+              String offsetToken = openedChannels.get(0).getLatestCommittedOffsetToken();
+              assertThat(offsetToken).isEqualTo("0");
             });
   }
 

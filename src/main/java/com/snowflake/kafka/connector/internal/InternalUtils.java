@@ -6,12 +6,11 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Properties;
-import java.util.TimeZone;
 import net.snowflake.client.core.SFSessionProperty;
 
 public class InternalUtils {
@@ -30,6 +29,9 @@ public class InternalUtils {
   // internal parameters
 
   private static final KCLogger LOGGER = new KCLogger(InternalUtils.class.getName());
+
+  private static final DateTimeFormatter ISO_DATE_TIME_FORMAT =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC);
 
   /**
    * count the size of result set
@@ -70,16 +72,8 @@ public class InternalUtils {
    * @return date string
    */
   static String timestampToDate(long time) {
-    TimeZone tz = TimeZone.getTimeZone("UTC");
-
-    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-
-    df.setTimeZone(tz);
-
-    String date = df.format(new Date(time));
-
+    String date = ISO_DATE_TIME_FORMAT.format(Instant.ofEpochMilli(time));
     LOGGER.debug("converted date: {}", date);
-
     return date;
   }
 

@@ -8,18 +8,20 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.LatestCommitedOffsetTokenExecutor;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
-import com.snowflake.kafka.connector.internal.streaming.StreamingRecordService;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelInsertionException;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import dev.failsafe.FailsafeExecutor;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -29,6 +31,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.apache.kafka.connect.sink.SinkTaskContext;
@@ -74,7 +77,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
 
-  private final StreamingRecordService streamingRecordService;
+  private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
+  private final SnowflakeMetadataConfig metadataConfig;
 
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
@@ -97,7 +101,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       TopicPartition topicPartition,
       SnowflakeConnectionService conn,
       Map<String, String> connectorConfig,
-      StreamingRecordService streamingRecordService,
+      KafkaRecordErrorReporter kafkaRecordErrorReporter,
+      SnowflakeMetadataConfig metadataConfig,
       SinkTaskContext sinkTaskContext,
       boolean enableCustomJMXMonitoring,
       MetricsJmxReporter metricsJmxReporter,
@@ -107,7 +112,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channelName = channelName;
     this.topicPartition = topicPartition;
     this.connectorConfig = connectorConfig;
-    this.streamingRecordService = streamingRecordService;
+    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
+    this.metadataConfig = metadataConfig;
     this.sinkTaskContext = sinkTaskContext;
     this.connectorName = connectorName;
     this.taskId = taskId;
@@ -221,12 +227,22 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
       final long kafkaOffset = kafkaSinkRecord.kafkaOffset();
-      Map<String, Object> transformedRecord = streamingRecordService.transformData(kafkaSinkRecord);
-      if (!transformedRecord.isEmpty()) {
-        insertRowWithFallback(transformedRecord, kafkaOffset);
-        this.processedOffset.set(kafkaOffset);
-        LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
+      final SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaSinkRecord, metadataConfig);
+
+      if (record.isBroken()) {
+        LOGGER.debug("Broken record offset:{}, topic:{}", kafkaOffset, kafkaSinkRecord.topic());
+        kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
+      } else {
+        // If we reach here, it means we should ingest a record (possibly empty for tombstones)
+        final Map<String, Object> transformedRecord =
+            record.getContentWithMetadata(metadataConfig.shouldIncludeAllMetadata());
+        if (!transformedRecord.isEmpty()) {
+          insertRowWithFallback(transformedRecord, kafkaOffset);
+        }
       }
+      // Always update processedOffset after processing, even for broken records
+      this.processedOffset.set(kafkaOffset);
+      LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(

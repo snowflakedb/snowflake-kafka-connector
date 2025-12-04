@@ -90,7 +90,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     // It should auto create the channel
     service.insert(record1);
 
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
 
     service.closeAll();
   }
@@ -136,7 +136,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     // it should skip this record1 since it will fetch offset token 0 from Snowflake
     service.insert(record1);
 
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
 
     service.closeAll();
   }
@@ -168,7 +168,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     service.insert(record1);
 
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
 
     // insert another offset and check what we committed
     offset += 1;
@@ -193,7 +193,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             offset);
 
     service.insert(Arrays.asList(record2, record3));
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 3, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 3, 5, 20);
 
     service.closeAll();
   }
@@ -240,7 +240,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         20);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(topicPartition) == recordsInPartition1, 20, 5);
+        () -> service.getOffset(topicPartition) == recordsInPartition1, 5, 20);
     TestUtils.assertWithRetry(
         () -> service.getOffset(new TopicPartition(topic, partition2)) == recordsInPartition2,
         20,
@@ -475,8 +475,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             partition,
             noSchemaInputKey.schema(),
             noSchemaInputKey.value(),
-            Schema.STRING_SCHEMA,
-            "test",
+            schemaInputValue.schema(),
+            schemaInputValue.value(),
             startOffset + 2);
     SinkRecord schemaRecordKey =
         new SinkRecord(
@@ -484,8 +484,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             partition,
             schemaInputKey.schema(),
             schemaInputKey.value(),
-            Schema.STRING_SCHEMA,
-            "test",
+            schemaInputValue.schema(),
+            schemaInputValue.value(),
             startOffset + 3);
 
     SnowflakeSinkService service =
@@ -500,7 +500,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.insert(noSchemaRecordKey);
     service.insert(schemaRecordKey);
 
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == endOffset + 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == endOffset + 1, 5, 20);
 
     service.closeAll();
   }
@@ -653,7 +653,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.insert(avroRecordKey);
     service.insert(avroRecordKeyValue);
 
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == endOffset + 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == endOffset + 1, 5, 20);
 
     service.closeAll();
   }
@@ -707,7 +707,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.insert(brokenKeyValue);
 
     TestUtils.assertWithRetry(
-        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 20, 5);
+        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 5, 20);
 
     List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
         errorReporter.getReportedRecords();
@@ -721,7 +721,6 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   public void testBrokenRecordIngestionFollowedUpByValidRecord()
       throws Exception { // Mismatched schema and value
     SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
-    SchemaAndValue correctInputValue = new SchemaAndValue(Schema.STRING_SCHEMA, "correct");
 
     SinkRecord brokenValue =
         new SinkRecord(
@@ -732,8 +731,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             topic, partition, brokenInputValue.schema(), brokenInputValue.value(), null, null, 1);
 
     SinkRecord correctValue =
-        new SinkRecord(
-            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 2);
+        new SinkRecord(topic, partition, null, "key1", null, Map.of("name", "john"), 2);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
@@ -748,7 +746,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.insert(brokenKey);
     service.insert(correctValue);
 
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 3, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 3, 5, 20);
 
     List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
         errorReporter.getReportedRecords();
@@ -756,57 +754,6 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     assert reportedData.size() == 2;
     assert TestUtils.tableSize(table) == 1
         : "expected: " + 1 + " actual: " + TestUtils.tableSize(table);
-
-    service.closeAll();
-  }
-
-  /**
-   * A bit different from above test where we first insert a valid json record, followed by two
-   * broken records (Non valid JSON) followed by another good record with max buffer record size
-   * being 2
-   */
-  @Test
-  public void testBrokenRecordIngestionAfterValidRecord()
-      throws Exception { // Mismatched schema and value
-    SchemaAndValue brokenInputValue = new SchemaAndValue(Schema.INT32_SCHEMA, "error");
-    SchemaAndValue correctInputValue = new SchemaAndValue(Schema.STRING_SCHEMA, "correct");
-
-    SinkRecord correctValue =
-        new SinkRecord(
-            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 0);
-
-    SinkRecord brokenValue =
-        new SinkRecord(
-            topic, partition, null, null, brokenInputValue.schema(), brokenInputValue.value(), 1);
-
-    SinkRecord brokenKey =
-        new SinkRecord(
-            topic, partition, brokenInputValue.schema(), brokenInputValue.value(), null, null, 2);
-
-    SinkRecord anotherCorrectValue =
-        new SinkRecord(
-            topic, partition, null, null, correctInputValue.schema(), correctInputValue.value(), 3);
-
-    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
-
-    SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
-            .withErrorReporter(errorReporter)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .build();
-    service.startPartition(topicPartition);
-
-    service.insert(correctValue);
-    service.insert(brokenValue);
-    service.insert(brokenKey);
-    service.insert(anotherCorrectValue);
-
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 4, 20, 5);
-
-    List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
-        errorReporter.getReportedRecords();
-
-    assert reportedData.size() == 2;
 
     service.closeAll();
   }
@@ -835,7 +782,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     service.insert(record1);
 
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
     // wait for ingest
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 30, 20);
 
@@ -879,7 +826,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     service.insert(records);
 
-    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == noOfRecords, 20, 5);
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == noOfRecords, 5, 20);
 
     // wait for ingest
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 10, 30, 20);

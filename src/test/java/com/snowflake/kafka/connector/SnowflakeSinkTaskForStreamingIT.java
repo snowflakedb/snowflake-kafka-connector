@@ -72,7 +72,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     // commit offset
     final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
-    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 0, 20, 5);
+    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 0, 5, 20);
 
     // send regular data
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 1, topicName, partition);
@@ -82,10 +82,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     offsetMap.clear();
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(10000));
 
-    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 5, 20);
 
     TestUtils.assertWithRetry(
-        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == 1, 20, 5);
+        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == 1, 5, 20);
 
     sinkTask.close(topicPartitions);
     sinkTask.stop();
@@ -117,7 +117,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(lastOffsetNo));
 
-    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 1, 5, 20);
 
     // precommit is one more than offset last inserted
     TestUtils.assertWithRetry(
@@ -142,13 +142,13 @@ public class SnowflakeSinkTaskForStreamingIT {
     // Adding to offsetMap so that this gets into precommit
     offsetMap.put(topicPartitions.get(1), new OffsetAndMetadata(lastOffsetNo));
 
-    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 2, 20, 5);
+    TestUtils.assertWithRetry(() -> sinkTask.preCommit(offsetMap).size() == 2, 5, 20);
 
     TestUtils.assertWithRetry(
-        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == 1, 20, 5);
+        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(0)).offset() == 1, 5, 20);
 
     TestUtils.assertWithRetry(
-        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(1)).offset() == 1, 20, 5);
+        () -> sinkTask.preCommit(offsetMap).get(topicPartitions.get(1)).offset() == 1, 5, 20);
 
     sinkTask.close(topicPartitions);
 
