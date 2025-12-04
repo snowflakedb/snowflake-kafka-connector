@@ -13,35 +13,38 @@ import org.junit.jupiter.api.BeforeAll;
 
 public class BaseIcebergIT {
 
-  protected static SnowflakeConnectionService conn;
+  protected static SnowflakeConnectionService snowflakeDatabase;
 
   @BeforeAll
   public static void setup() {
-    conn = TestUtils.getConnectionServiceWithEncryptedKey();
+    snowflakeDatabase = TestUtils.getConnectionServiceWithEncryptedKey();
   }
 
   @AfterAll
   public static void teardown() {
-    conn.close();
+    snowflakeDatabase.close();
   }
 
   protected static void createIcebergTable(String tableName) {
-    createIcebergTableWithColumnClause(tableName, "record_metadata object()");
+    createIcebergTableWithColumnClause(tableName, "record_metadata object()", IcebergVersion.V2);
   }
 
-  protected static void createIcebergTableWithColumnClause(String tableName, String columnClause) {
+  protected static void createIcebergTableWithColumnClause(
+      String tableName, String columnClause, IcebergVersion icebergVersion) {
     String query =
         "create or replace iceberg table identifier(?) ("
             + columnClause
-            + ")"
-            + "external_volume = 'test_exvol'"
-            + "catalog = 'SNOWFLAKE'"
-            + "base_location = 'it' iceberg_version = 3";
+            + ") "
+            + "external_volume = 'test_exvol' "
+            + "catalog = 'SNOWFLAKE' "
+            + "base_location = 'it' iceberg_version = "
+            + (icebergVersion.ordinal() + 1)
+            + ";";
     doExecuteQueryWithParameter(query, tableName);
   }
 
   private static void doExecuteQueryWithParameter(String query, String tableName) {
-    executeQueryWithParameter(conn.getConnection(), query, tableName);
+    executeQueryWithParameter(snowflakeDatabase.getConnection(), query, tableName);
   }
 
   protected static void dropIcebergTable(String tableName) {
@@ -56,13 +59,14 @@ public class BaseIcebergIT {
 
   protected static <T> T select(
       String tableName, String query, Function<ResultSet, T> resultCollector) {
-    return executeQueryAndCollectResult(conn.getConnection(), query, tableName, resultCollector);
+    return executeQueryAndCollectResult(
+        snowflakeDatabase.getConnection(), query, tableName, resultCollector);
   }
 
   protected static String describeRecordMetadataType(String tableName) {
     String query = "describe table identifier(?)";
     return executeQueryAndCollectResult(
-        conn.getConnection(),
+        snowflakeDatabase.getConnection(),
         query,
         tableName,
         (resultSet) -> {

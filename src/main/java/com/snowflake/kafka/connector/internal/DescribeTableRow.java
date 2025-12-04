@@ -30,6 +30,6 @@ public class DescribeTableRow {
 
   @Override
   public String toString() {
-    return "DescribeTableRow{" + "column='" + column + '\'' + ", type='" + type + '\'' + '}';
+    return " " + column + " " + type;
   }
 }

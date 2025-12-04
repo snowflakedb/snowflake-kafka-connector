@@ -17,7 +17,6 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME;
@@ -62,29 +61,11 @@ public class ConnectorConfigValidatorTest {
         Arguments.of(SnowflakeSinkConnectorConfigBuilder.streamingConfig().build()));
   }
 
-  static Stream<Arguments> invalidConfigs() {
-    return Stream.of(
-        Arguments.of(
-            SnowflakeSinkConnectorConfigBuilder.icebergConfig().withIcebergEnabled().build(),
-            "snowflake.streaming.iceberg.enabled"),
-        Arguments.of(
-            SnowflakeSinkConnectorConfigBuilder.icebergConfig().build(),
-            "snowflake.streaming.iceberg.enabled"));
-  }
-
   @ParameterizedTest(name = "Valid config: {0}")
   @MethodSource("validConfigs")
   public void shouldValidateCorrectConfig(Map<String, String> config) {
     // no exception thrown
     connectorConfigValidator.validateConfig(config);
-  }
-
-  @ParameterizedTest(name = "Invalid config: {0}")
-  @MethodSource("invalidConfigs")
-  void shouldReturnErrorOnInvalidConfig(final Map<String, String> config, String errorKey) {
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(errorKey);
   }
 
   @Test
@@ -478,25 +459,6 @@ public class ConnectorConfigValidatorTest {
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining(SNOWFLAKE_ROLE_NAME);
-  }
-
-  @Test
-  public void shouldThrowExceptionWhenBothSSv2AndIcebergEnabled() {
-    Map<String, String> config =
-        SnowflakeSinkConnectorConfigBuilder.streamingConfig().withIcebergEnabled().build();
-
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("Ingestion to Iceberg table is currently unsupported")
-        .hasMessageContaining(SNOWFLAKE_STREAMING_ICEBERG_ENABLED);
-  }
-
-  @Test
-  public void shouldValidateSSv2WithoutIceberg() {
-    Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
-
-    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
-        .doesNotThrowAnyException();
   }
 
   private void invalidConfigRunner(List<String> paramsToRemove) {

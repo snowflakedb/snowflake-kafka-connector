@@ -2,6 +2,11 @@ package com.snowflake.kafka.connector;
 
 import static java.util.Arrays.*;
 import static java.util.Collections.*;
+import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -9,7 +14,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
@@ -121,23 +125,23 @@ public class UtilsTest {
 
     String topic0 = "ab@cd";
     Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table);
-    Assert.assertEquals("abcd", generatedTableName1.getName());
-    Assert.assertTrue(generatedTableName1.isNameFromMap());
+    assertEquals("abcd", generatedTableName1.getName());
+    assertTrue(generatedTableName1.isNameFromMap());
 
     String topic1 = "1234";
     Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table);
-    Assert.assertEquals("_1234", generatedTableName2.getName());
-    Assert.assertTrue(generatedTableName2.isNameFromMap());
+    assertEquals("_1234", generatedTableName2.getName());
+    assertTrue(generatedTableName2.isNameFromMap());
 
     String topic2 = "bc*def";
     Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table);
-    Assert.assertEquals("bc_def_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
-    Assert.assertFalse(generatedTableName3.isNameFromMap());
+    assertEquals("bc_def_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
+    assertFalse(generatedTableName3.isNameFromMap());
 
     String topic3 = "12345";
     Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table);
-    Assert.assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.getName());
-    Assert.assertFalse(generatedTableName4.isNameFromMap());
+    assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.getName());
+    assertFalse(generatedTableName4.isNameFromMap());
 
     TestUtils.assertError(
         SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table));
@@ -297,37 +301,37 @@ public class UtilsTest {
 
   @Test
   public void testQuoteNameIfNeeded() {
-    Assert.assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("abc"));
-    Assert.assertEquals("\"abc\"", Utils.quoteNameIfNeeded("\"abc\""));
-    Assert.assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("ABC"));
-    Assert.assertEquals("\"A\"", Utils.quoteNameIfNeeded("a"));
+    assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("abc"));
+    assertEquals("\"abc\"", Utils.quoteNameIfNeeded("\"abc\""));
+    assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("ABC"));
+    assertEquals("\"AL%$\"", Utils.quoteNameIfNeeded("al%$"));
   }
 
   @Test
   public void testSemanticVersionParsing() {
     // Test standard version parsing
     SemanticVersion version311 = new SemanticVersion("3.1.1");
-    Assert.assertEquals(3, version311.major);
-    Assert.assertEquals(1, version311.minor);
-    Assert.assertEquals(1, version311.patch);
-    Assert.assertFalse(version311.isReleaseCandidate);
-    Assert.assertEquals("3.1.1", version311.originalVersion);
+    assertEquals(3, version311.major());
+    assertEquals(1, version311.minor());
+    assertEquals(1, version311.patch());
+    assertFalse(version311.isReleaseCandidate());
+    assertEquals("3.1.1", version311.originalVersion());
 
     // Test version with RC suffix
     SemanticVersion version400rc = new SemanticVersion("4.0.0-rc");
-    Assert.assertEquals(4, version400rc.major);
-    Assert.assertEquals(0, version400rc.minor);
-    Assert.assertEquals(0, version400rc.patch);
-    Assert.assertTrue(version400rc.isReleaseCandidate);
-    Assert.assertEquals("4.0.0-rc", version400rc.originalVersion);
+    assertEquals(4, version400rc.major());
+    assertEquals(0, version400rc.minor());
+    assertEquals(0, version400rc.patch());
+    assertTrue(version400rc.isReleaseCandidate());
+    assertEquals("4.0.0-rc", version400rc.originalVersion());
 
     // Test version with RC1 suffix
     SemanticVersion version401rc1 = new SemanticVersion("4.0.1-RC1");
-    Assert.assertEquals(4, version401rc1.major);
-    Assert.assertEquals(0, version401rc1.minor);
-    Assert.assertEquals(1, version401rc1.patch);
-    Assert.assertTrue(version401rc1.isReleaseCandidate);
-    Assert.assertEquals("4.0.1-RC1", version401rc1.originalVersion);
+    assertEquals(4, version401rc1.major());
+    assertEquals(0, version401rc1.minor());
+    assertEquals(1, version401rc1.patch());
+    assertTrue(version401rc1.isReleaseCandidate());
+    assertEquals("4.0.1-RC1", version401rc1.originalVersion());
   }
 
   @Test
@@ -340,43 +344,43 @@ public class UtilsTest {
     SemanticVersion v501 = new SemanticVersion("5.0.1");
 
     // Test less than
-    Assert.assertTrue(v310.compareTo(v311) < 0);
-    Assert.assertTrue(v311.compareTo(v320) < 0);
-    Assert.assertTrue(v320.compareTo(v400) < 0);
-    Assert.assertTrue(v400.compareTo(v401) < 0);
-    Assert.assertTrue(v310.compareTo(v501) < 0);
+    assertTrue(v310.compareTo(v311) < 0);
+    assertTrue(v311.compareTo(v320) < 0);
+    assertTrue(v320.compareTo(v400) < 0);
+    assertTrue(v400.compareTo(v401) < 0);
+    assertTrue(v310.compareTo(v501) < 0);
 
     // Test greater than
-    Assert.assertTrue(v311.compareTo(v310) > 0);
-    Assert.assertTrue(v320.compareTo(v311) > 0);
-    Assert.assertTrue(v400.compareTo(v320) > 0);
-    Assert.assertTrue(v401.compareTo(v400) > 0);
-    Assert.assertTrue(v501.compareTo(v401) > 0);
+    assertTrue(v311.compareTo(v310) > 0);
+    assertTrue(v320.compareTo(v311) > 0);
+    assertTrue(v400.compareTo(v320) > 0);
+    assertTrue(v401.compareTo(v400) > 0);
+    assertTrue(v501.compareTo(v401) > 0);
 
     // Test equals
     SemanticVersion v311_2 = new SemanticVersion("3.1.1");
-    Assert.assertEquals(0, v311.compareTo(v311_2));
-    Assert.assertEquals(v311, v311_2);
+    assertEquals(0, v311.compareTo(v311_2));
+    assertEquals(v311, v311_2);
 
     // Test RC versions are treated same as non-RC for comparison (major.minor.patch only)
     SemanticVersion v400rc = new SemanticVersion("4.0.0-rc");
-    Assert.assertEquals(0, v400.compareTo(v400rc));
+    assertEquals(0, v400.compareTo(v400rc));
   }
 
   @Test
   public void testSemanticVersionInvalidFormat() {
     try {
       new SemanticVersion("invalid");
-      Assert.fail("Should have thrown IllegalArgumentException");
+      fail("Should have thrown IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      Assert.assertTrue(e.getMessage().contains("Invalid version format"));
+      assertTrue(e.getMessage().contains("Invalid version format"));
     }
 
     try {
       new SemanticVersion("1.2");
-      Assert.fail("Should have thrown IllegalArgumentException");
+      fail("Should have thrown IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      Assert.assertTrue(e.getMessage().contains("Invalid version format"));
+      assertTrue(e.getMessage().contains("Invalid version format"));
     }
   }
 
@@ -388,7 +392,7 @@ public class UtilsTest {
     SemanticVersion current = new SemanticVersion("4.0.0");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
-    Assert.assertEquals("5.0.0", recommended);
+    assertEquals("5.0.0", recommended);
   }
 
   @Test
@@ -399,7 +403,7 @@ public class UtilsTest {
     SemanticVersion current = new SemanticVersion("4.1.1");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
-    Assert.assertNull(recommended); // No stable version available newer than 3.1.1
+    assertNull(recommended); // No stable version available newer than 3.1.1
   }
 
   @Test
@@ -410,7 +414,7 @@ public class UtilsTest {
     SemanticVersion current = new SemanticVersion("4.3.1");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
-    Assert.assertNull(recommended);
+    assertNull(recommended);
   }
 
   @Test
@@ -421,7 +425,7 @@ public class UtilsTest {
     SemanticVersion current = new SemanticVersion("3.1.1");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
-    Assert.assertNull(recommended);
+    assertNull(recommended);
   }
 
   @Test
@@ -432,7 +436,7 @@ public class UtilsTest {
     SemanticVersion current = new SemanticVersion("3.1.1");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
-    Assert.assertEquals("3.3.0", recommended);
+    assertEquals("3.3.0", recommended);
   }
 
   @Test
@@ -443,6 +447,6 @@ public class UtilsTest {
     SemanticVersion current = new SemanticVersion("3.1.1");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
-    Assert.assertNull(recommended);
+    assertNull(recommended);
   }
 }

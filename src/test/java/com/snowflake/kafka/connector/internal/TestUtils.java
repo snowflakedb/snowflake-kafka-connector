@@ -272,6 +272,7 @@ public class TestUtils {
    * @param parameter parameter to be inserted at index 1
    */
   public static void executeQueryWithParameter(Connection conn, String query, String parameter) {
+    log.debug("Executing query: {}", query);
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, parameter);

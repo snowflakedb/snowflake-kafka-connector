@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.streaming.iceberg.IcebergVersion.V2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -16,8 +17,8 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
   @BeforeAll
   // overrides the base class @BeforeAll
   public static void setup() {
-    conn = TestUtils.getConnectionServiceWithEncryptedKey();
-    icebergInitService = new IcebergInitService(conn);
+    snowflakeDatabase = TestUtils.getConnectionServiceWithEncryptedKey();
+    icebergInitService = new IcebergInitService(snowflakeDatabase);
   }
 
   @BeforeEach
@@ -61,7 +62,8 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
         tableName,
         "record_metadata OBJECT(offset INTEGER, topic STRING, partition INTEGER, key STRING,"
             + " schema_id INTEGER, key_schema_id INTEGER, CreateTime BIGINT, LogAppendTime BIGINT,"
-            + " SnowflakeConnectorPushTime BIGINT, headers MAP(VARCHAR, VARCHAR))");
+            + " SnowflakeConnectorPushTime BIGINT, headers MAP(VARCHAR, VARCHAR))",
+        V2);
 
     // when
     icebergInitService.initializeIcebergTableProperties(tableName);
@@ -91,7 +93,7 @@ public class IcebergInitServiceIT extends BaseIcebergIT {
   @Test
   void shouldCreateMetadataWhenColumnNotExists() {
     // given
-    createIcebergTableWithColumnClause(tableName, "some_column VARCHAR");
+    createIcebergTableWithColumnClause(tableName, "some_column VARCHAR", V2);
 
     // when
     icebergInitService.initializeIcebergTableProperties(tableName);

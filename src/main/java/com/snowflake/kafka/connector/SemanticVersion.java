@@ -5,14 +5,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Represents a parsed semantic version. */
-class SemanticVersion implements Comparable<SemanticVersion> {
-  final int major;
-  final int minor;
-  final int patch;
-  final boolean isReleaseCandidate;
-  final String originalVersion;
+public class SemanticVersion implements Comparable<SemanticVersion> {
+  private final int major;
+  private final int minor;
+  private final int patch;
+  private final boolean isReleaseCandidate;
+  private final String originalVersion;
 
-  SemanticVersion(String version) {
+  public SemanticVersion(String version) {
     this.originalVersion = version;
     // Pattern to match versions like "3.1.0" or "4.0.0-rc" or "4.0.0-RC1"
     Pattern pattern = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(?:-[rR][cC]\\d*)?");
@@ -24,6 +24,26 @@ class SemanticVersion implements Comparable<SemanticVersion> {
     this.minor = Integer.parseInt(matcher.group(2));
     this.patch = Integer.parseInt(matcher.group(3));
     this.isReleaseCandidate = version.toLowerCase().contains("-rc");
+  }
+
+  public String originalVersion() {
+    return originalVersion;
+  }
+
+  public boolean isReleaseCandidate() {
+    return isReleaseCandidate;
+  }
+
+  public int major() {
+    return major;
+  }
+
+  public int minor() {
+    return minor;
+  }
+
+  public int patch() {
+    return patch;
   }
 
   @Override

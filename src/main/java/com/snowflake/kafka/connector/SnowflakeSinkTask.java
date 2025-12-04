@@ -346,7 +346,7 @@ public class SnowflakeSinkTask extends SinkTask {
    * @param config connector config file
    * @return result map
    */
-  static Map<String, String> getTopicToTableMap(Map<String, String> config) {
+  public static Map<String, String> getTopicToTableMap(Map<String, String> config) {
     if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)) {
       Map<String, String> result =
           Utils.parseTopicToTableMap(
