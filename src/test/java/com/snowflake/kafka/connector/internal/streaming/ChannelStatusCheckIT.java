@@ -42,7 +42,7 @@ class ChannelStatusCheckIT {
     Map<String, String> workerConfig = new HashMap<>();
     workerConfig.put("plugin.discovery", "hybrid_warn");
     // Set a short offset flush interval for faster preCommit calls
-    workerConfig.put("offset.flush.interval.ms", "5000");
+    workerConfig.put("offset.flush.interval.ms", "1000");
     connectCluster =
         new EmbeddedConnectCluster.Builder()
             .name("channel-status-check-cluster")
@@ -126,9 +126,6 @@ class ChannelStatusCheckIT {
       ChannelStatus statusWithErrors = createChannelStatusWithErrors(channel.getChannelName(), 5);
       channel.setChannelStatus(statusWithErrors);
     }
-
-    // Produce more messages to trigger preCommit which checks channel status
-    produceMessages(5);
 
     // Then: connector task should fail due to channel errors
     await("Connector task failed")
