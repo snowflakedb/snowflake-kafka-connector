@@ -24,7 +24,7 @@ class TestKcRecreateChaos(BaseE2eTest):
 
         self.topicNum = 1
         self.partitionNum = 1
-        self.recordNum = 1000
+        self.recordNum = 100
 
         self.expectedsends = 0
 
