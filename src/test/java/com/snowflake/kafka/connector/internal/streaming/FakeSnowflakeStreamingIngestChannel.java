@@ -22,6 +22,7 @@ public class FakeSnowflakeStreamingIngestChannel
 
   private volatile boolean closed;
   private String offsetToken;
+  private ChannelStatus channelStatus;
 
   public FakeSnowflakeStreamingIngestChannel(String pipeName, String channelName) {
     this.pipeName = pipeName;
@@ -100,7 +101,14 @@ public class FakeSnowflakeStreamingIngestChannel
 
   @Override
   public ChannelStatus getChannelStatus() {
-    throw new UnsupportedOperationException();
+    if (channelStatus == null) {
+      throw new UnsupportedOperationException("ChannelStatus not configured for test");
+    }
+    return channelStatus;
+  }
+
+  public void setChannelStatus(final ChannelStatus channelStatus) {
+    this.channelStatus = channelStatus;
   }
 
   @Override

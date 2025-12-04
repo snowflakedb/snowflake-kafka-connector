@@ -61,9 +61,9 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
             "SUCCESS",
             offsetToken,
             Instant.now(),
-            1,
-            1,
-            1,
+            0, // rowsInsertedCount
+            0, // rowsParsedCount
+            0, // rowsErrorCount - default to 0 (no errors)
             null,
             null,
             null,
@@ -71,6 +71,7 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
             Instant.now());
     final FakeSnowflakeStreamingIngestChannel channel =
         new FakeSnowflakeStreamingIngestChannel(pipeName, channelName);
+    channel.setChannelStatus(channelStatus); // Set default channel status
     openedChannels.add(channel);
     return new OpenChannelResult(channel, channelStatus);
   }
