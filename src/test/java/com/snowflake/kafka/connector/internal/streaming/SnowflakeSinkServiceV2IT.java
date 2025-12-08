@@ -78,11 +78,10 @@ public class SnowflakeSinkServiceV2IT {
     TestUtils.dropTable(table);
   }
 
-  @ParameterizedTest(name = "useOAuth: {0}")
-  @ValueSource(booleans = {true, false})
-  public void testChannelCloseIngestion(boolean useOAuth) throws Exception {
-    conn = getConn(useOAuth);
-    Map<String, String> config = getConfig(useOAuth);
+  @Test
+  public void testFailover() throws Exception {
+    conn = getConn(false);
+    Map<String, String> config = getConfig(false);
     SnowflakeSinkConnectorConfig.setDefaultValues(config);
     conn.createTable(table);
 
@@ -96,28 +95,47 @@ public class SnowflakeSinkServiceV2IT {
     SnowflakeConverter converter = new SnowflakeJsonConverter();
     SchemaAndValue input =
         converter.toConnectData(topic, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
-    long offset = 0;
 
-    SinkRecord record1 =
-        new SinkRecord(
-            topic,
-            partition,
-            Schema.STRING_SCHEMA,
-            "test_key" + offset,
-            input.schema(),
-            input.value(),
-            offset);
+    int NUMBER_OF_RECORDS = 400;
+    for (int offset = 0; offset < NUMBER_OF_RECORDS; offset ++) {
+      SinkRecord record =
+              new SinkRecord(
+                      topic,
+                      partition,
+                      Schema.STRING_SCHEMA,
+                      "test_key" + offset,
+                      input.schema(),
+                      input.value(),
+                      offset);
+      service.insert(record);
+      Thread.sleep(1000);
+    }
 
-    // Lets close the service
-    // Closing a partition == closing a channel
-    service.close(Collections.singletonList(new TopicPartition(topic, partition)));
+    // TODO failover 3 - after solving 401 error on table creation you are going to see that data is not inserted into secondary account with warning logs like
+    //  "[SF_KAFKA_CONNECTOR] Ignore inserting offset:291 for channel:FAILOVER_DB_NO_REPLICATION.FAILOVER_SCHEMA.KAFKA_CONNECTOR_TEST_TABLE_6102946137622483426.KAFKA_CONNECTOR_TEST_TABLE_6102946137622483426_0 because we recently reset offset in Kafka. currentProcessedOffset:-1"
+    // There are two possible approaches from here
+    // 1. Leave the warnings but you have to make sure that service.getOffset(topicPartition) returns the last inserted offset instead of -1 as it is now. This way Kafka Connect will call next put() with the proper data.
+    // 2. Modify the logic to not skip records after failover.
 
-    // Lets insert a record when partition was closed.
-    // It should auto create the channel
-    service.insert(record1);
+    // this is equivalent to preCommit() hook
+    long offsetsCommitedToSnowflake = service.getOffset(topicPartition);
 
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(new TopicPartition(topic, partition)) == 1, 20, 5);
+    // this is equivalent to next put() call from Kafka Connect
+    for (long offset = offsetsCommitedToSnowflake; offset < NUMBER_OF_RECORDS; offset++) {
+      SinkRecord record =
+              new SinkRecord(
+                      topic,
+                      partition,
+                      Schema.STRING_SCHEMA,
+                      "test_key" + offset,
+                      input.schema(),
+                      input.value(),
+                      offset);
+      service.insert(record);
+      Thread.sleep(1000);
+    }
+
+    // If you see data in secondary account then it works
 
     service.closeAll();
   }

@@ -350,6 +350,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Topic: {} Partition: {} hasn't been initialized by OPEN function",
           record.topic(),
           record.kafkaPartition());
+      // TODO failover 1 - after failover the connector tries to create the table on the secondary environment and fails with
+//      com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException: [SF_KAFKA_CONNECTOR] Exception: Failed to create table
+//      Error Code: 2007
+//      Detail: Failed to create table on Snowflake, please check that you have permission to do so.
+//      Message: JDBC driver encountered communication error. Message: HTTP status=401.
       startPartition(
           Utils.tableName(record.topic(), this.topicToTableMap),
           new TopicPartition(record.topic(), record.kafkaPartition()));

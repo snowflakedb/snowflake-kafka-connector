@@ -789,6 +789,9 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private SnowflakeStreamingIngestChannel reopenChannel(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
     LOGGER.warn("{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelName());
+    // TODO failover 2 - to prevent 401 failure in SnowflakeSinkService#insert() you can perform any operation on on SnowflakeConnection object
+    // e.g. ensure that table exists and catch exception specific to the auth problem in order to recreate SnowflakeConnection conn instance in this class
+    // note that connection instance is shared between DirectTopicPartitionChannel instances
     return Preconditions.checkNotNull(openChannelForTable(this.enableSchemaEvolution));
   }
 

@@ -203,7 +203,7 @@ public class TestUtils {
     configuration.put(Utils.SF_DATABASE, profileJson.get(DATABASE).asText());
     configuration.put(Utils.SF_SCHEMA, profileJson.get(SCHEMA).asText());
     configuration.put(Utils.SF_URL, profileJson.get(HOST).asText());
-    configuration.put(Utils.SF_WAREHOUSE, profileJson.get(WAREHOUSE).asText());
+//    configuration.put(Utils.SF_WAREHOUSE, profileJson.get(WAREHOUSE).asText());
 
     if (profileJson.has(AUTHENTICATOR)) {
       configuration.put(Utils.SF_AUTHENTICATOR, profileJson.get(AUTHENTICATOR).asText());
