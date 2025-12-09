@@ -1221,6 +1221,16 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     return channelMigrateOffsetTokenResponseDTO;
   }
 
+  @Override
+  public boolean isValid(int timeout) {
+    try {
+      return this.conn != null && this.conn.isValid(timeout);
+    } catch (SQLException e) {
+      LOGGER.warn("Error checking connection validity: {}", e.getMessage());
+      return false;
+    }
+  }
+
   public static class FormattingUtils {
     /**
      * Transform the objectName to uppercase unless it is enclosed in double quotes

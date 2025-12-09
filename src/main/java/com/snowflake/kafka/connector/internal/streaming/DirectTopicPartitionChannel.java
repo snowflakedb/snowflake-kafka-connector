@@ -528,13 +528,34 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * Checks if the exception indicates a client invalidation error.
    *
    * @param e the exception to check
-   * @return true if the exception is a CLOSED_CLIENT error
+   * @return true if the exception is a CLOSED_CLIENT error or INVALID_CHANNEL error due to failover
    */
   private boolean isClientInvalidError(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
-    return ErrorCode.CLOSED_CLIENT.getMessageCode().equals(((SFException) e).getVendorCode());
+    
+    SFException sfException = (SFException) e;
+    String errorCode = sfException.getVendorCode();
+    
+    // Handle CLOSED_CLIENT errors (original logic)
+    if (ErrorCode.CLOSED_CLIENT.getMessageCode().equals(errorCode)) {
+      return true;
+    }
+    
+    // Handle INVALID_CHANNEL errors that indicate failover scenarios
+    if (ErrorCode.INVALID_CHANNEL.getMessageCode().equals(errorCode)) {
+      String message = sfException.getMessage();
+      if (message != null) {
+        // Check for specific failover-related messages
+        String lowerMessage = message.toLowerCase();
+        return lowerMessage.contains("table does not exist") ||
+               lowerMessage.contains("not authorized") ||
+               lowerMessage.contains("supplied table does not exist");
+      }
+    }
+    
+    return false;
   }
 
   /** Recreates the streaming ingest client if it's invalid when client optimization is enabled. */
@@ -543,6 +564,39 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       LOGGER.warn("Client is invalid, recreating client for channel: {}", getChannelName());
       this.streamingIngestClient =
           StreamingClientProvider.getStreamingClientProviderInstance().getClient(sfConnectorConfig);
+    }
+  }
+
+  /**
+   * Ensures the table exists, creating it if necessary.
+   * This mirrors the logic from SnowflakeSinkServiceV2.createTableIfNotExists.
+   */
+  private void createTableIfNotExists() {
+    if (this.conn == null) {
+      LOGGER.warn("Connection service is null, cannot validate table existence for: {}", this.tableName);
+      return;
+    }
+
+    if (this.conn.tableExist(this.tableName)) {
+      if (!this.enableSchematization) {
+        if (this.conn.isTableCompatible(this.tableName)) {
+          LOGGER.debug("Using existing table {}.", this.tableName);
+        } else {
+          throw SnowflakeErrors.ERROR_5003.getException(
+              "table name: " + this.tableName, this.telemetryServiceV2);
+        }
+      } else {
+        this.conn.appendMetaColIfNotExist(this.tableName);
+      }
+    } else {
+      LOGGER.info("Creating new table {} during channel opening.", this.tableName);
+      if (this.enableSchematization) {
+        // Always create the table with RECORD_METADATA only and rely on schema evolution to update
+        // the schema
+        this.conn.createTableWithOnlyMetadataColumn(this.tableName);
+      } else {
+        this.conn.createTable(this.tableName);
+      }
     }
   }
 
@@ -865,6 +919,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       return OpenChannelRetryPolicy.executeWithRetry(
           () -> {
             recreateClientIfNeeded();
+//            createTableIfNotExists();
             return streamingIngestClient.openChannel(channelRequest);
           },
           this.channelName);

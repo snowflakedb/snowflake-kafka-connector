@@ -14,6 +14,7 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
@@ -60,7 +61,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
   // Used to connect to Snowflake, could be null during testing
-  private final SnowflakeConnectionService conn;
+  private volatile SnowflakeConnectionService conn;
 
   private final RecordService recordService;
   private final SnowflakeTelemetryService telemetryService;
@@ -355,6 +356,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 //      Error Code: 2007
 //      Detail: Failed to create table on Snowflake, please check that you have permission to do so.
 //      Message: JDBC driver encountered communication error. Message: HTTP status=401.
+      
+      // Check connection validity and recreate if needed before starting partition
+      recreateInvalidConnection();
+      
       startPartition(
           Utils.tableName(record.topic(), this.topicToTableMap),
           new TopicPartition(record.topic(), record.kafkaPartition()));
@@ -718,5 +723,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         tableName2SchemaEvolutionPermission.put(tableName, false);
       }
     }
+  }
+
+  private void recreateInvalidConnection() {
+    try {
+      // Check if connection is null, closed, or invalid
+      if (conn == null || conn.isClosed() || !conn.isValid(5)) {
+        LOGGER.warn("Connection is invalid, attempting to recreate connection for failover");
+          this.conn = SnowflakeConnectionServiceFactory.builder()
+                  .setProperties(connectorConfig)
+                  .build();
+
+        LOGGER.info("Successfully recreated Snowflake connection for failover");
+      }
+    } catch (Exception e) {
+      LOGGER.error("Failed to recreate connection during failover: {}", e.getMessage());    }
   }
 }
