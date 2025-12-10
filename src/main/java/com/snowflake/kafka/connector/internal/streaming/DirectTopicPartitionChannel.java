@@ -568,39 +568,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   }
 
   /**
-   * Ensures the table exists, creating it if necessary.
-   * This mirrors the logic from SnowflakeSinkServiceV2.createTableIfNotExists.
-   */
-  private void createTableIfNotExists() {
-    if (this.conn == null) {
-      LOGGER.warn("Connection service is null, cannot validate table existence for: {}", this.tableName);
-      return;
-    }
-
-    if (this.conn.tableExist(this.tableName)) {
-      if (!this.enableSchematization) {
-        if (this.conn.isTableCompatible(this.tableName)) {
-          LOGGER.debug("Using existing table {}.", this.tableName);
-        } else {
-          throw SnowflakeErrors.ERROR_5003.getException(
-              "table name: " + this.tableName, this.telemetryServiceV2);
-        }
-      } else {
-        this.conn.appendMetaColIfNotExist(this.tableName);
-      }
-    } else {
-      LOGGER.info("Creating new table {} during channel opening.", this.tableName);
-      if (this.enableSchematization) {
-        // Always create the table with RECORD_METADATA only and rely on schema evolution to update
-        // the schema
-        this.conn.createTableWithOnlyMetadataColumn(this.tableName);
-      } else {
-        this.conn.createTable(this.tableName);
-      }
-    }
-  }
-
-  /**
    * Invoked only when {@link InsertValidationResponse} has errors.
    *
    * <p>This function checks if we need to log errors, send it to DLQ or just ignore and throw
@@ -919,7 +886,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       return OpenChannelRetryPolicy.executeWithRetry(
           () -> {
             recreateClientIfNeeded();
-//            createTableIfNotExists();
             return streamingIngestClient.openChannel(channelRequest);
           },
           this.channelName);
