@@ -1222,9 +1222,9 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   }
 
   @Override
-  public boolean isValid(int timeout) {
+  public boolean isValid(int timeoutSeconds) {
     try {
-      return this.conn != null && this.conn.isValid(timeout);
+      return this.conn != null && this.conn.isValid(timeoutSeconds);
     } catch (SQLException e) {
       LOGGER.warn("Error checking connection validity: {}", e.getMessage());
       return false;

@@ -353,8 +353,8 @@ public interface SnowflakeConnectionService {
   /**
    * Checks if the underlying JDBC connection is valid.
    *
-   * @param timeout the timeout in seconds to wait for the validation operation to complete
+   * @param timeoutSeconds the timeout in seconds to wait for the validation operation to complete
    * @return true if the connection is valid, false otherwise
    */
-  boolean isValid(int timeout);
+  boolean isValid(int timeoutSeconds);
 }

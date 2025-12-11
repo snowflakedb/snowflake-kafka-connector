@@ -351,13 +351,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Topic: {} Partition: {} hasn't been initialized by OPEN function",
           record.topic(),
           record.kafkaPartition());
-      // TODO failover 1 - after failover the connector tries to create the table on the secondary environment and fails with
-//      com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException: [SF_KAFKA_CONNECTOR] Exception: Failed to create table
-//      Error Code: 2007
-//      Detail: Failed to create table on Snowflake, please check that you have permission to do so.
-//      Message: JDBC driver encountered communication error. Message: HTTP status=401.
-      
+
       // Check connection validity and recreate if needed before starting partition
+      // Needed to handle failover scenario
       recreateInvalidConnection();
       
       startPartition(
@@ -729,14 +725,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     try {
       // Check if connection is null, closed, or invalid
       if (conn == null || conn.isClosed() || !conn.isValid(5)) {
-        LOGGER.warn("Connection is invalid, attempting to recreate connection for failover");
+        LOGGER.warn("Connection is invalid, attempting to recreate");
           this.conn = SnowflakeConnectionServiceFactory.builder()
                   .setProperties(connectorConfig)
                   .build();
 
-        LOGGER.info("Successfully recreated Snowflake connection for failover");
+        LOGGER.info("Successfully recreated Snowflake connection");
       }
     } catch (Exception e) {
-      LOGGER.error("Failed to recreate connection during failover: {}", e.getMessage());    }
+      LOGGER.error("Failed to recreate connection: {}", e.getMessage());    }
   }
 }

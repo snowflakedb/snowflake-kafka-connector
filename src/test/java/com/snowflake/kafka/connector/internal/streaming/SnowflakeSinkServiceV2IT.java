@@ -111,12 +111,6 @@ public class SnowflakeSinkServiceV2IT {
       Thread.sleep(1000);
     }
 
-    // TODO failover 3 - after solving 401 error on table creation you are going to see that data is not inserted into secondary account with warning logs like
-    //  "[SF_KAFKA_CONNECTOR] Ignore inserting offset:291 for channel:FAILOVER_DB_NO_REPLICATION.FAILOVER_SCHEMA.KAFKA_CONNECTOR_TEST_TABLE_6102946137622483426.KAFKA_CONNECTOR_TEST_TABLE_6102946137622483426_0 because we recently reset offset in Kafka. currentProcessedOffset:-1"
-    // There are two possible approaches from here
-    // 1. Leave the warnings but you have to make sure that service.getOffset(topicPartition) returns the last inserted offset instead of -1 as it is now. This way Kafka Connect will call next put() with the proper data.
-    // 2. Modify the logic to not skip records after failover.
-
     // this is equivalent to preCommit() hook
     long offsetsCommitedToSnowflake = service.getOffset(topicPartition);
 

@@ -528,34 +528,13 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    * Checks if the exception indicates a client invalidation error.
    *
    * @param e the exception to check
-   * @return true if the exception is a CLOSED_CLIENT error or INVALID_CHANNEL error due to failover
+   * @return true if the exception is a CLOSED_CLIENT error
    */
   private boolean isClientInvalidError(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
-    
-    SFException sfException = (SFException) e;
-    String errorCode = sfException.getVendorCode();
-    
-    // Handle CLOSED_CLIENT errors (original logic)
-    if (ErrorCode.CLOSED_CLIENT.getMessageCode().equals(errorCode)) {
-      return true;
-    }
-    
-    // Handle INVALID_CHANNEL errors that indicate failover scenarios
-    if (ErrorCode.INVALID_CHANNEL.getMessageCode().equals(errorCode)) {
-      String message = sfException.getMessage();
-      if (message != null) {
-        // Check for specific failover-related messages
-        String lowerMessage = message.toLowerCase();
-        return lowerMessage.contains("table does not exist") ||
-               lowerMessage.contains("not authorized") ||
-               lowerMessage.contains("supplied table does not exist");
-      }
-    }
-    
-    return false;
+    return ErrorCode.CLOSED_CLIENT.getMessageCode().equals(((SFException) e).getVendorCode());
   }
 
   /** Recreates the streaming ingest client if it's invalid when client optimization is enabled. */
@@ -810,9 +789,6 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   private SnowflakeStreamingIngestChannel reopenChannel(
       final StreamingApiFallbackInvoker streamingApiFallbackInvoker) {
     LOGGER.warn("{} Re-opening channel:{}", streamingApiFallbackInvoker, this.getChannelName());
-    // TODO failover 2 - to prevent 401 failure in SnowflakeSinkService#insert() you can perform any operation on on SnowflakeConnection object
-    // e.g. ensure that table exists and catch exception specific to the auth problem in order to recreate SnowflakeConnection conn instance in this class
-    // note that connection instance is shared between DirectTopicPartitionChannel instances
     return Preconditions.checkNotNull(openChannelForTable(this.enableSchemaEvolution));
   }
 
