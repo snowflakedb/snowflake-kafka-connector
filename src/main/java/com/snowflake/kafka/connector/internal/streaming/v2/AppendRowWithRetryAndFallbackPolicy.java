@@ -26,16 +26,38 @@ class AppendRowWithRetryAndFallbackPolicy {
   private static final Duration RETRY_DELAY = Duration.ofSeconds(5);
 
   /** Delay before fallback attempt (channel reopening). */
-  private static final Duration FALLBACK_DELAY = Duration.ofSeconds(1);
+  private static final Duration FALLBACK_DELAY = Duration.ofMillis(500);
 
   /** Random jitter added to retry delays to prevent potential partition starving. */
   private static final Duration JITTER_DURATION = Duration.ofMillis(200);
 
   /**
+   * Executes the given action after a delay with jitter to prevent retry storms.
+   * 
+   * @param action the action to execute after the delay
+   * @param channelName the channel name for logging purposes  
+   */
+  private static void withDelay(Runnable action, String channelName) {
+    try {
+      long delayMs = FALLBACK_DELAY.toMillis() + 
+          (long) (Math.random() * JITTER_DURATION.toMillis());
+      
+      LOGGER.info("Delaying channel recovery by {}ms for channel: {}", delayMs, channelName);
+      Thread.sleep(delayMs);
+      
+      LOGGER.info("Executing channel recovery for channel: {}", channelName);
+      action.run();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Channel recovery delay was interrupted", e);
+    }
+  }
+
+  /**
    * Executes the provided append row action with fallback handling.
    *
    * <p>On {@link SFException}, it will execute the fallback supplier to reopen the channel and
-   * reset offsets after a delay with jitter to prevent retry storms.
+   * reset offsets after a simple blocking delay with jitter to prevent retry storms.
    *
    * @param appendRowAction the action to execute (typically channel.appendRow call)
    * @param fallbackSupplier the fallback action to execute on failure (channel reopening logic)
@@ -47,29 +69,18 @@ class AppendRowWithRetryAndFallbackPolicy {
       FallbackSupplierWithException fallbackSupplier,
       String channelName) {
 
-    // Create a retry policy for the fallback channel recovery operation
-    RetryPolicy<Void> fallbackRetryPolicy =
-        RetryPolicy.<Void>builder()
-            .handle(Exception.class) // Handle any exception during fallback
-            .withDelay(FALLBACK_DELAY)
-            .withJitter(JITTER_DURATION)
-            .onRetry(
-                event ->
-                    LOGGER.warn(
-                        "Retrying channel recovery attempt #{} for channel: {} due to: {}",
-                        event.getAttemptCount(),
-                        channelName,
-                        event.getLastException().getMessage()))
-            .build();
-
     Fallback<Void> reopenChannelFallbackExecutor =
         Fallback.<Void>builder(
                 executionAttemptedEvent -> {
-                  // Execute fallback with retry policy and delay
-                  Failsafe.with(fallbackRetryPolicy)
-                      .run(
-                          () ->
-                              fallbackSupplier.execute(executionAttemptedEvent.getLastException()));
+                  withDelay(
+                      () -> {
+                        try {
+                          fallbackSupplier.execute(executionAttemptedEvent.getLastException());
+                        } catch (Exception e) {
+                          throw new RuntimeException("Fallback execution failed", e);
+                        }
+                      },
+                      channelName);
                 })
             .handle(SFException.class)
             .onFailedAttempt(
