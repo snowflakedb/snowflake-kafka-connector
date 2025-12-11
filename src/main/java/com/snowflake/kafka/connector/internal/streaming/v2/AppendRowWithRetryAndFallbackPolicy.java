@@ -33,18 +33,18 @@ class AppendRowWithRetryAndFallbackPolicy {
 
   /**
    * Executes the given action after a delay with jitter to prevent retry storms.
-   * 
+   *
    * @param action the action to execute after the delay
-   * @param channelName the channel name for logging purposes  
+   * @param channelName the channel name for logging purposes
    */
   private static void withDelay(Runnable action, String channelName) {
     try {
-      long delayMs = FALLBACK_DELAY.toMillis() + 
-          (long) (Math.random() * JITTER_DURATION.toMillis());
-      
+      long delayMs =
+          FALLBACK_DELAY.toMillis() + (long) (Math.random() * JITTER_DURATION.toMillis());
+
       LOGGER.info("Delaying channel recovery by {}ms for channel: {}", delayMs, channelName);
       Thread.sleep(delayMs);
-      
+
       LOGGER.info("Executing channel recovery for channel: {}", channelName);
       action.run();
     } catch (InterruptedException e) {
