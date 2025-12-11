@@ -346,6 +346,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         partitionsToChannel.size(),
         this.connectorName,
         this.taskId);
+
     closeAllInParallel();
     partitionsToChannel.clear();
     LOGGER.info(
@@ -428,6 +429,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         "Stopping SnowflakeSinkServiceV2 for connector: {}, task: {}",
         this.connectorName,
         this.taskId);
+
     waitForAllChannelsToCommitData();
 
     // Release all streaming clients used by this service
@@ -439,6 +441,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public boolean isClosed() {
     return false;
+  }
+
+  @Override
+  public Map<String, TopicPartitionChannel> getPartitionChannels() {
+    return partitionsToChannel;
   }
 
   @Override

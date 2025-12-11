@@ -1,22 +1,21 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
+import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
+import java.sql.Connection;
 import java.util.Map;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
+import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.telemetry.TelemetryUtil;
 import org.apache.kafka.common.utils.AppInfoParser;
 
-/**
- * Abstract class handling basics of sending telemetry information to snowflake. Please note, this
- * is only for debugging purposes and data is not exposed to customers.
- */
-public abstract class SnowflakeTelemetryService {
+public class SnowflakeTelemetryService {
 
   private final KCLogger LOGGER = new KCLogger(SnowflakeTelemetryService.class.getName());
 
@@ -33,47 +32,38 @@ public abstract class SnowflakeTelemetryService {
   private static final String END_TIME = "end_time";
   private static final String APP_NAME = "app_name";
   private static final String TASK_ID = "task_id";
-  private static final String ERROR_NUMBER = "error_number";
-  private static final String TIME = "time";
+  private static final String ERROR_DETAIL = "error_detail";
+  private static final String TIME = "unix_time";
   private static final String VERSION = "version";
   private static final String KAFKA_VERSION = "kafka_version";
-  protected static final String IS_PIPE_CLOSING = "is_pipe_closing";
-  protected static final String IS_CHANNEL_CLOSING = "is_channel_closing";
+  private static final String IS_CHANNEL_CLOSING = "is_channel_closing";
   public static final String JDK_VERSION = "jdk_version";
   public static final String JDK_DISTRIBUTION = "jdk_distribution";
+  private static final String TOPICS = "topics";
 
   // Telemetry instance fetched from JDBC
-  protected Telemetry telemetry;
+  private final Telemetry telemetry;
+
   // Snowflake Kafka connector name defined in JSON
   private String name = null;
   private String taskID = null;
 
-  protected SnowflakeTelemetryService() {}
+  public SnowflakeTelemetryService(Connection conn) {
+    this.telemetry = TelemetryClient.createTelemetry(conn);
+  }
 
-  /**
-   * set app name
-   *
-   * @param name app name
-   */
+  public SnowflakeTelemetryService(Telemetry telemetry) {
+    this.telemetry = telemetry;
+  }
+
   public void setAppName(String name) {
     this.name = name;
   }
 
-  /**
-   * set task id
-   *
-   * @param taskID task id
-   */
   public void setTaskID(String taskID) {
     this.taskID = taskID;
   }
 
-  /**
-   * Event of connector start
-   *
-   * @param startTime task start time
-   * @param userProvidedConfig max number of tasks
-   */
   public void reportKafkaConnectStart(
       final long startTime, final Map<String, String> userProvidedConfig) {
     ObjectNode dataObjectNode = getObjectNode();
@@ -87,67 +77,45 @@ public abstract class SnowflakeTelemetryService {
     dataObjectNode.put(JDK_DISTRIBUTION, jdkDistribution);
     addUserConnectorPropertiesToDataNode(userProvidedConfig, dataObjectNode);
 
-    send(SnowflakeTelemetryService.TelemetryType.KAFKA_START, dataObjectNode);
+    send(TelemetryType.KAFKA_START, dataObjectNode);
   }
 
-  /**
-   * Event of connector stop
-   *
-   * @param startTime start timestamp
-   */
   public void reportKafkaConnectStop(final long startTime) {
     ObjectNode msg = getObjectNode();
 
     msg.put(START_TIME, startTime);
     msg.put(END_TIME, System.currentTimeMillis());
 
-    send(SnowflakeTelemetryService.TelemetryType.KAFKA_STOP, msg);
+    send(TelemetryType.KAFKA_STOP, msg);
   }
 
-  /**
-   * Event of a fatal error in the connector
-   *
-   * @param errorDetail error message
-   */
   public void reportKafkaConnectFatalError(final String errorDetail) {
     ObjectNode msg = getObjectNode();
 
     msg.put(TIME, System.currentTimeMillis());
-    msg.put(ERROR_NUMBER, errorDetail);
+    msg.put(ERROR_DETAIL, errorDetail);
 
-    send(SnowflakeTelemetryService.TelemetryType.KAFKA_FATAL_ERROR, msg);
+    send(TelemetryType.KAFKA_FATAL_ERROR, msg);
   }
 
   /**
-   * report connector's partition usage.
+   * Reports connector's partition usage.
    *
-   * @param partitionStatus SnowflakePipeStatus object
-   * @param isClosing is the underlying pipe/channel closing
+   * @param partitionStatus SnowflakeTelemetryBasicInfo object
+   * @param isClosing is the underlying channel closing
    */
   public void reportKafkaPartitionUsage(
       final SnowflakeTelemetryBasicInfo partitionStatus, boolean isClosing) {
     ObjectNode msg = getObjectNode();
 
     partitionStatus.dumpTo(msg);
-    msg.put(
-        partitionStatus.telemetryType == TelemetryType.KAFKA_PIPE_USAGE
-            ? IS_PIPE_CLOSING
-            : IS_CHANNEL_CLOSING,
-        isClosing);
+    msg.put(IS_CHANNEL_CLOSING, isClosing);
 
     send(partitionStatus.telemetryType, msg);
   }
 
   /**
-   * Get default object Node which will be part of every telemetry being sent to snowflake. Based on
-   * the underlying implementation, node fields might change.
-   *
-   * @return ObjectNode in Json Format
-   */
-  public abstract ObjectNode getObjectNode();
-
-  /**
-   * report connector partition start
+   * Reports connector partition start.
    *
    * @param partitionCreation SnowflakeTelemetryBasicInfo object
    */
@@ -160,7 +128,9 @@ public abstract class SnowflakeTelemetryService {
   }
 
   /**
-   * This is the minimum JsonNode which will be present in each telemetry Payload. Format:
+   * Creates the default ObjectNode which will be part of every telemetry being sent to Snowflake.
+   *
+   * <p>Format:
    *
    * <pre>
    * {
@@ -172,7 +142,7 @@ public abstract class SnowflakeTelemetryService {
    *
    * @return An ObjectNode which is by default always created with certain defined properties in it.
    */
-  protected ObjectNode getDefaultObjectNode() {
+  ObjectNode getObjectNode() {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(APP_NAME, getAppName());
     msg.put(TASK_ID, getTaskID());
@@ -199,7 +169,7 @@ public abstract class SnowflakeTelemetryService {
    * @param type type of Data
    * @param data JsonData to wrap in a json field called data
    */
-  protected void send(SnowflakeTelemetryService.TelemetryType type, JsonNode data) {
+  private void send(TelemetryType type, JsonNode data) {
     ObjectNode msg = MAPPER.createObjectNode();
     msg.put(SOURCE, KAFKA_CONNECTOR);
     msg.put(TYPE, type.toString());
@@ -231,15 +201,24 @@ public abstract class SnowflakeTelemetryService {
   }
 
   /**
-   * Adds specific user provided connector properties to ObjectNode
+   * Adds specific user provided connector properties to ObjectNode.
    *
    * @param userProvidedConfig user provided key value pairs in a Map
    * @param dataObjectNode Object node in which specific properties to add
    */
-  protected void addUserConnectorPropertiesToDataNode(
-      final Map<String, String> userProvidedConfig, ObjectNode dataObjectNode) {
+  private void addUserConnectorPropertiesToDataNode(
+      final Map<String, String> userProvidedConfig, final ObjectNode dataObjectNode) {
+    addKafkaConnectBuiltInParameters(userProvidedConfig, dataObjectNode);
+    addConnectorSpecificParameters(userProvidedConfig, dataObjectNode);
+  }
+
+  private void addKafkaConnectBuiltInParameters(
+      final Map<String, String> userProvidedConfig, final ObjectNode dataObjectNode) {
     // maxTasks value isn't visible if the user leaves it at default. So, null means not set
     dataObjectNode.put(MAX_TASKS, userProvidedConfig.get("tasks.max"));
+
+    // Topics configuration
+    dataObjectNode.put(TOPICS, userProvidedConfig.get(KafkaConnectorConfigParams.TOPICS));
 
     // Key and value converters to gauge if Snowflake Native converters are used.
     dataObjectNode.put(
@@ -249,6 +228,32 @@ public abstract class SnowflakeTelemetryService {
         KafkaConnectorConfigParams.VALUE_CONVERTER,
         userProvidedConfig.get(KafkaConnectorConfigParams.VALUE_CONVERTER));
 
+    // Value converter schema configuration
+    addConfigIfPresent(
+        userProvidedConfig,
+        dataObjectNode,
+        KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE);
+
+    // Error handling configuration
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
+            KafkaConnectorConfigParams.ERRORS_TOLERANCE_DEFAULT));
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG,
+            String.valueOf(KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_DEFAULT)));
+    addConfigIfPresent(
+        userProvidedConfig,
+        dataObjectNode,
+        KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
+  }
+
+  private void addConnectorSpecificParameters(
+      final Map<String, String> userProvidedConfig, final ObjectNode dataObjectNode) {
+    // Iceberg configuration
     dataObjectNode.put(
         KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
         userProvidedConfig.getOrDefault(
@@ -256,27 +261,83 @@ public abstract class SnowflakeTelemetryService {
             String.valueOf(
                 KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED_DEFAULT)));
 
-    // These are Optional, so we add only if it's provided in user config
-    if (userProvidedConfig.containsKey(
-        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG)) {
-      dataObjectNode.put(
-          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG,
-          userProvidedConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG));
-    }
-    if (userProvidedConfig.containsKey(
-        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)) {
-      dataObjectNode.put(
-          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-          userProvidedConfig.get(
-              KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
+    // Streaming configuration
+    addConfigIfPresent(
+        userProvidedConfig,
+        dataObjectNode,
+        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG);
+    addConfigIfPresent(
+        userProvidedConfig,
+        dataObjectNode,
+        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
+
+    // Behavior on null values
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
+            ConnectorConfigTools.BehaviorOnNullValues.DEFAULT.toString()));
+
+    // Topic to table mapping
+    addConfigIfPresent(
+        userProvidedConfig, dataObjectNode, KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP);
+
+    // Metadata configuration
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,
+            KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL_DEFAULT));
+
+    // JMX metrics
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.JMX_OPT,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.JMX_OPT,
+            String.valueOf(KafkaConnectorConfigParams.JMX_OPT_DEFAULT)));
+
+    // MDC logging
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
+            KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_DEFAULT));
+
+    // Authorization error handling
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
+            String.valueOf(
+                KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT)));
+
+    // Caching configuration
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
+            String.valueOf(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_DEFAULT)));
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.CACHE_PIPE_EXISTS,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS,
+            String.valueOf(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_DEFAULT)));
+  }
+
+  private void addConfigIfPresent(
+      final Map<String, String> userProvidedConfig,
+      final ObjectNode dataObjectNode,
+      final String configKey) {
+    if (userProvidedConfig.containsKey(configKey)) {
+      dataObjectNode.put(configKey, userProvidedConfig.get(configKey));
     }
   }
 
+  /** Types of telemetry events that can be sent. */
   public enum TelemetryType {
     KAFKA_START("kafka_start"),
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
-    KAFKA_PIPE_USAGE("kafka_pipe_usage"),
     KAFKA_CHANNEL_USAGE("kafka_channel_usage"),
     KAFKA_CHANNEL_START("kafka_channel_start");
 

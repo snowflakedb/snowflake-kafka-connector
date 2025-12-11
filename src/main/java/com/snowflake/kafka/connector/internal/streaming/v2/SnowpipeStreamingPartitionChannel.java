@@ -86,7 +86,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
    * Connection Object, i.e. not a session-less Client
    */
-  private final SnowflakeTelemetryService telemetryServiceV2;
+  private final SnowflakeTelemetryService telemetryService;
 
   private final FailsafeExecutor<Long> offsetTokenExecutor;
 
@@ -121,7 +121,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.taskId = taskId;
     this.streamingErrorHandler = streamingErrorHandler;
 
-    this.telemetryServiceV2 = conn.getTelemetryClient();
+    this.telemetryService = conn.getTelemetryClient();
     this.pipeName = pipeName;
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
 
@@ -166,7 +166,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             this.processedOffset,
             this.currentConsumerGroupOffset);
 
-    this.telemetryServiceV2.reportKafkaPartitionStart(
+    this.telemetryService.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(tableName, channelName, startTime));
 
     setOffsetInKafka(lastCommittedOffsetToken);
@@ -532,7 +532,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private void onCloseChannelSuccess() {
     LOGGER.info("Successfully closed streaming channel: {}", this.getChannelNameFormatV1());
-    this.telemetryServiceV2.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
+    this.telemetryService.reportKafkaPartitionUsage(this.snowflakeTelemetryChannelStatus, true);
     this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
   }
 
@@ -544,7 +544,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         String.format(
             "Failure closing Streaming Channel name:%s msg:%s",
             this.getChannelNameFormatV1(), cause.getMessage());
-    this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
+    this.telemetryService.reportKafkaConnectFatalError(errMsg);
 
     // Only SFExceptions are swallowed. If a channel-related error occurs, it shouldn't fail a
     // connector task. The channel is going to be reopened after a rebalance, so the failed channel
@@ -648,7 +648,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       if (tolerateErrors) {
         LOGGER.warn(errorMessage);
       } else {
-        this.telemetryServiceV2.reportKafkaConnectFatalError(errorMessage);
+        this.telemetryService.reportKafkaConnectFatalError(errorMessage);
         throw ERROR_5030.getException(errorMessage);
       }
     }
