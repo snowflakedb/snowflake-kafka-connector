@@ -12,6 +12,9 @@
     "key.converter":"io.confluent.connect.protobuf.ProtobufConverter",
     "key.converter.schema.registry.url":"CONFLUENT_SCHEMA_REGISTRY",
     "value.converter":"io.confluent.connect.protobuf.ProtobufConverter",
-    "value.converter.schema.registry.url":"CONFLUENT_SCHEMA_REGISTRY"
+    "value.converter.schema.registry.url":"CONFLUENT_SCHEMA_REGISTRY",
+    "transforms": "add_record_content",
+    "transforms.add_record_content.type": "org.apache.kafka.connect.transforms.HoistField$Value",
+    "transforms.add_record_content.field": "RECORD_CONTENT"
   }
 }
