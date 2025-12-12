@@ -47,8 +47,8 @@ class TestNativeStringProtobuf(BaseE2eTest):
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
 
-        goldMeta = r'{"CreateTime":\d+,"SnowflakeConnectorPushTime":\d+,""offset":0,"partition":0,' \
-                   r'"topic":"travis_correct_native_string_protobuf_\w*"}'
+        goldMeta = r'{"CreateTime":\d+,"SnowflakeConnectorPushTime":\d+,"offset":0,"partition":0,' \
+                   r'"topic":"travis_correct_native_string_protobuf_\w+"}'
         goldContent = r'{"bytes_val":"3q0=","dateTime":1234,"device":{"deviceID":"555-4321","enabled":true},' \
                       r'"double_array_val":[0.3333333333333333,32.21,4.343243210000000e+08],' \
                       r'"float_val":4321.432,"int32_val":2147483647,"reading":321.321,"sint32_val":2147483647,' \
