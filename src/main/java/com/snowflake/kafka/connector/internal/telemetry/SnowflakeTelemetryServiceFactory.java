@@ -1,25 +1,26 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.sql.Connection;
 
 /**
  * Factory class which produces the telemetry service which essentially has a telemetry client
  * instance.
  */
-public class SnowflakeTelemetryServiceFactory {
+public final class SnowflakeTelemetryServiceFactory {
+
+  private SnowflakeTelemetryServiceFactory() {}
 
   public static SnowflakeTelemetryServiceBuilder builder(Connection conn) {
     return new SnowflakeTelemetryServiceBuilder(conn);
   }
 
   /** Builder for TelemetryService */
-  public static class SnowflakeTelemetryServiceBuilder {
+  public static final class SnowflakeTelemetryServiceBuilder {
     private final SnowflakeTelemetryService service;
 
     /** @param conn snowflake connection is required for telemetry service */
-    public SnowflakeTelemetryServiceBuilder(Connection conn) {
-      this.service = new SnowflakeTelemetryServiceV2(conn);
+    SnowflakeTelemetryServiceBuilder(Connection conn) {
+      this.service = new SnowflakeTelemetryService(conn);
     }
 
     /**

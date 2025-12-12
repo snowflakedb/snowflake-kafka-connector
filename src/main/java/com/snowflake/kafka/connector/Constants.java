@@ -77,7 +77,6 @@ public final class Constants {
     public static final String VALUE_CONVERTER = "value.converter";
     public static final String VALUE_CONVERTER_SCHEMA_REGISTRY_URL =
         "value.converter.schema.registry.url";
-
     // Proxy Info
     public static final String JVM_PROXY_HOST = "jvm.proxy.host";
     public static final String JVM_PROXY_PORT = "jvm.proxy.port";

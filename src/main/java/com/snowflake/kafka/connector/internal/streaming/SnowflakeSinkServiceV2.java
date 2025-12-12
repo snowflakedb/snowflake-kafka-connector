@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -103,7 +104,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.topicToTableMap = topicToTableMap;
     this.metadataConfig = new SnowflakeMetadataConfig(connectorConfig);
     this.behaviorOnNullValues = behaviorOnNullValues;
-    this.partitionsToChannel = new HashMap<>();
+    this.partitionsToChannel = new ConcurrentHashMap<>();
 
     // Extract and validate connector name - must not be null or empty
     this.connectorName = connectorConfig.get(NAME);
@@ -346,6 +347,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         partitionsToChannel.size(),
         this.connectorName,
         this.taskId);
+
     closeAllInParallel();
     partitionsToChannel.clear();
     LOGGER.info(
@@ -428,6 +430,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         "Stopping SnowflakeSinkServiceV2 for connector: {}, task: {}",
         this.connectorName,
         this.taskId);
+
     waitForAllChannelsToCommitData();
 
     // Release all streaming clients used by this service
@@ -439,6 +442,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public boolean isClosed() {
     return false;
+  }
+
+  @Override
+  public Map<String, TopicPartitionChannel> getPartitionChannels() {
+    return partitionsToChannel;
   }
 
   @Override

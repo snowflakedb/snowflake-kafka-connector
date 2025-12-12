@@ -11,8 +11,8 @@ public final class TelemetryConstants {
   public static final String PROCESSED_OFFSET = "processed-offset";
 
   public static final String START_TIME = "start_time";
-
-  public static final String IS_REUSE_TABLE = "is_reuse_table";
+  public static final String UNIX_TIME = "unix_time";
+  public static final String ERROR_DETAIL = "error_detail";
 
   // ************ Streaming Constants ************//
   public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";

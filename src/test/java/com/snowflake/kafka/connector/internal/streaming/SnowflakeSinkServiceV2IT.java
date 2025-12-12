@@ -12,8 +12,8 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -203,8 +203,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
       throws Exception { // set up telemetry service spy
     SnowflakeConnectionService connectionService = Mockito.spy(this.conn);
     connectionService.createTableWithMetadataColumn(table);
-    SnowflakeTelemetryServiceV2 telemetryService =
-        Mockito.spy((SnowflakeTelemetryServiceV2) this.conn.getTelemetryClient());
+    SnowflakeTelemetryService telemetryService =
+        Mockito.spy((SnowflakeTelemetryService) this.conn.getTelemetryClient());
     Mockito.when(connectionService.getTelemetryClient()).thenReturn(telemetryService);
 
     // opens a channel for partition 0, table and topic

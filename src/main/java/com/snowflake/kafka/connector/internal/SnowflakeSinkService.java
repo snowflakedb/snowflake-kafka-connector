@@ -2,7 +2,9 @@ package com.snowflake.kafka.connector.internal;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -77,6 +79,8 @@ public interface SnowflakeSinkService {
    * @return true is closed
    */
   boolean isClosed();
+
+  Map<String, TopicPartitionChannel> getPartitionChannels();
 
   /* Get metric registry of an associated partition */
   @VisibleForTesting

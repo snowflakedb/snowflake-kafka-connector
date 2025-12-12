@@ -28,6 +28,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
+import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -62,7 +64,7 @@ public class SnowflakeSinkTask extends SinkTask {
       new KCLogger(SnowflakeSinkTask.class.getName() + "_STATIC");
   private KCLogger DYNAMIC_LOGGER;
 
-  private SnowflakeSinkService sink = null;
+  private volatile SnowflakeSinkService sink = null;
   private Map<String, String> topic2table = null;
 
   // snowflake JDBC connection provides methods to interact with user's
@@ -80,6 +82,9 @@ public class SnowflakeSinkTask extends SinkTask {
 
   // Stores channel error exception detected in preCommit to fail on next put() call
   private volatile SnowflakeKafkaConnectorException channelErrorToFailOn = null;
+
+  // Periodic telemetry reporter for channel status
+  private PeriodicTelemetryReporter telemetryReporter = null;
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
@@ -198,6 +203,16 @@ public class SnowflakeSinkTask extends SinkTask {
             topic2table,
             behavior);
 
+    // Initialize and start periodic telemetry reporter for channel status
+
+    Supplier<Map<String, TopicPartitionChannel>> channelSupplier =
+        () -> sink.getPartitionChannels();
+    String connectorName = parsedConfig.get(Constants.KafkaConnectorConfigParams.NAME);
+    this.telemetryReporter =
+        new PeriodicTelemetryReporter(
+            conn.getTelemetryClient(), channelSupplier, connectorName, this.taskConfigId);
+    this.telemetryReporter.start();
+
     DYNAMIC_LOGGER.info(
         "task started, execution time: {} milliseconds",
         this.taskConfigId,
@@ -214,6 +229,12 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void stop() {
     this.DYNAMIC_LOGGER.info("stopping task {}", this.taskConfigId);
+
+    // Stop telemetry reporter first
+    if (this.telemetryReporter != null) {
+      this.telemetryReporter.stop();
+    }
+
     if (this.sink != null) {
       this.sink.stop();
     }

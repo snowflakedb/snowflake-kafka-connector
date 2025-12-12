@@ -1,10 +1,11 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
@@ -62,7 +63,7 @@ class ConnectionServiceIT {
 
     assert service.getConnectorName().equals(TEST_CONNECTOR_NAME);
 
-    assert service.getTelemetryClient() instanceof SnowflakeTelemetryServiceV2;
+    assertThat(service.getTelemetryClient()).isInstanceOf(SnowflakeTelemetryService.class);
   }
 
   @AfterEach

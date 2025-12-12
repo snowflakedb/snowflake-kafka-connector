@@ -15,7 +15,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
-import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryServiceV2;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -141,9 +140,9 @@ public class SnowflakeTelemetryServiceTest {
     assertTrue(dataNode.has(INGESTION_METHOD));
     assertEquals(dataNode.get(INGESTION_METHOD).asInt(), ingestionMethodConfig.ordinal());
     assertTrue(
-        dataNode.get("time").asLong() <= System.currentTimeMillis()
-            && dataNode.get("time").asLong() >= this.startTime);
-    assertEquals(dataNode.get("error_number").asText(), expectedException);
+        dataNode.get(TelemetryConstants.UNIX_TIME).asLong() <= System.currentTimeMillis()
+            && dataNode.get(TelemetryConstants.UNIX_TIME).asLong() >= this.startTime);
+    assertEquals(dataNode.get(TelemetryConstants.ERROR_DETAIL).asText(), expectedException);
   }
 
   @ParameterizedTest
@@ -256,7 +255,6 @@ public class SnowflakeTelemetryServiceTest {
     assertNotNull(dataNode);
     assertTrue(dataNode.has(INGESTION_METHOD));
     assertEquals(dataNode.get(INGESTION_METHOD).asInt(), ingestionMethodConfig.ordinal());
-    assertTrue(dataNode.get(TelemetryConstants.IS_REUSE_TABLE).asBoolean());
     assertEquals(expectedTableName, dataNode.get(TelemetryConstants.TABLE_NAME).asText());
     assertEquals(
         expectedChannelCreationTime,
@@ -277,7 +275,7 @@ public class SnowflakeTelemetryServiceTest {
       Map<String, String> connectorConfig) {
     SnowflakeTelemetryService snowflakeTelemetryService;
 
-    snowflakeTelemetryService = new SnowflakeTelemetryServiceV2(mockTelemetryClient);
+    snowflakeTelemetryService = new SnowflakeTelemetryService(mockTelemetryClient);
     ConnectorConfigTools.setDefaultValues(connectorConfig);
 
     snowflakeTelemetryService.setAppName("TEST_APP");
