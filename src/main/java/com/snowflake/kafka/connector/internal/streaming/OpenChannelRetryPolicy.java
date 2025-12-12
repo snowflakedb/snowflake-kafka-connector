@@ -13,13 +13,21 @@ import net.snowflake.ingest.utils.SFException;
  * backoff and jitter.
  *
  * <p>This class provides a clean interface to execute channel opening operations with automatic
- * retry on HTTP 429 (rate limiting) errors from Snowflake streaming service.
+ * retry on:
+ *
+ * <ul>
+ *   <li>HTTP 429 (rate limiting) errors from Snowflake streaming service
+ *   <li>Status code 47 (secondary database) errors during failover scenarios
+ * </ul>
  */
 class OpenChannelRetryPolicy {
 
   private static final KCLogger LOGGER = new KCLogger(OpenChannelRetryPolicy.class.getName());
 
   private static final String RATE_LIMIT_MESSAGE_PART = "HTTP Status: 429";
+  private static final String SECONDARY_DATABASE_MESSAGE_PART =
+      "Cannot ingest data into a table that is part of a secondary database";
+  private static final String SECONDARY_DATABASE_STATUS_CODE = "\"status_code\" : 47";
 
   // Retry policy constants
   /** Initial delay before the first retry attempt. */
@@ -37,8 +45,14 @@ class OpenChannelRetryPolicy {
   /**
    * Executes the provided channel opening action with retry handling.
    *
-   * <p>On SFException containing "429" (HTTP rate limiting), it will retry with exponential backoff
-   * and jitter with unlimited retry attempts. Other exceptions are not retried.
+   * <p>Retries with exponential backoff and jitter with unlimited retry attempts on:
+   *
+   * <ul>
+   *   <li>SFException containing "HTTP Status: 429" (rate limiting)
+   *   <li>SFException containing status code 47 (secondary database during failover)
+   * </ul>
+   *
+   * Other exceptions are not retried.
    *
    * @param channelOpenAction the action to execute (typically openChannelForTable call)
    * @param channelName the channel name for logging purposes
@@ -66,6 +80,20 @@ class OpenChannelRetryPolicy {
   }
 
   private static boolean isRetryableError(Throwable e) {
-    return e instanceof SFException && e.getMessage().contains(RATE_LIMIT_MESSAGE_PART);
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+
+    String message = e.getMessage();
+
+    // Retry on HTTP 429 (rate limiting)
+    boolean isRateLimitingError = message.contains(RATE_LIMIT_MESSAGE_PART);
+    // Retry on status code 47 (secondary database during failover)
+    //
+    boolean isFailoverError =
+        message.contains(SECONDARY_DATABASE_STATUS_CODE)
+            || message.contains(SECONDARY_DATABASE_MESSAGE_PART);
+
+    return isRateLimitingError || isFailoverError;
   }
 }
