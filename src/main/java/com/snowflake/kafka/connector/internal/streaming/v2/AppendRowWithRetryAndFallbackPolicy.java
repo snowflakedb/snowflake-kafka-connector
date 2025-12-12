@@ -25,14 +25,43 @@ class AppendRowWithRetryAndFallbackPolicy {
   /** Delay before next retry attempt. */
   private static final Duration RETRY_DELAY = Duration.ofSeconds(5);
 
+  /** Delay before fallback attempt (channel reopening). */
+  private static final Duration FALLBACK_DELAY = Duration.ofMillis(500);
+
   /** Random jitter added to retry delays to prevent potential partition starving. */
   private static final Duration JITTER_DURATION = Duration.ofMillis(200);
+
+  /**
+   * Executes the given action after a delay with jitter to prevent retry storms.
+   *
+   * @param action the action to execute after the delay
+   * @param channelName the channel name for logging purposes
+   */
+  private static void withDelay(CheckedRunnable action, String channelName) throws Throwable {
+    try {
+      long delayMs =
+          FALLBACK_DELAY.toMillis() + (long) (Math.random() * JITTER_DURATION.toMillis());
+
+      LOGGER.info("Delaying channel recovery by {}ms for channel: {}", delayMs, channelName);
+      Thread.sleep(delayMs);
+
+      LOGGER.info("Executing channel recovery for channel: {}", channelName);
+      action.run();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (SFException e) {
+      // Re-throw SFException unchanged so Fallback can handle it properly
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   /**
    * Executes the provided append row action with fallback handling.
    *
    * <p>On {@link SFException}, it will execute the fallback supplier to reopen the channel and
-   * reset offsets, then throw a custom exception.
+   * reset offsets after a simple blocking delay with jitter to prevent retry storms.
    *
    * @param appendRowAction the action to execute (typically channel.appendRow call)
    * @param fallbackSupplier the fallback action to execute on failure (channel reopening logic)
@@ -47,7 +76,9 @@ class AppendRowWithRetryAndFallbackPolicy {
     Fallback<Void> reopenChannelFallbackExecutor =
         Fallback.<Void>builder(
                 executionAttemptedEvent -> {
-                  fallbackSupplier.execute(executionAttemptedEvent.getLastException());
+                  withDelay(
+                      () -> fallbackSupplier.execute(executionAttemptedEvent.getLastException()),
+                      channelName);
                 })
             .handle(SFException.class)
             .onFailedAttempt(
