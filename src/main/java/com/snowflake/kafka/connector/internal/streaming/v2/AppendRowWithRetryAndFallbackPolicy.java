@@ -37,7 +37,7 @@ class AppendRowWithRetryAndFallbackPolicy {
    * @param action the action to execute after the delay
    * @param channelName the channel name for logging purposes
    */
-  private static void withDelay(Runnable action, String channelName) {
+  private static void withDelay(CheckedRunnable action, String channelName) throws Throwable {
     try {
       long delayMs =
           FALLBACK_DELAY.toMillis() + (long) (Math.random() * JITTER_DURATION.toMillis());
@@ -49,7 +49,13 @@ class AppendRowWithRetryAndFallbackPolicy {
       action.run();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      throw new RuntimeException("Channel recovery delay was interrupted", e);
+    } catch (SFException e) {
+      // Re-throw SFException unchanged so Fallback can handle it properly
+      throw e;
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -73,13 +79,7 @@ class AppendRowWithRetryAndFallbackPolicy {
         Fallback.<Void>builder(
                 executionAttemptedEvent -> {
                   withDelay(
-                      () -> {
-                        try {
-                          fallbackSupplier.execute(executionAttemptedEvent.getLastException());
-                        } catch (Exception e) {
-                          throw new RuntimeException("Fallback execution failed", e);
-                        }
-                      },
+                      () -> fallbackSupplier.execute(executionAttemptedEvent.getLastException()),
                       channelName);
                 })
             .handle(SFException.class)
