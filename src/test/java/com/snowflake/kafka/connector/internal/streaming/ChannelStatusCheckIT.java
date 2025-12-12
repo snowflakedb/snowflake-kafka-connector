@@ -174,6 +174,71 @@ class ChannelStatusCheckIT {
         "All tasks should remain running when errors.tolerance=all");
   }
 
+  @Test
+  void shouldContinueWorkingWithPreExistingErrorsAndToleranceIsNone()
+      throws JsonProcessingException {
+    // Given: Pre-existing errors are set BEFORE the connector starts (simulating channel reopen
+    // scenario)
+    // This simulates the case where a channel has cumulative errors from a previous connector run
+    fakeClientSupplier.setPreExistingErrorCount(5);
+
+    Map<String, String> config = defaultProperties(topicName, connectorName);
+    config.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "none");
+    connectCluster.configureConnector(connectorName, config);
+    waitForConnectorRunning(connectorName);
+
+    FakeSnowflakeStreamingIngestClient fakeClient = waitForConnectorToOpenChannels(connectorName);
+
+    // Produce messages
+    produceMessages(5);
+
+    // Then: connector should remain running because pre-existing errors don't count as new errors
+    await("Messages processed despite pre-existing errors")
+        .atMost(Duration.ofSeconds(30))
+        .until(() -> fakeClient.getAppendedRowCount() >= 5);
+
+    ConnectorStateInfo connectorState = connectCluster.connectorStatus(connectorName);
+    assertTrue(
+        connectorState.tasks().stream().allMatch(task -> "RUNNING".equals(task.state())),
+        "All tasks should be running when there are only pre-existing errors");
+  }
+
+  @Test
+  void shouldFailWhenNewErrorsOccurAfterStartupWithPreExistingErrors()
+      throws JsonProcessingException {
+    // Given: Pre-existing errors are set BEFORE the connector starts
+    fakeClientSupplier.setPreExistingErrorCount(5);
+
+    Map<String, String> config = defaultProperties(topicName, connectorName);
+    connectCluster.configureConnector(connectorName, config);
+    waitForConnectorRunning(connectorName);
+
+    FakeSnowflakeStreamingIngestClient fakeClient = waitForConnectorToOpenChannels(connectorName);
+
+    // Produce initial message
+    produceMessages(1);
+    await("Initial message processed")
+        .atMost(Duration.ofSeconds(30))
+        .until(() -> fakeClient.getAppendedRowCount() >= 1);
+
+    // When: NEW errors occur (error count increases from 5 to 10)
+    for (FakeSnowflakeStreamingIngestChannel channel : fakeClient.getOpenedChannels()) {
+      ChannelStatus statusWithNewErrors =
+          createChannelStatusWithErrors(channel.getChannelName(), 10);
+      channel.setChannelStatus(statusWithNewErrors);
+    }
+
+    // Then: connector task should fail due to NEW channel errors
+    await("Connector task failed due to new errors")
+        .atMost(Duration.ofMinutes(2))
+        .pollInterval(Duration.ofSeconds(4))
+        .until(
+            () -> {
+              ConnectorStateInfo state = connectCluster.connectorStatus(connectorName);
+              return state.tasks().stream().anyMatch(task -> "FAILED".equals(task.state()));
+            });
+  }
+
   private void produceMessages(int count) throws JsonProcessingException {
     Map<String, String> payload = Map.of("key1", "value1", "key2", "value2");
     for (int i = 0; i < count; i++) {

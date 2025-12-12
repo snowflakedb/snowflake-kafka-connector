@@ -20,11 +20,27 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
   private final List<FakeSnowflakeStreamingIngestChannel> openedChannels =
       Collections.synchronizedList(new ArrayList<>());
   private final Map<String, String> channelNameToOffsetTokens = new ConcurrentHashMap<>();
+  // Shared error counts per channel name - persists across channel reopens like real Snowflake
+  private final Map<String, Long> channelNameToErrorCount = new ConcurrentHashMap<>();
+  // Default error count to use when no channel-specific count is set
+  private long defaultErrorCount = 0;
   private boolean closed = false;
 
   public FakeSnowflakeStreamingIngestClient(final String pipeName, final String connectorName) {
     this.pipeName = pipeName;
     this.connectorName = connectorName;
+  }
+
+  public void setDefaultErrorCount(final long errorCount) {
+    this.defaultErrorCount = errorCount;
+  }
+
+  public void setInitialErrorCountForChannel(final String channelName, final long errorCount) {
+    channelNameToErrorCount.put(channelName, errorCount);
+  }
+
+  public long getErrorCountForChannel(final String channelName) {
+    return channelNameToErrorCount.getOrDefault(channelName, defaultErrorCount);
   }
 
   @Override
@@ -52,6 +68,9 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
     if (offsetToken != null) {
       channelNameToOffsetTokens.put(channelName, offsetToken);
     }
+    // Use the shared error count - this persists across channel reopens like real Snowflake
+    // Falls back to defaultErrorCount if no channel-specific count is set
+    final long errorCount = channelNameToErrorCount.getOrDefault(channelName, defaultErrorCount);
     final ChannelStatus channelStatus =
         new ChannelStatus(
             "db",
@@ -63,14 +82,14 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
             Instant.now(),
             0, // rowsInsertedCount
             0, // rowsParsedCount
-            0, // rowsErrorCount - default to 0 (no errors)
+            errorCount, // rowsErrorCount - use shared error count
             null,
             null,
             null,
             null,
             Instant.now());
     final FakeSnowflakeStreamingIngestChannel channel =
-        new FakeSnowflakeStreamingIngestChannel(pipeName, channelName);
+        new FakeSnowflakeStreamingIngestChannel(pipeName, channelName, this);
     channel.setChannelStatus(channelStatus); // Set default channel status
     openedChannels.add(channel);
     return new OpenChannelResult(channel, channelStatus);
