@@ -52,8 +52,6 @@ class AppendRowWithRetryAndFallbackPolicy {
     } catch (SFException e) {
       // Re-throw SFException unchanged so Fallback can handle it properly
       throw e;
-    } catch (RuntimeException e) {
-      throw e;
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
