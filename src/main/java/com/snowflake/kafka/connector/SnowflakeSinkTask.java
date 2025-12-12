@@ -206,7 +206,7 @@ public class SnowflakeSinkTask extends SinkTask {
     // Initialize and start periodic telemetry reporter for channel status
 
     Supplier<Map<String, TopicPartitionChannel>> channelSupplier =
-        () -> this.sink != null ? sink.getPartitionChannels() : null;
+        () -> sink.getPartitionChannels();
     String connectorName = parsedConfig.get(Constants.KafkaConnectorConfigParams.NAME);
     this.telemetryReporter =
         new PeriodicTelemetryReporter(

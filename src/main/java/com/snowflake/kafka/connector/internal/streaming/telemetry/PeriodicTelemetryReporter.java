@@ -105,7 +105,7 @@ public final class PeriodicTelemetryReporter {
     try {
       Map<String, TopicPartitionChannel> channels = channelsSupplier.get();
       if (channels == null || channels.isEmpty()) {
-        LOGGER.debug("No active channels to report telemetry for");
+        LOGGER.info("No active channels to report telemetry for");
         return;
       }
 
