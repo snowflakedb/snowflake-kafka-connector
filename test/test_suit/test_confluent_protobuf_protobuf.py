@@ -40,8 +40,7 @@ class TestConfluentProtobufProtobuf(BaseE2eTest):
             'value.serializer': self.valueProtobufSerializer}
 
         self.protobufProducer = SerializingProducer(producer_conf)
-        
-        self.driver.create_table(self.tableName)
+        self.driver.snowflake_conn.cursor().execute(f"""create or replace table {self.tableName} (record_metadata variant, record_content variant)""")
 
 
     def getConfigFileName(self):
@@ -64,7 +63,6 @@ class TestConfluentProtobufProtobuf(BaseE2eTest):
         res = self.driver.snowflake_conn.cursor().execute(
             "Select * from {} limit 1".format(self.topic)).fetchone()
 
-        # "schema_id" is lost since they are using native avro converter
         goldMeta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"key":{"bytes_val":"3q0=","dateTime":1234,"device":' \
                    r'{"deviceID":"555-4321","enabled":true},"double_array_val":' \
                    r'[0.3333333333333333,32.21,4.343243210000000e+08],"float_val":4321.432,' \

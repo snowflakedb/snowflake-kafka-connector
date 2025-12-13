@@ -11,6 +11,9 @@
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
     "value.converter":"com.blueapron.connect.protobuf.ProtobufConverter",
-    "value.converter.protoClassName":"com.snowflake.kafka.test.protobuf.SensorReadingImpl$SensorReading"
+    "value.converter.protoClassName":"com.snowflake.kafka.test.protobuf.SensorReadingImpl$SensorReading",
+    "transforms": "add_record_content",
+    "transforms.add_record_content.type": "org.apache.kafka.connect.transforms.HoistField$Value",
+    "transforms.add_record_content.field": "RECORD_CONTENT"
   }
 }

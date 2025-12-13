@@ -95,6 +95,5 @@ class TestAvrosrAvrosr(BaseE2eTest):
         assert res['SOMEDOUBLENEGATIVEINFINITY'] == '-Inf'
         self.driver.regexMatchMeta(res['RECORD_METADATA'], goldMeta)
 
-
-def clean(self):
+    def clean(self):
         self.driver.cleanTableStagePipe(self.topic)
