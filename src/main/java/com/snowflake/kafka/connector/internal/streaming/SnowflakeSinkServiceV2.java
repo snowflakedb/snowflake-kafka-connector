@@ -724,7 +724,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private void recreateInvalidConnection() {
     try {
       // Check if connection is null, closed, or invalid
-      if (conn == null || conn.isClosed() || !conn.isValid(5)) {
+      boolean shouldRecreate = false;
+      if (conn == null || conn.isClosed()) {
+        shouldRecreate = true;
+      } else if (!conn.isValid(5)) {
+        shouldRecreate = true;
+        try {
+          conn.close();
+        } catch (Exception e) {
+          LOGGER.warn("Could not close the old connection before opening the new one.", e);
+        }
+      }
+      if (shouldRecreate) {
         LOGGER.warn("Connection is invalid, attempting to recreate");
         this.conn =
             SnowflakeConnectionServiceFactory.builder().setProperties(connectorConfig).build();
