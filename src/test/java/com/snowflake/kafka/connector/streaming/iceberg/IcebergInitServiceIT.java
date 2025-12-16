@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import org.junit.jupiter.api.*;
+
 @Disabled("Regresion introduced on production FLOW-7864")
 public class IcebergInitServiceIT extends BaseIcebergIT {
 
