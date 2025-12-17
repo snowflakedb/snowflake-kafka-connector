@@ -217,11 +217,6 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     tableExistsCache.invalidateAll();
   }
 
-  @Override
-  public void appendMetaColIfNotExist(String tableName) {
-    delegate.appendMetaColIfNotExist(tableName);
-  }
-
   private void logStatsIfNeeded() {
     final long now = System.currentTimeMillis();
     final long lastLogged = lastStatsLogTimestamp.get();

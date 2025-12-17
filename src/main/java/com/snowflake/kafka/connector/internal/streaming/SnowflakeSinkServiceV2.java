@@ -457,7 +457,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         : Optional.empty();
   }
 
-  // ------ Streaming Ingest Related Functions ------ //
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
       LOGGER.info("Using existing table {}.", tableName);

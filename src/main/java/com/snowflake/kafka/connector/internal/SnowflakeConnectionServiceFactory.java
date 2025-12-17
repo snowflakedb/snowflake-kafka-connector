@@ -57,5 +57,11 @@ public class SnowflakeConnectionServiceFactory {
       CachingConfig cachingConfig = CachingConfig.fromConfig(config);
       return new CachingSnowflakeConnectionService(baseService, cachingConfig);
     }
+
+    public SnowflakeConnectionServiceBuilder noCaching() {
+      config.put(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS, "false");
+      config.put(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS, "false");
+      return this;
+    }
   }
 }
