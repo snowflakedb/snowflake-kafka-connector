@@ -19,15 +19,21 @@ public class FakeSnowflakeStreamingIngestChannel
   private final String channelName;
   /** Collection of all rows appended to this channel */
   private final List<Map<String, Object>> appendedRows;
+  /** Reference to parent client for sharing error counts across channel reopens */
+  private final FakeSnowflakeStreamingIngestClient parentClient;
 
   private volatile boolean closed;
   private String offsetToken;
   private ChannelStatus channelStatus;
 
-  public FakeSnowflakeStreamingIngestChannel(String pipeName, String channelName) {
+  public FakeSnowflakeStreamingIngestChannel(
+      final String pipeName,
+      final String channelName,
+      final FakeSnowflakeStreamingIngestClient parentClient) {
     this.pipeName = pipeName;
     this.channelName = channelName;
     this.appendedRows = new ArrayList<>();
+    this.parentClient = parentClient;
   }
 
   @Override
@@ -109,6 +115,10 @@ public class FakeSnowflakeStreamingIngestChannel
 
   public void setChannelStatus(final ChannelStatus channelStatus) {
     this.channelStatus = channelStatus;
+    // Update the shared error count in the parent client so it persists across channel reopens
+    if (parentClient != null && channelStatus.getRowsErrorCount() > 0) {
+      parentClient.setInitialErrorCountForChannel(channelName, channelStatus.getRowsErrorCount());
+    }
   }
 
   @Override

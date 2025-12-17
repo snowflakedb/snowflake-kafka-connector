@@ -65,6 +65,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private long lastAppendRowsOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
+  // Tracks the initial error count when the channel was opened.
+  // Used to detect NEW errors (current error count > initial error count) since error counts
+  // are cumulative and don't reset when a channel is reopened.
+  private long initialErrorCount = 0;
+
   // Indicates whether we need to skip and discard any leftover rows in the current batch, this
   // could happen when the channel gets invalidated and reset
   private boolean needToSkipCurrentBatch = false;
@@ -490,23 +495,28 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    *
    * @return new channel which was fetched after open/reopen
    */
-  private SnowflakeStreamingIngestChannel openChannelForTable(String channelName) {
-    SnowflakeStreamingIngestClient streamingIngestClient =
+  private SnowflakeStreamingIngestChannel openChannelForTable(final String channelName) {
+    final SnowflakeStreamingIngestClient streamingIngestClient =
         StreamingClientManager.getClient(
             connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
-    OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
-    if (result.getChannelStatus().getStatusCode().equals("SUCCESS")) {
-      LOGGER.info("Successfully opened streaming channel: {}", channelName);
+    final OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
+    final ChannelStatus channelStatus = result.getChannelStatus();
+    if (channelStatus.getStatusCode().equals("SUCCESS")) {
+      // Capture the initial error count - errors are cumulative and don't reset on channel reopen.
+      // We only want to fail on NEW errors that occur after the channel was opened.
+      this.initialErrorCount = channelStatus.getRowsErrorCount();
+      LOGGER.info(
+          "Successfully opened streaming channel: {}, initialErrorCount: {}",
+          channelName,
+          this.initialErrorCount);
       return result.getChannel();
     } else {
       LOGGER.error(
-          "Failed to open channel: {}, error code: {}",
-          channelName,
-          result.getChannelStatus().getStatusCode());
+          "Failed to open channel: {}, error code: {}", channelName, channelStatus.getStatusCode());
       throw ERROR_5028.getException(
           String.format(
               "Failed to open channel %s. Error code %s",
-              channelName, result.getChannelStatus().getStatusCode()));
+              channelName, channelStatus.getStatusCode()));
     }
   }
 
@@ -633,24 +643,36 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   private void handleChannelErrors(final ChannelStatus status, final boolean tolerateErrors) {
-    final long rowsErrorCount = status.getRowsErrorCount();
-    if (rowsErrorCount > 0) {
+    final long currentErrorCount = status.getRowsErrorCount();
+    // Error counts are cumulative and don't reset when a channel is reopened.
+    // Only fail if there are NEW errors that occurred after the channel was opened.
+    final long newErrorCount = currentErrorCount - this.initialErrorCount;
+
+    if (newErrorCount > 0) {
       final String errorMessage =
           String.format(
-              "Channel [%s] has %d errors. Last error message: %s, last error timestamp: %s,"
-                  + " last error offset token upper bound: %s",
+              "Channel [%s] has %d new errors (total: %d, initial: %d). Last error message: %s,"
+                  + " last error timestamp: %s, last error offset token upper bound: %s",
               this.getChannelNameFormatV1(),
-              rowsErrorCount,
+              newErrorCount,
+              currentErrorCount,
+              this.initialErrorCount,
               status.getLastErrorMessage(),
               status.getLastErrorTimestamp(),
               status.getLastErrorOffsetTokenUpperBound());
 
+      this.initialErrorCount = currentErrorCount;
       if (tolerateErrors) {
         LOGGER.warn(errorMessage);
       } else {
         this.telemetryService.reportKafkaConnectFatalError(errorMessage);
         throw ERROR_5030.getException(errorMessage);
       }
+    } else if (currentErrorCount > 0) {
+      LOGGER.debug(
+          "Channel [{}] has {} pre-existing errors from before connector startup (no new errors)",
+          this.getChannelNameFormatV1(),
+          currentErrorCount);
     }
   }
 
