@@ -661,11 +661,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               status.getLastErrorTimestamp(),
               status.getLastErrorOffsetTokenUpperBound());
 
+      this.initialErrorCount = currentErrorCount;
       if (tolerateErrors) {
         LOGGER.warn(errorMessage);
       } else {
         this.telemetryService.reportKafkaConnectFatalError(errorMessage);
-        this.initialErrorCount = currentErrorCount;
         throw ERROR_5030.getException(errorMessage);
       }
     } else if (currentErrorCount > 0) {
