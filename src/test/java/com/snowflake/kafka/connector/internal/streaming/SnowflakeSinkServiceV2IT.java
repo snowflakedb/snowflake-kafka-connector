@@ -48,7 +48,6 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @BeforeEach
   public void setup() {
     config = TestUtils.getConnectorConfigurationForStreaming(true);
-    conn.createTableWithMetadataColumn(table);
     pipe = PipeNameProvider.buildPipeName(table);
   }
 
@@ -202,9 +201,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   public void testStreamingIngest_multipleChannelPartitions_withMetrics()
       throws Exception { // set up telemetry service spy
     SnowflakeConnectionService connectionService = Mockito.spy(this.conn);
-    connectionService.createTableWithMetadataColumn(table);
-    SnowflakeTelemetryService telemetryService =
-        Mockito.spy((SnowflakeTelemetryService) this.conn.getTelemetryClient());
+    SnowflakeTelemetryService telemetryService = Mockito.spy(this.conn.getTelemetryClient());
     Mockito.when(connectionService.getTelemetryClient()).thenReturn(telemetryService);
 
     // opens a channel for partition 0, table and topic

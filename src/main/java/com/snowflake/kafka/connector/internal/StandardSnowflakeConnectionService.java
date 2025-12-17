@@ -86,7 +86,8 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     InternalUtils.assertNotEmpty("tableName", tableName);
     String createTableQuery =
         "create table if not exists identifier(?) (record_metadata variant comment 'created by"
-            + " automatic table creation from Snowflake Kafka Connector')";
+            + " automatic table creation from Snowflake Kafka Connector High Performance')"
+            + " enable_schema_evolution = true";
 
     try {
       PreparedStatement stmt = conn.prepareStatement(createTableQuery);
