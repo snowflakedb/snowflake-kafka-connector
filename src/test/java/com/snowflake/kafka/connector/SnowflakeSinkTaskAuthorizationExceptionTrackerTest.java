@@ -61,7 +61,18 @@ class SnowflakeSinkTaskAuthorizationExceptionTrackerTest {
     Assertions.assertDoesNotThrow(tracker::throwExceptionIfAuthorizationFailed);
   }
 
-  public static Stream<Arguments> noExceptionConditions() {
+  @Test
+  void shouldNotThrowNullPointerExceptionWhenExceptionMessageIsNull() {
+    // given
+    final SnowflakeSinkTaskAuthorizationExceptionTracker tracker =
+        new SnowflakeSinkTaskAuthorizationExceptionTracker();
+    final Exception exceptionWithNullMessage = new Exception();
+
+    // expect
+    Assertions.assertDoesNotThrow(() -> tracker.reportPrecommitException(exceptionWithNullMessage));
+  }
+
+  static Stream<Arguments> noExceptionConditions() {
     return Stream.of(
         Arguments.of(false, "Authorization failed after retry"),
         Arguments.of(true, "NullPointerException"));
