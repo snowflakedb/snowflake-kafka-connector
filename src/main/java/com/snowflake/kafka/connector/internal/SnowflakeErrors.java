@@ -229,11 +229,6 @@ public enum SnowflakeErrors {
       "5028",
       "Failed to open Snowpipe Streaming v2 channel",
       "Failed to open Snowpipe Streaming v2 channel"),
-  ERROR_5029(
-      "5029",
-      "Destination table does not exist",
-      "Destination table does not exist. Please ensure the destination table exists in Snowflake"
-          + " before starting the connector."),
   ERROR_5030(
       "5030",
       "Channel error count threshold exceeded",

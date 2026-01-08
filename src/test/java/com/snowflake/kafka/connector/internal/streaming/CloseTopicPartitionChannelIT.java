@@ -26,7 +26,6 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
     topicName = TestUtils.randomTableName();
     connectorName = topicName + "_connector";
     connectCluster.kafka().createTopic(topicName, PARTITIONS_NUMBER);
-    TestUtils.getConnectionService().createTableWithMetadataColumn(topicName);
     // JVM scoped Ingest client mock
     StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
     generateKafkaMessages();

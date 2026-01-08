@@ -173,11 +173,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     for (String topic : topics) {
       final String tableName = getTableName(topic, this.topicToTableMap);
 
-      final boolean tableExists = this.conn.tableExist(tableName);
-      if (!tableExists) {
-        throw SnowflakeErrors.ERROR_5029.getException(
-            "Table name: " + tableName, this.conn.getTelemetryClient());
-      }
+      createTableIfNotExists(tableName);
 
       // not an error, by convention we're looking for the same name as table
       final boolean pipeExists = this.conn.pipeExist(tableName);
@@ -465,7 +461,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
       LOGGER.info("Using existing table {}.", tableName);
-      this.conn.appendMetaColIfNotExist(tableName);
     } else {
       LOGGER.info("Creating new table {}.", tableName);
       this.conn.createTableWithOnlyMetadataColumn(tableName);
