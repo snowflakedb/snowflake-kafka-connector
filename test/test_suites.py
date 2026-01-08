@@ -599,13 +599,16 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.ALL,
                 ),
             ),
+            # These tests are disabled on Azure/GCP due to slow SHOW TABLES LIKE queries
+            # causing Kafka consumer poll timeout (max.poll.interval.ms) before schema
+            # evolution permission check completes (~19 min on Azure/GCP vs seconds on AWS)
             (
                 "TestSchemaEvolutionDropTable",
                 EndToEndTestSuite(
                     test_instance=TestSchemaEvolutionDropTable(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
@@ -616,7 +619,7 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     ),
                     run_in_confluent=True,
                     run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
+                    cloud_platform=CloudPlatform.AWS,
                 ),
             ),
             (
