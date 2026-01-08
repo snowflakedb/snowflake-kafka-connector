@@ -47,7 +47,8 @@ class TestSchemaEvolutionDropTable(BaseE2eTest):
         self.driver.sendBytesData(self.topic, value, key)
 
         # Sleep for some time and then verify the rows are ingested
-        sleep(120)
+        # Increased to 10 minutes due to slow SHOW TABLES LIKE queries on Azure/GCP
+        sleep(600)
         self.verify("0")
 
         # Recreate the table
