@@ -123,6 +123,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
 
+    // test
+
     LOGGER.info(
         "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {}",
         this.connectorName,
