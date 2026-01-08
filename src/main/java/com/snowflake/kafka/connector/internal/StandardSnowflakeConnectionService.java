@@ -232,48 +232,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
-  public void appendMetaColIfNotExist(final String tableName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "desc table identifier(?)";
-    PreparedStatement stmt = null;
-    ResultSet result = null;
-    boolean hasMeta = false;
-    boolean isVariant = false;
-    try {
-      stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      result = stmt.executeQuery();
-      while (result.next()) {
-        // The result schema is row idx | column name | data type | kind | null? | ...
-        if (result.getString(1).equals(TABLE_COLUMN_METADATA)) {
-          hasMeta = true;
-          if (result.getString(2).equals("VARIANT")) {
-            isVariant = true;
-          }
-          break;
-        }
-      }
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2014.getException("table name: " + tableName);
-    }
-    try {
-      if (!hasMeta) {
-        String metaQuery = "alter table identifier(?) add RECORD_METADATA VARIANT";
-        stmt = conn.prepareStatement(metaQuery);
-        stmt.setString(1, tableName);
-        stmt.executeQuery();
-      } else {
-        if (!isVariant) {
-          throw SnowflakeErrors.ERROR_2012.getException("table name: " + tableName);
-        }
-      }
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2013.getException("table name: " + tableName);
-    }
-  }
-
-  @Override
   public void databaseExists(String databaseName) {
     checkConnection();
     String query = "use database identifier(?)";

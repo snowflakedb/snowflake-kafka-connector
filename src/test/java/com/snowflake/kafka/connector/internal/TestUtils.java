@@ -28,6 +28,7 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -634,7 +635,9 @@ public class TestUtils {
       if (!colName.equals(colName.toUpperCase())) {
         colName = "\"" + colName + "\"";
       }
-      assert result.getString("type").startsWith(schemaMap.get(colName));
+      final String type = result.getString("type");
+      log.info("Checking column name: [{}] should have type: [{}]", colName, type);
+      assertThat(type).startsWith(schemaMap.get(colName));
       // see if the type of the column in sf is the same as expected (ignoring scale)
       numberOfColumnInTable++;
     }
@@ -693,7 +696,9 @@ public class TestUtils {
     String getRowQuery = "select count(*) from " + tableName;
     ResultSet result = executeQuery(getRowQuery);
     result.next();
-    return result.getInt(1);
+    final int rowsNo = result.getInt(1);
+    log.info("Number or rows: [{}]", rowsNo);
+    return rowsNo;
   }
 
   public static int getNumberOfColumns(String tableName) throws SQLException {
@@ -760,5 +765,21 @@ public class TestUtils {
       rows.add(row);
     }
     return rows;
+  }
+
+  public static void assertColumnNullable(String tableName, String columnName, boolean isNullable)
+      throws SQLException {
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    InternalUtils.assertNotEmpty("columnName", columnName);
+    String describeTableQuery = "desc table " + tableName;
+    final String isNullableVal = isNullable ? "Y" : "N";
+    ResultSet result = executeQuery(describeTableQuery);
+    while (result.next()) {
+      String colName = result.getString("name");
+      String nullable = result.getString("null?");
+      if (columnName.equals(colName)) {
+        assertThat(nullable).as("Column %s should be nullable", colName).isEqualTo(isNullableVal);
+      }
+    }
   }
 }

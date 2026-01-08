@@ -1,8 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static com.snowflake.kafka.connector.internal.TestUtils.assertWithRetry;
 import static com.snowflake.kafka.connector.internal.TestUtils.getTableContentOneRow;
-import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-import static org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
@@ -12,7 +11,7 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import java.time.Duration;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,7 +26,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class SnowflakeSinkServiceV2AvroSchematizationIT {
@@ -57,16 +55,16 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
       new HashMap<String, String>() {
         {
           put(ID_INT8, "NUMBER");
-          put(ID_INT8_OPTIONAL, "NUMBER");
+          put(ID_INT8_OPTIONAL, "VARCHAR");
           put(ID_INT16, "NUMBER");
           put(ID_INT32, "NUMBER");
           put(ID_INT64, "NUMBER");
           put(FIRST_NAME, "VARCHAR");
-          put(RATING_FLOAT32, "FLOAT");
-          put(FLOAT_NAN, "FLOAT");
-          put(FLOAT_POSITIVE_INFINITY, "FLOAT");
-          put(FLOAT_NEGATIVE_INFINITY, "FLOAT");
-          put(RATING_FLOAT64, "FLOAT");
+          put(RATING_FLOAT32, "NUMBER");
+          put(FLOAT_NAN, "VARCHAR");
+          put(FLOAT_POSITIVE_INFINITY, "VARCHAR");
+          put(FLOAT_NEGATIVE_INFINITY, "VARCHAR");
+          put(RATING_FLOAT64, "NUMBER");
           put(APPROVAL, "BOOLEAN");
           put(INFO_ARRAY_STRING, "ARRAY");
           put(INFO_ARRAY_INT, "ARRAY");
@@ -97,9 +95,6 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
   }
 
   @Test
-  @Disabled(
-      "disabling this test for now. It may come in handy depending on how ssv2 schema evolution"
-          + " will be implemented")
   public void testSchematizationWithTableCreationAndAvroInput() throws Exception {
     // given
     conn.createTableWithOnlyMetadataColumn(table);
@@ -107,47 +102,34 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     service = createService();
 
     // when
-    // The first insert should fail and schema evolution will kick in to update the schema
     service.insert(Collections.singletonList(avroRecordValue));
+    assertWithRetry(() -> TestUtils.getNumberOfRows(table) == 1);
 
     // then
-    waitUntilOffsetEquals(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
     TestUtils.checkTableSchema(table, EXPECTED_AVRO_SCHEMA);
 
-    // when
-    // Retry the insert should succeed now with the updated schema
-    service.insert(Collections.singletonList(avroRecordValue));
-
-    // then
-    waitUntilOffsetEquals(START_OFFSET + 1);
-
     Map<String, Object> actual = getTableContentOneRow(topic);
-    Assertions.assertEquals(actual.get(ID_INT8), 0L);
+    Assertions.assertEquals(0L, actual.get(ID_INT8));
     Assertions.assertNull(actual.get(ID_INT8_OPTIONAL));
-    Assertions.assertEquals(actual.get(ID_INT16), 42L);
-    Assertions.assertEquals(actual.get(ID_INT32), 42L);
-    Assertions.assertEquals(actual.get(ID_INT64), 42L);
-    Assertions.assertEquals(actual.get(FIRST_NAME), "zekai");
-    Assertions.assertEquals(actual.get(RATING_FLOAT32), 0.99);
+    Assertions.assertEquals(42L, actual.get(ID_INT16));
+    Assertions.assertEquals(42L, actual.get(ID_INT32));
+    Assertions.assertEquals(42L, actual.get(ID_INT64));
+    Assertions.assertEquals("zekai", actual.get(FIRST_NAME));
+    Assertions.assertEquals(BigDecimal.valueOf(0.99), actual.get(RATING_FLOAT32));
+    Assertions.assertEquals("NaN", actual.get(FLOAT_NAN));
+    Assertions.assertEquals("Inf", actual.get(FLOAT_POSITIVE_INFINITY));
+    Assertions.assertEquals("-Inf", actual.get(FLOAT_NEGATIVE_INFINITY));
+    Assertions.assertEquals(BigDecimal.valueOf(0.99), actual.get(RATING_FLOAT64));
+    Assertions.assertEquals(true, actual.get(APPROVAL));
     Assertions.assertEquals(
-        actual.get(FLOAT_NAN), Double.NaN); // float is extended to double on SF side
+        "[\"a\",\"b\"]", StringUtils.deleteWhitespace(actual.get(INFO_ARRAY_STRING).toString()));
     Assertions.assertEquals(
-        actual.get(FLOAT_POSITIVE_INFINITY),
-        Double.POSITIVE_INFINITY); // float is extended to double on SF side
+        "[1,2]", StringUtils.deleteWhitespace(actual.get(INFO_ARRAY_INT).toString()));
     Assertions.assertEquals(
-        actual.get(FLOAT_NEGATIVE_INFINITY),
-        Double.NEGATIVE_INFINITY); // float is extended to double on SF side
-    Assertions.assertEquals(actual.get(RATING_FLOAT64), 0.99);
-    Assertions.assertEquals(actual.get(APPROVAL), true);
+        "[null,\"{\\\"a\\\":1,\\\"b\\\":null,\\\"c\\\":null,\\\"d\\\":\\\"89asda9s0a\\\"}\"]",
+        StringUtils.deleteWhitespace(actual.get(INFO_ARRAY_JSON).toString()));
     Assertions.assertEquals(
-        StringUtils.deleteWhitespace(actual.get(INFO_ARRAY_STRING).toString()), "[\"a\",\"b\"]");
-    Assertions.assertEquals(
-        StringUtils.deleteWhitespace(actual.get(INFO_ARRAY_INT).toString()), "[1,2]");
-    Assertions.assertEquals(
-        StringUtils.deleteWhitespace(actual.get(INFO_ARRAY_JSON).toString()),
-        "[null,\"{\\\"a\\\":1,\\\"b\\\":null,\\\"c\\\":null,\\\"d\\\":\\\"89asda9s0a\\\"}\"]");
-    Assertions.assertEquals(
-        StringUtils.deleteWhitespace(actual.get(INFO_MAP).toString()), "{\"field\":3}");
+        "{\"field\":3}", StringUtils.deleteWhitespace(actual.get(INFO_MAP).toString()));
   }
 
   private SnowflakeSinkService createService() {
@@ -237,11 +219,5 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
             INFO_ARRAY_JSON,
             Arrays.asList(null, "{\"a\": 1, \"b\": null, \"c\": null, \"d\": \"89asda9s0a\"}"))
         .put(INFO_MAP, Collections.singletonMap("field", 3));
-  }
-
-  private void waitUntilOffsetEquals(long expectedOffset) {
-    await()
-        .timeout(Duration.ofSeconds(60))
-        .until(() -> service.getOffset(new TopicPartition(topic, PARTITION)) == expectedOffset);
   }
 }

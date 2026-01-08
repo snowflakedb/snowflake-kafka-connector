@@ -52,11 +52,6 @@ public class BaseIcebergIT {
     doExecuteQueryWithParameter(query, tableName);
   }
 
-  protected static void enableSchemaEvolution(String tableName) {
-    String query = "alter iceberg table identifier(?) set enable_schema_evolution = true";
-    doExecuteQueryWithParameter(query, tableName);
-  }
-
   protected static <T> T select(
       String tableName, String query, Function<ResultSet, T> resultCollector) {
     return executeQueryAndCollectResult(

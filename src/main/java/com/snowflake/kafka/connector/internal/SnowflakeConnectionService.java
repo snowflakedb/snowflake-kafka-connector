@@ -76,15 +76,6 @@ public interface SnowflakeConnectionService {
   Connection getConnection();
 
   /**
-   * Append a VARIANT type column "RECORD_METADATA" to the table if it is not present.
-   *
-   * <p>This method is only called when schematization is enabled
-   *
-   * @param tableName table name
-   */
-  void appendMetaColIfNotExist(String tableName);
-
-  /**
    * Create a table with only the RECORD_METADATA column. The rest of the columns might be added
    * through schema evolution
    *

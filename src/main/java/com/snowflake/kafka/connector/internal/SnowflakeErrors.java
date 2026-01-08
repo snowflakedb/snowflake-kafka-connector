@@ -172,7 +172,6 @@ public enum SnowflakeErrors {
       "2014", "Table not exists", "Table not exists. It might have been deleted externally."),
   ERROR_2015(
       "2015", "Failed to append columns", "Failed to append columns during schema evolution"),
-  ERROR_2016("2016", "Failed to drop NOT NULL", "Failed to drop NOT NULL during schema evolution"),
   ERROR_2017(
       "2017",
       "Failed to check schema evolution permission",

@@ -31,6 +31,9 @@ public abstract class ConnectClusterBaseIT {
   public void beforeAll() {
     Map<String, String> workerConfig = new HashMap<>();
     workerConfig.put("plugin.discovery", "hybrid_warn");
+    // this parameter decides how often preCommit is called on the task
+    workerConfig.put("offset.flush.interval.ms", "5000");
+
     connectCluster =
         new EmbeddedConnectCluster.Builder()
             .name("kafka-push-connector-connect-cluster")
@@ -50,7 +53,7 @@ public abstract class ConnectClusterBaseIT {
 
   protected FakeSnowflakeStreamingIngestClient getOpenedFakeIngestClient(String connectorName) {
     await("channelsCreated")
-        .atMost(Duration.ofSeconds(30))
+        .atMost(Duration.ofSeconds(60))
         .ignoreExceptions()
         .until(
             () ->
@@ -92,11 +95,21 @@ public abstract class ConnectClusterBaseIT {
     }
   }
 
-  protected final void waitForConnectorStopped(String connectorName) {
+  protected final void waitForConnectorDoesNotExist(String connectorName) {
     try {
       connectCluster
           .assertions()
           .assertConnectorDoesNotExist(connectorName, "Failed to stop the connector");
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("The connector is not running");
+    }
+  }
+
+  protected final void waitForConnectorStopped(String connectorName) {
+    try {
+      connectCluster
+          .assertions()
+          .assertConnectorIsStopped(connectorName, "Connector should be stopped");
     } catch (InterruptedException e) {
       throw new IllegalStateException("The connector is not running");
     }

@@ -65,7 +65,7 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
 
     // when
     connectCluster.deleteConnector(connectorName);
-    waitForConnectorStopped(connectorName);
+    waitForConnectorDoesNotExist(connectorName);
 
     // then
     await("Channels closed")
