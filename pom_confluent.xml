@@ -187,20 +187,19 @@
                             <goal>kafka-connect</goal>
                         </goals>
                         <configuration>
-                            <title>Snowflake Sink Connector</title>
+                            <title>Snowflake High Performance Sink Connector</title>
                             <documentationUrl>
-                                https://docs.snowflake.net/manuals/user-guide/kafka-connector.html
+                                https://docs.snowflake.com/en/connectors/kafkahp/about
                             </documentationUrl>
                             <description>
-                                Snowflake is the data warehouse built for the
-                                cloud. The Snowflake Kafka connector lets you
+                                The Snowflake High Performance Kafka connector lets you
                                 quickly and easily move messages in formats
-                                like Avro, JSON, and Protobuf from Kafka topics
-                                into Snowflake tables.
+                                such as Avro, JSON, and Protobuf from Kafka topics
+                                into Snowflake tables. It uses the Snowpipe Streaming High Performance architecture.
                             </description>
                             <logo>logo/snowflake.png</logo>
 
-                            <supportProviderName>Snowflake, Inc.
+                            <supportProviderName>Snowflake Inc.
                             </supportProviderName>
                             <supportSummary>Some features of the connector may be in preview
                                 as mentioned in the documentation, and
@@ -209,7 +208,7 @@
                                 in production, please contact Snowflake Support
                                 before doing so.
                             </supportSummary>
-
+                            <name>snowflake-kafka-connector-hp</name>
                             <ownerUsername>snowflakeinc</ownerUsername>
                             <ownerType>organization</ownerType>
                             <ownerName>Snowflake, Inc.</ownerName>
@@ -227,10 +226,11 @@
                                 <tag>rdbms</tag>
                                 <tag>sql</tag>
                                 <tag>data warehouse</tag>
+                                <tag>high performance</tag>
                             </tags>
                             <confluentControlCenterIntegration>true
                             </confluentControlCenterIntegration>
-                            <singleMessageTransforms>false
+                            <singleMessageTransforms>true
                             </singleMessageTransforms>
                             <supportedEncodings>any</supportedEncodings>
                         </configuration>
