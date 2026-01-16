@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
@@ -72,7 +73,7 @@ public class RecordService {
 
   private final StreamingRecordMapper streamingRecordMapper;
 
-  private static final ConcurrentHashMap<Class<?>, Schema.Type> SCHEMA_TYPE_CACHE =
+  private static final ConcurrentHashMap<Class<?>, Optional<Schema.Type>> SCHEMA_TYPE_CACHE =
       new ConcurrentHashMap<>();
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
@@ -311,12 +312,12 @@ public class RecordService {
     try {
       final Schema.Type schemaType;
       if (schema == null) {
-        Schema.Type primitiveType =
+        Optional<Schema.Type> cachedType =
             SCHEMA_TYPE_CACHE.computeIfAbsent(
-                value.getClass(), ConnectSchema::schemaType // Only called once per class type
-                );
-        if (primitiveType != null) {
-          schemaType = primitiveType;
+                value.getClass(),
+                clazz -> Optional.ofNullable(ConnectSchema.schemaType(clazz)));
+        if (cachedType.isPresent()) {
+          schemaType = cachedType.get();
         } else {
           if (value instanceof java.util.Date) {
             schema = Timestamp.SCHEMA;
