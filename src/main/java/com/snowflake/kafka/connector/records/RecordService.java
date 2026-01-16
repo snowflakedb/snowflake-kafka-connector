@@ -33,7 +33,9 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.ConnectSchema;
@@ -70,6 +72,9 @@ public class RecordService {
   static final String HEADERS = "headers";
 
   private final StreamingRecordMapper streamingRecordMapper;
+
+  private static final ConcurrentHashMap<Class<?>, Optional<Schema.Type>> SCHEMA_TYPE_CACHE =
+      new ConcurrentHashMap<>();
 
   // For each task, we require a separate instance of SimpleDataFormat, since they are not
   // inherently thread safe
@@ -307,9 +312,11 @@ public class RecordService {
     try {
       final Schema.Type schemaType;
       if (schema == null) {
-        Schema.Type primitiveType = ConnectSchema.schemaType(value.getClass());
-        if (primitiveType != null) {
-          schemaType = primitiveType;
+        Optional<Schema.Type> cachedType =
+            SCHEMA_TYPE_CACHE.computeIfAbsent(
+                value.getClass(), clazz -> Optional.ofNullable(ConnectSchema.schemaType(clazz)));
+        if (cachedType.isPresent()) {
+          schemaType = cachedType.get();
         } else {
           if (value instanceof java.util.Date) {
             schema = Timestamp.SCHEMA;
