@@ -78,7 +78,7 @@ jobs:
         distribution: 'zulu'
         java-version: ${{ matrix.java_test_version }}
 
-    - name: E2E - Apache ${{ matrix.apache_kafka_version }} - ${{ matrix.snowflake_cloud }} - JAVA ${{ matrix.java_test_version }}
+    - name: E2E Apache ${{ matrix.apache_kafka_version }}/${{ matrix.snowflake_cloud }}/JAVA ${{ matrix.java_test_version }}
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SF_CLOUD_PLATFORM: ${{ matrix.snowflake_cloud }}

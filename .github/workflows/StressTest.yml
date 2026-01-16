@@ -75,7 +75,7 @@ jobs:
         distribution: 'zulu'
         java-version: ${{ matrix.java_test_version }}
 
-    - name: Stress Tests Confluent ${{ matrix.confluent_version }} - ${{ matrix.snowflake_cloud }} - JAVA ${{ matrix.java_test_version }}
+    - name: Stress Tests Confluent ${{ matrix.confluent_version }}/${{ matrix.snowflake_cloud }}/JAVA ${{ matrix.java_test_version }}
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
       continue-on-error: true
