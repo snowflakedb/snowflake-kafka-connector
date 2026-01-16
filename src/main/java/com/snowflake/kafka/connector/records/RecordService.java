@@ -314,8 +314,7 @@ public class RecordService {
       if (schema == null) {
         Optional<Schema.Type> cachedType =
             SCHEMA_TYPE_CACHE.computeIfAbsent(
-                value.getClass(),
-                clazz -> Optional.ofNullable(ConnectSchema.schemaType(clazz)));
+                value.getClass(), clazz -> Optional.ofNullable(ConnectSchema.schemaType(clazz)));
         if (cachedType.isPresent()) {
           schemaType = cachedType.get();
         } else {
