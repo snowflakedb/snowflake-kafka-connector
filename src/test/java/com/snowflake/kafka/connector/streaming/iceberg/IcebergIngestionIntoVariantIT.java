@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@Disabled("Regresion introduced on production FLOW-7864")
 public class IcebergIngestionIntoVariantIT extends IcebergIngestionIT {
 
   @Test

@@ -3,78 +3,7 @@
     "type": "struct",
     "fields": [
       {
-        "field": "id_int8",
-        "type": "int8"
-      },
-      {
-        "field": "id_int16",
-        "type": "int16"
-      },
-      {
-        "field": "id_int32",
-        "type": "int32"
-      },
-      {
-        "field": "id_int64",
-        "type": "int64"
-      },
-      {
-        "field": "description",
-        "type": "string"
-      },
-      {
-        "field": "rating_float32",
-        "type": "float"
-      },
-      {
-        "field": "rating_float64",
-        "type": "double"
-      },
-      {
-        "field": "approval",
-        "type": "boolean"
-      },
-      {
-        "field": "array1",
-        "type": "array",
-        "items": {
-          "type": "int32"
-        }
-      },
-      {
-        "field": "array2",
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      {
-        "field": "array3",
-        "type": "array",
-        "items": {
-          "type": "boolean"
-        }
-      },
-      {
-        "field": "array4",
-        "type": "array",
-        "items": {
-          "type": "int32"
-        },
-        "optional": true
-      },
-      {
-        "field": "array5",
-        "type": "array",
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "int32"
-          }
-        }
-      },
-      {
-        "field": "nestedRecord",
+        "field": "record_content",
         "type": "struct",
         "fields": [
           {
@@ -108,70 +37,134 @@
           {
             "field": "approval",
             "type": "boolean"
+          },
+          {
+            "field": "array1",
+            "type": "array",
+            "items": {
+              "type": "int32"
+            }
+          },
+          {
+            "field": "array2",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          {
+            "field": "array3",
+            "type": "array",
+            "items": {
+              "type": "boolean"
+            }
+          },
+          {
+            "field": "array4",
+            "type": "array",
+            "items": {
+              "type": "int32"
+            },
+            "optional": true
+          },
+          {
+            "field": "array5",
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "int32"
+              }
+            }
+          },
+          {
+            "field": "nestedRecord",
+            "type": "struct",
+            "fields": [
+              {
+                "field": "id_int8",
+                "type": "int8"
+              },
+              {
+                "field": "id_int16",
+                "type": "int16"
+              },
+              {
+                "field": "id_int32",
+                "type": "int32"
+              },
+              {
+                "field": "id_int64",
+                "type": "int64"
+              },
+              {
+                "field": "description",
+                "type": "string"
+              },
+              {
+                "field": "rating_float32",
+                "type": "float"
+              },
+              {
+                "field": "rating_float64",
+                "type": "double"
+              },
+              {
+                "field": "approval",
+                "type": "boolean"
+              }
+            ],
+            "optional": true,
+            "name": "sf.kc.test"
+          },
+          {
+            "field": "nestedRecord2",
+            "type": "struct",
+            "fields": [
+              {
+                "field": "id_int8",
+                "type": "int8"
+              },
+              {
+                "field": "id_int16",
+                "type": "int16"
+              },
+              {
+                "field": "id_int32",
+                "type": "int32"
+              },
+              {
+                "field": "id_int64",
+                "type": "int64"
+              },
+              {
+                "field": "description",
+                "type": "string"
+              },
+              {
+                "field": "rating_float32",
+                "type": "float"
+              },
+              {
+                "field": "rating_float64",
+                "type": "double"
+              },
+              {
+                "field": "approval",
+                "type": "boolean"
+              }
+            ],
+            "optional": true,
+            "name": "sf.kc.test"
           }
-        ],
-        "optional": true,
-        "name": "sf.kc.test"
-      },
-      {
-        "field": "nestedRecord2",
-        "type": "struct",
-        "fields": [
-          {
-            "field": "id_int8",
-            "type": "int8"
-          },
-          {
-            "field": "id_int16",
-            "type": "int16"
-          },
-          {
-            "field": "id_int32",
-            "type": "int32"
-          },
-          {
-            "field": "id_int64",
-            "type": "int64"
-          },
-          {
-            "field": "description",
-            "type": "string"
-          },
-          {
-            "field": "rating_float32",
-            "type": "float"
-          },
-          {
-            "field": "rating_float64",
-            "type": "double"
-          },
-          {
-            "field": "approval",
-            "type": "boolean"
-          }
-        ],
-        "optional": true,
-        "name": "sf.kc.test"
+        ]
       }
     ],
     "optional": false,
     "name": "sf.kc.test"
   },
   "payload": {
-    "id_int8": 8,
-    "id_int16": 16,
-    "id_int32": 32,
-    "id_int64": 64,
-    "description": "dogs are the best",
-    "rating_float32": 0.5,
-    "rating_float64": 0.25,
-    "approval": true,
-    "array1": [1, 2, 3],
-    "array2": ["a", "b", "c"],
-    "array3": [true],
-    "array4": [1, 4],
-    "array5": [[7, 8, 9], [10, 11, 12]],
-    "nestedRecord": {
+    "record_content": {
       "id_int8": 8,
       "id_int16": 16,
       "id_int32": 32,
@@ -179,17 +172,56 @@
       "description": "dogs are the best",
       "rating_float32": 0.5,
       "rating_float64": 0.25,
-      "approval": true
-    },
-    "nestedRecord2": {
-      "id_int8": 8,
-      "id_int16": 16,
-      "id_int32": 32,
-      "id_int64": 64,
-      "description": "dogs are the best",
-      "rating_float32": 0.5,
-      "rating_float64": 0.25,
-      "approval": true
+      "approval": true,
+      "array1": [
+        1,
+        2,
+        3
+      ],
+      "array2": [
+        "a",
+        "b",
+        "c"
+      ],
+      "array3": [
+        true
+      ],
+      "array4": [
+        1,
+        4
+      ],
+      "array5": [
+        [
+          7,
+          8,
+          9
+        ],
+        [
+          10,
+          11,
+          12
+        ]
+      ],
+      "nestedRecord": {
+        "id_int8": 8,
+        "id_int16": 16,
+        "id_int32": 32,
+        "id_int64": 64,
+        "description": "dogs are the best",
+        "rating_float32": 0.5,
+        "rating_float64": 0.25,
+        "approval": true
+      },
+      "nestedRecord2": {
+        "id_int8": 8,
+        "id_int16": 16,
+        "id_int32": 32,
+        "id_int64": 64,
+        "description": "dogs are the best",
+        "rating_float32": 0.5,
+        "rating_float64": 0.25,
+        "approval": true
+      }
     }
   }
 }

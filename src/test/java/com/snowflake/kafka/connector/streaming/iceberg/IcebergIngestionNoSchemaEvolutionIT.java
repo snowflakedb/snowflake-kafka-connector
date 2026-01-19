@@ -25,10 +25,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-@Disabled(
-    "We don't enable this test suite because xp fails to log any issues that happen during"
-        + " conversion of data we're sending to ICeberg objects. Working blind is too time"
-        + " consuming. Tracker https://snowflakecomputing.atlassian.net/browse/SNOW-2856015")
 public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
 
   private static final String PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA =

@@ -49,7 +49,7 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(
         KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
-        ConnectorConfigTools.ErrorTolerance.ALL.toString());
+        ConnectorConfigTools.ErrorTolerance.NONE.toString());
     config.put(KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
     // only insert fist topic to topicTable
     Map<String, String> topic2Table = new HashMap<>();
