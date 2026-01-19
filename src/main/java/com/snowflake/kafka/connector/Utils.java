@@ -16,8 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED;
-
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -313,14 +311,6 @@ public class Utils {
 
   static boolean isValidSnowflakeTableName(String tableName) {
     return tableName.matches("^([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
-  }
-
-  /**
-   * @param config config with applied default values
-   * @return true when Iceberg mode is enabled.
-   */
-  public static boolean isIcebergEnabled(Map<String, String> config) {
-    return Boolean.parseBoolean(config.get(SNOWFLAKE_STREAMING_ICEBERG_ENABLED));
   }
 
   /**

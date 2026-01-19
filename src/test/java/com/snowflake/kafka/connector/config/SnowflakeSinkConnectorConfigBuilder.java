@@ -71,11 +71,6 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
-  public SnowflakeSinkConnectorConfigBuilder withIcebergEnabled() {
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED, "true");
-    return this;
-  }
-
   public SnowflakeSinkConnectorConfigBuilder withRole(String role) {
     config.put(SNOWFLAKE_ROLE_NAME, role);
     return this;

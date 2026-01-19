@@ -253,14 +253,6 @@ public class SnowflakeTelemetryService {
 
   private void addConnectorSpecificParameters(
       final Map<String, String> userProvidedConfig, final ObjectNode dataObjectNode) {
-    // Iceberg configuration
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
-            String.valueOf(
-                KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED_DEFAULT)));
-
     // Streaming configuration
     addConfigIfPresent(
         userProvidedConfig,

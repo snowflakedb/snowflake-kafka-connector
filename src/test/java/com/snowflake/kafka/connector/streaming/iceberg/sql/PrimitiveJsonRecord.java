@@ -9,8 +9,6 @@ import com.snowflake.kafka.connector.Utils;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import org.assertj.core.api.Assertions;
 
@@ -18,65 +16,6 @@ public class PrimitiveJsonRecord {
 
   public static final PrimitiveJsonRecord primitiveJsonRecordValueExample =
       new PrimitiveJsonRecord(8L, 16L, 32L, 64L, "dogs are the best", 0.5, 0.25, true);
-  public static final PrimitiveJsonRecord emptyPrimitiveJsonRecordValueExample =
-      new PrimitiveJsonRecord(0L, 0L, 0L, 0L, null, 0.0, 0.0, false);
-
-  public static final String primitiveJsonExample =
-      "{"
-          + "  \"id_int8\": 8,"
-          + "  \"id_int16\": 16,"
-          + "  \"id_int32\": 32,"
-          + "  \"id_int64\": 64,"
-          + "  \"description\": \"dogs are the best\","
-          + "  \"rating_float32\": 0.5,"
-          + "  \"rating_float64\": 0.25,"
-          + "  \"approval\": true"
-          + "}";
-
-  public static final String primitiveJsonWithSchemaExample =
-      "{"
-          + "  \"schema\": {"
-          + "    \"type\": \"struct\","
-          + "    \"fields\": ["
-          + "      {"
-          + "        \"field\": \"id_int8\","
-          + "        \"type\": \"int8\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int16\","
-          + "        \"type\": \"int16\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int32\","
-          + "        \"type\": \"int32\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"id_int64\","
-          + "        \"type\": \"int64\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"description\","
-          + "        \"type\": \"string\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"rating_float32\","
-          + "        \"type\": \"float\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"rating_float64\","
-          + "        \"type\": \"double\""
-          + "      },"
-          + "      {"
-          + "        \"field\": \"approval\","
-          + "        \"type\": \"boolean\""
-          + "      }"
-          + "    ],"
-          + "    \"optional\": false,"
-          + "    \"name\": \"sf.kc.test\""
-          + "  },"
-          + "  \"payload\": "
-          + primitiveJsonExample
-          + "}";
 
   private static final ObjectMapper MAPPER =
       new ObjectMapper().configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -115,47 +54,6 @@ public class PrimitiveJsonRecord {
     this.ratingFloat32 = ratingFloat32;
     this.ratingFloat64 = ratingFloat64;
     this.approval = approval;
-  }
-
-  public static List<RecordWithMetadata<PrimitiveJsonRecord>> fromSchematizedResult(
-      ResultSet resultSet) {
-    List<RecordWithMetadata<PrimitiveJsonRecord>> records = new ArrayList<>();
-    try {
-      while (resultSet.next()) {
-        PrimitiveJsonRecord record =
-            new PrimitiveJsonRecord(
-                resultSet.getLong("ID_INT8"),
-                resultSet.getLong("ID_INT16"),
-                resultSet.getLong("ID_INT32"),
-                resultSet.getLong("ID_INT64"),
-                resultSet.getString("DESCRIPTION"),
-                resultSet.getDouble("RATING_FLOAT32"),
-                resultSet.getDouble("RATING_FLOAT64"),
-                resultSet.getBoolean("APPROVAL"));
-        MetadataRecord metadata = fromMetadataSingleRow(resultSet);
-        records.add(RecordWithMetadata.of(metadata, record));
-      }
-    } catch (SQLException e) {
-      Assertions.fail("Couldn't map ResultSet to PrimitiveJsonRecord");
-    }
-    return records;
-  }
-
-  public static List<RecordWithMetadata<PrimitiveJsonRecord>> fromRecordContentColumn(
-      ResultSet resultSet) {
-    List<RecordWithMetadata<PrimitiveJsonRecord>> records = new ArrayList<>();
-
-    try {
-      while (resultSet.next()) {
-        String jsonString = resultSet.getString(Utils.TABLE_COLUMN_CONTENT);
-        PrimitiveJsonRecord record = MAPPER.readValue(jsonString, PrimitiveJsonRecord.class);
-        MetadataRecord metadata = fromMetadataSingleRow(resultSet);
-        records.add(RecordWithMetadata.of(metadata, record));
-      }
-    } catch (SQLException | IOException e) {
-      Assertions.fail("Couldn't map ResultSet to PrimitiveJsonRecord: " + e.getMessage());
-    }
-    return records;
   }
 
   public static MetadataRecord fromMetadataSingleRow(ResultSet resultSet) {

@@ -44,7 +44,6 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     topicPartition = new TopicPartition(topic, PARTITION);
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
     ConnectorConfigTools.setDefaultValues(config);
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED, "TRUE");
     // "snowflake.streaming.max.client.lag" = 1 second, for faster tests
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(

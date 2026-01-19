@@ -3,10 +3,8 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.ConnectorConfigTools.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
-import static com.snowflake.kafka.connector.Utils.isIcebergEnabled;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -26,13 +24,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   @Override
   public ImmutableMap<String, String> validate(Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
-
-    // Validate Iceberg config
-    if (isIcebergEnabled(inputConfig)) {
-      invalidParams.put(
-          SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
-          "Ingestion to Iceberg table is currently unsupported.");
-    }
 
     validateRole(inputConfig)
         .ifPresent(errorEntry -> invalidParams.put(errorEntry.getKey(), errorEntry.getValue()));

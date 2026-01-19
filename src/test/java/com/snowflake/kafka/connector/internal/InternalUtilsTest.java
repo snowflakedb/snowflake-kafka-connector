@@ -53,10 +53,6 @@ public class InternalUtilsTest {
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0005, () -> InternalUtils.assertNotEmpty("tableName", ""));
     assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0004, () -> InternalUtils.assertNotEmpty("stagename", null));
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0004, () -> InternalUtils.assertNotEmpty("stageName", ""));
-    assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0006, () -> InternalUtils.assertNotEmpty("pipeName", null));
     assert TestUtils.assertError(
         SnowflakeErrors.ERROR_0006, () -> InternalUtils.assertNotEmpty("pipeName", ""));
