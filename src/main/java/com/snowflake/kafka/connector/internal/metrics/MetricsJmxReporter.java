@@ -89,9 +89,7 @@ public class MetricsJmxReporter {
    *
    * @param prefixFilter prefix for removing the filter.
    */
-  public void removeMetricsFromRegistry(final String prefixFilter) {
-    if (metricRegistry.getMetrics().size() != 0) {
-      LOGGER.debug("Unregistering all metrics for pipe:{}", prefixFilter);
+  public void removeMetricsFromRegistry(final String prefixFilter) {    if (metricRegistry.getMetrics().size() != 0) {      LOGGER.debug("Unregistering all metrics for pipe:{}", prefixFilter);
       metricRegistry.removeMatching(MetricFilter.startsWith(prefixFilter));
       LOGGER.debug(
           "Metric registry size for pipe:{} is:{}, names:{}",
