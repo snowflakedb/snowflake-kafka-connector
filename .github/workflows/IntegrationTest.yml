@@ -62,7 +62,7 @@ jobs:
         sudo mv .github/scripts/squid.conf /etc/squid/squid.conf
         sudo service squid start
 
-    - name: Build with Unit and Integration Test against Snowflake Cloud in ${{ matrix.snowflake_cloud }}
+    - name: Unit and Integration Test - ${{ matrix.snowflake_cloud }}
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
@@ -74,9 +74,3 @@ jobs:
         cd test
         trap 'echo "::group::Last 1000 lines of logs"; tail -n 1000 build.log || true; echo "::endgroup::"' ERR
         stdbuf -oL -eL ./build_runtime_jar.sh ../../snowflake-kafka-connector verify apache ${{ matrix.snowflake_cloud }} 2>&1 | tee build.log
-
-#      Commented out because the build was very unstable
-#      Error that might be a hint: {'detail': ErrorDetail(string='Rate limit reached. Please upload with the Codecov repository upload token to resolve issue. Expected available in 383 seconds.', code='throttled')}
-#      Consider migrating to newer version (v4)
-#    - name: Code Coverage
-#      uses: codecov/codecov-action@v1
