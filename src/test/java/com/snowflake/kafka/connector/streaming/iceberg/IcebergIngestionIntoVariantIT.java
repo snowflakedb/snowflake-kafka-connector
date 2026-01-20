@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
 import static com.snowflake.kafka.connector.streaming.iceberg.IcebergVersion.V3;
-import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayloadEncapsulated;
+import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonPayload;
 import static com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord.complexJsonRecordValueExample;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -12,10 +12,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@Disabled("Regresion introduced on production FLOW-7864")
 public class IcebergIngestionIntoVariantIT extends IcebergIngestionIT {
 
   @Test
@@ -25,7 +23,7 @@ public class IcebergIngestionIntoVariantIT extends IcebergIngestionIT {
         tableName, "RECORD_METADATA VARIANT, RECORD_CONTENT VARIANT", V3);
     final long overMaxIntOffset = (long) Integer.MAX_VALUE + 1;
     final boolean withSchema = false;
-    final String message = complexJsonPayloadEncapsulated;
+    final String message = complexJsonPayload;
     service.insert(
         Arrays.asList(
             createKafkaRecord(message, 0, withSchema), createKafkaRecord(message, 1, withSchema)));

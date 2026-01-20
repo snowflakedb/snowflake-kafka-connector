@@ -29,10 +29,6 @@ public final class Constants {
     public static final boolean SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT = true;
     public static final String SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
         "snowflake.streaming.client.provider.override.map";
-    // Iceberg
-    public static final String SNOWFLAKE_STREAMING_ICEBERG_ENABLED =
-        "snowflake.streaming.iceberg.enabled";
-    public static final boolean SNOWFLAKE_STREAMING_ICEBERG_ENABLED_DEFAULT = false;
     public static final String SNOWFLAKE_STREAMING_MAX_CLIENT_LAG =
         "snowflake.streaming.max.client.lag";
 

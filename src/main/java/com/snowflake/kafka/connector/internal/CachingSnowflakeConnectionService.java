@@ -154,16 +154,6 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
-  public void addMetadataColumnForIcebergIfNotExists(String tableName) {
-    delegate.addMetadataColumnForIcebergIfNotExists(tableName);
-  }
-
-  @Override
-  public void initializeMetadataColumnTypeForIceberg(String tableName) {
-    delegate.initializeMetadataColumnTypeForIceberg(tableName);
-  }
-
-  @Override
   public boolean isTableCompatible(String tableName) {
     return delegate.isTableCompatible(tableName);
   }

@@ -87,21 +87,6 @@ public interface SnowflakeConnectionService {
   void createTableWithOnlyMetadataColumn(String tableName);
 
   /**
-   * Alter the RECORD_METADATA column to be of the required structured OBJECT type for iceberg
-   * tables.
-   *
-   * @param tableName iceberg table name
-   */
-  void initializeMetadataColumnTypeForIceberg(String tableName);
-
-  /**
-   * Add the RECORD_METADATA column to the iceberg table if it does not exist.
-   *
-   * @param tableName iceberg table name
-   */
-  void addMetadataColumnForIcebergIfNotExists(String tableName);
-
-  /**
    * Calls describe table statement and returns all columns and corresponding types.
    *
    * @param tableName - table name

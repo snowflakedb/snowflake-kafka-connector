@@ -21,12 +21,6 @@ public class ComplexJsonRecord {
   public static final String complexJsonPayload =
       loadJsonResource("/com/snowflake/kafka/connector/complexJsonPayload.json");
 
-  public static final String complexJsonPayloadEncapsulated =
-      "{" + "\"record_content\": " + complexJsonPayload + "}";
-
-  public static final String complexJsonPayloadWithWrongValueType =
-      loadJsonResource("/com/snowflake/kafka/connector/complexJsonPayloadWithWrongValueType.json");
-
   public static final String complexJsonWithSchema =
       loadJsonResource("/com/snowflake/kafka/connector/complexJsonWithSchema.json");
 

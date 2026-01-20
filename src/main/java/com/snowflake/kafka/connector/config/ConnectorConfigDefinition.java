@@ -319,13 +319,6 @@ public class ConnectorConfigDefinition {
             "If set to true the Connector will fail its tasks when authorization error from"
                 + " Snowflake occurred")
         .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED,
-            BOOLEAN,
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_ICEBERG_ENABLED_DEFAULT,
-            HIGH,
-            "When set to true the connector will ingest data into the Iceberg table. Check the"
-                + " official Snowflake documentation for the prerequisites.")
-        .define(
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
             BOOLEAN,
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_DEFAULT,

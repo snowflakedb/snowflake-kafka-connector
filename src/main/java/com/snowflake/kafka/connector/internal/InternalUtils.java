@@ -53,8 +53,6 @@ public class InternalUtils {
       switch (name.toLowerCase()) {
         case "tablename":
           throw SnowflakeErrors.ERROR_0005.getException();
-        case "stagename":
-          throw SnowflakeErrors.ERROR_0004.getException();
         case "pipename":
           throw SnowflakeErrors.ERROR_0006.getException();
         case "conf":
