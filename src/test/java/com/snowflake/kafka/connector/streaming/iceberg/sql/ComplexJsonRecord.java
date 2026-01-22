@@ -1,14 +1,13 @@
 package com.snowflake.kafka.connector.streaming.iceberg.sql;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import static com.snowflake.kafka.connector.internal.TestUtils.loadClasspathResource;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -19,10 +18,10 @@ import org.assertj.core.api.Assertions;
 public class ComplexJsonRecord {
 
   public static final String complexJsonPayload =
-      loadJsonResource("/com/snowflake/kafka/connector/complexJsonPayload.json");
+      loadClasspathResource("/com/snowflake/kafka/connector/complexJsonPayload.json");
 
   public static final String complexJsonWithSchema =
-      loadJsonResource("/com/snowflake/kafka/connector/complexJsonWithSchema.json");
+      loadClasspathResource("/com/snowflake/kafka/connector/complexJsonWithSchema.json");
 
   private static final ObjectMapper MAPPER =
       new ObjectMapper().configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -44,17 +43,6 @@ public class ComplexJsonRecord {
           List.of(List.of(7, 8, 9), List.of(10, 11, 12)),
           PrimitiveJsonRecord.primitiveJsonRecordValueExample,
           PrimitiveJsonRecord.primitiveJsonRecordValueExample);
-
-  private static String loadJsonResource(final String resourcePath) {
-    try (InputStream is = ComplexJsonRecord.class.getResourceAsStream(resourcePath)) {
-      if (is == null) {
-        throw new RuntimeException("Resource not found: " + resourcePath);
-      }
-      return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to load resource: " + resourcePath, e);
-    }
-  }
 
   private final Long idInt8;
 
