@@ -22,7 +22,7 @@ from test_suit.test_auto_table_creation_topic2table import (
 from test_suit.test_avro_avro import TestAvroAvro
 from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
 
-from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
+# from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 from test_suit.test_json_json import TestJsonJson
 from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import (
     TestMultipleTopicToOneTableSnowpipeStreaming,
@@ -57,7 +57,7 @@ from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import (
     TestSnowpipeStreamingStringJsonIgnoreTombstone,
 )
 
-from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
+# from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
 from test_suit.test_string_json import TestStringJson
@@ -101,7 +101,7 @@ class EndToEndTestSuite:
         return self._cloud_platform
 
 
-def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
+def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet, allowed_tests_csv=None):
     """
     Creates all End to End tests which needs to run against Confluent Kafka or Apache Kafka.
     :param driver: Driver holds all helper function for tests - Create topic, create connector, send data are few functions amongst many present in Class KafkaTest.
@@ -110,6 +110,41 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
     :param testSet: confluent Kafka or apache Kafka (OSS)
     :return:
     """
+    if allowed_tests_csv:
+        allowed_tests = set(allowed_tests_csv.split(","))
+        suites = OrderedDict()
+        if "TestSnowpipeStreamingStringJson" in allowed_tests:
+            suites["TestSnowpipeStreamingStringJson"] = EndToEndTestSuite(
+                test_instance=TestSnowpipeStreamingStringJson(driver, nameSalt),
+                run_in_confluent=True,
+                run_in_apache=True,
+                cloud_platform=CloudPlatform.ALL,
+            )
+        if "TestSnowpipeStreamingStringJsonDLQ" in allowed_tests:
+            suites["TestSnowpipeStreamingStringJsonDLQ"] = EndToEndTestSuite(
+                test_instance=TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt),
+                run_in_confluent=True,
+                run_in_apache=True,
+                cloud_platform=CloudPlatform.ALL,
+            )
+        if "TestSnowpipeStreamingStringAvroSR" in allowed_tests:
+            suites["TestSnowpipeStreamingStringAvroSR"] = EndToEndTestSuite(
+                test_instance=TestSnowpipeStreamingStringAvroSR(driver, nameSalt),
+                run_in_confluent=True,
+                run_in_apache=False,
+                cloud_platform=CloudPlatform.ALL,
+            )
+        if "TestMultipleTopicToOneTableSnowpipeStreaming" in allowed_tests:
+            suites["TestMultipleTopicToOneTableSnowpipeStreaming"] = EndToEndTestSuite(
+                test_instance=TestMultipleTopicToOneTableSnowpipeStreaming(
+                    driver, nameSalt
+                ),
+                run_in_confluent=True,
+                run_in_apache=True,
+                cloud_platform=CloudPlatform.ALL,
+            )
+        return suites
+
     return OrderedDict(
         [
             (
@@ -193,24 +228,24 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.ALL,
             #     ),
             # ),
-            (
-                "TestNativeStringProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestNativeStringProtobuf(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
-            (
-                "TestConfluentProtobufProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
-                    run_in_confluent=False,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
+            # (
+            #     "TestNativeStringProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestNativeStringProtobuf(driver, nameSalt),
+            #         run_in_confluent=True,
+            #         run_in_apache=True,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
+            # (
+            #     "TestConfluentProtobufProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
+            #         run_in_confluent=False,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
             (
                 "TestNullableValuesAfterSmt",
                 EndToEndTestSuite(

@@ -31,7 +31,8 @@ class NonRetryableError(Error):
 
 def parsePrivateKey(pk, pk_passphrase):
     pkpass = None
-    if len(pk_passphrase) != 0:
+    is_encrypted = len(pk_passphrase) != 0
+    if is_encrypted:
         pkpass = pk_passphrase.encode()
 
     # remove header, footer, and line breaks
@@ -39,12 +40,18 @@ def parsePrivateKey(pk, pk_passphrase):
     pk = re.sub("\\s", "", pk)
 
     pkBuilder = ""
-    pkBuilder += "-----BEGIN ENCRYPTED PRIVATE KEY-----"
+    if is_encrypted:
+        pkBuilder += "-----BEGIN ENCRYPTED PRIVATE KEY-----"
+    else:
+        pkBuilder += "-----BEGIN PRIVATE KEY-----"
     for i, c in enumerate(pk):
         if i % 64 == 0:
             pkBuilder += "\n"
         pkBuilder += c
-    pkBuilder += "\n-----END ENCRYPTED PRIVATE KEY-----"
+    if is_encrypted:
+        pkBuilder += "\n-----END ENCRYPTED PRIVATE KEY-----"
+    else:
+        pkBuilder += "\n-----END PRIVATE KEY-----"
 
     p_key = serialization.load_pem_private_key(
         pkBuilder.encode(),

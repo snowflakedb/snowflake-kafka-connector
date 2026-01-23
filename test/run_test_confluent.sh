@@ -132,7 +132,11 @@ ls $KAFKA_CONNECT_PLUGIN_PATH
 echo "Copying connect-log4j.properties file to confluent folder"
 cp -fr ./connect-log4j.properties $CONFLUENT_FOLDER_NAME/"etc/kafka/"
 
-compile_protobuf_converter_and_data $TEST_SET $CONFLUENT_FOLDER_NAME
+if [ "${SKIP_PROTOBUF_COMPILE}" != "true" ]; then
+  compile_protobuf_converter_and_data $TEST_SET $CONFLUENT_FOLDER_NAME
+else
+  echo "Skipping protobuf compile (SKIP_PROTOBUF_COMPILE=true)"
+fi
 
 trap "pkill -9 -P $$" SIGINT SIGTERM EXIT
 

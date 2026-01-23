@@ -57,8 +57,8 @@ class KafkaTest:
             testDatabase = credentialJson["database"]
             testSchema = credentialJson["schema"]
             testWarehouse = credentialJson["warehouse"]
-            pk = credentialJson["encrypted_private_key"]
-            pk_passphrase = credentialJson["private_key_passphrase"]
+            pk = credentialJson.get("encrypted_private_key") or credentialJson.get("private_key")
+            pk_passphrase = credentialJson.get("private_key_passphrase", "")
 
         self.TEST_DATA_FOLDER = "./test_data/"
         self.httpHeader = {'Content-type': 'application/json', 'Accept': 'application/json'}

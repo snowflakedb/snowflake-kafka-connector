@@ -19,7 +19,11 @@ class TestSelector:
         allowed_tests_csv: str,
     ):
         test_suites = create_end_to_end_test_suites(
-            driver, name_salt, schema_registry_address, test_platform
+            driver,
+            name_salt,
+            schema_registry_address,
+            test_platform,
+            allowed_tests_csv,
         )
         test_suites = self.__filter_by_allow_list(allowed_tests_csv, test_suites)
         test_suites = self.__filter_by_test_platform(test_platform, test_suites)
