@@ -111,6 +111,7 @@ class SnowpipeStreamingPartitionChannelTest {
     } catch (Exception e) {
       // Expected - the retry policy may throw after exhausting retries
     }
+
     assertEquals(closeCountBeforeRecovery + 1, trackingClientSupplier.getCloseCallCount());
   }
 
@@ -165,6 +166,10 @@ class SnowpipeStreamingPartitionChannelTest {
     void incrementCloseCallCount() {
       closeCallCount.incrementAndGet();
     }
+
+    int incrementChannelsCreated() {
+      return totalChannelsCreated.incrementAndGet();
+    }
   }
 
   /** Streaming ingest client that creates tracking channels. */
@@ -181,6 +186,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public OpenChannelResult openChannel(final String channelName, final String offsetToken) {
+      supplier.incrementChannelsCreated();
       final ChannelStatus channelStatus =
           new ChannelStatus(
               "db",
