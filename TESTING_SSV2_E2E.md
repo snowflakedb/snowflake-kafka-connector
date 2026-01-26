@@ -91,19 +91,19 @@ resolvable, add it to `/etc/hosts`. Example:
 echo "127.0.0.1 <your-hostname>" | sudo tee -a /etc/hosts
 ```
 
-## 7) Run the simplest SSV2 e2e test
+## 7) Run the simplest SSV2 e2e test (ensure Java 11)
 
 ```
-cd /home/repo/snowflake-kafka-connector/test
-source ../venv/bin/activate
-export SNOWFLAKE_CREDENTIAL_FILE=/home/repo/snowflake-kafka-connector/profile.json
-export LD_LIBRARY_PATH=$HOME/.local/rdkafka-1.9.2/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-export SKIP_PROTOBUF_COMPILE=true
-export JAVA_HOME=/nix/store/agcdjidc7hcwlib0j3ah8ykik42ccfkw-temurin-bin-11.0.28
-export PATH="$JAVA_HOME/bin:$PATH"
+nix --extra-experimental-features "nix-command flakes" shell nixpkgs#temurin-bin-11 --command bash -lc '
+  cd /home/repo/snowflake-kafka-connector/test
+  source ../venv/bin/activate
+  export SNOWFLAKE_CREDENTIAL_FILE=/home/repo/snowflake-kafka-connector/profile.json
+  export LD_LIBRARY_PATH=$HOME/.local/rdkafka-1.9.2/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+  export SKIP_PROTOBUF_COMPILE=true
 
-./run_test_confluent.sh 7.8.0 ./apache_properties false false \
-  --skipProxy --tests=TestSnowpipeStreamingStringJson
+  ./run_test_confluent.sh 7.8.0 ./apache_properties false false \
+    --skipProxy --tests=TestSnowpipeStreamingStringJson
+'
 ```
 
 Expected end:
