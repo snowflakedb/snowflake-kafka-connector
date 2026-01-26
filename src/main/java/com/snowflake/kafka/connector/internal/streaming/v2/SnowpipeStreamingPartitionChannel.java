@@ -371,6 +371,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         "{} Channel recovery initiated for channel: {}",
         streamingApiFallbackInvoker,
         this.getChannelNameFormatV1());
+
+    // close old channel before reopening a new one
+    if (!channel.isClosed()) {
+      channel.close();
+    }
     SnowflakeStreamingIngestChannel newChannel = openChannelForTable(channelName);
 
     LOGGER.warn(
@@ -499,6 +504,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     final SnowflakeStreamingIngestClient streamingIngestClient =
         StreamingClientManager.getClient(
             connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
+    // always close the channel first before attempting to open/reopen it. This is to prevent the
+    // "Channel xxx has already been opened on the client. Please close the channel first before
+    // re-opening"
+    // adding additional safety
+    if (channelIsOpen()) {
+      this.channel.close();
+    }
     final OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
     final ChannelStatus channelStatus = result.getChannelStatus();
     if (channelStatus.getStatusCode().equals("SUCCESS")) {
@@ -538,6 +550,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       future.completeExceptionally(e);
       return future;
     }
+  }
+
+  private boolean channelIsOpen() {
+    return this.channel != null && !this.channel.isClosed();
   }
 
   private void onCloseChannelSuccess() {
