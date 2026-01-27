@@ -57,8 +57,13 @@ compile_protobuf_converter_and_data()
   pushd "./test_data"
   PRPTOBUF_GENERATED_CODE="protobuf/src/main/java"
   mkdir -p $PRPTOBUF_GENERATED_CODE
-  protoc --java_out=$PRPTOBUF_GENERATED_CODE sensor.proto
-  protoc --python_out=. sensor.proto
+  # Use protobuf@21 if available (compatible with protobuf-java 3.21.x), otherwise fall back to system protoc
+  PROTOC_CMD="${PROTOC:-/opt/homebrew/opt/protobuf@21/bin/protoc}"
+  if [ ! -x "$PROTOC_CMD" ]; then
+    PROTOC_CMD="protoc"
+  fi
+  $PROTOC_CMD --java_out=$PRPTOBUF_GENERATED_CODE sensor.proto
+  $PROTOC_CMD --python_out=. sensor.proto
   echo -e "\n=== compiled protobuf ==="
   popd
 

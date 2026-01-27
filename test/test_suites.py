@@ -202,15 +202,15 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                     cloud_platform=CloudPlatform.ALL,
                 ),
             ),
-            (
-                "TestConfluentProtobufProtobuf",
-                EndToEndTestSuite(
-                    test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
-                    run_in_confluent=False,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
+            # (
+            #     "TestConfluentProtobufProtobuf",
+            #     EndToEndTestSuite(
+            #         test_instance=TestConfluentProtobufProtobuf(driver, nameSalt),
+            #         run_in_confluent=False,
+            #         run_in_apache=False,
+            #         cloud_platform=CloudPlatform.ALL,
+            #     ),
+            # ),
             (
                 "TestNullableValuesAfterSmt",
                 EndToEndTestSuite(
