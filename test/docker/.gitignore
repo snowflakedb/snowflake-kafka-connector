@@ -1,0 +1,5 @@
+# Environment files with credentials
+.env
+
+# Docker build artifacts
+*.log
