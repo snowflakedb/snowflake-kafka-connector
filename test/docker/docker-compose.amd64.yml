@@ -1,0 +1,16 @@
+# Platform override for Confluent 6.2.x
+# These container images are only available for linux/amd64, not linux/arm64.
+# This file is automatically used when running with Confluent 6.2.x on ARM Macs.
+
+services:
+  zookeeper:
+    platform: linux/amd64
+
+  kafka:
+    platform: linux/amd64
+
+  schema-registry:
+    platform: linux/amd64
+
+  kafka-connect:
+    platform: linux/amd64
