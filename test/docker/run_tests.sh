@@ -165,66 +165,20 @@ EXTRA_JARS_DIR="/tmp/kafka-connect-extra-jars"
 mkdir -p "$EXTRA_JARS_DIR"
 
 compile_protobuf_dependencies() {
-    info "Building protobuf dependencies..."
+    info "Building protobuf dependencies in Docker..."
     
-    # Check for required tools
-    if ! command -v mvn >/dev/null 2>&1; then
-        warn "Maven not found - skipping protobuf converter build. Protobuf tests will fail."
-        return 0
-    fi
+    # Build the image - this compiles everything as cached layers
+    # No Maven or protoc needed on host machine
+    cd "$SCRIPT_DIR"
     
-    if ! command -v protoc >/dev/null 2>&1; then
-        warn "protoc not found - skipping protobuf compilation. Protobuf tests will fail."
-        return 0
-    fi
+    info "Building protobuf-builder image (JARs are built during image build)..."
+    docker build -t protobuf-builder -f Dockerfile.builder ..
     
-    local TEST_DIR="$SCRIPT_DIR/.."
-    
-    # 1. Compile protobuf to Java and Python
-    info "Compiling protobuf schema..."
-    pushd "$TEST_DIR/test_data" > /dev/null
-    local PROTOBUF_JAVA_DIR="protobuf/src/main/java"
-    mkdir -p "$PROTOBUF_JAVA_DIR"
-    
-    # Use protobuf@21 if available (compatible with protobuf-java 3.21.x)
-    local PROTOC_CMD="${PROTOC:-}"
-    if [ -z "$PROTOC_CMD" ]; then
-        if [ -x "/opt/homebrew/opt/protobuf@21/bin/protoc" ]; then
-            PROTOC_CMD="/opt/homebrew/opt/protobuf@21/bin/protoc"
-        else
-            PROTOC_CMD="protoc"
-        fi
-    fi
-    
-    $PROTOC_CMD --java_out="$PROTOBUF_JAVA_DIR" sensor.proto
-    $PROTOC_CMD --python_out=. sensor.proto
-    info "Protobuf schema compiled"
-    popd > /dev/null
-    
-    # 2. Build protobuf test data JAR
-    info "Building protobuf test data JAR..."
-    pushd "$TEST_DIR/test_data/protobuf" > /dev/null
-    mvn clean package -q -DskipTests
-    cp target/kafka-test-protobuf-*-jar-with-dependencies.jar "$EXTRA_JARS_DIR/" 2>/dev/null || true
-    info "Protobuf test data JAR built"
-    popd > /dev/null
-    
-    # 3. Clone and build BlueApron protobuf converter
-    local CONVERTER_VERSION="3.1.0"
-    local CONVERTER_DIR="$TEST_DIR/kafka-connect-protobuf-converter"
-    
-    if [ ! -d "$CONVERTER_DIR" ]; then
-        info "Cloning BlueApron protobuf converter..."
-        git clone -q "https://github.com/blueapron/kafka-connect-protobuf-converter" "$CONVERTER_DIR"
-    fi
-    
-    info "Building BlueApron protobuf converter..."
-    pushd "$CONVERTER_DIR" > /dev/null
-    git checkout -q "tags/v$CONVERTER_VERSION" 2>/dev/null || true
-    mvn clean package -q -DskipTests
-    cp target/kafka-connect-protobuf-converter-*-jar-with-dependencies.jar "$EXTRA_JARS_DIR/" 2>/dev/null || true
-    info "BlueApron protobuf converter built"
-    popd > /dev/null
+    # Copy JARs from the built image to host
+    info "Extracting JARs from image..."
+    CONTAINER_ID=$(docker create protobuf-builder)
+    docker cp "$CONTAINER_ID:/output/." "$EXTRA_JARS_DIR/"
+    docker rm "$CONTAINER_ID" > /dev/null
     
     info "Extra JARs prepared in $EXTRA_JARS_DIR:"
     ls -la "$EXTRA_JARS_DIR"
@@ -294,7 +248,7 @@ fi
 # Run tests
 info "Running tests..."
 set +e
-docker compose $COMPOSE_FILES run --rm -it test-runner
+docker compose $COMPOSE_FILES run --rm -i test-runner
 TEST_EXIT_CODE=$?
 set -e
 
