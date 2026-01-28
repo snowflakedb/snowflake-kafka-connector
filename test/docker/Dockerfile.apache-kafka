@@ -1,0 +1,39 @@
+# Dockerfile that mirrors run_test_apache.sh setup
+# Downloads official Apache Kafka tarball and runs it the same way
+
+FROM eclipse-temurin:11-jdk
+
+ARG KAFKA_VERSION=2.8.2
+
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    netcat-openbsd \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+
+# Download and extract Apache Kafka (same as run_test_apache.sh)
+RUN curl -sL "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.12-${KAFKA_VERSION}.tgz" -o kafka.tgz && \
+    tar xzf kafka.tgz && \
+    mv kafka_2.12-${KAFKA_VERSION} kafka && \
+    rm kafka.tgz
+
+# Install FIPS jars (same as run_test_apache.sh lines 108-126)
+RUN wget -q -P /opt/kafka/libs https://repo1.maven.org/maven2/org/bouncycastle/bcpkix-fips/2.1.8/bcpkix-fips-2.1.8.jar && \
+    wget -q -P /opt/kafka/libs https://repo1.maven.org/maven2/org/bouncycastle/bc-fips/2.1.0/bc-fips-2.1.0.jar
+
+# Create plugin directory (same path as in connect-distributed.properties)
+RUN mkdir -p /usr/local/share/kafka/plugins
+
+# Copy config files
+COPY apache_properties/zookeeper.properties /opt/kafka/config/zookeeper.properties
+COPY apache_properties/server.properties /opt/kafka/config/server.properties
+COPY apache_properties/connect-distributed.properties /opt/kafka/config/connect-distributed.properties
+COPY connect-log4j.properties /opt/kafka/config/connect-log4j.properties
+
+WORKDIR /opt/kafka
+
+# Expose ports: Zookeeper(2181), Kafka(9092), Kafka Connect(8083)
+EXPOSE 2181 9092 8083

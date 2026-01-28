@@ -1,3 +1,6 @@
+# Confluent Platform services
+# Usage: docker compose -f docker-compose.base.yml -f docker-compose.confluent.yml up
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION:-7.8.0}
@@ -36,25 +39,6 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 5s
-      timeout: 10s
-      retries: 10
-
-  schema-registry:
-    image: confluentinc/cp-schema-registry:${CONFLUENT_VERSION:-7.8.0}
-    hostname: schema-registry
-    container_name: test-schema-registry
-    depends_on:
-      kafka:
-        condition: service_healthy
-    ports:
-      - "8081:8081"
-    environment:
-      SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
       interval: 5s
       timeout: 10s
       retries: 10
@@ -98,38 +82,34 @@ services:
       timeout: 10s
       retries: 20
 
+  # Schema Registry for Confluent
+  schema-registry:
+    image: confluentinc/cp-schema-registry:${CONFLUENT_VERSION:-7.8.0}
+    hostname: schema-registry
+    container_name: test-schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+
+  # Override base test-runner dependencies
   test-runner:
-    build:
-      context: .
-      dockerfile: Dockerfile.test-runner
-    container_name: test-runner
     depends_on:
       kafka-connect:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_CONNECT_HOST: kafka-connect
-      KAFKA_CONNECT_PORT: 8083
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      SNOWFLAKE_CREDENTIAL_FILE: /credentials/profile.json
-      CONFLUENT_VERSION: ${CONFLUENT_VERSION:-7.8.0}
-      TEST_NAME_SALT: ${TEST_NAME_SALT:-}
-      PRESSURE_TEST: ${PRESSURE_TEST:-false}
-      TESTS_TO_RUN: ${TESTS_TO_RUN:-}
-    volumes:
-      - ${SNOWFLAKE_CREDENTIAL_FILE:-/dev/null}:/credentials/profile.json:ro
-      - ../test_suit:/app/test_suit:ro
-      - ../rest_request_template:/app/rest_request_template:ro
-      - ../test_data:/app/test_data
-      - ../__init__.py:/app/__init__.py:ro
-      - ../test_verify.py:/app/test_verify.py:ro
-      - ../test_suites.py:/app/test_suites.py:ro
-      - ../test_executor.py:/app/test_executor.py:ro
-      - ../test_selector.py:/app/test_selector.py:ro
-      - ../cloud_platform.py:/app/cloud_platform.py:ro
-    working_dir: /app
-    command: ["./scripts/run_tests_inner.sh"]
-
-networks:
-  default:
-    name: kafka-test-network

@@ -1,0 +1,40 @@
+# Apache Kafka services - mirrors run_test_apache.sh setup exactly
+# Usage: docker compose -f docker-compose.base.yml -f docker-compose.apache.yml up
+
+services:
+  # Single container running Zookeeper + Kafka + Kafka Connect
+  # This mirrors exactly how run_test_apache.sh runs them
+  kafka:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.apache-kafka
+      args:
+        KAFKA_VERSION: ${KAFKA_VERSION:-2.8.2}
+    hostname: kafka
+    container_name: test-kafka
+    ports:
+      - "2181:2181"
+      - "9092:9092"
+      - "8083:8083"
+    environment:
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx2g"
+    volumes:
+      - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/usr/local/share/kafka/plugins/snowflake-connector
+      - ${EXTRA_JARS_PATH:-/tmp/kafka-connect-extra-jars}:/usr/local/share/kafka/plugins/protobuf-converter
+      - ./scripts/start-apache-kafka.sh:/opt/start.sh:ro
+    command: ["/bin/bash", "/opt/start.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+  # Override base test-runner dependencies and connection settings
+  test-runner:
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONNECT_HOST: kafka
