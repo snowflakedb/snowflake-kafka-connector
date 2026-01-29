@@ -227,4 +227,169 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
             "APPROVAL", "BOOLEAN",
             "RATING_DOUBLE", "NUMBER"));
   }
+
+  @Test
+  void testSnowpipeStreamingSchemaEvolution() throws Exception {
+    // Test schema evolution with streaming ingestion using interactive table
+    // Migrated from test_snowpipe_streaming_schema_evolution.py
+
+    // given - create interactive table with schema evolution enabled
+    final int partitionCount = 3;
+    final int recordsPerPartition = 1000;
+    final int schemaEvolutionRecordCount = 100;
+    final int initialRecordCount = recordsPerPartition - schemaEvolutionRecordCount;
+
+    final String streamingTopic = tableName + "_streaming";
+    connectCluster.kafka().createTopic(streamingTopic, partitionCount);
+
+    // Create interactive table with schema evolution enabled
+    snowflake.executeQueryWithParameters(
+        "CREATE OR REPLACE INTERACTIVE TABLE "
+            + tableName
+            + " (RECORD_METADATA VARIANT, FIELDNAME VARCHAR) "
+            + "CLUSTER BY (FIELDNAME) "
+            + "ENABLE_SCHEMA_EVOLUTION = TRUE");
+
+    final Map<String, String> config = createConnectorConfig();
+    config.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
+    config.put(
+        SNOWFLAKE_TOPICS2TABLE_MAP,
+        streamingTopic + ":" + tableName);
+
+    connectCluster.configureConnector(connectorName, config);
+    waitForConnectorRunning(connectorName);
+
+    // when - send records with initial schema, then evolved schema
+    for (int partition = 0; partition < partitionCount; partition++) {
+      // First, send records with initial schema (only fieldName)
+      for (int i = 0; i < initialRecordCount; i++) {
+        final ObjectNode record = objectMapper.createObjectNode();
+        record.put("fieldName", String.valueOf(i));
+        connectCluster
+            .kafka()
+            .produce(streamingTopic, partition, "key-" + i, objectMapper.writeValueAsString(record));
+      }
+
+      // Then, send records with evolved schema (fieldName + newField)
+      for (int i = 0; i < schemaEvolutionRecordCount; i++) {
+        final ObjectNode record = objectMapper.createObjectNode();
+        record.put("fieldName", String.valueOf(i + initialRecordCount));
+        record.put("newField", "new_" + i);
+        connectCluster
+            .kafka()
+            .produce(
+                streamingTopic,
+                partition,
+                "key-" + (i + initialRecordCount),
+                objectMapper.writeValueAsString(record));
+      }
+    }
+
+    // Send tombstone records to each partition
+    for (int partition = 0; partition < partitionCount; partition++) {
+      connectCluster.kafka().produce(streamingTopic, partition, "tombstone-key", null);
+    }
+
+    // then - verify schema evolution occurred
+    final int expectedTotalRecords = recordsPerPartition * partitionCount;
+
+    // Verify table exists and record count matches expected
+    assertWithRetry(() -> snowflake.tableExist(tableName));
+    assertWithRetry(() -> TestUtils.getNumberOfRows(tableName) == expectedTotalRecords);
+
+    // Verify schema contains expected columns including the evolved NEWFIELD column
+    TestUtils.checkTableSchema(
+        tableName,
+        Map.of(
+            "FIELDNAME", "VARCHAR",
+            "NEWFIELD", "VARCHAR",
+            "RECORD_METADATA", "VARIANT"));
+
+    // Verify no duplicates exist
+    assertWithRetry(
+        () -> {
+          try (java.sql.Statement stmt =
+                  com.snowflake.kafka.connector.internal.NonEncryptedKeyTestSnowflakeConnection
+                      .getConnection()
+                      .createStatement();
+              java.sql.ResultSet rs =
+                  stmt.executeQuery(
+                      "SELECT RECORD_METADATA:\"offset\"::STRING AS OFFSET_NO, "
+                          + "RECORD_METADATA:\"partition\"::STRING AS PARTITION_NO "
+                          + "FROM "
+                          + tableName
+                          + " GROUP BY OFFSET_NO, PARTITION_NO HAVING COUNT(*) > 1")) {
+            return !rs.next(); // true if no duplicates (empty result)
+          }
+        });
+
+    // Verify unique offset count per partition
+    assertWithRetry(
+        () -> {
+          try (java.sql.Statement stmt =
+                  com.snowflake.kafka.connector.internal.NonEncryptedKeyTestSnowflakeConnection
+                      .getConnection()
+                      .createStatement();
+              java.sql.ResultSet rs =
+                  stmt.executeQuery(
+                      "SELECT COUNT(DISTINCT RECORD_METADATA:\"offset\"::NUMBER) AS UNIQUE_OFFSETS, "
+                          + "RECORD_METADATA:\"partition\"::NUMBER AS PARTITION_NO "
+                          + "FROM "
+                          + tableName
+                          + " GROUP BY PARTITION_NO ORDER BY PARTITION_NO")) {
+            int count = 0;
+            while (rs.next()) {
+              final long uniqueOffsets = rs.getLong(1);
+              final long partitionNo = rs.getLong(2);
+              if (uniqueOffsets != recordsPerPartition || partitionNo != count) {
+                return false;
+              }
+              count++;
+            }
+            return count == partitionCount;
+          }
+        });
+
+    // Verify newField data count
+    final int expectedNewFieldCount = schemaEvolutionRecordCount * partitionCount;
+    assertWithRetry(
+        () -> {
+          try (java.sql.Statement stmt =
+                  com.snowflake.kafka.connector.internal.NonEncryptedKeyTestSnowflakeConnection
+                      .getConnection()
+                      .createStatement();
+              java.sql.ResultSet rs =
+                  stmt.executeQuery(
+                      "SELECT COUNT(*) FROM " + tableName + " WHERE NEWFIELD IS NOT NULL")) {
+            if (rs.next()) {
+              final long count = rs.getLong(1);
+              return count == expectedNewFieldCount;
+            }
+            return false;
+          }
+        });
+
+    // Verify ConnectorPushTime is populated
+    assertWithRetry(
+        () -> {
+          try (java.sql.Statement stmt =
+                  com.snowflake.kafka.connector.internal.NonEncryptedKeyTestSnowflakeConnection
+                      .getConnection()
+                      .createStatement();
+              java.sql.ResultSet rs =
+                  stmt.executeQuery(
+                      "SELECT COUNT(*) FROM "
+                          + tableName
+                          + " WHERE NOT IS_NULL_VALUE(RECORD_METADATA:SnowflakeConnectorPushTime)")) {
+            if (rs.next()) {
+              final long count = rs.getLong(1);
+              return count == expectedTotalRecords;
+            }
+            return false;
+          }
+        });
+
+    // cleanup
+    connectCluster.kafka().deleteTopic(streamingTopic);
+  }
 }
