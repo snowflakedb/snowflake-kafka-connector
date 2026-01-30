@@ -306,7 +306,7 @@ public class SnowflakeSinkTask extends SinkTask {
     getSink().insert(records);
 
     logWarningForPutAndPrecommit(
-        startTime, Utils.formatString("called PUT with {} records", recordSize), false);
+        startTime, Utils.formatString("Executed PUT with {} records", recordSize), false);
   }
 
   /**
@@ -366,7 +366,7 @@ public class SnowflakeSinkTask extends SinkTask {
     logWarningForPutAndPrecommit(
         startTime,
         Utils.formatString(
-            "called PRECOMMIT on all {} partitions, safe to commit {} partitions",
+            "Executed PRECOMMIT on all {} partitions, safe to commit {} partitions",
             offsets.size(),
             committedOffsets.size()),
         true);
@@ -436,9 +436,9 @@ public class SnowflakeSinkTask extends SinkTask {
           executionTimeMs);
     } else {
       if (isPrecommit) {
-        this.DYNAMIC_LOGGER.info("Successfully " + logExecutionContent);
+        this.DYNAMIC_LOGGER.info(logExecutionContent);
       } else {
-        this.DYNAMIC_LOGGER.debug("Successfully " + logExecutionContent);
+        this.DYNAMIC_LOGGER.debug(logExecutionContent);
       }
     }
   }
