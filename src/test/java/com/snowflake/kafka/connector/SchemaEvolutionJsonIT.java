@@ -252,9 +252,7 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
 
     final Map<String, String> config = createConnectorConfig();
     config.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
-    config.put(
-        SNOWFLAKE_TOPICS2TABLE_MAP,
-        streamingTopic + ":" + tableName);
+    config.put(SNOWFLAKE_TOPICS2TABLE_MAP, streamingTopic + ":" + tableName);
 
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);
@@ -267,7 +265,8 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
         record.put("fieldName", String.valueOf(i));
         connectCluster
             .kafka()
-            .produce(streamingTopic, partition, "key-" + i, objectMapper.writeValueAsString(record));
+            .produce(
+                streamingTopic, partition, "key-" + i, objectMapper.writeValueAsString(record));
       }
 
       // Then, send records with evolved schema (fieldName + newField)
@@ -332,9 +331,8 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
                       .createStatement();
               java.sql.ResultSet rs =
                   stmt.executeQuery(
-                      "SELECT COUNT(DISTINCT RECORD_METADATA:\"offset\"::NUMBER) AS UNIQUE_OFFSETS, "
-                          + "RECORD_METADATA:\"partition\"::NUMBER AS PARTITION_NO "
-                          + "FROM "
+                      "SELECT COUNT(DISTINCT RECORD_METADATA:\"offset\"::NUMBER) AS UNIQUE_OFFSETS,"
+                          + " RECORD_METADATA:\"partition\"::NUMBER AS PARTITION_NO FROM "
                           + tableName
                           + " GROUP BY PARTITION_NO ORDER BY PARTITION_NO")) {
             int count = 0;
@@ -380,7 +378,8 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
                   stmt.executeQuery(
                       "SELECT COUNT(*) FROM "
                           + tableName
-                          + " WHERE NOT IS_NULL_VALUE(RECORD_METADATA:SnowflakeConnectorPushTime)")) {
+                          + " WHERE NOT"
+                          + " IS_NULL_VALUE(RECORD_METADATA:SnowflakeConnectorPushTime)")) {
             if (rs.next()) {
               final long count = rs.getLong(1);
               return count == expectedTotalRecords;
