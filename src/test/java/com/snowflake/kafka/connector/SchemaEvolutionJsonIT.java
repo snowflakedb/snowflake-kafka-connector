@@ -13,7 +13,7 @@ import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.junit.jupiter.api.Test;
 
-class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
+class SchemaEvolutionJsonIT extends ConnectClusterBaseIT {
 
   @Test()
   void testSchemaEvolutionWithMultipleTopics() throws Exception {
