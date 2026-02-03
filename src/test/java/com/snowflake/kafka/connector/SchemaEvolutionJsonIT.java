@@ -253,7 +253,9 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
     System.out.println("Interactive table created successfully");
 
     final Map<String, String> config = defaultProperties(streamingTopic, connectorName);
-    config.put(ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG, org.apache.kafka.connect.storage.StringConverter.class.getName());
+    config.put(
+        ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG,
+        org.apache.kafka.connect.storage.StringConverter.class.getName());
     config.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
     config.put("value.converter.schemas.enable", "false");
     config.put("errors.tolerance", "none");
@@ -299,22 +301,26 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
     }
 
     // then - verify schema evolution occurred
-    final int expectedTotalRecords = recordsPerPartition * partitionCount + partitionCount; // +partitionCount for tombstones
+    final int expectedTotalRecords =
+        recordsPerPartition * partitionCount + partitionCount; // +partitionCount for tombstones
 
     // Verify table exists and record count matches expected
     System.out.println("Checking if table exists: " + tableName);
     System.out.println("Table exists: " + snowflake.tableExist(tableName));
-    assertWithRetry(() -> {
-      boolean exists = snowflake.tableExist(tableName);
-      System.out.println("Table exists check: " + exists);
-      return exists;
-    });
+    assertWithRetry(
+        () -> {
+          boolean exists = snowflake.tableExist(tableName);
+          System.out.println("Table exists check: " + exists);
+          return exists;
+        });
     System.out.println("Table exists check passed, now checking row count");
-    assertWithRetry(() -> {
-      int rowCount = TestUtils.getNumberOfRows(tableName);
-      System.out.println("Current row count: " + rowCount + ", expected: " + expectedTotalRecords);
-      return rowCount == expectedTotalRecords;
-    });
+    assertWithRetry(
+        () -> {
+          int rowCount = TestUtils.getNumberOfRows(tableName);
+          System.out.println(
+              "Current row count: " + rowCount + ", expected: " + expectedTotalRecords);
+          return rowCount == expectedTotalRecords;
+        });
 
     // Verify schema contains expected columns including the evolved NEWFIELD column
     TestUtils.checkTableSchema(
