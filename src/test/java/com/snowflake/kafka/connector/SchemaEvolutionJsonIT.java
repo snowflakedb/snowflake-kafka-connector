@@ -227,4 +227,110 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
             "APPROVAL", "BOOLEAN",
             "RATING_DOUBLE", "NUMBER"));
   }
+
+  @Test
+  void testSnowpipeStreamingSchemaEvolution() throws Exception {
+    // Test schema evolution with streaming ingestion using interactive table
+    // Migrated from test_snowpipe_streaming_schema_evolution.py
+
+    // given - create interactive table with schema evolution enabled
+    final int partitionCount = 3;
+    final int recordsPerPartition = 1000;
+    final int schemaEvolutionRecordCount = 100;
+    final int initialRecordCount = recordsPerPartition - schemaEvolutionRecordCount;
+
+    final String streamingTopic = tableName + "_streaming";
+    connectCluster.kafka().createTopic(streamingTopic, partitionCount);
+
+    // Create interactive table with schema evolution enabled
+    System.out.println("Creating interactive table: " + tableName);
+    snowflake.executeQueryWithParameters(
+        "CREATE OR REPLACE INTERACTIVE TABLE "
+            + tableName
+            + " (RECORD_METADATA VARIANT, FIELDNAME VARCHAR) "
+            + "CLUSTER BY (FIELDNAME) "
+            + "ENABLE_SCHEMA_EVOLUTION = TRUE");
+    System.out.println("Interactive table created successfully");
+
+    final Map<String, String> config = defaultProperties(streamingTopic, connectorName);
+    config.put(
+        ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG,
+        org.apache.kafka.connect.storage.StringConverter.class.getName());
+    config.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
+    config.put("value.converter.schemas.enable", "false");
+    config.put("errors.tolerance", "none");
+    config.put("errors.log.enable", "true");
+    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
+    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+    config.put("jmx", "true");
+    config.put(SNOWFLAKE_TOPICS2TABLE_MAP, streamingTopic + ":" + tableName);
+
+    connectCluster.configureConnector(connectorName, config);
+    waitForConnectorRunning(connectorName);
+
+    // when - send records with initial schema, then evolved schema
+    for (int partition = 0; partition < partitionCount; partition++) {
+      // First, send records with initial schema (only fieldName)
+      for (int i = 0; i < initialRecordCount; i++) {
+        final ObjectNode record = objectMapper.createObjectNode();
+        record.put("fieldName", String.valueOf(i));
+        connectCluster
+            .kafka()
+            .produce(
+                streamingTopic, partition, "key-" + i, objectMapper.writeValueAsString(record));
+      }
+
+      // Then, send records with evolved schema (fieldName + newField)
+      for (int i = 0; i < schemaEvolutionRecordCount; i++) {
+        final ObjectNode record = objectMapper.createObjectNode();
+        record.put("fieldName", String.valueOf(i + initialRecordCount));
+        record.put("newField", "new_" + i);
+        connectCluster
+            .kafka()
+            .produce(
+                streamingTopic,
+                partition,
+                "key-" + (i + initialRecordCount),
+                objectMapper.writeValueAsString(record));
+      }
+    }
+
+    // Send tombstone records to each partition
+    for (int partition = 0; partition < partitionCount; partition++) {
+      connectCluster.kafka().produce(streamingTopic, partition, "tombstone-key", null);
+    }
+
+    // then - verify schema evolution occurred
+    final int expectedTotalRecords =
+        recordsPerPartition * partitionCount + partitionCount; // +partitionCount for tombstones
+
+    // Verify table exists and record count matches expected
+    System.out.println("Checking if table exists: " + tableName);
+    System.out.println("Table exists: " + snowflake.tableExist(tableName));
+    assertWithRetry(
+        () -> {
+          boolean exists = snowflake.tableExist(tableName);
+          System.out.println("Table exists check: " + exists);
+          return exists;
+        });
+    System.out.println("Table exists check passed, now checking row count");
+    assertWithRetry(
+        () -> {
+          int rowCount = TestUtils.getNumberOfRows(tableName);
+          System.out.println(
+              "Current row count: " + rowCount + ", expected: " + expectedTotalRecords);
+          return rowCount == expectedTotalRecords;
+        });
+
+    // Verify schema contains expected columns including the evolved NEWFIELD column
+    TestUtils.checkTableSchema(
+        tableName,
+        Map.of(
+            "FIELDNAME", "VARCHAR",
+            "NEWFIELD", "VARCHAR",
+            "RECORD_METADATA", "VARIANT"));
+
+    // cleanup
+    connectCluster.kafka().deleteTopic(streamingTopic);
+  }
 }
