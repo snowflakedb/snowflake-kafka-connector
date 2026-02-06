@@ -26,6 +26,9 @@ public enum ChannelMigrationResponseCode {
   ERR_TABLE_DOES_NOT_EXIST_NOT_AUTHORIZED(
       4, "The supplied table does not exist or is not authorized"),
 
+  ERR_RESOURCE_LIMITS_REACHED(
+      5, "Snowflake has reached resource limits, please retry the migration request in a moment."),
+
   SUCCESS(50, "Success"),
 
   OFFSET_MIGRATION_SOURCE_CHANNEL_DOES_NOT_EXIST(
