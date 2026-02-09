@@ -12,12 +12,11 @@ This directory contains a Docker-based test environment that runs the Snowflake 
 
 ```bash
 # 1. Build the connector (from project root)
-cd test
 export SNOWFLAKE_CREDENTIAL_FILE=/path/to/profile.json
-./build_runtime_jar.sh ../../ package confluent
+./test/build_runtime_jar.sh . package confluent
 
 # 2. Run tests
-cd docker
+cd test/docker
 ./run_tests.sh 7.8.0
 ```
 
@@ -44,15 +43,15 @@ cd docker
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    docker-compose.yml                        │
+┌────────────────────────────────────────────────────────────┐
+│                    docker-compose.yml                      │
 ├──────────────┬──────────────┬───────────────┬──────────────┤
 │  zookeeper   │    kafka     │schema-registry│kafka-connect │
 │   :2181      │   :9092      │    :8081      │    :8083     │
 ├──────────────┴──────────────┴───────────────┴──────────────┤
-│                      test-runner                             │
-│              (Python + protobuf + tests)                     │
-└─────────────────────────────────────────────────────────────┘
+│                      test-runner                           │
+│              (Python + protobuf + tests)                   │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ## Components
@@ -89,32 +88,3 @@ curl http://localhost:8083/connectors/<name>/status
 ```bash
 docker compose down -v --remove-orphans
 ```
-
-## Comparison with Legacy Script
-
-| Feature | Legacy (run_test_confluent.sh) | Docker (run_tests.sh) |
-|---------|-------------------------------|----------------------|
-| Host dependencies | Java, Python, Maven, protoc, curl | Docker only |
-| Confluent download | 350MB tarball every run | Docker images (cached) |
-| Process management | Background processes + trap | Docker Compose |
-| Service health | sleep commands | Health checks |
-| Cleanup | pkill | docker compose down |
-| Reproducibility | Varies by host | Consistent |
-
-## Troubleshooting
-
-### "Connector plugin not found"
-Run `build_runtime_jar.sh` first:
-```bash
-cd test
-./build_runtime_jar.sh ../../ package confluent
-```
-
-### Services not starting
-Check Docker resources (needs ~4GB RAM for Kafka):
-```bash
-docker system info | grep Memory
-```
-
-### Tests timeout
-Increase health check retries in `docker-compose.yml` or check network connectivity.
