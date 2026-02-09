@@ -57,6 +57,7 @@ compile_protobuf_converter_and_data()
   pushd "./test_data"
   PRPTOBUF_GENERATED_CODE="protobuf/src/main/java"
   mkdir -p $PRPTOBUF_GENERATED_CODE
+  echo "protoc version: $(protoc --version)"
   protoc --java_out=$PRPTOBUF_GENERATED_CODE sensor.proto
   protoc --python_out=. sensor.proto
   echo -e "\n=== compiled protobuf ==="
