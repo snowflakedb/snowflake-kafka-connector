@@ -17,8 +17,10 @@ public class FakeSnowflakeStreamingIngestChannel
 
   private final String pipeName;
   private final String channelName;
+
   /** Collection of all rows appended to this channel */
   private final List<Map<String, Object>> appendedRows;
+
   /** Reference to parent client for sharing error counts across channel reopens */
   private final FakeSnowflakeStreamingIngestClient parentClient;
 

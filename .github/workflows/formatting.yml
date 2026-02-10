@@ -1,0 +1,18 @@
+name: formatting
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  java:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: axel-op/googlejavaformat-action@v3
+        with:
+          skip-commit: true
+          version: v1.24.0
+          args: "-n --set-exit-if-changed"

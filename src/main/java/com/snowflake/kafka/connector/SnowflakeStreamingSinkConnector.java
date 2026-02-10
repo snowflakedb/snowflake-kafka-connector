@@ -141,7 +141,9 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     }
   }
 
-  /** @return Sink task class */
+  /**
+   * @return Sink task class
+   */
   @Override
   public Class<? extends Task> taskClass() {
     return SnowflakeSinkTask.class;
@@ -187,7 +189,9 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     return taskConfigs;
   }
 
-  /** @return ConfigDef with original configuration properties */
+  /**
+   * @return ConfigDef with original configuration properties
+   */
   @Override
   public ConfigDef config() {
     return ConnectorConfigDefinition.getConfig();
@@ -320,7 +324,9 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
             .find();
   }
 
-  /** @return connector version */
+  /**
+   * @return connector version
+   */
   @Override
   public String version() {
     return Utils.VERSION;

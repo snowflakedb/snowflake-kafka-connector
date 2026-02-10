@@ -66,11 +66,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final MetricsJmxReporter metricsJmxReporter;
   private final String connectorName;
   private final String taskId;
+
   /**
    * Fetching this from {@link org.apache.kafka.connect.sink.SinkTaskContext}'s {@link
    * org.apache.kafka.connect.sink.ErrantRecordReporter}
    */
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
+
   /* SinkTaskContext has access to all methods/APIs available to talk to Kafka Connect runtime*/
   private final SinkTaskContext sinkTaskContext;
   // Config set in JSON

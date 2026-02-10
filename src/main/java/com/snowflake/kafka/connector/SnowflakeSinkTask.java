@@ -373,7 +373,9 @@ public class SnowflakeSinkTask extends SinkTask {
     return committedOffsets;
   }
 
-  /** @return connector version */
+  /**
+   * @return connector version
+   */
   @Override
   public String version() {
     return Utils.VERSION;
