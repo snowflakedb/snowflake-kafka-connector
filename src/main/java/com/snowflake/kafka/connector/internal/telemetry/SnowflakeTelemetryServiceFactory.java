@@ -18,7 +18,9 @@ public final class SnowflakeTelemetryServiceFactory {
   public static final class SnowflakeTelemetryServiceBuilder {
     private final SnowflakeTelemetryService service;
 
-    /** @param conn snowflake connection is required for telemetry service */
+    /**
+     * @param conn snowflake connection is required for telemetry service
+     */
     SnowflakeTelemetryServiceBuilder(Connection conn) {
       this.service = new SnowflakeTelemetryService(conn);
     }

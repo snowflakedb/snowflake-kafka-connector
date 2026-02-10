@@ -215,7 +215,9 @@ public class TestUtils {
     return configuration;
   }
 
-  /** @return JDBC config with encrypted private key */
+  /**
+   * @return JDBC config with encrypted private key
+   */
   public static String generateAESKey(PrivateKey key, char[] passwd)
       throws IOException, OperatorCreationException {
     Security.addProvider(new BouncyCastleFipsProvider());
@@ -231,6 +233,7 @@ public class TestUtils {
     pemWriter.close();
     return writer.toString();
   }
+
   /**
    * execute sql query
    *
@@ -366,7 +369,9 @@ public class TestUtils {
     return "kafka_connector_test_" + objectName + "_" + num;
   }
 
-  /** @return a random table name */
+  /**
+   * @return a random table name
+   */
   public static String randomTableName() {
     return randomName("table");
   }
@@ -398,7 +403,9 @@ public class TestUtils {
     return false;
   }
 
-  /** @return snowflake connection for test */
+  /**
+   * @return snowflake connection for test
+   */
   public static SnowflakeConnectionService getConnectionService() {
     return SnowflakeConnectionServiceFactory.builder()
         .setProperties(transformProfileFileToConnectorConfiguration(false))
@@ -610,7 +617,9 @@ public class TestUtils {
     return records;
   }
 
-  /** @deprecated use SnowflakeSinkConnectorConfigBuilder instead */
+  /**
+   * @deprecated use SnowflakeSinkConnectorConfigBuilder instead
+   */
   @Deprecated
   public static Map<String, String> getConfig() {
     return SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();

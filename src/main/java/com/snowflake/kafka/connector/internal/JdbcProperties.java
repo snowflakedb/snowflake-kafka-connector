@@ -7,6 +7,7 @@ public class JdbcProperties {
 
   /** All jdbc properties including proxyProperties */
   private final Properties properties;
+
   /** Proxy related properties */
   private final Properties proxyProperties;
 
