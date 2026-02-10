@@ -12,7 +12,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
  * A lightweight wrapper for Kafka SinkRecords that stores data in the format required by the
- * Snowflake Streaming Ingest SDK (Map<String, Object>).
+ * Snowflake Streaming Ingest SDK ({@code Map<String, Object>}).
  */
 public final class SnowflakeSinkRecord {
 
