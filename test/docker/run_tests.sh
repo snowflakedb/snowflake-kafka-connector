@@ -51,6 +51,8 @@ usage() {
     echo "                       Apache: any version (e.g., 2.8.2, 3.7.0)"
     echo ""
     echo "Options:"
+    echo "  --cloud=CLOUD        Snowflake cloud platform: AWS, GCP, or AZURE"
+    echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
     echo "  --tests=TEST1,TEST2  Run specific tests only"
     echo "  --pressure           Run pressure tests"
     echo "  --keep               Keep containers running after tests"
@@ -72,6 +74,7 @@ usage() {
 # Parse arguments
 PLATFORM=""
 VERSION=""
+JAVA_VERSION="11"
 TESTS_TO_RUN=""
 PRESSURE_TEST="false"
 KEEP_RUNNING="false"
@@ -86,6 +89,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --version=*)
             VERSION="${1#*=}"
+            shift
+            ;;
+        --cloud=*)
+            SF_CLOUD_PLATFORM="${1#*=}"
+            shift
+            ;;
+        --java-version=*)
+            JAVA_VERSION="${1#*=}"
             shift
             ;;
         --tests=*)
@@ -242,6 +253,7 @@ info "Test name salt: $TEST_NAME_SALT"
 # Export environment for docker-compose (no defaults - all explicit)
 export CONFLUENT_VERSION
 export KAFKA_VERSION
+export JAVA_VERSION
 export TEST_SET
 export SNOWFLAKE_CREDENTIAL_FILE
 export CONNECTOR_PLUGIN_PATH="$PLUGIN_DIR"
@@ -249,6 +261,7 @@ export EXTRA_JARS_PATH="$EXTRA_JARS_DIR"
 export TEST_NAME_SALT
 export PRESSURE_TEST
 export TESTS_TO_RUN
+export SF_CLOUD_PLATFORM="${SF_CLOUD_PLATFORM:-}"
 
 cd "$SCRIPT_DIR"
 

@@ -1,7 +1,8 @@
 # Dockerfile that mirrors run_test_apache.sh setup
 # Downloads official Apache Kafka tarball and runs it the same way
 
-FROM eclipse-temurin:11-jdk
+ARG JAVA_VERSION=11
+FROM eclipse-temurin:${JAVA_VERSION}-jdk
 
 ARG KAFKA_VERSION=2.8.2
 

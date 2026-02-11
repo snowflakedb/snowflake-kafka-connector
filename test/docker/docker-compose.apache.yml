@@ -10,6 +10,7 @@ services:
       dockerfile: docker/Dockerfile.apache-kafka
       args:
         KAFKA_VERSION: ${KAFKA_VERSION:-2.8.2}
+        JAVA_VERSION: ${JAVA_VERSION:-11}
     hostname: kafka
     container_name: test-kafka
     ports:
