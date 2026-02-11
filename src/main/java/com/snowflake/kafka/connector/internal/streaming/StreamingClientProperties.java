@@ -34,9 +34,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Object to convert and store properties for {@link
+ * Object to convert and store properties for {@code
  * net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient}. This object is used to compare
- * equality between clients in {@link StreamingClientProvider}.
+ * equality between clients in {@code StreamingClientProvider}.
  */
 public class StreamingClientProperties {
   public static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
@@ -56,7 +56,7 @@ public class StreamingClientProperties {
   public final Map<String, Object> parameterOverrides;
 
   /**
-   * Creates non-null properties, client name and parameter overrides for the {@link
+   * Creates non-null properties, client name and parameter overrides for the {@code
    * net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient} from the given connectorConfig
    * Properties are created by {@link StreamingUtils#convertConfigForStreamingClient(Map)} and are a
    * subset of the given connector configuration
@@ -187,7 +187,7 @@ public class StreamingClientProperties {
 
   /**
    * Determines equality between StreamingClientProperties by only looking at the parsed
-   * clientProperties. This is used in {@link StreamingClientProvider} to determine equality in
+   * clientProperties. This is used in {@code StreamingClientProvider} to determine equality in
    * registered clients
    *
    * @param other other object to determine equality
@@ -201,7 +201,7 @@ public class StreamingClientProperties {
   }
 
   /**
-   * Creates the hashcode for this object from the clientProperties. This is used in {@link
+   * Creates the hashcode for this object from the clientProperties. This is used in {@code
    * StreamingClientProvider} to determine equality in registered clients
    *
    * @return the clientProperties' hashcode

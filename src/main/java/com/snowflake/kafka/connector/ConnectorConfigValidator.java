@@ -8,7 +8,6 @@ public interface ConnectorConfigValidator {
    * Validate input configuration
    *
    * @param config configuration Map
-   * @return connector name
    */
   void validateConfig(Map<String, String> config);
 }

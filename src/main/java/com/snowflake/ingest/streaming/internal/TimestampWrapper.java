@@ -8,9 +8,8 @@ import net.snowflake.client.jdbc.internal.snowflake.common.util.Power10;
 
 /**
  * Copy of {@code net.snowflake.ingest.streaming.internal.TimestampWrapper} from
- * snowflake-ingest-sdk used by {@link
- * com.snowflake.kafka.connector.internal.streaming.validation.PkgDataValidationUtil} to serialize
- * timestamp values without depending on the legacy SDK artifact.
+ * snowflake-ingest-sdk used by {@code PkgDataValidationUtil} to serialize timestamp values without
+ * depending on the legacy SDK artifact.
  */
 public class TimestampWrapper {
 
