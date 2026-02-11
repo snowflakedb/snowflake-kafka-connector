@@ -12,68 +12,26 @@ inputs:
     description: "Snowflake cloud provider: 'AWS', 'GCP', or 'AZURE'"
     required: true
   java-version:
-    description: "Java version (e.g. '11', '17')"
+    description: "Java version for Apache Kafka (e.g. '11', '17'). Ignored for Confluent."
     required: false
     default: '11'
 
 runs:
   using: composite
   steps:
-    - name: Install Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.13'
-        architecture: 'x64'
-
-    - name: Install system dependencies
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install librdkafka-dev jq
-
-    - name: Install protoc
-      shell: bash
-      run: |
-        PROTOC_VERSION=25.1
-        curl -fsSL -o protoc.zip "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/proto
-        sudo unzip -o protoc.zip -d /usr/local bin/protoc 'include/*'
-        rm protoc.zip
-        protoc --version
-
-    - name: Install Python dependencies
-      shell: bash
-      run: |
-        pip3 install --upgrade setuptools
-        pip3 install requests certifi "confluent-kafka[avro,json,protobuf]==2.13.0"
-        pip3 install avro kafka-python
-        pip3 install --upgrade snowflake-connector-python==4.2.0
-        pip3 freeze
-
-    - name: Install Squid as Proxy Server and Apache Utils for Password Authentication
-      shell: bash
-      run: |
-        sudo apt-get -y install squid
-        sudo apt-get install apache2-utils
-
-    - name: Change squid config and run Proxy Server
-      shell: bash
-      run: |
-        sudo touch /etc/squid/passwords
-        sudo chmod 777 /etc/squid/passwords
-        sudo htpasswd -db -c /etc/squid/passwords admin test
-        sudo mv .github/scripts/squid.conf /etc/squid/squid.conf
-        sudo service squid start
-
-    - name: Setup JAVA for tests version ${{ inputs.java-version }}
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'zulu'
-        java-version: ${{ inputs.java-version }}
-
     - name: Run end-to-end tests
       shell: bash
-      working-directory: test
-      run: ./run_test_${{ inputs.platform }}.sh ${{ inputs.platform-version }} ./apache_properties
+      working-directory: test/docker
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "${{ github.workspace }}/profile.json"
-        SF_CLOUD_PLATFORM: ${{ inputs.snowflake-cloud }}
+        PLATFORM: ${{ inputs.platform }}
+        PLATFORM_VERSION: ${{ inputs['platform-version'] }}
+        SNOWFLAKE_CLOUD: ${{ inputs['snowflake-cloud'] }}
+        JAVA_VERSION: ${{ inputs['java-version'] }}
+      run: |
+        ./run_tests.sh \
+          --platform="$PLATFORM" \
+          --version="$PLATFORM_VERSION" \
+          --cloud="$SNOWFLAKE_CLOUD" \
+          --java-version="$JAVA_VERSION" \
+          --logs
