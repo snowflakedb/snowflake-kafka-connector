@@ -1,0 +1,39 @@
+# Base services shared by all platforms
+# Usage: docker compose -f docker-compose.base.yml -f docker-compose.<platform>.yml up
+
+services:
+  # Test runner - Python tests
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test-runner
+    container_name: test-runner
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONNECT_HOST: kafka-connect
+      KAFKA_CONNECT_PORT: 8083
+      SNOWFLAKE_CREDENTIAL_FILE: /credentials/profile.json
+      CONFLUENT_VERSION: ${CONFLUENT_VERSION:-}
+      KAFKA_VERSION: ${KAFKA_VERSION:-}
+      TEST_SET: ${TEST_SET:-test}
+      TEST_NAME_SALT: ${TEST_NAME_SALT:-}
+      PRESSURE_TEST: ${PRESSURE_TEST:-false}
+      TESTS_TO_RUN: ${TESTS_TO_RUN:-}
+      SF_CLOUD_PLATFORM: ${SF_CLOUD_PLATFORM:-}
+    volumes:
+      - ${SNOWFLAKE_CREDENTIAL_FILE:?SNOWFLAKE_CREDENTIAL_FILE is required}:/credentials/profile.json:ro
+      - ../test_suit:/app/test_suit:ro
+      - ../rest_request_template:/app/rest_request_template:ro
+      - ../test_data:/app/test_data
+      - ../__init__.py:/app/__init__.py:ro
+      - ../test_verify.py:/app/test_verify.py:ro
+      - ../test_suites.py:/app/test_suites.py:ro
+      - ../test_executor.py:/app/test_executor.py:ro
+      - ../test_selector.py:/app/test_selector.py:ro
+      - ../cloud_platform.py:/app/cloud_platform.py:ro
+    working_dir: /app
+    command: ["./scripts/run_tests_inner.sh"]
+
+networks:
+  default:
+    name: kafka-test-network
