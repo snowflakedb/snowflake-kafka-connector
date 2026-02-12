@@ -2,26 +2,21 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.assertTableColumnCount;
 import static com.snowflake.kafka.connector.internal.TestUtils.assertWithRetry;
+import static com.snowflake.kafka.connector.internal.TestUtils.loadClasspathResource;
 
 import com.snowflake.kafka.connector.internal.TestUtils;
 import io.confluent.connect.avro.AvroConverter;
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.confluent.kafka.schemaregistry.testutil.MockSchemaRegistry;
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import org.apache.avro.Conversions;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,9 +27,7 @@ import org.junit.jupiter.api.Test;
  * updated with correct column types when records with different Avro schemas are sent from multiple
  * topics.
  */
-class SchemaEvolutionAvroSrIT extends SchemaEvolutionBase {
-
-  private static final String MOCK_SCHEMA_REGISTRY_URL = "mock://test-schema-registry";
+class SchemaEvolutionAvroSrIT extends ConnectClusterBaseIT {
 
   private static final String PERFORMANCE_STRING = "PERFORMANCE_STRING";
   private static final String PERFORMANCE_CHAR = "PERFORMANCE_CHAR";
@@ -66,29 +59,11 @@ class SchemaEvolutionAvroSrIT extends SchemaEvolutionBase {
     EXPECTED_SCHEMA.put(RECORD_METADATA, "VARIANT");
   }
 
-  private static final String VALUE_SCHEMA_0 =
-      "{\"type\": \"record\",\"name\": \"value_schema_0\",\"fields\": [  {\"name\":"
-          + " \"PERFORMANCE_CHAR\", \"type\": \"string\"},  {\"name\": \"PERFORMANCE_STRING\","
-          + " \"type\": \"string\"},"
-          + " {\"name\":\"TIME_MILLIS\",\"type\":{\"type\":\"int\",\"logicalType\":\"time-millis\"}},"
-          + "{\"name\":\"DATE\",\"type\":{\"type\":\"int\",\"logicalType\":\"date\"}},{\"name\":\"DECIMAL\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\","
-          + " \"precision\":4, \"scale\":2}},"
-          + "{\"name\":\"TIMESTAMP_MILLIS\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}},"
-          + "  {\"name\": \"RATING_INT\", \"type\": \"int\"}]}";
+  private static final String SCHEMA_0 =
+      loadClasspathResource("/com/snowflake/kafka/connector/avroschemas/schema1.json");
+  private static final String SCHEMA_1 =
+      loadClasspathResource("/com/snowflake/kafka/connector/avroschemas/schema2.json");
 
-  private static final String VALUE_SCHEMA_1 =
-      "{"
-          + "\"type\": \"record\","
-          + "\"name\": \"value_schema_1\","
-          + "\"fields\": ["
-          + "  {\"name\": \"RATING_DOUBLE\", \"type\": \"float\"},"
-          + "  {\"name\": \"PERFORMANCE_STRING\", \"type\": \"string\"},"
-          + "  {\"name\": \"APPROVAL\", \"type\": \"boolean\"},"
-          + "  {\"name\": \"SOME_FLOAT_NAN\", \"type\": \"float\"}"
-          + "]"
-          + "}";
-
-  private static final String SCHEMA_REGISTRY_SCOPE = "test-schema-registry";
   private static final int COL_NUM = 11;
 
   private KafkaProducer<String, Object> avroProducer;
@@ -103,7 +78,6 @@ class SchemaEvolutionAvroSrIT extends SchemaEvolutionBase {
     if (avroProducer != null) {
       avroProducer.close();
     }
-    MockSchemaRegistry.dropScope(SCHEMA_REGISTRY_SCOPE);
   }
 
   @Test
@@ -127,25 +101,8 @@ class SchemaEvolutionAvroSrIT extends SchemaEvolutionBase {
     TestUtils.checkTableSchema(tableName, EXPECTED_SCHEMA);
   }
 
-  private KafkaProducer<String, Object> createAvroProducer() {
-    final Properties props = new Properties();
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, connectCluster.kafka().bootstrapServers());
-    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName());
-    props.put("schema.registry.url", MOCK_SCHEMA_REGISTRY_URL);
-    return new KafkaProducer<>(props, new StringSerializer(), createAvroSerializer());
-  }
-
-  private KafkaAvroSerializer createAvroSerializer() {
-    final SchemaRegistryClient schemaRegistryClient =
-        MockSchemaRegistry.getClientForScope(SCHEMA_REGISTRY_SCOPE);
-    final KafkaAvroSerializer serializer = new KafkaAvroSerializer(schemaRegistryClient);
-    serializer.configure(Map.of("schema.registry.url", MOCK_SCHEMA_REGISTRY_URL), false);
-    return serializer;
-  }
-
   private void sendRecordsToTopic0() {
-    final Schema schema = new Schema.Parser().parse(VALUE_SCHEMA_0);
+    final Schema schema = new Schema.Parser().parse(SCHEMA_0);
     for (int i = 0; i < RECORD_COUNT; i++) {
       final GenericRecord record = createTopic0Record(schema);
       avroProducer.send(new ProducerRecord<>(topic0, "key-" + i, record));
@@ -154,7 +111,7 @@ class SchemaEvolutionAvroSrIT extends SchemaEvolutionBase {
   }
 
   private void sendRecordsToTopic1() {
-    final Schema schema = new Schema.Parser().parse(VALUE_SCHEMA_1);
+    final Schema schema = new Schema.Parser().parse(SCHEMA_1);
     for (int i = 0; i < RECORD_COUNT; i++) {
       final GenericRecord record = createTopic1Record(schema);
       avroProducer.send(new ProducerRecord<>(topic1, "key-" + i, record));

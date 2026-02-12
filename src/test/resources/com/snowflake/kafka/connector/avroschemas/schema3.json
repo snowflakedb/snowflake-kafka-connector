@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "SNOW_3011964",
+  "fields": [
+    {
+      "name": "TIMESTAMP_MILLIS",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "TIMESTAMP_LONG",
+      "type": "long"
+    }
+  ]
+}

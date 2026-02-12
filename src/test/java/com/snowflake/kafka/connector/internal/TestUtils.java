@@ -35,11 +35,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
+import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -699,6 +701,17 @@ public class TestUtils {
       contentMap.put(result.getMetaData().getColumnName(i + 1), result.getObject(i + 1));
     }
     return contentMap;
+  }
+
+  public static String loadClasspathResource(final String resourcePath) {
+    try (InputStream is = ComplexJsonRecord.class.getResourceAsStream(resourcePath)) {
+      if (is == null) {
+        throw new RuntimeException("Resource not found: " + resourcePath);
+      }
+      return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to load resource: " + resourcePath, e);
+    }
   }
 
   public static int getNumberOfRows(String tableName) throws SQLException {
