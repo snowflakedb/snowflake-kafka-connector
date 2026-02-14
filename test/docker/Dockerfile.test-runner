@@ -1,14 +1,24 @@
 # Test runner container with Python and all test dependencies
-FROM python:3.9-slim
+FROM python:3.13-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    unzip \
     netcat-openbsd \
     librdkafka-dev \
-    protobuf-compiler \
     jq \
     && rm -rf /var/lib/apt/lists/*
+
+# Install protoc 25.1 from binary (matching CI)
+ARG PROTOC_VERSION=25.1
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then PROTOC_ARCH="aarch_64"; else PROTOC_ARCH="x86_64"; fi && \
+    curl -fsSL -o protoc.zip \
+      "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" && \
+    unzip -o protoc.zip -d /usr/local bin/protoc 'include/*' && \
+    rm protoc.zip && \
+    chmod +x /usr/local/bin/protoc
 
 # Verify protoc version
 RUN protoc --version
@@ -20,11 +30,10 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir \
     requests \
     certifi \
-    "confluent-kafka[avro,json,protobuf]>=2.0.0" \
+    "confluent-kafka[avro,json,protobuf]==2.13.0" \
     avro-python3 \
     kafka-python-ng \
-    "protobuf>=4.21.0" \
-    "snowflake-connector-python>=3.0.0"
+    "snowflake-connector-python==4.2.0"
 
 # Create app directory
 WORKDIR /app
