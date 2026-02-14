@@ -19,7 +19,7 @@ from test_selector import TestSelector
 import time
 
 import test_suit
-from test_suit.test_utils import parsePrivateKey, RetryableError
+from test_suit.test_utils import parse_private_key, RetryableError
 
 from cloud_platform import CloudPlatform
 
@@ -110,7 +110,7 @@ class KafkaTest:
             print(datetime.now().strftime("%H:%M:%S "),
                   "Format error in 'host' field at profile.json, expecting account.snowflakecomputing.com:443")
 
-        pkb = parsePrivateKey(pk, pk_passphrase)
+        pkb = parse_private_key(pk, pk_passphrase)
         self.snowflake_conn = snowflake.connector.connect(
             user=testUser,
             private_key=pkb,
