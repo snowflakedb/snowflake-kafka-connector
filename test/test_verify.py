@@ -1,25 +1,24 @@
-import json
-import os
-import re
-import sys
-import traceback
-from dataclasses import dataclass
-from datetime import datetime
-from time import sleep
-from typing import Callable
-
-import requests, uuid
-import snowflake.connector
 from confluent_kafka import Producer, Consumer, KafkaError
 from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
 from confluent_kafka.avro import AvroProducer
-from test_suites import create_end_to_end_test_suites
+from dataclasses import dataclass
+from datetime import datetime
+import json
+import os
+from pathlib import Path
+import re
+import requests
+import snowflake.connector
+import sys
+import time
+from time import sleep
+from typing import Callable
+import uuid
+
+from lib.config import Profile, SnowflakeConnectorConfig
 from test_executor import TestExecutor
 from test_selector import TestSelector
-import time
-
 import test_suit
-from test_suit.test_utils import parse_private_key, RetryableError
 
 from cloud_platform import CloudPlatform
 
@@ -46,19 +45,10 @@ def errorExit(message):
 
 
 class KafkaTest:
-    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentialPath,
+    def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentials: Profile,
                  connectorParameters: ConnectorParameters, testVersion, enableSSL):
         self.testVersion = testVersion
-        self.credentialPath = credentialPath
-        with open(self.credentialPath) as f:
-            credentialJson = json.load(f)
-            testHost = credentialJson["host"]
-            testUser = credentialJson["user"]
-            testDatabase = credentialJson["database"]
-            testSchema = credentialJson["schema"]
-            testWarehouse = credentialJson["warehouse"]
-            pk = credentialJson["encrypted_private_key"]
-            pk_passphrase = credentialJson["private_key_passphrase"]
+        self.credentials = credentials
 
         self.TEST_DATA_FOLDER = "./test_data/"
         self.httpHeader = {'Content-type': 'application/json', 'Accept': 'application/json'}
@@ -104,21 +94,8 @@ class KafkaTest:
         avro_producer_config['schema.registry.url'] = schemaRegistryAddress
         self.avroProducer = AvroProducer(avro_producer_config)
 
-        reg = "[^/]*snowflakecomputing"  # find the account name
-        account = re.findall(reg, testHost)
-        if len(account) != 1 or len(account[0]) < 20:
-            print(datetime.now().strftime("%H:%M:%S "),
-                  "Format error in 'host' field at profile.json, expecting account.snowflakecomputing.com:443")
-
-        pkb = parse_private_key(pk, pk_passphrase)
-        self.snowflake_conn = snowflake.connector.connect(
-            user=testUser,
-            private_key=pkb,
-            account=account[0][:-19],
-            warehouse=testWarehouse,
-            database=testDatabase,
-            schema=testSchema
-        )
+        snowflake_connector_config = SnowflakeConnectorConfig.from_profile(credentials)
+        self.snowflake_conn = snowflake.connector.connect(**snowflake_connector_config.to_dict())
 
         self.connectorParameters = connectorParameters
 
@@ -430,18 +407,6 @@ class KafkaTest:
         rest_template_path = "./rest_request_template"
         rest_generate_path = "./rest_request_generated"
 
-        with open(self.credentialPath) as f:
-            credentialJson = json.load(f)
-            testHost = credentialJson["host"]
-            testUser = credentialJson["user"]
-            # required for Snowpipe Streaming
-            testRole = credentialJson["role"]
-            testDatabase = credentialJson["database"]
-            testSchema = credentialJson["schema"]
-            pk = credentialJson["private_key"]
-            # Use Encrypted key if passphrase is non empty
-            pkEncrypted = credentialJson["encrypted_private_key"]
-
         print(datetime.now().strftime("\n%H:%M:%S "),
               "=== generate sink connector rest request from {} ===".format(rest_template_path))
         if not os.path.exists(rest_generate_path):
@@ -453,20 +418,21 @@ class KafkaTest:
               "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
             fileContent = f.read()
-            # Template has passphrase, use the encrypted version of P8 Key
-            if fileContent.find("snowflake.private.key.passphrase") != -1:
-                pk = pkEncrypted
+
+            # Make sure we can handle newlines in the private key.
+            private_key_escaped = json.dumps(self.credentials.private_key)[1:-1]
 
             fileContent = fileContent \
-                .replace("SNOWFLAKE_PRIVATE_KEY", pk) \
-                .replace("SNOWFLAKE_HOST", testHost) \
-                .replace("SNOWFLAKE_USER", testUser) \
-                .replace("SNOWFLAKE_DATABASE", testDatabase) \
-                .replace("SNOWFLAKE_SCHEMA", testSchema) \
+                .replace("SNOWFLAKE_HOST", self.credentials.make_url()) \
+                .replace("SNOWFLAKE_DATABASE", self.credentials.database) \
+                .replace("SNOWFLAKE_SCHEMA", self.credentials.schema) \
+                .replace("SNOWFLAKE_USER", self.credentials.user) \
+                .replace("SNOWFLAKE_ROLE", self.credentials.role) \
+                .replace("SNOWFLAKE_PRIVATE_KEY", private_key_escaped) \
                 .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
                 .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
-                .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name) \
-                .replace("SNOWFLAKE_ROLE", testRole)
+                .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name)
+
             with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
                 fw.write(fileContent)
 
@@ -610,11 +576,9 @@ if __name__ == "__main__":
         errorExit(
             "\n=== Require environment variable SNOWFLAKE_CREDENTIAL_FILE but it's not set.  Aborting. ===")
 
-    credentialPath = os.environ['SNOWFLAKE_CREDENTIAL_FILE']
-
-    if not os.path.isfile(credentialPath):
-        errorExit("\n=== Provided SNOWFLAKE_CREDENTIAL_FILE {} does not exist.  Aborting. ===".format(
-            credentialPath))
+    credentialPath = Path(os.environ['SNOWFLAKE_CREDENTIAL_FILE'])
+    assert credentialPath.is_file(), f"Provided SNOWFLAKE_CREDENTIAL_FILE {credentialPath} does not exist."
+    credentials = Profile.load(credentialPath)
 
     snowflakeCloudPlatform: CloudPlatform = __parseCloudPlatform()
     print("Running tests for platform {} and distribution {}".format(snowflakeCloudPlatform, testSet))
@@ -627,7 +591,7 @@ if __name__ == "__main__":
             KafkaTest(kafkaAddress,
                       schemaRegistryAddress,
                       kafkaConnectAddress,
-                      credentialPath,
+                      credentials,
                       parameters,
                       testVersion,
                       enableSSL),
