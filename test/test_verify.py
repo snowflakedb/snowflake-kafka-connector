@@ -439,6 +439,10 @@ class KafkaTest:
             "SNOWFLAKE_CONNECTOR_NAME": snowflake_connector_name
         })
 
+        # Allow the SDK's URL to be overridden for testing purposes.
+        if snowpipe_streaming_url := os.environ.get("SNOWPIPE_STREAMING_URL"):
+            config["config"]["snowpipe.streaming.url"] = snowpipe_streaming_url
+
         with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
             json.dump(config, fw, indent=4)
 

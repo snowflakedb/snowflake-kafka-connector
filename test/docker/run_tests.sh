@@ -62,6 +62,7 @@ usage() {
     echo ""
     echo "Environment:"
     echo "  SNOWFLAKE_CREDENTIAL_FILE  Path to Snowflake credentials JSON (required)"
+    echo "  LOCAL_PROXY_PORT           Port of the proxy for the local Snowflake deployment"
     echo ""
     echo "Examples:"
     echo "  $0 --platform=confluent --version=7.8.0"
@@ -182,16 +183,28 @@ command -v docker >/dev/null 2>&1 || error_exit "Docker is not installed"
 command -v docker compose >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1 || error_exit "Docker Compose is not installed"
 
 # Check credentials file
-if [ -z "$SNOWFLAKE_CREDENTIAL_FILE" ]; then
-    error_exit "SNOWFLAKE_CREDENTIAL_FILE environment variable is not set"
-fi
+if [ -n "${LOCAL_PROXY_PORT:-}" ]; then
+    # Fetch credentials from local proxy
+    PROXY_CREDENTIAL_URL="http://localhost:${LOCAL_PROXY_PORT}/proxy/kafka-connector-profile"
+    info "Fetching credentials from proxy: $PROXY_CREDENTIAL_URL"
+    SNOWFLAKE_CREDENTIAL_FILE="$(mktemp /tmp/kafka-connector-test-snowflake-credentials-XXXXXX.json)"
+    if ! curl -sf "$PROXY_CREDENTIAL_URL" -o "$SNOWFLAKE_CREDENTIAL_FILE"; then
+        rm -f "$SNOWFLAKE_CREDENTIAL_FILE"
+        error_exit "Failed to fetch credentials from $PROXY_CREDENTIAL_URL"
+    fi
+    info "Credentials fetched to: $SNOWFLAKE_CREDENTIAL_FILE"
+else
+    if [ -z "$SNOWFLAKE_CREDENTIAL_FILE" ]; then
+        error_exit "SNOWFLAKE_CREDENTIAL_FILE environment variable is not set"
+    fi
 
-if [ ! -f "$SNOWFLAKE_CREDENTIAL_FILE" ]; then
-    error_exit "Credential file not found: $SNOWFLAKE_CREDENTIAL_FILE"
-fi
+    if [ ! -f "$SNOWFLAKE_CREDENTIAL_FILE" ]; then
+        error_exit "Credential file not found: $SNOWFLAKE_CREDENTIAL_FILE"
+    fi
 
-# Convert to absolute path
-SNOWFLAKE_CREDENTIAL_FILE="$(cd "$(dirname "$SNOWFLAKE_CREDENTIAL_FILE")" && pwd)/$(basename "$SNOWFLAKE_CREDENTIAL_FILE")"
+    # Convert to absolute path
+    SNOWFLAKE_CREDENTIAL_FILE="$(cd "$(dirname "$SNOWFLAKE_CREDENTIAL_FILE")" && pwd)/$(basename "$SNOWFLAKE_CREDENTIAL_FILE")"
+fi
 info "Credentials: $SNOWFLAKE_CREDENTIAL_FILE"
 
 # Check for connector plugin based on platform
@@ -262,6 +275,10 @@ export TEST_NAME_SALT
 export PRESSURE_TEST
 export TESTS_TO_RUN
 export SF_CLOUD_PLATFORM="${SF_CLOUD_PLATFORM:-}"
+if [ -n "${LOCAL_PROXY_PORT:-}" ]; then
+    export SNOWPIPE_STREAMING_URL="http://host.docker.internal:${LOCAL_PROXY_PORT}"
+    info "Snowpipe Streaming URL: $SNOWPIPE_STREAMING_URL"
+fi
 
 cd "$SCRIPT_DIR"
 

@@ -17,6 +17,8 @@ services:
       - "2181:2181"
       - "9092:9092"
       - "8083:8083"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx2g"
     volumes:
