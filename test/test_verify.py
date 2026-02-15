@@ -417,24 +417,31 @@ class KafkaTest:
         print(datetime.now().strftime("\n%H:%M:%S "),
               "=== Connector Config JSON: {}, Connector Name: {} ===".format(fileName, snowflake_connector_name))
         with open("{}/{}".format(rest_template_path, fileName), 'r') as f:
-            fileContent = f.read()
+            config_template = json.load(f)
 
-            # Make sure we can handle newlines in the private key.
-            private_key_escaped = json.dumps(self.credentials.private_key)[1:-1]
+        def replace_values(obj, replacements):
+            """Recursively traverse a parsed JSON object and replace values found in the `replacements` dict."""
+            if isinstance(obj, dict):
+                return {k: replace_values(v, replacements) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [replace_values(item, replacements) for item in obj]
+            else:
+                return replacements.get(obj, obj)
 
-            fileContent = fileContent \
-                .replace("SNOWFLAKE_HOST", self.credentials.make_url()) \
-                .replace("SNOWFLAKE_DATABASE", self.credentials.database) \
-                .replace("SNOWFLAKE_SCHEMA", self.credentials.schema) \
-                .replace("SNOWFLAKE_USER", self.credentials.user) \
-                .replace("SNOWFLAKE_ROLE", self.credentials.role) \
-                .replace("SNOWFLAKE_PRIVATE_KEY", private_key_escaped) \
-                .replace("CONFLUENT_SCHEMA_REGISTRY", self.schemaRegistryAddress) \
-                .replace("SNOWFLAKE_TEST_TOPIC", snowflake_topic_name) \
-                .replace("SNOWFLAKE_CONNECTOR_NAME", snowflake_connector_name)
+        config = replace_values(config_template, {
+            "SNOWFLAKE_HOST": self.credentials.make_url(),
+            "SNOWFLAKE_DATABASE": self.credentials.database,
+            "SNOWFLAKE_SCHEMA": self.credentials.schema,
+            "SNOWFLAKE_USER": self.credentials.user,
+            "SNOWFLAKE_ROLE": self.credentials.role,
+            "SNOWFLAKE_PRIVATE_KEY": self.credentials.private_key,
+            "CONFLUENT_SCHEMA_REGISTRY": self.schemaRegistryAddress,
+            "SNOWFLAKE_TEST_TOPIC": snowflake_topic_name,
+            "SNOWFLAKE_CONNECTOR_NAME": snowflake_connector_name
+        })
 
-            with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
-                fw.write(fileContent)
+        with open("{}/{}".format(rest_generate_path, fileName), 'w') as fw:
+            json.dump(config, fw, indent=4)
 
         MAX_RETRY = 9
         retry = 0
@@ -458,13 +465,13 @@ class KafkaTest:
             print("Kafka Delete request not successful:{0}".format(delete_url))
 
         print("Post HTTP request to Create Connector:{0}".format(post_url))
-        r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
+        r = requests.post(post_url, json=config, headers=self.httpHeader)
         print("Connector Name:{0} POST Response:{1}".format(snowflake_connector_name, r.status_code), datetime.now().strftime("%H:%M:%S "))
         if not r.ok:
             print("Failed creating connector:{0} due to:{1} and HTTP response_code:{2}".format(snowflake_connector_name, r.reason, r.status_code))
             sleep(30)
             print("Retrying POST request for connector:{0}".format(snowflake_connector_name))
-            r = requests.post(post_url, json=json.loads(fileContent), headers=self.httpHeader)
+            r = requests.post(post_url, json=config, headers=self.httpHeader)
             print("Connector Name:{0} POST Response:{1}".format(snowflake_connector_name, r.status_code), datetime.now().strftime("%H:%M:%S "))
             if not r.ok:
                 raise Exception("Failed to create connector:{0}".format(snowflake_connector_name))
