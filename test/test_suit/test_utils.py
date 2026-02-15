@@ -47,7 +47,7 @@ def normalize_private_key(private_key: str, is_encrypted) -> bytes:
     # Group in lines of 64 characters, append header and footer.
     return "\n".join([header, *textwrap.wrap(private_key, 64), footer]).encode()
 
-def parsePrivateKey(private_key_str: str, password_str: str | None = None) -> bytes:
+def parse_private_key(private_key_str: str, password_str: str | None = None) -> bytes:
     password: bytes | None = password_str.encode('ascii') if password_str else None
 
     private_key_normalized: bytes = normalize_private_key(private_key_str, password is not None)
