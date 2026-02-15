@@ -1,14 +1,19 @@
 package com.snowflake.kafka.connector.config;
 
-import static org.apache.kafka.common.config.ConfigDef.Importance.*;
-import static org.apache.kafka.common.config.ConfigDef.Range.*;
-import static org.apache.kafka.common.config.ConfigDef.Type.*;
+import org.apache.kafka.common.config.ConfigDef;
+import static org.apache.kafka.common.config.ConfigDef.Importance.HIGH;
+import static org.apache.kafka.common.config.ConfigDef.Importance.LOW;
+import static org.apache.kafka.common.config.ConfigDef.Range.atLeast;
+import static org.apache.kafka.common.config.ConfigDef.Type.BOOLEAN;
+import static org.apache.kafka.common.config.ConfigDef.Type.LONG;
+import static org.apache.kafka.common.config.ConfigDef.Type.PASSWORD;
+import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
+import org.apache.kafka.common.config.ConfigDef.Width;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.Constants.SnowpipeStreamingSDKConfigParams;
 import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigDef.Width;
 
 /** This class is a placeholder for config definition in Apache Kafka specific format */
 public class ConnectorConfigDefinition {
@@ -361,6 +366,7 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             12,
             Width.NONE,
-            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS);
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS)
+        .defineInternal(SnowpipeStreamingSDKConfigParams.SNOWPIPE_STREAMING_URL, STRING, null, LOW);
   }
 }

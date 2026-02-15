@@ -101,4 +101,8 @@ public final class Constants {
     public static final String PRIVATE_KEY = "private_key";
     public static final String MAX_CLIENT_LAG = "max_client_lag";
   }
+
+  public static final class SnowpipeStreamingSDKConfigParams {
+    public static final String SNOWPIPE_STREAMING_URL = "snowpipe.streaming.url";
+  }
 }

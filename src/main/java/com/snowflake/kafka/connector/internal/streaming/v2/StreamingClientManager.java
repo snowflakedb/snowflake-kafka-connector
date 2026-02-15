@@ -1,15 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
-
-import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.KCLogger;
-import com.snowflake.kafka.connector.internal.PrivateKeyTool;
-import com.snowflake.kafka.connector.internal.SnowflakeURL;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
@@ -18,6 +8,17 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.google.common.base.Strings.isNullOrEmpty;
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.Constants.SnowpipeStreamingSDKConfigParams;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.PrivateKeyTool;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 
 /**
  * Manages Snowflake Streaming Ingest clients with two-level isolation:
@@ -232,7 +233,15 @@ public final class StreamingClientManager {
     props.put("user", connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME));
     props.put("role", connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
     props.put("account", url.getAccount());
-    props.put("host", url.getUrlWithoutPort());
+
+    // Allow the SDK's URL to be overridden by the connector config for testing purposes.
+    final String snowpipeStreamingUrl = connectorConfig.get(SnowpipeStreamingSDKConfigParams.SNOWPIPE_STREAMING_URL);
+    if (snowpipeStreamingUrl != null) {
+      props.put("url", snowpipeStreamingUrl);
+    } else {
+      props.put("host", url.getUrlWithoutPort());
+    }
+
     return props;
   }
 
