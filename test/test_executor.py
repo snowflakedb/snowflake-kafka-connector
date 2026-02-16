@@ -33,5 +33,5 @@ class TestExecutor:
         except Exception as e:
             print(datetime.now().strftime("%H:%M:%S "), e)
             traceback.print_tb(e.__traceback__)
-            print(datetime.now().strftime("%H:%M:%S "), "Error: ", sys.exc_info()[0], driver.connectorParameters)
+            print(datetime.now().strftime("%H:%M:%S "), "Error: ", sys.exc_info()[0])
             exit(1)

@@ -1,7 +1,6 @@
 from confluent_kafka import Producer, Consumer, KafkaError
 from confluent_kafka.admin import AdminClient, NewTopic, ConfigResource, NewPartitions
 from confluent_kafka.avro import AvroProducer
-from dataclasses import dataclass
 from datetime import datetime
 import json
 import os
@@ -12,7 +11,6 @@ import snowflake.connector
 import sys
 import time
 from time import sleep
-from typing import Callable
 import uuid
 
 from lib.config import Profile, SnowflakeConnectorConfig
@@ -23,22 +21,6 @@ import test_suit
 from cloud_platform import CloudPlatform
 
 
-@dataclass
-class ConnectorParameters:
-    snowflake_streaming_v2_enabled: str
-
-
-class ConnectorParametersList:
-    def __init__(self, connectorParametersList: list[ConnectorParameters]):
-        self.connectorParametersList = connectorParametersList
-
-    def for_each(self, func: Callable[[int, ConnectorParameters], None]) -> None:
-        for idx, connector_parameters in enumerate(self.connectorParametersList):
-            print(datetime.now().strftime("%H:%M:%S "), f'=== Using parameters {idx}: {connector_parameters} ===')
-
-            func(idx, connector_parameters)
-
-
 def errorExit(message):
     print(datetime.now().strftime("%H:%M:%S "), message)
     exit(1)
@@ -46,7 +28,7 @@ def errorExit(message):
 
 class KafkaTest:
     def __init__(self, kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentials: Profile,
-                 connectorParameters: ConnectorParameters, testVersion, enableSSL):
+                 testVersion, enableSSL):
         self.testVersion = testVersion
         self.credentials = credentials
 
@@ -96,8 +78,6 @@ class KafkaTest:
 
         snowflake_connector_config = SnowflakeConnectorConfig.from_profile(credentials)
         self.snowflake_conn = snowflake.connector.connect(**snowflake_connector_config.to_dict())
-
-        self.connectorParameters = connectorParameters
 
     def msgSendInterval(self):
         # sleep self.SEND_INTERVAL before send the second message
@@ -590,22 +570,5 @@ if __name__ == "__main__":
     snowflakeCloudPlatform: CloudPlatform = __parseCloudPlatform()
     print("Running tests for platform {} and distribution {}".format(snowflakeCloudPlatform, testSet))
 
-    parametersList = ConnectorParametersList([ConnectorParameters(snowflake_streaming_v2_enabled='true')
-    ])
-
-    parametersList.for_each(
-        lambda idx, parameters: runTestSet(
-            KafkaTest(kafkaAddress,
-                      schemaRegistryAddress,
-                      kafkaConnectAddress,
-                      credentials,
-                      parameters,
-                      testVersion,
-                      enableSSL),
-            testSet,
-            nameSalt + str(idx),
-            pressure,
-            skipProxy,
-            snowflakeCloudPlatform,
-            allowedTestsCsv)
-    )
+    driver = KafkaTest(kafkaAddress, schemaRegistryAddress, kafkaConnectAddress, credentials, testVersion, enableSSL)
+    runTestSet(driver, testSet, nameSalt, pressure, skipProxy, snowflakeCloudPlatform, allowedTestsCsv)
