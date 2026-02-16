@@ -449,4 +449,59 @@ public class UtilsTest {
 
     assertNull(recommended);
   }
+
+  /**
+   * Reproducer for SNOW-2909010: KC4 does not support case-sensitive table names.
+   *
+   * <p>Demonstrates three failure modes when users attempt to use quoted/case-sensitive Snowflake
+   * table names with the Kafka connector:
+   *
+   * <ol>
+   *   <li>Config validation rejects quoted table names in topic2table.map
+   *   <li>Topic names with special chars (needing quoting) get sanitized instead of quoted
+   *   <li>Mixed-case names pass through unquoted, so Snowflake uppercases them
+   * </ol>
+   */
+  @Test
+  public void testCaseSensitiveQuotedTableNameNotSupported() {
+    // --- Failure 1: isValidSnowflakeTableName rejects quoted identifiers ---
+    // Quoted names like "My-Table" are valid Snowflake identifiers, but the connector's
+    // regex validation does not allow double-quote characters at all.
+    assertFalse(Utils.isValidSnowflakeTableName("\"My-Table\""));
+    assertFalse(Utils.isValidSnowflakeTableName("\"myMixedCase\""));
+    assertFalse(Utils.isValidSnowflakeTableName("\"name-with-dashes\""));
+
+    // --- Failure 2: parseTopicToTableMap throws ERROR_0021 on quoted table names ---
+    // Users cannot configure topic2table.map with a quoted destination table name.
+    // e.g. snowflake.topic2table.map=myTopic:"My-Table" will fail validation.
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021,
+        () -> Utils.parseTopicToTableMap("myTopic:\"My-Table\""));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021,
+        () -> Utils.parseTopicToTableMap("myTopic:\"myMixedCase\""));
+
+    // --- Failure 3: topic names with special chars get sanitized, not quoted ---
+    // A topic like "my-sensitive-Topic" isn't a valid unquoted identifier (has dashes),
+    // so generateValidName sanitizes it: dashes replaced with _, hash appended.
+    // It should instead preserve the name by quoting it.
+    Map<String, String> emptyMap = new HashMap<>();
+    String dashTopic = "my-sensitive-Topic";
+    String result = Utils.getTableName(dashTopic, emptyMap);
+    assertTrue(
+        result.startsWith("my_sensitive_Topic_"),
+        "Expected sanitized name starting with my_sensitive_Topic_, got: " + result);
+    assertFalse(result.contains("-"), "Dashes were stripped from the table name");
+
+    // --- Failure 4: mixed-case names pass through WITHOUT quoting ---
+    // "myMixedCase" is a valid unquoted Snowflake identifier, so it passes through as-is.
+    // But Snowflake will uppercase unquoted identifiers to MYMIXEDCASE.
+    // The connector should wrap it in quotes to preserve case, but it doesn't.
+    String mixedCase = "myMixedCase";
+    String mixedResult = Utils.getTableName(mixedCase, emptyMap);
+    assertEquals(mixedCase, mixedResult, "Name passes through unchanged");
+    assertFalse(
+        mixedResult.startsWith("\""),
+        "Name is NOT quoted — Snowflake will uppercase it to MYMIXEDCASE");
+  }
 }
