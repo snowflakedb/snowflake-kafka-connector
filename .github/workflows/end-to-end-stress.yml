@@ -1,0 +1,38 @@
+name: Kafka Connector stress test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: '**'
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-22.04
+    name: ${{ matrix.platform }} ${{ matrix.platform_version }}, ${{ matrix.snowflake_cloud }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: confluent
+            platform_version: '7.6.0'
+            snowflake_cloud: 'AWS'
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Decrypt profile.json in Snowflake Cloud ${{ matrix.snowflake_cloud }}
+      run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake_cloud }}
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: ${{ matrix.platform }}
+
+    - uses: ./.github/actions/run-e2e-tests
+      with:
+        platform: ${{ matrix.platform }}
+        platform-version: ${{ matrix.platform_version }}
+        snowflake-cloud: ${{ matrix.snowflake_cloud }}
+        pressure: 'true'
