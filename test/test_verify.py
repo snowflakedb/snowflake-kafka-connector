@@ -581,9 +581,8 @@ def run_test_set_with_parameters(kafka_test: KafkaTest, testSet, nameSalt, press
 
 
 def __parseCloudPlatform() -> CloudPlatform:
-    if "SF_CLOUD_PLATFORM" in os.environ:
-        rawCloudPlatform = os.environ['SF_CLOUD_PLATFORM']
-        return CloudPlatform[rawCloudPlatform]
+    if cloud_platform := os.environ.get("SF_CLOUD_PLATFORM", ""):
+        return CloudPlatform[cloud_platform]
     else:
         print("No SF_CLOUD_PLATFORM defined. Fallback to ALL.")
         return CloudPlatform.ALL
