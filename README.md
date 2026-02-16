@@ -1,11 +1,15 @@
-# Snowflake-kafka-connector
+# `snowflake-kafka-connector`
+
 [![License](http://img.shields.io/:license-Apache%202-brightgreen.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-Snowflake-kafka-connector is a plugin of Apache Kafka Connect - ingests data from a Kafka Topic to a Snowflake Table. 
+The Snowflake Kafka Connector is a plugin for Apache Kafka Connect. It ingests data from a Kafka Topic into a Snowflake Table. 
 
-[Official documentation](https://docs.snowflake.com/en/user-guide/kafka-connector) for the Snowflake sink Kafka Connector
+[Official documentation](https://docs.snowflake.com/en/user-guide/kafka-connector) for the Snowflake Kafka Connector
 
-### Contributing to the Snowflake Kafka Connector
+## Contributing
+
+### Guidelines
+
 The following requirements must be met before you can merge your PR:
 - Tests: all test suites must pass, see the [test README](https://github.com/snowflakedb/snowflake-kafka-connector/blob/master/README-TEST.md)
 - Formatter: run this script [`./format.sh`](https://github.com/snowflakedb/snowflake-kafka-connector/blob/master/format.sh) from root
@@ -13,17 +17,37 @@ The following requirements must be met before you can merge your PR:
 
 Thank you for contributing! We will review and approve PRs as soon as we can.
 
-### Third party licenses
+### Unit tests
+
+```bash
+mvn package -Dgpg.skip=true
+```
+
+Runs all test files in `src/test` that do not end with `IT`. Requires `SNOWFLAKE_CREDENTIAL_FILE` to be set.
+
+### Integration tests
+
+```bash
+mvn verify -Dgpg.skip=true
+```
+
+Runs all test files in `src/test`, including unit tests.
+
+### End-to-end tests
+
+Refer to [test/README.md](test/README.md).
+
+## Third party licenses
 Custom license handling process is run during build to meet legal standards.
 - License files are copied directly from JAR if present in one of the following locations: META-INF/LICENSE.txt, META-INF/LICENSE, META-INF/LICENSE.md
 - If no license file is found then license must be manually added to [`process_licenses.py`](https://github.com/snowflakedb/snowflake-kafka-connector/blob/master/scripts/process_licenses.py) script in order to pass build
 
-### Test and Code Coverage Statuses
+## Test and Code Coverage Statuses
 
-[![Kafka Connector Integration Test](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/IntegrationTest.yml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/IntegrationTest.yml)
+[![Kafka Connector integration test](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/IntegrationTest.yml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/IntegrationTest.yml)
 
-[![Kafka Connector Apache End2End Test](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/End2EndTestApache.yml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/End2EndTestApache.yml)
+[![Kafka Connector end-to-end test](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end.yaml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end.yaml)
 
-[![Kafka Connector Confluent End2End Test](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/End2EndTestConfluent.yml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/End2EndTestConfluent.yml)
+[![Kafka Connector stress test](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end-stress.yml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end-stress.yml)
 
 [![codecov](https://codecov.io/gh/snowflakedb/snowflake-kafka-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/snowflakedb/snowflake-kafka-connector)
