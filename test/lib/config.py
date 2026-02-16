@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 import re
 
-from test_suit.test_utils import parse_private_key
+from lib.crypto import parse_private_key
 
 
 @dataclass
