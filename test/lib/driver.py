@@ -417,13 +417,17 @@ class KafkaDriver:
             config_template = json.load(f)
 
         def replace_values(obj, replacements):
-            """Recursively traverse a parsed JSON object and replace values found in the `replacements` dict."""
+            """Recursively traverse a parsed JSON object, applying substring replacements to string values."""
             if isinstance(obj, dict):
                 return {k: replace_values(v, replacements) for k, v in obj.items()}
             elif isinstance(obj, list):
                 return [replace_values(item, replacements) for item in obj]
+            elif isinstance(obj, str):
+                for old, new in replacements.items():
+                    obj = obj.replace(old, new)
+                return obj
             else:
-                return replacements.get(obj, obj)
+                return obj
 
         config = replace_values(
             config_template,
