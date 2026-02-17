@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIngestClient {
 
@@ -25,6 +26,8 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
   // Default error count to use when no channel-specific count is set
   private long defaultErrorCount = 0;
   private boolean closed = false;
+  private volatile boolean throwOnClose = false;
+  private final AtomicInteger closeAttemptCount = new AtomicInteger(0);
 
   public FakeSnowflakeStreamingIngestClient(final String pipeName, final String connectorName) {
     this.pipeName = pipeName;
@@ -45,6 +48,10 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
 
   @Override
   public void close() {
+    closeAttemptCount.incrementAndGet();
+    if (throwOnClose) {
+      throw new RuntimeException("Simulated close failure for pipe: " + pipeName);
+    }
     this.closed = true;
   }
 
@@ -156,5 +163,13 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
     return openedChannels.stream()
         .mapToInt(FakeSnowflakeStreamingIngestChannel::getAppendedRowsCount)
         .sum();
+  }
+
+  public void setThrowOnClose(boolean throwOnClose) {
+    this.throwOnClose = throwOnClose;
+  }
+
+  public int getCloseAttemptCount() {
+    return closeAttemptCount.get();
   }
 }

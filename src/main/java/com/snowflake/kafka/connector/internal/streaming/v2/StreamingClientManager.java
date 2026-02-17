@@ -11,10 +11,8 @@ import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.security.PrivateKey;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -179,8 +177,6 @@ public final class StreamingClientManager {
     synchronized void closeTaskClients(final String taskId) {
       LOGGER.info("Releasing clients for task {} in connector {}", taskId, connectorName);
 
-      List<Exception> closeErrors = new ArrayList<>();
-
       pipeToTasks
           .entrySet()
           .removeIf(
@@ -199,20 +195,15 @@ public final class StreamingClientManager {
                           connectorName);
                       client.close();
                     } catch (Exception e) {
+                      // Broad catch: cleanup must proceed to close remaining clients
                       LOGGER.error(
                           "Failed to close client for pipe {}: {}", pipeName, e.getMessage(), e);
-                      closeErrors.add(e);
                     }
                   }
                   return true; // Remove this entry from pipeToTasks
                 }
                 return false; // Keep this entry
               });
-
-      if (!closeErrors.isEmpty()) {
-        LOGGER.error(
-            "Encountered {} errors while closing clients for task {}", closeErrors.size(), taskId);
-      }
     }
   }
 

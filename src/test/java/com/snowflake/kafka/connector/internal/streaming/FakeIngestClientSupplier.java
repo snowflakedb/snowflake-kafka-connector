@@ -46,4 +46,19 @@ public class FakeIngestClientSupplier implements IngestClientSupplier {
       client.setDefaultErrorCount(errorCount);
     }
   }
+
+  /** Configures the fake client for the given pipe to throw on close(). */
+  public void setThrowOnCloseForPipe(final String pipeName) {
+    FakeSnowflakeStreamingIngestClient client = pipeToIngestClientMap.get(pipeName);
+    if (client != null) {
+      client.setThrowOnClose(true);
+    }
+  }
+
+  /** Returns the total number of close() attempts across all fake clients. */
+  public int getTotalCloseAttemptCount() {
+    return pipeToIngestClientMap.values().stream()
+        .mapToInt(FakeSnowflakeStreamingIngestClient::getCloseAttemptCount)
+        .sum();
+  }
 }

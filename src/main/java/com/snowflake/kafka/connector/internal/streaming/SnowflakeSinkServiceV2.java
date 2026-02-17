@@ -237,11 +237,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     TopicPartitionChannel existing = partitionsToChannel.get(channelName);
     if (existing != null) {
       LOGGER.warn("Replacing existing channel: {}", channelName);
-      try {
-        existing.closeChannelAsync();
-      } catch (Exception e) {
-        LOGGER.warn("Failed to close existing channel {}: {}", channelName, e.getMessage(), e);
-      }
+      existing
+          .closeChannelAsync()
+          .whenComplete(
+              (result, ex) -> {
+                if (ex != null) {
+                  LOGGER.warn(
+                      "Failed to close existing channel {}: {}", channelName, ex.getMessage(), ex);
+                }
+              });
     }
     partitionsToChannel.put(channelName, partitionChannel);
     LOGGER.info("Successfully created streaming channel: {}", channelName);
@@ -450,6 +454,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     try {
       waitForAllChannelsToCommitData();
     } catch (Exception e) {
+      // Broad catch: client cleanup must proceed regardless of flush failure
       LOGGER.error("Error waiting for channels to commit data during stop: {}", e.getMessage(), e);
     } finally {
       // Release all streaming clients used by this service
@@ -457,6 +462,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       try {
         StreamingClientManager.closeTaskClients(connectorName, taskId);
       } catch (Exception e) {
+        // Broad catch: stop() must not throw to avoid masking earlier errors
         LOGGER.error("Error closing task clients: {}", e.getMessage(), e);
       }
     }

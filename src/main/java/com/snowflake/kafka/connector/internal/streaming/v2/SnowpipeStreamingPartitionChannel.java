@@ -377,6 +377,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       try {
         channel.close();
       } catch (Exception e) {
+        // Broad catch: recovery must proceed to open a new channel regardless of close failure
         LOGGER.warn("Failed to close old channel during recovery: {}", e.getMessage(), e);
       }
     }
@@ -516,6 +517,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       try {
         this.channel.close();
       } catch (Exception e) {
+        // Broad catch: reopen must proceed regardless of close failure
         LOGGER.warn("Failed to close existing channel before reopening: {}", e.getMessage(), e);
       }
     }

@@ -153,6 +153,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
       try {
         conn.close();
       } catch (Exception e) {
+        // Broad catch: stop() must not throw to avoid masking earlier errors
         LOGGER.warn("Failed to close connector connection: {}", e.getMessage(), e);
       }
     }

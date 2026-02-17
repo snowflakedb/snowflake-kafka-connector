@@ -243,6 +243,7 @@ public class SnowflakeSinkTask extends SinkTask {
       try {
         this.conn.close();
       } catch (Exception e) {
+        // Broad catch: stop() must not throw to avoid masking earlier errors
         this.DYNAMIC_LOGGER.warn("Failed to close connection: {}", e.getMessage(), e);
       }
     }
