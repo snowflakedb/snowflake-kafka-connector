@@ -16,12 +16,9 @@
  */
 package com.snowflake.kafka.connector.internal;
 
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 public class SnowflakeURLTest {
-  @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   @Test
   public void createFromValidURL() {
