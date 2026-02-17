@@ -25,6 +25,7 @@ public class FakeSnowflakeStreamingIngestChannel
   private final FakeSnowflakeStreamingIngestClient parentClient;
 
   private volatile boolean closed;
+  private volatile boolean throwOnClose;
   private String offsetToken;
   private ChannelStatus channelStatus;
 
@@ -75,6 +76,9 @@ public class FakeSnowflakeStreamingIngestChannel
 
   @Override
   public void close() {
+    if (throwOnClose) {
+      throw new RuntimeException("Simulated close failure for channel: " + channelName);
+    }
     this.closed = true;
   }
 
@@ -145,6 +149,10 @@ public class FakeSnowflakeStreamingIngestChannel
 
   public synchronized List<Map<String, Object>> getAppendedRows() {
     return copyOf(appendedRows);
+  }
+
+  public void setThrowOnClose(boolean throwOnClose) {
+    this.throwOnClose = throwOnClose;
   }
 
   @Override

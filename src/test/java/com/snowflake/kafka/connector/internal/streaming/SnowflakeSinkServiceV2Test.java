@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -10,12 +9,16 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,39 +80,54 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
-  void stop_cleansUpClients_evenWhenNoDataInserted() {
-    // Given: service with one partition started (registers a client in StreamingClientManager)
+  void stop_cleansUpClients_evenWhenFlushFails() {
+    // Given: service with one partition started and a record inserted
     SnowflakeSinkServiceV2 service = buildService();
     service.startPartition(new TopicPartition(TOPIC, PARTITION));
+
+    // Insert a valid JSON record so lastAppendRowsOffset is set, which triggers the flush path
+    SinkRecord record = createJsonRecord(0);
+    service.insert(record);
 
     assertThat(StreamingClientManager.getClientCountForTask(connectorName, taskId))
         .as("Client should be registered after startPartition")
         .isGreaterThan(0);
 
-    // When: stop the service
+    // When: stop the service — waitForAllChannelsToCommitData will throw because
+    // FakeSnowflakeStreamingIngestClient.initiateFlush() throws UnsupportedOperationException,
+    // but the try-finally in stop() ensures closeTaskClients still runs
     service.stop();
 
-    // Then: clients should be cleaned up
+    // Then: clients should be cleaned up despite the flush failure
     assertThat(StreamingClientManager.getClientCountForTask(connectorName, taskId))
-        .as("Clients should be released after stop()")
+        .as("Clients should be released after stop() even when flush fails")
         .isEqualTo(0);
   }
 
   @Test
   void close_removesPartitionFromMap_evenWhenCloseChannelAsyncFails() {
-    // Given: service with one partition started
+    // Given: service with one partition started, channel configured to throw on close
     SnowflakeSinkServiceV2 service = buildService();
     TopicPartition tp = new TopicPartition(TOPIC, PARTITION);
     service.startPartition(tp);
 
     assertThat(service.getPartitionCount()).as("Should have 1 partition after start").isEqualTo(1);
 
-    // When: close the partition (the close may encounter issues but should still clean up)
-    assertThatCode(() -> service.close(Set.of(tp))).doesNotThrowAnyException();
+    // Configure channel to throw RuntimeException on close — this propagates through
+    // tryRecoverFromCloseChannelError (non-SFException) so the future fails, but
+    // whenComplete still runs partitionsToChannel.remove(key)
+    fakeClientSupplier.setThrowOnCloseForAllChannels();
 
-    // Then: partition should be removed from the map
+    // When: close the partition — exception propagates through CompletableFuture.allOf().join()
+    try {
+      service.close(Set.of(tp));
+    } catch (Exception expected) {
+      // Expected: RuntimeException from channel close propagates
+    }
+
+    // Then: partition should still be removed from the map via whenComplete
     assertThat(service.getPartitionCount())
-        .as("Partition should be removed from map after close")
+        .as("Partition should be removed from map after close even when channel close fails")
         .isEqualTo(0);
   }
 
@@ -145,5 +163,14 @@ class SnowflakeSinkServiceV2Test {
     return fakeClientSupplier.getFakeIngestClients().stream()
         .mapToLong(FakeSnowflakeStreamingIngestClient::countClosedChannels)
         .sum();
+  }
+
+  private SinkRecord createJsonRecord(long offset) {
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(Map.of("schemas.enable", "false"), false);
+    SchemaAndValue schemaAndValue =
+        jsonConverter.toConnectData(TOPIC, "{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
+    return new SinkRecord(
+        TOPIC, PARTITION, null, null, schemaAndValue.schema(), schemaAndValue.value(), offset);
   }
 }

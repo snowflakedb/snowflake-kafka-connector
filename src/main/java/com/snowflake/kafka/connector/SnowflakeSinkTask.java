@@ -236,7 +236,12 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     if (this.sink != null) {
-      this.sink.stop();
+      try {
+        this.sink.stop();
+      } catch (Exception e) {
+        // Broad catch: conn.close() must still run regardless of sink.stop() failure
+        this.DYNAMIC_LOGGER.error("Failed to stop sink service: {}", e.getMessage(), e);
+      }
     }
 
     if (this.conn != null) {

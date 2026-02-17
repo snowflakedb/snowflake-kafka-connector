@@ -61,4 +61,9 @@ public class FakeIngestClientSupplier implements IngestClientSupplier {
         .mapToInt(FakeSnowflakeStreamingIngestClient::getCloseAttemptCount)
         .sum();
   }
+
+  /** Configures all opened channels across all fake clients to throw on close(). */
+  public void setThrowOnCloseForAllChannels() {
+    pipeToIngestClientMap.values().forEach(c -> c.setThrowOnCloseForAllChannels(true));
+  }
 }

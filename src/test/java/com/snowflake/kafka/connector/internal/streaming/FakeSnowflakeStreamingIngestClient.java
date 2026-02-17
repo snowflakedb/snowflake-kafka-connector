@@ -169,6 +169,10 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
     this.throwOnClose = throwOnClose;
   }
 
+  public void setThrowOnCloseForAllChannels(boolean throwOnClose) {
+    openedChannels.forEach(ch -> ch.setThrowOnClose(throwOnClose));
+  }
+
   public int getCloseAttemptCount() {
     return closeAttemptCount.get();
   }

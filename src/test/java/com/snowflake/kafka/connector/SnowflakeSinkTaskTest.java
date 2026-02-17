@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -27,6 +28,39 @@ class SnowflakeSinkTaskTest {
 
     // Then: both sink.stop() and conn.close() should be called
     verify(mockSink).stop();
+    verify(mockConn).close();
+  }
+
+  @Test
+  void stop_closesConnection_evenWhenSinkStopThrows() {
+    // Given: a task whose sink.stop() throws
+    SnowflakeSinkService mockSink = mock(SnowflakeSinkService.class);
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    doThrow(new RuntimeException("sink stop failed")).when(mockSink).stop();
+
+    SnowflakeSinkTask task = new SnowflakeSinkTask(mockSink, mockConn);
+
+    // When: stop is called
+    task.stop();
+
+    // Then: conn.close() should still be called despite sink.stop() failure
+    verify(mockSink).stop();
+    verify(mockConn).close();
+  }
+
+  @Test
+  void stop_handlesCloseException() {
+    // Given: a task whose conn.close() throws
+    SnowflakeSinkService mockSink = mock(SnowflakeSinkService.class);
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    doThrow(new RuntimeException("close failed")).when(mockConn).close();
+
+    SnowflakeSinkTask task = new SnowflakeSinkTask(mockSink, mockConn);
+
+    // When/Then: stop should not throw
+    task.stop();
+
+    // And close was still attempted
     verify(mockConn).close();
   }
 
