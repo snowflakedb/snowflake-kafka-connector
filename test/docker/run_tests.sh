@@ -57,7 +57,7 @@ usage() {
     echo "  --pressure           Run pressure tests"
     echo "  --keep               Keep containers running after tests"
     echo "  --rebuild            Force rebuild of images"
-    echo "  --logs               Show service logs on failure"
+    echo "  --logs-dir=DIR       Save service logs to a file in DIR on failure"
     echo "  -h, --help           Show this help message"
     echo ""
     echo "Environment:"
@@ -68,6 +68,7 @@ usage() {
     echo "  $0 --platform=apache --version=2.8.2"
     echo "  $0 --platform=confluent --version=7.8.0 --tests=TestStringJson"
     echo "  $0 --platform=apache --version=3.7.0 --pressure --keep"
+    echo "  $0 --platform=confluent --version=7.8.0 --logs-dir=/tmp/test-logs"
     exit 1
 }
 
@@ -79,7 +80,7 @@ TESTS_TO_RUN=""
 PRESSURE_TEST="false"
 KEEP_RUNNING="false"
 FORCE_REBUILD="false"
-SHOW_LOGS="false"
+LOGS_DIR=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -115,8 +116,8 @@ while [[ $# -gt 0 ]]; do
             FORCE_REBUILD="true"
             shift
             ;;
-        --logs)
-            SHOW_LOGS="true"
+        --logs-dir=*)
+            LOGS_DIR="${1#*=}"
             shift
             ;;
         -h|--help)
@@ -321,10 +322,12 @@ docker compose $COMPOSE_FILES run --rm -i test-runner
 TEST_EXIT_CODE=$?
 set -e
 
-# Show logs on failure
-if [ $TEST_EXIT_CODE -ne 0 ] && [ "$SHOW_LOGS" = "true" ]; then
-    warn "Tests failed. Showing service logs..."
-    docker compose $COMPOSE_FILES logs $HEALTH_CHECK_SERVICE
+# Save logs on failure
+if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$LOGS_DIR" ]; then
+    mkdir -p "$LOGS_DIR"
+    LOG_FILE="$LOGS_DIR/${PLATFORM}-${VERSION}-${HEALTH_CHECK_SERVICE}.log"
+    warn "Tests failed. Saving service logs to $LOG_FILE..."
+    docker compose $COMPOSE_FILES logs $HEALTH_CHECK_SERVICE > "$LOG_FILE" 2>&1
 fi
 
 # Cleanup

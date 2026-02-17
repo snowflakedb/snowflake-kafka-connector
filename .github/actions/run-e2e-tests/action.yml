@@ -28,10 +28,20 @@ runs:
         PLATFORM_VERSION: ${{ inputs['platform-version'] }}
         SNOWFLAKE_CLOUD: ${{ inputs['snowflake-cloud'] }}
         JAVA_VERSION: ${{ inputs['java-version'] }}
+        LOGS_DIR: "${{ github.workspace }}/test-logs"
       run: |
         ./run_tests.sh \
           --platform="$PLATFORM" \
           --version="$PLATFORM_VERSION" \
           --cloud="$SNOWFLAKE_CLOUD" \
           --java-version="$JAVA_VERSION" \
-          --logs
+          --logs-dir="$LOGS_DIR"
+
+    - name: Upload service logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs-${{ inputs.platform }}-${{ inputs['platform-version'] }}-${{ inputs['snowflake-cloud'] }}
+        path: ${{ github.workspace }}/test-logs/
+        retention-days: 14
+        if-no-files-found: ignore
