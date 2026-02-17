@@ -1,0 +1,21 @@
+# Memory-constrained override for reproducing memory leak issues.
+# Reduces kafka-connect heap and sets Docker memory limits to accelerate
+# memory pressure during repeated pause/resume cycles.
+#
+# Usage:
+#   docker compose -f docker-compose.base.yml -f docker-compose.confluent.yml \
+#     -f docker-compose.memory-constrained.yml up
+#
+# Or with run_tests.sh, set EXTRA_COMPOSE before running:
+#   export EXTRA_COMPOSE="-f docker-compose.memory-constrained.yml"
+
+services:
+  kafka-connect:
+    environment:
+      # Reduced from 2g to 1.5g for tighter memory constraints
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx1536m"
+    deploy:
+      resources:
+        limits:
+          # Reduced from 2560m to 2g for tighter constraints
+          memory: 2048m

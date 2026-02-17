@@ -15,6 +15,9 @@ from test_suit.resilience_tests.test_kc_pause_resume_chaos import TestKcPauseRes
 from test_suit.resilience_tests.test_kc_recreate import TestKcRecreate
 from test_suit.resilience_tests.test_kc_recreate_chaos import TestKcRecreateChaos
 from test_suit.resilience_tests.test_kc_restart import TestKcRestart
+from test_suit.resilience_tests.test_kc_memory_leak_pause_resume import (
+    TestKcMemoryLeakPauseResume,
+)
 from test_suit.test_auto_table_creation import TestAutoTableCreation
 from test_suit.test_auto_table_creation_topic2table import (
     TestAutoTableCreationTopic2Table,
@@ -418,6 +421,15 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
                 "TestKcRestart",
                 EndToEndTestSuite(
                     test_instance=TestKcRestart(driver, nameSalt),
+                    run_in_confluent=True,
+                    run_in_apache=True,
+                    cloud_platform=CloudPlatform.ALL,
+                ),
+            ),
+            (
+                "TestKcMemoryLeakPauseResume",
+                EndToEndTestSuite(
+                    test_instance=TestKcMemoryLeakPauseResume(driver, nameSalt),
                     run_in_confluent=True,
                     run_in_apache=True,
                     cloud_platform=CloudPlatform.ALL,

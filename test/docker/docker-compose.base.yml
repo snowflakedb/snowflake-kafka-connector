@@ -31,6 +31,8 @@ services:
       - ../test_executor.py:/app/test_executor.py:ro
       - ../test_selector.py:/app/test_selector.py:ro
       - ../cloud_platform.py:/app/cloud_platform.py:ro
+      # Mount Docker socket for memory monitoring
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     working_dir: /app
     command: ["./scripts/run_tests_inner.sh"]
 

@@ -58,6 +58,7 @@ usage() {
     echo "  --keep               Keep containers running after tests"
     echo "  --rebuild            Force rebuild of images"
     echo "  --logs               Show service logs on failure"
+    echo "  --memory-constrained Constrain kafka-connect memory (2.5GB) to reproduce memory leaks"
     echo "  -h, --help           Show this help message"
     echo ""
     echo "Environment:"
@@ -68,6 +69,7 @@ usage() {
     echo "  $0 --platform=apache --version=2.8.2"
     echo "  $0 --platform=confluent --version=7.8.0 --tests=TestStringJson"
     echo "  $0 --platform=apache --version=3.7.0 --pressure --keep"
+    echo "  $0 --platform=confluent --version=7.8.0 --tests=TestKcMemoryLeakPauseResume --memory-constrained"
     exit 1
 }
 
@@ -80,6 +82,7 @@ PRESSURE_TEST="false"
 KEEP_RUNNING="false"
 FORCE_REBUILD="false"
 SHOW_LOGS="false"
+MEMORY_CONSTRAINED="false"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -117,6 +120,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --logs)
             SHOW_LOGS="true"
+            shift
+            ;;
+        --memory-constrained)
+            MEMORY_CONSTRAINED="true"
             shift
             ;;
         -h|--help)
@@ -176,6 +183,12 @@ case $PLATFORM in
         error_exit "Unknown platform: $PLATFORM (supported: confluent, apache)"
         ;;
 esac
+
+# Add memory-constrained override if requested
+if [ "$MEMORY_CONSTRAINED" = "true" ]; then
+    info "Enabling memory constraints (kafka-connect: 2GB heap, 2.5GB container limit)"
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.memory-constrained.yml"
+fi
 
 # Check prerequisites
 command -v docker >/dev/null 2>&1 || error_exit "Docker is not installed"
