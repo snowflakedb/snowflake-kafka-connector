@@ -11,6 +11,7 @@
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "tasks.max": "10",
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
-    "value.converter":"org.apache.kafka.connect.json.JsonConverter"
+    "value.converter":"org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
   }
 }

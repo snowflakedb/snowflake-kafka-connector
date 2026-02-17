@@ -15,6 +15,10 @@ inputs:
     description: "Java version for Apache Kafka (e.g. '11', '17'). Ignored for Confluent."
     required: false
     default: '11'
+  pressure:
+    description: "Run pressure/stress tests instead of regular tests"
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -35,7 +39,8 @@ runs:
           --version="$PLATFORM_VERSION" \
           --cloud="$SNOWFLAKE_CLOUD" \
           --java-version="$JAVA_VERSION" \
-          --logs-dir="$LOGS_DIR"
+          --logs-dir="$LOGS_DIR" \
+          ${{ inputs.pressure == 'true' && '--pressure' || '' }}
 
     - name: Upload service logs on failure
       if: failure()
