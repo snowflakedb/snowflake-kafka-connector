@@ -200,10 +200,7 @@ public final class StreamingClientManager {
                       client.close();
                     } catch (Exception e) {
                       LOGGER.error(
-                          "Failed to close client for pipe {}: {}",
-                          pipeName,
-                          e.getMessage(),
-                          e);
+                          "Failed to close client for pipe {}: {}", pipeName, e.getMessage(), e);
                       closeErrors.add(e);
                     }
                   }
@@ -214,9 +211,7 @@ public final class StreamingClientManager {
 
       if (!closeErrors.isEmpty()) {
         LOGGER.error(
-            "Encountered {} errors while closing clients for task {}",
-            closeErrors.size(),
-            taskId);
+            "Encountered {} errors while closing clients for task {}", closeErrors.size(), taskId);
       }
     }
   }

@@ -240,8 +240,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       try {
         existing.closeChannelAsync();
       } catch (Exception e) {
-        LOGGER.warn(
-            "Failed to close existing channel {}: {}", channelName, e.getMessage(), e);
+        LOGGER.warn("Failed to close existing channel {}: {}", channelName, e.getMessage(), e);
       }
     }
     partitionsToChannel.put(channelName, partitionChannel);
@@ -436,10 +435,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               partitionsToChannel.remove(key);
               if (exception != null) {
                 LOGGER.error(
-                    "Error closing channel for key {}: {}",
-                    key,
-                    exception.getMessage(),
-                    exception);
+                    "Error closing channel for key {}: {}", key, exception.getMessage(), exception);
               }
             });
   }
@@ -454,8 +450,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     try {
       waitForAllChannelsToCommitData();
     } catch (Exception e) {
-      LOGGER.error(
-          "Error waiting for channels to commit data during stop: {}", e.getMessage(), e);
+      LOGGER.error("Error waiting for channels to commit data during stop: {}", e.getMessage(), e);
     } finally {
       // Release all streaming clients used by this service
       // Clients will only be closed if no other tasks are using them
