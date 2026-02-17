@@ -374,7 +374,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
     // close old channel before reopening a new one
     if (!channel.isClosed()) {
-      channel.close();
+      try {
+        channel.close();
+      } catch (Exception e) {
+        LOGGER.warn("Failed to close old channel during recovery: {}", e.getMessage(), e);
+      }
     }
     SnowflakeStreamingIngestChannel newChannel = openChannelForTable(channelName);
 
@@ -509,7 +513,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     // re-opening"
     // adding additional safety
     if (channelIsOpen()) {
-      this.channel.close();
+      try {
+        this.channel.close();
+      } catch (Exception e) {
+        LOGGER.warn("Failed to close existing channel before reopening: {}", e.getMessage(), e);
+      }
     }
     final OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
     final ChannelStatus channelStatus = result.getChannelStatus();
@@ -543,9 +551,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private CompletableFuture<Void> closeChannelWrapped() {
     try {
       return CompletableFuture.runAsync(() -> channel.close());
-    } catch (SFException e) {
-      // Calling channel.close() can throw an SFException if the channel has been invalidated
-      // already. Wrapping the exception into a CompletableFuture to keep a consistent method chain.
+    } catch (Exception e) {
+      // Calling channel.close() can throw if the channel has been invalidated already.
+      // Wrapping the exception into a CompletableFuture to keep a consistent method chain.
       CompletableFuture<Void> future = new CompletableFuture<>();
       future.completeExceptionally(e);
       return future;

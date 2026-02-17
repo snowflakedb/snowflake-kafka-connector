@@ -234,6 +234,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.taskId,
             streamingErrorHandler);
 
+    TopicPartitionChannel existing = partitionsToChannel.get(channelName);
+    if (existing != null) {
+      LOGGER.warn("Replacing existing channel: {}", channelName);
+      try {
+        existing.closeChannelAsync();
+      } catch (Exception e) {
+        LOGGER.warn(
+            "Failed to close existing channel {}: {}", channelName, e.getMessage(), e);
+      }
+    }
     partitionsToChannel.put(channelName, partitionChannel);
     LOGGER.info("Successfully created streaming channel: {}", channelName);
   }
@@ -415,11 +425,23 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     // It's possible that some partitions can be unassigned before their respective channels are
     // even created.
-    return topicPartitionChannel == null
-        ? CompletableFuture.completedFuture(null) // All is good, nothing needs to be done.
-        : topicPartitionChannel
-            .closeChannelAsync()
-            .thenAccept(__ -> partitionsToChannel.remove(key));
+    if (topicPartitionChannel == null) {
+      return CompletableFuture.completedFuture(null); // All is good, nothing needs to be done.
+    }
+
+    return topicPartitionChannel
+        .closeChannelAsync()
+        .whenComplete(
+            (result, exception) -> {
+              partitionsToChannel.remove(key);
+              if (exception != null) {
+                LOGGER.error(
+                    "Error closing channel for key {}: {}",
+                    key,
+                    exception.getMessage(),
+                    exception);
+              }
+            });
   }
 
   @Override
@@ -429,11 +451,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.connectorName,
         this.taskId);
 
-    waitForAllChannelsToCommitData();
-
-    // Release all streaming clients used by this service
-    // Clients will only be closed if no other tasks are using them
-    StreamingClientManager.closeTaskClients(connectorName, taskId);
+    try {
+      waitForAllChannelsToCommitData();
+    } catch (Exception e) {
+      LOGGER.error(
+          "Error waiting for channels to commit data during stop: {}", e.getMessage(), e);
+    } finally {
+      // Release all streaming clients used by this service
+      // Clients will only be closed if no other tasks are using them
+      try {
+        StreamingClientManager.closeTaskClients(connectorName, taskId);
+      } catch (Exception e) {
+        LOGGER.error("Error closing task clients: {}", e.getMessage(), e);
+      }
+    }
   }
 
   /* Undefined */

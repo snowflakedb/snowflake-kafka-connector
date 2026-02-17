@@ -5,7 +5,7 @@ import java.sql.Connection;
 import java.util.List;
 import java.util.Optional;
 
-public interface SnowflakeConnectionService {
+public interface SnowflakeConnectionService extends AutoCloseable {
   /**
    * Create a table with one variant columns: RECORD_METADATA
    *

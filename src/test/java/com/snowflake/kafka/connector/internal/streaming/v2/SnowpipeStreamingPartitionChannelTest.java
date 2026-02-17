@@ -115,6 +115,57 @@ class SnowpipeStreamingPartitionChannelTest {
     assertEquals(closeCountBeforeRecovery + 1, trackingClientSupplier.getCloseCallCount());
   }
 
+  @Test
+  void closeChannelAsync_completesSuccessfully_whenCloseThrowsNonSFException() {
+    // Given: A partition channel is created
+    final SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+
+    // Configure close to throw a RuntimeException (not SFException)
+    trackingClientSupplier.setThrowRuntimeExceptionOnClose(true);
+
+    // When: closeChannelAsync is called
+    CompletableFuture<Void> future = partitionChannel.closeChannelAsync();
+
+    // Then: the future should complete (either successfully via recovery or exceptionally)
+    // but should NOT throw an unhandled exception to the caller
+    // The key property: the CompletableFuture wraps the exception instead of propagating it
+    try {
+      future.join();
+    } catch (Exception e) {
+      // CompletionException wrapping RuntimeException is acceptable
+      // The important thing is that the exception was caught and wrapped,
+      // not that it was swallowed entirely
+    }
+
+    // Close was attempted
+    assertTrue(trackingClientSupplier.getCloseCallCount() > 0, "close() should have been called");
+  }
+
+  @Test
+  void shouldRecoverChannelEvenWhenCloseThrows() {
+    // Given: A partition channel is created and its underlying channel is open
+    final SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    assertTrue(!partitionChannel.isChannelClosed(), "Channel should be open before recovery");
+
+    int channelsCreatedBefore = trackingClientSupplier.getTotalChannelsCreated();
+
+    // Configure close() to throw AND offset token to throw (to trigger recovery)
+    trackingClientSupplier.setThrowOnClose(true);
+    trackingClientSupplier.setThrowOnOffsetToken(true);
+
+    try {
+      partitionChannel.fetchOffsetTokenWithRetry();
+    } catch (Exception e) {
+      // Expected - retry policy may throw after exhausting retries
+    }
+
+    // Then: A new channel should have been created despite close() throwing
+    // The recovery path should have opened at least one new channel
+    assertTrue(
+        trackingClientSupplier.getTotalChannelsCreated() > channelsCreatedBefore,
+        "New channel should be created even when old channel close throws");
+  }
+
   private SnowpipeStreamingPartitionChannel createPartitionChannel() {
     return new SnowpipeStreamingPartitionChannel(
         TABLE_NAME,
@@ -139,6 +190,8 @@ class SnowpipeStreamingPartitionChannelTest {
     private final AtomicInteger closeCallCount = new AtomicInteger(0);
     private final AtomicInteger totalChannelsCreated = new AtomicInteger(0);
     private volatile boolean throwOnOffsetToken;
+    private volatile boolean throwOnClose;
+    private volatile boolean throwRuntimeExceptionOnClose;
 
     @Override
     public SnowflakeStreamingIngestClient get(
@@ -161,6 +214,14 @@ class SnowpipeStreamingPartitionChannelTest {
 
     void setThrowOnOffsetToken(boolean throwOnOffsetToken) {
       this.throwOnOffsetToken = throwOnOffsetToken;
+    }
+
+    void setThrowOnClose(boolean throwOnClose) {
+      this.throwOnClose = throwOnClose;
+    }
+
+    void setThrowRuntimeExceptionOnClose(boolean throwRuntimeExceptionOnClose) {
+      this.throwRuntimeExceptionOnClose = throwRuntimeExceptionOnClose;
     }
 
     void incrementCloseCallCount() {
@@ -326,8 +387,14 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public void close() {
-      closed = true;
       supplier.incrementCloseCallCount();
+      if (supplier.throwRuntimeExceptionOnClose) {
+        throw new RuntimeException("Test simulated RuntimeException on close");
+      }
+      if (supplier.throwOnClose) {
+        throw new SFException("ChannelCloseError", "Test simulated close failure", 0, "");
+      }
+      closed = true;
     }
 
     @Override

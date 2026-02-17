@@ -11,8 +11,10 @@ import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.security.PrivateKey;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -102,9 +104,13 @@ public final class StreamingClientManager {
    */
   public static void closeTaskClients(final String connectorName, final String taskId) {
     synchronized (connectors) {
-      ConnectorIngestClients clients = connectors.get(connectorName);
-      if (clients != null) {
-        clients.closeTaskClients(taskId);
+      ConnectorIngestClients connectorClients = connectors.get(connectorName);
+      if (connectorClients != null) {
+        connectorClients.closeTaskClients(taskId);
+        if (connectorClients.pipeToTasks.isEmpty() && connectorClients.clients.isEmpty()) {
+          connectors.remove(connectorName);
+          LOGGER.info("Removed empty client manager for connector: {}", connectorName);
+        }
       } else {
         LOGGER.warn(
             "Attempted to release task {} for unknown connector: {}", taskId, connectorName);
@@ -173,6 +179,8 @@ public final class StreamingClientManager {
     synchronized void closeTaskClients(final String taskId) {
       LOGGER.info("Releasing clients for task {} in connector {}", taskId, connectorName);
 
+      List<Exception> closeErrors = new ArrayList<>();
+
       pipeToTasks
           .entrySet()
           .removeIf(
@@ -184,16 +192,32 @@ public final class StreamingClientManager {
                   // This was the last task using this pipe - close the client
                   SnowflakeStreamingIngestClient client = clients.remove(pipeName);
                   if (client != null) {
-                    LOGGER.info(
-                        "Closing client for pipe {} in connector {} (last task stopped)",
-                        pipeName,
-                        connectorName);
-                    client.close();
+                    try {
+                      LOGGER.info(
+                          "Closing client for pipe {} in connector {} (last task stopped)",
+                          pipeName,
+                          connectorName);
+                      client.close();
+                    } catch (Exception e) {
+                      LOGGER.error(
+                          "Failed to close client for pipe {}: {}",
+                          pipeName,
+                          e.getMessage(),
+                          e);
+                      closeErrors.add(e);
+                    }
                   }
                   return true; // Remove this entry from pipeToTasks
                 }
                 return false; // Keep this entry
               });
+
+      if (!closeErrors.isEmpty()) {
+        LOGGER.error(
+            "Encountered {} errors while closing clients for task {}",
+            closeErrors.size(),
+            taskId);
+      }
     }
   }
 

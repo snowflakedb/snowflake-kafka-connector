@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -72,6 +73,14 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeStreamingSinkConnector() {
+    setupComplete = false;
+  }
+
+  @VisibleForTesting
+  SnowflakeStreamingSinkConnector(
+      SnowflakeConnectionService conn, SnowflakeTelemetryService telemetryClient) {
+    this.conn = conn;
+    this.telemetryClient = telemetryClient;
     setupComplete = false;
   }
 
@@ -138,6 +147,14 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
     if (telemetryClient != null) {
       telemetryClient.reportKafkaConnectStop(connectorStartTime);
+    }
+
+    if (conn != null) {
+      try {
+        conn.close();
+      } catch (Exception e) {
+        LOGGER.warn("Failed to close connector connection: {}", e.getMessage(), e);
+      }
     }
   }
 
@@ -225,10 +242,41 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     // We don't validate name, since it is not included in the return value
     // so just put a test connector here
     connectorConfigs.put(KafkaConnectorConfigParams.NAME, "TEST_CONNECTOR");
-    SnowflakeConnectionService testConnection;
-    try {
-      testConnection =
-          SnowflakeConnectionServiceFactory.builder().setProperties(connectorConfigs).build();
+    try (SnowflakeConnectionService testConnection =
+        SnowflakeConnectionServiceFactory.builder().setProperties(connectorConfigs).build()) {
+
+      try {
+        testConnection.databaseExists(
+            connectorConfigs.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME));
+      } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
+        if (e.getCode().equals("2001")) {
+          Utils.updateConfigErrorMessage(
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME,
+              " database does not exist");
+        } else {
+          throw e;
+        }
+        return result;
+      }
+
+      try {
+        testConnection.schemaExists(
+            connectorConfigs.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
+      } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
+        if (e.getCode().equals("2001")) {
+          Utils.updateConfigErrorMessage(
+              result, KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, " schema does not exist");
+        } else {
+          throw e;
+        }
+        return result;
+      }
+
+      LOGGER.info("Validated config with no error");
+      return result;
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error(
           "Validate: Error connecting to snowflake:{}, errorCode:{}", e.getMessage(), e.getCode());
@@ -277,37 +325,6 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
       }
       return result;
     }
-
-    try {
-      testConnection.databaseExists(
-          connectorConfigs.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME));
-    } catch (SnowflakeKafkaConnectorException e) {
-      LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
-      if (e.getCode().equals("2001")) {
-        Utils.updateConfigErrorMessage(
-            result, KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, " database does not exist");
-      } else {
-        throw e;
-      }
-      return result;
-    }
-
-    try {
-      testConnection.schemaExists(
-          connectorConfigs.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
-    } catch (SnowflakeKafkaConnectorException e) {
-      LOGGER.error("Validate Error msg:{}, errorCode:{}", e.getMessage(), e.getCode());
-      if (e.getCode().equals("2001")) {
-        Utils.updateConfigErrorMessage(
-            result, KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, " schema does not exist");
-      } else {
-        throw e;
-      }
-      return result;
-    }
-
-    LOGGER.info("Validated config with no error");
-    return result;
   }
 
   private static boolean isUsingConfigProviderForPrivateKey(Map<String, String> connectorConfigs) {

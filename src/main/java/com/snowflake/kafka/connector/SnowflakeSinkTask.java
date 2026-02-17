@@ -239,6 +239,14 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.stop();
     }
 
+    if (this.conn != null) {
+      try {
+        this.conn.close();
+      } catch (Exception e) {
+        this.DYNAMIC_LOGGER.warn("Failed to close connection: {}", e.getMessage(), e);
+      }
+    }
+
     this.DYNAMIC_LOGGER.info(
         "task stopped, total task runtime: {} milliseconds",
         getDurationFromStartMs(this.taskStartTime));
