@@ -2,6 +2,7 @@
 # This script runs INSIDE the test-runner container
 
 set -e
+set -a
 
 # Determine test set and version
 TEST_SET="${TEST_SET:-confluent}"
@@ -54,21 +55,49 @@ if [ -n "$TESTS_TO_RUN" ]; then
     TESTS_ARG="$TESTS_TO_RUN"
 fi
 
-echo -e "\n=== Running cleanup ==="
+PYTEST_EXIT_CODE=0
+if [ "$PRESSURE_TEST" != "true" ]; then
+    echo -e "\n=== Running pytest tests ==="
+    EXTRA_PYTEST_ARGS=()
+    if [ -n "$TESTS_TO_RUN" ]; then
+        EXTRA_PYTEST_ARGS+=(-k "$TESTS_TO_RUN")
+    fi
+    set +e
+    pytest \
+        --kafka-address "$KAFKA_ADDRESS" \
+        --schema-registry-address "$SC_URL" \
+        --kafka-connect-address "$KC_ADDRESS" \
+        --platform-version "$VERSION" \
+        --name-salt "$TEST_NAME_SALT" \
+        -v \
+        "${EXTRA_PYTEST_ARGS[@]}"
+    PYTEST_EXIT_CODE=$?
+    # pytest returns 5 if no tests were found - this is OK if we provided a filter
+    # TODO: remove once all tests run using pytest
+    if [ -n "$TESTS_TO_RUN" ] && [ $PYTEST_EXIT_CODE -eq 5 ]; then
+        echo -e "\n=== No tests found for filter - skipping ==="
+        PYTEST_EXIT_CODE=0
+    fi
+    set -e
+else
+    echo -e "\n=== Skipping pytest (pressure test) ==="
+fi
+
+echo -e "\n=== Running legacy infra pre-test cleanup ==="
 python3 test_verify.py "$KAFKA_ADDRESS" "$SC_URL" "$KC_ADDRESS" clean "$VERSION" "$TEST_NAME_SALT" "$PRESSURE_TEST" "false" "false" "$TESTS_ARG" || true
 
-echo -e "\n=== Running tests ==="
+echo -e "\n=== Running legacy infra tests ==="
 set +e
 python3 test_verify.py "$KAFKA_ADDRESS" "$SC_URL" "$KC_ADDRESS" "$TEST_SET" "$VERSION" "$TEST_NAME_SALT" "$PRESSURE_TEST" "false" "false" "$TESTS_ARG"
 TEST_EXIT_CODE=$?
 set -e
 
-echo -e "\n=== Running post-test cleanup ==="
+echo -e "\n=== Running legacy infra post-test cleanup ==="
 python3 test_verify.py "$KAFKA_ADDRESS" "$SC_URL" "$KC_ADDRESS" clean "$VERSION" "$TEST_NAME_SALT" "$PRESSURE_TEST" "false" "false" "$TESTS_ARG" || true
 
-if [ $TEST_EXIT_CODE -ne 0 ]; then
+if [ $PYTEST_EXIT_CODE -ne 0 ] || [ $TEST_EXIT_CODE -ne 0 ]; then
     echo -e "\n\033[0;31m=== TESTS FAILED ===\033[0m"
-    exit $TEST_EXIT_CODE
+    exit 1
 fi
 
 echo -e "\n\033[0;32m=== ALL TESTS PASSED ===\033[0m"
