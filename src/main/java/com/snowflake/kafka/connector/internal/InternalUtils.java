@@ -89,6 +89,7 @@ public class InternalUtils {
     // decrypt rsa key
     String privateKey = "";
     String privateKeyPassphrase = "";
+    String role = "";
 
     for (Map.Entry<String, String> entry : connectorConfiguration.entrySet()) {
       // case insensitive
@@ -108,6 +109,9 @@ public class InternalUtils {
         case KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE:
           privateKeyPassphrase = entry.getValue();
           break;
+        case KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME:
+          role = entry.getValue();
+          break;
         default:
           // ignore unrecognized keys
       }
@@ -119,6 +123,11 @@ public class InternalUtils {
     }
     properties.put(
         JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
+
+    // set role for JDBC connection (SNOW-3029864)
+    if (!isBlank(role)) {
+      properties.put(SFSessionProperty.ROLE.getPropertyKey(), role);
+    }
 
     // set ssl
     if (url.sslEnabled()) {
