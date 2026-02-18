@@ -8,6 +8,7 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -127,11 +128,13 @@ class ConnectionServiceIT {
     SnowflakeConnectionService service =
         SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
+    String actualRole;
     // when - get JDBC connection and query current role
-    ResultSet resultSet =
-        service.getConnection().createStatement().executeQuery("SELECT CURRENT_ROLE()");
-    resultSet.next();
-    String actualRole = resultSet.getString(1);
+    try (Statement stmt = service.getConnection().createStatement();
+        ResultSet resultSet = stmt.executeQuery("SELECT CURRENT_ROLE()")) {
+      resultSet.next();
+      actualRole = resultSet.getString(1);
+    }
 
     // then - the active role should match the configured role (case-insensitive, Snowflake uppercases)
     assertThat(actualRole)
