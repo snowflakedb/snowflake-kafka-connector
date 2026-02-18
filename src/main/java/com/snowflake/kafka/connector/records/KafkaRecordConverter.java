@@ -14,6 +14,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.kafka.connect.data.ConnectSchema;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -30,6 +32,9 @@ public final class KafkaRecordConverter {
   private static final KCLogger LOGGER = new KCLogger(KafkaRecordConverter.class.getName());
 
   private static final int MAX_SNOWFLAKE_NUMBER_PRECISION = 38;
+
+  private static final ConcurrentHashMap<Class<?>, Optional<Schema.Type>> SCHEMA_TYPE_CACHE =
+      new ConcurrentHashMap<>();
 
   private static final DateTimeFormatter ISO_DATE_TIME_FORMAT =
       DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
@@ -259,9 +264,11 @@ public final class KafkaRecordConverter {
       return Schema.Type.ARRAY;
     }
 
-    Schema.Type primitiveType = ConnectSchema.schemaType(value.getClass());
-    if (primitiveType != null) {
-      return primitiveType;
+    Optional<Schema.Type> cachedType =
+        SCHEMA_TYPE_CACHE.computeIfAbsent(
+            value.getClass(), clazz -> Optional.ofNullable(ConnectSchema.schemaType(clazz)));
+    if (cachedType.isPresent()) {
+      return cachedType.get();
     }
 
     if (value instanceof java.util.Date) {
