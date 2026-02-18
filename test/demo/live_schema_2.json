@@ -1,0 +1,6 @@
+{
+  "fields": [
+    { "name": "fieldName", "type": "string" },
+    { "name": "customerTier", "type": "string" }
+  ]
+}
