@@ -119,9 +119,9 @@ public class InternalUtilsTest {
   }
 
   /**
-   * Regression test for SNOW-3029864: snowflake.role.name must be propagated to the JDBC
-   * connection properties so that DDL operations (table creation, schema checks) run under the
-   * configured role rather than the user's default role.
+   * Regression test for SNOW-3029864: snowflake.role.name must be propagated to the JDBC connection
+   * properties so that DDL operations (table creation, schema checks) run under the configured role
+   * rather than the user's default role.
    */
   @Test
   public void testMakeJdbcDriverProperties_shouldIncludeRoleName() {

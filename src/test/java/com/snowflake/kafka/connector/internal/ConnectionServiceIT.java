@@ -116,9 +116,9 @@ class ConnectionServiceIT {
   }
 
   /**
-   * Integration test for SNOW-3029864: Verifies that the configured snowflake.role.name is
-   * actually used when establishing JDBC connections for DDL operations (table creation, schema
-   * checks, etc.).
+   * Integration test for SNOW-3029864: Verifies that the configured snowflake.role.name is actually
+   * used when establishing JDBC connections for DDL operations (table creation, schema checks,
+   * etc.).
    */
   @Test
   void testRoleIsUsedInJdbcConnection() throws SQLException {
@@ -136,7 +136,8 @@ class ConnectionServiceIT {
       actualRole = resultSet.getString(1);
     }
 
-    // then - the active role should match the configured role (case-insensitive, Snowflake uppercases)
+    // then - the active role should match the configured role (case-insensitive, Snowflake
+    // uppercases)
     assertThat(actualRole)
         .as("JDBC connection should use the configured snowflake.role.name")
         .isEqualToIgnoringCase(expectedRole);
