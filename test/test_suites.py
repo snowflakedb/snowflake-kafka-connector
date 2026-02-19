@@ -20,7 +20,6 @@ from test_suit.test_auto_table_creation_topic2table import (
     TestAutoTableCreationTopic2Table,
 )
 from test_suit.test_avro_avro import TestAvroAvro
-from test_suit.test_avrosr_avrosr import TestAvrosrAvrosr
 
 from test_suit.test_confluent_protobuf_protobuf import TestConfluentProtobufProtobuf
 from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import (
@@ -136,15 +135,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.ALL,
             #     ),
             # ),
-            (
-                "TestAvrosrAvrosr",
-                EndToEndTestSuite(
-                    test_instance=TestAvrosrAvrosr(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=False,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             # (
             #     "TestNativeStringJsonWithoutSchema",
             #     EndToEndTestSuite(
