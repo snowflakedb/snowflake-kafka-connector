@@ -36,6 +36,12 @@ def pytest_addoption(parser):
         help="Kafka Connect REST address (e.g. kafka-connect:8083)",
     )
     group.addoption(
+        "--platform",
+        choices=["confluent", "apache"],
+        required=True,
+        help="Kafka platform: 'confluent' (with Schema Registry) or 'apache'",
+    )
+    group.addoption(
         "--platform-version",
         required=True,
         help="Kafka / Confluent platform version under test (e.g. 7.8.0)",
@@ -51,6 +57,15 @@ def pytest_addoption(parser):
         default=False,
         help="Enable SSL for Kafka connections",
     )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--platform") == "confluent":
+        return
+    skip = pytest.mark.skip(reason="requires Confluent platform (schema registry)")
+    for item in items:
+        if "confluent_only" in item.keywords:
+            item.add_marker(skip)
 
 
 # ---------------------------------------------------------------------------
