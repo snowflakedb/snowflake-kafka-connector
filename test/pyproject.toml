@@ -3,3 +3,6 @@ testpaths = ["tests"]
 pythonpath = ["."]
 log_cli = true
 log_cli_level = "INFO"
+markers = [
+    "confluent_only: test requires Confluent platform (schema registry)",
+]
