@@ -109,14 +109,18 @@ public class UtilsTest {
     assert Utils.getTableName("ab@cd", topic2table, false).equals("abcd");
     assert Utils.getTableName("1234", topic2table, false).equals("_1234");
 
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table, false));
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table, false));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table, false));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table, false));
 
     String topic = "bc*def";
-    assert Utils.getTableName(topic, topic2table, false).equals("bc_def_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false)
+        .equals("bc_def_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert Utils.getTableName(topic, topic2table, false).equals("_12345_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false)
+        .equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -169,7 +173,8 @@ public class UtilsTest {
 
     // test new topic should not have wildcard
     String topic = "bird.*";
-    assert Utils.getTableName(topic, topic2table, false).equals("bird_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false)
+        .equals("bird_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -533,8 +538,7 @@ public class UtilsTest {
 
     // Flag enabled - explicit mapping still honored
     String result2 = Utils.getTableName("myTopic", topic2table, true);
-    assertEquals(
-        "\"My-Table\"", result2, "Explicit quoted mapping should be honored with flag on");
+    assertEquals("\"My-Table\"", result2, "Explicit quoted mapping should be honored with flag on");
   }
 
   /** Verifies quoteIdentifierIfNeeded helper logic. */
@@ -552,6 +556,5 @@ public class UtilsTest {
     assertEquals("\"123startsWithNum\"", Utils.quoteIdentifierIfNeeded("123startsWithNum"));
     assertEquals("\"has spaces\"", Utils.quoteIdentifierIfNeeded("has spaces"));
     assertEquals("\"has.dots\"", Utils.quoteIdentifierIfNeeded("has.dots"));
-
   }
 }
