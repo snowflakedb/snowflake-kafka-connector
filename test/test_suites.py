@@ -104,7 +104,7 @@ class EndToEndTestSuite:
 def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testSet):
     """
     Creates all End to End tests which needs to run against Confluent Kafka or Apache Kafka.
-    :param driver: Driver holds all helper function for tests - Create topic, create connector, send data are few functions amongst many present in Class KafkaTest.
+    :param driver: Driver holds all helper function for tests - Create topic, create connector, send data are few functions amongst many present in Class KafkaDriver.
     :param nameSalt: random string appended for uniqueness of Connector Name
     :param schemaRegistryAddress: Schema registry For confluent runs
     :param testSet: confluent Kafka or apache Kafka (OSS)

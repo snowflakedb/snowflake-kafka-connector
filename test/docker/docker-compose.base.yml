@@ -26,6 +26,7 @@ services:
       - ../rest_request_template:/app/rest_request_template:ro
       - ../test_data:/app/test_data
       - ../__init__.py:/app/__init__.py:ro
+      - ../lib:/app/lib:ro
       - ../test_verify.py:/app/test_verify.py:ro
       - ../test_suites.py:/app/test_suites.py:ro
       - ../test_executor.py:/app/test_executor.py:ro

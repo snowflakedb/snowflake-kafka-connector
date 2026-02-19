@@ -15,7 +15,7 @@ class TestAvroAvro(BaseE2eTest):
         return self.fileName + ".json"
 
     def send(self):
-        avroBytes = open(self.driver.TEST_DATA_FOLDER + "twitter.avro", "rb").read()
+        avroBytes = (self.driver.TEST_DATA_FOLDER / "twitter.avro").read_bytes()
         key = []
         value = []
         # only append 50 times because the file have two records

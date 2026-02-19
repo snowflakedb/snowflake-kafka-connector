@@ -26,6 +26,7 @@ echo "Name Salt: ${TEST_NAME_SALT}"
 
 # Compile protobuf for Python (Java compilation not needed - connector has its own)
 echo -e "\n=== Compiling protobuf ==="
+echo "protoc version: $(protoc --version)"
 cd /app/test_data
 protoc --python_out=. sensor.proto
 echo "Protobuf compiled successfully"
