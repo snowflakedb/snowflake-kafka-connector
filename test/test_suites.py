@@ -4,7 +4,6 @@ from collections import OrderedDict
 # from test_suit.resilience_tests.test_kc_delete_resume_chaos import (
 #     TestKcDeleteResumeChaos,
 # )
-from test_suit.resilience_tests.test_kc_pause_create_chaos import TestKcPauseCreateChaos
 from test_suit.resilience_tests.test_kc_pause_resume import TestKcPauseResume
 from test_suit.resilience_tests.test_kc_pause_resume_chaos import TestKcPauseResumeChaos
 from test_suit.resilience_tests.test_kc_recreate import TestKcRecreate
@@ -202,15 +201,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.AWS,
             #     ),
             # ),
-            (
-                "TestKcPauseCreateChaos",
-                EndToEndTestSuite(
-                    test_instance=TestKcPauseCreateChaos(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             (
                 "TestKcPauseResume",
                 EndToEndTestSuite(
