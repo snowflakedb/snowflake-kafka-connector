@@ -310,7 +310,8 @@ public class Utils {
   }
 
   static boolean isValidSnowflakeTableName(String tableName) {
-    return tableName.matches("^([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
+    return tableName.matches(
+        "^(\"[^\"]+\"|([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+)$");
   }
 
   /**
@@ -361,7 +362,7 @@ public class Utils {
   /**
    * Class for returned GeneratedName. isNameFromMap equal to True indicates that the name was
    * resolved by using the map passed to appropriate function. {@link
-   * Utils#generateTableName(String, Map)}
+   * Utils#generateTableName(String, Map, boolean)}
    */
   public static class GeneratedName {
     private final String name;
@@ -397,7 +398,7 @@ public class Utils {
   public static void convertAppName(Map<String, String> config) {
     String appName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     // If appName is empty the following call will throw error
-    String validAppName = generateValidName(appName, new HashMap<>());
+    String validAppName = generateValidName(appName, new HashMap<>(), false);
 
     config.put(KafkaConnectorConfigParams.NAME, validAppName);
   }
@@ -409,8 +410,9 @@ public class Utils {
    * @param topic2table topic to table map
    * @return valid table name
    */
-  public static String getTableName(String topic, Map<String, String> topic2table) {
-    return generateValidName(topic, topic2table);
+  public static String getTableName(
+      String topic, Map<String, String> topic2table, boolean enableQuotedIdentifiers) {
+    return generateValidName(topic, topic2table, enableQuotedIdentifiers);
   }
 
   /**
@@ -423,8 +425,9 @@ public class Utils {
    * @return return GeneratedName with valid table name and a flag whether the name was taken from
    *     the topic2table
    */
-  public static GeneratedName generateTableName(String topic, Map<String, String> topic2table) {
-    return generateValidNameFromMap(topic, topic2table);
+  public static GeneratedName generateTableName(
+      String topic, Map<String, String> topic2table, boolean enableQuotedIdentifiers) {
+    return generateValidNameFromMap(topic, topic2table, enableQuotedIdentifiers);
   }
 
   /**
@@ -434,8 +437,9 @@ public class Utils {
    * @param topic2table topic to table map
    * @return valid table/application name
    */
-  public static String generateValidName(String topic, Map<String, String> topic2table) {
-    return generateValidNameFromMap(topic, topic2table).name;
+  public static String generateValidName(
+      String topic, Map<String, String> topic2table, boolean enableQuotedIdentifiers) {
+    return generateValidNameFromMap(topic, topic2table, enableQuotedIdentifiers).name;
   }
 
   /**
@@ -446,7 +450,7 @@ public class Utils {
    * @return valid generated table/application name
    */
   private static GeneratedName generateValidNameFromMap(
-      String topic, Map<String, String> topic2table) {
+      String topic, Map<String, String> topic2table, boolean enableQuotedIdentifiers) {
     final String PLACE_HOLDER = "_";
     if (topic == null || topic.isEmpty()) {
       throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
@@ -462,9 +466,21 @@ public class Utils {
       }
     }
 
+    // When quoted identifiers are enabled, always quote auto-generated names to preserve case
+    if (enableQuotedIdentifiers) {
+      if (topic.length() >= 2
+          && topic.charAt(0) == '"'
+          && topic.charAt(topic.length() - 1) == '"') {
+        return GeneratedName.generated(topic);
+      }
+      return GeneratedName.generated("\"" + topic + "\"");
+    }
+
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
       return GeneratedName.generated(topic);
     }
+
+    // Legacy sanitization behavior
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();

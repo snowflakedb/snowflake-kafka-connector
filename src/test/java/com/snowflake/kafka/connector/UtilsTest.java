@@ -1,7 +1,7 @@
 package com.snowflake.kafka.connector;
 
-import static java.util.Arrays.*;
-import static java.util.Collections.*;
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -106,17 +106,21 @@ public class UtilsTest {
   public void testGetTableName() {
     Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
 
-    assert Utils.getTableName("ab@cd", topic2table).equals("abcd");
-    assert Utils.getTableName("1234", topic2table).equals("_1234");
+    assert Utils.getTableName("ab@cd", topic2table, false).equals("abcd");
+    assert Utils.getTableName("1234", topic2table, false).equals("_1234");
 
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table));
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table, false));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table, false));
 
     String topic = "bc*def";
-    assert Utils.getTableName(topic, topic2table).equals("bc_def_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false)
+        .equals("bc_def_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert Utils.getTableName(topic, topic2table).equals("_12345_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false)
+        .equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -124,30 +128,30 @@ public class UtilsTest {
     Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
 
     String topic0 = "ab@cd";
-    Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table);
+    Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table, false);
     assertEquals("abcd", generatedTableName1.getName());
     assertTrue(generatedTableName1.isNameFromMap());
 
     String topic1 = "1234";
-    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table);
+    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table, false);
     assertEquals("_1234", generatedTableName2.getName());
     assertTrue(generatedTableName2.isNameFromMap());
 
     String topic2 = "bc*def";
-    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table);
+    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table, false);
     assertEquals("bc_def_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
     assertFalse(generatedTableName3.isNameFromMap());
 
     String topic3 = "12345";
-    Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table);
+    Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table, false);
     assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.getName());
     assertFalse(generatedTableName4.isNameFromMap());
 
     TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table));
-    //noinspection DataFlowIssue
+        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table, false));
+    // noinspection DataFlowIssue
     TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table));
+        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table, false));
   }
 
   @Test
@@ -162,14 +166,15 @@ public class UtilsTest {
         Utils.parseTopicToTableMap(
             Utils.formatString("{}:{},{}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable));
 
-    assert Utils.getTableName("calico_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("orange_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("corgi_dog", topic2table).equals(dogTable);
+    assert Utils.getTableName("calico_cat", topic2table, false).equals(catTable);
+    assert Utils.getTableName("orange_cat", topic2table, false).equals(catTable);
+    assert Utils.getTableName("_cat", topic2table, false).equals(catTable);
+    assert Utils.getTableName("corgi_dog", topic2table, false).equals(dogTable);
 
     // test new topic should not have wildcard
     String topic = "bird.*";
-    assert Utils.getTableName(topic, topic2table).equals("bird_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false)
+        .equals("bird_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -362,7 +367,8 @@ public class UtilsTest {
     assertEquals(0, v311.compareTo(v311_2));
     assertEquals(v311, v311_2);
 
-    // Test RC versions are treated same as non-RC for comparison (major.minor.patch only)
+    // Test RC versions are treated same as non-RC for comparison (major.minor.patch
+    // only)
     SemanticVersion v400rc = new SemanticVersion("4.0.0-rc");
     assertEquals(0, v400.compareTo(v400rc));
   }
@@ -386,7 +392,7 @@ public class UtilsTest {
 
   @Test
   public void testFindRecommendedVersion() {
-    //  v4.0.0 should recommend v5.0.0 (highest available)
+    // v4.0.0 should recommend v5.0.0 (highest available)
     List<String> availableVersions = asList("3.3.1", "4.0.0", "4.0.1", "4.1.0", "5.0.0");
 
     SemanticVersion current = new SemanticVersion("4.0.0");
@@ -408,7 +414,7 @@ public class UtilsTest {
 
   @Test
   public void testFindRecommendedVersionNoUpgradeAvailable() {
-    //  Current is already latest
+    // Current is already latest
     List<String> availableVersions = asList("4.1.0", "4.2.0", "4.3.1");
 
     SemanticVersion current = new SemanticVersion("4.3.1");
@@ -419,7 +425,7 @@ public class UtilsTest {
 
   @Test
   public void testFindRecommendedVersionWithEmptyList() {
-    //  Empty version list should return null
+    // Empty version list should return null
     List<String> availableVersions = emptyList();
 
     SemanticVersion current = new SemanticVersion("3.1.1");
@@ -430,7 +436,7 @@ public class UtilsTest {
 
   @Test
   public void testFindRecommendedVersionWithInvalidVersions() {
-    //  Invalid versions should be skipped
+    // Invalid versions should be skipped
     List<String> availableVersions = asList("3.1.1", "invalid", "3.2.0", "bad.version", "3.3.0");
 
     SemanticVersion current = new SemanticVersion("3.1.1");
@@ -441,12 +447,102 @@ public class UtilsTest {
 
   @Test
   public void testFindRecommendedVersionOnlyRCVersionsAvailable() {
-    //  Only RC versions newer than current - should return null
+    // Only RC versions newer than current - should return null
     List<String> availableVersions = asList("3.1.0", "3.1.1", "3.2.0-RC", "3.3.0-rc1");
 
     SemanticVersion current = new SemanticVersion("3.1.1");
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
     assertNull(recommended);
+  }
+
+  /** Verifies that quoted identifiers are accepted by config validation. */
+  @Test
+  public void testConfigValidationAcceptsQuotedIdentifiers() {
+    // Quoted identifiers should now be accepted
+    assertTrue(Utils.isValidSnowflakeTableName("\"My-Table\""));
+    assertTrue(Utils.isValidSnowflakeTableName("\"myMixedCase\""));
+    assertTrue(Utils.isValidSnowflakeTableName("\"name-with-dashes\""));
+    assertTrue(Utils.isValidSnowflakeTableName("\"table.with" + ".dots\""));
+    assertTrue(Utils.isValidSnowflakeTableName("\"123startsWithNumber\""));
+
+    // Unquoted identifiers still work
+    assertTrue(Utils.isValidSnowflakeTableName("_1342dfsaf$"));
+    assertTrue(Utils.isValidSnowflakeTableName("dad._1342dfsaf$"));
+    assertTrue(Utils.isValidSnowflakeTableName("adsa123._gdgsdf._1342dfsaf$"));
+
+    // Invalid identifiers still rejected
+    assertFalse(Utils.isValidSnowflakeTableName("_13)42dfsaf$"));
+    assertFalse(Utils.isValidSnowflakeTableName("_13.42dfsaf$"));
+    assertFalse(Utils.isValidSnowflakeTableName("_1342.df.sa.f$"));
+
+    // Malformed quotes still rejected
+    assertFalse(Utils.isValidSnowflakeTableName("\""));
+    assertFalse(Utils.isValidSnowflakeTableName("\"\""));
+    assertFalse(Utils.isValidSnowflakeTableName("unquoted\"partial"));
+
+    // parseTopicToTableMap should accept quoted table names
+    Map<String, String> result = Utils.parseTopicToTableMap("myTopic:\"My-Table\"");
+    assertEquals("\"My-Table\"", result.get("myTopic"));
+
+    // Multiple mappings with quotes
+    result = Utils.parseTopicToTableMap("topic1:\"Table-1\",topic2:\"Table-2\"");
+    assertEquals("\"Table-1\"", result.get("topic1"));
+    assertEquals("\"Table-2\"", result.get("topic2"));
+
+    // Mixed quoted and unquoted mappings
+    result = Utils.parseTopicToTableMap("topic1:\"My-Table\",topic2:normalTable");
+    assertEquals("\"My-Table\"", result.get("topic1"));
+    assertEquals("normalTable", result.get("topic2"));
+  }
+
+  /** Verifies auto-generated name quoting with flag enabled/disabled. */
+  @Test
+  public void testAutoGeneratedQuotedIdentifiers() {
+    Map<String, String> emptyMap = new HashMap<>();
+
+    // --- Flag DISABLED (false) - legacy sanitization behavior ---
+    String dashTopic = "my-sensitive-Topic";
+    String sanitized = Utils.getTableName(dashTopic, emptyMap, false);
+    assertTrue(
+        sanitized.startsWith("my_sensitive_Topic_"),
+        "Expected sanitized name starting with my_sensitive_Topic_, got: " + sanitized);
+    assertFalse(sanitized.contains("-"), "Dashes should be stripped in legacy mode");
+
+    // --- Flag ENABLED (true) - preserve with quotes ---
+    String quoted = Utils.getTableName(dashTopic, emptyMap, true);
+    assertEquals("\"my-sensitive-Topic\"", quoted, "Should be quoted when flag is enabled");
+
+    // Valid unquoted identifier - quoted when flag enabled to preserve case
+    String validTopic = "validName";
+    String validResult = Utils.getTableName(validTopic, emptyMap, true);
+    assertEquals(
+        "\"validName\"", validResult, "Valid identifiers should be quoted to preserve case");
+    // Flag disabled - valid identifier passes through unquoted (SF uppercases)
+    String validUnquoted = Utils.getTableName(validTopic, emptyMap, false);
+    assertEquals("validName", validUnquoted, "Valid identifiers pass through unquoted");
+
+    // Topic starting with number - should be quoted when flag enabled
+    String numTopic = "123topic";
+    String numQuoted = Utils.getTableName(numTopic, emptyMap, true);
+    assertEquals("\"123topic\"", numQuoted, "Invalid identifier should be quoted");
+    // Legacy mode for same topic - should be sanitized
+    String numSanitized = Utils.getTableName(numTopic, emptyMap, false);
+    assertTrue(numSanitized.startsWith("_123topic_"), "Should be sanitized in legacy mode");
+  }
+
+  /** Verifies explicit topic2table.map mappings are honored regardless of flag. */
+  @Test
+  public void testQuotedIdentifiersInTopic2TableMap() {
+    Map<String, String> topic2table = Utils.parseTopicToTableMap("myTopic:\"My-Table\"");
+
+    // Flag disabled - explicit mapping is still honored
+    String result1 = Utils.getTableName("myTopic", topic2table, false);
+    assertEquals(
+        "\"My-Table\"", result1, "Explicit quoted mapping should be honored with flag off");
+
+    // Flag enabled - explicit mapping still honored
+    String result2 = Utils.getTableName("myTopic", topic2table, true);
+    assertEquals("\"My-Table\"", result2, "Explicit quoted mapping should be honored with flag on");
   }
 }
