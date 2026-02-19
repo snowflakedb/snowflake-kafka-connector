@@ -106,17 +106,17 @@ public class UtilsTest {
   public void testGetTableName() {
     Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
 
-    assert Utils.getTableName("ab@cd", topic2table).equals("abcd");
-    assert Utils.getTableName("1234", topic2table).equals("_1234");
+    assert Utils.getTableName("ab@cd", topic2table, false).equals("abcd");
+    assert Utils.getTableName("1234", topic2table, false).equals("_1234");
 
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table));
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table, false));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table, false));
 
     String topic = "bc*def";
-    assert Utils.getTableName(topic, topic2table).equals("bc_def_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false).equals("bc_def_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert Utils.getTableName(topic, topic2table).equals("_12345_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false).equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -124,30 +124,30 @@ public class UtilsTest {
     Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
 
     String topic0 = "ab@cd";
-    Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table);
+    Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table, false);
     assertEquals("abcd", generatedTableName1.getName());
     assertTrue(generatedTableName1.isNameFromMap());
 
     String topic1 = "1234";
-    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table);
+    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table, false);
     assertEquals("_1234", generatedTableName2.getName());
     assertTrue(generatedTableName2.isNameFromMap());
 
     String topic2 = "bc*def";
-    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table);
+    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table, false);
     assertEquals("bc_def_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
     assertFalse(generatedTableName3.isNameFromMap());
 
     String topic3 = "12345";
-    Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table);
+    Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table, false);
     assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.getName());
     assertFalse(generatedTableName4.isNameFromMap());
 
     TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table));
+        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table, false));
     //noinspection DataFlowIssue
     TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table));
+        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table, false));
   }
 
   @Test
@@ -162,14 +162,14 @@ public class UtilsTest {
         Utils.parseTopicToTableMap(
             Utils.formatString("{}:{},{}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable));
 
-    assert Utils.getTableName("calico_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("orange_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("corgi_dog", topic2table).equals(dogTable);
+    assert Utils.getTableName("calico_cat", topic2table, false).equals(catTable);
+    assert Utils.getTableName("orange_cat", topic2table, false).equals(catTable);
+    assert Utils.getTableName("_cat", topic2table, false).equals(catTable);
+    assert Utils.getTableName("corgi_dog", topic2table, false).equals(dogTable);
 
     // test new topic should not have wildcard
     String topic = "bird.*";
-    assert Utils.getTableName(topic, topic2table).equals("bird_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, false).equals("bird_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -487,7 +487,7 @@ public class UtilsTest {
     // It should instead preserve the name by quoting it.
     Map<String, String> emptyMap = new HashMap<>();
     String dashTopic = "my-sensitive-Topic";
-    String result = Utils.getTableName(dashTopic, emptyMap);
+    String result = Utils.getTableName(dashTopic, emptyMap, false);
     assertTrue(
         result.startsWith("my_sensitive_Topic_"),
         "Expected sanitized name starting with my_sensitive_Topic_, got: " + result);
@@ -498,7 +498,7 @@ public class UtilsTest {
     // But Snowflake will uppercase unquoted identifiers to MYMIXEDCASE.
     // The connector should wrap it in quotes to preserve case, but it doesn't.
     String mixedCase = "myMixedCase";
-    String mixedResult = Utils.getTableName(mixedCase, emptyMap);
+    String mixedResult = Utils.getTableName(mixedCase, emptyMap, false);
     assertEquals(mixedCase, mixedResult, "Name passes through unchanged");
     assertFalse(
         mixedResult.startsWith("\""),

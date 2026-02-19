@@ -315,6 +315,24 @@ public class Utils {
   }
 
   /**
+   * Wraps the given identifier in double quotes if it is not already quoted and is not a valid
+   * unquoted Snowflake object identifier. Snowflake's {@code identifier(?)} JDBC function handles
+   * quoted identifiers natively, preserving case and special characters.
+   *
+   * @param name the identifier to potentially quote
+   * @return the identifier, quoted if necessary
+   */
+  static String quoteIdentifierIfNeeded(String name) {
+    if (name.length() >= 2 && name.charAt(0) == '"' && name.charAt(name.length() - 1) == '"') {
+      return name;
+    }
+    if (isValidSnowflakeObjectIdentifier(name)) {
+      return name;
+    }
+    return "\"" + name + "\"";
+  }
+
+  /**
    * @param config config with applied default values
    * @return role specified in rhe config
    */
@@ -362,7 +380,7 @@ public class Utils {
   /**
    * Class for returned GeneratedName. isNameFromMap equal to True indicates that the name was
    * resolved by using the map passed to appropriate function. {@link
-   * Utils#generateTableName(String, Map)}
+   * Utils#generateTableName(String, Map, boolean)}
    */
   public static class GeneratedName {
     private final String name;
@@ -398,7 +416,7 @@ public class Utils {
   public static void convertAppName(Map<String, String> config) {
     String appName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     // If appName is empty the following call will throw error
-    String validAppName = generateValidName(appName, new HashMap<>());
+    String validAppName = generateValidName(appName, new HashMap<>(), false);
 
     config.put(KafkaConnectorConfigParams.NAME, validAppName);
   }
@@ -410,8 +428,9 @@ public class Utils {
    * @param topic2table topic to table map
    * @return valid table name
    */
-  public static String getTableName(String topic, Map<String, String> topic2table) {
-    return generateValidName(topic, topic2table);
+  public static String getTableName(
+      String topic, Map<String, String> topic2table, boolean enableQuotedIdentifiers) {
+    return generateValidName(topic, topic2table, enableQuotedIdentifiers);
   }
 
   /**
@@ -424,8 +443,9 @@ public class Utils {
    * @return return GeneratedName with valid table name and a flag whether the name was taken from
    *     the topic2table
    */
-  public static GeneratedName generateTableName(String topic, Map<String, String> topic2table) {
-    return generateValidNameFromMap(topic, topic2table);
+  public static GeneratedName generateTableName(
+      String topic, Map<String, String> topic2table, boolean enableQuotedIdentifiers) {
+    return generateValidNameFromMap(topic, topic2table, enableQuotedIdentifiers);
   }
 
   /**
@@ -435,8 +455,9 @@ public class Utils {
    * @param topic2table topic to table map
    * @return valid table/application name
    */
-  public static String generateValidName(String topic, Map<String, String> topic2table) {
-    return generateValidNameFromMap(topic, topic2table).name;
+  public static String generateValidName(
+      String topic, Map<String, String> topic2table, boolean enableQuotedIdentifiers) {
+    return generateValidNameFromMap(topic, topic2table, enableQuotedIdentifiers).name;
   }
 
   /**
@@ -447,7 +468,7 @@ public class Utils {
    * @return valid generated table/application name
    */
   private static GeneratedName generateValidNameFromMap(
-      String topic, Map<String, String> topic2table) {
+      String topic, Map<String, String> topic2table, boolean enableQuotedIdentifiers) {
     final String PLACE_HOLDER = "_";
     if (topic == null || topic.isEmpty()) {
       throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
@@ -466,6 +487,14 @@ public class Utils {
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
       return GeneratedName.generated(topic);
     }
+
+    // When quoted identifiers are enabled, preserve the original name with quotes
+    // instead of sanitizing it
+    if (enableQuotedIdentifiers) {
+      return GeneratedName.generated(quoteIdentifierIfNeeded(topic));
+    }
+
+    // Legacy sanitization behavior
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();
