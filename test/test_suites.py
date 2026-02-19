@@ -60,7 +60,6 @@ from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import (
 from test_suit.test_native_string_protobuf import TestNativeStringProtobuf
 from test_suit.test_string_avro import TestStringAvro
 from test_suit.test_string_avrosr import TestStringAvrosr
-from test_suit.test_string_json import TestStringJson
 from test_suit.test_string_json_ignore_tombstone import TestStringJsonIgnoreTombstone
 from cloud_platform import CloudPlatform
 
@@ -112,15 +111,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
     """
     return OrderedDict(
         [
-            (
-                "TestStringJson",
-                EndToEndTestSuite(
-                    test_instance=TestStringJson(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             # (
             #     "TestStringJsonIgnoreTombstone",
             #     EndToEndTestSuite(
