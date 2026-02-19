@@ -1,6 +1,5 @@
 from collections import OrderedDict
 
-from test_suit.resilience_tests.test_kc_delete_create import TestKcDeleteCreate
 from test_suit.resilience_tests.test_kc_delete_create_chaos import (
     TestKcDeleteCreateChaos,
 )
@@ -187,15 +186,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.AWS,
             #     ),
             # ),
-            (
-                "TestKcDeleteCreate",
-                EndToEndTestSuite(
-                    test_instance=TestKcDeleteCreate(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             (
                 "TestKcDeleteCreateChaos",
                 EndToEndTestSuite(
