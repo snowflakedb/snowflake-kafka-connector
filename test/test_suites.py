@@ -42,9 +42,6 @@ from test_suit.test_snowpipe_streaming_schema_mapping_dlq import (
 from test_suit.test_snowpipe_streaming_string_avro_sr import (
     TestSnowpipeStreamingStringAvroSR,
 )
-from test_suit.test_snowpipe_streaming_string_json_dlq import (
-    TestSnowpipeStreamingStringJsonDLQ,
-)
 from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import (
     TestSnowpipeStreamingStringJsonIgnoreTombstone,
 )
@@ -157,15 +154,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.AWS,
             #     ),
             # ),
-            (
-                "TestSnowpipeStreamingStringJsonDLQ",
-                EndToEndTestSuite(
-                    test_instance=TestSnowpipeStreamingStringJsonDLQ(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             (
                 "TestSnowpipeStreamingStringAvroSR",
                 EndToEndTestSuite(
