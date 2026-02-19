@@ -310,7 +310,8 @@ public class Utils {
   }
 
   static boolean isValidSnowflakeTableName(String tableName) {
-    return tableName.matches("^([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
+    return tableName.matches(
+        "^(\"[^\"]+\"|([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+)$");
   }
 
   /**
