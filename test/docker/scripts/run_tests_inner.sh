@@ -67,6 +67,7 @@ if [ "$PRESSURE_TEST" != "true" ]; then
         --kafka-address "$KAFKA_ADDRESS" \
         --schema-registry-address "$SC_URL" \
         --kafka-connect-address "$KC_ADDRESS" \
+        --platform "$TEST_SET" \
         --platform-version "$VERSION" \
         --name-salt "$TEST_NAME_SALT" \
         -v \
