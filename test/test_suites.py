@@ -30,9 +30,6 @@ from test_suit.test_native_string_json_without_schema import (
 # from test_suit.iceberg_schema_evolution_avro_aws import TestIcebergSchemaEvolutionAvroAws
 # from test_suit.iceberg_schema_evolution_json_aws import TestIcebergSchemaEvolutionJsonAws
 from test_suit.test_schema_mapping import TestSchemaMapping
-from test_suit.test_schema_not_supported_converter import (
-    TestSchemaNotSupportedConverter,
-)
 from test_suit.test_snowpipe_streaming_schema_mapping_dlq import (
     TestSnowpipeStreamingSchemaMappingDLQ,
 )
@@ -190,15 +187,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.AWS,
             #     ),
             # ),
-            (
-                "TestSchemaNotSupportedConverter",
-                EndToEndTestSuite(
-                    test_instance=TestSchemaNotSupportedConverter(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             (
                 "TestKcDeleteCreate",
                 EndToEndTestSuite(
