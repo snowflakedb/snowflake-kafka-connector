@@ -133,7 +133,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                     KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_QUOTED_IDENTIFIERS_DEFAULT)));
 
     LOGGER.info(
-        "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {}, enableQuotedIdentifiers: {}",
+        "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {},"
+            + " enableQuotedIdentifiers: {}",
         this.connectorName,
         this.taskId,
         this.tolerateErrors,

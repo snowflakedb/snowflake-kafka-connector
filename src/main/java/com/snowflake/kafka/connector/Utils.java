@@ -315,24 +315,6 @@ public class Utils {
   }
 
   /**
-   * Wraps the given identifier in double quotes if it is not already quoted and is not a valid
-   * unquoted Snowflake object identifier. Snowflake's {@code identifier(?)} JDBC function handles
-   * quoted identifiers natively, preserving case and special characters.
-   *
-   * @param name the identifier to potentially quote
-   * @return the identifier, quoted if necessary
-   */
-  static String quoteIdentifierIfNeeded(String name) {
-    if (name.length() >= 2 && name.charAt(0) == '"' && name.charAt(name.length() - 1) == '"') {
-      return name;
-    }
-    if (isValidSnowflakeObjectIdentifier(name)) {
-      return name;
-    }
-    return "\"" + name + "\"";
-  }
-
-  /**
    * @param config config with applied default values
    * @return role specified in rhe config
    */
@@ -484,14 +466,18 @@ public class Utils {
       }
     }
 
-    if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
-      return GeneratedName.generated(topic);
+    // When quoted identifiers are enabled, always quote auto-generated names to preserve case
+    if (enableQuotedIdentifiers) {
+      if (topic.length() >= 2
+          && topic.charAt(0) == '"'
+          && topic.charAt(topic.length() - 1) == '"') {
+        return GeneratedName.generated(topic);
+      }
+      return GeneratedName.generated("\"" + topic + "\"");
     }
 
-    // When quoted identifiers are enabled, preserve the original name with quotes
-    // instead of sanitizing it
-    if (enableQuotedIdentifiers) {
-      return GeneratedName.generated(quoteIdentifierIfNeeded(topic));
+    if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
+      return GeneratedName.generated(topic);
     }
 
     // Legacy sanitization behavior
