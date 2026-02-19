@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
@@ -54,6 +55,7 @@ class SnowflakeSinkRecordTest {
     assertTrue(record.isValid());
     assertFalse(record.isBroken());
     assertFalse(record.isTombstone());
+    assertNull(record.getBrokenReason());
     assertEquals(SnowflakeSinkRecord.RecordState.VALID, record.getState());
 
     Map<String, Object> content = record.getContent();
@@ -132,6 +134,7 @@ class SnowflakeSinkRecordTest {
     assertFalse(record.isValid());
     assertFalse(record.isBroken());
     assertTrue(record.isTombstone());
+    assertNull(record.getBrokenReason());
     assertEquals(SnowflakeSinkRecord.RecordState.TOMBSTONE, record.getState());
     assertTrue(record.getContent().isEmpty());
   }
@@ -152,6 +155,7 @@ class SnowflakeSinkRecordTest {
     assertFalse(record.isValid());
     assertTrue(record.isBroken());
     assertFalse(record.isTombstone());
+    assertNotNull(record.getBrokenReason());
     assertEquals(SnowflakeSinkRecord.RecordState.BROKEN, record.getState());
   }
 
@@ -171,6 +175,7 @@ class SnowflakeSinkRecordTest {
     assertTrue(record.isBroken());
     assertFalse(record.isValid());
     assertFalse(record.isTombstone());
+    assertNotNull(record.getBrokenReason());
     assertEquals(SnowflakeSinkRecord.RecordState.BROKEN, record.getState());
   }
 
