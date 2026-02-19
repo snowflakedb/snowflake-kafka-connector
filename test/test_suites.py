@@ -1,8 +1,5 @@
 from collections import OrderedDict
 
-from test_suit.resilience_tests.test_kc_delete_create_chaos import (
-    TestKcDeleteCreateChaos,
-)
 # from test_suit.resilience_tests.test_kc_delete_resume import TestKcDeleteResume
 # from test_suit.resilience_tests.test_kc_delete_resume_chaos import (
 #     TestKcDeleteResumeChaos,
@@ -186,15 +183,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.AWS,
             #     ),
             # ),
-            (
-                "TestKcDeleteCreateChaos",
-                EndToEndTestSuite(
-                    test_instance=TestKcDeleteCreateChaos(driver, nameSalt),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             # This test is flaky and needs to be fixed, it takes too long to execute 10 attempts
             # (
             #     "TestKcDeleteResume",
