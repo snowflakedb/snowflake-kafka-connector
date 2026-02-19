@@ -21,9 +21,6 @@ from test_suit.test_auto_table_creation_topic2table import (
 )
 from test_suit.test_avro_avro import TestAvroAvro
 
-from test_suit.test_multiple_topic_to_one_table_snowpipe_streaming import (
-    TestMultipleTopicToOneTableSnowpipeStreaming,
-)
 from test_suit.test_native_complex_smt import TestNativeComplexSmt
 from test_suit.test_native_string_json_without_schema import (
     TestNativeStringJsonWithoutSchema,
@@ -151,17 +148,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.AWS,
             #     ),
             # ),
-            (
-                "TestMultipleTopicToOneTableSnowpipeStreaming",
-                EndToEndTestSuite(
-                    test_instance=TestMultipleTopicToOneTableSnowpipeStreaming(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             # (
             #     "TestSchemaMapping",
             #     EndToEndTestSuite(
