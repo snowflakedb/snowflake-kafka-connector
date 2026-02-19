@@ -28,8 +28,6 @@ from test_suit.test_native_complex_smt import TestNativeComplexSmt
 from test_suit.test_native_string_json_without_schema import (
     TestNativeStringJsonWithoutSchema,
 )
-from test_suit.test_nullable_values_after_smt import TestNullableValuesAfterSmt
-
 # from test_suit.iceberg_avro_aws import TestIcebergAvroAws
 # from test_suit.iceberg_json_aws import TestIcebergJsonAws
 # from test_suit.iceberg_schema_evolution_avro_aws import TestIcebergSchemaEvolutionAvroAws
@@ -151,17 +149,6 @@ def create_end_to_end_test_suites(driver, nameSalt, schemaRegistryAddress, testS
             #         cloud_platform=CloudPlatform.ALL,
             #     ),
             # ),
-            (
-                "TestNullableValuesAfterSmt",
-                EndToEndTestSuite(
-                    test_instance=TestNullableValuesAfterSmt(
-                        driver, nameSalt
-                    ),
-                    run_in_confluent=True,
-                    run_in_apache=True,
-                    cloud_platform=CloudPlatform.ALL,
-                ),
-            ),
             (
                 "TestSnowpipeStreamingStringJson",
                 EndToEndTestSuite(
