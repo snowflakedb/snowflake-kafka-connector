@@ -8,6 +8,7 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -112,5 +113,44 @@ class ConnectionServiceIT {
     assert !service.isClosed();
     service.close();
     assert service.isClosed();
+  }
+
+  /**
+   * Integration test for SNOW-3029864: Verifies that the configured snowflake.role.name is actually
+   * used when establishing JDBC connections for DDL operations (table creation, schema checks,
+   * etc.).
+   */
+  @Test
+  void testRoleIsUsedInJdbcConnection() throws SQLException {
+    // given - connection service with role from config
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(true);
+    String expectedRole = config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
+    SnowflakeConnectionService service =
+        SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
+
+    String actualRole;
+    // when - get JDBC connection and query current role
+    try (Statement stmt = service.getConnection().createStatement();
+        ResultSet resultSet = stmt.executeQuery("SELECT CURRENT_ROLE()")) {
+      resultSet.next();
+      actualRole = resultSet.getString(1);
+    }
+
+    // then - the active role should match the configured role (case-insensitive, Snowflake
+    // uppercases)
+    assertThat(actualRole)
+        .as("JDBC connection should use the configured snowflake.role.name")
+        .isEqualToIgnoringCase(expectedRole);
+
+    // and - DDL operations (table creation) should work with this role
+    String testTable = TestUtils.randomTableName();
+    service.createTableWithMetadataColumn(testTable);
+    assertThat(service.tableExist(testTable))
+        .as("Table creation should succeed with the configured role")
+        .isTrue();
+
+    // cleanup
+    TestUtils.dropTable(testTable);
+    service.close();
   }
 }

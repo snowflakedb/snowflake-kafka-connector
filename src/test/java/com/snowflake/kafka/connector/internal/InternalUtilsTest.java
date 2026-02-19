@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;
@@ -9,6 +10,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import net.snowflake.client.core.SFSessionProperty;
 import org.junit.jupiter.api.Test;
 
 public class InternalUtilsTest {
@@ -114,6 +116,36 @@ public class InternalUtilsTest {
           t.remove(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
           InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
         });
+  }
+
+  /**
+   * Regression test for SNOW-3029864: snowflake.role.name must be propagated to the JDBC connection
+   * properties so that DDL operations (table creation, schema checks) run under the configured role
+   * rather than the user's default role.
+   */
+  @Test
+  public void testMakeJdbcDriverProperties_shouldIncludeRoleName() {
+    // given
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(true);
+    String expectedRole = config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
+    SnowflakeURL url = TestUtils.getUrl();
+
+    // when
+    Properties props =
+        InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(config, url);
+
+    // then — the role from connector config must appear in the JDBC properties
+    String rolePropertyKey = SFSessionProperty.ROLE.getPropertyKey();
+    assertTrue(
+        props.containsKey(rolePropertyKey),
+        "JDBC properties must contain the role property (key='"
+            + rolePropertyKey
+            + "'), but found keys: "
+            + props.keySet());
+    assertEquals(
+        expectedRole,
+        props.getProperty(rolePropertyKey),
+        "JDBC role property must match the configured snowflake.role.name");
   }
 
   @Test
