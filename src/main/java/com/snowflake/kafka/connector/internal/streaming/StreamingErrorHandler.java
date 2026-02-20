@@ -61,14 +61,18 @@ public class StreamingErrorHandler {
         LOGGER.warn(
             "Adding the message to Dead Letter Queue topic: {}",
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-        this.kafkaRecordErrorReporter.reportError(
-            kafkaSinkRecord,
+        Exception originalException =
             insertErrors.stream()
                 .findFirst()
                 .orElseThrow(
                     () ->
                         new IllegalStateException(
-                            "Reported record error, however exception list is empty.")));
+                            "Reported record error, however exception list is empty."));
+        // Wrap in DataException for KCv3 compatibility while preserving original exception
+        DataException wrappedException =
+            new DataException(
+                "Error converting record: " + originalException.getMessage(), originalException);
+        this.kafkaRecordErrorReporter.reportError(kafkaSinkRecord, wrappedException);
       }
     } else {
       final String errMsg =

@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -17,7 +16,6 @@ import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPart
 import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
-import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -130,11 +128,18 @@ class StreamingErrorHandlerIT {
         errorReporter.getReportedRecords().get(0);
     assertEquals(brokenSinkRecord, reported.getRecord());
 
-    // The DLQ should receive the original conversion exception, not a generic DataException
+    // DLQ should receive DataException (KCv3-compatible) with original exception as cause
     assertTrue(
-        reported.getException() instanceof SnowflakeKafkaConnectorException,
-        "DLQ should receive the original SnowflakeKafkaConnectorException from convertToMap, got: "
+        reported.getException() instanceof DataException,
+        "DLQ should receive DataException wrapper, got: "
             + reported.getException().getClass().getName());
+    assertNotNull(
+        reported.getException().getCause(),
+        "DataException should have the original exception as cause");
+    assertTrue(
+        reported.getException().getCause() instanceof SnowflakeKafkaConnectorException,
+        "DataException cause should be SnowflakeKafkaConnectorException, got: "
+            + reported.getException().getCause().getClass().getName());
   }
 
   @Test
@@ -154,13 +159,12 @@ class StreamingErrorHandlerIT {
         errorReporter.getReportedRecords().get(0);
     assertEquals(brokenSinkRecord, reported.getRecord());
 
-    // The DLQ exception must be the exact same instance captured in SnowflakeSinkRecord
-    SnowflakeSinkRecord sinkRecord =
-        SnowflakeSinkRecord.from(brokenSinkRecord, new SnowflakeMetadataConfig());
-    assertSame(
-        sinkRecord.getBrokenReason().getClass(),
-        reported.getException().getClass(),
-        "DLQ exception type should match the original brokenReason type");
+    // DLQ should receive DataException wrapper with original exception as cause
+    assertTrue(
+        reported.getException() instanceof DataException,
+        "DLQ should receive DataException wrapper, got: "
+            + reported.getException().getClass().getName());
+    assertNotNull(reported.getException().getCause(), "DataException should have cause");
   }
 
   @Test
