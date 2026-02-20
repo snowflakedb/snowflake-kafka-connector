@@ -18,64 +18,39 @@ def errorExit(message):
     exit(1)
 
 
-# These tests run from StressTest.yml file and not ran while running End-To-End Tests
-def runStressTests(driver, testSet, nameSalt):
-    from test_suit.test_pressure import TestPressure
-    from test_suit.test_pressure_restart import TestPressureRestart
-
-    testPressure = TestPressure(driver, nameSalt)
-
-    # This test is more of a chaos test where we pause, delete, restart connectors to verify behavior.
-    testPressureRestart = TestPressureRestart(driver, nameSalt)
-
-    ############################ Stress Tests Round 1 ############################
-    # TestPressure and TestPressureRestart will only run when Running StressTests
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 1 ===")
-    execution(testSet, [testPressureRestart], driver, nameSalt, round=1)
-    ############################ Stress Tests Round 1 ############################
-
-    ############################ Stress Tests Round 2 ############################
-    print(datetime.now().strftime("\n%H:%M:%S "), "=== Stress Tests Round 2 ===")
-    execution(testSet, [testPressure], driver, nameSalt, round=1)
-    ############################ Stress Tests Round 2 ############################
-
-
 def runTestSet(driver, testSet, nameSalt, enable_stress_test, skipProxy, cloud_platform, allowedTestsCsv):
-    if enable_stress_test:
-        runStressTests(driver, testSet, nameSalt)
-    else:
-        ############################ round 1 ############################
-        print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
+    ############################ round 1 ############################
+    print(datetime.now().strftime("\n%H:%M:%S "), "=== Round 1 ===")
 
-        testSelector = TestSelector()
-        end_to_end_tests_suite = testSelector.select_tests_to_be_run(driver, nameSalt, schemaRegistryAddress, testSet, cloud_platform, allowedTestsCsv)
+    testSelector = TestSelector()
+    end_to_end_tests_suite = testSelector.select_tests_to_be_run(driver, nameSalt, schemaRegistryAddress, testSet, cloud_platform, allowedTestsCsv)
 
-        execution(testSet, end_to_end_tests_suite, driver, nameSalt)
+    execution(testSet, end_to_end_tests_suite, driver, nameSalt)
 
-        ############################ Always run Proxy tests in the end ############################
+    ############################ Always run Proxy tests in the end ############################
 
-        ############################ Proxy End To End Test ############################
-        # Don't run proxy tests locally
-        # TODO: proxy test has been disabled after removing ssv1 support. Return to this when able
-        # if skipProxy:
-        #     return
-        #
-        # print("Running Proxy tests")
-        #
-        # from test_suit.test_string_json_proxy import TestStringJsonProxy
-        # from test_suites import EndToEndTestSuite
-        #
-        # print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
-        # print("Proxy Test should be the last test, since it modifies the JVM values")
-        #
-        # proxy_tests_suite = [EndToEndTestSuite(
-        #     test_instance=TestStringJsonProxy(driver, nameSalt), run_in_confluent=True, run_in_apache=True, cloud_platform = CloudPlatform.ALL
-        # )]
-        #
-        # end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
-        #
-        # execution(testSet, end_to_end_proxy_tests_suite, driver, nameSalt)
-        ############################ Proxy End To End Test End ############################
+    ############################ Proxy End To End Test ############################
+    # Don't run proxy tests locally
+    # TODO: proxy test has been disabled after removing ssv1 support. Return to this when able
+    # if skipProxy:
+    #     return
+    #
+    # print("Running Proxy tests")
+    #
+    # from test_suit.test_string_json_proxy import TestStringJsonProxy
+    # from test_suites import EndToEndTestSuite
+    #
+    # print(datetime.now().strftime("\n%H:%M:%S "), "=== Last Round: Proxy E2E Test ===")
+    # print("Proxy Test should be the last test, since it modifies the JVM values")
+    #
+    # proxy_tests_suite = [EndToEndTestSuite(
+    #     test_instance=TestStringJsonProxy(driver, nameSalt), run_in_confluent=True, run_in_apache=True, cloud_platform = CloudPlatform.ALL
+    # )]
+    #
+    # end_to_end_proxy_tests_suite = [single_end_to_end_test.test_instance for single_end_to_end_test in proxy_tests_suite]
+    #
+    # execution(testSet, end_to_end_proxy_tests_suite, driver, nameSalt)
+    ############################ Proxy End To End Test End ############################
 
 
 def execution(testSet, testSuitList, driver, nameSalt, round=1):

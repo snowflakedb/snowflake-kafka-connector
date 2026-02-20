@@ -36,4 +36,4 @@ class TestNativeComplexSmt(BaseE2eTest):
         self.driver.regexMatchOneLine(res, goldMeta, goldContent)
 
     def clean(self):
-        self.driver.cleanTableStagePipe(self.topic, self.table)
+        self.driver.cleanTableStagePipe(self.topic)

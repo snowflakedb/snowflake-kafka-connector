@@ -247,23 +247,9 @@ class KafkaDriver:
     def get_kafka_version(self):
         return self.testVersion
 
-    def cleanTableStagePipe(self, connectorName, topicName="", partitionNumber=1):
-        if not topicName:
-            topicName = connectorName
-        tableName = topicName
-
-        logger.info(f"=== Drop table {tableName} ===")
-        self.snowflake_conn.cursor().execute(f"DROP table IF EXISTS {tableName}")
-
-        for p in range(partitionNumber):
-            pipeName = f"SNOWFLAKE_KAFKA_CONNECTOR_{connectorName}_PIPE_{topicName}_{p}"
-            logger.info(f"=== Drop pipe {pipeName} ===")
-            self.snowflake_conn.cursor().execute(f"DROP pipe IF EXISTS {pipeName}")
-
-        ssv2PipeName = f"SNOWFLAKE_KAFKA_CONNECTOR_SSV2_PIPE_{tableName}"
-        self.snowflake_conn.cursor().execute(f"DROP PIPE IF EXISTS {ssv2PipeName}")
-
-        logger.info("=== Done ===")
+    def cleanTableStagePipe(self, topic: str):
+        logger.info(f"=== Drop table {topic} ===")
+        self.snowflake_conn.cursor().execute(f"DROP table IF EXISTS {topic}")
 
     def enable_schema_evolution_for_iceberg(self, table: str):
         self.snowflake_conn.cursor().execute(f"alter iceberg table {table} set ENABLE_SCHEMA_EVOLUTION = true")
