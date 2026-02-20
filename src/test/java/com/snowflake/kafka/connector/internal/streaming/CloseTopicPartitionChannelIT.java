@@ -6,7 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.ConnectClusterBaseIT;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import java.time.Duration;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -27,14 +27,14 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
     connectorName = topicName + "_connector";
     connectCluster.kafka().createTopic(topicName, PARTITIONS_NUMBER);
     // JVM scoped Ingest client mock
-    StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
+    StreamingClientFactory.setStreamingClientSupplier(fakeClientSupplier);
     generateKafkaMessages();
   }
 
   @AfterEach
   void tearDown() {
     connectCluster.kafka().deleteTopic(topicName);
-    StreamingClientManager.resetIngestClientSupplier();
+    StreamingClientFactory.resetStreamingClientSupplier();
     TestUtils.dropTable(topicName);
   }
 

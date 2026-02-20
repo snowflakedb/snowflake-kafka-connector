@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelIns
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
@@ -271,7 +272,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.getChannelNameFormatV1());
 
-          StreamingClientManager.getClient(
+          StreamingClientPools.getClient(
                   connectorName, taskId, pipeName, connectorConfig, streamingClientProperties)
               .initiateFlush();
 
@@ -517,7 +518,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    */
   private SnowflakeStreamingIngestChannel openChannelForTable(final String channelName) {
     final SnowflakeStreamingIngestClient streamingIngestClient =
-        StreamingClientManager.getClient(
+        StreamingClientPools.getClient(
             connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
     // Close old channel before reopening a new one. We don't want to wait for the channel to flush
     // since it will be reopened right away and the in-progress data will be lost.

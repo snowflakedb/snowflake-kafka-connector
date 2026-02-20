@@ -4,8 +4,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import dev.failsafe.Fallback;
-import java.util.concurrent.CompletableFuture;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public interface TopicPartitionChannel {
