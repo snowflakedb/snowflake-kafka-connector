@@ -25,11 +25,13 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import dev.failsafe.FailsafeExecutor;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -351,6 +353,18 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     return offsetTokenExecutor.get(this::fetchLatestCommittedOffsetFromSnowflake);
   }
 
+  private void closeChannelWithoutFlushing() {
+    try {
+      channel.close(false /* waitForFlush */, Duration.ZERO);
+    } catch (TimeoutException e) {
+      // This should never happen since we are not waiting for the channel to flush.
+      throw new RuntimeException(
+          String.format(
+              "Error closing channel %s: %s",
+              channel.getFullyQualifiedChannelName(), e.getMessage()));
+    }
+  }
+
   /**
    * Fallback function to be executed when either of insertRows API or getOffsetToken sends
    * SFException.
@@ -372,9 +386,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         streamingApiFallbackInvoker,
         this.getChannelNameFormatV1());
 
-    // close old channel before reopening a new one
+    // Close old channel before reopening a new one. We don't want to wait for the channel to flush
+    // since it will be reopened right away and the in-progress data will be lost.
     if (!channel.isClosed()) {
-      channel.close();
+      closeChannelWithoutFlushing();
     }
     SnowflakeStreamingIngestChannel newChannel = openChannelForTable(channelName);
 
@@ -504,13 +519,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     final SnowflakeStreamingIngestClient streamingIngestClient =
         StreamingClientManager.getClient(
             connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
-    // always close the channel first before attempting to open/reopen it. This is to prevent the
-    // "Channel xxx has already been opened on the client. Please close the channel first before
-    // re-opening"
-    // adding additional safety
+    // Close old channel before reopening a new one. We don't want to wait for the channel to flush
+    // since it will be reopened right away and the in-progress data will be lost.
     if (channelIsOpen()) {
-      this.channel.close();
+      closeChannelWithoutFlushing();
     }
+
     final OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
     final ChannelStatus channelStatus = result.getChannelStatus();
     if (channelStatus.getStatusCode().equals("SUCCESS")) {
@@ -542,7 +556,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private CompletableFuture<Void> closeChannelWrapped() {
     try {
-      return CompletableFuture.runAsync(() -> channel.close());
+      return CompletableFuture.runAsync(() -> closeChannelWithoutFlushing());
     } catch (SFException e) {
       // Calling channel.close() can throw an SFException if the channel has been invalidated
       // already. Wrapping the exception into a CompletableFuture to keep a consistent method chain.
