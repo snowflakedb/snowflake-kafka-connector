@@ -69,7 +69,7 @@ class TestPressure(BaseE2eTest):
         threadPool = ThreadPool(self.threadCount)
         args = []
         for t in range(self.topicNum):
-            args.append((self.connectorName, self.topics[t], self.partitionNum))
+            args.append(self.topics[t])
         threadPool.starmap(self.driver.cleanTableStagePipe, args)
         threadPool.close()
         threadPool.join()
