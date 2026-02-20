@@ -33,7 +33,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.apache.kafka.connect.sink.SinkTaskContext;
@@ -238,7 +237,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
       if (record.isBroken()) {
         LOGGER.debug("Broken record offset:{}, topic:{}", kafkaOffset, kafkaSinkRecord.topic());
-        kafkaRecordErrorReporter.reportError(kafkaSinkRecord, new DataException("Broken Record"));
+        streamingErrorHandler.handleError(record.getBrokenReason(), kafkaSinkRecord);
       } else {
         // If we reach here, it means we should ingest a record (possibly empty for tombstones)
         final Map<String, Object> transformedRecord =

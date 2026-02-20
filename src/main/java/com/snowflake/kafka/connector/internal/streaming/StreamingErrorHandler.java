@@ -7,6 +7,7 @@ import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.connect.errors.DataException;
@@ -35,6 +36,10 @@ public class StreamingErrorHandler {
     this.telemetryServiceV2 = telemetryServiceV2;
   }
 
+  public void handleError(Exception error, SinkRecord kafkaSinkRecord) {
+    handleError(Collections.singletonList(error), kafkaSinkRecord);
+  }
+
   public void handleError(List<Exception> insertErrors, SinkRecord kafkaSinkRecord) {
     if (logErrors) {
       for (Exception insertError : insertErrors) {
@@ -43,23 +48,31 @@ public class StreamingErrorHandler {
     }
     if (errorTolerance) {
       if (!isDLQTopicSet) {
-        LOGGER.warn(
-            "{} is set, however {} is not. The message will not be added to the Dead Letter Queue"
-                + " topic.",
-            ERRORS_TOLERANCE_CONFIG,
-            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
+        final String errMsg =
+            String.format(
+                "%s is set, however %s is not configured. Cannot route errant record to Dead Letter"
+                    + " Queue. Original error: %s",
+                ERRORS_TOLERANCE_CONFIG,
+                ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
+                insertErrors.get(0).getMessage());
+        this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
+        throw new DataException(errMsg, insertErrors.get(0));
       } else {
         LOGGER.warn(
             "Adding the message to Dead Letter Queue topic: {}",
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-        this.kafkaRecordErrorReporter.reportError(
-            kafkaSinkRecord,
+        Exception originalException =
             insertErrors.stream()
                 .findFirst()
                 .orElseThrow(
                     () ->
                         new IllegalStateException(
-                            "Reported record error, however exception list is empty.")));
+                            "Reported record error, however exception list is empty."));
+        // Wrap in DataException for KCv3 compatibility while preserving original exception
+        DataException wrappedException =
+            new DataException(
+                "Error converting record: " + originalException.getMessage(), originalException);
+        this.kafkaRecordErrorReporter.reportError(kafkaSinkRecord, wrappedException);
       }
     } else {
       final String errMsg =

@@ -174,6 +174,11 @@ public class SmtIT extends ConnectClusterBaseIT {
         "transforms.extractField.type", "org.apache.kafka.connect.transforms.ExtractField$Value");
     config.put("transforms.extractField.field", "message");
 
+    // Allow broken records (plain Strings after SMT) to be sent to DLQ instead of failing
+    config.put("errors.tolerance", "all");
+    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
+    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+
     return config;
   }
 
