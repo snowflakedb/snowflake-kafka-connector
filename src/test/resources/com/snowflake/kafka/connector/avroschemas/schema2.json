@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "value_schema_1",
+  "fields": [
+    {
+      "name": "RATING_DOUBLE",
+      "type": "float"
+    },
+    {
+      "name": "PERFORMANCE_STRING",
+      "type": "string"
+    },
+    {
+      "name": "APPROVAL",
+      "type": "boolean"
+    },
+    {
+      "name": "SOME_FLOAT_NAN",
+      "type": "float"
+    }
+  ]
+}

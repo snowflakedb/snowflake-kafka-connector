@@ -1,0 +1,48 @@
+{
+  "type": "record",
+  "name": "value_schema_0",
+  "fields": [
+    {
+      "name": "PERFORMANCE_CHAR",
+      "type": "string"
+    },
+    {
+      "name": "PERFORMANCE_STRING",
+      "type": "string"
+    },
+    {
+      "name": "TIME_MILLIS",
+      "type": {
+        "type": "int",
+        "logicalType": "time-millis"
+      }
+    },
+    {
+      "name": "DATE",
+      "type": {
+        "type": "int",
+        "logicalType": "date"
+      }
+    },
+    {
+      "name": "DECIMAL",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 4,
+        "scale": 2
+      }
+    },
+    {
+      "name": "TIMESTAMP_MILLIS",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "RATING_INT",
+      "type": "int"
+    }
+  ]
+}
