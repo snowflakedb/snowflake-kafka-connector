@@ -70,4 +70,4 @@ class TestPressureRestart(BaseE2eTest):
 
     def clean(self):
         for t in range(self.topicNum):
-            self.driver.cleanTableStagePipe(self.connectorName, self.topics[t], self.partitionNum)
+            self.driver.cleanTableStagePipe(self.topics[t])
