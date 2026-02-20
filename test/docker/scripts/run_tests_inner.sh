@@ -19,12 +19,6 @@ echo "Kafka Connect: http://${KAFKA_CONNECT_HOST}:${KAFKA_CONNECT_PORT}"
 echo "Schema Registry: ${SCHEMA_REGISTRY_URL}"
 echo "Test Set: ${TEST_SET}"
 
-# Generate name salt if not provided
-if [ -z "$TEST_NAME_SALT" ]; then
-    TEST_NAME_SALT="_$(echo $RANDOM$RANDOM | base64 | cut -c1-7)"
-fi
-echo "Name Salt: ${TEST_NAME_SALT}"
-
 # Compile protobuf for Python (Java compilation not needed - connector has its own)
 echo -e "\n=== Compiling protobuf ==="
 echo "protoc version: $(protoc --version)"
@@ -49,57 +43,19 @@ KAFKA_ADDRESS="${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}"
 SC_URL="${SCHEMA_REGISTRY_URL:-http://schema-registry:8081}"
 KC_ADDRESS="${KAFKA_CONNECT_HOST}:${KAFKA_CONNECT_PORT}"
 
-# Build arguments for tests
-TESTS_ARG=""
-if [ -n "$TESTS_TO_RUN" ]; then
-    TESTS_ARG="$TESTS_TO_RUN"
-fi
-
-PYTEST_EXIT_CODE=0
-if [ "$PRESSURE_TEST" != "true" ]; then
-    echo -e "\n=== Running pytest tests ==="
-    EXTRA_PYTEST_ARGS=()
-    if [ -n "$TESTS_TO_RUN" ]; then
-        EXTRA_PYTEST_ARGS+=(-k "$TESTS_TO_RUN")
-    fi
-    set +e
-    pytest \
-        --kafka-address "$KAFKA_ADDRESS" \
-        --schema-registry-address "$SC_URL" \
-        --kafka-connect-address "$KC_ADDRESS" \
-        --platform "$TEST_SET" \
-        --platform-version "$VERSION" \
-        --name-salt "$TEST_NAME_SALT" \
-        -v \
-        "${EXTRA_PYTEST_ARGS[@]}"
-    PYTEST_EXIT_CODE=$?
-    # pytest returns 5 if no tests were found - this is OK if we provided a filter
-    # TODO: remove once all tests run using pytest
-    if [ -n "$TESTS_TO_RUN" ] && [ $PYTEST_EXIT_CODE -eq 5 ]; then
-        echo -e "\n=== No tests found for filter - skipping ==="
-        PYTEST_EXIT_CODE=0
-    fi
-    set -e
+echo -e "\n=== Running pytest tests ==="
+PRESSURE_ARGS=()
+if [ "$PRESSURE_TEST" = "true" ]; then
+    PRESSURE_ARGS+=(-m pressure)
 else
-    echo -e "\n=== Skipping pytest (pressure test) ==="
+    PRESSURE_ARGS+=(-m 'not pressure')
 fi
-
-echo -e "\n=== Running legacy infra pre-test cleanup ==="
-python3 test_verify.py "$KAFKA_ADDRESS" "$SC_URL" "$KC_ADDRESS" clean "$VERSION" "$TEST_NAME_SALT" "$PRESSURE_TEST" "false" "false" "$TESTS_ARG" || true
-
-echo -e "\n=== Running legacy infra tests ==="
-set +e
-python3 test_verify.py "$KAFKA_ADDRESS" "$SC_URL" "$KC_ADDRESS" "$TEST_SET" "$VERSION" "$TEST_NAME_SALT" "$PRESSURE_TEST" "false" "false" "$TESTS_ARG"
-TEST_EXIT_CODE=$?
-set -e
-
-echo -e "\n=== Running legacy infra post-test cleanup ==="
-python3 test_verify.py "$KAFKA_ADDRESS" "$SC_URL" "$KC_ADDRESS" clean "$VERSION" "$TEST_NAME_SALT" "$PRESSURE_TEST" "false" "false" "$TESTS_ARG" || true
-
-if [ $PYTEST_EXIT_CODE -ne 0 ] || [ $TEST_EXIT_CODE -ne 0 ]; then
-    echo -e "\n\033[0;31m=== TESTS FAILED ===\033[0m"
-    exit 1
-fi
-
-echo -e "\n\033[0;32m=== ALL TESTS PASSED ===\033[0m"
-exit 0
+pytest \
+    --kafka-address "$KAFKA_ADDRESS" \
+    --schema-registry-address "$SC_URL" \
+    --kafka-connect-address "$KC_ADDRESS" \
+    --platform "$TEST_SET" \
+    --platform-version "$VERSION" \
+    -v \
+    "${PRESSURE_ARGS[@]}" \
+    "$@"
