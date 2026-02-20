@@ -9,7 +9,7 @@
 #   ./run_tests.sh --platform=apache --version=2.8.2
 #   ./run_tests.sh --platform=apache --version=3.7.0
 #   ./run_tests.sh --platform=confluent --version=7.8.0
-#   ./run_tests.sh --platform=confluent --version=6.2.15 --tests=test_string_json
+#   ./run_tests.sh --platform=confluent --version=7.8.0 -- tests/test_string_json.py
 #
 # Prerequisites:
 #   - Docker and Docker Compose
@@ -53,12 +53,12 @@ usage() {
     echo "Options:"
     echo "  --cloud=CLOUD        Snowflake cloud platform: AWS, GCP, or AZURE"
     echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
-    echo "  --tests=TEST1,TEST2  Run specific tests only"
     echo "  --pressure           Run pressure tests"
     echo "  --keep               Keep containers running after tests"
     echo "  --rebuild            Force rebuild of images"
     echo "  --logs-dir=DIR       Save service logs to a file in DIR on failure"
     echo "  -h, --help           Show this help message"
+    echo "  -- ARGS              Pass remaining args directly to pytest"
     echo ""
     echo "Environment:"
     echo "  SNOWFLAKE_CREDENTIAL_FILE  Path to Snowflake credentials JSON (required)"
@@ -66,7 +66,7 @@ usage() {
     echo "Examples:"
     echo "  $0 --platform=confluent --version=7.8.0"
     echo "  $0 --platform=apache --version=2.8.2"
-    echo "  $0 --platform=confluent --version=7.8.0 --tests=test_string_json"
+    echo "  $0 --platform=confluent --version=7.8.0 -- -k test_string_json"
     echo "  $0 --platform=apache --version=3.7.0 --pressure --keep"
     echo "  $0 --platform=confluent --version=7.8.0 --logs-dir=/tmp/test-logs"
     exit 1
@@ -76,11 +76,11 @@ usage() {
 PLATFORM=""
 VERSION=""
 JAVA_VERSION="11"
-TESTS_TO_RUN=""
 PRESSURE_TEST="false"
 KEEP_RUNNING="false"
 FORCE_REBUILD="false"
 LOGS_DIR=""
+PASSTHROUGH_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -98,10 +98,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --java-version=*)
             JAVA_VERSION="${1#*=}"
-            shift
-            ;;
-        --tests=*)
-            TESTS_TO_RUN="${1#*=}"
             shift
             ;;
         --pressure)
@@ -122,6 +118,11 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             usage
+            ;;
+        --)
+            shift
+            PASSTHROUGH_ARGS=("$@")
+            break
             ;;
         *)
             error_exit "Unknown option: $1"
@@ -261,7 +262,6 @@ export CONNECTOR_PLUGIN_PATH="$PLUGIN_DIR"
 export EXTRA_JARS_PATH="$EXTRA_JARS_DIR"
 export TEST_NAME_SALT
 export PRESSURE_TEST
-export TESTS_TO_RUN
 export SF_CLOUD_PLATFORM="${SF_CLOUD_PLATFORM:-}"
 
 cd "$SCRIPT_DIR"
@@ -318,7 +318,7 @@ fi
 # Run tests
 info "Running tests..."
 set +e
-docker compose $COMPOSE_FILES run --rm -i test-runner
+docker compose $COMPOSE_FILES run --rm -i test-runner ./scripts/run_tests_inner.sh "${PASSTHROUGH_ARGS[@]}"
 TEST_EXIT_CODE=$?
 set -e
 
