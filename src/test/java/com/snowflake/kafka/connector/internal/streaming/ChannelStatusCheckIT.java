@@ -9,7 +9,7 @@ import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -72,7 +72,7 @@ class ChannelStatusCheckIT {
     connectorName = topicName + "_connector";
     connectCluster.kafka().createTopic(topicName, PARTITIONS_NUMBER);
     TestUtils.getConnectionService().createTableWithMetadataColumn(topicName);
-    StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
+    StreamingClientFactory.setStreamingClientSupplier(fakeClientSupplier);
   }
 
   @AfterEach
@@ -80,7 +80,7 @@ class ChannelStatusCheckIT {
     connectCluster.deleteConnector(connectorName);
     waitForConnectorStopped(connectorName);
     connectCluster.kafka().deleteTopic(topicName);
-    StreamingClientManager.resetIngestClientSupplier();
+    StreamingClientFactory.resetStreamingClientSupplier();
     TestUtils.dropTable(topicName);
   }
 

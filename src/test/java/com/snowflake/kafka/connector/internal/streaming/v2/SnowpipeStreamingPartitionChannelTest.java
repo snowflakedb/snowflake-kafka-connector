@@ -17,6 +17,8 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientSupplier;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.time.Duration;
@@ -40,7 +42,7 @@ class SnowpipeStreamingPartitionChannelTest {
   private static final String TOPIC_NAME = "test_topic";
   private static final int PARTITION = 0;
 
-  // Use unique names per test to avoid StreamingClientManager caching issues
+  // Use unique names per test to avoid StreamingClientPools caching issues
   private String connectorName;
   private String channelName;
   private String pipeName;
@@ -54,7 +56,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
   @BeforeEach
   void setUp() {
-    // Generate unique names to avoid StreamingClientManager caching issues between tests
+    // Generate unique names to avoid StreamingClientPools caching issues between tests
     final String uniqueId = UUID.randomUUID().toString().substring(0, 8);
     connectorName = "test_connector_" + uniqueId;
     channelName = "test_channel_" + uniqueId;
@@ -72,12 +74,12 @@ class SnowpipeStreamingPartitionChannelTest {
 
     connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
     trackingClientSupplier = new TrackingIngestClientSupplier();
-    StreamingClientManager.setIngestClientSupplier(trackingClientSupplier);
+    StreamingClientFactory.setStreamingClientSupplier(trackingClientSupplier);
   }
 
   @AfterEach
   void tearDown() {
-    StreamingClientManager.resetIngestClientSupplier();
+    StreamingClientFactory.resetStreamingClientSupplier();
   }
 
   @Test
@@ -133,8 +135,8 @@ class SnowpipeStreamingPartitionChannelTest {
         mockErrorHandler);
   }
 
-  /** Custom IngestClientSupplier that tracks channel operations for verification in tests. */
-  static class TrackingIngestClientSupplier implements IngestClientSupplier {
+  /** Custom StreamingClientSupplier that tracks channel operations for verification in tests. */
+  static class TrackingIngestClientSupplier implements StreamingClientSupplier {
 
     private final AtomicInteger closeCallCount = new AtomicInteger(0);
     private final AtomicInteger totalChannelsCreated = new AtomicInteger(0);
