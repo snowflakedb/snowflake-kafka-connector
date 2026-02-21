@@ -9,6 +9,9 @@ import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvid
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.ingest.streaming.ChannelStatus;
+import com.snowflake.ingest.streaming.ChannelStatusBatch;
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
@@ -22,9 +25,11 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -90,6 +95,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private boolean enableCustomJMXMonitoring = KafkaConnectorConfigParams.JMX_OPT_DEFAULT;
   // Whether to tolerate errors during ingestion (based on errors.tolerance config)
   private final boolean tolerateErrors;
+  // Used to look up existing SDK clients when doing batch offset fetching
+  private final StreamingClientProperties streamingClientProperties;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -129,6 +136,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
+    this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
 
     LOGGER.info(
         "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {}",
@@ -386,6 +394,70 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           topicPartition.topic(),
           topicPartition.partition());
       return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    }
+  }
+
+  @Override
+  public Map<TopicPartition, Long> getCommittedOffsets(
+      final Collection<TopicPartition> partitions) {
+
+    // Build a mapping: pipeName → list of (channelName, TopicPartition, TopicPartitionChannel)
+    Map<String, List<ChannelEntry>> byPipe = new HashMap<>();
+    for (TopicPartition tp : partitions) {
+      String channelName = makeChannelName(this.connectorName, tp.topic(), tp.partition());
+      TopicPartitionChannel channel = partitionsToChannel.get(channelName);
+      if (channel == null) {
+        LOGGER.warn(
+            "Topic: {} Partition: {} hasn't been initialized to get offset",
+            tp.topic(),
+            tp.partition());
+        continue;
+      }
+      byPipe
+          .computeIfAbsent(channel.getPipeName(), k -> new ArrayList<>())
+          .add(new ChannelEntry(channelName, tp, channel));
+    }
+
+    Map<TopicPartition, Long> result = new HashMap<>();
+
+    for (Map.Entry<String, List<ChannelEntry>> entry : byPipe.entrySet()) {
+      String pipeName = entry.getKey();
+      List<ChannelEntry> channels = entry.getValue();
+
+      List<String> channelNames =
+          channels.stream().map(c -> c.channelName).collect(Collectors.toList());
+
+      SnowflakeStreamingIngestClient client =
+          StreamingClientPools.getClient(
+              connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
+      ChannelStatusBatch batch = client.getChannelStatus(channelNames);
+
+      for (ChannelEntry ce : channels) {
+        ChannelStatus status = batch.getChannelStatusBatch().get(ce.channelName);
+        if (status == null) {
+          LOGGER.warn("No status returned for channel: {}", ce.channelName);
+          continue;
+        }
+        long offset = ce.channel.processChannelStatus(status, tolerateErrors);
+        LOGGER.info(
+            "Fetched snowflake committed offset: [{}] for channel [{}]", offset, ce.channelName);
+        if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+          result.put(ce.topicPartition, offset);
+        }
+      }
+    }
+    return result;
+  }
+
+  private static final class ChannelEntry {
+    final String channelName;
+    final TopicPartition topicPartition;
+    final TopicPartitionChannel channel;
+
+    ChannelEntry(String channelName, TopicPartition topicPartition, TopicPartitionChannel channel) {
+      this.channelName = channelName;
+      this.topicPartition = topicPartition;
+      this.channel = channel;
     }
   }
 

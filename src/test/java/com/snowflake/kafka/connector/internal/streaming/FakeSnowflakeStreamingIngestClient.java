@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -107,7 +108,22 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
 
   @Override
   public ChannelStatusBatch getChannelStatus(final List<String> channelNames) {
-    throw new UnsupportedOperationException();
+    Map<String, ChannelStatus> statusMap = new HashMap<>();
+    for (String name : channelNames) {
+      // Find the most recently opened channel with this name
+      FakeSnowflakeStreamingIngestChannel channel = null;
+      for (int i = openedChannels.size() - 1; i >= 0; i--) {
+        FakeSnowflakeStreamingIngestChannel c = openedChannels.get(i);
+        if (c.getFullyQualifiedChannelName().equals(name)) {
+          channel = c;
+          break;
+        }
+      }
+      if (channel != null) {
+        statusMap.put(name, channel.getChannelStatus());
+      }
+    }
+    return new ChannelStatusBatch(statusMap);
   }
 
   @Override

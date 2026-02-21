@@ -5,6 +5,7 @@ import static java.util.List.copyOf;
 import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -112,7 +113,28 @@ public class FakeSnowflakeStreamingIngestChannel
     if (channelStatus == null) {
       throw new UnsupportedOperationException("ChannelStatus not configured for test");
     }
-    return channelStatus;
+    // Build a fresh status reflecting the current offset token so the batch path sees up-to-date
+    // committed offsets.
+    long errorCount =
+        parentClient != null
+            ? parentClient.getErrorCountForChannel(channelName)
+            : channelStatus.getRowsErrorCount();
+    return new ChannelStatus(
+        channelStatus.getDatabaseName(),
+        channelStatus.getSchemaName(),
+        channelStatus.getPipeName(),
+        channelStatus.getChannelName(),
+        channelStatus.getStatusCode(),
+        offsetToken,
+        channelStatus.getCreatedOn(),
+        channelStatus.getRowsInsertedCount(),
+        channelStatus.getRowsParsedCount(),
+        errorCount,
+        channelStatus.getLastErrorOffsetTokenUpperBound(),
+        channelStatus.getLastErrorMessage(),
+        channelStatus.getLastErrorTimestamp(),
+        channelStatus.getServerAvgProcessingLatency(),
+        Instant.now());
   }
 
   public void setChannelStatus(final ChannelStatus channelStatus) {

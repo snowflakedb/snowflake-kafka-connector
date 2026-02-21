@@ -179,6 +179,8 @@ class SnowpipeStreamingPartitionChannelTest {
 
     private final String pipeName;
     private final TrackingIngestClientSupplier supplier;
+    private final java.util.concurrent.ConcurrentHashMap<String, TrackingStreamingIngestChannel>
+        channels = new java.util.concurrent.ConcurrentHashMap<>();
 
     TrackingStreamingIngestClient(
         final String pipeName, final TrackingIngestClientSupplier supplier) {
@@ -208,6 +210,7 @@ class SnowpipeStreamingPartitionChannelTest {
               Instant.now());
       final TrackingStreamingIngestChannel channel =
           new TrackingStreamingIngestChannel(pipeName, channelName, supplier);
+      channels.put(channelName, channel);
       return new OpenChannelResult(channel, channelStatus);
     }
 
@@ -240,7 +243,14 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public ChannelStatusBatch getChannelStatus(final List<String> channelNames) {
-      throw new UnsupportedOperationException();
+      java.util.Map<String, ChannelStatus> statusMap = new java.util.HashMap<>();
+      for (String name : channelNames) {
+        TrackingStreamingIngestChannel ch = channels.get(name);
+        if (ch != null) {
+          statusMap.put(name, ch.getChannelStatus());
+        }
+      }
+      return new ChannelStatusBatch(statusMap);
     }
 
     @Override

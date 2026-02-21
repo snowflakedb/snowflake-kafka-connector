@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.channel;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import dev.failsafe.Fallback;
@@ -72,6 +73,20 @@ public interface TopicPartitionChannel {
   void setLatestConsumerGroupOffset(long consumerOffset);
 
   void checkChannelStatusAndLogErrors(boolean tolerateErrors);
+
+  /**
+   * Processes an externally-fetched channel status: logs it, checks for errors, updates offset
+   * tracking, and returns the offset safe to commit to Kafka.
+   *
+   * @param status the channel status fetched via the batch API
+   * @param tolerateErrors whether to tolerate ingestion errors
+   * @return (offsetToken + 1) safe to commit to Kafka, or {@link
+   *     #NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE} if no offset is available
+   */
+  long processChannelStatus(ChannelStatus status, boolean tolerateErrors);
+
+  /** Returns the pipe name associated with this channel's SDK client. */
+  String getPipeName();
 
   default CompletableFuture<Void> waitForLastProcessedRecordCommitted() {
     return CompletableFuture.completedFuture(null);

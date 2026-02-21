@@ -16,8 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -27,7 +25,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
-import com.snowflake.kafka.connector.internal.streaming.RoundRobinScheduler;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
@@ -38,7 +35,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -92,9 +88,6 @@ public class SnowflakeSinkTask extends SinkTask {
   static final String OFFSET_FLUSH_TIMEOUT_MS = "snowflake.offset.flush.timeout.ms";
 
   private static final long DEFAULT_OFFSET_FLUSH_TIMEOUT_MS = 5_000;
-
-  private final RoundRobinScheduler<TopicPartition> preCommitScheduler =
-      new RoundRobinScheduler<>();
   private long preCommitBudgetMs = DEFAULT_OFFSET_FLUSH_TIMEOUT_MS;
 
   /** default constructor, invoked by kafka connect framework */
@@ -304,7 +297,6 @@ public class SnowflakeSinkTask extends SinkTask {
     if (this.sink != null) {
       this.sink.close(partitions);
     }
-    this.preCommitScheduler.reset();
 
     this.DYNAMIC_LOGGER.info(
         "task closed, execution time: {} milliseconds",
@@ -372,26 +364,14 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
-    AtomicInteger processedCount = new AtomicInteger(0);
-    AtomicInteger skippedCount = new AtomicInteger(0);
+    int processedCount = 0;
 
     try {
-      preCommitScheduler
-          .schedule(offsets.keySet(), tp -> tp)
-          .forEach(
-              topicPartition -> {
-                long elapsed = System.currentTimeMillis() - startTime;
-                if (elapsed >= preCommitBudgetMs) {
-                  skippedCount.incrementAndGet();
-                  return;
-                }
-                long offset = sink.getOffset(topicPartition);
-                if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-                  committedOffsets.put(topicPartition, new OffsetAndMetadata(offset));
-                }
-                preCommitScheduler.markProcessed(topicPartition);
-                processedCount.incrementAndGet();
-              });
+      Map<TopicPartition, Long> batchOffsets = sink.getCommittedOffsets(offsets.keySet());
+      for (Map.Entry<TopicPartition, Long> entry : batchOffsets.entrySet()) {
+        committedOffsets.put(entry.getKey(), new OffsetAndMetadata(entry.getValue()));
+      }
+      processedCount = offsets.size();
     } catch (SnowflakeKafkaConnectorException e) {
       this.authorizationExceptionTracker.reportPrecommitException(e);
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
@@ -404,23 +384,12 @@ public class SnowflakeSinkTask extends SinkTask {
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
     }
 
-    if (skippedCount.get() > 0) {
-      DYNAMIC_LOGGER.warn(
-          "preCommit time budget exhausted ({}ms). Processed {}/{} partitions, skipped {}."
-              + " Skipped partitions will be prioritized next cycle.",
-          preCommitBudgetMs,
-          processedCount.get(),
-          offsets.size(),
-          skippedCount.get());
-    }
-
     logWarningForPutAndPrecommit(
         startTime,
         Utils.formatString(
-            "Executed PRECOMMIT on {}/{} partitions (skipped {}), safe to commit {} partitions",
-            processedCount.get(),
+            "Executed PRECOMMIT on {}/{} partitions, safe to commit {} partitions",
+            processedCount,
             offsets.size(),
-            skippedCount.get(),
             committedOffsets.size()),
         true);
     return committedOffsets;
