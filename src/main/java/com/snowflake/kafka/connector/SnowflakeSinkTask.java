@@ -16,6 +16,8 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -28,6 +30,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.SnowflakeSinkTaskMetrics;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.RoundRobinScheduler;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
@@ -39,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -90,6 +94,15 @@ public class SnowflakeSinkTask extends SinkTask {
 
   // Task-level JMX metrics (lifecycle, throughput, duration)
   private TaskMetrics taskMetrics = TaskMetrics.noop();
+
+  @VisibleForTesting
+  static final String OFFSET_FLUSH_TIMEOUT_MS = "snowflake.offset.flush.timeout.ms";
+
+  private static final long DEFAULT_OFFSET_FLUSH_TIMEOUT_MS = 5_000;
+
+  private final RoundRobinScheduler<TopicPartition> preCommitScheduler =
+      new RoundRobinScheduler<>();
+  private long preCommitBudgetMs = DEFAULT_OFFSET_FLUSH_TIMEOUT_MS;
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
@@ -198,6 +211,24 @@ public class SnowflakeSinkTask extends SinkTask {
     if (this.sink != null) {
       this.sink.closeAll();
     }
+
+    this.preCommitBudgetMs = DEFAULT_OFFSET_FLUSH_TIMEOUT_MS;
+    if (parsedConfig.containsKey(OFFSET_FLUSH_TIMEOUT_MS)) {
+      try {
+        this.preCommitBudgetMs = Long.parseLong(parsedConfig.get(OFFSET_FLUSH_TIMEOUT_MS));
+      } catch (NumberFormatException e) {
+        DYNAMIC_LOGGER.warn(
+            "Invalid value for {}, using default {}ms",
+            OFFSET_FLUSH_TIMEOUT_MS,
+            DEFAULT_OFFSET_FLUSH_TIMEOUT_MS);
+      }
+    }
+    DYNAMIC_LOGGER.info(
+        "preCommit time budget set to {}ms ({}={})",
+        this.preCommitBudgetMs,
+        OFFSET_FLUSH_TIMEOUT_MS,
+        parsedConfig.getOrDefault(
+            OFFSET_FLUSH_TIMEOUT_MS, String.valueOf(DEFAULT_OFFSET_FLUSH_TIMEOUT_MS)));
 
     String connectorName = parsedConfig.get(Constants.KafkaConnectorConfigParams.NAME);
 
@@ -314,6 +345,7 @@ public class SnowflakeSinkTask extends SinkTask {
       taskMetrics.incCloseCount();
       taskMetrics.setAssignedPartitions(0);
     }
+    this.preCommitScheduler.reset();
 
     this.DYNAMIC_LOGGER.info(
         "task closed, execution time: {} milliseconds",
@@ -383,11 +415,26 @@ public class SnowflakeSinkTask extends SinkTask {
       }
 
       Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
+      AtomicInteger processedCount = new AtomicInteger(0);
+      AtomicInteger skippedCount = new AtomicInteger(0);
+
       try {
-        Map<TopicPartition, Long> batchOffsets = sink.getCommittedOffsets(offsets.keySet());
-        batchOffsets.forEach(
-            (topicPartition, offset) ->
-                committedOffsets.put(topicPartition, new OffsetAndMetadata(offset)));
+        preCommitScheduler
+            .schedule(offsets.keySet(), tp -> tp)
+            .forEach(
+                topicPartition -> {
+                  long elapsed = System.currentTimeMillis() - startTime;
+                  if (elapsed >= preCommitBudgetMs) {
+                    skippedCount.incrementAndGet();
+                    return;
+                  }
+                  long offset = sink.getOffset(topicPartition);
+                  if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+                    committedOffsets.put(topicPartition, new OffsetAndMetadata(offset));
+                  }
+                  preCommitScheduler.markProcessed(topicPartition);
+                  processedCount.incrementAndGet();
+                });
       } catch (SnowflakeKafkaConnectorException e) {
         // It's OK to just log the error since preCommit can retry.
         this.authorizationExceptionTracker.reportPrecommitException(e);
@@ -401,11 +448,23 @@ public class SnowflakeSinkTask extends SinkTask {
         this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
       }
 
+      if (skippedCount.get() > 0) {
+        DYNAMIC_LOGGER.warn(
+            "preCommit time budget exhausted ({}ms). Processed {}/{} partitions, skipped {}."
+                + " Skipped partitions will be prioritized next cycle.",
+            preCommitBudgetMs,
+            processedCount.get(),
+            offsets.size(),
+            skippedCount.get());
+      }
+
       logWarningForPutAndPrecommit(
           startTime,
           Utils.formatString(
-              "Executed PRECOMMIT on all {} partitions, safe to commit {} partitions",
+              "Executed PRECOMMIT on {}/{} partitions (skipped {}), safe to commit {} partitions",
+              processedCount.get(),
               offsets.size(),
+              skippedCount.get(),
               committedOffsets.size()),
           true);
       return committedOffsets;
