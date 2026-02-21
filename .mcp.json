@@ -1,0 +1,40 @@
+{
+  "mcpServers": {
+    "confluence": {
+      "command": "/opt/sf-cli/dist/sf",
+      "args": [
+        "mcp",
+        "run",
+        "confluence"
+      ],
+      "type": "stdio"
+    },
+    "github": {
+      "command": "/opt/sf-cli/dist/sf",
+      "args": [
+        "mcp",
+        "run",
+        "github"
+      ],
+      "type": "stdio"
+    },
+    "jira": {
+      "command": "/opt/sf-cli/dist/sf",
+      "args": [
+        "mcp",
+        "run",
+        "jira"
+      ],
+      "type": "stdio"
+    },
+    "snowhouse": {
+      "command": "/opt/sf-cli/dist/sf",
+      "args": [
+        "mcp",
+        "run",
+        "snowhouse"
+      ],
+      "type": "stdio"
+    }
+  }
+}

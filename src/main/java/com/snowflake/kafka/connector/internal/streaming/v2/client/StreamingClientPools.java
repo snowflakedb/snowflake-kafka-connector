@@ -8,6 +8,7 @@ import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 
 /**
  * JVM-global registry of {@link StreamingClientPool} objects, keyed by connector name.
@@ -60,8 +61,25 @@ public class StreamingClientPools {
     }
 
     return connectors
-        .computeIfAbsent(connectorName, k -> new StreamingClientPool(connectorName))
+        .computeIfAbsent(
+            connectorName, k -> new StreamingClientPool(connectorName, connectorConfig))
         .getClient(taskId, pipeName, connectorConfig, streamingClientProperties, taskMetrics);
+  }
+
+  /**
+   * Returns the channel I/O executor for the given connector, creating the pool if it does not yet
+   * exist.
+   *
+   * @param connectorName the name of the connector
+   * @param connectorConfig connector configuration (used to create the pool on first access)
+   * @return the channel I/O executor
+   */
+  public static ExecutorService getChannelIoExecutor(
+      final String connectorName, final Map<String, String> connectorConfig) {
+    return connectors
+        .computeIfAbsent(
+            connectorName, k -> new StreamingClientPool(connectorName, connectorConfig))
+        .getChannelIoExecutor();
   }
 
   public static long getClientCountForTask(final String connectorName, final String taskId) {
@@ -75,7 +93,8 @@ public class StreamingClientPools {
 
   /**
    * Releases all clients used by a specific task. Clients that are still used by other tasks remain
-   * open. Only closes clients when the last task using them stops.
+   * open. Only closes clients when the last task using them stops. When the pool becomes empty (no
+   * remaining clients or tasks), its thread pools are shut down and the pool is removed.
    *
    * @param connectorName the name of the connector
    * @param taskId the ID of the task
@@ -85,6 +104,12 @@ public class StreamingClientPools {
       StreamingClientPool pool = connectors.get(connectorName);
       if (pool != null) {
         pool.closeTaskClients(taskId);
+        if (pool.isEmpty()) {
+          LOGGER.info(
+              "All tasks released for connector: {}, shutting down thread pools", connectorName);
+          pool.shutdown();
+          connectors.remove(connectorName);
+        }
       } else {
         LOGGER.warn(
             "Attempted to release task {} for unknown connector: {}", taskId, connectorName);

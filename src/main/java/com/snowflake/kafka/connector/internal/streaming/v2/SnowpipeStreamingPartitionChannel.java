@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -188,6 +189,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       return CompletableFuture.completedFuture(null);
     }
 
+    ExecutorService ioExecutor =
+        StreamingClientPools.getChannelIoExecutor(connectorName, connectorConfig);
     return CompletableFuture.runAsync(
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.getChannelNameFormatV1());
@@ -212,7 +215,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               });
 
           LOGGER.info("Completed flush for channel: {}", this.getChannelNameFormatV1());
-        });
+        },
+        ioExecutor);
   }
 
   private static Map<String, Object> unquoteIdentifiers(Map<String, Object> transformedRecord) {
@@ -466,7 +470,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private CompletableFuture<Void> closeChannelWrapped() {
     try {
-      return CompletableFuture.runAsync(() -> closeChannelWithoutFlushing());
+      ExecutorService ioExecutor =
+          StreamingClientPools.getChannelIoExecutor(connectorName, connectorConfig);
+      return CompletableFuture.runAsync(() -> closeChannelWithoutFlushing(), ioExecutor);
     } catch (SFException e) {
       // Calling channel.close() can throw an SFException if the channel has been invalidated
       // already. Wrapping the exception into a CompletableFuture to keep a consistent method chain.

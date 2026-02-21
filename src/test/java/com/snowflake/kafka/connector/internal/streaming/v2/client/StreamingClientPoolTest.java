@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -141,7 +143,8 @@ class StreamingClientPoolTest {
                 "test-connector",
                 connectorConfig,
                 streamingClientProperties,
-                TaskMetrics.noop());
+                TaskMetrics.noop(),
+                Executors.newSingleThreadExecutor());
       }
     }
   }
@@ -155,7 +158,12 @@ class StreamingClientPoolTest {
     @BeforeEach
     void setUp() {
       connectorName = "test-connector-" + UUID.randomUUID().toString().substring(0, 8);
-      pool = new StreamingClientPool(connectorName);
+      pool = new StreamingClientPool(connectorName, connectorConfig);
+    }
+
+    @AfterEach
+    void tearDownPool() {
+      pool.shutdown();
     }
 
     @Test
