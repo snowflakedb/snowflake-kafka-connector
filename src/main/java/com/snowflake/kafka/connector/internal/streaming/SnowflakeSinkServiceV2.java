@@ -41,16 +41,18 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  * This is per task configuration. A task can be assigned multiple partitions. Major methods are
  * startTask, insert, getOffset and close methods.
  *
- * <p>StartTask: Called when partitions are assigned. Responsible for generating the POJOs.
+ * <p>StartTask ({@link #startPartitions(Collection)}): Called when partitions are assigned.
+ * Performs lightweight table and pipe metadata setup only. Streaming channel creation is deferred
+ * to the first {@link #insert(Collection)} call so that the Kafka Connect rebalance callback
+ * ({@code SinkTask.open()}) returns quickly and does not risk a {@code max.poll.interval.ms}
+ * timeout when many partitions are assigned.
  *
  * <p>Insert and getOffset are called when {@link
  * com.snowflake.kafka.connector.SnowflakeSinkTask#put(Collection)} and {@link
  * com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)} APIs are called.
  *
- * <p>This implementation of SinkService uses Streaming Snowpipe (Streaming Ingestion)
- *
- * <p>Hence this initializes the channel, opens, closes. The StreamingIngestChannel resides inside
- * {@link TopicPartitionChannel} which is per partition.
+ * <p>This implementation of SinkService uses Streaming Snowpipe (Streaming Ingestion). The
+ * StreamingIngestChannel resides inside {@link TopicPartitionChannel} which is per partition.
  */
 public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
@@ -81,6 +83,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Map<String, String> connectorConfig;
 
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
+  // Cached table-to-pipe mappings populated during startPartitions(), used for lazy channel
+  // creation
+  private final Map<String, String> tableToPipeCache;
   // Set that keeps track of the channels that have been seen per input batch
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
   // Whether to tolerate errors during ingestion (based on errors.tolerance config)
@@ -110,6 +115,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.metadataConfig = new SnowflakeMetadataConfig(connectorConfig);
     this.behaviorOnNullValues = behaviorOnNullValues;
     this.partitionsToChannel = new ConcurrentHashMap<>();
+    this.tableToPipeCache = new ConcurrentHashMap<>();
 
     // Extract and validate connector name - must not be null or empty
     this.connectorName = connectorConfig.get(NAME);
@@ -147,10 +153,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Creates a table if it doesnt exist in Snowflake.
-   *
-   * <p>Initializes the Channel and partitionsToChannel map with new instance of {@link
-   * TopicPartitionChannel}
+   * Prepares table and pipe metadata for the given partition. Channels are created lazily on the
+   * first {@link #insert(SinkRecord)} call.
    *
    * @param topicPartition TopicPartition passed from Kafka
    */
@@ -160,8 +164,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Initializes multiple Channels and partitionsToChannel maps with new instances of {@link
-   * TopicPartitionChannel}
+   * Prepares table and pipe metadata for the given partitions. Channel creation is deferred to the
+   * first {@link #insert(Collection)} call so that the rebalance callback ({@code open()}) returns
+   * quickly and does not risk a {@code max.poll.interval.ms} timeout.
    *
    * @param partitions collection of topic partition
    */
@@ -172,8 +177,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         partitions.size(),
         this.connectorName,
         this.taskId);
-
-    final Map<String, String> tableToPipeMapping = new HashMap<>();
 
     final Collection<String> topics =
         partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
@@ -188,16 +191,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // use pipe created by the user instead of the default pipe
       final String targetPipeName =
           pipeExists ? buildPipeName(tableName) : buildDefaultPipeName(tableName);
-      tableToPipeMapping.put(tableName, targetPipeName);
+      tableToPipeCache.put(tableName, targetPipeName);
       LOGGER.info(
           "Table: {}, pipe exists: {}, using pipe: {}", tableName, pipeExists, targetPipeName);
     }
 
-    for (TopicPartition topicPartition : partitions) {
-      final String tableName = getTableName(topicPartition.topic(), this.topicToTableMap);
-      final String targetPipeName = tableToPipeMapping.get(tableName);
-      createStreamingChannelForTopicPartition(tableName, targetPipeName, topicPartition);
-    }
+    LOGGER.info(
+        "Completed table/pipe setup for {} topic(s), {} partition(s). Channels will be created"
+            + " lazily on first insert.",
+        topics.size(),
+        partitions.size());
   }
 
   /**
@@ -244,6 +247,34 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     LOGGER.info("Successfully created streaming channel: {}", channelName);
   }
 
+  /**
+   * Creates the streaming channel for the given partition if it does not already exist (or is
+   * closed). Falls back to full table/pipe discovery when the metadata was not previously cached by
+   * {@link #startPartitions(Collection)}.
+   */
+  private void ensureChannelExists(String channelName, TopicPartition topicPartition) {
+    if (partitionsToChannel.containsKey(channelName)
+        && !partitionsToChannel.get(channelName).isChannelClosed()) {
+      return;
+    }
+
+    final String tableName = getTableName(topicPartition.topic(), this.topicToTableMap);
+    String pipeName = tableToPipeCache.get(tableName);
+
+    if (pipeName == null) {
+      LOGGER.warn(
+          "Table/pipe metadata was not cached for table: {}. Partition may have been assigned"
+              + " outside the normal open() flow.",
+          tableName);
+      createTableIfNotExists(tableName);
+      final boolean pipeExists = this.conn.pipeExist(tableName);
+      pipeName = pipeExists ? buildPipeName(tableName) : buildDefaultPipeName(tableName);
+      tableToPipeCache.put(tableName, pipeName);
+    }
+
+    createStreamingChannelForTopicPartition(tableName, pipeName, topicPartition);
+  }
+
   private void waitForAllChannelsToCommitData() {
     int channelCount = partitionsToChannel.size();
     if (channelCount == 0) {
@@ -270,6 +301,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void insert(final Collection<SinkRecord> records) {
     channelsVisitedPerBatch.clear();
+    createMissingChannelsInParallel(records);
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
@@ -277,6 +309,38 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
       insert(record);
     }
+  }
+
+  /**
+   * Scans the incoming batch for partitions that do not yet have an open channel and creates them
+   * in parallel. This is the primary path for lazy channel initialization — the expensive SDK work
+   * happens here (during {@code put()}) rather than in the rebalance callback ({@code open()}).
+   */
+  private void createMissingChannelsInParallel(Collection<SinkRecord> records) {
+    Map<String, TopicPartition> missingChannels = new HashMap<>();
+    for (SinkRecord record : records) {
+      String channelName =
+          makeChannelName(this.connectorName, record.topic(), record.kafkaPartition());
+      if (!partitionsToChannel.containsKey(channelName)
+          || partitionsToChannel.get(channelName).isChannelClosed()) {
+        missingChannels.putIfAbsent(
+            channelName, new TopicPartition(record.topic(), record.kafkaPartition()));
+      }
+    }
+
+    if (missingChannels.isEmpty()) {
+      return;
+    }
+
+    LOGGER.info("Lazily creating {} channel(s) in parallel", missingChannels.size());
+    CompletableFuture<?>[] futures =
+        missingChannels.entrySet().stream()
+            .map(
+                entry ->
+                    CompletableFuture.runAsync(
+                        () -> ensureChannelExists(entry.getKey(), entry.getValue())))
+            .toArray(CompletableFuture[]::new);
+    CompletableFuture.allOf(futures).join();
   }
 
   /**
@@ -288,15 +352,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     LOGGER.trace("Inserting record: {}", record);
     String channelName =
         makeChannelName(this.connectorName, record.topic(), record.kafkaPartition());
-    // init a new topic partition if it's not presented in cache or if channel is closed
-    if (!partitionsToChannel.containsKey(channelName)
-        || partitionsToChannel.get(channelName).isChannelClosed()) {
-      LOGGER.warn(
-          "Topic: {} Partition: {} hasn't been initialized by OPEN function",
-          record.topic(),
-          record.kafkaPartition());
-      startPartition(new TopicPartition(record.topic(), record.kafkaPartition()));
-    }
+
+    ensureChannelExists(channelName, new TopicPartition(record.topic(), record.kafkaPartition()));
 
     TopicPartitionChannel channelPartition = partitionsToChannel.get(channelName);
     boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channelName);
@@ -345,6 +402,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     closeAllInParallel();
     partitionsToChannel.clear();
+    tableToPipeCache.clear();
     LOGGER.info(
         "Completed closing all partition channels for connector: {}, task: {}",
         this.connectorName,
