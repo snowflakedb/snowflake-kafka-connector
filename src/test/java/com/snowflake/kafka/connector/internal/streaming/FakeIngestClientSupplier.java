@@ -1,12 +1,12 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.kafka.connector.internal.streaming.v2.IngestClientSupplier;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientSupplier;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class FakeIngestClientSupplier implements IngestClientSupplier {
+public class FakeIngestClientSupplier implements StreamingClientSupplier {
 
   private final ConcurrentHashMap<String, FakeSnowflakeStreamingIngestClient>
       pipeToIngestClientMap = new ConcurrentHashMap<>();

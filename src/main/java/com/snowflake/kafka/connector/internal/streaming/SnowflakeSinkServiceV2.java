@@ -20,7 +20,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.HashMap;
@@ -433,7 +433,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     // Release all streaming clients used by this service
     // Clients will only be closed if no other tasks are using them
-    StreamingClientManager.closeTaskClients(connectorName, taskId);
+    StreamingClientPools.closeTaskClients(connectorName, taskId);
   }
 
   /* Undefined */

@@ -9,6 +9,8 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -124,9 +126,9 @@ public class StreamingClientManagerIT {
     // Given
     getClient(task1, pipe1);
     getClient(task1, pipe2);
-    assertThat(StreamingClientManager.getClientCountForTask(testConnectorName, task1)).isEqualTo(2);
+    assertThat(StreamingClientPools.getClientCountForTask(testConnectorName, task1)).isEqualTo(2);
     closeTaskClients(task1);
-    assertThat(StreamingClientManager.getClientCountForTask(testConnectorName, task1)).isEqualTo(0);
+    assertThat(StreamingClientPools.getClientCountForTask(testConnectorName, task1)).isEqualTo(0);
   }
 
   @Test
@@ -141,7 +143,7 @@ public class StreamingClientManagerIT {
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "TEST_ROLE");
 
     // When
-    Properties properties = StreamingClientManager.getClientProperties(connectorConfig);
+    Properties properties = StreamingClientFactory.getClientProperties(connectorConfig);
 
     // Then
     assertThat(properties).isNotNull();
@@ -176,7 +178,7 @@ public class StreamingClientManagerIT {
   }
 
   private SnowflakeStreamingIngestClient getClient(String task, String pipe) {
-    return StreamingClientManager.getClient(
+    return StreamingClientPools.getClient(
         testConnectorName, task, pipe, connectorConfig, streamingClientProperties);
   }
 
@@ -185,6 +187,6 @@ public class StreamingClientManagerIT {
   }
 
   private void closeTaskClients(String task) {
-    StreamingClientManager.closeTaskClients(testConnectorName, task);
+    StreamingClientPools.closeTaskClients(testConnectorName, task);
   }
 }

@@ -9,7 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.FakeSnowflakeStreamingIngestChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -42,14 +42,14 @@ public class SmtIT extends ConnectClusterBaseIT {
     connectorName = String.format("%s_connector", topicName);
     connectCluster.kafka().createTopic(topicName, PARTITION_COUNT);
     TestUtils.getConnectionServiceWithEncryptedKey().createTableWithMetadataColumn(topicName);
-    StreamingClientManager.setIngestClientSupplier(fakeClientSupplier);
+    StreamingClientFactory.setStreamingClientSupplier(fakeClientSupplier);
   }
 
   @AfterEach
   void after() {
     connectCluster.kafka().deleteTopic(topicName);
     connectCluster.deleteConnector(connectorName);
-    StreamingClientManager.resetIngestClientSupplier();
+    StreamingClientFactory.resetStreamingClientSupplier();
     TestUtils.dropTable(topicName);
   }
 
