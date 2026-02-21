@@ -250,6 +250,19 @@ public class ConnectorConfigDefinition {
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG)
         .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_IO_MAX_THREADS,
+            INT,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_IO_MAX_THREADS_DEFAULT,
+            atLeast(1),
+            LOW,
+            "Maximum number of threads used for Snowflake channel I/O operations such as"
+                + " opening channels, checking channel status, and flushing data. A separate"
+                + " dedicated pool is used for client creation and is not affected by this setting.",
+            CONNECTOR_CONFIG_DOC,
+            7,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_IO_MAX_THREADS)
+        .define(
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
             STRING,
             "",

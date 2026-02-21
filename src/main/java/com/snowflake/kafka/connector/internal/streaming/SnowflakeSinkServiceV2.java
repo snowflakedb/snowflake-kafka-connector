@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -260,18 +261,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     final String tableName = getTableName(topicPartition.topic(), this.topicToTableMap);
-    String pipeName = tableToPipeCache.get(tableName);
-
-    if (pipeName == null) {
-      LOGGER.warn(
-          "Table/pipe metadata was not cached for table: {}. Partition may have been assigned"
-              + " outside the normal open() flow.",
-          tableName);
-      createTableIfNotExists(tableName);
-      final boolean pipeExists = this.conn.pipeExist(tableName);
-      pipeName = pipeExists ? buildPipeName(tableName) : buildDefaultPipeName(tableName);
-      tableToPipeCache.put(tableName, pipeName);
-    }
+    String pipeName =
+        tableToPipeCache.computeIfAbsent(
+            tableName,
+            t -> {
+              LOGGER.warn(
+                  "Table/pipe metadata was not cached for table: {}. Partition may have been"
+                      + " assigned outside the normal open() flow.",
+                  t);
+              createTableIfNotExists(t);
+              final boolean pipeExists = this.conn.pipeExist(t);
+              return pipeExists ? buildPipeName(t) : buildDefaultPipeName(t);
+            });
 
     createStreamingChannelForTopicPartition(tableName, pipeName, topicPartition);
   }
@@ -334,12 +335,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     LOGGER.info("Lazily creating {} channel(s) in parallel", missingChannels.size());
+    ExecutorService ioExecutor =
+        StreamingClientPools.getChannelIoExecutor(this.connectorName, this.connectorConfig);
     CompletableFuture<?>[] futures =
         missingChannels.entrySet().stream()
             .map(
                 entry ->
                     CompletableFuture.runAsync(
-                        () -> ensureChannelExists(entry.getKey(), entry.getValue())))
+                        () -> ensureChannelExists(entry.getKey(), entry.getValue()), ioExecutor))
             .toArray(CompletableFuture[]::new);
     CompletableFuture.allOf(futures).join();
   }

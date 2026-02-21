@@ -31,6 +31,9 @@ public final class Constants {
         "snowflake.streaming.client.provider.override.map";
     public static final String SNOWFLAKE_STREAMING_MAX_CLIENT_LAG =
         "snowflake.streaming.max.client.lag";
+    public static final String SNOWFLAKE_STREAMING_IO_MAX_THREADS =
+        "snowflake.streaming.io.max.threads";
+    public static final int SNOWFLAKE_STREAMING_IO_MAX_THREADS_DEFAULT = 50;
 
     // Caching
     public static final String CACHE_TABLE_EXISTS = "snowflake.cache.table.exists";

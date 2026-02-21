@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.util.HashMap;
@@ -8,17 +9,23 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Manages clients for a single connector. Tracks which tasks use which pipes and only closes
  * clients when no tasks are using them.
  *
- * <p>Client creation is performed asynchronously so that multiple pipes can be initialized in
- * parallel. The synchronized sections only cover map bookkeeping; the actual blocking wait for
- * client readiness ({@code future.join()}) happens outside the lock.
+ * <p>Client creation is performed asynchronously on a dedicated thread pool so that multiple pipes
+ * can be initialized in parallel. A second, larger, configurable pool is exposed for channel I/O
+ * work (opening channels, status checks, flushes). Keeping the pools separate prevents channel work
+ * from starving client creation.
  */
 public class StreamingClientPool {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientPool.class.getName());
+  private static final int CLIENT_CREATION_THREADS = 4;
+
   private final String connectorName;
 
   // Map: pipeName → Future<Client>
@@ -28,9 +35,45 @@ public class StreamingClientPool {
   // Map: pipeName → Set of taskIds using this pipe
   private final Map<String, Set<String>> pipeToTasks = new HashMap<>();
 
-  StreamingClientPool(final String connectorName) {
+  private final ExecutorService clientCreationExecutor;
+  private final ExecutorService channelIoExecutor;
+
+  StreamingClientPool(final String connectorName, final Map<String, String> connectorConfig) {
     this.connectorName = connectorName;
-    LOGGER.info("Created client manager for connector: {}", connectorName);
+
+    int maxIoThreads = KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_IO_MAX_THREADS_DEFAULT;
+    String configured =
+        connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_IO_MAX_THREADS);
+    if (configured != null) {
+      try {
+        maxIoThreads = Math.max(1, Integer.parseInt(configured.trim()));
+      } catch (NumberFormatException e) {
+        LOGGER.warn(
+            "Invalid value for {}: '{}', using default {}",
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_IO_MAX_THREADS,
+            configured,
+            maxIoThreads);
+      }
+    }
+
+    this.clientCreationExecutor =
+        Executors.newFixedThreadPool(
+            CLIENT_CREATION_THREADS,
+            new DaemonThreadFactory(connectorName + "-client-create"));
+    this.channelIoExecutor =
+        Executors.newFixedThreadPool(
+            maxIoThreads,
+            new DaemonThreadFactory(connectorName + "-io"));
+
+    LOGGER.info(
+        "Created client manager for connector: {}, clientCreationThreads: {}, ioThreads: {}",
+        connectorName,
+        CLIENT_CREATION_THREADS,
+        maxIoThreads);
+  }
+
+  ExecutorService getChannelIoExecutor() {
+    return channelIoExecutor;
   }
 
   SnowflakeStreamingIngestClient getClient(
@@ -63,7 +106,8 @@ public class StreamingClientPool {
                           connectorName,
                           elapsedMs);
                       return created;
-                    });
+                    },
+                    clientCreationExecutor);
               });
 
       pipeToTasks.computeIfAbsent(pipeName, k -> ConcurrentHashMap.newKeySet()).add(taskId);
@@ -121,5 +165,33 @@ public class StreamingClientPool {
               }
               return false;
             });
+  }
+
+  /** Returns true if there are no remaining clients or task registrations. */
+  synchronized boolean isEmpty() {
+    return clients.isEmpty() && pipeToTasks.isEmpty();
+  }
+
+  /** Shuts down both thread pools. Called when the pool is evicted from the connector map. */
+  void shutdown() {
+    LOGGER.info("Shutting down thread pools for connector: {}", connectorName);
+    clientCreationExecutor.shutdownNow();
+    channelIoExecutor.shutdownNow();
+  }
+
+  private static final class DaemonThreadFactory implements java.util.concurrent.ThreadFactory {
+    private final AtomicInteger counter = new AtomicInteger(0);
+    private final String prefix;
+
+    DaemonThreadFactory(String prefix) {
+      this.prefix = prefix;
+    }
+
+    @Override
+    public Thread newThread(Runnable r) {
+      Thread t = new Thread(r, prefix + "-" + counter.getAndIncrement());
+      t.setDaemon(true);
+      return t;
+    }
   }
 }
