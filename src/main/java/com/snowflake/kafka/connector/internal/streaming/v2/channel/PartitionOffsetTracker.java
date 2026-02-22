@@ -51,13 +51,10 @@ public class PartitionOffsetTracker {
   /** Sets both persisted and processed offsets, and resets the Kafka consumer position. */
   public void initializeFromSnowflake(long committedOffset) {
     LOGGER.info(
-        "Initializing offsetPersistedInSnowflake=[{}], channel=[{}]",
-        committedOffset,
-        channelName);
+        "Initializing offsetPersistedInSnowflake=[{}], channel=[{}]", committedOffset, channelName);
     this.offsetPersistedInSnowflake.set(committedOffset);
 
-    LOGGER.info(
-        "Initializing processedOffset=[{}], channel=[{}]", committedOffset, channelName);
+    LOGGER.info("Initializing processedOffset=[{}], channel=[{}]", committedOffset, channelName);
     this.processedOffset.set(committedOffset);
 
     resetKafkaOffset(committedOffset);
