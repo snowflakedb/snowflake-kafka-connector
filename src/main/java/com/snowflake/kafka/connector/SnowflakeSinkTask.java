@@ -16,8 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -342,16 +340,13 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
-    // it's ok to just log the error since commit can retry
     try {
-      offsets.forEach(
-          (topicPartition, offsetAndMetadata) -> {
-            long offset = sink.getOffset(topicPartition);
-            if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-              committedOffsets.put(topicPartition, new OffsetAndMetadata(offset));
-            }
-          });
+      Map<TopicPartition, Long> batchOffsets = sink.getCommittedOffsets(offsets.keySet());
+      batchOffsets.forEach(
+          (topicPartition, offset) ->
+              committedOffsets.put(topicPartition, new OffsetAndMetadata(offset)));
     } catch (SnowflakeKafkaConnectorException e) {
+      // It's OK to just log the error since preCommit can retry.
       this.authorizationExceptionTracker.reportPrecommitException(e);
       this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
       // Channel error count exceeded - store to fail on next put() call

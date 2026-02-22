@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
+import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -31,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -135,6 +138,36 @@ class SnowpipeStreamingPartitionChannelTest {
         mockErrorHandler);
   }
 
+  @Test
+  void parseOffsetToken_nullReturnsNoOffset() {
+    assertEquals(
+        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        SnowpipeStreamingPartitionChannel.parseOffsetToken(null, "test_channel"));
+  }
+
+  @Test
+  void parseOffsetToken_validToken() {
+    assertEquals(42L, SnowpipeStreamingPartitionChannel.parseOffsetToken("42", "test_channel"));
+    assertEquals(0L, SnowpipeStreamingPartitionChannel.parseOffsetToken("0", "test_channel"));
+    assertEquals(
+        Long.MAX_VALUE,
+        SnowpipeStreamingPartitionChannel.parseOffsetToken(
+            String.valueOf(Long.MAX_VALUE), "test_channel"));
+  }
+
+  @Test
+  void parseOffsetToken_invalidTokenThrows() {
+    assertThrows(
+        ConnectException.class,
+        () -> SnowpipeStreamingPartitionChannel.parseOffsetToken("not_a_number", "test_channel"));
+    assertThrows(
+        ConnectException.class,
+        () -> SnowpipeStreamingPartitionChannel.parseOffsetToken("", "test_channel"));
+    assertThrows(
+        ConnectException.class,
+        () -> SnowpipeStreamingPartitionChannel.parseOffsetToken("12.5", "test_channel"));
+  }
+
   /** Custom StreamingClientSupplier that tracks channel operations for verification in tests. */
   static class TrackingIngestClientSupplier implements StreamingClientSupplier {
 
@@ -179,6 +212,8 @@ class SnowpipeStreamingPartitionChannelTest {
 
     private final String pipeName;
     private final TrackingIngestClientSupplier supplier;
+    private final java.util.concurrent.ConcurrentHashMap<String, TrackingStreamingIngestChannel>
+        channels = new java.util.concurrent.ConcurrentHashMap<>();
 
     TrackingStreamingIngestClient(
         final String pipeName, final TrackingIngestClientSupplier supplier) {
@@ -208,6 +243,7 @@ class SnowpipeStreamingPartitionChannelTest {
               Instant.now());
       final TrackingStreamingIngestChannel channel =
           new TrackingStreamingIngestChannel(pipeName, channelName, supplier);
+      channels.put(channelName, channel);
       return new OpenChannelResult(channel, channelStatus);
     }
 
@@ -240,7 +276,14 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public ChannelStatusBatch getChannelStatus(final List<String> channelNames) {
-      throw new UnsupportedOperationException();
+      java.util.Map<String, ChannelStatus> statusMap = new java.util.HashMap<>();
+      for (String name : channelNames) {
+        TrackingStreamingIngestChannel ch = channels.get(name);
+        if (ch != null) {
+          statusMap.put(name, ch.getChannelStatus());
+        }
+      }
+      return new ChannelStatusBatch(statusMap);
     }
 
     @Override
