@@ -23,6 +23,7 @@ import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPart
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -86,6 +87,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private boolean enableCustomJMXMonitoring = KafkaConnectorConfigParams.JMX_OPT_DEFAULT;
   // Whether to tolerate errors during ingestion (based on errors.tolerance config)
   private final boolean tolerateErrors;
+  private final BatchOffsetFetcher batchOffsetFetcher;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -124,6 +126,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
+    this.batchOffsetFetcher =
+        new BatchOffsetFetcher(
+            this.connectorName, this.taskId, connectorConfig, this.tolerateErrors);
 
     LOGGER.info(
         "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {}",
@@ -314,23 +319,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public long getOffset(TopicPartition topicPartition) {
-    String partitionChannelKey =
-        makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
-    if (partitionsToChannel.containsKey(partitionChannelKey)) {
-      TopicPartitionChannel channel = partitionsToChannel.get(partitionChannelKey);
-      channel.checkChannelStatusAndLogErrors(tolerateErrors);
-      long offset = channel.getOffsetSafeToCommitToKafka();
-      channel.setLatestConsumerGroupOffset(offset);
-      LOGGER.info(
-          "Fetched snowflake commited offset: [{}] for channel [{}]", offset, partitionChannelKey);
-      return offset;
-    } else {
-      LOGGER.warn(
-          "Topic: {} Partition: {} hasn't been initialized to get offset",
-          topicPartition.topic(),
-          topicPartition.partition());
-      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-    }
+    return getCommittedOffsets(Collections.singleton(topicPartition))
+        .getOrDefault(topicPartition, NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+  }
+
+  @Override
+  public Map<TopicPartition, Long> getCommittedOffsets(
+      final Collection<TopicPartition> partitions) {
+    return batchOffsetFetcher.getCommittedOffsets(partitions, this::getTopicPartitionChannel);
   }
 
   @Override
@@ -466,5 +462,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Creating new table {}.", tableName);
       this.conn.createTableWithOnlyMetadataColumn(tableName);
     }
+  }
+
+  private Optional<TopicPartitionChannel> getTopicPartitionChannel(TopicPartition tp) {
+    String channelName = makeChannelName(this.connectorName, tp.topic(), tp.partition());
+    return Optional.ofNullable(partitionsToChannel.get(channelName));
   }
 }

@@ -1,19 +1,25 @@
+.DS_Store
+
+# IDEs
 .idea/
 .settings/
-target/
-/*.json
-.project
-.classpath
-*.log
-.DS_Store
-__pycache__
-test/rest_request_generated/
-*.iml
+.claude/
+.cursor/
 .vscode/
-docker-setup/connector-examples/*.json
-docker-setup/snowflake-kafka-docker
-.cache/
-licenses/
+.project/
+
+# Python
+__pycache__
 venv
-profile.json
-.claude
+
+# Java
+.cache/
+.classpath
+*.iml
+target
+
+*.log
+
+profile*.json
+
+licenses/
