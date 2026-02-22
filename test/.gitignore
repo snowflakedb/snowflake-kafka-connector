@@ -2,3 +2,4 @@ apache.tgz
 apache_log
 kafka_*
 confluent-*
+rest_request_generated/
