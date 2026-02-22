@@ -1,10 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming.channel;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import dev.failsafe.Fallback;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -27,38 +27,6 @@ public interface TopicPartitionChannel {
   void insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch);
 
   /**
-   * Get committed offset from Snowflake. It does an HTTP call internally to find out what was the
-   * last offset inserted.
-   *
-   * <p>If committedOffset fetched from Snowflake is null, we would return -1(default value of
-   * committedOffset) back to original call. (-1) would return an empty Map of partition and offset
-   * back to kafka.
-   *
-   * <p>Else, we will convert this offset and return the offset which is safe to commit inside Kafka
-   * (+1 of this returned value).
-   *
-   * <p>Check {@link com.snowflake.kafka.connector.SnowflakeSinkTask#preCommit(Map)}
-   *
-   * <p>Note:
-   *
-   * <p>If we cannot fetch offsetToken from snowflake even after retries and reopening the channel,
-   * we will throw app
-   *
-   * @return (offsetToken present in Snowflake + 1), else -1
-   */
-  default long getOffsetSafeToCommitToKafka() {
-    final long committedOffsetInSnowflake = fetchOffsetTokenWithRetry();
-    if (committedOffsetInSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
-    } else {
-      // Return an offset which is + 1 of what was present in snowflake.
-      // Idea of sending + 1 back to Kafka is that it should start sending offsets after task
-      // restart from this offset
-      return committedOffsetInSnowflake + 1;
-    }
-  }
-
-  /**
    * Asynchronously closes a channel associated to this partition. Any {@link SFException} occurred
    * is swallowed and a successful {@link CompletableFuture} is returned instead.
    */
@@ -71,7 +39,25 @@ public interface TopicPartitionChannel {
 
   void setLatestConsumerGroupOffset(long consumerOffset);
 
-  void checkChannelStatusAndLogErrors(boolean tolerateErrors);
+  /**
+   * Processes a channel status: logs it, checks for ingestion errors, updates offset tracking, and
+   * returns the offset safe to commit to Kafka.
+   *
+   * <p>If the committed offset token is null (no data committed yet), returns {@link
+   * #NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE}. Otherwise returns (committedOffset + 1) so that
+   * Kafka resumes from the next record after a restart.
+   *
+   * <p>When {@code tolerateErrors} is false and new ingestion errors are detected, throws a
+   * connector exception to fail the task.
+   *
+   * @param status the channel status, typically from a batch status call
+   * @param tolerateErrors whether to tolerate ingestion errors (maps to {@code errors.tolerance})
+   * @return the offset safe to commit to Kafka, or {@link #NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE}
+   */
+  long processChannelStatus(ChannelStatus status, boolean tolerateErrors);
+
+  /** Returns the pipe name associated with this channel's SDK client. */
+  String getPipeName();
 
   default CompletableFuture<Void> waitForLastProcessedRecordCommitted() {
     return CompletableFuture.completedFuture(null);

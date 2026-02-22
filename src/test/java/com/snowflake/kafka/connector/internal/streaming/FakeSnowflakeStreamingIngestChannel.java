@@ -5,6 +5,7 @@ import static java.util.List.copyOf;
 import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,37 +16,50 @@ import java.util.function.Predicate;
 public class FakeSnowflakeStreamingIngestChannel
     implements SnowflakeStreamingIngestChannel, Comparable<FakeSnowflakeStreamingIngestChannel> {
 
+  private final String databaseName;
+  private final String schemaName;
   private final String pipeName;
   private final String channelName;
-
-  /** Collection of all rows appended to this channel */
   private final List<Map<String, Object>> appendedRows;
-
-  /** Reference to parent client for sharing error counts across channel reopens */
-  private final FakeSnowflakeStreamingIngestClient parentClient;
 
   private volatile boolean closed;
   private String offsetToken;
-  private ChannelStatus channelStatus;
+  private String statusCode = "SUCCESS";
+  private long rowsInsertedCount;
+  private long rowsParsedCount;
+  private long rowsErrorCount;
+  private String lastErrorOffsetTokenUpperBound;
+  private String lastErrorMessage;
+  private Instant lastErrorTimestamp;
+  private Duration serverAvgProcessingLatency;
 
   public FakeSnowflakeStreamingIngestChannel(
       final String pipeName,
       final String channelName,
       final FakeSnowflakeStreamingIngestClient parentClient) {
+    this("db", "schema", pipeName, channelName);
+  }
+
+  public FakeSnowflakeStreamingIngestChannel(
+      final String databaseName,
+      final String schemaName,
+      final String pipeName,
+      final String channelName) {
+    this.databaseName = databaseName;
+    this.schemaName = schemaName;
     this.pipeName = pipeName;
     this.channelName = channelName;
     this.appendedRows = new ArrayList<>();
-    this.parentClient = parentClient;
   }
 
   @Override
   public String getDBName() {
-    throw new UnsupportedOperationException();
+    return databaseName;
   }
 
   @Override
   public String getSchemaName() {
-    throw new UnsupportedOperationException();
+    return schemaName;
   }
 
   @Override
@@ -109,18 +123,38 @@ public class FakeSnowflakeStreamingIngestChannel
 
   @Override
   public ChannelStatus getChannelStatus() {
-    if (channelStatus == null) {
-      throw new UnsupportedOperationException("ChannelStatus not configured for test");
-    }
-    return channelStatus;
+    return new ChannelStatus(
+        databaseName,
+        schemaName,
+        pipeName,
+        channelName,
+        statusCode,
+        offsetToken,
+        Instant.now(),
+        rowsInsertedCount,
+        rowsParsedCount,
+        rowsErrorCount,
+        lastErrorOffsetTokenUpperBound,
+        lastErrorMessage,
+        lastErrorTimestamp,
+        serverAvgProcessingLatency,
+        Instant.now());
   }
 
-  public void setChannelStatus(final ChannelStatus channelStatus) {
-    this.channelStatus = channelStatus;
-    // Update the shared error count in the parent client so it persists across channel reopens
-    if (parentClient != null && channelStatus.getRowsErrorCount() > 0) {
-      parentClient.setInitialErrorCountForChannel(channelName, channelStatus.getRowsErrorCount());
-    }
+  public void updateErrors(
+      long errorCount, String lastErrorMessage, String lastErrorOffsetTokenUpperBound) {
+    this.rowsErrorCount = errorCount;
+    this.lastErrorMessage = lastErrorMessage;
+    this.lastErrorOffsetTokenUpperBound = lastErrorOffsetTokenUpperBound;
+    this.lastErrorTimestamp = Instant.now();
+  }
+
+  public void setErrorCount(final long errorCount) {
+    this.rowsErrorCount = errorCount;
+  }
+
+  public void setOffsetToken(final String offsetToken) {
+    this.offsetToken = offsetToken;
   }
 
   @Override

@@ -339,6 +339,31 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   /**
+   * Parses an offset token string into a long value.
+   *
+   * @param offsetToken the offset token string (may be null)
+   * @param channelNameForLogging used in error messages
+   * @return the parsed long, or {@link
+   *     TopicPartitionChannel#NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE} if null
+   * @throws ConnectException if the token is non-null but not parsable as long
+   */
+  @VisibleForTesting
+  static long parseOffsetToken(String offsetToken, String channelNameForLogging) {
+    if (offsetToken == null) {
+      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    }
+    try {
+      return Long.parseLong(offsetToken);
+    } catch (NumberFormatException ex) {
+      LOGGER.error(
+          "The offsetToken string does not contain a parsable long:{} for channel:{}",
+          offsetToken,
+          channelNameForLogging);
+      throw new ConnectException(ex);
+    }
+  }
+
+  /**
    * Returns the offset Token persisted into snowflake.
    *
    * <p>OffsetToken from Snowflake returns a String and we will convert it into long.
@@ -353,23 +378,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   private long fetchLatestOffsetFromChannel(SnowflakeStreamingIngestChannel channel) {
-    String offsetToken = null;
-    try {
-      offsetToken = channel.getLatestCommittedOffsetToken();
-      LOGGER.info(
-          "Fetched offsetToken for channelName:{}, offset:{}",
-          this.getChannelNameFormatV1(),
-          offsetToken);
-      return offsetToken == null
-          ? NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-          : Long.parseLong(offsetToken);
-    } catch (NumberFormatException ex) {
-      LOGGER.error(
-          "The offsetToken string does not contain a parsable long:{} for channel:{}",
-          offsetToken,
-          this.getChannelNameFormatV1());
-      throw new ConnectException(ex);
-    }
+    String offsetToken = channel.getLatestCommittedOffsetToken();
+    LOGGER.info(
+        "Fetched offsetToken for channelName:{}, offset:{}",
+        this.getChannelNameFormatV1(),
+        offsetToken);
+    return parseOffsetToken(offsetToken, this.getChannelNameFormatV1());
   }
 
   /**
@@ -499,10 +513,25 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
-  public void checkChannelStatusAndLogErrors(final boolean tolerateErrors) {
-    final ChannelStatus status = channel.getChannelStatus();
+  public long processChannelStatus(final ChannelStatus status, final boolean tolerateErrors) {
     logChannelStatus(status);
     handleChannelErrors(status, tolerateErrors);
+
+    long committedOffset =
+        parseOffsetToken(status.getLatestCommittedOffsetToken(), this.getChannelNameFormatV1());
+    offsetTracker.updatePersistedOffset(committedOffset);
+
+    if (committedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    }
+    long offsetSafeToCommit = committedOffset + 1;
+    setLatestConsumerGroupOffset(offsetSafeToCommit);
+    return offsetSafeToCommit;
+  }
+
+  @Override
+  public String getPipeName() {
+    return pipeName;
   }
 
   private void logChannelStatus(final ChannelStatus status) {

@@ -5,13 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.connect.json.JsonConverter;
@@ -121,10 +119,9 @@ class ChannelStatusCheckIT {
         .atMost(Duration.ofSeconds(30))
         .until(() -> fakeClient.getAppendedRowCount() >= 1);
 
-    // When: set channel status with errors on all channels
+    // When: inject errors on all channels
     for (FakeSnowflakeStreamingIngestChannel channel : fakeClient.getOpenedChannels()) {
-      ChannelStatus statusWithErrors = createChannelStatusWithErrors(channel.getChannelName(), 5);
-      channel.setChannelStatus(statusWithErrors);
+      channel.updateErrors(5, "Test error message", "95");
     }
 
     // Then: connector task should fail due to channel errors
@@ -154,10 +151,9 @@ class ChannelStatusCheckIT {
         .atMost(Duration.ofSeconds(30))
         .until(() -> fakeClient.getAppendedRowCount() >= 1);
 
-    // When: set channel status with errors on all channels
+    // When: inject errors on all channels
     for (FakeSnowflakeStreamingIngestChannel channel : fakeClient.getOpenedChannels()) {
-      ChannelStatus statusWithErrors = createChannelStatusWithErrors(channel.getChannelName(), 5);
-      channel.setChannelStatus(statusWithErrors);
+      channel.updateErrors(5, "Test error message", "95");
     }
 
     // Produce more messages
@@ -223,9 +219,7 @@ class ChannelStatusCheckIT {
 
     // When: NEW errors occur (error count increases from 5 to 10)
     for (FakeSnowflakeStreamingIngestChannel channel : fakeClient.getOpenedChannels()) {
-      ChannelStatus statusWithNewErrors =
-          createChannelStatusWithErrors(channel.getChannelName(), 10);
-      channel.setChannelStatus(statusWithNewErrors);
+      channel.updateErrors(10, "Test error message", "95");
     }
 
     // Then: connector task should fail due to NEW channel errors
@@ -247,25 +241,6 @@ class ChannelStatusCheckIT {
           .produce(
               topicName, i % PARTITIONS_NUMBER, "key-" + i, mapper.writeValueAsString(payload));
     }
-  }
-
-  private ChannelStatus createChannelStatusWithErrors(String channelName, long errorCount) {
-    return new ChannelStatus(
-        "db",
-        "schema",
-        topicName, // pipeName
-        channelName,
-        "SUCCESS",
-        "100", // latestCommittedOffsetToken
-        Instant.now(), // createdOn
-        100, // rowsInsertedCount
-        105, // rowsParsedCount
-        errorCount, // rowsErrorCount
-        "95", // lastErrorOffsetTokenUpperBound
-        "Test error message", // lastErrorMessage
-        Instant.now(), // lastErrorTimestamp
-        Duration.ofMillis(50), // serverAvgProcessingLatency
-        Instant.now()); // lastRefreshedOn
   }
 
   // Helper methods

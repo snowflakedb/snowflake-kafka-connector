@@ -49,6 +49,17 @@ public interface SnowflakeSinkService {
   long getOffset(TopicPartition topicPartition);
 
   /**
+   * Fetches committed offsets for all given partitions using the SDK's batch channel-status API.
+   * Makes at most one network call per SDK client (i.e. per topic/pipe), regardless of the number
+   * of partitions.
+   *
+   * @param partitions the partitions to query
+   * @return map of TopicPartition to the offset safe to commit to Kafka (committed + 1), only
+   *     containing entries where a valid offset was found
+   */
+  Map<TopicPartition, Long> getCommittedOffsets(Collection<TopicPartition> partitions);
+
+  /**
    * get the number of partitions assigned to this sink service
    *
    * @return number of partitions
