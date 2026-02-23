@@ -3,7 +3,9 @@ import os
 import random
 import string
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import List
 
 import pytest
 
@@ -121,10 +123,47 @@ def create_connector(driver, name_salt):
         driver.createConnector(config_filename, name_salt)
         created.append(config_filename)
 
-    yield _create
+    try:
+        yield _create
+    finally:
+        for config_filename in reversed(created):
+            driver.closeConnector(config_filename, name_salt)
 
-    for config_filename in reversed(created):
-        driver.closeConnector(config_filename, name_salt)
+
+@pytest.fixture
+def create_topic(driver: KafkaDriver, name_salt):
+    """Factory fixture: call with a topic name to create a topic.
+
+    The topic (and associated table) is cleaned up after the test.
+    """
+    created: List[str] = []
+
+    def _create_one(topic, num_partitions, replication_factor):
+        salted = f"{topic}{name_salt}"
+        driver.createTopics(salted, num_partitions, replication_factor)
+        driver.create_table(salted)
+        return salted
+
+    def _create(topics: List[str], *, num_partitions=1, replication_factor=1):
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [
+                executor.submit(_create_one, t, num_partitions, replication_factor)
+                for t in topics
+            ]
+            for future in as_completed(futures):
+                created.append(future.result())
+        return [f"{t}{name_salt}" for t in topics]
+
+    def _cleanup_one(topic):
+        driver.deleteTopic(topic)
+        driver.drop_table(topic)
+
+    try:
+        yield _create
+    finally:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for _ in executor.map(_cleanup_one, created):
+                pass
 
 
 @pytest.fixture()
@@ -141,11 +180,12 @@ def snowflake_table(driver, name_salt):
         created.append(topic)
         return topic
 
-    yield _create
-
-    for topic in reversed(created):
-        driver.cleanTableStagePipe(topic)
-        driver.deleteTopic(topic)
+    try:
+        yield _create
+    finally:
+        for topic in created:
+            driver.deleteTopic(topic)
+            driver.drop_table(topic)
 
 
 @pytest.fixture(scope="session")
