@@ -7,8 +7,6 @@ import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -37,14 +35,8 @@ public class StreamingErrorHandler {
   }
 
   public void handleError(Exception error, SinkRecord kafkaSinkRecord) {
-    handleError(Collections.singletonList(error), kafkaSinkRecord);
-  }
-
-  public void handleError(List<Exception> insertErrors, SinkRecord kafkaSinkRecord) {
     if (logErrors) {
-      for (Exception insertError : insertErrors) {
-        LOGGER.error("Insert Row Error message:{}", insertError.getMessage());
-      }
+      LOGGER.error("Insert Row Error message:{}", error.getMessage());
     }
     if (errorTolerance) {
       if (!isDLQTopicSet) {
@@ -54,33 +46,24 @@ public class StreamingErrorHandler {
                     + " Queue. Original error: %s",
                 ERRORS_TOLERANCE_CONFIG,
                 ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
-                insertErrors.get(0).getMessage());
+                error.getMessage());
         this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-        throw new DataException(errMsg, insertErrors.get(0));
+        throw new DataException(errMsg, error);
       } else {
         LOGGER.warn(
             "Adding the message to Dead Letter Queue topic: {}",
             ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-        Exception originalException =
-            insertErrors.stream()
-                .findFirst()
-                .orElseThrow(
-                    () ->
-                        new IllegalStateException(
-                            "Reported record error, however exception list is empty."));
         // Wrap in DataException for KCv3 compatibility while preserving original exception
         DataException wrappedException =
-            new DataException(
-                "Error converting record: " + originalException.getMessage(), originalException);
+            new DataException("Error converting record: " + error.getMessage(), error);
         this.kafkaRecordErrorReporter.reportError(kafkaSinkRecord, wrappedException);
       }
     } else {
       final String errMsg =
           String.format(
-              "Error inserting Records using Streaming API with msg:%s",
-              insertErrors.get(0).getMessage());
+              "Error inserting Records using Streaming API with msg:%s", error.getMessage());
       this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-      throw new DataException(errMsg, insertErrors.get(0));
+      throw new DataException(errMsg, error);
     }
   }
 }
