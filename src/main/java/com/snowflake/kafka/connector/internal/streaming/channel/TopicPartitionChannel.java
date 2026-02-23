@@ -81,27 +81,14 @@ public interface TopicPartitionChannel {
   SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus();
 
   /**
-   * Fetches the offset token from Snowflake.
+   * Fetches the offset token from Snowflake via the Streaming API, using <a
+   * href="https://github.com/failsafe-lib/failsafe">Failsafe</a> for retries and fallback.
    *
-   * <p>It uses <a href="https://github.com/failsafe-lib/failsafe">Failsafe library </a> which
-   * implements retries, fallbacks and circuit breaker.
+   * <p>If an {@link com.snowflake.ingest.streaming.SFException} is thrown, the call is retried up
+   * to 3 times (including the original attempt). After exhausting retries, a {@link Fallback}
+   * reopens the channel and fetches the offset token once more. The fallback itself is not retried.
    *
-   * <p>Here is how Failsafe is implemented.
-   *
-   * <p>Fetches offsetToken from Snowflake (Streaming API)
-   *
-   * <p>If it returns a valid offset number, that number is returned back to caller.
-   *
-   * <p>If {@link com.snowflake.ingest.streaming.SFException} is thrown, we will retry for max 3
-   * times. (Including the original try)
-   *
-   * <p>Upon reaching the limit of maxRetries, we will {@link Fallback} to opening a channel and
-   * fetching offsetToken again.
-   *
-   * <p>Please note, upon executing fallback, we might throw an exception too. However, in that case
-   * we will not retry.
-   *
-   * @return long offset token present in snowflake for this channel/partition.
+   * @return the offset token present in Snowflake for this channel/partition
    */
   @VisibleForTesting
   long fetchOffsetTokenWithRetry();

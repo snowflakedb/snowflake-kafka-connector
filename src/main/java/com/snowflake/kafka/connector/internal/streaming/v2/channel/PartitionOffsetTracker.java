@@ -9,8 +9,21 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
 
 /**
  * Tracks all offset state for a single partition channel. This is a passive state holder -- it
- * makes no network calls. Offsets are updated by the channel during init/recovery, and in the
- * future by shared batch services.
+ * makes no network calls. Offsets are updated during channel init/recovery, record processing in
+ * `put`, and when processing channel statuses in `preCommit`.
+ *
+ * <h3>Threading model</h3>
+ *
+ * Most methods are called from the Kafka Connect task thread, which is single-threaded per
+ * partition ({@link #shouldProcess}, {@link #recordProcessed}, {@link #recordAppended}, {@link
+ * #initializeFromSnowflake}, {@link #resetAfterRecovery}).
+ *
+ * <p>{@link #setLatestConsumerGroupOffset} may be called from a different thread, so its
+ * set-if-greater logic uses a CAS loop for atomicity. The three AtomicLong fields use atomic types
+ * for two reasons: (1) their refs are exposed for telemetry reads from other threads, and (2)
+ * {@code currentConsumerGroupOffset} is written by both the task thread and {@link
+ * #setLatestConsumerGroupOffset}. The remaining fields ({@code lastAppendRowsOffset}, {@code
+ * needToSkipCurrentBatch}) are only accessed from the task thread and need no synchronization.
  */
 public class PartitionOffsetTracker {
 
@@ -66,8 +79,8 @@ public class PartitionOffsetTracker {
    * @return true if the record should be ingested, false if it should be skipped
    */
   public boolean shouldProcess(long kafkaOffset, boolean isFirstRowInBatch) {
-    if (currentConsumerGroupOffset.get() == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      this.currentConsumerGroupOffset.set(kafkaOffset);
+    if (currentConsumerGroupOffset.compareAndSet(
+        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, kafkaOffset)) {
       LOGGER.trace(
           "Setting currentConsumerGroupOffset=[{}], channel=[{}]", kafkaOffset, channelName);
     }
@@ -149,18 +162,21 @@ public class PartitionOffsetTracker {
   }
 
   public void setLatestConsumerGroupOffset(long consumerOffset) {
-    if (consumerOffset > this.currentConsumerGroupOffset.get()) {
-      this.currentConsumerGroupOffset.set(consumerOffset);
-      LOGGER.trace(
-          "Setting currentConsumerGroupOffset=[{}], channel=[{}]", consumerOffset, channelName);
-    } else {
-      LOGGER.trace(
-          "Not setting currentConsumerGroupOffset=[{}] because consumerOffset=[{}] is <="
-              + " currentConsumerGroupOffset for channel=[{}]",
-          this.currentConsumerGroupOffset.get(),
-          consumerOffset,
-          channelName);
-    }
+    long current;
+    do {
+      current = this.currentConsumerGroupOffset.get();
+      if (consumerOffset <= current) {
+        LOGGER.trace(
+            "Not setting currentConsumerGroupOffset because consumerOffset=[{}] is <="
+                + " currentConsumerGroupOffset=[{}] for channel=[{}]",
+            consumerOffset,
+            current,
+            channelName);
+        return;
+      }
+    } while (!this.currentConsumerGroupOffset.compareAndSet(current, consumerOffset));
+    LOGGER.trace(
+        "Setting currentConsumerGroupOffset=[{}], channel=[{}]", consumerOffset, channelName);
   }
 
   /** For future: allows an external batch service to push a committed offset. */

@@ -8,7 +8,14 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingClientPropertie
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Global proxy for StreamingClientPool objects. Shared by all connectors. */
+/**
+ * JVM-global registry of {@link StreamingClientPool} objects, keyed by connector name.
+ *
+ * <p>Multiple Kafka Connect connector instances (i.e. different connector configs) can run in the
+ * same JVM process. Each gets its own {@link StreamingClientPool}, but they all share this static
+ * registry because Kafka Connect only passes String config values to tasks — there is no way to
+ * inject a shared object directly. Tasks look up their pool by connector name at startup.
+ */
 public class StreamingClientPools {
   private static final KCLogger LOGGER = new KCLogger(StreamingClientPools.class.getName());
 
