@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_HOST;
@@ -284,9 +285,10 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testErrorTolerance_AllowedValues() {
     Map<String, String> config = getConfig();
-    config.put(ERRORS_TOLERANCE_CONFIG, ConnectorConfigTools.ErrorTolerance.ALL.toString());
-
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "ACCOUNTADMIN");
+
+    config.put(ERRORS_TOLERANCE_CONFIG, ConnectorConfigTools.ErrorTolerance.ALL.toString());
+    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "my-dlq-topic");
     connectorConfigValidator.validateConfig(config);
 
     config.put(ERRORS_TOLERANCE_CONFIG, ConnectorConfigTools.ErrorTolerance.NONE.toString());
@@ -304,6 +306,26 @@ public class ConnectorConfigValidatorTest {
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "ACCOUNTADMIN");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(ERRORS_TOLERANCE_CONFIG);
+  }
+
+  @Test
+  public void testErrorTolerance_All_withDLQ_shouldPass() {
+    Map<String, String> config = getConfig();
+    config.put(ERRORS_TOLERANCE_CONFIG, "all");
+    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "my-dlq-topic");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "ACCOUNTADMIN");
+    connectorConfigValidator.validateConfig(config);
+  }
+
+  @Test
+  public void testErrorTolerance_All_withoutDLQ_shouldFail() {
+    Map<String, String> config = getConfig();
+    config.put(ERRORS_TOLERANCE_CONFIG, "all");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "ACCOUNTADMIN");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG)
         .hasMessageContaining(ERRORS_TOLERANCE_CONFIG);
   }
 

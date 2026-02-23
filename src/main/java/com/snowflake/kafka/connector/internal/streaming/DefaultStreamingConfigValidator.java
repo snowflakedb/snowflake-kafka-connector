@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.ConnectorConfigTools.BOOLEAN_VALIDATOR;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
@@ -40,6 +41,18 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
                 "{} configuration error: {}", ERRORS_TOLERANCE_CONFIG, e.getMessage()));
       }
     }
+    // Validate that errors.tolerance=all has a DLQ topic configured
+    if (StreamingUtils.tolerateErrors(inputConfig)
+        && Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(inputConfig))) {
+      invalidParams.put(
+          ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
+          Utils.formatString(
+              "{} is set to 'all', but {} is not configured. A Dead Letter Queue topic is"
+                  + " required when error tolerance is enabled.",
+              ERRORS_TOLERANCE_CONFIG,
+              ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG));
+    }
+
     if (inputConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
       try {
         BOOLEAN_VALIDATOR.ensureValid(
