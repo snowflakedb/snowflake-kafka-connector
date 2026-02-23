@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -407,7 +408,8 @@ public class Utils {
   public static void convertAppName(Map<String, String> config) {
     String appName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     // If appName is empty the following call will throw error
-    String validAppName = generateValidName(appName, new HashMap<>());
+    // Application names are always sanitized for backward compatibility
+    String validAppName = generateValidName(appName, new HashMap<>(), true);
 
     config.put(KafkaConnectorConfigParams.NAME, validAppName);
   }
@@ -421,6 +423,18 @@ public class Utils {
    */
   public static String getTableName(String topic, Map<String, String> topic2table) {
     return generateValidName(topic, topic2table);
+  }
+
+  /**
+   * verify topic name, and generate valid table name with optional sanitization
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return valid table name
+   */
+  public static String getTableName(String topic, Map<String, String> topic2table, boolean enableSanitization) {
+    return generateValidName(topic, topic2table, enableSanitization);
   }
 
   /**
@@ -438,6 +452,19 @@ public class Utils {
   }
 
   /**
+   * Verify topic name and generate a valid table name with optional sanitization
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return return GeneratedName with valid table name and a flag whether the name was taken from
+   *     the topic2table
+   */
+  public static GeneratedName generateTableName(String topic, Map<String, String> topic2table, boolean enableSanitization) {
+    return generateValidNameFromMap(topic, topic2table, enableSanitization);
+  }
+
+  /**
    * verify topic name, and generate valid table/application name
    *
    * @param topic input topic name
@@ -449,6 +476,18 @@ public class Utils {
   }
 
   /**
+   * verify topic name, and generate valid table/application name with optional sanitization
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return valid table/application name
+   */
+  public static String generateValidName(String topic, Map<String, String> topic2table, boolean enableSanitization) {
+    return generateValidNameFromMap(topic, topic2table, enableSanitization).name;
+  }
+
+  /**
    * verify topic name, and generate valid table/application name
    *
    * @param topic input topic name
@@ -457,10 +496,26 @@ public class Utils {
    */
   private static GeneratedName generateValidNameFromMap(
       String topic, Map<String, String> topic2table) {
+    // Default to v3 behavior (sanitization enabled)
+    return generateValidNameFromMap(topic, topic2table, true);
+  }
+
+  /**
+   * verify topic name, and generate valid table/application name with optional sanitization
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return valid generated table/application name
+   */
+  private static GeneratedName generateValidNameFromMap(
+      String topic, Map<String, String> topic2table, boolean enableSanitization) {
     final String PLACE_HOLDER = "_";
     if (topic == null || topic.isEmpty()) {
       throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
     }
+
+    // Map entries always bypass sanitization
     if (topic2table.containsKey(topic)) {
       return GeneratedName.fromMap(topic2table.get(topic));
     }
@@ -472,9 +527,18 @@ public class Utils {
       }
     }
 
-    if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
+    // If sanitization is disabled, pass through the topic name as is
+    if (!enableSanitization) {
       return GeneratedName.generated(topic);
     }
+
+    // When sanitization is enabled, check if the topic is a valid identifier
+    if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
+      // Valid identifiers are uppercased when sanitization is enabled
+      return GeneratedName.generated(topic.toUpperCase(Locale.ROOT));
+    }
+
+    // Invalid identifiers are sanitized and uppercased when sanitization is enabled
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();
@@ -485,7 +549,7 @@ public class Utils {
     int index = 0;
     // first char
     if (topic.substring(index, index + 1).matches("[_a-zA-Z]")) {
-      result.append(topic.charAt(0));
+      result.append(topic.charAt(index));
       index++;
     } else {
       result.append(PLACE_HOLDER);
@@ -502,7 +566,8 @@ public class Utils {
     result.append(PLACE_HOLDER);
     result.append(hash);
 
-    return GeneratedName.generated(result.toString());
+    // Uppercase the sanitized result when sanitization is enabled
+    return GeneratedName.generated(result.toString().toUpperCase(Locale.ROOT));
   }
 
   public static Map<String, String> parseTopicToTableMap(String input) {
