@@ -36,7 +36,7 @@ runs:
       run: |
         ./run_tests.sh \
           --platform="$PLATFORM" \
-          --version="$PLATFORM_VERSION" \
+          --platform-version="$PLATFORM_VERSION" \
           --cloud="$SNOWFLAKE_CLOUD" \
           --java-version="$JAVA_VERSION" \
           --logs-dir="$LOGS_DIR" \
