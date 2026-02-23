@@ -467,4 +467,19 @@ public class UtilsTest {
     assertFalse(Utils.isValidSnowflakeTableName("has-dashes"));
     assertFalse(Utils.isValidSnowflakeTableName("123starts"));
   }
+
+  @Test
+  public void testParseTopicToTableWithQuotedIdentifiers() {
+    // Test that parseTopicToTableMap works with quoted identifiers
+    Map<String, String> topic2table =
+        Utils.parseTopicToTableMap("topic1:\"My-Table\",topic2:regular_table");
+
+    assertEquals("\"My-Table\"", topic2table.get("topic1"));
+    assertEquals("regular_table", topic2table.get("topic2"));
+
+    // Test with spaces in quoted identifier
+    Map<String, String> topic2tableWithSpaces =
+        Utils.parseTopicToTableMap("my_topic:\"Table With Spaces\"");
+    assertEquals("\"Table With Spaces\"", topic2tableWithSpaces.get("my_topic"));
+  }
 }
