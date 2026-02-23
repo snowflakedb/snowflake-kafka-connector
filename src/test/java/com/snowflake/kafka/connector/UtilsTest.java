@@ -449,4 +449,22 @@ public class UtilsTest {
 
     assertNull(recommended);
   }
+
+  @Test
+  public void testValidSnowflakeTableNameAcceptsQuotedIdentifiers() {
+    // Quoted identifiers should be accepted
+    assertTrue(Utils.isValidSnowflakeTableName("\"My-Table\""));
+    assertTrue(Utils.isValidSnowflakeTableName("\"data-2024-01\""));
+    assertTrue(Utils.isValidSnowflakeTableName("\"123table\""));
+    assertTrue(Utils.isValidSnowflakeTableName("\"has spaces\""));
+
+    // Unquoted valid identifiers still accepted
+    assertTrue(Utils.isValidSnowflakeTableName("MyTable"));
+    assertTrue(Utils.isValidSnowflakeTableName("_underscore"));
+
+    // Invalid patterns still rejected
+    assertFalse(Utils.isValidSnowflakeTableName("\"unclosed"));
+    assertFalse(Utils.isValidSnowflakeTableName("has-dashes"));
+    assertFalse(Utils.isValidSnowflakeTableName("123starts"));
+  }
 }

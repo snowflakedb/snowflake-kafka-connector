@@ -309,8 +309,18 @@ public class Utils {
     return appName.matches("^[-_a-zA-Z]{1}[-_$a-zA-Z0-9]+$");
   }
 
+  /**
+   * Validates if the given table name is a valid Snowflake table name.
+   * Accepts:
+   * - Quoted identifiers: "MyTable", "table-with-dashes", "123table"
+   * - Unquoted identifiers: MyTable, _underscore, schema.table
+   *
+   * @param tableName the table name to validate
+   * @return true if valid, false otherwise
+   */
   static boolean isValidSnowflakeTableName(String tableName) {
-    return tableName.matches("^([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
+    return tableName.matches(
+        "^(\"[^\"]+\"|([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+)$");
   }
 
   /**
@@ -514,9 +524,9 @@ public class Utils {
 
       if (!isValidSnowflakeTableName(table)) {
         LOGGER.error(
-            "table name {} should have at least 2 "
-                + "characters, start with _a-zA-Z, and only contains "
-                + "_$a-zA-z0-9",
+            "table name {} should be either a valid unquoted identifier "
+                + "(starts with _a-zA-Z, contains _$a-zA-z0-9) or a quoted identifier "
+                + "(e.g., \"MyTable\")",
             table);
         isInvalid = true;
       }
