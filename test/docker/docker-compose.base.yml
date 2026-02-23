@@ -27,16 +27,10 @@ services:
       - ../test_data:/app/test_data
       - ../__init__.py:/app/__init__.py:ro
       - ../lib:/app/lib:ro
-      - ../test_verify.py:/app/test_verify.py:ro
-      - ../test_suites.py:/app/test_suites.py:ro
-      - ../test_executor.py:/app/test_executor.py:ro
-      - ../test_selector.py:/app/test_selector.py:ro
-      - ../cloud_platform.py:/app/cloud_platform.py:ro
       - ../conftest.py:/app/conftest.py:ro
       - ../pyproject.toml:/app/pyproject.toml:ro
       - ../tests:/app/tests:ro
     working_dir: /app
-    command: ["./scripts/run_tests_inner.sh"]
 
 networks:
   default:

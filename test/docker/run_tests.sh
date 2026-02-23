@@ -162,6 +162,7 @@ case $PLATFORM in
         TEST_SET="confluent"
         CONFLUENT_VERSION="$VERSION"
         KAFKA_VERSION=""
+        KAFKA_CONNECT_ADDRESS="kafka-connect:8083"
         HEALTH_CHECK_SERVICE="kafka-connect"
         START_SERVICES="zookeeper kafka schema-registry kafka-connect"
         ;;
@@ -171,6 +172,7 @@ case $PLATFORM in
         TEST_SET="apache"
         CONFLUENT_VERSION=""
         KAFKA_VERSION="$VERSION"
+        KAFKA_CONNECT_ADDRESS="kafka:8083"
         HEALTH_CHECK_SERVICE="kafka"
         START_SERVICES="kafka"
         ;;
@@ -315,10 +317,41 @@ if [ $ELAPSED -ge $TIMEOUT ]; then
     error_exit "Services failed to become healthy within ${TIMEOUT}s"
 fi
 
+# Build pytest arguments
+PYTEST_ARGS=(
+    -v
+    --platform "$TEST_SET"
+    --platform-version "$VERSION"
+    --name-salt "$TEST_NAME_SALT"
+    --kafka-connect-address "$KAFKA_CONNECT_ADDRESS"
+)
+
+case $PLATFORM in
+    confluent)
+        PYTEST_ARGS+=(
+            --kafka-address "kafka:29092"
+            --schema-registry-address "http://schema-registry:8081"
+        )
+        ;;
+    apache)
+        PYTEST_ARGS+=(
+            --kafka-address "kafka:9092"
+            --schema-registry-address ""
+        )
+        ;;
+esac
+
+if [ "$PRESSURE_TEST" = "true" ]; then
+    PYTEST_ARGS+=(-m pressure)
+else
+    PYTEST_ARGS+=(-m 'not pressure')
+fi
+
 # Run tests
 info "Running tests..."
 set +e
-docker compose $COMPOSE_FILES run --rm -i test-runner ./scripts/run_tests_inner.sh "${PASSTHROUGH_ARGS[@]}"
+docker compose $COMPOSE_FILES run --rm -i test-runner \
+    pytest "${PYTEST_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 TEST_EXIT_CODE=$?
 set -e
 

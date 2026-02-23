@@ -70,12 +70,20 @@ class KafkaDriver:
         consumer_config["auto.offset.reset"] = "earliest"
         self.consumer = Consumer(consumer_config)
 
-        avro_producer_config = producer_config.copy()
-        avro_producer_config["schema.registry.url"] = schemaRegistryAddress
-        self.avroProducer = AvroProducer(avro_producer_config)
+        self._avro_producer_config = producer_config.copy()
+        self._avro_producer_config["schema.registry.url"] = schemaRegistryAddress
+        # Lazy-init: Apache platform has no schema registry, so we can't
+        # create the AvroProducer eagerly.
+        self._avroProducer = None
 
         snowflake_connector_config = SnowflakeConnectorConfig.from_profile(credentials)
         self.snowflake_conn = snowflake.connector.connect(**snowflake_connector_config.to_dict())
+
+    @property
+    def avroProducer(self):
+        if self._avroProducer is None:
+            self._avroProducer = AvroProducer(self._avro_producer_config)
+        return self._avroProducer
 
     def msgSendInterval(self):
         # sleep self.SEND_INTERVAL before send the second message

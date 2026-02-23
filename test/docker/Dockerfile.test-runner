@@ -39,9 +39,4 @@ RUN pip install --no-cache-dir \
 # Create app directory
 WORKDIR /app
 
-# Copy scripts
-COPY scripts/ /app/scripts/
-RUN chmod +x /app/scripts/*.sh
-
-# Default command
-CMD ["./scripts/run_tests_inner.sh"]
+CMD ["bash"]
