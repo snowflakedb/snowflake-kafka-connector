@@ -30,7 +30,7 @@ cd test/docker
 # Confluent examples:
 ./run_tests.sh --platform=confluent --version=7.8.0
 ./run_tests.sh --platform=confluent --version=6.2.15
-./run_tests.sh --platform=confluent --version=7.8.0 --tests=TestStringJson
+./run_tests.sh --platform=confluent --version=7.8.0 --tests=test_string_json
 
 # Apache Kafka examples:
 ./run_tests.sh --platform=apache --version=3.7.2
@@ -88,18 +88,23 @@ The test environment uses layered Docker Compose files in `docker/`:
 
 ### How E2E Tests Work
 
-The E2E framework has three phases: **configure**, **send**, **verify**, and **clean**.
+There are two test infrastructures that run side by side:
 
-1. **Connector configuration** -- Templates in `rest_request_template/` have a one-to-one correspondence with test classes in `test_suit/`. For example, `travis_correct_json_json.json` maps to `test_suit/test_json_json.py`. The driver `test_verify.py` replaces placeholder values (e.g., `SNOWFLAKE_TEST_TOPIC`, `CONFLUENT_SCHEMA_REGISTRY`) with actual runtime values.
+**Pytest (primary)** -- New tests live in `tests/` as standard pytest modules.
+Fixtures in `conftest.py` handle connector lifecycle, table creation, and cleanup
+(including Kafka topic deletion). The runner script passes connection addresses and
+platform version as CLI options; see `conftest.py` for the full list.
 
-2. **Send** -- Each test class (e.g., `TestJsonJson`) produces records to specific topic partitions. The corresponding connector consumes and ingests them into Snowflake.
+**Legacy infra** -- Older tests live in `test_suit/` as classes with
+`send`/`verify`/`clean` methods. They are orchestrated by `test_verify.py` via
+`test_executor.py`. Connector config templates in `rest_request_template/` have a
+one-to-one correspondence with these classes (e.g., `travis_correct_json_json.json`
+maps to `test_suit/test_json_json.py`). The driver replaces placeholder values
+(e.g., `SNOWFLAKE_TEST_TOPIC`, `CONFLUENT_SCHEMA_REGISTRY`) with runtime values.
 
-3. **Verify** -- The test verifies:
-   - Row count in the Snowflake table matches the number of sent records
-   - The first record matches the expected content
-   - Internal stages are cleaned up (skipped for large pressure tests where the connector may not have time to purge)
-
-4. **Clean** -- Tables, stages, and pipes are deleted. Docker containers are torn down.
+Both share the same `KafkaDriver` (`lib/driver.py`) and connector config templates.
+The test runner script (`docker/scripts/run_tests_inner.sh`) executes pytest first,
+then the legacy infra. Stress/pressure tests run only through the legacy infra.
 
 ## Stress Tests
 
@@ -141,14 +146,18 @@ docker compose -f docker-compose.base.yml -f docker-compose.confluent.yml down -
 
 ```
 test/
-  docker/                     Docker Compose files, Dockerfiles, and test runner scripts
+  tests/                      Pytest test modules (new tests go here)
+  conftest.py                 Pytest fixtures and CLI options
+  pyproject.toml              Pytest configuration
+  lib/                        Shared helpers (KafkaDriver, config, crypto)
   rest_request_template/      Connector config templates (one per test case)
-  test_suit/                  Python E2E test classes (send/verify/clean)
+  test_suit/                  Legacy E2E test classes (send/verify/clean)
   test_data/                  Protobuf schema and generated code
+  docker/                     Docker Compose files, Dockerfiles, and test runner scripts
   apache_properties/          Kafka/Zookeeper/Connect config (used by Apache Docker image)
   build_runtime_jar.sh        Builds connector JAR/ZIP
-  test_verify.py              E2E test entry point
-  test_suites.py              Test suite registry
-  test_selector.py            Test filtering logic
-  test_executor.py            Test execution engine
+  test_verify.py              Legacy E2E test entry point
+  test_suites.py              Legacy test suite registry
+  test_selector.py            Legacy test filtering logic
+  test_executor.py            Legacy test execution engine
 ```

@@ -9,7 +9,7 @@
 #   ./run_tests.sh --platform=apache --version=2.8.2
 #   ./run_tests.sh --platform=apache --version=3.7.0
 #   ./run_tests.sh --platform=confluent --version=7.8.0
-#   ./run_tests.sh --platform=confluent --version=6.2.15 --tests=TestStringJson
+#   ./run_tests.sh --platform=confluent --version=6.2.15 --tests=test_string_json
 #
 # Prerequisites:
 #   - Docker and Docker Compose
@@ -66,7 +66,7 @@ usage() {
     echo "Examples:"
     echo "  $0 --platform=confluent --version=7.8.0"
     echo "  $0 --platform=apache --version=2.8.2"
-    echo "  $0 --platform=confluent --version=7.8.0 --tests=TestStringJson"
+    echo "  $0 --platform=confluent --version=7.8.0 --tests=test_string_json"
     echo "  $0 --platform=apache --version=3.7.0 --pressure --keep"
     echo "  $0 --platform=confluent --version=7.8.0 --logs-dir=/tmp/test-logs"
     exit 1
