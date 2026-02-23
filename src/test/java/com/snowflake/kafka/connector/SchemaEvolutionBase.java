@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.v2.StreamingClientManager;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import java.util.Map;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.storage.StringConverter;
@@ -43,7 +43,7 @@ abstract class SchemaEvolutionBase extends ConnectClusterBaseIT {
             .noCaching()
             .build();
 
-    StreamingClientManager.resetIngestClientSupplier();
+    StreamingClientFactory.resetStreamingClientSupplier();
   }
 
   @AfterEach
@@ -51,7 +51,7 @@ abstract class SchemaEvolutionBase extends ConnectClusterBaseIT {
     connectCluster.kafka().deleteTopic(topic0);
     connectCluster.kafka().deleteTopic(topic1);
     connectCluster.deleteConnector(connectorName);
-    StreamingClientManager.resetIngestClientSupplier();
+    StreamingClientFactory.resetStreamingClientSupplier();
     TestUtils.dropTable(tableName);
   }
 

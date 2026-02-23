@@ -1,11 +1,14 @@
 package com.snowflake.kafka.connector.internal.streaming.channel;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.SFException;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import dev.failsafe.Fallback;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.connect.sink.SinkRecord;
 
-public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionChannel {
+public interface TopicPartitionChannel {
   long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
   /**
@@ -73,4 +76,20 @@ public interface TopicPartitionChannel extends ExposingInternalsTopicPartitionCh
   default CompletableFuture<Void> waitForLastProcessedRecordCommitted() {
     return CompletableFuture.completedFuture(null);
   }
+
+  @VisibleForTesting
+  SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus();
+
+  /**
+   * Fetches the offset token from Snowflake via the Streaming API, using <a
+   * href="https://github.com/failsafe-lib/failsafe">Failsafe</a> for retries and fallback.
+   *
+   * <p>If an {@link com.snowflake.ingest.streaming.SFException} is thrown, the call is retried up
+   * to 3 times (including the original attempt). After exhausting retries, a {@link Fallback}
+   * reopens the channel and fetches the offset token once more. The fallback itself is not retried.
+   *
+   * @return the offset token present in Snowflake for this channel/partition
+   */
+  @VisibleForTesting
+  long fetchOffsetTokenWithRetry();
 }
