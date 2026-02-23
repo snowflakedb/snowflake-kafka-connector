@@ -215,7 +215,9 @@ def snowflake_table(driver, name_salt):
 def wait_for_rows(driver):
     """Returns a polling helper that waits until a Snowflake table reaches the expected row count."""
 
-    def _wait(table_name: str, expected: int, *, timeout: int = 600, interval: int = 10):
+    def _wait(
+        table_name: str, expected: int, *, timeout: int = 600, interval: int = 10
+    ):
         deadline = time.monotonic() + timeout
         while True:
             count = driver.select_number_of_records(table_name)
@@ -228,7 +230,10 @@ def wait_for_rows(driver):
                 )
             logger.info(
                 "Waiting for %d rows in %s (currently %d), retrying in %ds...",
-                expected, table_name, count, interval,
+                expected,
+                table_name,
+                count,
+                interval,
             )
             time.sleep(interval)
 

@@ -25,7 +25,9 @@ def normalize_private_key(private_key: str, is_encrypted) -> bytes:
 def parse_private_key(private_key_str: str, password_str: str | None = None) -> bytes:
     password: bytes | None = password_str.encode("ascii") if password_str else None
 
-    private_key_normalized: bytes = normalize_private_key(private_key_str, password is not None)
+    private_key_normalized: bytes = normalize_private_key(
+        private_key_str, password is not None
+    )
 
     private_key = serialization.load_pem_private_key(
         private_key_normalized, password=password, backend=default_backend()
