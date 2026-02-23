@@ -40,7 +40,7 @@ runs:
           --cloud="$SNOWFLAKE_CLOUD" \
           --java-version="$JAVA_VERSION" \
           --logs-dir="$LOGS_DIR" \
-          ${{ inputs.pressure == 'true' && '--pressure' || '' }}
+          -- ${{ inputs.pressure == 'true' && '-m pressure' || '-m "not pressure"' }}
 
     - name: Upload service logs on failure
       if: failure()

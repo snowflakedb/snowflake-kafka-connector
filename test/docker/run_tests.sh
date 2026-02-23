@@ -53,7 +53,6 @@ usage() {
     echo "Options:"
     echo "  --cloud=CLOUD        Snowflake cloud platform: AWS, GCP, or AZURE"
     echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
-    echo "  --pressure           Run pressure tests"
     echo "  --keep               Keep containers running after tests"
     echo "  --rebuild            Force rebuild of images"
     echo "  --logs-dir=DIR       Save service logs to a file in DIR on failure"
@@ -67,7 +66,7 @@ usage() {
     echo "  $0 --platform=confluent --platform-version=7.8.0"
     echo "  $0 --platform=apache --platform-version=2.8.2"
     echo "  $0 --platform=confluent --platform-version=7.8.0 -- -k test_string_json"
-    echo "  $0 --platform=apache --platform-version=3.7.0 --pressure --keep"
+    echo "  $0 --platform=apache --platform-version=3.7.0 --keep -- -m pressure"
     echo "  $0 --platform=confluent --platform-version=7.8.0 --logs-dir=/tmp/test-logs"
     exit 1
 }
@@ -76,7 +75,6 @@ usage() {
 PLATFORM=""
 PLATFORM_VERSION=""
 JAVA_VERSION="11"
-PRESSURE_TEST="false"
 KEEP_RUNNING="false"
 FORCE_REBUILD="false"
 LOGS_DIR=""
@@ -98,10 +96,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --java-version=*)
             JAVA_VERSION="${1#*=}"
-            shift
-            ;;
-        --pressure)
-            PRESSURE_TEST="true"
             shift
             ;;
         --keep)
@@ -334,12 +328,6 @@ case $PLATFORM in
         )
         ;;
 esac
-
-if [ "$PRESSURE_TEST" = "true" ]; then
-    PYTEST_ARGS+=(-m pressure)
-else
-    PYTEST_ARGS+=(-m 'not pressure')
-fi
 
 # Run tests
 info "Running tests..."
