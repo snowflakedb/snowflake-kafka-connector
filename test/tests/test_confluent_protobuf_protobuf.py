@@ -1,5 +1,4 @@
 import pytest
-import test_data.sensor_pb2 as sensor_pb2
 from confluent_kafka import SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
@@ -9,7 +8,7 @@ CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
 
 
-def _build_sensor():
+def _build_sensor(sensor_pb2):
     sensor = sensor_pb2.SensorReading()
     sensor.dateTime = 1234
     sensor.reading = 321.321
@@ -28,7 +27,7 @@ def _build_sensor():
 
 @pytest.mark.confluent_only
 def test_confluent_protobuf_protobuf(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    sensor_pb2, driver, name_salt, create_connector, snowflake_table, wait_for_rows
 ):
     topic = snowflake_table(
         FILE_NAME,
@@ -51,7 +50,7 @@ def test_confluent_protobuf_protobuf(
         }
     )
 
-    sensor = _build_sensor()
+    sensor = _build_sensor(sensor_pb2)
     for _ in range(RECORD_COUNT):
         producer.produce(topic, sensor, sensor)
         producer.poll(0)
