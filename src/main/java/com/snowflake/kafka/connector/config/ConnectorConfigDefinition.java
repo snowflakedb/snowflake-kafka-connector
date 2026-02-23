@@ -319,13 +319,25 @@ public class ConnectorConfigDefinition {
             "If set to true the Connector will fail its tasks when authorization error from"
                 + " Snowflake occurred")
         .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_TABLE_NAME_SANITIZATION,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_TABLE_NAME_SANITIZATION_DEFAULT,
+            LOW,
+            "When enabled, auto-generated table names are sanitized (special characters replaced)"
+                + " and uppercased for v3 compatibility. When disabled, topic names are passed through"
+                + " as-is. Use topic2table.map with quoted identifiers for special characters when disabled.",
+            CONNECTOR_CONFIG_DOC,
+            9,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_TABLE_NAME_SANITIZATION)
+        .define(
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
             BOOLEAN,
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_DEFAULT,
             LOW,
             "Enable caching for Snowflake table existence checks to reduce database queries",
             CONNECTOR_CONFIG_DOC,
-            9,
+            10,
             Width.NONE,
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS)
         .define(
@@ -337,7 +349,7 @@ public class ConnectorConfigDefinition {
             "Cache expiration time in milliseconds for table existence checks. Must be a positive"
                 + " number.",
             CONNECTOR_CONFIG_DOC,
-            10,
+            11,
             Width.NONE,
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS)
         .define(
@@ -347,7 +359,7 @@ public class ConnectorConfigDefinition {
             LOW,
             "Enable caching for pipe existence checks to reduce database queries",
             CONNECTOR_CONFIG_DOC,
-            11,
+            12,
             Width.NONE,
             KafkaConnectorConfigParams.CACHE_PIPE_EXISTS)
         .define(
@@ -359,7 +371,7 @@ public class ConnectorConfigDefinition {
             "Cache expiration time in milliseconds for pipe existence checks. Must be a positive"
                 + " number.",
             CONNECTOR_CONFIG_DOC,
-            12,
+            13,
             Width.NONE,
             KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS);
   }
