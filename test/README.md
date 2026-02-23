@@ -18,7 +18,7 @@ export SNOWFLAKE_CREDENTIAL_FILE=/path/to/profile.json
 ./test/build_runtime_jar.sh . package confluent   # or 'apache'
 
 # 2. Run tests
-cd test/docker
+cd test
 ./run_tests.sh --platform=confluent --platform-version=7.8.0
 ```
 

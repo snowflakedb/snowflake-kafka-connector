@@ -20,7 +20,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DOCKER_DIR="$SCRIPT_DIR/docker"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Colors
 RED='\033[0;31m'
@@ -227,7 +228,7 @@ mkdir -p "$EXTRA_JARS_DIR"
 
 compile_protobuf_dependencies() {
     info "Building protobuf dependencies..."
-    cd "$SCRIPT_DIR"
+    cd "$DOCKER_DIR"
     
     docker build -t protobuf-builder -f Dockerfile.builder ..
     
@@ -254,7 +255,7 @@ export SNOWFLAKE_CREDENTIAL_FILE
 export CONNECTOR_PLUGIN_PATH="$PLUGIN_DIR"
 export EXTRA_JARS_PATH="$EXTRA_JARS_DIR"
 
-cd "$SCRIPT_DIR"
+cd "$DOCKER_DIR"
 
 # Cleanup function
 cleanup() {
@@ -263,7 +264,7 @@ cleanup() {
         docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
     else
         warn "Keeping containers running (--keep specified)"
-        echo "To stop: cd $SCRIPT_DIR && docker compose $COMPOSE_FILES down -v"
+        echo "To stop: cd $DOCKER_DIR && docker compose $COMPOSE_FILES down -v"
     fi
 }
 

@@ -25,7 +25,7 @@ runs:
   steps:
     - name: Run end-to-end tests
       shell: bash
-      working-directory: test/docker
+      working-directory: test
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "${{ github.workspace }}/profile.json"
         PLATFORM: ${{ inputs.platform }}
