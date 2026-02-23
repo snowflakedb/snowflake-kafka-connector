@@ -56,6 +56,13 @@ def pytest_addoption(parser):
         default=None,
         help="Unique salt appended to connector and topic names (auto-generated if omitted)",
     )
+    # currently unused, all tests run on all clouds
+    group.addoption(
+        "--cloud",
+        choices=["AWS", "GCP", "AZURE"],
+        default=None,
+        help="Snowflake cloud platform (AWS, GCP, or AZURE)",
+    )
     group.addoption(
         "--enable-ssl",
         action="store_true",
