@@ -16,13 +16,16 @@ import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPart
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -168,7 +171,7 @@ class StreamingErrorHandlerIT {
   }
 
   @Test
-  void multipleBrokenRecords_toleranceAll_withDLQ_shouldSendAllToDLQ() {
+  void multipleBrokenRecords_toleranceAll_withDLQ_shouldSendOnlyBrokenToDLQ() {
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     Map<String, String> config = baseConfig();
     config.put("errors.tolerance", "all");
@@ -177,8 +180,9 @@ class StreamingErrorHandlerIT {
     SnowpipeStreamingPartitionChannel channel = createChannel(config, errorReporter);
 
     channel.insertRecord(buildBrokenValueRecord(0), true);
-    channel.insertRecord(buildBrokenValueRecord(1), false);
+    channel.insertRecord(buildValidRecord(1), false);
     channel.insertRecord(buildBrokenValueRecord(2), false);
+    channel.insertRecord(buildBrokenValueRecord(3), false);
 
     assertEquals(3, errorReporter.getReportedRecords().size());
   }
@@ -229,6 +233,18 @@ class StreamingErrorHandlerIT {
         .withKey("not an int")
         .withValueSchema(Schema.STRING_SCHEMA)
         .withValue("{}")
+        .withOffset(offset)
+        .build();
+  }
+
+  /** Creates a valid SinkRecord with a schemaless JSON map value. */
+  private SinkRecord buildValidRecord(long offset) {
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
+    SchemaAndValue schemaAndValue =
+        jsonConverter.toConnectData(TOPIC, "{\"name\": \"test\"}".getBytes(StandardCharsets.UTF_8));
+    return SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+        .withSchemaAndValue(schemaAndValue)
         .withOffset(offset)
         .build();
   }
