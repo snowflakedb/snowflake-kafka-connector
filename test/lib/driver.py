@@ -302,6 +302,13 @@ class KafkaDriver:
         logger.info(f"=== Drop table {topic} ===")
         self.snowflake_conn.cursor().execute(f"DROP table IF EXISTS {topic}")
 
+        # Drop SSv2 streaming pipe (current naming convention: tableName-STREAMING)
+        ssv2PipeName = f"{topic}-STREAMING"
+        logger.info(f"=== Drop SSv2 pipe {ssv2PipeName} ===")
+        self.snowflake_conn.cursor().execute(f"DROP PIPE IF EXISTS {ssv2PipeName}")
+
+        logger.info("=== Done ===")
+
     def enable_schema_evolution_for_iceberg(self, table: str):
         self.snowflake_conn.cursor().execute(
             f"alter iceberg table {table} set ENABLE_SCHEMA_EVOLUTION = true"
