@@ -328,7 +328,9 @@ public class SnowflakeSinkTaskForStreamingIT {
     config.put(KafkaConnectorConfigParams.TOPICS, topicName);
 
     SnowflakeSinkTask task = new SnowflakeSinkTask();
+    task.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     task.start(config);
+    task.open(Collections.singletonList(topicPartition));
 
     // Create and send records
     List<SinkRecord> records = new ArrayList<>();
@@ -337,21 +339,24 @@ public class SnowflakeSinkTaskForStreamingIT {
     }
 
     task.put(records);
-    task.close(Collections.singleton(topicPartition));
 
-    // Wait a bit for the table to be created
-    Thread.sleep(2000);
+    // Wait for preCommit to confirm data is flushed
+    final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.put(topicPartition, new OffsetAndMetadata(10000));
+    TestUtils.assertWithRetry(() -> task.preCommit(offsetMap).size() == 1, 20, 5);
+
+    task.close(Collections.singletonList(topicPartition));
+    task.stop();
 
     // When sanitization is enabled, valid identifiers are uppercased
     String expectedTableName = topicName.toUpperCase();
 
     SnowflakeConnectionService conn = getConnectionServiceWithEncryptedKey();
 
-    // Check if the uppercased table exists
+    // Verify the table exists and is uppercased
     boolean tableExists = conn.tableExist(expectedTableName);
     Assertions.assertTrue(tableExists, "Should find uppercased table: " + expectedTableName);
 
-    // Verify the table name is fully uppercased
     Assertions.assertTrue(
         expectedTableName.matches("^[A-Z_0-9]+$"),
         "Table name should be fully uppercased with only alphanumeric and underscore characters");
@@ -392,7 +397,9 @@ public class SnowflakeSinkTaskForStreamingIT {
     getConnectionServiceWithEncryptedKey().executeQueryWithParameters(createTableSql);
 
     SnowflakeSinkTask task = new SnowflakeSinkTask();
+    task.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     task.start(config);
+    task.open(Collections.singletonList(topicPartition));
 
     // Create and send records
     List<SinkRecord> records = new ArrayList<>();
@@ -401,20 +408,22 @@ public class SnowflakeSinkTaskForStreamingIT {
     }
 
     task.put(records);
-    task.close(Collections.singleton(topicPartition));
 
-    // Wait for data to be written
-    Thread.sleep(2000);
+    // Wait for preCommit to confirm data is flushed
+    final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
+    offsetMap.put(topicPartition, new OffsetAndMetadata(10000));
+    TestUtils.assertWithRetry(() -> task.preCommit(offsetMap).size() == 1, 20, 5);
 
-    // Verify data - use quotedTableName directly since it already has quotes
-    // This will fail if the table doesn't exist or has wrong case
+    task.close(Collections.singletonList(topicPartition));
+    task.stop();
+
+    // Verify data in the case-sensitive table
     ResultSet data = TestUtils.showTable(quotedTableName);
     int count = 0;
     while (data.next()) {
       count++;
     }
-    Assertions.assertEquals(
-        5, count, "Should have 5 rows in case-sensitive table " + quotedTableName);
+    Assertions.assertEquals(5, count, "Should have 5 rows in case-sensitive table");
 
     // Cleanup table and pipe
     String pipeName = tableNameWithoutQuotes + "-STREAMING";
