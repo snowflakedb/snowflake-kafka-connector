@@ -87,6 +87,10 @@ public class BatchOffsetFetcher {
     return result;
   }
 
+  /**
+   * @throws SFException if {@code getChannelStatus} fails after the SDK exhausts its internal
+   *     retries (exponential backoff on transient HTTP errors)
+   */
   private Map<TopicPartition, Long> getCommittedOffsetsForPipe(
       String pipeName, Map<TopicPartition, TopicPartitionChannel> channelsByPartition) {
     List<String> channelNames =
@@ -106,6 +110,8 @@ public class BatchOffsetFetcher {
 
           ChannelStatus status = batch.getChannelStatusBatch().get(channelName);
           if (status == null) {
+            // This should never happen but we can still recover by simply skipping this channel.
+            // There is no obligation to return any committed offsets in `preCommit`.
             LOGGER.warn("No status returned for channel: {}", channelName);
             return;
           }
