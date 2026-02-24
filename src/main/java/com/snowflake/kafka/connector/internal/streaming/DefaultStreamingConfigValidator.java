@@ -42,7 +42,9 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
       }
     }
     // Validate that errors.tolerance=all has a DLQ topic configured
-    if (StreamingUtils.tolerateErrors(inputConfig)
+    // Only check if the tolerance value itself is valid (not already in invalidParams)
+    if (!invalidParams.containsKey(ERRORS_TOLERANCE_CONFIG)
+        && StreamingUtils.tolerateErrors(inputConfig)
         && Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(inputConfig))) {
       invalidParams.put(
           ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
