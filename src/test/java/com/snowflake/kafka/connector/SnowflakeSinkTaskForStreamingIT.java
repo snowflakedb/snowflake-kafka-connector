@@ -53,6 +53,8 @@ public class SnowflakeSinkTaskForStreamingIT {
   @AfterEach
   public void afterEach() {
     TestUtils.dropTable(topicName);
+    // Drop the associated streaming pipe to prevent account-level pipe limit errors
+    TestUtils.dropPipe(topicName + "-STREAMING");
   }
 
   @Test
@@ -373,7 +375,9 @@ public class SnowflakeSinkTaskForStreamingIT {
     }
     Assertions.assertEquals(5, count, "Should have 5 rows");
 
-    // Cleanup
+    // Cleanup table and pipe
+    String pipeName = sanitizedTableName + "-STREAMING";
     TestUtils.dropTable(sanitizedTableName);
+    TestUtils.dropPipe(pipeName);
   }
 }
