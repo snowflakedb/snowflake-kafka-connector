@@ -412,7 +412,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // Verify data - use quotedTableName directly since it already has quotes
     // This will fail if the table doesn't exist or has wrong case
-    ResultSet data = TestUtils.executeQuery("select * from " + quotedTableName);
+    ResultSet data = TestUtils.showTable(quotedTableName);
     int count = 0;
     while (data.next()) {
       count++;
@@ -422,7 +422,7 @@ public class SnowflakeSinkTaskForStreamingIT {
 
     // Cleanup table and pipe
     String pipeName = tableNameWithoutQuotes + "-STREAMING";
-    TestUtils.executeQuery("drop table if exists " + quotedTableName);
+    TestUtils.dropTable(quotedTableName);
     TestUtils.dropPipe(pipeName);
   }
 }
