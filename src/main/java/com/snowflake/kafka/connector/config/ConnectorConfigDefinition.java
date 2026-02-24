@@ -324,8 +324,9 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_TABLE_NAME_SANITIZATION_DEFAULT,
             LOW,
             "When enabled, auto-generated table names are sanitized (special characters replaced)"
-                + " and uppercased for v3 compatibility. When disabled, topic names are passed through"
-                + " as-is. Use topic2table.map with quoted identifiers for special characters when disabled.",
+                + " and uppercased for v3 compatibility. When disabled, topic names are passed"
+                + " through as-is. Use topic2table.map with quoted identifiers for special"
+                + " characters when disabled.",
             CONNECTOR_CONFIG_DOC,
             9,
             Width.NONE,

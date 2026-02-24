@@ -204,7 +204,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     for (TopicPartition topicPartition : partitions) {
-      final String tableName = getTableName(topicPartition.topic(), this.topicToTableMap, this.enableSanitization);
+      final String tableName =
+          getTableName(topicPartition.topic(), this.topicToTableMap, this.enableSanitization);
       final String targetPipeName = tableToPipeMapping.get(tableName);
       createStreamingChannelForTopicPartition(tableName, targetPipeName, topicPartition);
     }

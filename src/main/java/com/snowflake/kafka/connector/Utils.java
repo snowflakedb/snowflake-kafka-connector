@@ -311,10 +311,9 @@ public class Utils {
   }
 
   /**
-   * Validates if the given table name is a valid Snowflake table name.
-   * Accepts:
-   * - Quoted identifiers: "MyTable", "table-with-dashes", "123table"
-   * - Unquoted identifiers: MyTable, _underscore, schema.table
+   * Validates if the given table name is a valid Snowflake table name. Accepts: - Quoted
+   * identifiers: "MyTable", "table-with-dashes", "123table" - Unquoted identifiers: MyTable,
+   * _underscore, schema.table
    *
    * @param tableName the table name to validate
    * @return true if valid, false otherwise
@@ -433,7 +432,8 @@ public class Utils {
    * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
    * @return valid table name
    */
-  public static String getTableName(String topic, Map<String, String> topic2table, boolean enableSanitization) {
+  public static String getTableName(
+      String topic, Map<String, String> topic2table, boolean enableSanitization) {
     return generateValidName(topic, topic2table, enableSanitization);
   }
 
@@ -460,7 +460,8 @@ public class Utils {
    * @return return GeneratedName with valid table name and a flag whether the name was taken from
    *     the topic2table
    */
-  public static GeneratedName generateTableName(String topic, Map<String, String> topic2table, boolean enableSanitization) {
+  public static GeneratedName generateTableName(
+      String topic, Map<String, String> topic2table, boolean enableSanitization) {
     return generateValidNameFromMap(topic, topic2table, enableSanitization);
   }
 
@@ -483,7 +484,8 @@ public class Utils {
    * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
    * @return valid table/application name
    */
-  public static String generateValidName(String topic, Map<String, String> topic2table, boolean enableSanitization) {
+  public static String generateValidName(
+      String topic, Map<String, String> topic2table, boolean enableSanitization) {
     return generateValidNameFromMap(topic, topic2table, enableSanitization).name;
   }
 

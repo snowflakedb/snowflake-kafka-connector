@@ -109,14 +109,18 @@ public class UtilsTest {
     assert Utils.getTableName("ab@cd", topic2table, true).equals("abcd");
     assert Utils.getTableName("1234", topic2table, true).equals("_1234");
 
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table, true));
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table, true));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table, true));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table, true));
 
     String topic = "bc*def";
-    assert Utils.getTableName(topic, topic2table, true).equals("BC_DEF_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, true)
+        .equals("BC_DEF_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert Utils.getTableName(topic, topic2table, true).equals("_12345_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, true)
+        .equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -169,7 +173,8 @@ public class UtilsTest {
 
     // test new topic should not have wildcard
     String topic = "bird.*";
-    assert Utils.getTableName(topic, topic2table, true).equals("BIRD_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, true)
+        .equals("BIRD_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -492,7 +497,8 @@ public class UtilsTest {
     assertEquals("MYTOPIC", uppercased, "Valid identifier should be uppercased");
 
     String sanitized = Utils.getTableName("my-topic", emptyMap, true);
-    assertTrue(sanitized.startsWith("MY_TOPIC_"), "Invalid identifier should be sanitized+uppercased");
+    assertTrue(
+        sanitized.startsWith("MY_TOPIC_"), "Invalid identifier should be sanitized+uppercased");
     assertTrue(sanitized.matches("^[A-Z_0-9]+$"), "Should be fully uppercased");
 
     // Sanitization disabled (pass through)
@@ -505,7 +511,8 @@ public class UtilsTest {
 
   @Test
   public void testMapEntriesBypassSanitization() {
-    Map<String, String> map = Utils.parseTopicToTableMap("myTopic:\"My-Table\",otherTopic:MixedCase");
+    Map<String, String> map =
+        Utils.parseTopicToTableMap("myTopic:\"My-Table\",otherTopic:MixedCase");
 
     // Map entries always pass through regardless of flag
     assertEquals("\"My-Table\"", Utils.getTableName("myTopic", map, true));

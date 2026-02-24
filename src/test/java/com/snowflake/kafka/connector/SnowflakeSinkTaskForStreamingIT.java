@@ -333,14 +333,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     List<SinkRecord> records = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
       records.add(
-          new SinkRecord(
-              topicWithDashes,
-              0,
-              null,
-              null,
-              null,
-              "{\"f1\":\"value" + i + "\"}",
-              i));
+          new SinkRecord(topicWithDashes, 0, null, null, null, "{\"f1\":\"value" + i + "\"}", i));
     }
 
     task.put(records);
@@ -364,7 +357,8 @@ public class SnowflakeSinkTaskForStreamingIT {
     Assertions.assertTrue(tableExists, "Should find sanitized table: " + sanitizedTableName);
 
     // Verify the table name is fully uppercased and contains only valid characters
-    Assertions.assertTrue(sanitizedTableName.matches("^[A-Z_0-9]+$"),
+    Assertions.assertTrue(
+        sanitizedTableName.matches("^[A-Z_0-9]+$"),
         "Table name should be fully uppercased with only alphanumeric and underscore characters");
 
     // Verify data
@@ -378,6 +372,57 @@ public class SnowflakeSinkTaskForStreamingIT {
     // Cleanup table and pipe
     String pipeName = sanitizedTableName + "-STREAMING";
     TestUtils.dropTable(sanitizedTableName);
+    TestUtils.dropPipe(pipeName);
+  }
+
+  @Test
+  public void testSanitizationDisabledQuotedMap() throws Exception {
+    // Use a quoted identifier in topic2table map with sanitization disabled
+    String topicName = "myTopic_" + System.currentTimeMillis();
+    String quotedTableName = "\"My-Test-Table-" + System.currentTimeMillis() + "\"";
+    TopicPartition topicPartition = new TopicPartition(topicName, 0);
+
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_TABLE_NAME_SANITIZATION, "false");
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, topicName + ":" + quotedTableName);
+    config.put(KafkaConnectorConfigParams.TOPICS, topicName);
+
+    // Manually create the table with quoted name (must match exactly including quotes)
+    String tableNameWithoutQuotes = quotedTableName.substring(1, quotedTableName.length() - 1);
+    getConnectionServiceWithEncryptedKey()
+        .executeQueryWithParameters(
+            "create or replace table identifier(?) (record_metadata variant, f1 varchar)",
+            tableNameWithoutQuotes);
+
+    SnowflakeSinkTask task = new SnowflakeSinkTask();
+    task.start(config);
+
+    // Create and send records
+    List<SinkRecord> records = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      records.add(new SinkRecord(topicName, 0, null, null, null, "{\"f1\":\"value" + i + "\"}", i));
+    }
+
+    task.put(records);
+    task.close(Collections.singleton(topicPartition));
+
+    // Wait for data to be written
+    Thread.sleep(2000);
+
+    // Verify data - use quotedTableName directly since it already has quotes
+    // This will fail if the table doesn't exist or has wrong case
+    ResultSet data = TestUtils.executeQuery("select * from " + quotedTableName);
+    int count = 0;
+    while (data.next()) {
+      count++;
+    }
+    Assertions.assertEquals(
+        5, count, "Should have 5 rows in case-sensitive table " + quotedTableName);
+
+    // Cleanup table and pipe
+    String pipeName = tableNameWithoutQuotes + "-STREAMING";
+    TestUtils.executeQuery("drop table if exists " + quotedTableName);
     TestUtils.dropPipe(pipeName);
   }
 }
