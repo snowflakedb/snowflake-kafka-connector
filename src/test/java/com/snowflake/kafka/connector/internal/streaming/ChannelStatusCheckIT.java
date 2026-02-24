@@ -137,9 +137,13 @@ class ChannelStatusCheckIT {
 
   @Test
   void shouldContinueWorkingWhenChannelHasErrorsAndToleranceIsAll() throws JsonProcessingException {
-    // Given: connector with errors.tolerance=all
+    // Given: connector with errors.tolerance=all and DLQ configured
+    String dlqTopicName = topicName + "_dlq";
+    connectCluster.kafka().createTopic(dlqTopicName, 1);
+
     Map<String, String> config = defaultProperties(topicName, connectorName);
     config.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "all");
+    config.put(KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, dlqTopicName);
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);
 
