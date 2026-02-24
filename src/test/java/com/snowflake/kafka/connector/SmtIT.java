@@ -51,6 +51,7 @@ public class SmtIT extends ConnectClusterBaseIT {
     connectCluster.deleteConnector(connectorName);
     StreamingClientFactory.resetStreamingClientSupplier();
     TestUtils.dropTable(topicName);
+    TestUtils.dropPipe(topicName + "-STREAMING");
   }
 
   @Test

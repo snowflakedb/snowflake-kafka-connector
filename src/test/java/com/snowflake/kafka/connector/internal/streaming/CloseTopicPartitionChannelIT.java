@@ -36,6 +36,7 @@ class CloseTopicPartitionChannelIT extends ConnectClusterBaseIT {
     connectCluster.kafka().deleteTopic(topicName);
     StreamingClientFactory.resetStreamingClientSupplier();
     TestUtils.dropTable(topicName);
+    TestUtils.dropPipe(topicName + "-STREAMING");
   }
 
   private void generateKafkaMessages() throws JsonProcessingException {

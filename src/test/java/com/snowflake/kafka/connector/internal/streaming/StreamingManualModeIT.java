@@ -73,6 +73,7 @@ class StreamingManualModeIT {
   @AfterEach
   void afterEach() {
     TestUtils.dropTable(tableName);
+    TestUtils.dropPipe(tableName + "-STREAMING");
   }
 
   @Nested
