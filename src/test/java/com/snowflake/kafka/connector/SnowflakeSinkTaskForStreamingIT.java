@@ -324,6 +324,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     TopicPartition topicPartition = new TopicPartition(topicName, 0);
 
     Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    ConnectorConfigTools.setDefaultValues(config);
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_TABLE_NAME_SANITIZATION, "true");
     config.put(KafkaConnectorConfigParams.TOPICS, topicName);
 
@@ -333,17 +334,13 @@ public class SnowflakeSinkTaskForStreamingIT {
     task.open(Collections.singletonList(topicPartition));
 
     // Create and send records
-    List<SinkRecord> records = new ArrayList<>();
-    for (int i = 0; i < 5; i++) {
-      records.add(new SinkRecord(topicName, 0, null, null, null, "{\"f1\":\"value" + i + "\"}", i));
-    }
-
+    List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 5, topicName, 0);
     task.put(records);
 
     // Wait for preCommit to confirm data is flushed
     final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     offsetMap.put(topicPartition, new OffsetAndMetadata(10000));
-    TestUtils.assertWithRetry(() -> task.preCommit(offsetMap).size() == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> task.preCommit(offsetMap).size() == 1, 5, 20);
 
     task.close(Collections.singletonList(topicPartition));
     task.stop();
@@ -383,6 +380,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     TopicPartition topicPartition = new TopicPartition(topicName, 0);
 
     Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    ConnectorConfigTools.setDefaultValues(config);
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_TABLE_NAME_SANITIZATION, "false");
     config.put(
         KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, topicName + ":" + quotedTableName);
@@ -402,17 +400,13 @@ public class SnowflakeSinkTaskForStreamingIT {
     task.open(Collections.singletonList(topicPartition));
 
     // Create and send records
-    List<SinkRecord> records = new ArrayList<>();
-    for (int i = 0; i < 5; i++) {
-      records.add(new SinkRecord(topicName, 0, null, null, null, "{\"f1\":\"value" + i + "\"}", i));
-    }
-
+    List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 5, topicName, 0);
     task.put(records);
 
     // Wait for preCommit to confirm data is flushed
     final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     offsetMap.put(topicPartition, new OffsetAndMetadata(10000));
-    TestUtils.assertWithRetry(() -> task.preCommit(offsetMap).size() == 1, 20, 5);
+    TestUtils.assertWithRetry(() -> task.preCommit(offsetMap).size() == 1, 5, 20);
 
     task.close(Collections.singletonList(topicPartition));
     task.stop();
