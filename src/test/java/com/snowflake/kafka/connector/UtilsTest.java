@@ -520,4 +520,52 @@ public class UtilsTest {
     assertEquals("MixedCase", Utils.getTableName("otherTopic", map, true));
     assertEquals("MixedCase", Utils.getTableName("otherTopic", map, false));
   }
+
+  @Test
+  public void testTopicToTableMapEdgeCases() {
+    // Emojis in quoted table names should work
+    Map<String, String> emojiMap = Utils.parseTopicToTableMap("topic1:\"Table_🎉_Name\"");
+    assertEquals("\"Table_🎉_Name\"", emojiMap.get("topic1"));
+
+    // Unicode characters in quoted table names
+    Map<String, String> unicodeMap = Utils.parseTopicToTableMap("topic2:\"Table_日本語\"");
+    assertEquals("\"Table_日本語\"", unicodeMap.get("topic2"));
+
+    // Very long table names (Snowflake limit is 255 chars)
+    String longName = "\"" + "A".repeat(250) + "\"";
+    Map<String, String> longMap = Utils.parseTopicToTableMap("topicLong:" + longName);
+    assertEquals(longName, longMap.get("topicLong"));
+
+    // Whitespace is trimmed from topic and table names
+    Map<String, String> whitespaceMap = Utils.parseTopicToTableMap("  topic1  :  table1  ");
+    assertEquals("table1", whitespaceMap.get("topic1"));
+
+    // Multiple quoted identifiers
+    Map<String, String> multiQuoted =
+        Utils.parseTopicToTableMap("t1:\"Table-1\",t2:\"Table-2\",t3:\"Table_With_Underscores\"");
+    assertEquals("\"Table-1\"", multiQuoted.get("t1"));
+    assertEquals("\"Table-2\"", multiQuoted.get("t2"));
+    assertEquals("\"Table_With_Underscores\"", multiQuoted.get("t3"));
+  }
+
+  @Test
+  public void testTopicToTableMapParsingLimitations() {
+    // LIMITATION: Commas inside table names break parsing even if quoted
+    // This is because we split by comma first (line 578 in Utils.java)
+    // Example: topic1:"Table,Name" would be parsed as two entries: "topic1:\"Table" and "Name\""
+    // This is a known limitation of the simple split-by-comma parsing
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic1:\"Table,Name\""));
+
+    // LIMITATION: Colons inside table names break parsing
+    // This is because we split by colon to separate topic from table (line 579)
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic1:\"Table:Name\""));
+
+    // LIMITATION: Empty topic or table names after trimming
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap(":table"));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic:"));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("   :   table   "));
+  }
 }
