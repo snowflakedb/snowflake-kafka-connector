@@ -248,6 +248,18 @@ compile_protobuf_dependencies() {
 
 compile_protobuf_dependencies
 
+# Download Jolokia JMX agent for metrics scraping
+JOLOKIA_DIR="/tmp/jolokia"
+JOLOKIA_VERSION="2.5.1"
+JOLOKIA_JAR="$JOLOKIA_DIR/jolokia-agent.jar"
+mkdir -p "$JOLOKIA_DIR"
+if [ ! -f "$JOLOKIA_JAR" ]; then
+    info "Downloading Jolokia JMX agent v${JOLOKIA_VERSION}..."
+    curl -fsSL -o "$JOLOKIA_JAR" \
+        "https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/${JOLOKIA_VERSION}/jolokia-agent-jvm-${JOLOKIA_VERSION}-javaagent.jar"
+fi
+export JOLOKIA_JAR_PATH="$JOLOKIA_DIR"
+
 # Generate test name salt
 TEST_NAME_SALT="_$(echo $RANDOM$RANDOM | base64 | cut -c1-7)"
 info "Test name salt: $TEST_NAME_SALT"
@@ -265,17 +277,6 @@ export PRESSURE_TEST
 export SF_CLOUD_PLATFORM="${SF_CLOUD_PLATFORM:-}"
 
 cd "$SCRIPT_DIR"
-
-# Cleanup function
-cleanup() {
-    if [ "$KEEP_RUNNING" = "false" ]; then
-        info "Cleaning up containers..."
-        docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
-    else
-        warn "Keeping containers running (--keep specified)"
-        echo "To stop: cd $SCRIPT_DIR && docker compose $COMPOSE_FILES down -v"
-    fi
-}
 
 # Build images
 BUILD_ARGS=""
@@ -315,12 +316,84 @@ if [ $ELAPSED -ge $TIMEOUT ]; then
     error_exit "Services failed to become healthy within ${TIMEOUT}s"
 fi
 
+# Start JMX metrics scraper in the background
+METRICS_FILE="/tmp/sf-metrics-${PLATFORM}-${PLATFORM_VERSION}-$(date +%Y%m%d-%H%M%S).jsonl"
+METRICS_PID=""
+
+start_metrics_scraper() {
+    local scraper="$PROJECT_ROOT/test/scripts/scrape_metrics.sh"
+    if [ ! -x "$scraper" ]; then
+        error_exit "Metrics scraper not found or not executable: $scraper"
+    fi
+    "$scraper" \
+        --poll --interval=10 --output="$METRICS_FILE" --host=localhost --port=8778 &
+    METRICS_PID=$!
+    disown "$METRICS_PID" 2>/dev/null || true
+}
+
+stop_metrics_scraper() {
+    if [ -n "$METRICS_PID" ] && kill -0 "$METRICS_PID" 2>/dev/null; then
+        kill "$METRICS_PID" 2>/dev/null || true
+        wait "$METRICS_PID" 2>/dev/null || true
+        METRICS_PID=""
+    fi
+}
+
+# Give Jolokia a moment to initialize, then start scraping
+sleep 3
+start_metrics_scraper
+echo ""
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}  JMX Metrics: ${METRICS_FILE}${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo ""
+
+# Cleanup function
+cleanup() {
+    stop_metrics_scraper
+    if [ "$KEEP_RUNNING" = "false" ]; then
+        info "Cleaning up containers..."
+        docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
+    else
+        warn "Keeping containers running (--keep specified)"
+        echo "To stop: cd $SCRIPT_DIR && docker compose $COMPOSE_FILES down -v"
+    fi
+}
+trap cleanup EXIT
+
+# Build pytest arguments
+PYTEST_ARGS=(
+    -v
+    --platform "$PLATFORM"
+    --platform-version "$PLATFORM_VERSION"
+    --name-salt "$TEST_NAME_SALT"
+    --kafka-connect-address "$KAFKA_CONNECT_ADDRESS"
+)
+
+case $PLATFORM in
+    confluent)
+        PYTEST_ARGS+=(
+            --kafka-address "kafka:29092"
+            --schema-registry-address "http://schema-registry:8081"
+        )
+        ;;
+    apache)
+        PYTEST_ARGS+=(
+            --kafka-address "kafka:9092"
+            --schema-registry-address ""
+        )
+        ;;
+esac
+
 # Run tests
 info "Running tests..."
 set +e
 docker compose $COMPOSE_FILES run --rm -i test-runner ./scripts/run_tests_inner.sh "${PASSTHROUGH_ARGS[@]}"
 TEST_EXIT_CODE=$?
 set -e
+
+# Stop the scraper before containers go away
+stop_metrics_scraper
 
 # Save logs on failure
 if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$LOGS_DIR" ]; then
@@ -330,8 +403,20 @@ if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$LOGS_DIR" ]; then
     docker compose $COMPOSE_FILES logs $HEALTH_CHECK_SERVICE > "$LOG_FILE" 2>&1
 fi
 
-# Cleanup
-trap cleanup EXIT
+# Print metrics summary
+METRICS_LINES=0
+if [ -f "$METRICS_FILE" ]; then
+    METRICS_LINES=$(wc -l < "$METRICS_FILE")
+fi
+
+echo ""
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}  JMX Metrics: ${METRICS_FILE}${NC}"
+echo -e "${GREEN}  Snapshots collected: ${METRICS_LINES}${NC}"
+if [ "$METRICS_LINES" -gt 0 ] 2>/dev/null; then
+    echo -e "${GREEN}  Analyze: ${PROJECT_ROOT}/test/scripts/analyze_metrics.sh ${METRICS_FILE}${NC}"
+fi
+echo -e "${GREEN}========================================${NC}"
 
 if [ $TEST_EXIT_CODE -ne 0 ]; then
     echo -e "\n${RED}========================================${NC}"
