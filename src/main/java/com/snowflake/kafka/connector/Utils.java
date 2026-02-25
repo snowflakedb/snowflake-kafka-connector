@@ -311,15 +311,16 @@ public class Utils {
   }
 
   /**
-   * Validates if the given table name is a valid Snowflake table name. Accepts: - Quoted
+   * Validates if the given value is acceptable for the topic2table map. This is NOT the exact table
+   * name sent to Snowflake (e.g., both "asdf" and asdf map to table asdf). Accepts: - Quoted
    * identifiers: "MyTable", "table-with-dashes", "123table" - Unquoted identifiers: MyTable,
    * _underscore, schema.table
    *
-   * @param tableName the table name to validate
+   * @param value the topic2table map value to validate
    * @return true if valid, false otherwise
    */
-  static boolean isValidSnowflakeTableName(String tableName) {
-    return tableName.matches(
+  static boolean isValidTopic2TableValue(String value) {
+    return value.matches(
         "^(\"[^\"]+\"|([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+)$");
   }
 
@@ -601,7 +602,7 @@ public class Utils {
       String topic = matcher.group(1).trim();
       String table = matcher.group(2).trim();
 
-      if (!isValidSnowflakeTableName(table)) {
+      if (!isValidTopic2TableValue(table)) {
         LOGGER.error(
             "table name {} should be either a valid unquoted identifier "
                 + "(starts with _a-zA-Z, contains _$a-zA-z0-9) or a quoted identifier "

@@ -179,12 +179,12 @@ public class UtilsTest {
 
   @Test
   public void testTableFullName() {
-    assert Utils.isValidSnowflakeTableName("_1342dfsaf$");
-    assert Utils.isValidSnowflakeTableName("dad._1342dfsaf$");
-    assert Utils.isValidSnowflakeTableName("adsa123._gdgsdf._1342dfsaf$");
-    assert !Utils.isValidSnowflakeTableName("_13)42dfsaf$");
-    assert !Utils.isValidSnowflakeTableName("_13.42dfsaf$");
-    assert !Utils.isValidSnowflakeTableName("_1342.df.sa.f$");
+    assert Utils.isValidTopic2TableValue("_1342dfsaf$");
+    assert Utils.isValidTopic2TableValue("dad._1342dfsaf$");
+    assert Utils.isValidTopic2TableValue("adsa123._gdgsdf._1342dfsaf$");
+    assert !Utils.isValidTopic2TableValue("_13)42dfsaf$");
+    assert !Utils.isValidTopic2TableValue("_13.42dfsaf$");
+    assert !Utils.isValidTopic2TableValue("_1342.df.sa.f$");
   }
 
   @Test
@@ -458,19 +458,19 @@ public class UtilsTest {
   @Test
   public void testValidSnowflakeTableNameAcceptsQuotedIdentifiers() {
     // Quoted identifiers should be accepted
-    assertTrue(Utils.isValidSnowflakeTableName("\"My-Table\""));
-    assertTrue(Utils.isValidSnowflakeTableName("\"data-2024-01\""));
-    assertTrue(Utils.isValidSnowflakeTableName("\"123table\""));
-    assertTrue(Utils.isValidSnowflakeTableName("\"has spaces\""));
+    assertTrue(Utils.isValidTopic2TableValue("\"My-Table\""));
+    assertTrue(Utils.isValidTopic2TableValue("\"data-2024-01\""));
+    assertTrue(Utils.isValidTopic2TableValue("\"123table\""));
+    assertTrue(Utils.isValidTopic2TableValue("\"has spaces\""));
 
     // Unquoted valid identifiers still accepted
-    assertTrue(Utils.isValidSnowflakeTableName("MyTable"));
-    assertTrue(Utils.isValidSnowflakeTableName("_underscore"));
+    assertTrue(Utils.isValidTopic2TableValue("MyTable"));
+    assertTrue(Utils.isValidTopic2TableValue("_underscore"));
 
     // Invalid patterns still rejected
-    assertFalse(Utils.isValidSnowflakeTableName("\"unclosed"));
-    assertFalse(Utils.isValidSnowflakeTableName("has-dashes"));
-    assertFalse(Utils.isValidSnowflakeTableName("123starts"));
+    assertFalse(Utils.isValidTopic2TableValue("\"unclosed"));
+    assertFalse(Utils.isValidTopic2TableValue("has-dashes"));
+    assertFalse(Utils.isValidTopic2TableValue("123starts"));
   }
 
   @Test
