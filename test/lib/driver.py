@@ -31,12 +31,17 @@ class KafkaDriver:
         self.credentials = credentials
 
         self.TEST_DATA_FOLDER = Path("test_data")
-        self.httpHeader = {"Content-type": "application/json", "Accept": "application/json"}
+        self.httpHeader = {
+            "Content-type": "application/json",
+            "Accept": "application/json",
+        }
 
         self.SEND_INTERVAL = 0.01  # send a record every 10 ms
         self.VERIFY_INTERVAL = 10  # verify every 10 secs
         self.MAX_RETRY = 60  # max wait time 1 min
-        self.MAX_FLUSH_BUFFER_SIZE = 5000  # flush buffer when 5000 data was in the queue
+        self.MAX_FLUSH_BUFFER_SIZE = (
+            5000  # flush buffer when 5000 data was in the queue
+        )
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
@@ -77,7 +82,9 @@ class KafkaDriver:
         self._avroProducer = None
 
         snowflake_connector_config = SnowflakeConnectorConfig.from_profile(credentials)
-        self.snowflake_conn = snowflake.connector.connect(**snowflake_connector_config.to_dict())
+        self.snowflake_conn = snowflake.connector.connect(
+            **snowflake_connector_config.to_dict()
+        )
 
     @property
     def avroProducer(self):
@@ -94,7 +101,9 @@ class KafkaDriver:
 
     def verifyWaitTime(self):
         # sleep before verifying result in SF DB
-        logger.info(f"=== Sleep {self.VERIFY_INTERVAL} secs before verify result in Snowflake DB ===")
+        logger.info(
+            f"=== Sleep {self.VERIFY_INTERVAL} secs before verify result in Snowflake DB ==="
+        )
         time.sleep(self.VERIFY_INTERVAL)
 
     def verifyWithRetry(self, func, retry_round, configFileName):
@@ -111,13 +120,17 @@ class KafkaDriver:
                 logger.warning(f"=== Failed {configFileName}, retryable. {e.msg} ===")
                 self.verifyWaitTime()
             except NonRetryableError as e:
-                logger.error(f"=== Non retryable error for {configFileName} raised ===\n{e.msg}")
+                logger.error(
+                    f"=== Non retryable error for {configFileName} raised ===\n{e.msg}"
+                )
                 raise e
             except snowflake.connector.errors.ProgrammingError as e:
                 logger.error(f"Error in VerifyWithRetry for {configFileName}: {e}")
                 if e.errno == 2003:
                     retryNum += 1
-                    logger.warning(f"=== Failed, table not created for {configFileName} ===")
+                    logger.warning(
+                        f"=== Failed, table not created for {configFileName} ==="
+                    )
                     self.verifyWaitTime()
                 else:
                     raise
@@ -126,7 +139,9 @@ class KafkaDriver:
             raise NonRetryableError()
 
     def createTopics(self, topicName, partitionNum=1, replicationNum=1):
-        self.adminClient.create_topics([NewTopic(topicName, partitionNum, replicationNum)])
+        self.adminClient.create_topics(
+            [NewTopic(topicName, partitionNum, replicationNum)]
+        )
 
     def deleteTopic(self, topicName):
         deleted_topics = self.adminClient.delete_topics([topicName])
@@ -139,7 +154,9 @@ class KafkaDriver:
 
     def describeTopic(self, topicName):
         configs = self.adminClient.describe_configs(
-            resources=[ConfigResource(restype=ConfigResource.Type.TOPIC, name=topicName)]
+            resources=[
+                ConfigResource(restype=ConfigResource.Type.TOPIC, name=topicName)
+            ]
         )
         for _, f in configs.items():
             try:
@@ -164,21 +181,38 @@ class KafkaDriver:
     def sendBytesData(self, topic, value, key=None, partition=0, headers=None):
         if not key:
             for i, v in enumerate(value):
-                self.producer.produce(topic, value=v, partition=partition, headers=headers or [])
+                self.producer.produce(
+                    topic, value=v, partition=partition, headers=headers or []
+                )
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
                     self.producer.flush()
         else:
             for i, (k, v) in enumerate(zip(key, value, strict=True)):
-                self.producer.produce(topic, value=v, key=k, partition=partition, headers=headers or [])
+                self.producer.produce(
+                    topic, value=v, key=k, partition=partition, headers=headers or []
+                )
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
                     self.producer.flush()
         self.producer.flush()
 
-    def sendAvroSRData(self, topic, value, value_schema, key=None, key_schema="", partition=0, headers=None):
+    def sendAvroSRData(
+        self,
+        topic,
+        value,
+        value_schema,
+        key=None,
+        key_schema="",
+        partition=0,
+        headers=None,
+    ):
         if not key:
             for i, v in enumerate(value):
                 self.avroProducer.produce(
-                    topic=topic, value=v, value_schema=value_schema, partition=partition, headers=headers or []
+                    topic=topic,
+                    value=v,
+                    value_schema=value_schema,
+                    partition=partition,
+                    headers=headers or [],
                 )
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
                     self.producer.flush()
@@ -210,7 +244,9 @@ class KafkaDriver:
             config = c["config"]
 
         dlq_topic_name = config["errors.deadletterqueue.topic.name"]
-        return self.consume_messages(dlq_topic_name, partition_no, target_dlq_offset_number)
+        return self.consume_messages(
+            dlq_topic_name, partition_no, target_dlq_offset_number
+        )
 
     def consume_messages(self, topic_name, partition_no, target_offset):
         """
@@ -228,7 +264,9 @@ class KafkaDriver:
         try:
             while True:
                 if time.time() - start_time >= 60:
-                    logger.warning(f"Couldn't find target_offset:{target_offset} in topic:{topic_name} in 60 Seconds")
+                    logger.warning(
+                        f"Couldn't find target_offset:{target_offset} in topic:{topic_name} in 60 Seconds"
+                    )
                     break
                 msg = self.consumer.poll(10.0)  # Time out in seconds
                 if msg is None:
@@ -243,8 +281,13 @@ class KafkaDriver:
                     logger.debug(
                         f"Received message: key={msg.key()}, value={msg.value()}, partition={msg.partition()}, offset={msg.offset()}"
                     )
-                    if msg.partition() == partition_no and msg.offset() >= target_offset:
-                        logger.info(f"Reached target offset of {target_offset} for Topic:{topic_name}")
+                    if (
+                        msg.partition() == partition_no
+                        and msg.offset() >= target_offset
+                    ):
+                        logger.info(
+                            f"Reached target offset of {target_offset} for Topic:{topic_name}"
+                        )
                         break
         except KafkaError as e:
             logger.error(f"Kafka error: {e}")
@@ -260,7 +303,9 @@ class KafkaDriver:
         self.snowflake_conn.cursor().execute(f"DROP table IF EXISTS {topic}")
 
     def enable_schema_evolution_for_iceberg(self, table: str):
-        self.snowflake_conn.cursor().execute(f"alter iceberg table {table} set ENABLE_SCHEMA_EVOLUTION = true")
+        self.snowflake_conn.cursor().execute(
+            f"alter iceberg table {table} set ENABLE_SCHEMA_EVOLUTION = true"
+        )
 
     def create_empty_iceberg_table(self, table_name: str, external_volume: str):
         sql = f"""
@@ -293,7 +338,9 @@ class KafkaDriver:
         self.snowflake_conn.cursor().execute(sql)
         logger.info(f"=== Table {table_name} dropped ===")
 
-    def create_iceberg_table_with_sample_content(self, table_name: str, external_volume: str):
+    def create_iceberg_table_with_sample_content(
+        self, table_name: str, external_volume: str
+    ):
         sql = f"""
             CREATE ICEBERG TABLE IF NOT EXISTS {table_name} (
                 record_content OBJECT(
@@ -312,10 +359,16 @@ class KafkaDriver:
         self.snowflake_conn.cursor().execute(sql)
 
     def drop_iceberg_table(self, table_name: str):
-        self.snowflake_conn.cursor().execute(f"DROP ICEBERG TABLE IF EXISTS {table_name}")
+        self.snowflake_conn.cursor().execute(
+            f"DROP ICEBERG TABLE IF EXISTS {table_name}"
+        )
 
     def select_number_of_records(self, table_name: str) -> str:
-        return self.snowflake_conn.cursor().execute(f"SELECT count(*) FROM {table_name}").fetchone()[0]
+        return (
+            self.snowflake_conn.cursor()
+            .execute(f"SELECT count(*) FROM {table_name}")
+            .fetchone()[0]
+        )
 
     # Escape JSON-structural characters that are also regex metacharacters,
     # while preserving intentional regex wildcards like \d* and \w*.
@@ -342,16 +395,22 @@ class KafkaDriver:
         goldMetaRegex = self._to_gold_regex(goldMetaRegex)
         goldContentRegex = self._to_gold_regex(goldContentRegex)
         if re.search(goldMetaRegex, meta) is None:
-            raise NonRetryableError(f"Record meta data:\n{meta}\ndoes not match gold regex label:\n{goldMetaRegex}")
+            raise NonRetryableError(
+                f"Record meta data:\n{meta}\ndoes not match gold regex label:\n{goldMetaRegex}"
+            )
         if re.search(goldContentRegex, content) is None:
-            raise NonRetryableError(f"Record content:\n{content}\ndoes not match gold regex label:\n{goldContentRegex}")
+            raise NonRetryableError(
+                f"Record content:\n{content}\ndoes not match gold regex label:\n{goldContentRegex}"
+            )
 
     def regexMatchMeta(self, meta, goldMetaRegex):
         """Validate that a metadata string matches the gold regex pattern."""
         meta = meta.replace(" ", "").replace("\n", "")
         goldMetaRegex = self._to_gold_regex(goldMetaRegex)
         if re.search(goldMetaRegex, meta) is None:
-            raise NonRetryableError(f"Record meta data:\n{meta}\ndoes not match gold regex label:\n{goldMetaRegex}")
+            raise NonRetryableError(
+                f"Record meta data:\n{meta}\ndoes not match gold regex label:\n{goldMetaRegex}"
+            )
 
     def updateConnectorConfig(self, fileName, connectorName, configMap):
         with (Path("rest_request_generated") / f"{fileName}.json").open() as f:
@@ -359,29 +418,35 @@ class KafkaDriver:
             config = c["config"]
             for k in configMap:
                 config[k] = configMap[k]
-        requestURL = f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/config"
+        requestURL = (
+            f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/config"
+        )
         r = requests.put(requestURL, json=config, headers=self.httpHeader)
         logger.info(f"{r} updated connector config")
 
     def restartConnector(self, connectorName):
-        requestURL = f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/restart"
+        requestURL = (
+            f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/restart"
+        )
         r = requests.post(requestURL, headers=self.httpHeader)
         logger.info(f"{r} restart connector")
 
     def restartConnectorAndTasks(self, connectorName):
-        requestURL = (
-            f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/restart?includeTasks=true&onlyFailed=false"
-        )
+        requestURL = f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/restart?includeTasks=true&onlyFailed=false"
         r = requests.post(requestURL, headers=self.httpHeader)
         logger.info(f"{r} restart connector and all tasks")
 
     def pauseConnector(self, connectorName):
-        requestURL = f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/pause"
+        requestURL = (
+            f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/pause"
+        )
         r = requests.put(requestURL, headers=self.httpHeader)
         logger.info(f"{r} pause connector")
 
     def resumeConnector(self, connectorName):
-        requestURL = f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/resume"
+        requestURL = (
+            f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/resume"
+        )
         r = requests.put(requestURL, headers=self.httpHeader)
         logger.info(f"{r} resume connector")
 
@@ -392,7 +457,9 @@ class KafkaDriver:
 
     def closeConnector(self, fileName, nameSalt):
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
-        delete_url = f"http://{self.kafkaConnectAddress}/connectors/{snowflake_connector_name}"
+        delete_url = (
+            f"http://{self.kafkaConnectAddress}/connectors/{snowflake_connector_name}"
+        )
         logger.info(f"=== Delete connector {snowflake_connector_name} ===")
         code = requests.delete(delete_url, timeout=10).status_code
         logger.info(f"Delete response code: {code}")
@@ -401,12 +468,16 @@ class KafkaDriver:
         rest_template_path = Path("rest_request_template")
         rest_generate_path = Path("rest_request_generated")
 
-        logger.info(f"=== generate sink connector rest request from {rest_template_path} ===")
+        logger.info(
+            f"=== generate sink connector rest request from {rest_template_path} ==="
+        )
         rest_generate_path.mkdir(parents=True, exist_ok=True)
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
         snowflake_topic_name = snowflake_connector_name
 
-        logger.info(f"=== Connector Config JSON: {fileName}, Connector Name: {snowflake_connector_name} ===")
+        logger.info(
+            f"=== Connector Config JSON: {fileName}, Connector Name: {snowflake_connector_name} ==="
+        )
         with (rest_template_path / fileName).open() as f:
             config_template = json.load(f)
 
@@ -443,7 +514,9 @@ class KafkaDriver:
 
         MAX_RETRY = 9
         retry = 0
-        delete_url = f"http://{self.kafkaConnectAddress}/connectors/{snowflake_connector_name}"
+        delete_url = (
+            f"http://{self.kafkaConnectAddress}/connectors/{snowflake_connector_name}"
+        )
         post_url = f"http://{self.kafkaConnectAddress}/connectors"
         while retry < MAX_RETRY:
             try:
@@ -454,7 +527,9 @@ class KafkaDriver:
                     break
             except Exception as e:
                 logger.error(f"An exception occurred: {e}")
-            logger.info("=== sleep for 10 secs to wait for kafka connect to accept connection ===")
+            logger.info(
+                "=== sleep for 10 secs to wait for kafka connect to accept connection ==="
+            )
             time.sleep(10)
             retry += 1
         if retry == MAX_RETRY:
@@ -462,17 +537,25 @@ class KafkaDriver:
 
         logger.info(f"Post HTTP request to Create Connector: {post_url}")
         r = requests.post(post_url, json=config, headers=self.httpHeader)
-        logger.info(f"Connector Name:{snowflake_connector_name} POST Response:{r.status_code}")
+        logger.info(
+            f"Connector Name:{snowflake_connector_name} POST Response:{r.status_code}"
+        )
         if not r.ok:
             logger.error(
                 f"Failed creating connector:{snowflake_connector_name} due to:{r.reason} and HTTP response_code:{r.status_code}"
             )
             time.sleep(30)
-            logger.info(f"Retrying POST request for connector:{snowflake_connector_name}")
+            logger.info(
+                f"Retrying POST request for connector:{snowflake_connector_name}"
+            )
             r = requests.post(post_url, json=config, headers=self.httpHeader)
-            logger.info(f"Connector Name:{snowflake_connector_name} POST Response:{r.status_code}")
+            logger.info(
+                f"Connector Name:{snowflake_connector_name} POST Response:{r.status_code}"
+            )
             if not r.ok:
-                raise RuntimeError(f"Failed to create connector:{snowflake_connector_name}")
+                raise RuntimeError(
+                    f"Failed to create connector:{snowflake_connector_name}"
+                )
         getConnectorResponse = requests.get(post_url)
         logger.info(
             f"Get Connectors status:{getConnectorResponse.status_code}, response:{getConnectorResponse.content}"

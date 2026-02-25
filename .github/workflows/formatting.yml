@@ -16,3 +16,20 @@ jobs:
           skip-commit: true
           version: v1.24.0
           args: "-n --set-exit-if-changed"
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install ruff
+      - run: ruff check test/tests test/lib test/conftest.py
+      - run: ruff format --check test/tests test/lib test/conftest.py
+
+  formatting-done:
+    needs: [java, python]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All formatting checks passed"
