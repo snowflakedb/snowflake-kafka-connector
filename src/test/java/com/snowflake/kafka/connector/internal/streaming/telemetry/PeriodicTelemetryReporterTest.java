@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -329,8 +330,7 @@ class PeriodicTelemetryReporterTest {
             CONNECTOR_NAME,
             channelName,
             System.currentTimeMillis(),
-            false,
-            null,
+            Optional.empty(),
             new AtomicLong(10L),
             new AtomicLong(5L),
             new AtomicLong(15L));
@@ -346,8 +346,7 @@ class PeriodicTelemetryReporterTest {
             CONNECTOR_NAME,
             "testChannel",
             System.currentTimeMillis(),
-            false,
-            null,
+            Optional.empty(),
             new AtomicLong(-1L),
             new AtomicLong(-1L),
             new AtomicLong(-1L));

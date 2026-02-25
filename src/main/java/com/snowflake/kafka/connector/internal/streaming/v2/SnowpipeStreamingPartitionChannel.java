@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
@@ -87,8 +88,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SnowflakeMetadataConfig metadataConfig,
       SinkTaskContext sinkTaskContext,
-      boolean enableCustomJMXMonitoring,
-      MetricsJmxReporter metricsJmxReporter,
+      Optional<MetricsJmxReporter> metricsJmxReporter,
       String connectorName,
       String taskId,
       StreamingErrorHandler streamingErrorHandler) {
@@ -134,7 +134,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             this.connectorName,
             channelName,
             startTime,
-            enableCustomJMXMonitoring,
             metricsJmxReporter,
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
@@ -304,6 +303,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         streamingApiFallbackInvoker,
         this.getChannelNameFormatV1());
 
+    if (this.snowflakeTelemetryChannelStatus != null
+        && this.snowflakeTelemetryChannelStatus.getRecoveryCount() != null) {
+      this.snowflakeTelemetryChannelStatus.getRecoveryCount().inc();
+    }
+
     // Close old channel before reopening a new one. We don't want to wait for the channel to flush
     // since it will be reopened right away and the in-progress data will be lost.
     if (!channel.isClosed()) {
@@ -403,6 +407,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     final SnowflakeStreamingIngestClient streamingIngestClient =
         StreamingClientPools.getClient(
             connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
+
     // Close old channel before reopening a new one. We don't want to wait for the channel to flush
     // since it will be reopened right away and the in-progress data will be lost.
     if (channelIsOpen()) {

@@ -20,6 +20,7 @@ package com.snowflake.kafka.connector.internal.streaming.telemetry;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.constructMetricName;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
+import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -28,6 +29,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.TelemetryConstants;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -38,18 +40,23 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * <p>Most of the data sent to Snowflake is aggregated data.
  */
 public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
-  public static final long NUM_METRICS = 3; // update when new metrics are added
+  public static final long NUM_METRICS = 4; // update when new metrics are added
+
+  static final String CHANNEL_RECOVERY_COUNT = "channel-recovery-count";
 
   // channel properties
   private final String connectorName;
   private final String channelName;
-  private final MetricsJmxReporter metricsJmxReporter;
+  private final Optional<MetricsJmxReporter> metricsJmxReporter;
   private final long channelCreationTime;
 
   // offsets
   private final AtomicLong offsetPersistedInSnowflake;
   private final AtomicLong processedOffset;
   private final AtomicLong latestConsumerOffset;
+
+  // channel recovery counter (registered if JMX enabled)
+  private Counter recoveryCount;
 
   /**
    * Creates a new object tracking {@link
@@ -58,16 +65,14 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
    *
    * @param tableName the table the channel is ingesting to
    * @param channelName the name of the TopicPartitionChannel to track
-   * @param enableCustomJMXConfig if JMX metrics are enabled
-   * @param metricsJmxReporter used to report JMX metrics
+   * @param metricsJmxReporter JMX reporter; present enables channel-level metrics, empty disables
    */
   public SnowflakeTelemetryChannelStatus(
       final String tableName,
       final String connectorName,
       final String channelName,
       final long startTime,
-      final boolean enableCustomJMXConfig,
-      final MetricsJmxReporter metricsJmxReporter,
+      final Optional<MetricsJmxReporter> metricsJmxReporter,
       final AtomicLong offsetPersistedInSnowflake,
       final AtomicLong processedOffset,
       final AtomicLong latestConsumerOffset) {
@@ -82,13 +87,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     this.processedOffset = processedOffset;
     this.latestConsumerOffset = latestConsumerOffset;
 
-    if (enableCustomJMXConfig) {
-      if (metricsJmxReporter == null) {
-        LOGGER.error("Invalid metrics JMX reporter, no metrics will be reported");
-      } else {
-        this.registerChannelJMXMetrics();
-      }
-    }
+    metricsJmxReporter.ifPresent(reporter -> registerChannelJMXMetrics(reporter));
   }
 
   @Override
@@ -114,18 +113,16 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME, System.currentTimeMillis());
   }
 
-  /** Registers all the Metrics inside the metricRegistry. */
-  private void registerChannelJMXMetrics() {
+  private void registerChannelJMXMetrics(MetricsJmxReporter reporter) {
     LOGGER.debug(
         "Registering new metrics for channel:{}, removing existing metrics:{}",
         this.channelName,
-        this.metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString());
-    this.metricsJmxReporter.removeMetricsFromRegistry(this.channelName);
+        reporter.getMetricRegistry().getMetrics().keySet().toString());
+    reporter.removeMetricsFromRegistry(this.channelName);
 
-    MetricRegistry currentMetricRegistry = this.metricsJmxReporter.getMetricRegistry();
+    MetricRegistry currentMetricRegistry = reporter.getMetricRegistry();
 
     try {
-      // offsets
       currentMetricRegistry.register(
           constructMetricName(
               this.channelName,
@@ -142,31 +139,33 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
           constructMetricName(
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
           (Gauge<Long>) this.latestConsumerOffset::get);
+
+      this.recoveryCount =
+          currentMetricRegistry.counter(
+              constructMetricName(
+                  this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, CHANNEL_RECOVERY_COUNT));
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }
 
-    this.metricsJmxReporter.start();
+    reporter.start();
   }
 
   /** Unregisters the JMX metrics if possible */
   public void tryUnregisterChannelJMXMetrics() {
-    if (this.metricsJmxReporter != null) {
-      LOGGER.debug(
-          "Removing metrics for channel:{}, existing metrics:{}",
-          this.channelName,
-          metricsJmxReporter.getMetricRegistry().getMetrics().keySet().toString());
-      this.metricsJmxReporter.removeMetricsFromRegistry(this.channelName);
-    }
+    metricsJmxReporter.ifPresent(
+        reporter -> {
+          LOGGER.debug(
+              "Removing metrics for channel:{}, existing metrics:{}",
+              this.channelName,
+              reporter.getMetricRegistry().getMetrics().keySet().toString());
+          reporter.removeMetricsFromRegistry(this.channelName);
+        });
   }
 
-  /**
-   * Gets the JMX metrics reporter
-   *
-   * @return the JMX metrics reporter
-   */
-  public MetricsJmxReporter getMetricsJmxReporter() {
-    return this.metricsJmxReporter;
+  /** Returns the channel recovery counter, or null if JMX is not enabled. */
+  public Counter getRecoveryCount() {
+    return this.recoveryCount;
   }
 
   @VisibleForTesting

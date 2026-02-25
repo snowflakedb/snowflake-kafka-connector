@@ -208,7 +208,9 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(connectionService, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withEnableCustomJMXMetrics(true)
+            .withMetricsJmxReporter(
+                new com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter(
+                    new com.codahale.metrics.MetricRegistry(), TEST_CONNECTOR_NAME))
             .build();
 
     service.startPartition(topicPartition);

@@ -10,7 +10,6 @@ import static com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvid
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -65,7 +64,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // Behavior to be set at the start of connector start. (For tombstone records)
   private final ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues;
-  private final MetricsJmxReporter metricsJmxReporter;
+  private final Optional<MetricsJmxReporter> metricsJmxReporter;
   private final String connectorName;
   private final String taskId;
 
@@ -83,9 +82,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
   // Set that keeps track of the channels that have been seen per input batch
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
-  // default is true unless the configuration provided is false;
-  // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
-  private boolean enableCustomJMXMonitoring = KafkaConnectorConfigParams.JMX_OPT_DEFAULT;
   // Whether to tolerate errors during ingestion (based on errors.tolerance config)
   private final boolean tolerateErrors;
   private final BatchOffsetFetcher batchOffsetFetcher;
@@ -95,7 +91,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       Map<String, String> connectorConfig,
       KafkaRecordErrorReporter recordErrorReporter,
       SinkTaskContext sinkTaskContext,
-      boolean enableCustomJMXMonitoring,
+      Optional<MetricsJmxReporter> metricsJmxReporter,
       Map<String, String> topicToTableMap,
       ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues) {
     if (conn == null || conn.isClosed()) {
@@ -105,7 +101,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.connectorConfig = connectorConfig;
     this.kafkaRecordErrorReporter = recordErrorReporter;
     this.sinkTaskContext = sinkTaskContext;
-    this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
+    this.metricsJmxReporter = metricsJmxReporter;
     this.topicToTableMap = topicToTableMap;
     this.metadataConfig = new SnowflakeMetadataConfig(connectorConfig);
     this.behaviorOnNullValues = behaviorOnNullValues;
@@ -125,7 +121,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
     }
 
-    this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
     this.batchOffsetFetcher =
         new BatchOffsetFetcher(
@@ -234,7 +229,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.kafkaRecordErrorReporter,
             this.metadataConfig,
             this.sinkTaskContext,
-            this.enableCustomJMXMonitoring,
             this.metricsJmxReporter,
             this.connectorName,
             this.taskId,
@@ -446,14 +440,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public Optional<MetricRegistry> getMetricRegistry(String partitionChannelKey) {
-    return this.partitionsToChannel.containsKey(partitionChannelKey)
-        ? Optional.of(
-            this.partitionsToChannel
-                .get(partitionChannelKey)
-                .getSnowflakeTelemetryChannelStatus()
-                .getMetricsJmxReporter()
-                .getMetricRegistry())
-        : Optional.empty();
+    if (!partitionsToChannel.containsKey(partitionChannelKey)) {
+      return Optional.empty();
+    }
+    return metricsJmxReporter.map(MetricsJmxReporter::getMetricRegistry);
   }
 
   private void createTableIfNotExists(final String tableName) {
