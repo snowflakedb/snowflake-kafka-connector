@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import List
 
 import pytest
+import snowflake.connector
 
-from lib.config import Profile
+from lib.config import Profile, SnowflakeConnectorConfig
 from lib.driver import KafkaDriver
 
 logger = logging.getLogger(__name__)
@@ -99,7 +100,8 @@ def sensor_pb2():
 
 
 @pytest.fixture(scope="session")
-def credentials():
+def credentials_unsalted():
+    """Load the credentials from the environment variable SNOWFLAKE_CREDENTIAL_FILE."""
     credential_path = Path(os.environ["SNOWFLAKE_CREDENTIAL_FILE"])
     assert credential_path.is_file(), (
         f"SNOWFLAKE_CREDENTIAL_FILE={credential_path} does not exist"
@@ -113,8 +115,44 @@ def name_salt(request):
     if salt is None:
         chars = string.ascii_letters + string.digits
         salt = "_" + "".join(random.choices(chars, k=7))
-    logger.info("Using name salt: %s", salt)
+    logger.info(f"Using name salt: {salt}")
     return salt
+
+
+@pytest.fixture(scope="session")
+def test_schema(credentials_unsalted, name_salt):
+    """Create an isolated schema for this test session and drop it on teardown.
+
+    The schema name is `<original_schema><name_salt>`.
+    """
+    original_schema = credentials_unsalted.schema
+    salted_schema = f"{original_schema}{name_salt}"
+    fqn = f"{credentials_unsalted.database}.{salted_schema}"
+
+    conn_config = SnowflakeConnectorConfig.from_profile(credentials_unsalted)
+    try:
+        logger.info(f"Creating test schema: {fqn}")
+        conn = snowflake.connector.connect(**conn_config.to_dict())
+        conn.cursor().execute(f"CREATE SCHEMA IF NOT EXISTS {fqn}")
+        yield salted_schema
+    finally:
+        logger.info(f"Dropping test schema: {fqn}")
+        conn = snowflake.connector.connect(**conn_config.to_dict())
+        conn.cursor().execute(f"DROP SCHEMA IF EXISTS {fqn} CASCADE")
+        conn.close()
+
+
+@pytest.fixture(scope="session")
+def credentials(credentials_unsalted, test_schema):
+    """Load the credentials from the environment variable SNOWFLAKE_CREDENTIAL_FILE and replaces the schema with its salted version.
+
+    Mutating
+    `credentials.schema` before the driver is built ensures that every
+    Snowflake object (tables, pipes, channels) created by both the test
+    harness and the Kafka connector lands in the throwaway schema.
+    """
+    credentials_unsalted.schema = test_schema
+    return credentials_unsalted
 
 
 @pytest.fixture(scope="session")
@@ -157,7 +195,9 @@ def create_connector(driver, name_salt):
 def create_topic(driver: KafkaDriver, name_salt):
     """Factory fixture: call with a topic name to create a topic.
 
-    The topic (and associated table) is cleaned up after the test.
+    The Kafka topic is cleaned up after the test.  The corresponding
+    Snowflake table is left for the session-scoped `test_schema`
+    teardown (`DROP SCHEMA ... CASCADE`) to remove.
     """
     created: List[str] = []
 
@@ -177,15 +217,11 @@ def create_topic(driver: KafkaDriver, name_salt):
                 created.append(future.result())
         return [f"{t}{name_salt}" for t in topics]
 
-    def _cleanup_one(topic):
-        driver.deleteTopic(topic)
-        driver.drop_table(topic)
-
     try:
         yield _create
     finally:
         with ThreadPoolExecutor(max_workers=10) as executor:
-            for _ in executor.map(_cleanup_one, created):
+            for _ in executor.map(driver.deleteTopic, created):
                 pass
 
 
@@ -193,7 +229,9 @@ def create_topic(driver: KafkaDriver, name_salt):
 def snowflake_table(driver, name_salt):
     """Factory fixture: call with a base name and a DDL statement to create a table.
 
-    The table (and associated stage/pipe) is cleaned up after the test.
+    The Kafka topic is cleaned up after the test.  The Snowflake table
+    (and associated stage/pipe) is left for the session-scoped
+    `test_schema` teardown (`DROP SCHEMA ... CASCADE`) to remove.
     """
     created = []
 
@@ -208,7 +246,6 @@ def snowflake_table(driver, name_salt):
     finally:
         for topic in created:
             driver.deleteTopic(topic)
-            driver.drop_table(topic)
 
 
 @pytest.fixture(scope="session")
