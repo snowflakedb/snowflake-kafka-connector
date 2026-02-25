@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.util.Map;
 import java.util.Set;
@@ -38,7 +39,8 @@ public class StreamingClientPool {
         String pipeName,
         String connectorName,
         Map<String, String> connectorConfig,
-        StreamingClientProperties streamingClientProperties) {
+        StreamingClientProperties streamingClientProperties,
+        TaskMetrics taskMetrics) {
       LOGGER.info(
           "Creating new streaming client for pipe: {}, connector: {}", pipeName, connectorName);
       // Capture the task thread's context classloader so the ForkJoinPool thread can use it.
@@ -50,7 +52,7 @@ public class StreamingClientPool {
               () -> {
                 final ClassLoader originalCL = Thread.currentThread().getContextClassLoader();
                 Thread.currentThread().setContextClassLoader(callerClassLoader);
-                try {
+                try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
                   return StreamingClientFactory.createClient(
                       pipeName, connectorConfig, streamingClientProperties);
                 } finally {
@@ -113,7 +115,8 @@ public class StreamingClientPool {
       final String taskId,
       final String pipeName,
       final Map<String, String> connectorConfig,
-      final StreamingClientProperties streamingClientProperties) {
+      final StreamingClientProperties streamingClientProperties,
+      final TaskMetrics taskMetrics) {
 
     RefCountedClient entry =
         pipes.compute(
@@ -122,7 +125,11 @@ public class StreamingClientPool {
               if (current == null) {
                 current =
                     new RefCountedClient(
-                        pipeName, connectorName, connectorConfig, streamingClientProperties);
+                        pipeName,
+                        connectorName,
+                        connectorConfig,
+                        streamingClientProperties,
+                        taskMetrics);
               }
               current.addTask(taskId);
               return current;

@@ -4,6 +4,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,6 +36,7 @@ public class StreamingClientPools {
    * @param pipeName the pipe name
    * @param connectorConfig connector configuration
    * @param streamingClientProperties streaming client properties
+   * @param taskMetrics metrics to record client creation time (noop-safe)
    * @return the client for this pipe
    * @throws IllegalArgumentException if connectorName, taskId, or pipeName is null or empty
    */
@@ -43,7 +45,8 @@ public class StreamingClientPools {
       final String taskId,
       final String pipeName,
       final Map<String, String> connectorConfig,
-      final StreamingClientProperties streamingClientProperties) {
+      final StreamingClientProperties streamingClientProperties,
+      final TaskMetrics taskMetrics) {
 
     // Validate inputs
     if (isNullOrEmpty(connectorName)) {
@@ -58,7 +61,7 @@ public class StreamingClientPools {
 
     return connectors
         .computeIfAbsent(connectorName, k -> new StreamingClientPool(connectorName))
-        .getClient(taskId, pipeName, connectorConfig, streamingClientProperties);
+        .getClient(taskId, pipeName, connectorConfig, streamingClientProperties, taskMetrics);
   }
 
   public static long getClientCountForTask(final String connectorName, final String taskId) {

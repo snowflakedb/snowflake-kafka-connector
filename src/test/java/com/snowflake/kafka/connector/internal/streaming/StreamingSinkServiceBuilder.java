@@ -5,6 +5,7 @@ import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +20,7 @@ public class StreamingSinkServiceBuilder {
   private KafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
   private SinkTaskContext sinkTaskContext = new InMemorySinkTaskContext(Collections.emptySet());
   private Optional<MetricsJmxReporter> metricsJmxReporter = Optional.empty();
+  private TaskMetrics taskMetrics = TaskMetrics.noop();
   private Map<String, String> topicToTableMap = new HashMap<>();
   private ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues =
       ConnectorConfigTools.BehaviorOnNullValues.DEFAULT;
@@ -36,7 +38,8 @@ public class StreamingSinkServiceBuilder {
         sinkTaskContext,
         metricsJmxReporter,
         topicToTableMap,
-        behaviorOnNullValues);
+        behaviorOnNullValues,
+        taskMetrics);
   }
 
   private StreamingSinkServiceBuilder(
