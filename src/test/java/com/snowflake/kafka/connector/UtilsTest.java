@@ -586,5 +586,13 @@ public class UtilsTest {
     // Invalid format - extra commas
     TestUtils.assertError(
         SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic:table,,topic2:table2"));
+
+    // Empty quoted identifiers
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic:\"\""));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("\"\":table"));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("\"\":\"\""));
   }
 }

@@ -583,7 +583,7 @@ public class Utils {
     // Pattern: whitespace* (quoted|unquoted) whitespace* : whitespace* (quoted|unquoted)
     // whitespace* (comma|end)
     Pattern pattern =
-        Pattern.compile("\\s*(\"[^\"]*\"|[^:,\\s]+)\\s*:\\s*(\"[^\"]*\"|[^:,\\s]+)\\s*(?:,|$)");
+        Pattern.compile("\\s*(\"[^\"]+\"|[^:,\\s\"]+)\\s*:\\s*(\"[^\"]+\"|[^:,\\s\"]+)\\s*(?:,|$)");
     Matcher matcher = pattern.matcher(input);
 
     int lastMatchEnd = 0;
