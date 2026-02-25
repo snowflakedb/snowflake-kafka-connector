@@ -208,7 +208,9 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(connectionService, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withEnableCustomJMXMetrics(true)
+            .withMetricsJmxReporter(
+                new com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter(
+                    new com.codahale.metrics.MetricRegistry(), TEST_CONNECTOR_NAME))
             .build();
 
     service.startPartition(topicPartition);
@@ -243,23 +245,29 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         20,
         5);
 
-    // verify all metrics
-    Map<String, Gauge> metricRegistry =
+    // verify all metrics (gauges + counters)
+    Map<String, Gauge> gaugeMetrics =
         service
             .getMetricRegistry(makeChannelName(TEST_CONNECTOR_NAME, topic, partition))
             .get()
             .getGauges();
-    assert metricRegistry.size()
-        == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
+    long totalMetrics =
+        gaugeMetrics.size()
+            + service
+                .getMetricRegistry(makeChannelName(TEST_CONNECTOR_NAME, topic, partition))
+                .get()
+                .getCounters()
+                .size();
+    assert totalMetrics == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
 
     // partition 1
     verifyPartitionMetrics(
-        metricRegistry,
+        gaugeMetrics,
         makeChannelName(TEST_CONNECTOR_NAME, topic, partition),
         recordsInPartition1 - 1,
         recordsInPartition1 - 1);
     verifyPartitionMetrics(
-        metricRegistry,
+        gaugeMetrics,
         makeChannelName(TEST_CONNECTOR_NAME, topic, partition2),
         recordsInPartition2 - 1,
         recordsInPartition2 - 1);
@@ -289,7 +297,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     assert (long)
             metricRegistry
                 .get(
-                    MetricsUtil.constructMetricName(
+                    MetricsUtil.channelMetricName(
                         partitionChannelKey,
                         MetricsUtil.OFFSET_SUB_DOMAIN,
                         MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
@@ -298,7 +306,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     assert (long)
             metricRegistry
                 .get(
-                    MetricsUtil.constructMetricName(
+                    MetricsUtil.channelMetricName(
                         partitionChannelKey,
                         MetricsUtil.OFFSET_SUB_DOMAIN,
                         MetricsUtil.PROCESSED_OFFSET))

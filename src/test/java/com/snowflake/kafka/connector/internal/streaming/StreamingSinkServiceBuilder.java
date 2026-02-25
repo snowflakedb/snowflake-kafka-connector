@@ -4,9 +4,11 @@ import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
 public class StreamingSinkServiceBuilder {
@@ -16,7 +18,7 @@ public class StreamingSinkServiceBuilder {
 
   private KafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
   private SinkTaskContext sinkTaskContext = new InMemorySinkTaskContext(Collections.emptySet());
-  private boolean enableCustomJMXMonitoring = false;
+  private Optional<MetricsJmxReporter> metricsJmxReporter = Optional.empty();
   private Map<String, String> topicToTableMap = new HashMap<>();
   private ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues =
       ConnectorConfigTools.BehaviorOnNullValues.DEFAULT;
@@ -32,7 +34,7 @@ public class StreamingSinkServiceBuilder {
         connectorConfig,
         errorReporter,
         sinkTaskContext,
-        enableCustomJMXMonitoring,
+        metricsJmxReporter,
         topicToTableMap,
         behaviorOnNullValues);
   }
@@ -53,8 +55,8 @@ public class StreamingSinkServiceBuilder {
     return this;
   }
 
-  public StreamingSinkServiceBuilder withEnableCustomJMXMetrics(boolean enableCustomJMXMetrics) {
-    this.enableCustomJMXMonitoring = enableCustomJMXMetrics;
+  public StreamingSinkServiceBuilder withMetricsJmxReporter(MetricsJmxReporter reporter) {
+    this.metricsJmxReporter = Optional.of(reporter);
     return this;
   }
 

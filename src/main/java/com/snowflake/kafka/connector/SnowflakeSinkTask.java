@@ -25,6 +25,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
+import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
@@ -191,13 +192,21 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
 
+    String connectorName = parsedConfig.get(Constants.KafkaConnectorConfigParams.NAME);
+
+    Optional<MetricsJmxReporter> metricsJmxReporter =
+        enableCustomJMXMonitoring
+            ? Optional.of(
+                new MetricsJmxReporter(new com.codahale.metrics.MetricRegistry(), connectorName))
+            : Optional.empty();
+
     this.sink =
         new SnowflakeSinkServiceV2(
             conn,
             parsedConfig,
             kafkaRecordErrorReporter,
             this.context,
-            enableCustomJMXMonitoring,
+            metricsJmxReporter,
             topic2table,
             behavior);
 
@@ -205,7 +214,6 @@ public class SnowflakeSinkTask extends SinkTask {
 
     Supplier<Map<String, TopicPartitionChannel>> channelSupplier =
         () -> sink.getPartitionChannels();
-    String connectorName = parsedConfig.get(Constants.KafkaConnectorConfigParams.NAME);
     this.telemetryReporter =
         new PeriodicTelemetryReporter(
             conn.getTelemetryClient(), channelSupplier, connectorName, this.taskConfigId);

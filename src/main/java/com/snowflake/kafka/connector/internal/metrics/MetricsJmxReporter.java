@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import javax.management.MalformedObjectNameException;
@@ -57,27 +58,27 @@ public class MetricsJmxReporter {
    * @param connectorName name of the connector. (From Config)
    * @param jmxDomain JMX Domain
    * @param metricName metric name used while registering the metric. (Check {@link
-   *     MetricsUtil#constructMetricName(String, String, String)}
+   *     MetricsUtil#channelMetricName(String, String, String)}
    * @return Object Name constructed from above three args
    */
   @VisibleForTesting
   static ObjectName getObjectName(String connectorName, String jmxDomain, String metricName) {
     try {
-      StringBuilder sb =
-          new StringBuilder(jmxDomain).append(":connector=").append(connectorName).append(',');
-
-      // each metric name will be in a form pipeName/subDomain/metricName
+      // each metric name is scope:scopeValue/subDomain/metricName
+      // e.g. "channel:conn_topic_0/offsets/processed-offset"
       Iterator<String> tokens = Splitter.on("/").split(metricName).iterator();
-      // Append PipeName
-      sb.append("pipe=").append(tokens.next());
 
-      // Append subDomain
-      sb.append(",category=").append(tokens.next());
+      // First token is always scope:value -- split on colon to get the MBean key and value
+      String firstToken = tokens.next();
+      int colonIndex = firstToken.indexOf(':');
 
-      // append metric name
-      sb.append(",name=").append(tokens.next());
+      Hashtable<String, String> keys = new Hashtable<>();
+      keys.put("connector", connectorName);
+      keys.put(firstToken.substring(0, colonIndex), firstToken.substring(colonIndex + 1));
+      keys.put("category", tokens.next());
+      keys.put("name", tokens.next());
 
-      return new ObjectName(sb.toString());
+      return new ObjectName(jmxDomain, keys);
     } catch (MalformedObjectNameException e) {
       LOGGER.warn("Could not create Object name for MetricName:{}", metricName);
       throw SnowflakeErrors.ERROR_5020.getException();
@@ -91,10 +92,10 @@ public class MetricsJmxReporter {
    */
   public void removeMetricsFromRegistry(final String prefixFilter) {
     if (metricRegistry.getMetrics().size() != 0) {
-      LOGGER.debug("Unregistering all metrics for pipe:{}", prefixFilter);
+      LOGGER.debug("Unregistering all metrics matching prefix '{}'", prefixFilter);
       metricRegistry.removeMatching(MetricFilter.startsWith(prefixFilter));
       LOGGER.debug(
-          "Metric registry size for pipe:{} is:{}, names:{}",
+          "Metric registry size after removing '{}' is:{}, names:{}",
           prefixFilter,
           metricRegistry.getMetrics().size(),
           metricRegistry.getMetrics().keySet().toString());

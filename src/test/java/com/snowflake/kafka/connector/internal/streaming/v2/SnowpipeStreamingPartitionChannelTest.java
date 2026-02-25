@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -133,8 +134,7 @@ class SnowpipeStreamingPartitionChannelTest {
         new InMemoryKafkaRecordErrorReporter(),
         new SnowflakeMetadataConfig(),
         sinkTaskContext,
-        false,
-        null,
+        Optional.empty(),
         connectorName,
         TASK_ID,
         mockErrorHandler);
