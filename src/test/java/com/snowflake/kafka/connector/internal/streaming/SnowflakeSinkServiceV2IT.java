@@ -256,12 +256,12 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     verifyPartitionMetrics(
         metricRegistry,
         makeChannelName(TEST_CONNECTOR_NAME, topic, partition),
-        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        recordsInPartition1 - 1,
         recordsInPartition1 - 1);
     verifyPartitionMetrics(
         metricRegistry,
         makeChannelName(TEST_CONNECTOR_NAME, topic, partition2),
-        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE,
+        recordsInPartition2 - 1,
         recordsInPartition2 - 1);
 
     // verify telemetry
