@@ -25,7 +25,7 @@ runs:
   steps:
     - name: Run end-to-end tests
       shell: bash
-      working-directory: test/docker
+      working-directory: test
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "${{ github.workspace }}/profile.json"
         PLATFORM: ${{ inputs.platform }}
@@ -36,11 +36,11 @@ runs:
       run: |
         ./run_tests.sh \
           --platform="$PLATFORM" \
-          --version="$PLATFORM_VERSION" \
+          --platform-version="$PLATFORM_VERSION" \
           --cloud="$SNOWFLAKE_CLOUD" \
           --java-version="$JAVA_VERSION" \
           --logs-dir="$LOGS_DIR" \
-          ${{ inputs.pressure == 'true' && '--pressure' || '' }}
+          -- ${{ inputs.pressure == 'true' && '-m pressure' || '-m "not pressure"' }}
 
     - name: Upload service logs on failure
       if: failure()

@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import string
+import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -13,6 +14,8 @@ from lib.config import Profile
 from lib.driver import KafkaDriver
 
 logger = logging.getLogger(__name__)
+
+_PROTO_DIR = Path(__file__).parent / "test_data"
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +56,13 @@ def pytest_addoption(parser):
         default=None,
         help="Unique salt appended to connector and topic names (auto-generated if omitted)",
     )
+    # currently unused, all tests run on all clouds
+    group.addoption(
+        "--cloud",
+        choices=["AWS", "GCP", "AZURE"],
+        default=None,
+        help="Snowflake cloud platform (AWS, GCP, or AZURE)",
+    )
     group.addoption(
         "--enable-ssl",
         action="store_true",
@@ -73,6 +83,19 @@ def pytest_collection_modifyitems(config, items):
 # ---------------------------------------------------------------------------
 # Session-scoped fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def sensor_pb2():
+    """Compile sensor.proto and return the generated module."""
+    subprocess.run(
+        ["protoc", "--python_out=.", "sensor.proto"],
+        cwd=_PROTO_DIR,
+        check=True,
+    )
+    import test_data.sensor_pb2
+
+    return test_data.sensor_pb2
 
 
 @pytest.fixture(scope="session")

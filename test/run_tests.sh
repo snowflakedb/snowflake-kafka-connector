@@ -3,13 +3,13 @@
 # Snowflake Kafka Connector - Docker-based E2E Tests
 #
 # Usage:
-#   ./run_tests.sh --platform=<confluent|apache> --version=<version> [options]
+#   ./run_tests.sh --platform=<confluent|apache> --platform-version=<version> [options]
 #
 # Examples:
-#   ./run_tests.sh --platform=apache --version=2.8.2
-#   ./run_tests.sh --platform=apache --version=3.7.0
-#   ./run_tests.sh --platform=confluent --version=7.8.0
-#   ./run_tests.sh --platform=confluent --version=7.8.0 -- tests/test_string_json.py
+#   ./run_tests.sh --platform=apache --platform-version=2.8.2
+#   ./run_tests.sh --platform=apache --platform-version=3.7.0
+#   ./run_tests.sh --platform=confluent --platform-version=7.8.0
+#   ./run_tests.sh --platform=confluent --platform-version=7.8.0 -- tests/test_string_json.py
 #
 # Prerequisites:
 #   - Docker and Docker Compose
@@ -20,7 +20,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DOCKER_DIR="$SCRIPT_DIR/docker"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Colors
 RED='\033[0;31m'
@@ -42,18 +43,17 @@ warn() {
 }
 
 usage() {
-    echo "Usage: $0 --platform=<confluent|apache> --version=<version> [options]"
+    echo "Usage: $0 --platform=<confluent|apache> --platform-version=<version> [options]"
     echo ""
     echo "Required:"
-    echo "  --platform=PLATFORM  Platform: 'confluent' or 'apache'"
-    echo "  --version=VERSION    Kafka version"
-    echo "                       Confluent: 7.8.x, 6.2.x"
-    echo "                       Apache: any version (e.g., 2.8.2, 3.7.0)"
+    echo "  --platform=PLATFORM           Platform: 'confluent' or 'apache'"
+    echo "  --platform-version=VERSION    Kafka/Confluent platform version"
+    echo "                                Confluent: 7.8.x, 6.2.x"
+    echo "                                Apache: any version (e.g., 2.8.2, 3.7.0)"
     echo ""
     echo "Options:"
     echo "  --cloud=CLOUD        Snowflake cloud platform: AWS, GCP, or AZURE"
     echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
-    echo "  --pressure           Run pressure tests"
     echo "  --keep               Keep containers running after tests"
     echo "  --rebuild            Force rebuild of images"
     echo "  --logs-dir=DIR       Save service logs to a file in DIR on failure"
@@ -64,19 +64,18 @@ usage() {
     echo "  SNOWFLAKE_CREDENTIAL_FILE  Path to Snowflake credentials JSON (required)"
     echo ""
     echo "Examples:"
-    echo "  $0 --platform=confluent --version=7.8.0"
-    echo "  $0 --platform=apache --version=2.8.2"
-    echo "  $0 --platform=confluent --version=7.8.0 -- -k test_string_json"
-    echo "  $0 --platform=apache --version=3.7.0 --pressure --keep"
-    echo "  $0 --platform=confluent --version=7.8.0 --logs-dir=/tmp/test-logs"
+    echo "  $0 --platform=confluent --platform-version=7.8.0"
+    echo "  $0 --platform=apache --platform-version=2.8.2"
+    echo "  $0 --platform=confluent --platform-version=7.8.0 -- -k test_string_json"
+    echo "  $0 --platform=apache --platform-version=3.7.0 --keep -- -m pressure"
+    echo "  $0 --platform=confluent --platform-version=7.8.0 --logs-dir=/tmp/test-logs"
     exit 1
 }
 
 # Parse arguments
 PLATFORM=""
-VERSION=""
+PLATFORM_VERSION=""
 JAVA_VERSION="11"
-PRESSURE_TEST="false"
 KEEP_RUNNING="false"
 FORCE_REBUILD="false"
 LOGS_DIR=""
@@ -88,8 +87,8 @@ while [[ $# -gt 0 ]]; do
             PLATFORM="${1#*=}"
             shift
             ;;
-        --version=*)
-            VERSION="${1#*=}"
+        --platform-version=*)
+            PLATFORM_VERSION="${1#*=}"
             shift
             ;;
         --cloud=*)
@@ -98,10 +97,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --java-version=*)
             JAVA_VERSION="${1#*=}"
-            shift
-            ;;
-        --pressure)
-            PRESSURE_TEST="true"
             shift
             ;;
         --keep)
@@ -135,8 +130,8 @@ if [ -z "$PLATFORM" ]; then
     error_exit "Missing required argument: --platform=<confluent|apache>"
 fi
 
-if [ -z "$VERSION" ]; then
-    error_exit "Missing required argument: --version=<version>"
+if [ -z "$PLATFORM_VERSION" ]; then
+    error_exit "Missing required argument: --platform-version=<version>"
 fi
 
 # Base compose file + platform-specific compose file
@@ -144,33 +139,33 @@ BASE_COMPOSE="-f docker-compose.base.yml"
 
 case $PLATFORM in
     confluent)
-        case $VERSION in
+        case $PLATFORM_VERSION in
             6.2.*)
-                info "Platform: Confluent $VERSION"
+                info "Platform: Confluent $PLATFORM_VERSION"
                 # 6.2.x containers are only available for linux/amd64
                 COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.confluent.yml -f docker-compose.amd64.yml"
                 info "Note: Confluent 6.2.x requires linux/amd64 (using emulation on ARM)"
                 ;;
             7.*)
-                info "Platform: Confluent $VERSION"
+                info "Platform: Confluent $PLATFORM_VERSION"
                 COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.confluent.yml"
                 ;;
             *)
-                error_exit "Unsupported Confluent version: $VERSION (supported: 6.2.x, 7.x)"
+                error_exit "Unsupported Confluent version: $PLATFORM_VERSION (supported: 6.2.x, 7.x)"
                 ;;
         esac
-        TEST_SET="confluent"
-        CONFLUENT_VERSION="$VERSION"
+        CONFLUENT_VERSION="$PLATFORM_VERSION"
         KAFKA_VERSION=""
+        KAFKA_CONNECT_ADDRESS="kafka-connect:8083"
         HEALTH_CHECK_SERVICE="kafka-connect"
         START_SERVICES="zookeeper kafka schema-registry kafka-connect"
         ;;
     apache)
-        info "Platform: Apache Kafka $VERSION (official tarball)"
+        info "Platform: Apache Kafka $PLATFORM_VERSION (official tarball)"
         COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.apache.yml"
-        TEST_SET="apache"
         CONFLUENT_VERSION=""
-        KAFKA_VERSION="$VERSION"
+        KAFKA_VERSION="$PLATFORM_VERSION"
+        KAFKA_CONNECT_ADDRESS="kafka:8083"
         HEALTH_CHECK_SERVICE="kafka"
         START_SERVICES="kafka"
         ;;
@@ -233,7 +228,7 @@ mkdir -p "$EXTRA_JARS_DIR"
 
 compile_protobuf_dependencies() {
     info "Building protobuf dependencies..."
-    cd "$SCRIPT_DIR"
+    cd "$DOCKER_DIR"
     
     docker build -t protobuf-builder -f Dockerfile.builder ..
     
@@ -252,19 +247,15 @@ compile_protobuf_dependencies
 TEST_NAME_SALT="_$(echo $RANDOM$RANDOM | base64 | cut -c1-7)"
 info "Test name salt: $TEST_NAME_SALT"
 
-# Export environment for docker-compose (no defaults - all explicit)
+# Export environment for docker-compose
 export CONFLUENT_VERSION
 export KAFKA_VERSION
 export JAVA_VERSION
-export TEST_SET
 export SNOWFLAKE_CREDENTIAL_FILE
 export CONNECTOR_PLUGIN_PATH="$PLUGIN_DIR"
 export EXTRA_JARS_PATH="$EXTRA_JARS_DIR"
-export TEST_NAME_SALT
-export PRESSURE_TEST
-export SF_CLOUD_PLATFORM="${SF_CLOUD_PLATFORM:-}"
 
-cd "$SCRIPT_DIR"
+cd "$DOCKER_DIR"
 
 # Cleanup function
 cleanup() {
@@ -273,7 +264,7 @@ cleanup() {
         docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
     else
         warn "Keeping containers running (--keep specified)"
-        echo "To stop: cd $SCRIPT_DIR && docker compose $COMPOSE_FILES down -v"
+        echo "To stop: cd $DOCKER_DIR && docker compose $COMPOSE_FILES down -v"
     fi
 }
 
@@ -315,17 +306,42 @@ if [ $ELAPSED -ge $TIMEOUT ]; then
     error_exit "Services failed to become healthy within ${TIMEOUT}s"
 fi
 
+# Build pytest arguments
+PYTEST_ARGS=(
+    -v
+    --platform "$PLATFORM"
+    --platform-version "$PLATFORM_VERSION"
+    --name-salt "$TEST_NAME_SALT"
+    --kafka-connect-address "$KAFKA_CONNECT_ADDRESS"
+)
+
+case $PLATFORM in
+    confluent)
+        PYTEST_ARGS+=(
+            --kafka-address "kafka:29092"
+            --schema-registry-address "http://schema-registry:8081"
+        )
+        ;;
+    apache)
+        PYTEST_ARGS+=(
+            --kafka-address "kafka:9092"
+            --schema-registry-address ""
+        )
+        ;;
+esac
+
 # Run tests
 info "Running tests..."
 set +e
-docker compose $COMPOSE_FILES run --rm -i test-runner ./scripts/run_tests_inner.sh "${PASSTHROUGH_ARGS[@]}"
+docker compose $COMPOSE_FILES run --rm -i test-runner \
+    pytest "${PYTEST_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
 TEST_EXIT_CODE=$?
 set -e
 
 # Save logs on failure
 if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$LOGS_DIR" ]; then
     mkdir -p "$LOGS_DIR"
-    LOG_FILE="$LOGS_DIR/${PLATFORM}-${VERSION}-${HEALTH_CHECK_SERVICE}.log"
+    LOG_FILE="$LOGS_DIR/${PLATFORM}-${PLATFORM_VERSION}-${HEALTH_CHECK_SERVICE}.log"
     warn "Tests failed. Saving service logs to $LOG_FILE..."
     docker compose $COMPOSE_FILES logs $HEALTH_CHECK_SERVICE > "$LOG_FILE" 2>&1
 fi

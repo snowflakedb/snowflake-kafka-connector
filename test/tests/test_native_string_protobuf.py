@@ -1,11 +1,9 @@
-import test_data.sensor_pb2 as sensor_pb2
-
 FILE_NAME = "travis_correct_native_string_protobuf"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
 
 
-def _build_sensor():
+def _build_sensor(sensor_pb2):
     sensor = sensor_pb2.SensorReading()
     sensor.dateTime = 1234
     sensor.reading = 321.321
@@ -23,7 +21,7 @@ def _build_sensor():
 
 
 def test_native_string_protobuf(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    sensor_pb2, driver, name_salt, create_connector, snowflake_table, wait_for_rows
 ):
     topic = snowflake_table(
         FILE_NAME,
@@ -35,7 +33,7 @@ def test_native_string_protobuf(
     driver.startConnectorWaitTime()
 
     # -- Send --
-    sensor = _build_sensor()
+    sensor = _build_sensor(sensor_pb2)
     values = [sensor.SerializeToString() for _ in range(RECORD_COUNT)]
     driver.sendBytesData(topic, values)
 

@@ -18,30 +18,30 @@ export SNOWFLAKE_CREDENTIAL_FILE=/path/to/profile.json
 ./test/build_runtime_jar.sh . package confluent   # or 'apache'
 
 # 2. Run tests
-cd test/docker
-./run_tests.sh --platform=confluent --version=7.8.0
+cd test
+./run_tests.sh --platform=confluent --platform-version=7.8.0
 ```
 
 ### Usage
 
 ```bash
-./run_tests.sh --platform=<confluent|apache> --version=<version> [options]
+./run_tests.sh --platform=<confluent|apache> --platform-version=<version> [options]
 
 # Confluent examples:
-./run_tests.sh --platform=confluent --version=7.8.0
-./run_tests.sh --platform=confluent --version=6.2.15
-./run_tests.sh --platform=confluent --version=7.8.0 --tests=test_string_json
+./run_tests.sh --platform=confluent --platform-version=7.8.0
+./run_tests.sh --platform=confluent --platform-version=6.2.15
+./run_tests.sh --platform=confluent --platform-version=7.8.0 --tests=test_string_json
 
 # Apache Kafka examples:
-./run_tests.sh --platform=apache --version=3.7.2
-./run_tests.sh --platform=apache --version=2.8.2 --java-version=11
+./run_tests.sh --platform=apache --platform-version=3.7.2
+./run_tests.sh --platform=apache --platform-version=2.8.2 --java-version=11
 
 # Options:
-./run_tests.sh --platform=confluent --version=7.8.0 --pressure   # Stress tests
-./run_tests.sh --platform=apache --version=3.7.2 --keep          # Keep containers after tests
-./run_tests.sh --platform=confluent --version=7.8.0 --rebuild    # Force rebuild images
-./run_tests.sh --platform=confluent --version=7.8.0 --logs       # Show logs on failure
-./run_tests.sh --platform=apache --version=3.7.2 --cloud=AWS     # Target specific Snowflake cloud
+./run_tests.sh --platform=confluent --platform-version=7.8.0 -- -m pressure  # Stress tests
+./run_tests.sh --platform=apache --platform-version=3.7.2 --keep             # Keep containers after tests
+./run_tests.sh --platform=confluent --platform-version=7.8.0 --rebuild       # Force rebuild images
+./run_tests.sh --platform=confluent --platform-version=7.8.0 --logs          # Show logs on failure
+./run_tests.sh --platform=apache --platform-version=3.7.2 --cloud=AWS        # Target specific Snowflake cloud
 ```
 
 ### Supported Versions
@@ -103,18 +103,18 @@ maps to `test_suit/test_json_json.py`). The driver replaces placeholder values
 (e.g., `SNOWFLAKE_TEST_TOPIC`, `CONFLUENT_SCHEMA_REGISTRY`) with runtime values.
 
 Both share the same `KafkaDriver` (`lib/driver.py`) and connector config templates.
-The test runner script (`docker/scripts/run_tests_inner.sh`) executes pytest first,
-then the legacy infra. Stress/pressure tests run only through the legacy infra.
+`run_tests.sh` passes all pytest CLI options explicitly when launching the
+test-runner container.
 
 ## Stress Tests
 
-Stress tests use the same Docker infrastructure but with the `--pressure` flag.
+Stress tests use the same Docker infrastructure but with `-m pressure` passed to pytest:
 
 ```bash
-./run_tests.sh --platform=confluent --version=7.6.0 --pressure
+./run_tests.sh --platform=confluent --platform-version=7.6.0 -- -m pressure
 ```
 
-When `--pressure` is set, `test_verify.py` runs two test suites instead of the regular E2E suite:
+When `-m pressure` is set, pytest selects only the pressure-marked tests:
 
 1. **TestPressureRestart** (`test_suit/test_pressure_restart.py`) -- Creates 10 topics with 3 partitions each and sends 200,000 records per partition. During verification, the connector is periodically restarted, paused, resumed, and deleted/recreated to test resilience under load.
 
