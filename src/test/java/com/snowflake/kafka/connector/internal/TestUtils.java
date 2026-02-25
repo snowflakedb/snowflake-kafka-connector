@@ -347,7 +347,10 @@ public class TestUtils {
   }
 
   public static void dropPipe(String pipeName) {
-    executeQuery("drop pipe if exists " + pipeName);
+    // Quote pipe name if it contains special characters like dashes
+    String quotedPipeName =
+        pipeName.contains("-") || pipeName.contains(" ") ? "\"" + pipeName + "\"" : pipeName;
+    executeQuery("drop pipe if exists " + quotedPipeName);
   }
 
   /** Select * from table */

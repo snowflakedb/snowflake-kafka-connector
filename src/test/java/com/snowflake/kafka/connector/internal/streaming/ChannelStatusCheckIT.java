@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import java.time.Duration;
@@ -263,8 +264,10 @@ class ChannelStatusCheckIT {
 
   private FakeSnowflakeStreamingIngestClient getFakeSnowflakeStreamingIngestClient(
       String connectorName) {
+    // Connector names are sanitized/uppercased by Utils.convertAppName() in the connector
+    String sanitizedConnectorName = Utils.generateValidName(connectorName, new HashMap<>(), true);
     return fakeClientSupplier.getFakeIngestClients().stream()
-        .filter((client) -> client.getConnectorName().equals(connectorName))
+        .filter((client) -> client.getConnectorName().equals(sanitizedConnectorName))
         .findFirst()
         .orElseThrow();
   }

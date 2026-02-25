@@ -28,6 +28,7 @@ public class SnowflakeSinkServiceV2LegacyIT extends SnowflakeSinkServiceV2BaseIT
   @AfterEach
   public void afterEach() {
     TestUtils.dropTable(table);
+    TestUtils.dropPipe(table + "-STREAMING");
   }
 
   @Test

@@ -106,17 +106,21 @@ public class UtilsTest {
   public void testGetTableName() {
     Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
 
-    assert Utils.getTableName("ab@cd", topic2table).equals("abcd");
-    assert Utils.getTableName("1234", topic2table).equals("_1234");
+    assert Utils.getTableName("ab@cd", topic2table, true).equals("abcd");
+    assert Utils.getTableName("1234", topic2table, true).equals("_1234");
 
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table));
-    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table, true));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table, true));
 
     String topic = "bc*def";
-    assert Utils.getTableName(topic, topic2table).equals("bc_def_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, true)
+        .equals("BC_DEF_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert Utils.getTableName(topic, topic2table).equals("_12345_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, true)
+        .equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -124,30 +128,30 @@ public class UtilsTest {
     Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
 
     String topic0 = "ab@cd";
-    Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table);
+    Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table, true);
     assertEquals("abcd", generatedTableName1.getName());
     assertTrue(generatedTableName1.isNameFromMap());
 
     String topic1 = "1234";
-    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table);
+    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table, true);
     assertEquals("_1234", generatedTableName2.getName());
     assertTrue(generatedTableName2.isNameFromMap());
 
     String topic2 = "bc*def";
-    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table);
-    assertEquals("bc_def_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
+    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table, true);
+    assertEquals("BC_DEF_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
     assertFalse(generatedTableName3.isNameFromMap());
 
     String topic3 = "12345";
-    Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table);
+    Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table, true);
     assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.getName());
     assertFalse(generatedTableName4.isNameFromMap());
 
     TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table));
+        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table, true));
     //noinspection DataFlowIssue
     TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table));
+        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table, true));
   }
 
   @Test
@@ -162,24 +166,25 @@ public class UtilsTest {
         Utils.parseTopicToTableMap(
             Utils.formatString("{}:{},{}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable));
 
-    assert Utils.getTableName("calico_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("orange_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("_cat", topic2table).equals(catTable);
-    assert Utils.getTableName("corgi_dog", topic2table).equals(dogTable);
+    assert Utils.getTableName("calico_cat", topic2table, true).equals(catTable);
+    assert Utils.getTableName("orange_cat", topic2table, true).equals(catTable);
+    assert Utils.getTableName("_cat", topic2table, true).equals(catTable);
+    assert Utils.getTableName("corgi_dog", topic2table, true).equals(dogTable);
 
     // test new topic should not have wildcard
     String topic = "bird.*";
-    assert Utils.getTableName(topic, topic2table).equals("bird_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, topic2table, true)
+        .equals("BIRD_" + Math.abs(topic.hashCode()));
   }
 
   @Test
   public void testTableFullName() {
-    assert Utils.isValidSnowflakeTableName("_1342dfsaf$");
-    assert Utils.isValidSnowflakeTableName("dad._1342dfsaf$");
-    assert Utils.isValidSnowflakeTableName("adsa123._gdgsdf._1342dfsaf$");
-    assert !Utils.isValidSnowflakeTableName("_13)42dfsaf$");
-    assert !Utils.isValidSnowflakeTableName("_13.42dfsaf$");
-    assert !Utils.isValidSnowflakeTableName("_1342.df.sa.f$");
+    assert Utils.isValidTopic2TableValue("_1342dfsaf$");
+    assert Utils.isValidTopic2TableValue("dad._1342dfsaf$");
+    assert Utils.isValidTopic2TableValue("adsa123._gdgsdf._1342dfsaf$");
+    assert !Utils.isValidTopic2TableValue("_13)42dfsaf$");
+    assert !Utils.isValidTopic2TableValue("_13.42dfsaf$");
+    assert !Utils.isValidTopic2TableValue("_1342.df.sa.f$");
   }
 
   @Test
@@ -188,21 +193,21 @@ public class UtilsTest {
 
     config.put(KafkaConnectorConfigParams.NAME, "_aA1");
     Utils.convertAppName(config);
-    assert config.get(KafkaConnectorConfigParams.NAME).equals("_aA1");
+    assert config.get(KafkaConnectorConfigParams.NAME).equals("_AA1");
 
     config.put(KafkaConnectorConfigParams.NAME, "-_aA1");
     Utils.convertAppName(config);
-    assert config.get(KafkaConnectorConfigParams.NAME).equals("___aA1_44483871");
+    assert config.get(KafkaConnectorConfigParams.NAME).equals("___AA1_44483871");
 
     config.put(KafkaConnectorConfigParams.NAME, "_aA1-");
     Utils.convertAppName(config);
-    assert config.get(KafkaConnectorConfigParams.NAME).equals("_aA1__90688251");
+    assert config.get(KafkaConnectorConfigParams.NAME).equals("_AA1__90688251");
 
     config.put(KafkaConnectorConfigParams.NAME, "testApp.snowflake-connector");
     Utils.convertAppName(config);
     assert config
         .get(KafkaConnectorConfigParams.NAME)
-        .equals("testApp_snowflake_connector_36242259");
+        .equals("TESTAPP_SNOWFLAKE_CONNECTOR_36242259");
   }
 
   @Test
@@ -448,5 +453,146 @@ public class UtilsTest {
     String recommended = Utils.findRecommendedVersion(current, availableVersions);
 
     assertNull(recommended);
+  }
+
+  @Test
+  public void testValidSnowflakeTableNameAcceptsQuotedIdentifiers() {
+    // Quoted identifiers should be accepted
+    assertTrue(Utils.isValidTopic2TableValue("\"My-Table\""));
+    assertTrue(Utils.isValidTopic2TableValue("\"data-2024-01\""));
+    assertTrue(Utils.isValidTopic2TableValue("\"123table\""));
+    assertTrue(Utils.isValidTopic2TableValue("\"has spaces\""));
+
+    // Unquoted valid identifiers still accepted
+    assertTrue(Utils.isValidTopic2TableValue("MyTable"));
+    assertTrue(Utils.isValidTopic2TableValue("_underscore"));
+
+    // Invalid patterns still rejected
+    assertFalse(Utils.isValidTopic2TableValue("\"unclosed"));
+    assertFalse(Utils.isValidTopic2TableValue("has-dashes"));
+    assertFalse(Utils.isValidTopic2TableValue("123starts"));
+  }
+
+  @Test
+  public void testParseTopicToTableWithQuotedIdentifiers() {
+    // Test that parseTopicToTableMap works with quoted identifiers
+    Map<String, String> topic2table =
+        Utils.parseTopicToTableMap("topic1:\"My-Table\",topic2:regular_table");
+
+    assertEquals("\"My-Table\"", topic2table.get("topic1"));
+    assertEquals("regular_table", topic2table.get("topic2"));
+
+    // Test with spaces in quoted identifier
+    Map<String, String> topic2tableWithSpaces =
+        Utils.parseTopicToTableMap("my_topic:\"Table With Spaces\"");
+    assertEquals("\"Table With Spaces\"", topic2tableWithSpaces.get("my_topic"));
+  }
+
+  @Test
+  public void testSanitizationToggle() {
+    Map<String, String> emptyMap = new HashMap<>();
+
+    // Sanitization enabled (v3 compatible)
+    String uppercased = Utils.getTableName("MyTopic", emptyMap, true);
+    assertEquals("MYTOPIC", uppercased, "Valid identifier should be uppercased");
+
+    String sanitized = Utils.getTableName("my-topic", emptyMap, true);
+    assertTrue(
+        sanitized.startsWith("MY_TOPIC_"), "Invalid identifier should be sanitized+uppercased");
+    assertTrue(sanitized.matches("^[A-Z_0-9]+$"), "Should be fully uppercased");
+
+    // Sanitization disabled (pass through)
+    String passedThrough = Utils.getTableName("MyTopic", emptyMap, false);
+    assertEquals("MyTopic", passedThrough, "Should pass through unchanged");
+
+    String invalid = Utils.getTableName("my-topic", emptyMap, false);
+    assertEquals("my-topic", invalid, "Invalid identifier should pass through");
+  }
+
+  @Test
+  public void testMapEntriesBypassSanitization() {
+    Map<String, String> map =
+        Utils.parseTopicToTableMap("myTopic:\"My-Table\",otherTopic:MixedCase");
+
+    // Map entries always pass through regardless of flag
+    assertEquals("\"My-Table\"", Utils.getTableName("myTopic", map, true));
+    assertEquals("\"My-Table\"", Utils.getTableName("myTopic", map, false));
+    assertEquals("MixedCase", Utils.getTableName("otherTopic", map, true));
+    assertEquals("MixedCase", Utils.getTableName("otherTopic", map, false));
+  }
+
+  @Test
+  public void testTopicToTableMapEdgeCases() {
+    // Emojis in quoted table names should work
+    Map<String, String> emojiMap = Utils.parseTopicToTableMap("topic1:\"Table_🎉_Name\"");
+    assertEquals("\"Table_🎉_Name\"", emojiMap.get("topic1"));
+
+    // Unicode characters in quoted table names
+    Map<String, String> unicodeMap = Utils.parseTopicToTableMap("topic2:\"Table_日本語\"");
+    assertEquals("\"Table_日本語\"", unicodeMap.get("topic2"));
+
+    // Very long table names (Snowflake limit is 255 chars)
+    String longName = "\"" + "A".repeat(250) + "\"";
+    Map<String, String> longMap = Utils.parseTopicToTableMap("topicLong:" + longName);
+    assertEquals(longName, longMap.get("topicLong"));
+
+    // Whitespace is trimmed from topic and table names
+    Map<String, String> whitespaceMap = Utils.parseTopicToTableMap("  topic1  :  table1  ");
+    assertEquals("table1", whitespaceMap.get("topic1"));
+
+    // Multiple quoted identifiers
+    Map<String, String> multiQuoted =
+        Utils.parseTopicToTableMap("t1:\"Table-1\",t2:\"Table-2\",t3:\"Table_With_Underscores\"");
+    assertEquals("\"Table-1\"", multiQuoted.get("t1"));
+    assertEquals("\"Table-2\"", multiQuoted.get("t2"));
+    assertEquals("\"Table_With_Underscores\"", multiQuoted.get("t3"));
+  }
+
+  @Test
+  public void testTopicToTableMapWithCommasAndColons() {
+    // Commas inside quoted table names should now work
+    Map<String, String> commaMap = Utils.parseTopicToTableMap("topic1:\"Table,Name\"");
+    assertEquals("\"Table,Name\"", commaMap.get("topic1"));
+
+    // Colons inside quoted table names should now work
+    Map<String, String> colonMap = Utils.parseTopicToTableMap("topic1:\"Table:Name\"");
+    assertEquals("\"Table:Name\"", colonMap.get("topic1"));
+
+    // Complex example with both commas and colons
+    Map<String, String> complexMap =
+        Utils.parseTopicToTableMap("sales_apac:\"sales, apac: landing\"");
+    assertEquals("\"sales, apac: landing\"", complexMap.get("sales_apac"));
+
+    // Multiple entries with special characters
+    Map<String, String> multiMap =
+        Utils.parseTopicToTableMap(
+            "t1:\"Table,With,Commas\",t2:\"Table:With:Colons\",t3:normal_table");
+    assertEquals("\"Table,With,Commas\"", multiMap.get("t1"));
+    assertEquals("\"Table:With:Colons\"", multiMap.get("t2"));
+    assertEquals("normal_table", multiMap.get("t3"));
+  }
+
+  @Test
+  public void testTopicToTableMapParsingErrors() {
+    // Empty topic or table names
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap(":table"));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic:"));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("   :   table   "));
+
+    // Invalid format - missing colon
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic"));
+
+    // Invalid format - extra commas
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic:table,,topic2:table2"));
+
+    // Empty quoted identifiers
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic:\"\""));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("\"\":table"));
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("\"\":\"\""));
   }
 }

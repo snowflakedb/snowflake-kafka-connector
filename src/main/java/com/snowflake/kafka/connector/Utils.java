@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -309,8 +310,18 @@ public class Utils {
     return appName.matches("^[-_a-zA-Z]{1}[-_$a-zA-Z0-9]+$");
   }
 
-  static boolean isValidSnowflakeTableName(String tableName) {
-    return tableName.matches("^([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+$");
+  /**
+   * Validates if the given value is acceptable for the topic2table map. This is NOT the exact table
+   * name sent to Snowflake (e.g., both "asdf" and asdf map to table asdf). Accepts: - Quoted
+   * identifiers: "MyTable", "table-with-dashes", "123table" - Unquoted identifiers: MyTable,
+   * _underscore, schema.table
+   *
+   * @param value the topic2table map value to validate
+   * @return true if valid, false otherwise
+   */
+  static boolean isValidTopic2TableValue(String value) {
+    return value.matches(
+        "^(\"[^\"]+\"|([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+)$");
   }
 
   /**
@@ -397,7 +408,8 @@ public class Utils {
   public static void convertAppName(Map<String, String> config) {
     String appName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     // If appName is empty the following call will throw error
-    String validAppName = generateValidName(appName, new HashMap<>());
+    // Application names are always sanitized for backward compatibility
+    String validAppName = generateValidName(appName, new HashMap<>(), true);
 
     config.put(KafkaConnectorConfigParams.NAME, validAppName);
   }
@@ -411,6 +423,19 @@ public class Utils {
    */
   public static String getTableName(String topic, Map<String, String> topic2table) {
     return generateValidName(topic, topic2table);
+  }
+
+  /**
+   * verify topic name, and generate valid table name with optional sanitization
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return valid table name
+   */
+  public static String getTableName(
+      String topic, Map<String, String> topic2table, boolean enableSanitization) {
+    return generateValidName(topic, topic2table, enableSanitization);
   }
 
   /**
@@ -428,6 +453,20 @@ public class Utils {
   }
 
   /**
+   * Verify topic name and generate a valid table name with optional sanitization
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return return GeneratedName with valid table name and a flag whether the name was taken from
+   *     the topic2table
+   */
+  public static GeneratedName generateTableName(
+      String topic, Map<String, String> topic2table, boolean enableSanitization) {
+    return generateValidNameFromMap(topic, topic2table, enableSanitization);
+  }
+
+  /**
    * verify topic name, and generate valid table/application name
    *
    * @param topic input topic name
@@ -439,6 +478,19 @@ public class Utils {
   }
 
   /**
+   * verify topic name, and generate valid table/application name with optional sanitization
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return valid table/application name
+   */
+  public static String generateValidName(
+      String topic, Map<String, String> topic2table, boolean enableSanitization) {
+    return generateValidNameFromMap(topic, topic2table, enableSanitization).name;
+  }
+
+  /**
    * verify topic name, and generate valid table/application name
    *
    * @param topic input topic name
@@ -447,10 +499,26 @@ public class Utils {
    */
   private static GeneratedName generateValidNameFromMap(
       String topic, Map<String, String> topic2table) {
+    // Default to v3 behavior (sanitization enabled)
+    return generateValidNameFromMap(topic, topic2table, true);
+  }
+
+  /**
+   * verify topic name, and generate valid table/application name with optional sanitization
+   *
+   * @param topic input topic name
+   * @param topic2table topic to table map
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return valid generated table/application name
+   */
+  private static GeneratedName generateValidNameFromMap(
+      String topic, Map<String, String> topic2table, boolean enableSanitization) {
     final String PLACE_HOLDER = "_";
     if (topic == null || topic.isEmpty()) {
       throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
     }
+
+    // Map entries always bypass sanitization
     if (topic2table.containsKey(topic)) {
       return GeneratedName.fromMap(topic2table.get(topic));
     }
@@ -462,9 +530,18 @@ public class Utils {
       }
     }
 
-    if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
+    // If sanitization is disabled, pass through the topic name as is
+    if (!enableSanitization) {
       return GeneratedName.generated(topic);
     }
+
+    // When sanitization is enabled, check if the topic is a valid identifier
+    if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
+      // Valid identifiers are uppercased when sanitization is enabled
+      return GeneratedName.generated(topic.toUpperCase(Locale.ROOT));
+    }
+
+    // Invalid identifiers are sanitized and uppercased when sanitization is enabled
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();
@@ -475,7 +552,7 @@ public class Utils {
     int index = 0;
     // first char
     if (topic.substring(index, index + 1).matches("[_a-zA-Z]")) {
-      result.append(topic.charAt(0));
+      result.append(topic.charAt(index));
       index++;
     } else {
       result.append(PLACE_HOLDER);
@@ -492,31 +569,44 @@ public class Utils {
     result.append(PLACE_HOLDER);
     result.append(hash);
 
-    return GeneratedName.generated(result.toString());
+    // Uppercase the sanitized result when sanitization is enabled
+    return GeneratedName.generated(result.toString().toUpperCase(Locale.ROOT));
   }
 
   public static Map<String, String> parseTopicToTableMap(String input) {
     Map<String, String> topic2Table = new HashMap<>();
     boolean isInvalid = false;
-    for (String str : input.split(",")) {
-      String[] tt = str.split(":");
 
-      if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty()) {
+    // Pattern matches: topic:table pairs where topic and table can be quoted or unquoted
+    // Quoted: anything inside double quotes (handles commas and colons inside)
+    // Unquoted: any non-empty string without quotes, commas, or colons
+    // Pattern: whitespace* (quoted|unquoted) whitespace* : whitespace* (quoted|unquoted)
+    // whitespace* (comma|end)
+    Pattern pattern =
+        Pattern.compile("\\s*(\"[^\"]+\"|[^:,\\s\"]+)\\s*:\\s*(\"[^\"]+\"|[^:,\\s\"]+)\\s*(?:,|$)");
+    Matcher matcher = pattern.matcher(input);
+
+    int lastMatchEnd = 0;
+    while (matcher.find()) {
+      // Verify we're matching contiguously (no unmatched characters between pairs)
+      if (matcher.start() != lastMatchEnd) {
         LOGGER.error(
-            "Invalid {} config format: {}",
+            "Invalid {} config format at position {}: {}",
             KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+            lastMatchEnd,
             input);
         return null;
       }
+      lastMatchEnd = matcher.end();
 
-      String topic = tt[0].trim();
-      String table = tt[1].trim();
+      String topic = matcher.group(1).trim();
+      String table = matcher.group(2).trim();
 
-      if (!isValidSnowflakeTableName(table)) {
+      if (!isValidTopic2TableValue(table)) {
         LOGGER.error(
-            "table name {} should have at least 2 "
-                + "characters, start with _a-zA-Z, and only contains "
-                + "_$a-zA-z0-9",
+            "table name {} should be either a valid unquoted identifier "
+                + "(starts with _a-zA-Z, contains _$a-zA-z0-9) or a quoted identifier "
+                + "(e.g., \"MyTable\")",
             table);
         isInvalid = true;
       }
@@ -535,8 +625,19 @@ public class Utils {
         }
       }
 
-      topic2Table.put(tt[0].trim(), tt[1].trim());
+      topic2Table.put(topic, table);
     }
+
+    // Verify we consumed the entire input
+    if (lastMatchEnd != input.length()) {
+      LOGGER.error(
+          "Invalid {} config format: unmatched content at position {}: {}",
+          KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+          lastMatchEnd,
+          input);
+      return null;
+    }
+
     if (isInvalid) {
       throw SnowflakeErrors.ERROR_0021.getException();
     }

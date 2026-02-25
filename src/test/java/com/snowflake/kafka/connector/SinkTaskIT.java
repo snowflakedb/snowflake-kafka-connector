@@ -39,6 +39,7 @@ class SinkTaskIT {
   @AfterEach
   public void after() {
     TestUtils.dropTable(topicName);
+    TestUtils.dropPipe(topicName + "-STREAMING");
   }
 
   @Test
