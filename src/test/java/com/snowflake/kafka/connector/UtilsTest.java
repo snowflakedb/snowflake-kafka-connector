@@ -549,23 +549,42 @@ public class UtilsTest {
   }
 
   @Test
-  public void testTopicToTableMapParsingLimitations() {
-    // LIMITATION: Commas inside table names break parsing even if quoted
-    // This is because we split by comma first (line 578 in Utils.java)
-    // Example: topic1:"Table,Name" would be parsed as two entries: "topic1:\"Table" and "Name\""
-    // This is a known limitation of the simple split-by-comma parsing
-    TestUtils.assertError(
-        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic1:\"Table,Name\""));
+  public void testTopicToTableMapWithCommasAndColons() {
+    // Commas inside quoted table names should now work
+    Map<String, String> commaMap = Utils.parseTopicToTableMap("topic1:\"Table,Name\"");
+    assertEquals("\"Table,Name\"", commaMap.get("topic1"));
 
-    // LIMITATION: Colons inside table names break parsing
-    // This is because we split by colon to separate topic from table (line 579)
-    TestUtils.assertError(
-        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic1:\"Table:Name\""));
+    // Colons inside quoted table names should now work
+    Map<String, String> colonMap = Utils.parseTopicToTableMap("topic1:\"Table:Name\"");
+    assertEquals("\"Table:Name\"", colonMap.get("topic1"));
 
-    // LIMITATION: Empty topic or table names after trimming
+    // Complex example with both commas and colons
+    Map<String, String> complexMap =
+        Utils.parseTopicToTableMap("sales_apac:\"sales, apac: landing\"");
+    assertEquals("\"sales, apac: landing\"", complexMap.get("sales_apac"));
+
+    // Multiple entries with special characters
+    Map<String, String> multiMap =
+        Utils.parseTopicToTableMap(
+            "t1:\"Table,With,Commas\",t2:\"Table:With:Colons\",t3:normal_table");
+    assertEquals("\"Table,With,Commas\"", multiMap.get("t1"));
+    assertEquals("\"Table:With:Colons\"", multiMap.get("t2"));
+    assertEquals("normal_table", multiMap.get("t3"));
+  }
+
+  @Test
+  public void testTopicToTableMapParsingErrors() {
+    // Empty topic or table names
     TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap(":table"));
     TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic:"));
     TestUtils.assertError(
         SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("   :   table   "));
+
+    // Invalid format - missing colon
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic"));
+
+    // Invalid format - extra commas
+    TestUtils.assertError(
+        SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("topic:table,,topic2:table2"));
   }
 }

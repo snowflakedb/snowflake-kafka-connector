@@ -575,19 +575,31 @@ public class Utils {
   public static Map<String, String> parseTopicToTableMap(String input) {
     Map<String, String> topic2Table = new HashMap<>();
     boolean isInvalid = false;
-    for (String str : input.split(",")) {
-      String[] tt = str.split(":");
 
-      if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty()) {
+    // Pattern matches: topic:table pairs where topic and table can be quoted or unquoted
+    // Quoted: anything inside double quotes (handles commas and colons inside)
+    // Unquoted: any non-empty string without quotes, commas, or colons
+    // Pattern: whitespace* (quoted|unquoted) whitespace* : whitespace* (quoted|unquoted)
+    // whitespace* (comma|end)
+    Pattern pattern =
+        Pattern.compile("\\s*(\"[^\"]*\"|[^:,\\s]+)\\s*:\\s*(\"[^\"]*\"|[^:,\\s]+)\\s*(?:,|$)");
+    Matcher matcher = pattern.matcher(input);
+
+    int lastMatchEnd = 0;
+    while (matcher.find()) {
+      // Verify we're matching contiguously (no unmatched characters between pairs)
+      if (matcher.start() != lastMatchEnd) {
         LOGGER.error(
-            "Invalid {} config format: {}",
+            "Invalid {} config format at position {}: {}",
             KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+            lastMatchEnd,
             input);
         return null;
       }
+      lastMatchEnd = matcher.end();
 
-      String topic = tt[0].trim();
-      String table = tt[1].trim();
+      String topic = matcher.group(1).trim();
+      String table = matcher.group(2).trim();
 
       if (!isValidSnowflakeTableName(table)) {
         LOGGER.error(
@@ -612,8 +624,19 @@ public class Utils {
         }
       }
 
-      topic2Table.put(tt[0].trim(), tt[1].trim());
+      topic2Table.put(topic, table);
     }
+
+    // Verify we consumed the entire input
+    if (lastMatchEnd != input.length()) {
+      LOGGER.error(
+          "Invalid {} config format: unmatched content at position {}: {}",
+          KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+          lastMatchEnd,
+          input);
+      return null;
+    }
+
     if (isInvalid) {
       throw SnowflakeErrors.ERROR_0021.getException();
     }
