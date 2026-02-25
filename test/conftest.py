@@ -130,13 +130,14 @@ def test_schema(credentials_unsalted, name_salt):
     fqn = f"{credentials_unsalted.database}.{salted_schema}"
 
     conn_config = SnowflakeConnectorConfig.from_profile(credentials_unsalted)
-    conn = snowflake.connector.connect(**conn_config.to_dict())
     try:
         logger.info(f"Creating test schema: {fqn}")
+        conn = snowflake.connector.connect(**conn_config.to_dict())
         conn.cursor().execute(f"CREATE SCHEMA IF NOT EXISTS {fqn}")
         yield salted_schema
     finally:
         logger.info(f"Dropping test schema: {fqn}")
+        conn = snowflake.connector.connect(**conn_config.to_dict())
         conn.cursor().execute(f"DROP SCHEMA IF EXISTS {fqn} CASCADE")
         conn.close()
 
