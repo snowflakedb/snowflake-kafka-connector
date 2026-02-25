@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#
+# Git pre-commit hook that enforces the same formatting checks as CI:
+#   1. Java  – google-java-format via ./format.sh  (requires java)
+#   2. Python – ruff check + ruff format --check    (requires ruff)
+# Each tool is skipped when it is not available.
+#
+# Install with:
+#   git config core.hooksPath .githooks
+#
+# If you need the corporate secret-scanner hook as well, this script
+# delegates to .git/hooks/pre-commit after running its own checks.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# --- Java formatting (google-java-format) ---
+if git diff --cached --name-only | grep -q '^src/'; then
+  "$REPO_ROOT/format.sh"
+fi
+
+# --- Python linting & formatting (ruff) ---
+PYTHON_PATHS="test/tests test/lib test/conftest.py"
+
+if git diff --cached --name-only | grep -q '^test/'; then
+  if command -v ruff &>/dev/null; then
+    ruff check --fix --exit-non-zero-on-fix $PYTHON_PATHS
+    ruff format --exit-non-zero-on-format $PYTHON_PATHS
+  fi
+fi
+
+# Chain to the default hooks directory so the secret-scanner (or any other
+# hook installed into .git/hooks/) still runs.
+if [ -x .git/hooks/pre-commit ]; then
+  exec .git/hooks/pre-commit "$@"
+fi

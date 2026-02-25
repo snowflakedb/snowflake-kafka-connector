@@ -11,11 +11,20 @@ The Snowflake Kafka Connector is a plugin for Apache Kafka Connect. It ingests d
 ### Guidelines
 
 The following requirements must be met before you can merge your PR:
-- Tests: all test suites must pass, see the [test README](https://github.com/snowflakedb/snowflake-kafka-connector/blob/master/README-TEST.md)
-- Formatter: run this script [`./format.sh`](https://github.com/snowflakedb/snowflake-kafka-connector/blob/master/format.sh) from root
+- Tests: all test suites must pass, see the [test README](https://github.com/snowflakedb/snowflake-kafka-connector/blob/master/test/README.md)
+- Formatting: Java sources must pass [Google Java Format](https://github.com/google/google-java-format) (`./format.sh`) and Python test code must pass `ruff check` + `ruff format --check`. The [pre-commit hook](#pre-commit-hook) runs both automatically.
 - CLA: all contributers must sign the Snowflake CLA. This is a one time signature, please provide your email so we can work with you to get this signed after you open a PR.
 
 Thank you for contributing! We will review and approve PRs as soon as we can.
+
+### Pre-commit hook
+
+A pre-commit hook is provided in `.githooks/` that enforces the same formatting checks as CI.
+Python formatting is skipped when ruff is not available. To enable the hook:
+
+```bash
+git config core.hooksPath .githooks
+```
 
 ### Unit tests
 
