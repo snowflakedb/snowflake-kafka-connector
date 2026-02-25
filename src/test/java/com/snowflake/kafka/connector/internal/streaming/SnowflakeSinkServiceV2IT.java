@@ -694,6 +694,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             brokenInputValue.schema(),
             brokenInputValue.value(),
             startOffset + 2);
+
     config.put("errors.tolerance", "all");
     config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
     config.put("errors.deadletterqueue.topic.replication.factor", "1");

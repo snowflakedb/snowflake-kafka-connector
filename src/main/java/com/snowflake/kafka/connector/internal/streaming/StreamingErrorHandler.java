@@ -40,15 +40,11 @@ public class StreamingErrorHandler {
     }
     if (errorTolerance) {
       if (!isDLQTopicSet) {
-        final String errMsg =
-            String.format(
-                "%s is set, however %s is not configured. Cannot route errant record to Dead Letter"
-                    + " Queue. Original error: %s",
-                ERRORS_TOLERANCE_CONFIG,
-                ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
-                error.getMessage());
-        this.telemetryServiceV2.reportKafkaConnectFatalError(errMsg);
-        throw new DataException(errMsg, error);
+        LOGGER.warn(
+            "{} is set, however {} is not. The message will not be added to the Dead Letter Queue"
+                + " topic.",
+            ERRORS_TOLERANCE_CONFIG,
+            ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
       } else {
         LOGGER.warn(
             "Adding the message to Dead Letter Queue topic: {}",

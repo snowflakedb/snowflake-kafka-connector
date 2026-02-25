@@ -187,10 +187,10 @@ class StreamingErrorHandlerIT {
     assertEquals(3, errorReporter.getReportedRecords().size());
   }
 
-  // ── errors.tolerance = ALL + no DLQ → should fail ──────────────────────────
+  // ── errors.tolerance = ALL + no DLQ → should silently drop ─────────────────
 
   @Test
-  void brokenRecord_toleranceAll_noDLQ_shouldThrowDataException() {
+  void brokenRecord_toleranceAll_noDLQ_shouldSilentlyDrop() {
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     Map<String, String> config = baseConfig();
     config.put("errors.tolerance", "all");
@@ -199,13 +199,9 @@ class StreamingErrorHandlerIT {
     SnowpipeStreamingPartitionChannel channel = createChannel(config, errorReporter);
     SinkRecord brokenSinkRecord = buildBrokenValueRecord(0);
 
-    DataException thrown =
-        assertThrows(DataException.class, () -> channel.insertRecord(brokenSinkRecord, true));
+    // Should NOT throw - record is silently dropped with a warning log
+    channel.insertRecord(brokenSinkRecord, true);
 
-    assertTrue(
-        thrown.getMessage().contains("not configured"),
-        "Error message should indicate DLQ is not configured, got: " + thrown.getMessage());
-    assertNotNull(thrown.getCause(), "DataException should wrap the original conversion exception");
     assertEquals(0, errorReporter.getReportedRecords().size());
   }
 
