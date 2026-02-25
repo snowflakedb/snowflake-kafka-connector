@@ -18,6 +18,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
@@ -89,6 +90,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   // Whether to enable table name sanitization
   private final boolean enableSanitization;
 
+  private final TaskMetrics taskMetrics;
+
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
       Map<String, String> connectorConfig,
@@ -96,7 +99,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SinkTaskContext sinkTaskContext,
       Optional<MetricsJmxReporter> metricsJmxReporter,
       Map<String, String> topicToTableMap,
-      ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues) {
+      ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues,
+      TaskMetrics taskMetrics) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -124,10 +128,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
     }
 
+    this.taskMetrics = taskMetrics;
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
     this.batchOffsetFetcher =
         new BatchOffsetFetcher(
-            this.connectorName, this.taskId, connectorConfig, this.tolerateErrors);
+            this.connectorName, this.taskId, connectorConfig, this.tolerateErrors, taskMetrics);
     this.enableSanitization =
         Boolean.parseBoolean(
             connectorConfig.getOrDefault(
@@ -245,7 +250,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.metricsJmxReporter,
             this.connectorName,
             this.taskId,
-            streamingErrorHandler);
+            streamingErrorHandler,
+            this.taskMetrics);
 
     partitionsToChannel.put(channelName, partitionChannel);
     LOGGER.info("Successfully created streaming channel: {}", channelName);

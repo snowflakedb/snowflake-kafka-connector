@@ -26,9 +26,12 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.metrics.SnowflakeSinkTaskMetrics;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -84,6 +87,9 @@ public class SnowflakeSinkTask extends SinkTask {
 
   // Periodic telemetry reporter for channel status
   private PeriodicTelemetryReporter telemetryReporter = null;
+
+  // Task-level JMX metrics (lifecycle, throughput, duration)
+  private TaskMetrics taskMetrics = TaskMetrics.noop();
 
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
@@ -144,6 +150,7 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void start(final Map<String, String> parsedConfig) {
     this.DYNAMIC_LOGGER.info("starting task...");
+    final long startNanos = System.nanoTime();
 
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
@@ -200,6 +207,22 @@ public class SnowflakeSinkTask extends SinkTask {
                 new MetricsJmxReporter(new com.codahale.metrics.MetricRegistry(), connectorName))
             : Optional.empty();
 
+    // Initialize task-level metrics (real JMX or noop depending on config)
+    this.taskMetrics =
+        metricsJmxReporter
+            .<TaskMetrics>map(
+                reporter ->
+                    new SnowflakeSinkTaskMetrics(
+                        connectorName,
+                        this.taskConfigId,
+                        reporter,
+                        () ->
+                            (int)
+                                StreamingClientPools.getClientCountForTask(
+                                    connectorName, this.taskConfigId)))
+            .orElse(TaskMetrics.noop());
+    this.taskMetrics.recordStartDuration(System.nanoTime() - startNanos);
+
     this.sink =
         new SnowflakeSinkServiceV2(
             conn,
@@ -208,10 +231,10 @@ public class SnowflakeSinkTask extends SinkTask {
             this.context,
             metricsJmxReporter,
             topic2table,
-            behavior);
+            behavior,
+            this.taskMetrics);
 
     // Initialize and start periodic telemetry reporter for channel status
-
     Supplier<Map<String, TopicPartitionChannel>> channelSupplier =
         () -> sink.getPartitionChannels();
     this.telemetryReporter =
@@ -241,6 +264,8 @@ public class SnowflakeSinkTask extends SinkTask {
       this.telemetryReporter.stop();
     }
 
+    this.taskMetrics.unregister();
+
     if (this.sink != null) {
       this.sink.stop();
     }
@@ -258,7 +283,11 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void open(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    this.sink.startPartitions(partitions);
+    try (TaskMetrics.TimingContext ignored = taskMetrics.timeOpen()) {
+      this.sink.startPartitions(partitions);
+      taskMetrics.incOpenCount();
+      taskMetrics.setAssignedPartitions(partitions.size());
+    }
     this.DYNAMIC_LOGGER.info(
         "task opened with {} partitions, execution time: {} milliseconds",
         partitions.size(),
@@ -276,10 +305,14 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public void close(final Collection<TopicPartition> partitions) {
     long startTime = System.currentTimeMillis();
-    this.DYNAMIC_LOGGER.info(
-        "closing task {} with {} partitions", this.taskConfigId, partitions.size());
-    if (this.sink != null) {
-      this.sink.close(partitions);
+    try (TaskMetrics.TimingContext ignored = taskMetrics.timeClose()) {
+      this.DYNAMIC_LOGGER.info(
+          "closing task {} with {} partitions", this.taskConfigId, partitions.size());
+      if (this.sink != null) {
+        this.sink.close(partitions);
+      }
+      taskMetrics.incCloseCount();
+      taskMetrics.setAssignedPartitions(0);
     }
 
     this.DYNAMIC_LOGGER.info(
@@ -308,8 +341,10 @@ public class SnowflakeSinkTask extends SinkTask {
     DYNAMIC_LOGGER.debug("Calling PUT with {} records", recordSize);
 
     final long startTime = System.currentTimeMillis();
-
-    getSink().insert(records);
+    try (TaskMetrics.TimingContext ignored = taskMetrics.timePut()) {
+      getSink().insert(records);
+      taskMetrics.markPutRecords(recordSize);
+    }
 
     logWarningForPutAndPrecommit(
         startTime, Utils.formatString("Executed PUT with {} records", recordSize), false);
@@ -336,44 +371,45 @@ public class SnowflakeSinkTask extends SinkTask {
     }
 
     long startTime = System.currentTimeMillis();
-
-    // return an empty map means that offset commitment is not desired
-    if (sink == null || sink.isClosed()) {
-      this.DYNAMIC_LOGGER.warn(
-          "sink not initialized or closed before preCommit", this.taskConfigId);
-      return new HashMap<>();
-    } else if (sink.getPartitionCount() == 0) {
-      this.DYNAMIC_LOGGER.warn("no partition is assigned", this.taskConfigId);
-      return new HashMap<>();
-    }
-
-    Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
-    try {
-      Map<TopicPartition, Long> batchOffsets = sink.getCommittedOffsets(offsets.keySet());
-      batchOffsets.forEach(
-          (topicPartition, offset) ->
-              committedOffsets.put(topicPartition, new OffsetAndMetadata(offset)));
-    } catch (SnowflakeKafkaConnectorException e) {
-      // It's OK to just log the error since preCommit can retry.
-      this.authorizationExceptionTracker.reportPrecommitException(e);
-      this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
-      // Channel error count exceeded - store to fail on next put() call
-      if (e.checkErrorCode(SnowflakeErrors.ERROR_5030)) {
-        this.channelErrorToFailOn = e;
+    try (TaskMetrics.TimingContext ignored = taskMetrics.timePreCommit()) {
+      // return an empty map means that offset commitment is not desired
+      if (sink == null || sink.isClosed()) {
+        this.DYNAMIC_LOGGER.warn(
+            "sink not initialized or closed before preCommit", this.taskConfigId);
+        return new HashMap<>();
+      } else if (sink.getPartitionCount() == 0) {
+        this.DYNAMIC_LOGGER.warn("no partition is assigned", this.taskConfigId);
+        return new HashMap<>();
       }
-    } catch (Exception e) {
-      this.authorizationExceptionTracker.reportPrecommitException(e);
-      this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
-    }
 
-    logWarningForPutAndPrecommit(
-        startTime,
-        Utils.formatString(
-            "Executed PRECOMMIT on all {} partitions, safe to commit {} partitions",
-            offsets.size(),
-            committedOffsets.size()),
-        true);
-    return committedOffsets;
+      Map<TopicPartition, OffsetAndMetadata> committedOffsets = new HashMap<>();
+      try {
+        Map<TopicPartition, Long> batchOffsets = sink.getCommittedOffsets(offsets.keySet());
+        batchOffsets.forEach(
+            (topicPartition, offset) ->
+                committedOffsets.put(topicPartition, new OffsetAndMetadata(offset)));
+      } catch (SnowflakeKafkaConnectorException e) {
+        // It's OK to just log the error since preCommit can retry.
+        this.authorizationExceptionTracker.reportPrecommitException(e);
+        this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
+        // Channel error count exceeded - store to fail on next put() call
+        if (e.checkErrorCode(SnowflakeErrors.ERROR_5030)) {
+          this.channelErrorToFailOn = e;
+        }
+      } catch (Exception e) {
+        this.authorizationExceptionTracker.reportPrecommitException(e);
+        this.DYNAMIC_LOGGER.error("PreCommit error: {} ", e.getMessage());
+      }
+
+      logWarningForPutAndPrecommit(
+          startTime,
+          Utils.formatString(
+              "Executed PRECOMMIT on all {} partitions, safe to commit {} partitions",
+              offsets.size(),
+              committedOffsets.size()),
+          true);
+      return committedOffsets;
+    }
   }
 
   /**

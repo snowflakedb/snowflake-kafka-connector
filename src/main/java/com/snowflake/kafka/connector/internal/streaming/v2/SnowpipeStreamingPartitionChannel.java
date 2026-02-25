@@ -14,6 +14,7 @@ import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.LatestCommitedOffsetTokenExecutor;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
@@ -78,6 +79,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final StreamingErrorHandler streamingErrorHandler;
 
+  private final TaskMetrics taskMetrics;
+
   public SnowpipeStreamingPartitionChannel(
       String tableName,
       String channelName,
@@ -91,7 +94,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       Optional<MetricsJmxReporter> metricsJmxReporter,
       String connectorName,
       String taskId,
-      StreamingErrorHandler streamingErrorHandler) {
+      StreamingErrorHandler streamingErrorHandler,
+      TaskMetrics taskMetrics) {
     this.channelName = channelName;
     this.connectorConfig = connectorConfig;
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
@@ -99,6 +103,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.connectorName = connectorName;
     this.taskId = taskId;
     this.streamingErrorHandler = streamingErrorHandler;
+    this.taskMetrics = taskMetrics;
 
     this.telemetryService = conn.getTelemetryClient();
     this.pipeName = pipeName;
@@ -188,7 +193,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           LOGGER.info("Starting flush for channel: {}", this.getChannelNameFormatV1());
 
           StreamingClientPools.getClient(
-                  connectorName, taskId, pipeName, connectorConfig, streamingClientProperties)
+                  connectorName,
+                  taskId,
+                  pipeName,
+                  connectorConfig,
+                  streamingClientProperties,
+                  taskMetrics)
               .initiateFlush();
 
           final long targetOffset = offsetTracker.getLastAppendRowsOffset();
@@ -406,7 +416,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private SnowflakeStreamingIngestChannel openChannelForTable(final String channelName) {
     final SnowflakeStreamingIngestClient streamingIngestClient =
         StreamingClientPools.getClient(
-            connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
+            connectorName,
+            taskId,
+            pipeName,
+            connectorConfig,
+            streamingClientProperties,
+            taskMetrics);
 
     // Close old channel before reopening a new one. We don't want to wait for the channel to flush
     // since it will be reopened right away and the in-progress data will be lost.
@@ -414,7 +429,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       closeChannelWithoutFlushing();
     }
 
-    final OpenChannelResult result = streamingIngestClient.openChannel(channelName, null);
+    final OpenChannelResult result;
+    try (TaskMetrics.TimingContext ignored = taskMetrics.timeChannelOpen()) {
+      result = streamingIngestClient.openChannel(channelName, null);
+    }
+
+    taskMetrics.incChannelOpenCount();
+
     final ChannelStatus channelStatus = result.getChannelStatus();
     if (channelStatus.getStatusCode().equals("SUCCESS")) {
       // Capture the initial error count - errors are cumulative and don't reset on channel reopen.

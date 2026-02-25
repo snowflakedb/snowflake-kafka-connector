@@ -8,6 +8,7 @@ import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
@@ -179,7 +180,12 @@ public class StreamingClientManagerIT {
 
   private SnowflakeStreamingIngestClient getClient(String task, String pipe) {
     return StreamingClientPools.getClient(
-        testConnectorName, task, pipe, connectorConfig, streamingClientProperties);
+        testConnectorName,
+        task,
+        pipe,
+        connectorConfig,
+        streamingClientProperties,
+        TaskMetrics.noop());
   }
 
   private String generatePemPrivateKey() {

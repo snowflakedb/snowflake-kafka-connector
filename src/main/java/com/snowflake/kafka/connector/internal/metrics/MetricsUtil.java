@@ -46,4 +46,28 @@ public class MetricsUtil {
       final String channelName, final String subDomain, final String metricName) {
     return channelMetricPrefix(channelName) + "/" + subDomain + "/" + metricName;
   }
+
+  /**
+   * Returns the metric-registry key prefix for a given task, e.g. {@code "task:task-0"}. Use this
+   * when removing all metrics for a task via {@link MetricsJmxReporter#removeMetricsFromRegistry}.
+   */
+  public static String taskMetricPrefix(final String taskPrefix) {
+    return "task:" + taskPrefix;
+  }
+
+  /**
+   * Construct a task-level metric name. The resulting MBean will use {@code task=} as the first key
+   * property.
+   *
+   * <p>Will be of form <b>task:taskPrefix/subDomain/metricName</b>
+   *
+   * @param taskPrefix task identifier (e.g. "task-0")
+   * @param subDomain categorize this metric (e.g. "task", "lifecycle")
+   * @param metricName actual Metric name
+   * @return concatenized String with scope prefix
+   */
+  public static String taskMetricName(
+      final String taskPrefix, final String subDomain, final String metricName) {
+    return taskMetricPrefix(taskPrefix) + "/" + subDomain + "/" + metricName;
+  }
 }

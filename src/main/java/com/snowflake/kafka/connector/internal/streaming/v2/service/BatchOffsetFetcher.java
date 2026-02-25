@@ -7,6 +7,7 @@ import com.snowflake.ingest.streaming.ChannelStatusBatch;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
@@ -36,16 +37,20 @@ public class BatchOffsetFetcher {
   private final StreamingClientProperties streamingClientProperties;
   private final boolean tolerateErrors;
 
+  private final TaskMetrics taskMetrics;
+
   public BatchOffsetFetcher(
       String connectorName,
       String taskId,
       Map<String, String> connectorConfig,
-      boolean tolerateErrors) {
+      boolean tolerateErrors,
+      TaskMetrics taskMetrics) {
     this.connectorName = connectorName;
     this.taskId = taskId;
     this.connectorConfig = connectorConfig;
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
     this.tolerateErrors = tolerateErrors;
+    this.taskMetrics = taskMetrics;
   }
 
   /**
@@ -100,8 +105,17 @@ public class BatchOffsetFetcher {
 
     SnowflakeStreamingIngestClient client =
         StreamingClientPools.getClient(
-            connectorName, taskId, pipeName, connectorConfig, streamingClientProperties);
-    ChannelStatusBatch batch = client.getChannelStatus(channelNames);
+            connectorName,
+            taskId,
+            pipeName,
+            connectorConfig,
+            streamingClientProperties,
+            taskMetrics);
+
+    final ChannelStatusBatch batch;
+    try (TaskMetrics.TimingContext ignored = taskMetrics.timeOffsetFetch()) {
+      batch = client.getChannelStatus(channelNames);
+    }
 
     Map<TopicPartition, Long> result = new HashMap<>();
     channelsByPartition.forEach(

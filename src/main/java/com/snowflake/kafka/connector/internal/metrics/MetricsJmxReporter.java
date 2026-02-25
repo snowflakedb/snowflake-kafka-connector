@@ -65,7 +65,7 @@ public class MetricsJmxReporter {
   static ObjectName getObjectName(String connectorName, String jmxDomain, String metricName) {
     try {
       // each metric name is scope:scopeValue/subDomain/metricName
-      // e.g. "channel:conn_topic_0/offsets/processed-offset"
+      // e.g. "task:task-0/lifecycle/open-count" or "channel:conn_topic_0/offsets/processed-offset"
       Iterator<String> tokens = Splitter.on("/").split(metricName).iterator();
 
       // First token is always scope:value -- split on colon to get the MBean key and value
