@@ -2,6 +2,8 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.time.Instant;
 import java.util.Collections;
@@ -17,6 +19,8 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * Snowflake Streaming Ingest SDK ({@code Map<String, Object>}).
  */
 public final class SnowflakeSinkRecord {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   static final String OFFSET = "offset";
 
@@ -55,31 +59,7 @@ public final class SnowflakeSinkRecord {
 
   public static SnowflakeSinkRecord from(
       SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
-
-    // First validate the key if present - a broken key means a broken record
-    if (record.key() != null && record.keySchema() != null) {
-      try {
-        KafkaRecordConverter.convertKey(record.keySchema(), record.key());
-      } catch (Exception e) {
-        return createBrokenRecord(record, metadataConfig, connectorPushTime, e);
-      }
-    }
-
-    // Handle null/tombstone records
-    if (record.value() == null) {
-      return createTombstoneRecord(record, metadataConfig, connectorPushTime);
-    }
-
-    try {
-      Map<String, Object> content =
-          KafkaRecordConverter.convertToMap(record.valueSchema(), record.value());
-
-      Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
-
-      return new SnowflakeSinkRecord(content, metadata, RecordState.VALID, null);
-    } catch (Exception e) {
-      return createBrokenRecord(record, metadataConfig, connectorPushTime, e);
-    }
+    return from(record, metadataConfig, connectorPushTime, true);
   }
 
   public static SnowflakeSinkRecord from(
@@ -88,13 +68,16 @@ public final class SnowflakeSinkRecord {
   }
 
   public static SnowflakeSinkRecord from(
-      SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime,
+      SinkRecord record,
+      SnowflakeMetadataConfig metadataConfig,
+      Instant connectorPushTime,
       boolean enableSchematization) {
+    // First validate the key if present - a broken key means a broken record
     if (record.key() != null && record.keySchema() != null) {
       try {
         KafkaRecordConverter.convertKey(record.keySchema(), record.key());
       } catch (Exception e) {
-        return createBrokenRecord(record, metadataConfig, connectorPushTime);
+        return createBrokenRecord(record, metadataConfig, connectorPushTime, e);
       }
     }
 
@@ -107,24 +90,29 @@ public final class SnowflakeSinkRecord {
       if (enableSchematization) {
         content = KafkaRecordConverter.convertToMap(record.valueSchema(), record.value());
       } else {
-        content = wrapAsLegacyContent(record.valueSchema(), record.value());
+        content = wrapAsRecordContent(record.valueSchema(), record.value());
       }
       Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
-      return new SnowflakeSinkRecord(content, metadata, RecordState.VALID);
+      return new SnowflakeSinkRecord(content, metadata, RecordState.VALID, null);
     } catch (Exception e) {
-      return createBrokenRecord(record, metadataConfig, connectorPushTime);
+      return createBrokenRecord(record, metadataConfig, connectorPushTime, e);
     }
   }
 
-  private static Map<String, Object> wrapAsLegacyContent(Schema schema, Object value) {
+  private static Map<String, Object> wrapAsRecordContent(Schema schema, Object value) {
     Map<String, Object> content = new HashMap<>();
-    Object convertedValue;
-    if (value instanceof Map || value instanceof Struct) {
-      convertedValue = KafkaRecordConverter.convertToMap(schema, value);
-    } else {
-      convertedValue = KafkaRecordConverter.convertValue(schema, value);
+    try {
+      Object convertedValue;
+      if (value instanceof Map || value instanceof Struct) {
+        convertedValue = KafkaRecordConverter.convertToMap(schema, value);
+      } else {
+        convertedValue = KafkaRecordConverter.convertValue(schema, value);
+      }
+      String jsonString = MAPPER.writeValueAsString(convertedValue);
+      content.put(Utils.TABLE_COLUMN_CONTENT, jsonString);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("Failed to serialize value to JSON", e);
     }
-    content.put(Utils.TABLE_COLUMN_CONTENT, convertedValue);
     return content;
   }
 
