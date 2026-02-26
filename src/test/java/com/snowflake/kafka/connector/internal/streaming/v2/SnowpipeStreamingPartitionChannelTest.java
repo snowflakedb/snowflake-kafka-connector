@@ -26,10 +26,12 @@ import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.kafka.common.TopicPartition;
@@ -212,8 +214,8 @@ class SnowpipeStreamingPartitionChannelTest {
 
     private final String pipeName;
     private final TrackingIngestClientSupplier supplier;
-    private final java.util.concurrent.ConcurrentHashMap<String, TrackingStreamingIngestChannel>
-        channels = new java.util.concurrent.ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, TrackingStreamingIngestChannel> channels =
+        new ConcurrentHashMap<>();
 
     TrackingStreamingIngestClient(
         final String pipeName, final TrackingIngestClientSupplier supplier) {
@@ -276,7 +278,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public ChannelStatusBatch getChannelStatus(final List<String> channelNames) {
-      java.util.Map<String, ChannelStatus> statusMap = new java.util.HashMap<>();
+      Map<String, ChannelStatus> statusMap = new HashMap<>();
       for (String name : channelNames) {
         TrackingStreamingIngestChannel ch = channels.get(name);
         if (ch != null) {
