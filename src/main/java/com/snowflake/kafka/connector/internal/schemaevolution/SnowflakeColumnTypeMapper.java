@@ -1,5 +1,7 @@
 /*
  * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
+ *
+ * Ported from KC v3.2 for client-side schema evolution in KC v4.
  */
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
@@ -24,7 +26,17 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Maps Kafka Connect types to Snowflake DDL types. */
+/**
+ * Maps Kafka Connect types to Snowflake DDL types.
+ *
+ * <p>Type mappings:
+ * - INT8 → BYTEINT, INT16 → SMALLINT, INT32 → INT
+ * - INT64 → BIGINT (or TIMESTAMP with logical name)
+ * - FLOAT32 → FLOAT, FLOAT64 → DOUBLE
+ * - BOOLEAN → BOOLEAN, STRING → VARCHAR
+ * - BYTES → BINARY (or VARCHAR for Decimal)
+ * - ARRAY → ARRAY, STRUCT/MAP → VARIANT
+ */
 public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeColumnTypeMapper.class);
@@ -101,6 +113,39 @@ public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
       return STRUCT;
     } else {
       return null;
+    }
+  }
+
+  @Override
+  public String inferTypeFromJavaValue(Object value) {
+    if (value == null) {
+      return "VARCHAR";
+    } else if (value instanceof Short) {
+      return "SMALLINT";
+    } else if (value instanceof Integer) {
+      return "INT";
+    } else if (value instanceof Long) {
+      return "BIGINT";
+    } else if (value instanceof Float) {
+      return "FLOAT";
+    } else if (value instanceof Double) {
+      return "DOUBLE";
+    } else if (value instanceof Number) {
+      return "BIGINT";
+    } else if (value instanceof Boolean) {
+      return "BOOLEAN";
+    } else if (value instanceof String) {
+      return "VARCHAR";
+    } else if (value instanceof byte[]) {
+      return "BINARY";
+    } else if (value instanceof java.util.Collection) {
+      return "ARRAY";
+    } else if (value instanceof java.util.Map) {
+      return "VARIANT";
+    } else {
+      LOGGER.debug(
+          "Unknown Java type {}, defaulting to VARIANT", value.getClass().getName());
+      return "VARIANT";
     }
   }
 }

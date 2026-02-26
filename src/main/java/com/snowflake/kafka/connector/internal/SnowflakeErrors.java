@@ -152,6 +152,14 @@ public enum SnowflakeErrors {
       "Failed to get data schema",
       "Failed to get data schema. Unrecognizable data type in JSON object"),
   ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema"),
+  ERROR_5023(
+      "5023",
+      "Unrecognizable data type during schema evolution",
+      "Could not infer Snowflake column type from record data"),
+  ERROR_5024(
+      "5024",
+      "Schema evolution column mismatch",
+      "Columns in data not found in Kafka Connect schema"),
   ERROR_5027(
       "5027",
       "Data verification failed",

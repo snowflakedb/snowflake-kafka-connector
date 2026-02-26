@@ -1,18 +1,22 @@
 /*
  * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
+ *
+ * Ported from KC v3.2 for client-side schema evolution in KC v4.
+ * Adapted to use Sets instead of Lists for KC v4 ValidationResult compatibility.
  */
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
 
 /**
- * Contains target items for schema evolution: table name, columns to drop non-nullability, and
- * columns to add to the table.
+ * Contains target items for schema evolution: table name, columns to drop non-nullability,
+ * and columns to add to the table.
+ *
+ * <p>Note: Uses Sets instead of Lists (KC v3.2 used Lists) to match ValidationResult structure.
  */
 public class SchemaEvolutionTargetItems {
   private final String tableName;
@@ -24,10 +28,8 @@ public class SchemaEvolutionTargetItems {
       String tableName, Set<String> columnsToDropNonNullability, Set<String> columnsToAdd) {
     this.tableName = tableName;
     this.columnsToDropNonNullability =
-        columnsToDropNonNullability != null
-            ? new HashSet<>(columnsToDropNonNullability)
-            : Collections.emptySet();
-    this.columnsToAdd = columnsToAdd != null ? new HashSet<>(columnsToAdd) : Collections.emptySet();
+        columnsToDropNonNullability != null ? columnsToDropNonNullability : Collections.emptySet();
+    this.columnsToAdd = columnsToAdd != null ? columnsToAdd : Collections.emptySet();
   }
 
   public boolean hasDataForSchemaEvolution() {
@@ -44,12 +46,12 @@ public class SchemaEvolutionTargetItems {
 
   @Nonnull
   public Set<String> getColumnsToDropNonNullability() {
-    return Collections.unmodifiableSet(columnsToDropNonNullability);
+    return columnsToDropNonNullability;
   }
 
   @Nonnull
   public Set<String> getColumnsToAdd() {
-    return Collections.unmodifiableSet(columnsToAdd);
+    return columnsToAdd;
   }
 
   @Override
