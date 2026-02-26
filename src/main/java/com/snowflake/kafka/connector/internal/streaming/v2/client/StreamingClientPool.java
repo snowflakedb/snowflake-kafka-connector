@@ -92,15 +92,12 @@ public class StreamingClientPool {
       }
     }
 
-    void closeAsync(String pipeName, String connectorName) {
-      clientFuture.thenAccept(
-          client -> {
-            LOGGER.info(
-                "Closing client for pipe {} in connector {} (last task stopped)",
-                pipeName,
-                connectorName);
-            client.close();
-          });
+    void close(String pipeName, String connectorName) {
+      LOGGER.info(
+          "Closing client for pipe {} in connector {} (last task stopped)",
+          pipeName,
+          connectorName);
+      clientFuture.join().close();
     }
   }
 
@@ -163,7 +160,7 @@ public class StreamingClientPool {
               return null;
             }
             if (entry.removeTask(taskId)) {
-              entry.closeAsync(pipeName, connectorName);
+              entry.close(pipeName, connectorName);
               return null;
             }
             return entry;

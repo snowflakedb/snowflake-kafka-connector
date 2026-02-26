@@ -114,16 +114,16 @@ class StreamingClientPoolTest {
     }
 
     @Test
-    void closeAsync_calls_close_on_client() {
+    void close_calls_close_on_client() {
       SnowflakeStreamingIngestClient mockClient = mock(SnowflakeStreamingIngestClient.class);
       setSupplierReturning(mockClient);
 
       RefCountedClientTestHarness harness = new RefCountedClientTestHarness();
       harness.refCountedClient.awaitClient("test-pipe");
 
-      harness.refCountedClient.closeAsync("test-pipe", "test-connector");
+      harness.refCountedClient.close("test-pipe", "test-connector");
 
-      verify(mockClient, timeout(5000)).close();
+      verify(mockClient).close();
     }
 
     /**
