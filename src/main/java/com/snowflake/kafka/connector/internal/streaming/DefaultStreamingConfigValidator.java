@@ -91,10 +91,12 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   private static Map<String, String> validateSchematizationConfig(Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
-    boolean schematizationEnabled = Boolean.parseBoolean(
-        inputConfig.getOrDefault(
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-            String.valueOf(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
+    boolean schematizationEnabled =
+        Boolean.parseBoolean(
+            inputConfig.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+                String.valueOf(
+                    KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
 
     if (schematizationEnabled
         && inputConfig.get(VALUE_CONVERTER) != null

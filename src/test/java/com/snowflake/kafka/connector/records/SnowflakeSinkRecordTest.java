@@ -575,8 +575,7 @@ class SnowflakeSinkRecordTest {
             .withSchemaAndValue(schemaAndValue)
             .build();
 
-    SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
 
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
@@ -595,8 +594,7 @@ class SnowflakeSinkRecordTest {
             .withValue("just a plain string")
             .build();
 
-    SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
 
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
@@ -613,8 +611,7 @@ class SnowflakeSinkRecordTest {
             .withValue(bytes)
             .build();
 
-    SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
 
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
@@ -630,8 +627,7 @@ class SnowflakeSinkRecordTest {
             .withValue(null)
             .build();
 
-    SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
 
     assertTrue(record.isTombstone());
   }
@@ -644,8 +640,7 @@ class SnowflakeSinkRecordTest {
             .withValue("just a plain string")
             .build();
 
-    SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
 
     assertTrue(record.isBroken());
   }

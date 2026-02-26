@@ -26,7 +26,8 @@ class DefaultStreamingConfigValidatorTest {
 
     ImmutableMap<String, String> result = validator.validate(config);
 
-    assertTrue(result.isEmpty(), "StringConverter should be allowed when schematization is disabled");
+    assertTrue(
+        result.isEmpty(), "StringConverter should be allowed when schematization is disabled");
   }
 
   @Test
@@ -37,7 +38,8 @@ class DefaultStreamingConfigValidatorTest {
 
     ImmutableMap<String, String> result = validator.validate(config);
 
-    assertTrue(result.isEmpty(), "ByteArrayConverter should be allowed when schematization is disabled");
+    assertTrue(
+        result.isEmpty(), "ByteArrayConverter should be allowed when schematization is disabled");
   }
 
   @Test
@@ -48,7 +50,8 @@ class DefaultStreamingConfigValidatorTest {
 
     ImmutableMap<String, String> result = validator.validate(config);
 
-    assertFalse(result.isEmpty(), "StringConverter should be blocked when schematization is enabled");
+    assertFalse(
+        result.isEmpty(), "StringConverter should be blocked when schematization is enabled");
   }
 
   @Test
@@ -59,7 +62,8 @@ class DefaultStreamingConfigValidatorTest {
 
     ImmutableMap<String, String> result = validator.validate(config);
 
-    assertFalse(result.isEmpty(), "ByteArrayConverter should be blocked when schematization is enabled");
+    assertFalse(
+        result.isEmpty(), "ByteArrayConverter should be blocked when schematization is enabled");
   }
 
   @Test
@@ -69,7 +73,8 @@ class DefaultStreamingConfigValidatorTest {
 
     ImmutableMap<String, String> result = validator.validate(config);
 
-    assertFalse(result.isEmpty(), "StringConverter should be blocked when schematization defaults to true");
+    assertFalse(
+        result.isEmpty(), "StringConverter should be blocked when schematization defaults to true");
   }
 
   @Test

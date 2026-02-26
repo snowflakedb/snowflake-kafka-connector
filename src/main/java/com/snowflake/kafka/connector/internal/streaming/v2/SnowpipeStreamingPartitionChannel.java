@@ -10,6 +10,7 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -22,7 +23,6 @@ import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelIns
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -101,10 +101,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.connectorConfig = connectorConfig;
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
     this.metadataConfig = metadataConfig;
-    this.enableSchematization = Boolean.parseBoolean(
-        connectorConfig.getOrDefault(
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-            String.valueOf(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
+    this.enableSchematization =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+                String.valueOf(
+                    KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
     this.connectorName = connectorName;
     this.taskId = taskId;
     this.streamingErrorHandler = streamingErrorHandler;

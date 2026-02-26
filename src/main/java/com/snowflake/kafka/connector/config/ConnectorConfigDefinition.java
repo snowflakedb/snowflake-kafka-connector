@@ -381,9 +381,9 @@ public class ConnectorConfigDefinition {
             BOOLEAN,
             KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT,
             LOW,
-            "When true (default), records are schematized into individual columns. When false, records"
-                + " are wrapped into legacy RECORD_CONTENT and RECORD_METADATA VARIANT columns for"
-                + " backward compatibility with KC v3.",
+            "When true (default), records are schematized into individual columns. When false,"
+                + " records are wrapped into legacy RECORD_CONTENT and RECORD_METADATA VARIANT"
+                + " columns for backward compatibility with KC v3.",
             CONNECTOR_CONFIG_DOC,
             14,
             Width.NONE,

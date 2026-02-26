@@ -53,23 +53,26 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);
     waitForOpenedFakeIngestClient(connectorName);
-    connectCluster.kafka().produce(topicName, objectMapper.writeValueAsString(
-        Map.of("city", "Portland", "age", 25)));
+    connectCluster
+        .kafka()
+        .produce(topicName, objectMapper.writeValueAsString(Map.of("city", "Portland", "age", 25)));
 
     await()
         .timeout(Duration.ofSeconds(30))
         .pollInterval(Duration.ofSeconds(1))
-        .untilAsserted(() -> {
-          assertThat(getOpenedFakeIngestClient(connectorName).getAppendedRowCount()).isEqualTo(1);
-          FakeSnowflakeStreamingIngestChannel channel =
-              getOpenedFakeIngestClient(connectorName).getOpenedChannels().get(0);
-          final Map<String, Object> row = channel.getAppendedRows().get(0);
-          assertThat(row).containsKeys(RECORD_METADATA, RECORD_CONTENT);
-          assertThat(row.get(RECORD_CONTENT)).isInstanceOf(Map.class);
-          @SuppressWarnings("unchecked")
-          Map<String, Object> content = (Map<String, Object>) row.get(RECORD_CONTENT);
-          assertThat(content).containsEntry("city", "Portland");
-        });
+        .untilAsserted(
+            () -> {
+              assertThat(getOpenedFakeIngestClient(connectorName).getAppendedRowCount())
+                  .isEqualTo(1);
+              FakeSnowflakeStreamingIngestChannel channel =
+                  getOpenedFakeIngestClient(connectorName).getOpenedChannels().get(0);
+              final Map<String, Object> row = channel.getAppendedRows().get(0);
+              assertThat(row).containsKeys(RECORD_METADATA, RECORD_CONTENT);
+              assertThat(row.get(RECORD_CONTENT)).isInstanceOf(Map.class);
+              @SuppressWarnings("unchecked")
+              Map<String, Object> content = (Map<String, Object>) row.get(RECORD_CONTENT);
+              assertThat(content).containsEntry("city", "Portland");
+            });
   }
 
   @Test
@@ -86,14 +89,16 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
     await()
         .timeout(Duration.ofSeconds(30))
         .pollInterval(Duration.ofSeconds(1))
-        .untilAsserted(() -> {
-          assertThat(getOpenedFakeIngestClient(connectorName).getAppendedRowCount()).isEqualTo(1);
-          FakeSnowflakeStreamingIngestChannel channel =
-              getOpenedFakeIngestClient(connectorName).getOpenedChannels().get(0);
-          final Map<String, Object> row = channel.getAppendedRows().get(0);
-          assertThat(row).containsKeys(RECORD_METADATA, RECORD_CONTENT);
-          assertThat(row.get(RECORD_CONTENT)).isEqualTo("raw string payload");
-        });
+        .untilAsserted(
+            () -> {
+              assertThat(getOpenedFakeIngestClient(connectorName).getAppendedRowCount())
+                  .isEqualTo(1);
+              FakeSnowflakeStreamingIngestChannel channel =
+                  getOpenedFakeIngestClient(connectorName).getOpenedChannels().get(0);
+              final Map<String, Object> row = channel.getAppendedRows().get(0);
+              assertThat(row).containsKeys(RECORD_METADATA, RECORD_CONTENT);
+              assertThat(row.get(RECORD_CONTENT)).isEqualTo("raw string payload");
+            });
   }
 
   @Test
@@ -103,19 +108,22 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);
     waitForOpenedFakeIngestClient(connectorName);
-    connectCluster.kafka().produce(topicName, objectMapper.writeValueAsString(
-        Map.of("city", "Portland")));
+    connectCluster
+        .kafka()
+        .produce(topicName, objectMapper.writeValueAsString(Map.of("city", "Portland")));
 
     await()
         .timeout(Duration.ofSeconds(30))
         .pollInterval(Duration.ofSeconds(1))
-        .untilAsserted(() -> {
-          assertThat(getOpenedFakeIngestClient(connectorName).getAppendedRowCount()).isEqualTo(1);
-          FakeSnowflakeStreamingIngestChannel channel =
-              getOpenedFakeIngestClient(connectorName).getOpenedChannels().get(0);
-          final Map<String, Object> row = channel.getAppendedRows().get(0);
-          assertThat(row).containsKey("city");
-          assertThat(row).doesNotContainKey(RECORD_CONTENT);
-        });
+        .untilAsserted(
+            () -> {
+              assertThat(getOpenedFakeIngestClient(connectorName).getAppendedRowCount())
+                  .isEqualTo(1);
+              FakeSnowflakeStreamingIngestChannel channel =
+                  getOpenedFakeIngestClient(connectorName).getOpenedChannels().get(0);
+              final Map<String, Object> row = channel.getAppendedRows().get(0);
+              assertThat(row).containsKey("city");
+              assertThat(row).doesNotContainKey(RECORD_CONTENT);
+            });
   }
 }
