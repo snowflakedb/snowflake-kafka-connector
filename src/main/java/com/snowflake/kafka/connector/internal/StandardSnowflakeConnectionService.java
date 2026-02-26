@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -344,25 +343,27 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     boolean first = true;
     for (Map.Entry<String, ColumnInfos> entry : columnInfosMap.entrySet()) {
       if (!first) {
-        query.append(", if not exists ");
+        query.append(", ");
       }
-      query.append(Utils.quoteNameIfNeeded(entry.getKey()));
+      query.append(entry.getKey());
       query.append(" ");
       query.append(entry.getValue().getColumnType());
       query.append(entry.getValue().getDdlComments());
       first = false;
     }
 
-    try (PreparedStatement stmt = conn.prepareStatement(query.toString())) {
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query.toString());
       stmt.setString(1, tableName);
       stmt.execute();
+      stmt.close();
       LOGGER.info("Added columns to table {}: {}", tableName, columnInfosMap.keySet());
     } catch (SQLException e) {
       LOGGER.warn(
           "ALTER TABLE ADD COLUMN failed for table {} (may be concurrent race condition): {}",
           tableName,
           e.getMessage());
-      throw SnowflakeErrors.ERROR_2015.getException(e);
+      throw SnowflakeErrors.ERROR_2001.getException(e);
     }
   }
 
@@ -380,27 +381,23 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       if (!first) {
         query.append(", ");
       }
-      String quotedName = Utils.quoteNameIfNeeded(columnName);
-      query
-          .append(quotedName)
-          .append(" drop not null, ")
-          .append(quotedName)
-          .append(
-              " comment 'column altered to be nullable by schema evolution from Snowflake Kafka"
-                  + " Connector'");
+      query.append(columnName);
+      query.append(" drop not null");
       first = false;
     }
 
-    try (PreparedStatement stmt = conn.prepareStatement(query.toString())) {
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query.toString());
       stmt.setString(1, tableName);
       stmt.execute();
+      stmt.close();
       LOGGER.info("Dropped NOT NULL constraints on table {}: {}", tableName, columnNames);
     } catch (SQLException e) {
       LOGGER.warn(
           "ALTER TABLE DROP NOT NULL failed for table {} (may be concurrent race condition): {}",
           tableName,
           e.getMessage());
-      throw SnowflakeErrors.ERROR_2016.getException(e);
+      throw SnowflakeErrors.ERROR_2001.getException(e);
     }
   }
 }
