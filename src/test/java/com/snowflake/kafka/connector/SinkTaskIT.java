@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
@@ -73,20 +72,22 @@ class SinkTaskIT {
     List<SinkRecord> records = createSinkRecords(PARTITION, RECORD_COUNT);
     sinkTask.put(records);
 
-    // commit offset
-    offsetMap.put(topicPartitions.get(0), new OffsetAndMetadata(0));
+    // Wait for all records to be committed and verify offset
+    long expectedOffset = records.get(records.size() - 1).kafkaOffset() + 1;
     await()
-        .atMost(30, TimeUnit.SECONDS)
-        .until(
-            () ->
-                sinkTask.getSink().getOffset(topicPartition)
-                    != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-
-    offsetMap = sinkTask.preCommit(offsetMap);
+        .atMost(60, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              Map<TopicPartition, OffsetAndMetadata> committed =
+                  sinkTask.preCommit(Map.of(topicPartition, new OffsetAndMetadata(0)));
+              assertThat(committed)
+                  .containsKey(topicPartition)
+                  .extractingByKey(topicPartition)
+                  .satisfies(offset -> assertThat(offset.offset()).isEqualTo(expectedOffset));
+            });
 
     sinkTask.close(topicPartitions);
     sinkTask.stop();
-    assertThat(offsetMap.get(topicPartitions.get(0)).offset()).isEqualTo(RECORD_COUNT);
   }
 
   @Test
