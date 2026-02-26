@@ -91,13 +91,20 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   private static Map<String, String> validateSchematizationConfig(Map<String, String> inputConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
-    if (inputConfig.get(VALUE_CONVERTER) != null
+    boolean schematizationEnabled = Boolean.parseBoolean(
+        inputConfig.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+            String.valueOf(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
+
+    if (schematizationEnabled
+        && inputConfig.get(VALUE_CONVERTER) != null
         && (inputConfig.get(VALUE_CONVERTER).contains(STRING_CONVERTER_KEYWORD)
             || inputConfig.get(VALUE_CONVERTER).contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
       invalidParams.put(
           inputConfig.get(VALUE_CONVERTER),
           Utils.formatString(
-              "The value converter:{} is not supported.", inputConfig.get(VALUE_CONVERTER)));
+              "The value converter:{} is not supported when schematization is enabled.",
+              inputConfig.get(VALUE_CONVERTER)));
     }
 
     return invalidParams;
