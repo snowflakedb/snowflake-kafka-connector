@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: axel-op/googlejavaformat-action@v3.6.0
+      - uses: axel-op/googlejavaformat-action@v4
         with:
           skip-commit: true
           version: v1.24.0
