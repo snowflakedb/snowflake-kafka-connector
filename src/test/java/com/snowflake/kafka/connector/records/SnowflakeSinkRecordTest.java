@@ -567,6 +567,89 @@ class SnowflakeSinkRecordTest {
     assertFalse(metadata.containsKey("LogAppendTime"));
   }
 
+  @Test
+  void testLegacyMode_WithJsonMap_WrapsInRecordContent() {
+    SchemaAndValue schemaAndValue = toConnectData("{\"name\": \"test\", \"value\": 123}");
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withSchemaAndValue(schemaAndValue)
+            .build();
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+
+    assertTrue(record.isValid());
+    Map<String, Object> content = record.getContent();
+    assertTrue(content.containsKey("RECORD_CONTENT"));
+    assertEquals(1, content.size());
+    @SuppressWarnings("unchecked")
+    Map<String, Object> wrappedContent = (Map<String, Object>) content.get("RECORD_CONTENT");
+    assertEquals("test", wrappedContent.get("name"));
+  }
+
+  @Test
+  void testLegacyMode_WithPlainString_WrapsInRecordContent() {
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(Schema.STRING_SCHEMA)
+            .withValue("just a plain string")
+            .build();
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+
+    assertTrue(record.isValid());
+    Map<String, Object> content = record.getContent();
+    assertTrue(content.containsKey("RECORD_CONTENT"));
+    assertEquals("just a plain string", content.get("RECORD_CONTENT"));
+  }
+
+  @Test
+  void testLegacyMode_WithByteArray_WrapsInRecordContent() {
+    byte[] bytes = "hello".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(Schema.BYTES_SCHEMA)
+            .withValue(bytes)
+            .build();
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+
+    assertTrue(record.isValid());
+    Map<String, Object> content = record.getContent();
+    assertTrue(content.containsKey("RECORD_CONTENT"));
+    assertEquals(Base64.getEncoder().encodeToString(bytes), content.get("RECORD_CONTENT"));
+  }
+
+  @Test
+  void testLegacyMode_TombstoneStillWorks() {
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(null)
+            .withValue(null)
+            .build();
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+
+    assertTrue(record.isTombstone());
+  }
+
+  @Test
+  void testSchematizedMode_WithPlainString_StillBroken() {
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(Schema.STRING_SCHEMA)
+            .withValue("just a plain string")
+            .build();
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
+
+    assertTrue(record.isBroken());
+  }
+
   private static JsonConverter createJsonConverter() {
     JsonConverter converter = new JsonConverter();
     converter.configure(Collections.singletonMap("schemas.enable", false), false);

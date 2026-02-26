@@ -2,12 +2,14 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.snowflake.kafka.connector.Utils;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
@@ -78,6 +80,52 @@ public final class SnowflakeSinkRecord {
     } catch (Exception e) {
       return createBrokenRecord(record, metadataConfig, connectorPushTime, e);
     }
+  }
+
+  public static SnowflakeSinkRecord from(
+      SinkRecord record, SnowflakeMetadataConfig metadataConfig, boolean enableSchematization) {
+    return from(record, metadataConfig, Instant.now(), enableSchematization);
+  }
+
+  public static SnowflakeSinkRecord from(
+      SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime,
+      boolean enableSchematization) {
+    if (record.key() != null && record.keySchema() != null) {
+      try {
+        KafkaRecordConverter.convertKey(record.keySchema(), record.key());
+      } catch (Exception e) {
+        return createBrokenRecord(record, metadataConfig, connectorPushTime);
+      }
+    }
+
+    if (record.value() == null) {
+      return createTombstoneRecord(record, metadataConfig, connectorPushTime);
+    }
+
+    try {
+      Map<String, Object> content;
+      if (enableSchematization) {
+        content = KafkaRecordConverter.convertToMap(record.valueSchema(), record.value());
+      } else {
+        content = wrapAsLegacyContent(record.valueSchema(), record.value());
+      }
+      Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
+      return new SnowflakeSinkRecord(content, metadata, RecordState.VALID);
+    } catch (Exception e) {
+      return createBrokenRecord(record, metadataConfig, connectorPushTime);
+    }
+  }
+
+  private static Map<String, Object> wrapAsLegacyContent(Schema schema, Object value) {
+    Map<String, Object> content = new HashMap<>();
+    Object convertedValue;
+    if (value instanceof Map || value instanceof Struct) {
+      convertedValue = KafkaRecordConverter.convertToMap(schema, value);
+    } else {
+      convertedValue = KafkaRecordConverter.convertValue(schema, value);
+    }
+    content.put(Utils.TABLE_COLUMN_CONTENT, convertedValue);
+    return content;
   }
 
   private static SnowflakeSinkRecord createTombstoneRecord(
