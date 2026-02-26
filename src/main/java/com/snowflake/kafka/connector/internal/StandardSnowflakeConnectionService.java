@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.sql.Connection;
@@ -11,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import net.snowflake.client.jdbc.SnowflakeDriver;
@@ -326,6 +328,76 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       stmt.close();
     } catch (Exception e) {
       throw new RuntimeException("Error executing query: " + query, e);
+    }
+  }
+
+  @Override
+  public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
+    if (columnInfosMap == null || columnInfosMap.isEmpty()) {
+      return;
+    }
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    StringBuilder query = new StringBuilder("alter table identifier(?) add column if not exists ");
+    boolean first = true;
+    for (Map.Entry<String, ColumnInfos> entry : columnInfosMap.entrySet()) {
+      if (!first) {
+        query.append(", ");
+      }
+      query.append(entry.getKey());
+      query.append(" ");
+      query.append(entry.getValue().getColumnType());
+      query.append(entry.getValue().getDdlComments());
+      first = false;
+    }
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query.toString());
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+      LOGGER.info("Added columns to table {}: {}", tableName, columnInfosMap.keySet());
+    } catch (SQLException e) {
+      LOGGER.warn(
+          "ALTER TABLE ADD COLUMN failed for table {} (may be concurrent race condition): {}",
+          tableName,
+          e.getMessage());
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+  }
+
+  @Override
+  public void alterNonNullableColumns(String tableName, List<String> columnNames) {
+    if (columnNames == null || columnNames.isEmpty()) {
+      return;
+    }
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    StringBuilder query = new StringBuilder("alter table identifier(?) alter ");
+    boolean first = true;
+    for (String columnName : columnNames) {
+      if (!first) {
+        query.append(", ");
+      }
+      query.append(columnName);
+      query.append(" drop not null");
+      first = false;
+    }
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query.toString());
+      stmt.setString(1, tableName);
+      stmt.execute();
+      stmt.close();
+      LOGGER.info("Dropped NOT NULL constraints on table {}: {}", tableName, columnNames);
+    } catch (SQLException e) {
+      LOGGER.warn(
+          "ALTER TABLE DROP NOT NULL failed for table {} (may be concurrent race condition): {}",
+          tableName,
+          e.getMessage());
+      throw SnowflakeErrors.ERROR_2001.getException(e);
     }
   }
 }
