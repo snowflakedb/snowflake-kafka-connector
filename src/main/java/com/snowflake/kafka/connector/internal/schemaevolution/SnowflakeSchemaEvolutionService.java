@@ -39,6 +39,9 @@ public class SnowflakeSchemaEvolutionService {
   /**
    * Execute ALTER TABLE commands if there are columns to add or NOT NULL constraints to drop.
    *
+   * <p>Note: Columns must be added BEFORE dropping NOT NULL constraints, otherwise the constraint
+   * modification will fail if the column doesn't exist yet.
+   *
    * @param targetItems target items for schema evolution
    * @param record the sink record that contains the schema and actual data
    */
@@ -49,26 +52,7 @@ public class SnowflakeSchemaEvolutionService {
 
     String tableName = targetItems.getTableName();
 
-    // Drop NOT NULL constraints if needed
-    if (!targetItems.getColumnsToDropNonNullability().isEmpty()) {
-      LOGGER.debug(
-          "Dropping nonNullability for table: {} columns: {}",
-          tableName,
-          targetItems.getColumnsToDropNonNullability());
-      try {
-        conn.alterNonNullableColumns(
-            tableName, new ArrayList<>(targetItems.getColumnsToDropNonNullability()));
-      } catch (SnowflakeKafkaConnectorException e) {
-        LOGGER.warn(
-            "Failure altering table to update nullability: {}, this could happen when multiple"
-                + " partitions try to alter the table at the same time and the warning could be"
-                + " ignored",
-            tableName,
-            e);
-      }
-    }
-
-    // Add new columns if needed
+    // Add new columns FIRST (must exist before we can modify constraints)
     if (!targetItems.getColumnsToAdd().isEmpty()) {
       LOGGER.debug(
           "Adding columns to table: {} columns: {}",
@@ -82,6 +66,25 @@ public class SnowflakeSchemaEvolutionService {
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             "Failure altering table to add column: {}, this could happen when multiple"
+                + " partitions try to alter the table at the same time and the warning could be"
+                + " ignored",
+            tableName,
+            e);
+      }
+    }
+
+    // Drop NOT NULL constraints AFTER columns exist
+    if (!targetItems.getColumnsToDropNonNullability().isEmpty()) {
+      LOGGER.debug(
+          "Dropping nonNullability for table: {} columns: {}",
+          tableName,
+          targetItems.getColumnsToDropNonNullability());
+      try {
+        conn.alterNonNullableColumns(
+            tableName, new ArrayList<>(targetItems.getColumnsToDropNonNullability()));
+      } catch (SnowflakeKafkaConnectorException e) {
+        LOGGER.warn(
+            "Failure altering table to update nullability: {}, this could happen when multiple"
                 + " partitions try to alter the table at the same time and the warning could be"
                 + " ignored",
             tableName,

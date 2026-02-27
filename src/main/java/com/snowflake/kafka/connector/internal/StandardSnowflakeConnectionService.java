@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -345,18 +346,17 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       if (!first) {
         query.append(", ");
       }
-      query.append(entry.getKey());
+      // Quote column name to prevent SQL injection
+      query.append(Utils.quoteNameIfNeeded(entry.getKey()));
       query.append(" ");
       query.append(entry.getValue().getColumnType());
       query.append(entry.getValue().getDdlComments());
       first = false;
     }
 
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query.toString());
+    try (PreparedStatement stmt = conn.prepareStatement(query.toString())) {
       stmt.setString(1, tableName);
       stmt.execute();
-      stmt.close();
       LOGGER.info("Added columns to table {}: {}", tableName, columnInfosMap.keySet());
     } catch (SQLException e) {
       LOGGER.warn(
@@ -381,16 +381,15 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       if (!first) {
         query.append(", ");
       }
-      query.append(columnName);
+      // Quote column name to prevent SQL injection
+      query.append(Utils.quoteNameIfNeeded(columnName));
       query.append(" drop not null");
       first = false;
     }
 
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query.toString());
+    try (PreparedStatement stmt = conn.prepareStatement(query.toString())) {
       stmt.setString(1, tableName);
       stmt.execute();
-      stmt.close();
       LOGGER.info("Dropped NOT NULL constraints on table {}: {}", tableName, columnNames);
     } catch (SQLException e) {
       LOGGER.warn(
