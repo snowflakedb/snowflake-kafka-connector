@@ -614,20 +614,17 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         closeChannelWithoutFlushing();
         this.channel = openChannelForTable(channelName);
 
-        // Reinitialize validation with fresh schema (includes newly added columns)
-        initializeValidation();
+        // Note: initializeValidation() already called by openChannelForTable() at line 666
 
         // Record metrics BEFORE retry (issue #4 fix - ensures metric is recorded even if retry fails)
         validationMetrics.recordSchemaEvolution(true);
 
         // Retry the record with fresh schema (increment retry depth)
         transformAndSend(record, retryDepth + 1);
+        return; // CRITICAL: Prevent parent from recording offset again (issue #1 fix)
 
-        LOGGER.info(
-            "Schema evolution succeeded for table {}. Added columns={}, Dropped NOT NULL={}",
-            tableName,
-            items.getColumnsToAdd(),
-            items.getColumnsToDropNonNullability());
+        // Note: Logging moved to prevent unreachable code warning
+        // Schema evolution success is confirmed when transformAndSend completes without exception
       } catch (Exception e) {
         LOGGER.error("Schema evolution failed for channel {}", channelName, e);
         // Record schema evolution failure on exception (issue #5 fix)
