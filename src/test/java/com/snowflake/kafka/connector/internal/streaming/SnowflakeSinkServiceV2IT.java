@@ -648,6 +648,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             avroInputKey.value(),
             startOffset + 2);
 
+    config.put("errors.tolerance", "all");
+    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
+    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -698,6 +702,11 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             brokenInputValue.schema(),
             brokenInputValue.value(),
             startOffset + 2);
+
+    config.put("errors.tolerance", "all");
+    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
+    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     SnowflakeSinkService service =
@@ -737,6 +746,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     SinkRecord correctValue =
         new SinkRecord(topic, partition, null, "key1", null, Map.of("name", "john"), 2);
+
+    config.put("errors.tolerance", "all");
+    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
+    config.put("errors.deadletterqueue.topic.replication.factor", "1");
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
