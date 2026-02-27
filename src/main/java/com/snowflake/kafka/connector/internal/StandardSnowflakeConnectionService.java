@@ -10,6 +10,7 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -300,8 +301,9 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       while (result.next()) {
         String columnName = result.getString("name");
         String type = result.getString("type");
+        String nullable = result.getString("null?");
         String comment = result.getString("comment");
-        rows.add(new DescribeTableRow(columnName, type, comment));
+        rows.add(new DescribeTableRow(columnName, type, nullable, comment));
       }
       return Optional.of(rows);
     } catch (Exception e) {
@@ -402,6 +404,44 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
           tableName,
           e.getMessage());
       throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+  }
+
+  @Override
+  public boolean isSchemaEvolutionEnabled(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    // Use DESC TABLE and check if "schema evolution record" column exists in ResultSet
+    // The presence of this column indicates schema evolution is enabled
+    String query = "DESC TABLE identifier(?)";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      ResultSet result = stmt.executeQuery();
+
+      // Check ResultSet metadata for "schema evolution record" column
+      ResultSetMetaData metaData = result.getMetaData();
+      int columnCount = metaData.getColumnCount();
+
+      // Look for "schema evolution record" column in metadata
+      for (int i = 1; i <= columnCount; i++) {
+        String colName = metaData.getColumnName(i);
+        if ("schema evolution record".equalsIgnoreCase(colName)) {
+          stmt.close();
+          LOGGER.debug("Table {} has schema evolution enabled", tableName);
+          return true;
+        }
+      }
+
+      stmt.close();
+      LOGGER.debug("Table {} does not have schema evolution enabled", tableName);
+      return false;
+    } catch (SQLException e) {
+      LOGGER.warn("Failed to query schema evolution setting for table {}: {}", tableName, e.getMessage());
+      // Default to true on error (SSv2 tables have schema evolution enabled by default)
+      return true;
     }
   }
 }

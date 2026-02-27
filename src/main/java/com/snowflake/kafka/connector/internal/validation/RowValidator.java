@@ -6,6 +6,7 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
+import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
@@ -174,10 +175,20 @@ public class RowValidator {
         break;
 
       case FIXED:
-        // Note: DataValidationUtil.validateAndParseBigDecimal doesn't check precision/scale
-        // It just parses the value. Precision/scale checking would need to be done separately
-        // if needed, but SSv1 didn't enforce it at validation time either.
-        DataValidationUtil.validateAndParseBigDecimal(col.getName(), value, insertRowIndex);
+        // Parse and validate NUMBER(precision, scale)
+        // Following SSv1 pattern: parse -> setScale -> checkValueInRange
+        BigDecimal bigDecimalValue =
+            DataValidationUtil.validateAndParseBigDecimal(col.getName(), value, insertRowIndex);
+
+        int scale = col.getScale() != null ? col.getScale() : 0;
+        int precision = col.getPrecision() != null ? col.getPrecision() : 38;
+
+        // Match scale to column definition
+        bigDecimalValue = bigDecimalValue.setScale(scale, java.math.RoundingMode.HALF_UP);
+
+        // Validate value fits within precision/scale bounds
+        DataValidationUtil.checkValueInRange(
+            col.getName(), bigDecimalValue, scale, precision, insertRowIndex);
         break;
 
       case REAL:
