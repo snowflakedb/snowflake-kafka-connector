@@ -112,7 +112,8 @@ public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
     } else if (value.isObject()) {
       return STRUCT;
     } else {
-      return null;
+      // Default to STRING for unrecognized types (safer than returning null)
+      return STRING;
     }
   }
 

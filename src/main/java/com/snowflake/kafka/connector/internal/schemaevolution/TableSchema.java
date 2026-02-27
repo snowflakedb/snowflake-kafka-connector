@@ -6,6 +6,7 @@
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
@@ -20,7 +21,7 @@ public class TableSchema {
   }
 
   public Map<String, ColumnInfos> getColumnInfos() {
-    return columnInfos;
+    return Collections.unmodifiableMap(columnInfos);
   }
 
   @Override

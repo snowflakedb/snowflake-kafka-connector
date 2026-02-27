@@ -17,12 +17,12 @@ public class ColumnInfos {
   private final String comments;
 
   public ColumnInfos(String columnType, String comments) {
-    this.columnType = columnType;
+    this.columnType = Objects.requireNonNull(columnType, "columnType cannot be null");
     this.comments = comments;
   }
 
   public ColumnInfos(String columnType) {
-    this.columnType = columnType;
+    this.columnType = Objects.requireNonNull(columnType, "columnType cannot be null");
     this.comments = null;
   }
 
@@ -36,7 +36,7 @@ public class ColumnInfos {
 
   public String getDdlComments() {
     return Optional.ofNullable(comments)
-        .map(comment -> String.format(" comment '%s' ", comment))
+        .map(comment -> String.format(" comment '%s' ", comment.replace("'", "''")))
         .orElse(" comment 'column created by schema evolution from Snowflake Kafka Connector' ");
   }
 

@@ -8,6 +8,7 @@
 package com.snowflake.kafka.connector.internal.schemaevolution;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -28,8 +29,8 @@ public class SchemaEvolutionTargetItems {
       String tableName, Set<String> columnsToDropNonNullability, Set<String> columnsToAdd) {
     this.tableName = tableName;
     this.columnsToDropNonNullability =
-        columnsToDropNonNullability != null ? columnsToDropNonNullability : Collections.emptySet();
-    this.columnsToAdd = columnsToAdd != null ? columnsToAdd : Collections.emptySet();
+        columnsToDropNonNullability != null ? new HashSet<>(columnsToDropNonNullability) : Collections.emptySet();
+    this.columnsToAdd = columnsToAdd != null ? new HashSet<>(columnsToAdd) : Collections.emptySet();
   }
 
   public boolean hasDataForSchemaEvolution() {
@@ -46,12 +47,12 @@ public class SchemaEvolutionTargetItems {
 
   @Nonnull
   public Set<String> getColumnsToDropNonNullability() {
-    return columnsToDropNonNullability;
+    return Collections.unmodifiableSet(columnsToDropNonNullability);
   }
 
   @Nonnull
   public Set<String> getColumnsToAdd() {
-    return columnsToAdd;
+    return Collections.unmodifiableSet(columnsToAdd);
   }
 
   @Override
