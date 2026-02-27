@@ -17,7 +17,7 @@ import java.util.Set;
  */
 public class RowValidator {
   private final Map<String, ColumnSchema> columnSchemaMap;
-  private final ZoneId defaultTimezone = ZoneId.of("America/Los_Angeles");
+  private final ZoneId defaultTimezone = ZoneId.of("UTC");
 
   public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
     this.columnSchemaMap = columnSchemaMap;
@@ -32,9 +32,15 @@ public class RowValidator {
    * @return ValidationResult indicating success or failure with error details
    */
   public ValidationResult validateRow(Map<String, Object> row) {
+    // Pre-compute unquoted row column names once for efficiency
+    Set<String> unquotedRowCols = new HashSet<>();
+    for (String colName : row.keySet()) {
+      unquotedRowCols.add(LiteralQuoteUtils.unquoteColumnName(colName));
+    }
+
     // Step 1: Structural validation (matching AbstractRowBuffer.verifyInputColumns)
-    Set<String> extraCols = detectExtraColumns(row);
-    Set<String> missingNotNullCols = detectMissingNotNullColumns(row);
+    Set<String> extraCols = detectExtraColumns(unquotedRowCols);
+    Set<String> missingNotNullCols = detectMissingNotNullColumns(unquotedRowCols);
     Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(row);
 
     if (!extraCols.isEmpty() || !missingNotNullCols.isEmpty() || !nullNotNullCols.isEmpty()) {
@@ -98,7 +104,7 @@ public class RowValidator {
         DataValidationUtil.validateAndParseString(
             col.getName(),
             value,
-            col.getLength() != null ? java.util.Optional.of(col.getLength()) : java.util.Optional.empty(),
+            java.util.Optional.ofNullable(col.getLength()),
             insertRowIndex);
         break;
 
@@ -106,7 +112,7 @@ public class RowValidator {
         DataValidationUtil.validateAndParseBinary(
             col.getName(),
             value,
-            col.getByteLength() != null ? java.util.Optional.of(col.getByteLength()) : java.util.Optional.empty(),
+            java.util.Optional.ofNullable(col.getByteLength()),
             insertRowIndex);
         break;
 
@@ -175,10 +181,9 @@ public class RowValidator {
   /**
    * Detect columns in the row that don't exist in the table schema.
    */
-  private Set<String> detectExtraColumns(Map<String, Object> row) {
+  private Set<String> detectExtraColumns(Set<String> unquotedRowCols) {
     Set<String> extraCols = new HashSet<>();
-    for (String colName : row.keySet()) {
-      String unquotedName = LiteralQuoteUtils.unquoteColumnName(colName);
+    for (String unquotedName : unquotedRowCols) {
       if (!columnSchemaMap.containsKey(unquotedName)) {
         extraCols.add(unquotedName);
       }
@@ -189,25 +194,14 @@ public class RowValidator {
   /**
    * Detect NOT NULL columns that are missing from the row.
    */
-  private Set<String> detectMissingNotNullColumns(Map<String, Object> row) {
+  private Set<String> detectMissingNotNullColumns(Set<String> unquotedRowCols) {
     Set<String> missingNotNullCols = new HashSet<>();
     for (Map.Entry<String, ColumnSchema> entry : columnSchemaMap.entrySet()) {
       String colName = entry.getKey();
       ColumnSchema col = entry.getValue();
 
-      if (!col.isNullable()) {
-        // Check if column is present in the row
-        boolean present = false;
-        for (String rowColName : row.keySet()) {
-          String unquotedRowColName = LiteralQuoteUtils.unquoteColumnName(rowColName);
-          if (unquotedRowColName.equals(colName)) {
-            present = true;
-            break;
-          }
-        }
-        if (!present) {
-          missingNotNullCols.add(colName);
-        }
+      if (!col.isNullable() && !unquotedRowCols.contains(colName)) {
+        missingNotNullCols.add(colName);
       }
     }
     return missingNotNullCols;

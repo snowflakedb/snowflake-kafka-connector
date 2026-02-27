@@ -49,11 +49,20 @@ public class ColumnSchema {
    * Construct ColumnSchema from DESCRIBE TABLE ResultSet row.
    * Temporary workaround until system function is available.
    *
-   * @param rs ResultSet positioned at a DESCRIBE TABLE row
+   * <p>Thread-safety: This method is NOT thread-safe. Caller must synchronize if sharing ResultSet.
+   * <p>Resource management: Caller is responsible for closing the ResultSet.
+   * <p>ResultSet state: Must be positioned at a valid row before calling.
+   *
+   * @param rs ResultSet positioned at a DESCRIBE TABLE row (must not be closed)
    * @return ColumnSchema
-   * @throws SQLException if column metadata cannot be read
+   * @throws SQLException if column metadata cannot be read or ResultSet is closed/invalid
+   * @throws IllegalArgumentException if ResultSet is null or closed
    */
   public static ColumnSchema fromDescribeTableRow(ResultSet rs) throws SQLException {
+    if (rs == null || rs.isClosed()) {
+      throw new IllegalArgumentException("ResultSet must be open and positioned at a row");
+    }
+
     String name = rs.getString("name");
     String typeStr = rs.getString("type");
     String nullStr = rs.getString("null?");
@@ -148,10 +157,16 @@ public class ColumnSchema {
         info.physicalType = ColumnPhysicalType.LOB;
         if (params != null) {
           info.length = Integer.parseInt(params.trim());
-          info.byteLength = info.length * 4; // Max 4 bytes per UTF-8 character
+          // Safe multiplication to avoid integer overflow
+          long byteLengthLong = (long) info.length * 4; // Max 4 bytes per UTF-8 character
+          if (byteLengthLong > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                "VARCHAR byte length exceeds maximum: " + byteLengthLong);
+          }
+          info.byteLength = (int) byteLengthLong;
         } else {
           info.length = 16777216; // Default VARCHAR max
-          info.byteLength = info.length * 4;
+          info.byteLength = 67108864; // Pre-calculated (16777216 * 4) to avoid overflow
         }
         break;
 

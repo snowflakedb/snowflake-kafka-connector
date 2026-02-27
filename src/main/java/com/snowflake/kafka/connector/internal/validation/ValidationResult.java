@@ -100,14 +100,26 @@ public class ValidationResult {
   }
 
   /**
-   * Check if this structural error indicates a need for schema evolution.
-   * True if there are extra columns or NOT NULL constraint violations.
+   * Check if this structural error can be resolved with schema evolution.
+   * - Extra columns: YES - can add via ALTER TABLE ADD COLUMN
+   * - Null in NOT NULL: YES - can drop constraint via ALTER TABLE DROP NOT NULL
+   * - Missing NOT NULL columns: NO - cannot add data for missing columns
+   *
+   * @return true if the error can be resolved with schema evolution
    */
   public boolean needsSchemaEvolution() {
     return hasStructuralError
-        && (!extraColNames.isEmpty()
-            || !missingNotNullColNames.isEmpty()
-            || !nullValueForNotNullColNames.isEmpty());
+        && (!extraColNames.isEmpty() || !nullValueForNotNullColNames.isEmpty());
+  }
+
+  /**
+   * Check if this structural error cannot be resolved with schema evolution.
+   * This is true when data is missing required NOT NULL columns.
+   *
+   * @return true if the error is unresolvable
+   */
+  public boolean hasUnresolvableError() {
+    return hasStructuralError && !missingNotNullColNames.isEmpty();
   }
 
   public String getErrorType() {
