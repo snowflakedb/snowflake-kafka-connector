@@ -59,7 +59,9 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
 public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel {
   private static final KCLogger LOGGER =
       new KCLogger(SnowpipeStreamingPartitionChannel.class.getName());
-  private static final int MAX_SCHEMA_EVOLUTION_RETRIES = 2; // Allow one schema evolution + one retry
+  private static final int MAX_SCHEMA_EVOLUTION_RETRIES = 1;
+  // Allows: initial attempt (depth=0) + 1 retry (depth=1) = 2 total attempts
+  // Note: KC v3 and SSv1 have 0 retries, so this adds resilience beyond legacy behavior
   private final StreamingClientProperties streamingClientProperties;
   private final String connectorName;
   private final String taskId;
@@ -593,6 +595,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord, int retryDepth) {
     if (schemaEvolutionEnabled) {
+      // Save current working state before attempting schema evolution (issue #8 fix - matches KC v3)
+      SnowflakeStreamingIngestChannel previousChannel = this.channel;
+      RowValidator previousValidator = this.rowValidator;
+      Map<String, ColumnSchema> previousTableSchema = this.tableSchema;
+      SnowflakeSchemaEvolutionService previousSchemaEvolutionService = this.schemaEvolutionService;
+
       try {
         LOGGER.info(
             "Schema mismatch detected for channel {}. Attempting schema evolution. "
@@ -626,10 +634,21 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         // Note: Logging moved to prevent unreachable code warning
         // Schema evolution success is confirmed when transformAndSend completes without exception
       } catch (Exception e) {
-        LOGGER.error("Schema evolution failed for channel {}", channelName, e);
+        LOGGER.error("Schema evolution failed for channel {}, restoring previous channel state", channelName, e);
+
+        // Restore previous working state (issue #8 fix)
+        this.channel = previousChannel;
+        this.rowValidator = previousValidator;
+        this.tableSchema = previousTableSchema;
+        this.schemaEvolutionService = previousSchemaEvolutionService;
+
+        LOGGER.info("Restored previous channel state. Channel {} remains operational for subsequent records.", channelName);
+
         // Record schema evolution failure on exception (issue #5 fix)
         validationMetrics.recordSchemaEvolution(false);
         streamingErrorHandler.handleError(e, record);
+        // Track offset to prevent infinite retry loop (issue #2 fix - matches KC v3 behavior)
+        offsetTracker.recordProcessed(record.kafkaOffset());
       }
     } else {
       // Schema evolution disabled - route to DLQ
