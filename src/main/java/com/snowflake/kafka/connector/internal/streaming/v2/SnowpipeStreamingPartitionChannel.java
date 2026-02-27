@@ -62,6 +62,29 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private static final int MAX_SCHEMA_EVOLUTION_RETRIES = 1;
   // Allows: initial attempt (depth=0) + 1 retry (depth=1) = 2 total attempts
   // Note: KC v3 and SSv1 have 0 retries, so this adds resilience beyond legacy behavior
+
+  /**
+   * Immutable container for all validation-related state.
+   * This ensures atomic updates across all validation fields to prevent race conditions.
+   * Thread-safe via volatile reference in the parent class.
+   */
+  private static class ValidationState {
+    final RowValidator rowValidator;
+    final Map<String, ColumnSchema> tableSchema;
+    final boolean schemaEvolutionEnabled;
+    final SnowflakeSchemaEvolutionService schemaEvolutionService;
+
+    ValidationState(
+        RowValidator rowValidator,
+        Map<String, ColumnSchema> tableSchema,
+        boolean schemaEvolutionEnabled,
+        SnowflakeSchemaEvolutionService schemaEvolutionService) {
+      this.rowValidator = rowValidator;
+      this.tableSchema = tableSchema;
+      this.schemaEvolutionEnabled = schemaEvolutionEnabled;
+      this.schemaEvolutionService = schemaEvolutionService;
+    }
+  }
   private final StreamingClientProperties streamingClientProperties;
   private final String connectorName;
   private final String taskId;
@@ -99,14 +122,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final TaskMetrics taskMetrics;
 
-  // Client-side validation fields
+  // Client-side validation state (atomically updated for thread safety)
   private final boolean clientValidationEnabled;
   private final SnowflakeConnectionService conn;
   private final String tableName;
-  private volatile RowValidator rowValidator;
-  private volatile Map<String, ColumnSchema> tableSchema;
-  private volatile boolean schemaEvolutionEnabled;
-  private volatile SnowflakeSchemaEvolutionService schemaEvolutionService;
+  private volatile ValidationState validationState;
   private final ValidationMetrics validationMetrics = new ValidationMetrics();
 
   public SnowpipeStreamingPartitionChannel(
@@ -239,9 +259,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             record.getContentWithMetadata(metadataConfig.shouldIncludeAllMetadata());
         if (!transformedRecord.isEmpty()) {
           // Client-side validation before insert
-          if (clientValidationEnabled && rowValidator != null) {
+          ValidationState currentState = validationState;
+          if (clientValidationEnabled && currentState != null && currentState.rowValidator != null) {
             long validationStart = System.nanoTime();
-            ValidationResult validationResult = rowValidator.validateRow(transformedRecord);
+            ValidationResult validationResult = currentState.rowValidator.validateRow(transformedRecord);
             long validationDuration = (System.nanoTime() - validationStart) / 1_000_000; // Convert to ms
 
             if (!validationResult.isValid()) {
@@ -504,9 +525,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * 1. Fetch schema via conn.describeTable(tableName)
    * 2. Build Map<String, ColumnSchema> from the result
    * 3. Call RowValidator.validateSchema(columns) to fail fast on unsupported types
-   * 4. Instantiate this.rowValidator = new RowValidator(columns)
+   * 4. Instantiate RowValidator
    * 5. Determine schemaEvolutionEnabled (defaults to true for KC v4 created tables)
    * 6. Instantiate schema evolution service
+   * 7. Atomically update validation state
    */
   private void initializeValidation() {
     if (!clientValidationEnabled) {
@@ -523,33 +545,40 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               .orElseThrow(() -> new RuntimeException("Table not found: " + tableName));
 
       // Step 2: Build column schema map
-      this.tableSchema = new HashMap<>();
+      Map<String, ColumnSchema> newTableSchema = new HashMap<>();
       for (DescribeTableRow row : schemaRows) {
         ColumnSchema col = ColumnSchema.fromDescribeTableFields(row.getColumn(), row.getType(), row.getNullable());
         // Normalize column names using same logic as validation (unquoted names are uppercased)
         String normalizedName = RowValidator.normalizeColumnName(col.getName());
-        tableSchema.put(normalizedName, col);
+        newTableSchema.put(normalizedName, col);
       }
 
       // Step 3: Validate schema for unsupported types
-      RowValidator.validateSchema(tableSchema);
+      RowValidator.validateSchema(newTableSchema);
 
       // Step 4: Instantiate row validator
-      this.rowValidator = new RowValidator(tableSchema);
+      RowValidator newRowValidator = new RowValidator(newTableSchema);
 
       // Step 5: Check if schema evolution is enabled
       // For now, default to true since KC v4 sets enable_schema_evolution=true on table creation
       // TODO: Query table property when system function is available
-      this.schemaEvolutionEnabled = checkTableSchemaEvolutionEnabled();
+      boolean newSchemaEvolutionEnabled = checkTableSchemaEvolutionEnabled();
 
       // Step 6: Instantiate schema evolution service
-      this.schemaEvolutionService = new SnowflakeSchemaEvolutionService(conn);
+      SnowflakeSchemaEvolutionService newSchemaEvolutionService = new SnowflakeSchemaEvolutionService(conn);
+
+      // Step 7: Atomically update validation state (thread-safe)
+      this.validationState = new ValidationState(
+          newRowValidator,
+          newTableSchema,
+          newSchemaEvolutionEnabled,
+          newSchemaEvolutionService);
 
       LOGGER.info(
           "Client-side validation initialized for channel {}. Schema columns: {}, schemaEvolution: {}",
           channelName,
-          tableSchema.size(),
-          schemaEvolutionEnabled);
+          newTableSchema.size(),
+          newSchemaEvolutionEnabled);
     } catch (Exception e) {
       LOGGER.error("Failed to initialize client-side validation for channel {}", channelName, e);
       throw new RuntimeException("Validation initialization failed", e);
@@ -594,12 +623,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    */
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord, int retryDepth) {
-    if (schemaEvolutionEnabled) {
+    ValidationState currentState = validationState;
+    if (currentState != null && currentState.schemaEvolutionEnabled) {
       // Save current working state before attempting schema evolution (issue #8 fix - matches KC v3)
-      SnowflakeStreamingIngestChannel previousChannel = this.channel;
-      RowValidator previousValidator = this.rowValidator;
-      Map<String, ColumnSchema> previousTableSchema = this.tableSchema;
-      SnowflakeSchemaEvolutionService previousSchemaEvolutionService = this.schemaEvolutionService;
+      ValidationState previousState = currentState;
 
       try {
         LOGGER.info(
@@ -615,7 +642,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             ValidationResultMapper.mapToSchemaEvolutionItems(result, tableName);
 
         // Evolve schema via client-side DDL
-        schemaEvolutionService.evolveSchemaIfNeeded(items, record);
+        currentState.schemaEvolutionService.evolveSchemaIfNeeded(items, record);
 
         // Refresh schema by closing and reopening channel
         LOGGER.info("Refreshing channel {} after schema evolution", channelName);
@@ -637,12 +664,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         LOGGER.error("Schema evolution failed for channel {}, restoring previous channel state", channelName, e);
 
         // Restore previous working state (issue #8 fix)
-        this.channel = previousChannel;
-        this.rowValidator = previousValidator;
-        this.tableSchema = previousTableSchema;
-        this.schemaEvolutionService = previousSchemaEvolutionService;
+        this.validationState = previousState;
 
-        LOGGER.info("Restored previous channel state. Channel {} remains operational for subsequent records.", channelName);
+        LOGGER.info("Restored previous validation state. Channel {} remains operational for subsequent records.", channelName);
 
         // Record schema evolution failure on exception (issue #5 fix)
         validationMetrics.recordSchemaEvolution(false);
