@@ -16,6 +16,7 @@ import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
@@ -29,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -133,11 +135,11 @@ class SnowpipeStreamingPartitionChannelTest {
         new InMemoryKafkaRecordErrorReporter(),
         new SnowflakeMetadataConfig(),
         sinkTaskContext,
-        false,
-        null,
+        Optional.empty(),
         connectorName,
         TASK_ID,
-        mockErrorHandler);
+        mockErrorHandler,
+        TaskMetrics.noop());
   }
 
   @Test

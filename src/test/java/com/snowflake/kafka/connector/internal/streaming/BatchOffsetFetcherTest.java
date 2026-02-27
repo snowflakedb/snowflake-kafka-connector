@@ -16,6 +16,7 @@ import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientSupplier;
@@ -55,7 +56,7 @@ class BatchOffsetFetcherTest {
     config.put(NAME, connectorName);
     config.put(Utils.TASK_ID, TASK_ID);
 
-    fetcher = new BatchOffsetFetcher(connectorName, TASK_ID, config, false);
+    fetcher = new BatchOffsetFetcher(connectorName, TASK_ID, config, false, TaskMetrics.noop());
     channels = new HashMap<>();
 
     clientSupplier = new CountingClientSupplier();

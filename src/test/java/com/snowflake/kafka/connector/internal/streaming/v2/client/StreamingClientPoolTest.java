@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.io.IOException;
 import java.net.URLClassLoader;
@@ -136,7 +137,11 @@ class StreamingClientPoolTest {
       RefCountedClientTestHarness() {
         this.refCountedClient =
             new StreamingClientPool.RefCountedClient(
-                "test-pipe", "test-connector", connectorConfig, streamingClientProperties);
+                "test-pipe",
+                "test-connector",
+                connectorConfig,
+                streamingClientProperties,
+                TaskMetrics.noop());
       }
     }
   }
@@ -159,7 +164,8 @@ class StreamingClientPoolTest {
       setSupplierReturning(mockClient);
 
       SnowflakeStreamingIngestClient result =
-          pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
+          pool.getClient(
+              "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
 
       assertThat(result).isSameAs(mockClient);
     }
@@ -173,8 +179,10 @@ class StreamingClientPoolTest {
             return mock(SnowflakeStreamingIngestClient.class);
           });
 
-      pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
-      pool.getClient("task-1", "pipe-A", connectorConfig, streamingClientProperties);
+      pool.getClient(
+          "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
+      pool.getClient(
+          "task-1", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
 
       assertThat(callCount.get())
           .as("supplier should only be called once for the same pipe")
@@ -191,9 +199,11 @@ class StreamingClientPoolTest {
           });
 
       SnowflakeStreamingIngestClient clientA =
-          pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
+          pool.getClient(
+              "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
       SnowflakeStreamingIngestClient clientB =
-          pool.getClient("task-0", "pipe-B", connectorConfig, streamingClientProperties);
+          pool.getClient(
+              "task-0", "pipe-B", connectorConfig, streamingClientProperties, TaskMetrics.noop());
 
       assertThat(clientA).isNotSameAs(clientB);
       assertThat(callCount.get()).isEqualTo(2);
@@ -207,9 +217,12 @@ class StreamingClientPoolTest {
       assertThat(pool.getClientCountForTask("task-0")).isEqualTo(0);
 
       // task-0 on two pipes, task-1 on one — counts are independent
-      pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
-      pool.getClient("task-0", "pipe-B", connectorConfig, streamingClientProperties);
-      pool.getClient("task-1", "pipe-B", connectorConfig, streamingClientProperties);
+      pool.getClient(
+          "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
+      pool.getClient(
+          "task-0", "pipe-B", connectorConfig, streamingClientProperties, TaskMetrics.noop());
+      pool.getClient(
+          "task-1", "pipe-B", connectorConfig, streamingClientProperties, TaskMetrics.noop());
       assertThat(pool.getClientCountForTask("task-0")).isEqualTo(2);
       assertThat(pool.getClientCountForTask("task-1")).isEqualTo(1);
     }
@@ -219,7 +232,8 @@ class StreamingClientPoolTest {
       SnowflakeStreamingIngestClient mockClient = mock(SnowflakeStreamingIngestClient.class);
       setSupplierReturning(mockClient);
 
-      pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
+      pool.getClient(
+          "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
       pool.closeTaskClients("task-0");
 
       assertThat(pool.getClientCountForTask("task-0")).isEqualTo(0);
@@ -231,8 +245,10 @@ class StreamingClientPoolTest {
       SnowflakeStreamingIngestClient mockClient = mock(SnowflakeStreamingIngestClient.class);
       setSupplierReturning(mockClient);
 
-      pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
-      pool.getClient("task-1", "pipe-A", connectorConfig, streamingClientProperties);
+      pool.getClient(
+          "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
+      pool.getClient(
+          "task-1", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
 
       pool.closeTaskClients("task-0");
 
@@ -250,11 +266,13 @@ class StreamingClientPoolTest {
           });
 
       SnowflakeStreamingIngestClient first =
-          pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
+          pool.getClient(
+              "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
       pool.closeTaskClients("task-0");
 
       SnowflakeStreamingIngestClient second =
-          pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
+          pool.getClient(
+              "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
 
       assertThat(second).isNotSameAs(first);
       assertThat(callCount.get()).isEqualTo(2);
@@ -272,7 +290,13 @@ class StreamingClientPoolTest {
       setSupplierThrowing(originalException);
 
       assertThatThrownBy(
-              () -> pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties))
+              () ->
+                  pool.getClient(
+                      "task-0",
+                      "pipe-A",
+                      connectorConfig,
+                      streamingClientProperties,
+                      TaskMetrics.noop()))
           .isSameAs(originalException);
 
       assertThat(pool.getClientCountForTask("task-0")).isEqualTo(0);
@@ -292,11 +316,18 @@ class StreamingClientPoolTest {
           });
 
       assertThatThrownBy(
-              () -> pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties))
+              () ->
+                  pool.getClient(
+                      "task-0",
+                      "pipe-A",
+                      connectorConfig,
+                      streamingClientProperties,
+                      TaskMetrics.noop()))
           .isInstanceOf(SnowflakeKafkaConnectorException.class);
 
       SnowflakeStreamingIngestClient result =
-          pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
+          pool.getClient(
+              "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
 
       assertThat(result).isSameAs(mockClient);
       assertThat(callCount.get()).isEqualTo(2);
@@ -316,7 +347,8 @@ class StreamingClientPoolTest {
       ClassLoader originalCL = Thread.currentThread().getContextClassLoader();
       Thread.currentThread().setContextClassLoader(fakePluginCL);
       try {
-        pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties);
+        pool.getClient(
+            "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
       } finally {
         Thread.currentThread().setContextClassLoader(originalCL);
       }
@@ -345,10 +377,22 @@ class StreamingClientPoolTest {
 
       CompletableFuture<SnowflakeStreamingIngestClient> futureA =
           CompletableFuture.supplyAsync(
-              () -> pool.getClient("task-0", "pipe-A", connectorConfig, streamingClientProperties));
+              () ->
+                  pool.getClient(
+                      "task-0",
+                      "pipe-A",
+                      connectorConfig,
+                      streamingClientProperties,
+                      TaskMetrics.noop()));
       CompletableFuture<SnowflakeStreamingIngestClient> futureB =
           CompletableFuture.supplyAsync(
-              () -> pool.getClient("task-1", "pipe-B", connectorConfig, streamingClientProperties));
+              () ->
+                  pool.getClient(
+                      "task-1",
+                      "pipe-B",
+                      connectorConfig,
+                      streamingClientProperties,
+                      TaskMetrics.noop()));
 
       // Both suppliers should have started before either completes
       bothStarted.await();
