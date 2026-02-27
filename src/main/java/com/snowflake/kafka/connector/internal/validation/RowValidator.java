@@ -7,102 +7,62 @@
 package com.snowflake.kafka.connector.internal.validation;
 
 import java.time.ZoneId;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * Validates rows against a table schema using SSv1 validation logic. This is the main facade that
- * integrates DataValidationUtil with KC v4.
- *
- * <p>Thread-safety: This class is thread-safe. The schema map is immutably captured at construction
- * time. Multiple threads can safely call validateRow() on the same RowValidator instance
- * concurrently.
+ * Validates rows against a table schema using SSv1 validation logic.
+ * This is the main facade that integrates DataValidationUtil with KC v4.
  */
 public class RowValidator {
-  private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
   private final Map<String, ColumnSchema> columnSchemaMap;
-
-  /**
-   * Default timezone for timestamp parsing, matching SSv1 SDK behavior.
-   *
-   * <p>When parsing timestamps without timezone information (e.g., "2024-03-06 10:00:00"), this
-   * timezone determines how the timestamp is interpreted. Must match SSv1 SDK's
-   * OpenChannelRequest.DEFAULT_DEFAULT_TIMEZONE to ensure identical validation behavior.
-   *
-   * <p>SSv1 SDK uses America/Los_Angeles, not UTC.
-   */
-  private final ZoneId defaultTimezone = ZoneId.of("America/Los_Angeles");
+  private final ZoneId defaultTimezone = ZoneId.of("UTC");
 
   public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
-    // Input validation
-    Objects.requireNonNull(columnSchemaMap, "columnSchemaMap cannot be null");
-    if (columnSchemaMap.isEmpty()) {
-      throw new IllegalArgumentException("columnSchemaMap cannot be empty");
-    }
-
-    // Defensive copy for thread safety
-    this.columnSchemaMap = Collections.unmodifiableMap(new HashMap<>(columnSchemaMap));
+    this.columnSchemaMap = columnSchemaMap;
   }
 
   /**
-   * Validate a row against the table schema. Performs both structural validation (column presence,
-   * NOT NULL checks) and type/value validation.
+   * Validate a row against the table schema.
+   * Performs both structural validation (column presence, NOT NULL checks)
+   * and type/value validation.
    *
    * @param row Map of column name to value
    * @return ValidationResult indicating success or failure with error details
    */
   public ValidationResult validateRow(Map<String, Object> row) {
-    // Input validation
-    Objects.requireNonNull(row, "row cannot be null");
-
-    // Normalize column names once to avoid repeated unquoting
-    Map<String, Object> normalizedRow = normalizeColumnNames(row);
+    // Pre-compute unquoted row column names once for efficiency
+    Set<String> unquotedRowCols = new HashSet<>();
+    for (String colName : row.keySet()) {
+      unquotedRowCols.add(LiteralQuoteUtils.unquoteColumnName(colName));
+    }
 
     // Step 1: Structural validation (matching AbstractRowBuffer.verifyInputColumns)
-    Set<String> normalizedColNames = normalizedRow.keySet();
-    Set<String> extraCols = detectExtraColumns(normalizedColNames);
-    Set<String> missingNotNullCols = detectMissingNotNullColumns(normalizedColNames);
-    Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(normalizedRow);
+    Set<String> extraCols = detectExtraColumns(unquotedRowCols);
+    Set<String> missingNotNullCols = detectMissingNotNullColumns(unquotedRowCols);
+    Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(row);
 
     if (!extraCols.isEmpty() || !missingNotNullCols.isEmpty() || !nullNotNullCols.isEmpty()) {
       return ValidationResult.structuralError(extraCols, missingNotNullCols, nullNotNullCols);
     }
 
     // Step 2: Type/value validation (dispatch to DataValidationUtil)
-    for (Map.Entry<String, Object> entry : normalizedRow.entrySet()) {
-      String colName = entry.getKey(); // Already normalized
+    for (Map.Entry<String, Object> entry : row.entrySet()) {
+      String colName = LiteralQuoteUtils.unquoteColumnName(entry.getKey());
       Object value = entry.getValue();
       ColumnSchema col = columnSchemaMap.get(colName);
 
-      // These conditions should have been caught by structural validation above.
-      // If we reach here, it indicates a bug in structural validation logic.
       if (col == null) {
-        throw new IllegalStateException(
-            "Column "
-                + colName
-                + " not found in schema but was not caught by structural validation");
+        continue; // Already caught as extra column in structural validation
       }
       if (value == null) {
-        // Null values are valid for nullable columns, skip type validation
-        if (col.isNullable()) {
-          continue; // Valid null for nullable column
-        }
-        // Null value in NOT NULL column should have been caught by structural validation
-        throw new IllegalStateException(
-            "Null value for NOT NULL column "
-                + colName
-                + " but was not caught by structural validation");
+        continue; // Null handling done in structural validation
       }
 
       try {
         validateColumnValue(col, value);
-      } catch (SFExceptionValidation e) {
+      } catch (SFException e) {
         return ValidationResult.typeError(colName, e.getMessage());
       }
     }
@@ -111,29 +71,21 @@ public class RowValidator {
   }
 
   /**
-   * Normalize column names by unquoting them once. This avoids repeated calls to
-   * LiteralQuoteUtils.unquoteColumnName() which can be expensive in high-throughput scenarios.
-   *
-   * @param row Original row with potentially quoted column names
-   * @return New map with normalized (unquoted) column names
+   * Validate a single column value using DataValidationUtil.
    */
-  private Map<String, Object> normalizeColumnNames(Map<String, Object> row) {
-    Map<String, Object> normalizedRow = new HashMap<>();
-    for (Map.Entry<String, Object> entry : row.entrySet()) {
-      String normalizedName = LiteralQuoteUtils.unquoteColumnName(entry.getKey());
-      normalizedRow.put(normalizedName, entry.getValue());
-    }
-    return normalizedRow;
-  }
-
-  /** Validate a single column value using DataValidationUtil. */
-  private void validateColumnValue(ColumnSchema col, Object value) throws SFExceptionValidation {
+  private void validateColumnValue(ColumnSchema col, Object value) throws SFException {
     // insertRowIndex parameter is used for error messages - use 0 for now
     final long insertRowIndex = 0;
 
     switch (col.getLogicalType()) {
       case BOOLEAN:
-        DataValidationUtil.validateAndParseBoolean(col.getName(), value, insertRowIndex);
+        // Boolean doesn't have a dedicated validation method in DataValidationUtil
+        // Simple type coercion will be handled by the SDK
+        if (!(value instanceof Boolean) && !(value instanceof String) && !(value instanceof Number)) {
+          throw new SFException(
+              ErrorCode.INVALID_FORMAT_ROW,
+              String.format("Invalid boolean value for column %s", col.getName()));
+        }
         break;
 
       case FIXED:
@@ -150,7 +102,10 @@ public class RowValidator {
       case TEXT:
       case CHAR:
         DataValidationUtil.validateAndParseString(
-            col.getName(), value, java.util.Optional.ofNullable(col.getLength()), insertRowIndex);
+            col.getName(),
+            value,
+            java.util.Optional.ofNullable(col.getLength()),
+            insertRowIndex);
         break;
 
       case BINARY:
@@ -171,15 +126,36 @@ public class RowValidator {
         break;
 
       case TIMESTAMP_NTZ:
-        validateTimestamp(col, value, insertRowIndex, true);
+        // trimTimezone=true for NTZ columns
+        DataValidationUtil.validateAndParseTimestamp(
+            col.getName(),
+            value,
+            col.getScale() != null ? col.getScale() : 9,
+            defaultTimezone,
+            true,
+            insertRowIndex);
         break;
 
       case TIMESTAMP_LTZ:
-        validateTimestamp(col, value, insertRowIndex, false);
+        // trimTimezone=false for LTZ columns
+        DataValidationUtil.validateAndParseTimestamp(
+            col.getName(),
+            value,
+            col.getScale() != null ? col.getScale() : 9,
+            defaultTimezone,
+            false,
+            insertRowIndex);
         break;
 
       case TIMESTAMP_TZ:
-        validateTimestamp(col, value, insertRowIndex, false);
+        // trimTimezone=false for TZ columns
+        DataValidationUtil.validateAndParseTimestamp(
+            col.getName(),
+            value,
+            col.getScale() != null ? col.getScale() : 9,
+            defaultTimezone,
+            false,
+            insertRowIndex);
         break;
 
       case VARIANT:
@@ -195,32 +171,16 @@ public class RowValidator {
         break;
 
       default:
-        throw new SFExceptionValidation(
-            ErrorCode.UNKNOWN_DATA_TYPE, col.getName(), col.getLogicalType());
+        throw new SFException(
+            ErrorCode.UNKNOWN_DATA_TYPE,
+            col.getName(),
+            col.getLogicalType());
     }
   }
 
   /**
-   * Validate a timestamp column value.
-   *
-   * @param col Column schema
-   * @param value Value to validate
-   * @param insertRowIndex Row index for error messages
-   * @param trimTimezone Whether to trim timezone (true for NTZ, false for LTZ/TZ)
+   * Detect columns in the row that don't exist in the table schema.
    */
-  private void validateTimestamp(
-      ColumnSchema col, Object value, long insertRowIndex, boolean trimTimezone)
-      throws SFExceptionValidation {
-    DataValidationUtil.validateAndParseTimestamp(
-        col.getName(),
-        value,
-        col.getScale() != null ? col.getScale() : 9,
-        defaultTimezone,
-        trimTimezone,
-        insertRowIndex);
-  }
-
-  /** Detect columns in the row that don't exist in the table schema. */
   private Set<String> detectExtraColumns(Set<String> unquotedRowCols) {
     Set<String> extraCols = new HashSet<>();
     for (String unquotedName : unquotedRowCols) {
@@ -231,7 +191,9 @@ public class RowValidator {
     return extraCols;
   }
 
-  /** Detect NOT NULL columns that are missing from the row. */
+  /**
+   * Detect NOT NULL columns that are missing from the row.
+   */
   private Set<String> detectMissingNotNullColumns(Set<String> unquotedRowCols) {
     Set<String> missingNotNullCols = new HashSet<>();
     for (Map.Entry<String, ColumnSchema> entry : columnSchemaMap.entrySet()) {
@@ -245,18 +207,13 @@ public class RowValidator {
     return missingNotNullCols;
   }
 
-  /** Detect NOT NULL columns that have null values in the row. */
-  private Set<String> detectNullValuesInNotNullColumns(Map<String, Object> normalizedRow) {
+  /**
+   * Detect NOT NULL columns that have null values in the row.
+   */
+  private Set<String> detectNullValuesInNotNullColumns(Map<String, Object> row) {
     Set<String> nullNotNullCols = new HashSet<>();
-    for (Map.Entry<String, Object> entry : normalizedRow.entrySet()) {
-      String colName = entry.getKey(); // Already normalized
-
-      // Validate column name is not empty
-      if (colName == null || colName.trim().isEmpty()) {
-        logger.warn("Skipping validation for empty column name");
-        continue;
-      }
-
+    for (Map.Entry<String, Object> entry : row.entrySet()) {
+      String colName = LiteralQuoteUtils.unquoteColumnName(entry.getKey());
       Object value = entry.getValue();
 
       ColumnSchema col = columnSchemaMap.get(colName);
@@ -268,22 +225,24 @@ public class RowValidator {
   }
 
   /**
-   * Static validator for unsupported types at channel open time. Throws SFExceptionValidation if
-   * the schema contains unsupported types.
+   * Static validator for unsupported types at channel open time.
+   * Throws SFException if the schema contains unsupported types.
    *
    * @param schema Map of column name to ColumnSchema
-   * @throws SFExceptionValidation if unsupported types are found
+   * @throws SFException if unsupported types are found
    */
-  public static void validateSchema(Map<String, ColumnSchema> schema) throws SFExceptionValidation {
+  public static void validateSchema(Map<String, ColumnSchema> schema) throws SFException {
     for (ColumnSchema col : schema.values()) {
       if (col.getLogicalType() == null) {
-        throw new SFExceptionValidation(ErrorCode.UNKNOWN_DATA_TYPE, col.getName());
+        throw new SFException(ErrorCode.UNKNOWN_DATA_TYPE, col.getName());
       }
 
       // Reject collated columns (not supported in SSv1 validation)
       if (col.getCollation() != null && !col.getCollation().isEmpty()) {
-        throw new SFExceptionValidation(
-            ErrorCode.UNSUPPORTED_DATA_TYPE, "Collated columns not supported", col.getName());
+        throw new SFException(
+            ErrorCode.UNSUPPORTED_DATA_TYPE,
+            "Collated columns not supported",
+            col.getName());
       }
 
       // GEOGRAPHY and GEOMETRY are not in ColumnLogicalType enum

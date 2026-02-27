@@ -10,20 +10,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * Represents the schema of a Snowflake table column for validation purposes. Constructed from JDBC
- * ResultSet (DESCRIBE TABLE or system function).
+ * Represents the schema of a Snowflake table column for validation purposes.
+ * Constructed from JDBC ResultSet (DESCRIBE TABLE or system function).
  */
 public class ColumnSchema {
-  /**
-   * Maximum byte length for TEXT/VARCHAR columns, matching SSv1 SDK's BYTES_16_MB limit. SSv1 SDK
-   * enforces that strings can never be larger than 16MB bytes, even if the VARCHAR character length
-   * would theoretically allow more (e.g., VARCHAR(16777216) with 4-byte UTF-8 chars could be 64MB,
-   * but is capped at 16MB).
-   *
-   * @see DataValidationUtil line 721 in SSv1 SDK
-   */
-  private static final int MAX_LOB_SIZE_BYTES = 16 * 1024 * 1024; // 16,777,216 bytes
-
   private final String name;
   private final ColumnLogicalType logicalType;
   private final ColumnPhysicalType physicalType;
@@ -57,11 +47,10 @@ public class ColumnSchema {
 
   /**
    * Construct ColumnSchema from DESCRIBE TABLE ResultSet row.
+   * Temporary workaround until system function is available.
    *
    * <p>Thread-safety: This method is NOT thread-safe. Caller must synchronize if sharing ResultSet.
-   *
    * <p>Resource management: Caller is responsible for closing the ResultSet.
-   *
    * <p>ResultSet state: Must be positioned at a valid row before calling.
    *
    * @param rs ResultSet positioned at a DESCRIBE TABLE row (must not be closed)
@@ -103,31 +92,24 @@ public class ColumnSchema {
     Integer byteLength;
   }
 
-  /** Parse Snowflake type string (e.g., "NUMBER(38,0)", "VARCHAR(16777216)") into TypeInfo. */
+  /**
+   * Parse Snowflake type string (e.g., "NUMBER(38,0)", "VARCHAR(16777216)") into TypeInfo.
+   */
   private static TypeInfo parseTypeString(String typeStr) {
-    // Input validation
-    if (typeStr == null || typeStr.trim().isEmpty()) {
-      throw new IllegalArgumentException("Type string cannot be null or empty");
-    }
-
     TypeInfo info = new TypeInfo();
 
     // Extract base type and parameters
     String baseType;
     String params = null;
-    String trimmedType = typeStr.trim();
-    int parenIdx = trimmedType.indexOf('(');
+    int parenIdx = typeStr.indexOf('(');
     if (parenIdx > 0) {
-      baseType = trimmedType.substring(0, parenIdx).toUpperCase();
-      // Use lastIndexOf to handle nested types like OBJECT(a NUMBER(38,0), b VARCHAR)
-      int closeParenIdx = trimmedType.lastIndexOf(')');
-      if (closeParenIdx <= parenIdx) {
-        throw new IllegalArgumentException(
-            "Malformed type string (missing closing parenthesis): " + typeStr);
+      baseType = typeStr.substring(0, parenIdx).trim().toUpperCase();
+      int closeParenIdx = typeStr.indexOf(')', parenIdx);
+      if (closeParenIdx > 0) {
+        params = typeStr.substring(parenIdx + 1, closeParenIdx).trim();
       }
-      params = trimmedType.substring(parenIdx + 1, closeParenIdx).trim();
     } else {
-      baseType = trimmedType.toUpperCase();
+      baseType = typeStr.trim().toUpperCase();
     }
 
     // Map to logical and physical types
@@ -145,20 +127,10 @@ public class ColumnSchema {
         info.physicalType = ColumnPhysicalType.SB16;
         if (params != null && params.contains(",")) {
           String[] parts = params.split(",");
-          try {
-            info.precision = Integer.parseInt(parts[0].trim());
-            info.scale = Integer.parseInt(parts[1].trim());
-          } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                "Invalid numeric parameter in type string: " + typeStr, e);
-          }
+          info.precision = Integer.parseInt(parts[0].trim());
+          info.scale = Integer.parseInt(parts[1].trim());
         } else if (params != null) {
-          try {
-            info.precision = Integer.parseInt(params.trim());
-          } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                "Invalid numeric parameter in type string: " + typeStr, e);
-          }
+          info.precision = Integer.parseInt(params.trim());
           info.scale = 0;
         } else {
           info.precision = 38;
@@ -184,22 +156,17 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TEXT;
         info.physicalType = ColumnPhysicalType.LOB;
         if (params != null) {
-          try {
-            info.length = Integer.parseInt(params.trim());
-          } catch (NumberFormatException e) {
+          info.length = Integer.parseInt(params.trim());
+          // Safe multiplication to avoid integer overflow
+          long byteLengthLong = (long) info.length * 4; // Max 4 bytes per UTF-8 character
+          if (byteLengthLong > Integer.MAX_VALUE) {
             throw new IllegalArgumentException(
-                "Invalid length parameter in type string: " + typeStr, e);
+                "VARCHAR byte length exceeds maximum: " + byteLengthLong);
           }
-          // Cap at MAX_LOB_SIZE_BYTES (SSv1 SDK limit: strings never exceed 16MB bytes)
-          // Use long to prevent integer overflow if length is corrupted/malformed
-          long byteLengthLong = (long) info.length * 4;
-          info.byteLength = (int) Math.min(MAX_LOB_SIZE_BYTES, byteLengthLong);
+          info.byteLength = (int) byteLengthLong;
         } else {
           info.length = 16777216; // Default VARCHAR max
-          // Cap at MAX_LOB_SIZE_BYTES (SSv1 SDK limit: strings never exceed 16MB bytes)
-          // Use long to prevent integer overflow if length is corrupted/malformed
-          long byteLengthLong = (long) info.length * 4;
-          info.byteLength = (int) Math.min(MAX_LOB_SIZE_BYTES, byteLengthLong);
+          info.byteLength = 67108864; // Pre-calculated (16777216 * 4) to avoid overflow
         }
         break;
 
@@ -208,12 +175,7 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.BINARY;
         info.physicalType = ColumnPhysicalType.BINARY;
         if (params != null) {
-          try {
-            info.byteLength = Integer.parseInt(params.trim());
-          } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                "Invalid length parameter in type string: " + typeStr, e);
-          }
+          info.byteLength = Integer.parseInt(params.trim());
         } else {
           info.byteLength = 8388608; // Default BINARY max
         }
@@ -233,12 +195,7 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIME;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          try {
-            info.scale = Integer.parseInt(params.trim());
-          } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                "Invalid scale parameter in type string: " + typeStr, e);
-          }
+          info.scale = Integer.parseInt(params.trim());
         } else {
           info.scale = 9; // Default TIME scale
         }
@@ -249,12 +206,7 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIMESTAMP_NTZ;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          try {
-            info.scale = Integer.parseInt(params.trim());
-          } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                "Invalid scale parameter in type string: " + typeStr, e);
-          }
+          info.scale = Integer.parseInt(params.trim());
         } else {
           info.scale = 9; // Default TIMESTAMP scale
         }
@@ -264,12 +216,7 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIMESTAMP_LTZ;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          try {
-            info.scale = Integer.parseInt(params.trim());
-          } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                "Invalid scale parameter in type string: " + typeStr, e);
-          }
+          info.scale = Integer.parseInt(params.trim());
         } else {
           info.scale = 9;
         }
@@ -279,12 +226,7 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIMESTAMP_NTZ;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          try {
-            info.scale = Integer.parseInt(params.trim());
-          } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                "Invalid scale parameter in type string: " + typeStr, e);
-          }
+          info.scale = Integer.parseInt(params.trim());
         } else {
           info.scale = 9;
         }
@@ -294,12 +236,7 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIMESTAMP_TZ;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          try {
-            info.scale = Integer.parseInt(params.trim());
-          } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                "Invalid scale parameter in type string: " + typeStr, e);
-          }
+          info.scale = Integer.parseInt(params.trim());
         } else {
           info.scale = 9;
         }
@@ -311,27 +248,11 @@ public class ColumnSchema {
         break;
 
       case "OBJECT":
-        // Reject structured OBJECT types like OBJECT(a INT, b TEXT)
-        // SSv1 SDK only supports unstructured OBJECT
-        if (params != null && !params.trim().isEmpty()) {
-          throw new IllegalArgumentException(
-              "Structured OBJECT types are not supported by Snowpipe Streaming. "
-                  + "Use unstructured OBJECT instead. Type: "
-                  + typeStr);
-        }
         info.logicalType = ColumnLogicalType.OBJECT;
         info.physicalType = ColumnPhysicalType.LOB;
         break;
 
       case "ARRAY":
-        // Reject structured ARRAY types like ARRAY(INT)
-        // SSv1 SDK only supports unstructured ARRAY
-        if (params != null && !params.trim().isEmpty()) {
-          throw new IllegalArgumentException(
-              "Structured ARRAY types are not supported by Snowpipe Streaming. "
-                  + "Use unstructured ARRAY instead. Type: "
-                  + typeStr);
-        }
         info.logicalType = ColumnLogicalType.ARRAY;
         info.physicalType = ColumnPhysicalType.LOB;
         break;

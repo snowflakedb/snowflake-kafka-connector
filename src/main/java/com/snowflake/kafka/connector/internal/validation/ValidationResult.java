@@ -7,10 +7,11 @@
 package com.snowflake.kafka.connector.internal.validation;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
-/** Result of row validation containing validation status and error details. */
+/**
+ * Result of row validation containing validation status and error details.
+ */
 public class ValidationResult {
   private final boolean valid;
   private final boolean hasTypeError;
@@ -35,38 +36,19 @@ public class ValidationResult {
     this.hasStructuralError = hasStructuralError;
     this.valueError = valueError;
     this.columnName = columnName;
-    // Create defensive immutable copies of all sets for thread safety
-    this.extraColNames = Collections.unmodifiableSet(new HashSet<>(extraColNames));
-    this.missingNotNullColNames =
-        Collections.unmodifiableSet(new HashSet<>(missingNotNullColNames));
-    this.nullValueForNotNullColNames =
-        Collections.unmodifiableSet(new HashSet<>(nullValueForNotNullColNames));
+    this.extraColNames = extraColNames != null ? extraColNames : Collections.emptySet();
+    this.missingNotNullColNames = missingNotNullColNames != null ? missingNotNullColNames : Collections.emptySet();
+    this.nullValueForNotNullColNames = nullValueForNotNullColNames != null ? nullValueForNotNullColNames : Collections.emptySet();
   }
 
   /** Create a valid result */
   public static ValidationResult valid() {
-    return new ValidationResult(
-        true,
-        false,
-        false,
-        null,
-        null,
-        Collections.emptySet(),
-        Collections.emptySet(),
-        Collections.emptySet());
+    return new ValidationResult(true, false, false, null, null, null, null, null);
   }
 
   /** Create a type/value error result */
   public static ValidationResult typeError(String columnName, String errorMessage) {
-    return new ValidationResult(
-        false,
-        true,
-        false,
-        errorMessage,
-        columnName,
-        Collections.emptySet(),
-        Collections.emptySet(),
-        Collections.emptySet());
+    return new ValidationResult(false, true, false, errorMessage, columnName, null, null, null);
   }
 
   /** Create a structural error result */
@@ -119,35 +101,25 @@ public class ValidationResult {
 
   /**
    * Check if this structural error can be resolved with schema evolution.
-   *
-   * <p>Matches KC v3 behavior where ALL structural errors trigger schema evolution: - Extra
-   * columns: YES - add via ALTER TABLE ADD COLUMN - Null in NOT NULL: YES - drop constraint via
-   * ALTER TABLE DROP NOT NULL - Missing NOT NULL columns: YES - drop constraint via ALTER TABLE
-   * DROP NOT NULL (KC v3 behavior)
-   *
-   * <p>KC v3's InsertErrorMapper.java joined missingNotNullColNames and nullValueForNotNullColNames
-   * into a single list of columns to drop NOT NULL. We maintain this behavior.
+   * - Extra columns: YES - can add via ALTER TABLE ADD COLUMN
+   * - Null in NOT NULL: YES - can drop constraint via ALTER TABLE DROP NOT NULL
+   * - Missing NOT NULL columns: NO - cannot add data for missing columns
    *
    * @return true if the error can be resolved with schema evolution
    */
   public boolean needsSchemaEvolution() {
     return hasStructuralError
-        && (!extraColNames.isEmpty()
-            || !nullValueForNotNullColNames.isEmpty()
-            || !missingNotNullColNames.isEmpty());
+        && (!extraColNames.isEmpty() || !nullValueForNotNullColNames.isEmpty());
   }
 
   /**
    * Check if this structural error cannot be resolved with schema evolution.
+   * This is true when data is missing required NOT NULL columns.
    *
-   * <p>In KC v3, all structural errors (extra columns, missing NOT NULL, null NOT NULL) were
-   * resolvable via schema evolution. We maintain the same behavior for backwards compatibility.
-   *
-   * @return true if the error is unresolvable (always false for structural errors)
+   * @return true if the error is unresolvable
    */
   public boolean hasUnresolvableError() {
-    // All structural errors are resolvable via schema evolution (matches KC v3 behavior)
-    return false;
+    return hasStructuralError && !missingNotNullColNames.isEmpty();
   }
 
   public String getErrorType() {
