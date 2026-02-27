@@ -10,21 +10,15 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.LatestCommitedOffsetTokenExecutor;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelInsertionException;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
-import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
@@ -33,21 +27,15 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.sink.SinkTaskContext;
 
 public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel {
   private static final KCLogger LOGGER =
       new KCLogger(SnowpipeStreamingPartitionChannel.class.getName());
-  private final StreamingClientProperties streamingClientProperties;
-  private final String connectorName;
-  private final String taskId;
 
   private SnowflakeStreamingIngestChannel channel;
 
@@ -62,7 +50,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
 
-  private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
   private final SnowflakeMetadataConfig metadataConfig;
   private final boolean enableSchematization;
 
@@ -76,7 +63,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final String pipeName;
 
-  private final Map<String, String> connectorConfig;
+  private final SnowflakeStreamingIngestClient streamingClient;
 
   private final StreamingErrorHandler streamingErrorHandler;
 
@@ -86,46 +73,29 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String tableName,
       String channelName,
       String pipeName,
-      TopicPartition topicPartition,
-      SnowflakeConnectionService conn,
-      Map<String, String> connectorConfig,
-      KafkaRecordErrorReporter kafkaRecordErrorReporter,
+      SnowflakeStreamingIngestClient streamingClient,
+      SnowflakeTelemetryService telemetryService,
+      SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
+      PartitionOffsetTracker offsetTracker,
       SnowflakeMetadataConfig metadataConfig,
-      SinkTaskContext sinkTaskContext,
-      Optional<MetricsJmxReporter> metricsJmxReporter,
-      String connectorName,
-      String taskId,
+      boolean enableSchematization,
       StreamingErrorHandler streamingErrorHandler,
       TaskMetrics taskMetrics) {
     this.channelName = channelName;
-    this.connectorConfig = connectorConfig;
-    this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
+    this.pipeName = pipeName;
+    this.streamingClient = streamingClient;
     this.metadataConfig = metadataConfig;
-    this.enableSchematization =
-        Boolean.parseBoolean(
-            connectorConfig.getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-                String.valueOf(
-                    KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
-    this.connectorName = connectorName;
-    this.taskId = taskId;
+    this.enableSchematization = enableSchematization;
     this.streamingErrorHandler = streamingErrorHandler;
     this.taskMetrics = taskMetrics;
-
-    this.telemetryService = conn.getTelemetryClient();
-    this.pipeName = pipeName;
-    this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
-
-    this.offsetTracker = new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    this.telemetryService = telemetryService;
+    this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
+    this.offsetTracker = offsetTracker;
 
     LOGGER.info(
-        "Initializing SnowpipeStreamingPartitionChannel for table: {}, channel: {}, pipe: {},"
-            + " topic: {}, partition: {}",
-        tableName,
+        "Initializing SnowpipeStreamingPartitionChannel channel: {}, pipe: {}",
         channelName,
-        pipeName,
-        topicPartition.topic(),
-        topicPartition.partition());
+        pipeName);
 
     this.channel = openChannelForTable(channelName);
     this.offsetTokenExecutor =
@@ -139,20 +109,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     final long lastCommittedOffsetToken = fetchOffsetTokenWithRetry();
     offsetTracker.initializeFromSnowflake(lastCommittedOffsetToken);
 
-    final long startTime = System.currentTimeMillis();
-    this.snowflakeTelemetryChannelStatus =
-        new SnowflakeTelemetryChannelStatus(
-            tableName,
-            this.connectorName,
-            channelName,
-            startTime,
-            metricsJmxReporter,
-            offsetTracker.persistedOffsetRef(),
-            offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
-
     this.telemetryService.reportKafkaPartitionStart(
-        new SnowflakeTelemetryChannelCreation(tableName, channelName, startTime));
+        new SnowflakeTelemetryChannelCreation(tableName, channelName, System.currentTimeMillis()));
   }
 
   @Override
@@ -200,14 +158,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.getChannelNameFormatV1());
 
-          StreamingClientPools.getClient(
-                  connectorName,
-                  taskId,
-                  pipeName,
-                  connectorConfig,
-                  streamingClientProperties,
-                  taskMetrics)
-              .initiateFlush();
+          streamingClient.initiateFlush();
 
           final long targetOffset = offsetTracker.getLastAppendRowsOffset();
           WaitForLastOffsetCommittedPolicy.getPolicy(
@@ -422,15 +373,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * @return new channel which was fetched after open/reopen
    */
   private SnowflakeStreamingIngestChannel openChannelForTable(final String channelName) {
-    final SnowflakeStreamingIngestClient streamingIngestClient =
-        StreamingClientPools.getClient(
-            connectorName,
-            taskId,
-            pipeName,
-            connectorConfig,
-            streamingClientProperties,
-            taskMetrics);
-
     // Close old channel before reopening a new one. We don't want to wait for the channel to flush
     // since it will be reopened right away and the in-progress data will be lost.
     if (channelIsOpen()) {
@@ -439,7 +381,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
     final OpenChannelResult result;
     try (TaskMetrics.TimingContext ignored = taskMetrics.timeChannelOpen()) {
-      result = streamingIngestClient.openChannel(channelName, null);
+      result = streamingClient.openChannel(channelName, null);
     }
 
     taskMetrics.incChannelOpenCount();

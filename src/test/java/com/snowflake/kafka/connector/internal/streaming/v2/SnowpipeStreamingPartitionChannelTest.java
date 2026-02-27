@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.ChannelStatusBatch;
@@ -13,14 +12,12 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
-import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientSupplier;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
@@ -38,55 +35,41 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class SnowpipeStreamingPartitionChannelTest {
 
-  private static final String TASK_ID = "0";
+  private static final String CONNECTOR_NAME = "test_connector";
   private static final String TABLE_NAME = "test_table";
   private static final String TOPIC_NAME = "test_topic";
   private static final int PARTITION = 0;
 
-  // Use unique names per test to avoid StreamingClientPools caching issues
-  private String connectorName;
   private String channelName;
   private String pipeName;
 
-  private SnowflakeConnectionService mockConnectionService;
   private SnowflakeTelemetryService mockTelemetryService;
-  private InMemorySinkTaskContext sinkTaskContext;
   private StreamingErrorHandler mockErrorHandler;
-  private Map<String, String> connectorConfig;
   private TrackingIngestClientSupplier trackingClientSupplier;
+  private TrackingStreamingIngestClient trackingClient;
+  private InMemorySinkTaskContext sinkTaskContext;
 
   @BeforeEach
   void setUp() {
     // Generate unique names to avoid StreamingClientPools caching issues between tests
     final String uniqueId = UUID.randomUUID().toString().substring(0, 8);
-    connectorName = "test_connector_" + uniqueId;
     channelName = "test_channel_" + uniqueId;
     pipeName = "test_pipe_" + uniqueId;
 
-    mockConnectionService = mock(SnowflakeConnectionService.class);
     mockTelemetryService = mock(SnowflakeTelemetryService.class);
     mockErrorHandler = mock(StreamingErrorHandler.class);
-
-    when(mockConnectionService.getTelemetryClient()).thenReturn(mockTelemetryService);
 
     sinkTaskContext =
         new InMemorySinkTaskContext(
             Collections.singleton(new TopicPartition(TOPIC_NAME, PARTITION)));
 
-    connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
     trackingClientSupplier = new TrackingIngestClientSupplier();
-    StreamingClientFactory.setStreamingClientSupplier(trackingClientSupplier);
-  }
-
-  @AfterEach
-  void tearDown() {
-    StreamingClientFactory.resetStreamingClientSupplier();
+    trackingClient = new TrackingStreamingIngestClient(pipeName, trackingClientSupplier);
   }
 
   @Test
@@ -125,19 +108,30 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel() {
+    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
+    final PartitionOffsetTracker offsetTracker =
+        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            TABLE_NAME,
+            CONNECTOR_NAME,
+            channelName,
+            System.currentTimeMillis(),
+            Optional.empty(),
+            offsetTracker.persistedOffsetRef(),
+            offsetTracker.processedOffsetRef(),
+            offsetTracker.consumerGroupOffsetRef());
+
     return new SnowpipeStreamingPartitionChannel(
         TABLE_NAME,
         channelName,
         pipeName,
-        new TopicPartition(TOPIC_NAME, PARTITION),
-        mockConnectionService,
-        connectorConfig,
-        new InMemoryKafkaRecordErrorReporter(),
+        trackingClient,
+        mockTelemetryService,
+        telemetryChannelStatus,
+        offsetTracker,
         new SnowflakeMetadataConfig(),
-        sinkTaskContext,
-        Optional.empty(),
-        connectorName,
-        TASK_ID,
+        false,
         mockErrorHandler,
         TaskMetrics.noop());
   }

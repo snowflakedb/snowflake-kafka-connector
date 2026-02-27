@@ -5,16 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
+import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.nio.charset.StandardCharsets;
@@ -29,7 +29,6 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,34 +44,22 @@ class StreamingErrorHandlerIT {
   private static final String TOPIC = "test_topic";
   private static final int PARTITION = 0;
 
-  private String connectorName;
   private String channelName;
   private String pipeName;
 
-  private SnowflakeConnectionService mockConnectionService;
   private SnowflakeTelemetryService mockTelemetryService;
   private InMemorySinkTaskContext sinkTaskContext;
 
   @BeforeEach
   void setUp() {
     final String uniqueId = UUID.randomUUID().toString().substring(0, 8);
-    connectorName = "test_connector_" + uniqueId;
     channelName = "test_channel_" + uniqueId;
     pipeName = "test_pipe_" + uniqueId;
 
-    mockConnectionService = mock(SnowflakeConnectionService.class);
     mockTelemetryService = mock(SnowflakeTelemetryService.class);
-    when(mockConnectionService.getTelemetryClient()).thenReturn(mockTelemetryService);
 
     sinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(new TopicPartition(TOPIC, PARTITION)));
-
-    StreamingClientFactory.setStreamingClientSupplier(new FakeIngestClientSupplier());
-  }
-
-  @AfterEach
-  void tearDown() {
-    StreamingClientFactory.resetStreamingClientSupplier();
   }
 
   // ── errors.tolerance = NONE (default) ──────────────────────────────────────
@@ -252,19 +239,37 @@ class StreamingErrorHandlerIT {
     StreamingErrorHandler errorHandler =
         new StreamingErrorHandler(config, errorReporter, mockTelemetryService);
 
+    final TopicPartition topicPartition = new TopicPartition(TOPIC, PARTITION);
+    final PartitionOffsetTracker offsetTracker =
+        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            "test_table",
+            "test_connector",
+            channelName,
+            System.currentTimeMillis(),
+            Optional.empty(),
+            offsetTracker.persistedOffsetRef(),
+            offsetTracker.processedOffsetRef(),
+            offsetTracker.consumerGroupOffsetRef());
+
+    boolean enableSchematization =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+                String.valueOf(
+                    KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
+
     return new SnowpipeStreamingPartitionChannel(
         "test_table",
         channelName,
         pipeName,
-        new TopicPartition(TOPIC, PARTITION),
-        mockConnectionService,
-        config,
-        errorReporter,
+        new FakeSnowflakeStreamingIngestClient(pipeName, "test_connector"),
+        mockTelemetryService,
+        telemetryChannelStatus,
+        offsetTracker,
         new SnowflakeMetadataConfig(),
-        sinkTaskContext,
-        Optional.empty(),
-        connectorName,
-        "0",
+        enableSchematization,
         errorHandler,
         TaskMetrics.noop());
   }
