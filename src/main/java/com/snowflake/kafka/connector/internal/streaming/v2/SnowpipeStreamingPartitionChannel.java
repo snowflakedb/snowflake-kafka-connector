@@ -524,7 +524,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       this.tableSchema = new HashMap<>();
       for (DescribeTableRow row : schemaRows) {
         ColumnSchema col = ColumnSchema.fromDescribeTableFields(row.getColumn(), row.getType(), row.getNullable());
-        tableSchema.put(col.getName(), col);
+        // Normalize column names using same logic as validation (unquoted names are uppercased)
+        String normalizedName = RowValidator.normalizeColumnName(col.getName());
+        tableSchema.put(normalizedName, col);
       }
 
       // Step 3: Validate schema for unsupported types
@@ -689,6 +691,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           "Successfully opened streaming channel: {}, initialErrorCount: {}",
           channelName,
           this.initialErrorCount);
+
+      // Initialize client-side validation after channel is opened
+      initializeValidation();
+
       return result.getChannel();
     } else {
       LOGGER.error(
