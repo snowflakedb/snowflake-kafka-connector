@@ -385,7 +385,7 @@ public class ConnectorConfigDefinition {
                 + "When enabled, validates data types and schema compatibility. "
                 + "Default is true for KC v3 parity.",
             CONNECTOR_CONFIG_DOC,
-            13,
+            14,
             Width.NONE,
             "Enable Client Validation");
   }
