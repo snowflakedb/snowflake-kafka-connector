@@ -50,7 +50,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private static final KCLogger LOGGER =
       new KCLogger(SnowpipeStreamingPartitionChannel.class.getName());
 
-  private CompletableFuture<SnowflakeStreamingIngestChannel> channel;
+  private volatile CompletableFuture<SnowflakeStreamingIngestChannel> channel;
   private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
   private final PartitionOffsetTracker offsetTracker;
@@ -607,6 +607,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     } else {
       throw e;
     }
+  }
+
+  @Override
+  public boolean isInitializing() {
+    return !channel.isDone();
   }
 
   @Override
