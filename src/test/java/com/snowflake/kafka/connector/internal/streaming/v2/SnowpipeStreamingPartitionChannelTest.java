@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -237,6 +238,36 @@ class SnowpipeStreamingPartitionChannelTest {
     // No channel reopening should have happened — only a retry of the same appendRow
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void isInitializingReturnsTrueWhileChannelFutureIsPending() throws Exception {
+    // Block the executor so the channel init task is queued but not started
+    CountDownLatch blockExecutor = new CountDownLatch(1);
+    ioExecutor.submit(
+        () -> {
+          blockExecutor.await();
+          return null;
+        });
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+
+    assertTrue(partitionChannel.isInitializing(), "Should be initializing while future is pending");
+
+    // Unblock and wait for init to complete
+    blockExecutor.countDown();
+    partitionChannel.getChannel();
+
+    assertFalse(
+        partitionChannel.isInitializing(), "Should not be initializing after future completes");
+  }
+
+  @Test
+  void isInitializingReturnsFalseAfterSuccessfulInit() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+
+    assertFalse(partitionChannel.isInitializing());
   }
 
   private SinkRecord buildValidRecord(long offset) {
