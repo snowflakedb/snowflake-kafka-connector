@@ -19,6 +19,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
@@ -36,6 +40,7 @@ public class BatchOffsetFetcher {
   private final Map<String, String> connectorConfig;
   private final StreamingClientProperties streamingClientProperties;
   private final boolean tolerateErrors;
+  private final ExecutorService ioExecutor;
 
   private final TaskMetrics taskMetrics;
 
@@ -44,12 +49,14 @@ public class BatchOffsetFetcher {
       String taskId,
       Map<String, String> connectorConfig,
       boolean tolerateErrors,
+      ExecutorService ioExecutor,
       TaskMetrics taskMetrics) {
     this.connectorName = connectorName;
     this.taskId = taskId;
     this.connectorConfig = connectorConfig;
     this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
     this.tolerateErrors = tolerateErrors;
+    this.ioExecutor = ioExecutor;
     this.taskMetrics = taskMetrics;
   }
 
@@ -75,10 +82,30 @@ public class BatchOffsetFetcher {
                 topic,
                 uninitializedPartitions));
 
-    Map<TopicPartition, Long> result = new HashMap<>();
+    Map<TopicPartition, Long> result = new ConcurrentHashMap<>();
 
-    grouped.pipeNameToChannels.forEach(
-        (pipeName, channelsByPartition) -> {
+    CompletableFuture<?>[] futures =
+        grouped.pipeNameToChannels.entrySet().stream()
+            .map(entry -> fetchOffsetsAsync(entry.getKey(), entry.getValue(), result))
+            .toArray(CompletableFuture[]::new);
+
+    try {
+      CompletableFuture.allOf(futures).join();
+    } catch (CompletionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      }
+      throw e;
+    }
+    return result;
+  }
+
+  private CompletableFuture<Void> fetchOffsetsAsync(
+      String pipeName,
+      Map<TopicPartition, TopicPartitionChannel> channelsByPartition,
+      Map<TopicPartition, Long> result) {
+    return CompletableFuture.runAsync(
+        () -> {
           try {
             result.putAll(getCommittedOffsetsForPipe(pipeName, channelsByPartition));
           } catch (SFException e) {
@@ -88,8 +115,8 @@ public class BatchOffsetFetcher {
                 channelsByPartition.size(),
                 e);
           }
-        });
-    return result;
+        },
+        ioExecutor);
   }
 
   /**

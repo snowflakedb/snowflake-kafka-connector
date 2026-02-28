@@ -30,6 +30,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.kafka.common.TopicPartition;
@@ -43,6 +45,7 @@ class BatchOffsetFetcherTest {
   private static final String TASK_ID = "0";
 
   private String connectorName;
+  private ExecutorService ioExecutor;
   private BatchOffsetFetcher fetcher;
   private Map<TopicPartition, TopicPartitionChannel> channels;
   private CountingClientSupplier clientSupplier;
@@ -56,7 +59,10 @@ class BatchOffsetFetcherTest {
     config.put(NAME, connectorName);
     config.put(Utils.TASK_ID, TASK_ID);
 
-    fetcher = new BatchOffsetFetcher(connectorName, TASK_ID, config, false, TaskMetrics.noop());
+    ioExecutor = Executors.newCachedThreadPool();
+    fetcher =
+        new BatchOffsetFetcher(
+            connectorName, TASK_ID, config, false, ioExecutor, TaskMetrics.noop());
     channels = new HashMap<>();
 
     clientSupplier = new CountingClientSupplier();
@@ -65,6 +71,7 @@ class BatchOffsetFetcherTest {
 
   @AfterEach
   void tearDown() {
+    ioExecutor.shutdownNow();
     StreamingClientFactory.resetStreamingClientSupplier();
   }
 
