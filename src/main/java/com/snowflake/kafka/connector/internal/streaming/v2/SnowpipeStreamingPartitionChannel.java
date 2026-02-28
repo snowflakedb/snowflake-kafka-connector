@@ -36,9 +36,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -47,7 +50,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private static final KCLogger LOGGER =
       new KCLogger(SnowpipeStreamingPartitionChannel.class.getName());
 
-  private SnowflakeStreamingIngestChannel channel;
+  private CompletableFuture<SnowflakeStreamingIngestChannel> channel;
+  private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
   private final PartitionOffsetTracker offsetTracker;
 
@@ -121,13 +125,20 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         channelName,
         pipeName);
 
-    OpenChannelResult openChannelResult = openChannelForTable(channelName);
-    final long lastCommittedOffsetToken =
-        parseOffsetToken(
-            openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(), channelName);
-    LOGGER.info("New channel {} has offset token {}", channelName, lastCommittedOffsetToken);
-    offsetTracker.initializeFromSnowflake(lastCommittedOffsetToken);
-    this.channel = openChannelResult.getChannel();
+    this.channel =
+        CompletableFuture.supplyAsync(
+            () -> {
+              OpenChannelResult openChannelResult = openChannelForTable(channelName);
+              final long lastCommittedOffsetToken =
+                  parseOffsetToken(
+                      openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(),
+                      channelName);
+              LOGGER.info(
+                  "New channel {} has offset token {}", channelName, lastCommittedOffsetToken);
+              offsetTracker.initializeFromSnowflake(lastCommittedOffsetToken);
+              return openChannelResult.getChannel();
+            },
+            openChannelIoExecutor);
 
     if (clientValidationEnabled) {
       initializeValidation();
@@ -270,33 +281,56 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       this.snowflakeTelemetryChannelStatus.getRecoveryCount().inc();
     }
 
-    // Close old channel before reopening a new one. We don't want to wait for the channel to flush
-    // since it will be reopened right away and the in-progress data will be lost.
-    if (!channel.isClosed()) {
-      closeChannelWithoutFlushing(channel);
-    }
-    OpenChannelResult openChannelResult = openChannelForTable(channelName);
+    this.channel =
+        this.channel
+            // Close old channel before reopening a new one. We don't want to wait for the channel
+            // to flush since it will be reopened right away and the in-progress data will be lost.
+            .thenAccept(
+                oldChannel -> {
+                  if (!oldChannel.isClosed()) {
+                    LOGGER.error(
+                        "{} Channel {} is not closed before reopening", reason, this.channelName);
+                    closeChannelWithoutFlushing(oldChannel);
+                  }
+                })
+            // If the previous init failed, there is no old channel to close.
+            .exceptionally(
+                initFailure -> {
+                  LOGGER.warn(
+                      "{} Channel {} had a failed initialization, skipping close: {}",
+                      reason,
+                      this.channelName,
+                      initFailure.getMessage());
+                  return null;
+                })
+            .thenApply(
+                ignored -> {
+                  OpenChannelResult openChannelResult = openChannelForTable(channelName);
 
-    final long offsetRecoveredFromSnowflake =
-        parseOffsetToken(
-            openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(), channelName);
+                  final long offsetRecoveredFromSnowflake =
+                      parseOffsetToken(
+                          openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(),
+                          channelName);
 
-    if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      LOGGER.info(
-          "{} Channel {} has no offset token. Will use consumer group offset, currently {}",
-          reason,
-          this.channelName,
-          offsetTracker.consumerGroupOffsetRef().get());
-    }
+                  if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+                    LOGGER.info(
+                        "{} Channel {} has no offset token. Will use consumer group offset,"
+                            + " currently {}",
+                        reason,
+                        this.channelName,
+                        offsetTracker.consumerGroupOffsetRef().get());
+                  }
 
-    offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
-    this.channel = openChannelResult.getChannel();
+                  offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
 
-    LOGGER.info(
-        "{} Channel {} recovery complete, offsetRecoveredFromSnowflake={}",
-        reason,
-        this.channelName,
-        offsetRecoveredFromSnowflake);
+                  LOGGER.info(
+                      "{} Channel {} recovery complete, offsetRecoveredFromSnowflake={}",
+                      reason,
+                      this.channelName,
+                      offsetRecoveredFromSnowflake);
+
+                  return openChannelResult.getChannel();
+                });
   }
 
   /**
@@ -448,6 +482,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * @return new channel which was fetched after open/reopen
    */
   private OpenChannelResult openChannelForTable(final String channelName) {
+    if (cancelled.get()) {
+      throw new CancellationException("Channel " + channelName + " was cancelled before opening");
+    }
+
     final OpenChannelResult result;
     try (TaskMetrics.TimingContext ignored = taskMetrics.timeChannelOpen()) {
       result = streamingClient.openChannel(channelName, null);
@@ -477,25 +515,42 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   @Override
   public CompletableFuture<Void> closeChannelAsync() {
-    return CompletableFuture.runAsync(
-        () -> {
-          LOGGER.info("Closing streaming channel {}", this.channelName);
-          try {
-            if (!channel.isClosed()) {
-              closeChannelWithoutFlushing(channel);
-            }
-            LOGGER.info("Successfully closed streaming channel {}", this.channelName);
-          } catch (Exception e) {
-            tryRecoverFromCloseChannelError(e);
-          } finally {
-            this.telemetryService.reportKafkaPartitionUsage(
-                this.snowflakeTelemetryChannelStatus, true);
-            this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
-          }
-        });
+    LOGGER.info("Closing streaming channel {}", this.channelName);
+    cancelled.set(true);
+    return channel
+        .thenAccept(
+            c -> {
+              try {
+                if (!c.isClosed()) {
+                  closeChannelWithoutFlushing(c);
+                }
+                LOGGER.info("Successfully closed streaming channel {}", this.channelName);
+              } catch (RuntimeException e) {
+                tryRecoverFromCloseChannelError(e);
+              } finally {
+                this.telemetryService.reportKafkaPartitionUsage(
+                    this.snowflakeTelemetryChannelStatus, true);
+                this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
+              }
+            })
+        .exceptionally(
+            e -> {
+              Throwable cause = e.getCause() != null ? e.getCause() : e;
+              if (cause instanceof java.util.concurrent.CancellationException) {
+                LOGGER.info(
+                    "Channel {} was cancelled before opening, nothing to close", this.channelName);
+              } else {
+                LOGGER.warn(
+                    "Channel {} failed during initialization, skipping close: {}",
+                    this.channelName,
+                    cause.getMessage());
+              }
+              this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
+              return null;
+            });
   }
 
-  private void tryRecoverFromCloseChannelError(Throwable e) {
+  private void tryRecoverFromCloseChannelError(RuntimeException e) {
     String errMsg =
         String.format(
             "Failure closing streaming channel %s, error: %s", this.channelName, e.getMessage());
@@ -513,13 +568,18 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           e.getMessage(),
           Arrays.toString(e.getStackTrace()));
     } else {
-      throw new RuntimeException(e);
+      throw e;
     }
   }
 
   @Override
   public boolean isChannelClosed() {
-    return this.getChannel().isClosed();
+    try {
+      return this.getChannel().isClosed();
+    } catch (RuntimeException e) {
+      // If the channel failed to initialize, we consider it closed.
+      return true;
+    }
   }
 
   @Override
@@ -532,9 +592,24 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     return channelName;
   }
 
+  /**
+   * Blocks until the channel initialization future completes and returns the underlying SDK
+   * channel.
+   *
+   * <p><b>Warning:</b> Do not call this from the channel construction future body (the lambda
+   * passed to {@code CompletableFuture.supplyAsync} in the constructor). That future is what
+   * populates {@code this.channel}; calling {@code join()} on it from within itself will deadlock.
+   */
   @VisibleForTesting
   public SnowflakeStreamingIngestChannel getChannel() {
-    return this.channel;
+    try {
+      return this.channel.join();
+    } catch (CompletionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      }
+      throw new RuntimeException(e.getCause());
+    }
   }
 
   @Override
