@@ -573,6 +573,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
+  public boolean isInitializing() {
+    return !channel.isDone();
+  }
+
+  @Override
   public boolean isChannelClosed() {
     try {
       return this.getChannel().isClosed();
