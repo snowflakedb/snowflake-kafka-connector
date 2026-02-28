@@ -59,9 +59,12 @@ public class StreamingClientPools {
       throw new IllegalArgumentException("pipeName cannot be null or empty");
     }
 
-    return connectors
-        .computeIfAbsent(connectorName, k -> new StreamingClientPool(connectorName))
+    return getPool(connectorName)
         .getClient(taskId, pipeName, connectorConfig, streamingClientProperties, taskMetrics);
+  }
+
+  private static StreamingClientPool getPool(final String connectorName) {
+    return connectors.computeIfAbsent(connectorName, k -> new StreamingClientPool(connectorName));
   }
 
   public static long getClientCountForTask(final String connectorName, final String taskId) {
@@ -75,20 +78,29 @@ public class StreamingClientPools {
 
   /**
    * Releases all clients used by a specific task. Clients that are still used by other tasks remain
-   * open. Only closes clients when the last task using them stops.
+   * open. Only closes clients when the last task using them stops. When the pool becomes empty (no
+   * remaining clients or tasks), its thread pools are shut down and the pool is removed.
    *
    * @param connectorName the name of the connector
    * @param taskId the ID of the task
    */
   public static void closeTaskClients(final String connectorName, final String taskId) {
-    synchronized (connectors) {
-      StreamingClientPool pool = connectors.get(connectorName);
-      if (pool != null) {
-        pool.closeTaskClients(taskId);
-      } else {
-        LOGGER.warn(
-            "Attempted to release task {} for unknown connector: {}", taskId, connectorName);
-      }
-    }
+    connectors.compute(
+        connectorName,
+        (key, pool) -> {
+          if (pool == null) {
+            LOGGER.warn(
+                "Attempted to release task {} for unknown connector: {}", taskId, connectorName);
+            return null;
+          }
+          pool.closeTaskClients(taskId);
+          if (pool.isEmpty()) {
+            LOGGER.info(
+                "All tasks released for connector: {}, shutting down thread pool", connectorName);
+            pool.shutdown();
+            return null;
+          }
+          return pool;
+        });
   }
 }
