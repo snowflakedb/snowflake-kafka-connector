@@ -148,6 +148,8 @@ public class PartitionChannelManager {
         this.connectorName,
         this.taskId);
 
+    warmUpStreamingClients(tableToPipeMapping);
+
     for (TopicPartition topicPartition : partitions) {
       final String tableName = getTableName(topicPartition);
       final String pipeName = tableToPipeMapping.get(tableName);
@@ -231,6 +233,41 @@ public class PartitionChannelManager {
         this.taskMetrics,
         clientValidationEnabled,
         this.conn);
+  }
+
+  /**
+   * Pre-warms the {@link StreamingClientPools} cache by creating clients for all distinct pipes in
+   * parallel. Subsequent per-partition calls to {@link StreamingClientPools#getClient} in {@link
+   * #buildChannel} will return the cached clients immediately.
+   *
+   * <p>Skipped when using the test constructor (connectorConfig is null).
+   */
+  private void warmUpStreamingClients(Map<String, String> tableToPipeMapping) {
+    if (connectorConfig == null) {
+      return;
+    }
+
+    final StreamingClientProperties streamingClientProperties =
+        new StreamingClientProperties(connectorConfig);
+    final ExecutorService ioExecutor = ThreadPools.getIoExecutor(connectorName);
+
+    CompletableFuture<?>[] clientFutures =
+        tableToPipeMapping.values().stream()
+            .distinct()
+            .map(
+                pipeName ->
+                    CompletableFuture.runAsync(
+                        () ->
+                            StreamingClientPools.getClient(
+                                connectorName,
+                                taskId,
+                                pipeName,
+                                connectorConfig,
+                                streamingClientProperties,
+                                taskMetrics),
+                        ioExecutor))
+            .toArray(CompletableFuture[]::new);
+    CompletableFuture.allOf(clientFutures).join();
   }
 
   public void waitForAllChannelsToCommitData() {
