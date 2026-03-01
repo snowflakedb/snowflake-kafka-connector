@@ -158,6 +158,27 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.enableSanitization);
   }
 
+  @VisibleForTesting
+  SnowflakeSinkServiceV2(
+      PartitionChannelManager channelManager,
+      BatchOffsetFetcher batchOffsetFetcher,
+      SinkTaskContext sinkTaskContext,
+      ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues,
+      boolean tolerateErrors) {
+    this.channelManager = channelManager;
+    this.batchOffsetFetcher = batchOffsetFetcher;
+    this.sinkTaskContext = sinkTaskContext;
+    this.behaviorOnNullValues = behaviorOnNullValues;
+    this.tolerateErrors = tolerateErrors;
+    this.conn = null;
+    this.connectorConfig = null;
+    this.topicToTableMap = null;
+    this.metricsJmxReporter = Optional.empty();
+    this.connectorName = null;
+    this.taskId = null;
+    this.enableSanitization = false;
+  }
+
   /**
    * Perform pre-flight safety checks on validation configuration. Verifies that error handling is
    * properly configured to prevent silent data loss or task crashes.
