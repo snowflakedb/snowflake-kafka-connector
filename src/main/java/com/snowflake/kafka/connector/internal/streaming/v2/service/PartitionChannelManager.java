@@ -33,6 +33,16 @@ public class PartitionChannelManager {
 
   private static final KCLogger LOGGER = new KCLogger(PartitionChannelManager.class.getName());
 
+  /**
+   * Creates a {@link TopicPartitionChannel} for a single partition during {@link #startPartitions}.
+   * Production code uses {@link #buildChannel}; tests inject a lambda.
+   */
+  @FunctionalInterface
+  interface PartitionChannelBuilder {
+    TopicPartitionChannel build(
+        TopicPartition topicPartition, String tableName, String channelName, String pipeName);
+  }
+
   private final String connectorName;
   private final String taskId;
 
@@ -48,6 +58,7 @@ public class PartitionChannelManager {
   private final Map<String, String> topicToTableMap;
   private final boolean enableSanitization;
 
+  private final PartitionChannelBuilder partitionChannelBuilder;
   private final Map<String, TopicPartitionChannel> partitionChannels;
 
   public PartitionChannelManager(
@@ -73,7 +84,30 @@ public class PartitionChannelManager {
     this.taskMetrics = taskMetrics;
     this.topicToTableMap = topicToTableMap;
     this.enableSanitization = enableSanitization;
+    this.partitionChannelBuilder = this::buildChannel;
     this.partitionChannels = new ConcurrentHashMap<>();
+  }
+
+  @VisibleForTesting
+  PartitionChannelManager(
+      String connectorName,
+      String taskId,
+      Map<String, String> topicToTableMap,
+      boolean enableSanitization,
+      PartitionChannelBuilder partitionChannelBuilder) {
+    this.connectorName = connectorName;
+    this.taskId = taskId;
+    this.topicToTableMap = topicToTableMap;
+    this.enableSanitization = enableSanitization;
+    this.partitionChannelBuilder = partitionChannelBuilder;
+    this.partitionChannels = new ConcurrentHashMap<>();
+    this.telemetryService = null;
+    this.connectorConfig = null;
+    this.kafkaRecordErrorReporter = null;
+    this.metadataConfig = null;
+    this.sinkTaskContext = null;
+    this.metricsJmxReporter = Optional.empty();
+    this.taskMetrics = null;
   }
 
   /** Gets a unique identifier consisting of connector name, topic name and partition number. */
@@ -108,6 +142,29 @@ public class PartitionChannelManager {
         this.connectorName,
         this.taskId);
 
+    for (TopicPartition topicPartition : partitions) {
+      final String tableName = getTableName(topicPartition);
+      final String pipeName = tableToPipeMapping.get(tableName);
+      final String channelName = getChannelName(topicPartition);
+
+      LOGGER.info(
+          "Creating streaming channel {} for {}, table: {}, pipe: {}",
+          channelName,
+          topicPartition,
+          tableName,
+          pipeName);
+
+      final TopicPartitionChannel partitionChannel =
+          partitionChannelBuilder.build(topicPartition, tableName, channelName, pipeName);
+
+      partitionChannels.put(channelName, partitionChannel);
+      LOGGER.info("Successfully created streaming channel: {}", channelName);
+    }
+  }
+
+  private TopicPartitionChannel buildChannel(
+      TopicPartition topicPartition, String tableName, String channelName, String pipeName) {
+
     final StreamingErrorHandler streamingErrorHandler =
         new StreamingErrorHandler(connectorConfig, kafkaRecordErrorReporter, telemetryService);
 
@@ -121,58 +178,41 @@ public class PartitionChannelManager {
     final StreamingClientProperties streamingClientProperties =
         new StreamingClientProperties(connectorConfig);
 
-    for (TopicPartition topicPartition : partitions) {
-      final String tableName = getTableName(topicPartition);
-      final String pipeName = tableToPipeMapping.get(tableName);
-      final String channelName = getChannelName(topicPartition);
+    final PartitionOffsetTracker offsetTracker =
+        new PartitionOffsetTracker(topicPartition, this.sinkTaskContext, channelName);
 
-      LOGGER.info(
-          "Creating streaming channel {} for {}, table: {}, pipe: {}",
-          channelName,
-          topicPartition,
-          tableName,
-          pipeName);
+    final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            tableName,
+            this.connectorName,
+            channelName,
+            System.currentTimeMillis(),
+            this.metricsJmxReporter,
+            offsetTracker.persistedOffsetRef(),
+            offsetTracker.processedOffsetRef(),
+            offsetTracker.consumerGroupOffsetRef());
 
-      final PartitionOffsetTracker offsetTracker =
-          new PartitionOffsetTracker(topicPartition, this.sinkTaskContext, channelName);
+    final SnowflakeStreamingIngestClient streamingClient =
+        StreamingClientPools.getClient(
+            connectorName,
+            taskId,
+            pipeName,
+            connectorConfig,
+            streamingClientProperties,
+            taskMetrics);
 
-      final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
-          new SnowflakeTelemetryChannelStatus(
-              tableName,
-              this.connectorName,
-              channelName,
-              System.currentTimeMillis(),
-              this.metricsJmxReporter,
-              offsetTracker.persistedOffsetRef(),
-              offsetTracker.processedOffsetRef(),
-              offsetTracker.consumerGroupOffsetRef());
-
-      final SnowflakeStreamingIngestClient streamingClient =
-          StreamingClientPools.getClient(
-              connectorName,
-              taskId,
-              pipeName,
-              connectorConfig,
-              streamingClientProperties,
-              taskMetrics);
-
-      final SnowpipeStreamingPartitionChannel partitionChannel =
-          new SnowpipeStreamingPartitionChannel(
-              tableName,
-              channelName,
-              pipeName,
-              streamingClient,
-              this.telemetryService,
-              telemetryChannelStatus,
-              offsetTracker,
-              this.metadataConfig,
-              enableSchematization,
-              streamingErrorHandler,
-              this.taskMetrics);
-
-      partitionChannels.put(channelName, partitionChannel);
-      LOGGER.info("Successfully created streaming channel: {}", channelName);
-    }
+    return new SnowpipeStreamingPartitionChannel(
+        tableName,
+        channelName,
+        pipeName,
+        streamingClient,
+        this.telemetryService,
+        telemetryChannelStatus,
+        offsetTracker,
+        this.metadataConfig,
+        enableSchematization,
+        streamingErrorHandler,
+        this.taskMetrics);
   }
 
   public void waitForAllChannelsToCommitData() {
