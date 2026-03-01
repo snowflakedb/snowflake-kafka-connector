@@ -68,10 +68,10 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
                   getOpenedFakeIngestClient(connectorName).getOpenedChannels().get(0);
               final Map<String, Object> row = channel.getAppendedRows().get(0);
               assertThat(row).containsKeys(RECORD_METADATA, RECORD_CONTENT);
-              assertThat(row.get(RECORD_CONTENT)).isInstanceOf(Map.class);
-              @SuppressWarnings("unchecked")
-              Map<String, Object> content = (Map<String, Object>) row.get(RECORD_CONTENT);
-              assertThat(content).containsEntry("city", "Portland");
+              assertThat(row.get(RECORD_CONTENT)).isInstanceOf(String.class);
+              String jsonString = (String) row.get(RECORD_CONTENT);
+              assertThat(jsonString).contains("\"city\":\"Portland\"");
+              assertThat(jsonString).contains("\"age\":25");
             });
   }
 
@@ -97,7 +97,7 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
                   getOpenedFakeIngestClient(connectorName).getOpenedChannels().get(0);
               final Map<String, Object> row = channel.getAppendedRows().get(0);
               assertThat(row).containsKeys(RECORD_METADATA, RECORD_CONTENT);
-              assertThat(row.get(RECORD_CONTENT)).isEqualTo("raw string payload");
+              assertThat(row.get(RECORD_CONTENT)).isEqualTo("\"raw string payload\"");
             });
   }
 
