@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -249,23 +248,19 @@ public class PartitionChannelManager {
 
     final StreamingClientProperties streamingClientProperties =
         new StreamingClientProperties(connectorConfig);
-    final ExecutorService ioExecutor = ThreadPools.getIoExecutor(connectorName);
 
     CompletableFuture<?>[] clientFutures =
         tableToPipeMapping.values().stream()
             .distinct()
             .map(
                 pipeName ->
-                    CompletableFuture.runAsync(
-                        () ->
-                            StreamingClientPools.getClient(
-                                connectorName,
-                                taskId,
-                                pipeName,
-                                connectorConfig,
-                                streamingClientProperties,
-                                taskMetrics),
-                        ioExecutor))
+                    StreamingClientPools.getClientAsync(
+                        connectorName,
+                        taskId,
+                        pipeName,
+                        connectorConfig,
+                        streamingClientProperties,
+                        taskMetrics))
             .toArray(CompletableFuture[]::new);
     CompletableFuture.allOf(clientFutures).join();
   }

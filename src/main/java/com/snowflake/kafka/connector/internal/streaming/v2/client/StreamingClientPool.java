@@ -111,7 +111,11 @@ public class StreamingClientPool {
     LOGGER.info("Created client manager for connector: {}", connectorName);
   }
 
-  SnowflakeStreamingIngestClient getClient(
+  /**
+   * Asynchronously gets or creates a client for the given task and pipe. The returned future
+   * completes when the client is ready.
+   */
+  CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String taskId,
       final String pipeName,
       final Map<String, String> connectorConfig,
@@ -136,24 +140,40 @@ public class StreamingClientPool {
               return current;
             });
 
-    // Block until this specific client is ready — lock is NOT held, so other pipes can proceed.
-    SnowflakeStreamingIngestClient client;
+    return entry.clientFuture.whenComplete(
+        (client, error) -> {
+          if (error != null) {
+            // Only remove if the entry still holds the same (failed) future.
+            pipes.compute(pipeName, (key, current) -> current == entry ? null : current);
+          } else {
+            LOGGER.info(
+                "Task {} now using pipe {} for connector {}, total tasks on this pipe: {}",
+                taskId,
+                pipeName,
+                connectorName,
+                entry.taskCount());
+          }
+        });
+  }
+
+  SnowflakeStreamingIngestClient getClient(
+      final String taskId,
+      final String pipeName,
+      final Map<String, String> connectorConfig,
+      final StreamingClientProperties streamingClientProperties,
+      final TaskMetrics taskMetrics) {
+
     try {
-      client = entry.awaitClient(pipeName);
-    } catch (RuntimeException e) {
-      // Only remove if the entry still holds the same (failed) future.
-      pipes.compute(pipeName, (key, current) -> current == entry ? null : current);
-      throw e;
+      return getClientAsync(
+              taskId, pipeName, connectorConfig, streamingClientProperties, taskMetrics)
+          .join();
+    } catch (CompletionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      }
+      throw new ConnectException(
+          "Unexpected error creating streaming client for pipe: " + pipeName, e.getCause());
     }
-
-    LOGGER.info(
-        "Task {} now using pipe {} for connector {}, total tasks on this pipe: {}",
-        taskId,
-        pipeName,
-        connectorName,
-        entry.taskCount());
-
-    return client;
   }
 
   long getClientCountForTask(final String taskId) {
