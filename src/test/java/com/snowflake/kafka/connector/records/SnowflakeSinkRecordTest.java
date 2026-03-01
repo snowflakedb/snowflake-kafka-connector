@@ -248,7 +248,7 @@ class SnowflakeSinkRecordTest {
 
     Instant connectorPushTime = Instant.ofEpochMilli(9876543210L);
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, fullMetadataConfig, connectorPushTime);
+        SnowflakeSinkRecord.from(kafkaRecord, fullMetadataConfig, connectorPushTime, true);
 
     Map<String, Object> metadata = record.getMetadata();
 

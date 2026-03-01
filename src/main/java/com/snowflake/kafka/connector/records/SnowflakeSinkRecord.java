@@ -54,12 +54,7 @@ public final class SnowflakeSinkRecord {
 
   public static SnowflakeSinkRecord from(
       SinkRecord record, SnowflakeMetadataConfig metadataConfig) {
-    return from(record, metadataConfig, Instant.now());
-  }
-
-  public static SnowflakeSinkRecord from(
-      SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
-    return from(record, metadataConfig, connectorPushTime, true);
+    return from(record, metadataConfig, Instant.now(), true);
   }
 
   public static SnowflakeSinkRecord from(
