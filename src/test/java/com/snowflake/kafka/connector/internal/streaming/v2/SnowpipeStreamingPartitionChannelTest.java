@@ -244,7 +244,7 @@ class SnowpipeStreamingPartitionChannelTest {
   void isInitializingReturnsTrueWhileChannelFutureIsPending() throws Exception {
     // Block the executor so the channel init task is queued but not started
     CountDownLatch blockExecutor = new CountDownLatch(1);
-    ioExecutor.submit(
+    openChannelIoExecutor.submit(
         () -> {
           blockExecutor.await();
           return null;
