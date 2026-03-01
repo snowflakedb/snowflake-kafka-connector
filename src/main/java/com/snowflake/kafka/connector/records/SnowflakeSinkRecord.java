@@ -53,11 +53,6 @@ public final class SnowflakeSinkRecord {
   }
 
   public static SnowflakeSinkRecord from(
-      SinkRecord record, SnowflakeMetadataConfig metadataConfig) {
-    return from(record, metadataConfig, Instant.now(), true);
-  }
-
-  public static SnowflakeSinkRecord from(
       SinkRecord record, SnowflakeMetadataConfig metadataConfig, boolean enableSchematization) {
     return from(record, metadataConfig, Instant.now(), enableSchematization);
   }

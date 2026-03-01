@@ -50,7 +50,7 @@ class SnowflakeSinkRecordTest {
             .withSchemaAndValue(schemaAndValue)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
 
     assertTrue(record.isValid());
     assertFalse(record.isBroken());
@@ -101,7 +101,7 @@ class SnowflakeSinkRecordTest {
             .withValue(struct)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
 
     assertTrue(record.isValid());
     assertFalse(record.isBroken());
@@ -129,7 +129,7 @@ class SnowflakeSinkRecordTest {
             .withValue(null)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
 
     assertFalse(record.isValid());
     assertFalse(record.isBroken());
@@ -150,7 +150,7 @@ class SnowflakeSinkRecordTest {
             .withValue("{}")
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
 
     assertFalse(record.isValid());
     assertTrue(record.isBroken());
@@ -169,7 +169,7 @@ class SnowflakeSinkRecordTest {
             .withValue("just a plain string")
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
 
     // Record should be broken because convertToMap cannot handle plain String
     assertTrue(record.isBroken());
@@ -215,7 +215,7 @@ class SnowflakeSinkRecordTest {
             .build();
 
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll());
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true);
 
     Map<String, Object> metadata = record.getMetadata();
     assertEquals("myKey", metadata.get("key"));
@@ -277,7 +277,7 @@ class SnowflakeSinkRecordTest {
             .withTimestamp(timestamp, timestampType)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, timestampConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, timestampConfig, true);
 
     Map<String, Object> metadata = record.getMetadata();
     assertEquals(timestamp, metadata.get(expectedMetadataKey));
@@ -295,7 +295,7 @@ class SnowflakeSinkRecordTest {
 
     SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll());
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true);
 
     Map<String, Object> metadata = record.getMetadata();
     assertNotNull(metadata.get("headers"));
@@ -318,7 +318,7 @@ class SnowflakeSinkRecordTest {
 
     SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll());
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true);
 
     Map<String, Object> metadata = record.getMetadata();
 
@@ -416,7 +416,7 @@ class SnowflakeSinkRecordTest {
             .withTimestamp(createTime, TimestampType.CREATE_TIME)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, noCreateTimeConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, noCreateTimeConfig, true);
 
     Map<String, Object> metadata = record.getMetadata();
     assertFalse(metadata.containsKey("CreateTime"));
@@ -442,7 +442,7 @@ class SnowflakeSinkRecordTest {
             .withTimestamp(System.currentTimeMillis(), TimestampType.CREATE_TIME)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, noTopicConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, noTopicConfig, true);
 
     Map<String, Object> metadata = record.getMetadata();
     assertFalse(metadata.containsKey("topic"));
@@ -468,7 +468,8 @@ class SnowflakeSinkRecordTest {
             .withTimestamp(System.currentTimeMillis(), TimestampType.CREATE_TIME)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, noOffsetPartitionConfig);
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, noOffsetPartitionConfig, true);
 
     Map<String, Object> metadata = record.getMetadata();
     assertFalse(metadata.containsKey("offset"));
@@ -502,7 +503,7 @@ class SnowflakeSinkRecordTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, allDisabledConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, allDisabledConfig, true);
 
     Map<String, Object> metadata = record.getMetadata();
     assertFalse(metadata.containsKey("offset"));
@@ -540,7 +541,7 @@ class SnowflakeSinkRecordTest {
             null, // no timestamp
             TimestampType.NO_TIMESTAMP_TYPE);
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, allDisabledConfig);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, allDisabledConfig, true);
 
     // When ALL individual metadata fields are disabled and no key present, metadata should be empty
     assertTrue(record.getMetadata().isEmpty());
@@ -674,7 +675,7 @@ class SnowflakeSinkRecordTest {
         SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
             .withSchemaAndValue(schemaAndValue)
             .build();
-    return SnowflakeSinkRecord.from(kafkaRecord, config);
+    return SnowflakeSinkRecord.from(kafkaRecord, config, true);
   }
 
   private SinkRecord createSinkRecordWithHeaders(
