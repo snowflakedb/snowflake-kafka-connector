@@ -208,7 +208,9 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(connectionService, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withEnableCustomJMXMetrics(true)
+            .withMetricsJmxReporter(
+                new com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter(
+                    new com.codahale.metrics.MetricRegistry(), TEST_CONNECTOR_NAME))
             .build();
 
     service.startPartition(topicPartition);
@@ -243,23 +245,29 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
         20,
         5);
 
-    // verify all metrics
-    Map<String, Gauge> metricRegistry =
+    // verify all metrics (gauges + counters)
+    Map<String, Gauge> gaugeMetrics =
         service
             .getMetricRegistry(makeChannelName(TEST_CONNECTOR_NAME, topic, partition))
             .get()
             .getGauges();
-    assert metricRegistry.size()
-        == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
+    long totalMetrics =
+        gaugeMetrics.size()
+            + service
+                .getMetricRegistry(makeChannelName(TEST_CONNECTOR_NAME, topic, partition))
+                .get()
+                .getCounters()
+                .size();
+    assert totalMetrics == SnowflakeTelemetryChannelStatus.NUM_METRICS * 2; // two partitions
 
     // partition 1
     verifyPartitionMetrics(
-        metricRegistry,
+        gaugeMetrics,
         makeChannelName(TEST_CONNECTOR_NAME, topic, partition),
         recordsInPartition1 - 1,
         recordsInPartition1 - 1);
     verifyPartitionMetrics(
-        metricRegistry,
+        gaugeMetrics,
         makeChannelName(TEST_CONNECTOR_NAME, topic, partition2),
         recordsInPartition2 - 1,
         recordsInPartition2 - 1);
@@ -289,7 +297,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     assert (long)
             metricRegistry
                 .get(
-                    MetricsUtil.constructMetricName(
+                    MetricsUtil.channelMetricName(
                         partitionChannelKey,
                         MetricsUtil.OFFSET_SUB_DOMAIN,
                         MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE))
@@ -298,7 +306,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     assert (long)
             metricRegistry
                 .get(
-                    MetricsUtil.constructMetricName(
+                    MetricsUtil.channelMetricName(
                         partitionChannelKey,
                         MetricsUtil.OFFSET_SUB_DOMAIN,
                         MetricsUtil.PROCESSED_OFFSET))
@@ -640,6 +648,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             avroInputKey.value(),
             startOffset + 2);
 
+    config.put("errors.tolerance", "all");
+    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
+    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, config)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -690,6 +702,11 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             brokenInputValue.schema(),
             brokenInputValue.value(),
             startOffset + 2);
+
+    config.put("errors.tolerance", "all");
+    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
+    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     SnowflakeSinkService service =
@@ -729,6 +746,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     SinkRecord correctValue =
         new SinkRecord(topic, partition, null, "key1", null, Map.of("name", "john"), 2);
+
+    config.put("errors.tolerance", "all");
+    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
+    config.put("errors.deadletterqueue.topic.replication.factor", "1");
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 

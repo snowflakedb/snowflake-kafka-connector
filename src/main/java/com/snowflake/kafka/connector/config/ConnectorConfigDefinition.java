@@ -387,6 +387,18 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             14,
             Width.NONE,
-            "Enable Client Validation");
+            "Enable Client Validation")
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT,
+            MEDIUM,
+            "When true (default), records are schematized into individual columns. When false,"
+                + " records are wrapped into legacy RECORD_CONTENT and RECORD_METADATA VARIANT"
+                + " columns for backward compatibility with KC v3.",
+            CONNECTOR_CONFIG_DOC,
+            15,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION);
   }
 }

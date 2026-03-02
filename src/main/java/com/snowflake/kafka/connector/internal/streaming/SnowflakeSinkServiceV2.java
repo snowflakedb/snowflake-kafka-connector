@@ -18,6 +18,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
@@ -65,7 +66,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   // Behavior to be set at the start of connector start. (For tombstone records)
   private final ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues;
-  private final MetricsJmxReporter metricsJmxReporter;
+  private final Optional<MetricsJmxReporter> metricsJmxReporter;
   private final String connectorName;
   private final String taskId;
 
@@ -83,23 +84,23 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final Map<String, TopicPartitionChannel> partitionsToChannel;
   // Set that keeps track of the channels that have been seen per input batch
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
-  // default is true unless the configuration provided is false;
-  // If this is true, we will enable Mbean for required classes and emit JMX metrics for monitoring
-  private boolean enableCustomJMXMonitoring = KafkaConnectorConfigParams.JMX_OPT_DEFAULT;
   // Whether to tolerate errors during ingestion (based on errors.tolerance config)
   private final boolean tolerateErrors;
   private final BatchOffsetFetcher batchOffsetFetcher;
   // Whether to enable table name sanitization
   private final boolean enableSanitization;
 
+  private final TaskMetrics taskMetrics;
+
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
       Map<String, String> connectorConfig,
       KafkaRecordErrorReporter recordErrorReporter,
       SinkTaskContext sinkTaskContext,
-      boolean enableCustomJMXMonitoring,
+      Optional<MetricsJmxReporter> metricsJmxReporter,
       Map<String, String> topicToTableMap,
-      ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues) {
+      ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues,
+      TaskMetrics taskMetrics) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -107,7 +108,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.connectorConfig = connectorConfig;
     this.kafkaRecordErrorReporter = recordErrorReporter;
     this.sinkTaskContext = sinkTaskContext;
-    this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
+    this.metricsJmxReporter = metricsJmxReporter;
     this.topicToTableMap = topicToTableMap;
     this.metadataConfig = new SnowflakeMetadataConfig(connectorConfig);
     this.behaviorOnNullValues = behaviorOnNullValues;
@@ -127,11 +128,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
     }
 
-    this.metricsJmxReporter = new MetricsJmxReporter(new MetricRegistry(), this.connectorName);
+    this.taskMetrics = taskMetrics;
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
     this.batchOffsetFetcher =
         new BatchOffsetFetcher(
-            this.connectorName, this.taskId, connectorConfig, this.tolerateErrors);
+            this.connectorName, this.taskId, connectorConfig, this.tolerateErrors, taskMetrics);
     this.enableSanitization =
         Boolean.parseBoolean(
             connectorConfig.getOrDefault(
@@ -246,11 +247,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.kafkaRecordErrorReporter,
             this.metadataConfig,
             this.sinkTaskContext,
-            this.enableCustomJMXMonitoring,
             this.metricsJmxReporter,
             this.connectorName,
             this.taskId,
-            streamingErrorHandler);
+            streamingErrorHandler,
+            this.taskMetrics);
 
     partitionsToChannel.put(channelName, partitionChannel);
     LOGGER.info("Successfully created streaming channel: {}", channelName);
@@ -458,14 +459,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public Optional<MetricRegistry> getMetricRegistry(String partitionChannelKey) {
-    return this.partitionsToChannel.containsKey(partitionChannelKey)
-        ? Optional.of(
-            this.partitionsToChannel
-                .get(partitionChannelKey)
-                .getSnowflakeTelemetryChannelStatus()
-                .getMetricsJmxReporter()
-                .getMetricRegistry())
-        : Optional.empty();
+    if (!partitionsToChannel.containsKey(partitionChannelKey)) {
+      return Optional.empty();
+    }
+    return metricsJmxReporter.map(MetricsJmxReporter::getMetricRegistry);
   }
 
   private void createTableIfNotExists(final String tableName) {

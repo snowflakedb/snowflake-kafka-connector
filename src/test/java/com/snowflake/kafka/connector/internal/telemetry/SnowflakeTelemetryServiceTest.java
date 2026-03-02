@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -170,8 +171,7 @@ public class SnowflakeTelemetryServiceTest {
             expectedConnectorName,
             expectedTpChannelName,
             expectedTpChannelCreationTime,
-            false,
-            null,
+            Optional.empty(),
             new AtomicLong(expectedOffsetPersistedInSnowflake),
             new AtomicLong(expectedProcessedOffset),
             new AtomicLong(expectedLatestConsumerOffset));

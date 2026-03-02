@@ -54,6 +54,7 @@ services:
         condition: service_healthy
     ports:
       - "8083:8083"
+      - "8778:8778"
     environment:
       CONNECT_BOOTSTRAP_SERVERS: kafka:29092
       CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
@@ -71,11 +72,15 @@ services:
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
       CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/opt/kafka-connect/plugins
       CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
-      CONNECT_LOG4J_LOGGERS: com.snowflake=DEBUG
+      CONNECT_LOG4J_LOGGERS: com.snowflake=INFO
+      CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %X{connector.context}%m (%c:%L)%n"
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx6g"
+      KAFKA_OPTS: "${KAFKA_OPTS:-}"
+      SS_LOG_LEVEL: warn
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/opt/kafka-connect/plugins/snowflake-connector
       - ${EXTRA_JARS_PATH:-/tmp/kafka-connect-extra-jars}:/opt/kafka-connect/plugins/protobuf-converter
+      - ${JOLOKIA_JAR_PATH:-/dev/null}:/opt/jolokia/jolokia-agent.jar:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
       interval: 5s

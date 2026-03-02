@@ -54,6 +54,7 @@ usage() {
     echo "Options:"
     echo "  --cloud=CLOUD        Snowflake cloud platform: AWS, GCP, or AZURE"
     echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
+    echo "  --jmx                Enable JMX metrics scraping via Jolokia"
     echo "  --keep               Keep containers running after tests"
     echo "  --rebuild            Force rebuild of images"
     echo "  --logs-dir=DIR       Save service logs to a file in DIR on failure"
@@ -76,6 +77,7 @@ usage() {
 PLATFORM=""
 PLATFORM_VERSION=""
 JAVA_VERSION="11"
+JMX_ENABLED="false"
 KEEP_RUNNING="false"
 FORCE_REBUILD="false"
 LOGS_DIR=""
@@ -97,6 +99,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --java-version=*)
             JAVA_VERSION="${1#*=}"
+            shift
+            ;;
+        --jmx)
+            JMX_ENABLED="true"
             shift
             ;;
         --keep)
@@ -243,6 +249,21 @@ compile_protobuf_dependencies() {
 
 compile_protobuf_dependencies
 
+if [ "$JMX_ENABLED" = "true" ]; then
+    # Download Jolokia JMX agent for metrics scraping
+    JOLOKIA_DIR="/tmp/jolokia"
+    JOLOKIA_VERSION="2.5.1"
+    JOLOKIA_JAR="$JOLOKIA_DIR/jolokia-agent.jar"
+    mkdir -p "$JOLOKIA_DIR"
+    if [ ! -f "$JOLOKIA_JAR" ]; then
+        info "Downloading Jolokia JMX agent v${JOLOKIA_VERSION}..."
+        curl -fsSL -o "$JOLOKIA_JAR" \
+            "https://repo1.maven.org/maven2/org/jolokia/jolokia-agent-jvm/${JOLOKIA_VERSION}/jolokia-agent-jvm-${JOLOKIA_VERSION}-javaagent.jar"
+    fi
+    export JOLOKIA_JAR_PATH="$JOLOKIA_JAR"
+    export KAFKA_OPTS="-javaagent:/opt/jolokia/jolokia-agent.jar=port=8778,host=0.0.0.0"
+fi
+
 # Generate test name salt
 TEST_NAME_SALT="_$(echo $RANDOM$RANDOM | base64 | cut -c1-7)"
 info "Test name salt: $TEST_NAME_SALT"
@@ -256,17 +277,6 @@ export CONNECTOR_PLUGIN_PATH="$PLUGIN_DIR"
 export EXTRA_JARS_PATH="$EXTRA_JARS_DIR"
 
 cd "$DOCKER_DIR"
-
-# Cleanup function
-cleanup() {
-    if [ "$KEEP_RUNNING" = "false" ]; then
-        info "Cleaning up containers..."
-        docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
-    else
-        warn "Keeping containers running (--keep specified)"
-        echo "To stop: cd $DOCKER_DIR && docker compose $COMPOSE_FILES down -v"
-    fi
-}
 
 # Build images
 BUILD_ARGS=""
@@ -306,6 +316,52 @@ if [ $ELAPSED -ge $TIMEOUT ]; then
     error_exit "Services failed to become healthy within ${TIMEOUT}s"
 fi
 
+# Start JMX metrics scraper in the background
+METRICS_FILE="/tmp/sf-metrics-${PLATFORM}-${PLATFORM_VERSION}-$(date +%Y%m%d-%H%M%S).jsonl"
+METRICS_PID=""
+
+start_metrics_scraper() {
+    local scraper="$PROJECT_ROOT/test/scripts/scrape_metrics.sh"
+    if [ ! -x "$scraper" ]; then
+        error_exit "Metrics scraper not found or not executable: $scraper"
+    fi
+    "$scraper" \
+        --poll --interval=10 --output="$METRICS_FILE" --host=localhost --port=8778 &
+    METRICS_PID=$!
+    disown "$METRICS_PID" 2>/dev/null || true
+}
+
+stop_metrics_scraper() {
+    if [ -n "$METRICS_PID" ] && kill -0 "$METRICS_PID" 2>/dev/null; then
+        kill "$METRICS_PID" 2>/dev/null || true
+        wait "$METRICS_PID" 2>/dev/null || true
+        METRICS_PID=""
+    fi
+}
+
+cleanup() {
+    stop_metrics_scraper
+    if [ "$KEEP_RUNNING" = "false" ]; then
+        info "Cleaning up containers..."
+        docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
+    else
+        warn "Keeping containers running (--keep specified)"
+        echo "To stop: cd $DOCKER_DIR && docker compose $COMPOSE_FILES down -v"
+    fi
+}
+trap cleanup EXIT
+
+if [ "$JMX_ENABLED" = "true" ]; then
+    # Give Jolokia a moment to initialize, then start scraping
+    sleep 3
+    start_metrics_scraper
+    echo ""
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  JMX Metrics: ${METRICS_FILE}${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo ""
+fi
+
 # Build pytest arguments
 PYTEST_ARGS=(
     -v
@@ -338,6 +394,9 @@ docker compose $COMPOSE_FILES run --rm -i test-runner \
 TEST_EXIT_CODE=$?
 set -e
 
+# Stop the scraper before containers go away
+stop_metrics_scraper
+
 # Save logs on failure
 if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$LOGS_DIR" ]; then
     mkdir -p "$LOGS_DIR"
@@ -346,8 +405,22 @@ if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$LOGS_DIR" ]; then
     docker compose $COMPOSE_FILES logs $HEALTH_CHECK_SERVICE > "$LOG_FILE" 2>&1
 fi
 
-# Cleanup
-trap cleanup EXIT
+if [ "$JMX_ENABLED" = "true" ]; then
+    # Print metrics summary
+    METRICS_LINES=0
+    if [ -f "$METRICS_FILE" ]; then
+        METRICS_LINES=$(wc -l < "$METRICS_FILE")
+    fi
+
+    echo ""
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  JMX Metrics: ${METRICS_FILE}${NC}"
+    echo -e "${GREEN}  Snapshots collected: ${METRICS_LINES}${NC}"
+    if [ "$METRICS_LINES" -gt 0 ] 2>/dev/null; then
+        echo -e "${GREEN}  Analyze: ${PROJECT_ROOT}/test/scripts/analyze_metrics.sh ${METRICS_FILE}${NC}"
+    fi
+    echo -e "${GREEN}========================================${NC}"
+fi
 
 if [ $TEST_EXIT_CODE -ne 0 ]; then
     echo -e "\n${RED}========================================${NC}"
