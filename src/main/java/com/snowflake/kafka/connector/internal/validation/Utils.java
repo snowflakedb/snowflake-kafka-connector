@@ -1,8 +1,12 @@
 /*
- * Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
+ * COPIED FROM SNOWFLAKE INGEST SDK V1
+ * Source: snowflake-ingest-java/src/main/java/net/snowflake/ingest/utils/Utils.java
  *
- * This file contains utility methods copied from the Snowflake Ingest SDK v1 (utils/Utils.java)
- * to support client-side validation in Kafka Connector v4.
+ * Modifications:
+ * - Only stripTrailingNulls() method retained (only method used by validation)
+ * - Package changed to com.snowflake.kafka.connector.internal.validation
+ *
+ * Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
  */
 
 package com.snowflake.kafka.connector.internal.validation;

@@ -1,13 +1,12 @@
 /*
- * Copyright (c) 2021-2024 Snowflake Computing Inc. All rights reserved.
- */
-
-/*
- * Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
+ * COPIED FROM SNOWFLAKE INGEST SDK V1
+ * Source: snowflake-ingest-java/src/main/java/net/snowflake/ingest/streaming/internal/DataValidationUtil.java
  *
- * This file is copied from the Snowflake Ingest SDK v1 (streaming/internal/DataValidationUtil.java)
- * to support client-side validation in Kafka Connector v4.
- * Iceberg-specific validation methods have been removed as they are not needed.
+ * Modifications:
+ * - Iceberg-specific validation methods removed (not needed for Kafka Connector)
+ * - Package changed to com.snowflake.kafka.connector.internal.validation
+ *
+ * Copyright (c) 2021-2024 Snowflake Computing Inc. All rights reserved.
  */
 
 package com.snowflake.kafka.connector.internal.validation;

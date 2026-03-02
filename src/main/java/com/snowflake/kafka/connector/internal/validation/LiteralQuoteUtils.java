@@ -1,8 +1,11 @@
 /*
- * Copyright (c) 2022 Snowflake Computing Inc. All rights reserved.
+ * COPIED FROM SNOWFLAKE INGEST SDK V1
+ * Source: snowflake-ingest-java/src/main/java/net/snowflake/ingest/streaming/internal/LiteralQuoteUtils.java
  *
- * This file is copied from the Snowflake Ingest SDK v1 (streaming/internal/LiteralQuoteUtils.java)
- * to support client-side validation in Kafka Connector v4.
+ * Modifications:
+ * - Package changed to com.snowflake.kafka.connector.internal.validation
+ *
+ * Copyright (c) 2022 Snowflake Computing Inc. All rights reserved.
  */
 package com.snowflake.kafka.connector.internal.validation;
 

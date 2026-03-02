@@ -1,8 +1,14 @@
 /*
- * Copyright (c) 2025 Snowflake Computing Inc. All rights reserved.
+ * COPIED FROM SNOWFLAKE INGEST SDK V1
+ * Source: snowflake-ingest-java/src/main/java/net/snowflake/ingest/streaming/internal/serialization/DuplicateKeyValidatedObject.java
+ *
+ * Modifications:
+ * - Package changed to com.snowflake.kafka.connector.internal.validation
+ *
+ * Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
  */
 
-/* * Copyright (c) 2021 Snowflake Computing Inc. All rights reserved. * * This file is copied from the Snowflake Ingest SDK v1 (streaming/internal/serialization/DuplicateKeyValidatedObject.java) * to support client-side validation in Kafka Connector v4. */package com.snowflake.kafka.connector.internal.validation;
+package com.snowflake.kafka.connector.internal.validation;
 
 /**
  * A wrapper for an Object that is going to be validated by {@link

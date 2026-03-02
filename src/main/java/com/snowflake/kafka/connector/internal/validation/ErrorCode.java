@@ -1,9 +1,12 @@
 /*
- * Copyright (c) 2021-2024 Snowflake Computing Inc. All rights reserved.
+ * COPIED FROM SNOWFLAKE INGEST SDK V1
+ * Source: snowflake-ingest-java/src/main/java/net/snowflake/ingest/utils/ErrorCode.java
  *
- * This file is copied from the Snowflake Ingest SDK v1 (utils/ErrorCode.java)
- * to support client-side validation in Kafka Connector v4.
- * Only validation-related error codes are retained.
+ * Modifications:
+ * - Only validation-related error codes retained (INVALID_FORMAT_ROW, INVALID_VALUE_ROW, UNKNOWN_DATA_TYPE, UNSUPPORTED_DATA_TYPE, IO_ERROR, INTERNAL_ERROR)
+ * - Package changed to com.snowflake.kafka.connector.internal.validation
+ *
+ * Copyright (c) 2021-2024 Snowflake Computing Inc. All rights reserved.
  */
 
 package com.snowflake.kafka.connector.internal.validation;

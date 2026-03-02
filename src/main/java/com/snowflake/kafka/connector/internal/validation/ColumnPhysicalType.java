@@ -1,8 +1,12 @@
 /*
- * Copyright (c) 2022-2024 Snowflake Computing Inc. All rights reserved.
+ * COPIED FROM SNOWFLAKE INGEST SDK V1
+ * Source: snowflake-ingest-java/src/main/java/net/snowflake/ingest/streaming/internal/AbstractRowBuffer.java
  *
- * This file is extracted from the Snowflake Ingest SDK v1 (streaming/internal/AbstractRowBuffer.java)
- * to support client-side validation in Kafka Connector v4.
+ * Modifications:
+ * - Extracted ColumnPhysicalType enum from AbstractRowBuffer class
+ * - Package changed to com.snowflake.kafka.connector.internal.validation
+ *
+ * Copyright (c) 2022-2024 Snowflake Computing Inc. All rights reserved.
  */
 
 package com.snowflake.kafka.connector.internal.validation;
