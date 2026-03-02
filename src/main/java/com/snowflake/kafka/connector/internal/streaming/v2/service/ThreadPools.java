@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2.service;
 
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -17,14 +18,26 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Like {@link com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools},
  * this class uses a static {@link ConcurrentHashMap} keyed by connector name. Each connector gets
  * its own pool, and the pool is shut down when the last task for a connector calls {@link
- * #closeForConnector(String)}.
+ * #closeForTask(String, String)}.
  */
 public class ThreadPools {
   private static final KCLogger LOGGER = new KCLogger(ThreadPools.class.getName());
 
-  private static final Map<String, ExecutorService> connectors = new ConcurrentHashMap<>();
+  private static final Map<String, ConnectorThreadPool> connectors = new ConcurrentHashMap<>();
 
   private ThreadPools() {}
+
+  /** Holds the executor and the set of task IDs currently using it. */
+  private static class ConnectorThreadPool {
+    final ExecutorService ioExecutor;
+    final Set<String> taskIds = ConcurrentHashMap.newKeySet();
+
+    ConnectorThreadPool(String connectorName) {
+      LOGGER.info("Creating I/O thread pool for connector: {}", connectorName);
+      this.ioExecutor =
+          Executors.newCachedThreadPool(new DaemonThreadFactory(connectorName + "-io"));
+    }
+  }
 
   /**
    * Returns the I/O executor (cached thread pool) for the given connector, creating it if it does
@@ -32,24 +45,46 @@ public class ThreadPools {
    */
   public static ExecutorService getIoExecutor(final String connectorName) {
     return connectors.computeIfAbsent(
+            connectorName,
+            k -> {
+              // This is a logical error but we can recover.
+              LOGGER.warn("Connector thread pool not found for connector: {}", connectorName);
+              return new ConnectorThreadPool(connectorName);
+            })
+        .ioExecutor;
+  }
+
+  /**
+   * Registers a task as a user of the connector's thread pool. Must be paired with a later call to
+   * {@link #closeForTask(String, String)} to ensure the pool is shut down when no tasks remain.
+   */
+  public static void registerTask(final String connectorName, final String taskId) {
+    connectors.compute(
         connectorName,
-        k -> {
-          LOGGER.info("Creating I/O thread pool for connector: {}", connectorName);
-          return Executors.newCachedThreadPool(new DaemonThreadFactory(connectorName + "-io"));
+        (key, pool) -> {
+          if (pool == null) {
+            pool = new ConnectorThreadPool(connectorName);
+          }
+          pool.taskIds.add(taskId);
+          return pool;
         });
   }
 
   /**
-   * Shuts down the thread pool for the given connector and removes it from the registry. Safe to
-   * call even if no pool exists for the connector.
+   * Unregisters a task from the connector's thread pool. When the last task unregisters, the
+   * executor is shut down and removed from the registry.
    */
-  public static void closeForConnector(final String connectorName) {
+  public static void closeForTask(final String connectorName, final String taskId) {
     connectors.computeIfPresent(
         connectorName,
-        (key, executor) -> {
-          LOGGER.info("Shutting down I/O thread pool for connector: {}", connectorName);
-          executor.shutdownNow();
-          return null;
+        (key, pool) -> {
+          pool.taskIds.remove(taskId);
+          if (pool.taskIds.isEmpty()) {
+            LOGGER.info("Shutting down I/O thread pool for connector: {}", connectorName);
+            pool.ioExecutor.shutdownNow();
+            return null;
+          }
+          return pool;
         });
   }
 

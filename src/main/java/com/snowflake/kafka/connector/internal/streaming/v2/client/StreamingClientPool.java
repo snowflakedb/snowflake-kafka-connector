@@ -17,8 +17,8 @@ import org.apache.kafka.connect.errors.ConnectException;
  * Manages clients for a single connector. Tracks which tasks use which pipes and only closes
  * clients when no tasks are using them.
  *
- * <p>Client creation is dispatched to the connector's I/O thread pool (obtained from {@link
- * ThreadPools}) so that multiple pipes can initialize in parallel.
+ * <p>Client creation is dispatched to the connector's I/O thread pool so that multiple pipes can
+ * initialize in parallel.
  *
  * <p>Thread safety is achieved via a single {@link ConcurrentHashMap} with per-key atomic {@code
  * compute()} calls — no explicit locking is needed. The actual blocking wait for client readiness
@@ -182,11 +182,5 @@ public class StreamingClientPool {
   /** Returns true if there are no remaining clients or task registrations. */
   boolean isEmpty() {
     return pipes.isEmpty();
-  }
-
-  /** Shuts down the thread pool. Called when the pool is evicted from the connector map. */
-  void shutdown() {
-    LOGGER.info("Shutting down client pool for connector: {}", connectorName);
-    ThreadPools.closeForConnector(connectorName);
   }
 }

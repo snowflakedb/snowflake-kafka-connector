@@ -12,6 +12,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.io.IOException;
 import java.net.URLClassLoader;
 import java.util.Map;
@@ -157,12 +158,13 @@ class StreamingClientPoolTest {
     @BeforeEach
     void setUp() {
       connectorName = "test-connector-" + UUID.randomUUID().toString().substring(0, 8);
+      ThreadPools.registerTask(connectorName, "test-task");
       pool = new StreamingClientPool(connectorName);
     }
 
     @AfterEach
     void tearDownPool() {
-      pool.shutdown();
+      ThreadPools.closeForTask(connectorName, "test-task");
     }
 
     @Test
@@ -353,12 +355,12 @@ class StreamingClientPoolTest {
       // before creating the pool — the factory captures it at construction time.
       URLClassLoader fakePluginCL = new URLClassLoader(new java.net.URL[0], null);
       ClassLoader originalCL = Thread.currentThread().getContextClassLoader();
+      String clConnectorName = "test-connector-cl-" + UUID.randomUUID().toString().substring(0, 8);
       Thread.currentThread().setContextClassLoader(fakePluginCL);
       StreamingClientPool poolWithCustomCL;
       try {
-        poolWithCustomCL =
-            new StreamingClientPool(
-                "test-connector-cl-" + UUID.randomUUID().toString().substring(0, 8));
+        ThreadPools.registerTask(clConnectorName, "test-task");
+        poolWithCustomCL = new StreamingClientPool(clConnectorName);
       } finally {
         Thread.currentThread().setContextClassLoader(originalCL);
       }
@@ -371,7 +373,7 @@ class StreamingClientPoolTest {
             .as("Pool thread should have the classloader from the pool creator")
             .isSameAs(fakePluginCL);
       } finally {
-        poolWithCustomCL.shutdown();
+        ThreadPools.closeForTask(clConnectorName, "test-task");
       }
     }
 

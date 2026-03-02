@@ -79,7 +79,7 @@ public class StreamingClientPools {
   /**
    * Releases all clients used by a specific task. Clients that are still used by other tasks remain
    * open. Only closes clients when the last task using them stops. When the pool becomes empty (no
-   * remaining clients or tasks), its thread pools are shut down and the pool is removed.
+   * remaining clients or tasks), the pool is removed from the registry.
    *
    * @param connectorName the name of the connector
    * @param taskId the ID of the task
@@ -95,9 +95,7 @@ public class StreamingClientPools {
           }
           pool.closeTaskClients(taskId);
           if (pool.isEmpty()) {
-            LOGGER.info(
-                "All tasks released for connector: {}, shutting down thread pool", connectorName);
-            pool.shutdown();
+            LOGGER.info("All tasks released for connector: {}", connectorName);
             return null;
           }
           return pool;
