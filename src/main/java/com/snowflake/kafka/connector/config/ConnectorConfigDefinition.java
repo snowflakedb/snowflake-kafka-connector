@@ -375,6 +375,18 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             13,
             Width.NONE,
-            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS);
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT,
+            MEDIUM,
+            "When true (default), records are schematized into individual columns. When false,"
+                + " records are wrapped into legacy RECORD_CONTENT and RECORD_METADATA VARIANT"
+                + " columns for backward compatibility with KC v3.",
+            CONNECTOR_CONFIG_DOC,
+            1,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION);
   }
 }

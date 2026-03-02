@@ -10,6 +10,7 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -63,6 +64,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
   private final SnowflakeMetadataConfig metadataConfig;
+  private final boolean enableSchematization;
 
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
@@ -99,6 +101,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.connectorConfig = connectorConfig;
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
     this.metadataConfig = metadataConfig;
+    this.enableSchematization =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+                String.valueOf(
+                    KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
     this.connectorName = connectorName;
     this.taskId = taskId;
     this.streamingErrorHandler = streamingErrorHandler;
@@ -157,7 +165,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private void transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
       final long kafkaOffset = kafkaSinkRecord.kafkaOffset();
-      final SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaSinkRecord, metadataConfig);
+      final SnowflakeSinkRecord record =
+          SnowflakeSinkRecord.from(kafkaSinkRecord, metadataConfig, enableSchematization);
 
       if (record.isBroken()) {
         LOGGER.debug("Broken record offset:{}, topic:{}", kafkaOffset, kafkaSinkRecord.topic());

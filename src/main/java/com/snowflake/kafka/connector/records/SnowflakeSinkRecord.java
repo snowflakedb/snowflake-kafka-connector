@@ -2,12 +2,16 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.Utils;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
@@ -15,6 +19,8 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * Snowflake Streaming Ingest SDK ({@code Map<String, Object>}).
  */
 public final class SnowflakeSinkRecord {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   static final String OFFSET = "offset";
 
@@ -47,13 +53,15 @@ public final class SnowflakeSinkRecord {
   }
 
   public static SnowflakeSinkRecord from(
-      SinkRecord record, SnowflakeMetadataConfig metadataConfig) {
-    return from(record, metadataConfig, Instant.now());
+      SinkRecord record, SnowflakeMetadataConfig metadataConfig, boolean enableSchematization) {
+    return from(record, metadataConfig, Instant.now(), enableSchematization);
   }
 
   public static SnowflakeSinkRecord from(
-      SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
-
+      SinkRecord record,
+      SnowflakeMetadataConfig metadataConfig,
+      Instant connectorPushTime,
+      boolean enableSchematization) {
     // First validate the key if present - a broken key means a broken record
     if (record.key() != null && record.keySchema() != null) {
       try {
@@ -63,21 +71,39 @@ public final class SnowflakeSinkRecord {
       }
     }
 
-    // Handle null/tombstone records
     if (record.value() == null) {
       return createTombstoneRecord(record, metadataConfig, connectorPushTime);
     }
 
     try {
-      Map<String, Object> content =
-          KafkaRecordConverter.convertToMap(record.valueSchema(), record.value());
-
+      Map<String, Object> content;
+      if (enableSchematization) {
+        content = KafkaRecordConverter.convertToMap(record.valueSchema(), record.value());
+      } else {
+        content = wrapAsRecordContent(record.valueSchema(), record.value());
+      }
       Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
-
       return new SnowflakeSinkRecord(content, metadata, RecordState.VALID, null);
     } catch (Exception e) {
       return createBrokenRecord(record, metadataConfig, connectorPushTime, e);
     }
+  }
+
+  private static Map<String, Object> wrapAsRecordContent(Schema schema, Object value) {
+    Map<String, Object> content = new HashMap<>();
+    try {
+      Object convertedValue;
+      if (value instanceof Map || value instanceof Struct) {
+        convertedValue = KafkaRecordConverter.convertToMap(schema, value);
+      } else {
+        convertedValue = KafkaRecordConverter.convertValue(schema, value);
+      }
+      String jsonString = MAPPER.writeValueAsString(convertedValue);
+      content.put(Utils.TABLE_COLUMN_CONTENT, jsonString);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("Failed to serialize value to JSON", e);
+    }
+    return content;
   }
 
   private static SnowflakeSinkRecord createTombstoneRecord(
