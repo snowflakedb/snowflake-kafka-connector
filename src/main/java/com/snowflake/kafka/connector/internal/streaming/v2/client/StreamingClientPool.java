@@ -8,10 +8,8 @@ import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import org.apache.kafka.connect.errors.ConnectException;
 
 /**
  * Manages clients for a single connector. Tracks which tasks use which pipes and only closes
@@ -39,7 +37,7 @@ public class StreamingClientPool {
    * can be kicked off asynchronously, allowing multiple pipes to initialize in parallel.
    */
   static class RefCountedClient {
-    private final CompletableFuture<SnowflakeStreamingIngestClient> clientFuture;
+    final CompletableFuture<SnowflakeStreamingIngestClient> clientFuture;
     private final Set<String> taskIds = ConcurrentHashMap.newKeySet();
 
     RefCountedClient(
@@ -77,22 +75,6 @@ public class StreamingClientPool {
 
     int taskCount() {
       return taskIds.size();
-    }
-
-    /**
-     * Blocks until the client is ready, unwrapping {@link CompletionException} so callers see the
-     * original exception type.
-     */
-    SnowflakeStreamingIngestClient awaitClient(String pipeName) {
-      try {
-        return clientFuture.join();
-      } catch (CompletionException e) {
-        if (e.getCause() instanceof RuntimeException) {
-          throw (RuntimeException) e.getCause();
-        }
-        throw new ConnectException(
-            "Unexpected error creating streaming client for pipe: " + pipeName, e.getCause());
-      }
     }
 
     void close(String pipeName, String connectorName) {
@@ -154,26 +136,6 @@ public class StreamingClientPool {
                 entry.taskCount());
           }
         });
-  }
-
-  SnowflakeStreamingIngestClient getClient(
-      final String taskId,
-      final String pipeName,
-      final Map<String, String> connectorConfig,
-      final StreamingClientProperties streamingClientProperties,
-      final TaskMetrics taskMetrics) {
-
-    try {
-      return getClientAsync(
-              taskId, pipeName, connectorConfig, streamingClientProperties, taskMetrics)
-          .join();
-    } catch (CompletionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
-      }
-      throw new ConnectException(
-          "Unexpected error creating streaming client for pipe: " + pipeName, e.getCause());
-    }
   }
 
   long getClientCountForTask(final String taskId) {
