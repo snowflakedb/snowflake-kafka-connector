@@ -29,7 +29,6 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.SnowflakeSinkTaskMetrics;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
-import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import java.util.Arrays;
@@ -235,11 +234,12 @@ public class SnowflakeSinkTask extends SinkTask {
             this.taskMetrics);
 
     // Initialize and start periodic telemetry reporter for channel status
-    Supplier<Map<String, TopicPartitionChannel>> channelSupplier =
-        () -> sink.getPartitionChannels();
     this.telemetryReporter =
         new PeriodicTelemetryReporter(
-            conn.getTelemetryClient(), channelSupplier, connectorName, this.taskConfigId);
+            conn.getTelemetryClient(),
+            sink::getPartitionChannels,
+            connectorName,
+            this.taskConfigId);
     this.telemetryReporter.start();
 
     DYNAMIC_LOGGER.info(

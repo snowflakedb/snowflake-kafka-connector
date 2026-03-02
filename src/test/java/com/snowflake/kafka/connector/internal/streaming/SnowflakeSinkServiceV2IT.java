@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-import static com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2.makeChannelName;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+import static com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager.makeChannelName;
 
 import com.codahale.metrics.Gauge;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -12,7 +12,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
-import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
@@ -48,7 +47,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @BeforeEach
   public void setup() {
     config = TestUtils.getConnectorConfigurationForStreaming(true);
-    pipe = PipeNameProvider.buildPipeName(table);
+    pipe = table;
   }
 
   @AfterEach

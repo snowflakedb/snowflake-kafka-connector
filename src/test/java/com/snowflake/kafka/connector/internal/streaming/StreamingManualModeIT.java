@@ -19,7 +19,6 @@ import com.snowflake.kafka.connector.InjectSnowflakeDataSourceExtension;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import com.snowflake.kafka.connector.internal.streaming.v2.PipeNameProvider;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -83,7 +82,7 @@ class StreamingManualModeIT {
 
     @BeforeEach
     void beforeEach() throws SQLException {
-      pipeName = PipeNameProvider.buildPipeName(tableName);
+      pipeName = tableName;
       queryRunner.execute(
           format(
               "CREATE OR REPLACE PIPE %s AS COPY INTO %s FROM (SELECT $1:city, $1:age,  $1:married,"
