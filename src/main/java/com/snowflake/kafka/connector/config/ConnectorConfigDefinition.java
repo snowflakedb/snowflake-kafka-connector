@@ -380,7 +380,7 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
             BOOLEAN,
             KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT,
-            HIGH,
+            LOW,
             "Enable client-side validation before sending data to Snowflake. "
                 + "When enabled, validates data types and schema compatibility. "
                 + "Default is true for KC v3 parity.",
