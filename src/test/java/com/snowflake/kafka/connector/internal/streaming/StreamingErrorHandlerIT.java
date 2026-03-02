@@ -12,6 +12,7 @@ import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -20,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -260,10 +262,10 @@ class StreamingErrorHandlerIT {
         errorReporter,
         new SnowflakeMetadataConfig(),
         sinkTaskContext,
-        false,
-        null,
+        Optional.empty(),
         connectorName,
         "0",
-        errorHandler);
+        errorHandler,
+        TaskMetrics.noop());
   }
 }
