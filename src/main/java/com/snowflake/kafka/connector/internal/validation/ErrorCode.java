@@ -20,7 +20,8 @@ public enum ErrorCode {
   UNSUPPORTED_DATA_TYPE("0029"),
   INVALID_VALUE_ROW("0030");
 
-  public static final String errorMessageResource = "com.snowflake.kafka.connector.internal.validation.ingest_error_messages";
+  public static final String errorMessageResource =
+      "com.snowflake.kafka.connector.internal.validation.ingest_error_messages";
 
   /** Snowflake internal message associated to the error. */
   private final String messageCode;

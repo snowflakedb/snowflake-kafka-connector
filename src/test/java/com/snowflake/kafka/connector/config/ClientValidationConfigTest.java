@@ -28,12 +28,11 @@ public class ClientValidationConfigTest {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
 
     // Verify default value is true
-    Object defaultValue = configDef.configKeys()
-        .get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED)
-        .defaultValue;
+    Object defaultValue =
+        configDef.configKeys().get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED).defaultValue;
 
-    assertEquals(SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT, defaultValue,
-        "Default value should be true");
+    assertEquals(
+        SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT, defaultValue, "Default value should be true");
     assertTrue((Boolean) defaultValue, "Default value should be true");
   }
 
@@ -48,7 +47,9 @@ public class ClientValidationConfigTest {
     Map<String, Object> parsed = configDef.parse(props);
 
     // Verify it can be set to false
-    assertEquals(false, parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
+    assertEquals(
+        false,
+        parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
         "Should be able to set validation to false");
   }
 
@@ -63,7 +64,9 @@ public class ClientValidationConfigTest {
     Map<String, Object> parsed = configDef.parse(props);
 
     // Verify it can be explicitly set to true
-    assertEquals(true, parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
+    assertEquals(
+        true,
+        parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
         "Should be able to set validation to true");
   }
 
@@ -78,7 +81,9 @@ public class ClientValidationConfigTest {
     Map<String, Object> parsed = configDef.parse(props);
 
     // Verify default is true
-    assertEquals(true, parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
+    assertEquals(
+        true,
+        parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
         "Should default to true when not specified");
   }
 }

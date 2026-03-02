@@ -18,8 +18,6 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.List;
 import java.util.Map;
-import com.snowflake.kafka.connector.internal.validation.DuplicateDetector;
-import com.snowflake.kafka.connector.internal.validation.Utils;
 
 /**
  * A custom Jackson serializer that validates Objects by removing trailing nulls in keys for
