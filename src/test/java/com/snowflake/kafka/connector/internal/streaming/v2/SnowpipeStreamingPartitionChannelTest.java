@@ -12,15 +12,16 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
-import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelInsertionException;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
-import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientSupplier;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -34,7 +35,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -86,25 +90,35 @@ class SnowpipeStreamingPartitionChannelTest {
     // Given: A partition channel is created and its underlying channel is open
     final SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
-
-    // When: Trigger a channel recovery by calling fetchOffsetTokenWithRetry which will fail
-    // and invoke the fallback that reopens the channel
-    // We simulate this by directly testing the behavior pattern:
-    // The channel should be open at this point
     assertTrue(!partitionChannel.isChannelClosed(), "Channel should be open before recovery");
 
     // Record close count before recovery
     final int closeCountBeforeRecovery = trackingClientSupplier.getCloseCallCount();
-    trackingClientSupplier.setThrowOnOffsetToken(true);
 
-    try {
-      // This will trigger the fallback path which reopens the channel
-      partitionChannel.fetchOffsetTokenWithRetry();
-    } catch (Exception e) {
-      // Expected - the retry policy may throw after exhausting retries
-    }
+    // When: appendRow throws SFException, triggering the fallback that reopens the channel
+    trackingClientSupplier.setThrowOnAppendRow(true);
+    RuntimeException thrown =
+        assertThrows(
+            RuntimeException.class, () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+    assertTrue(
+        thrown.getCause() instanceof TopicPartitionChannelInsertionException,
+        "Expected TopicPartitionChannelInsertionException cause, got: " + thrown.getCause());
 
+    // Then: the old channel should have been closed before the new one was opened
     assertEquals(closeCountBeforeRecovery + 1, trackingClientSupplier.getCloseCallCount());
+    assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
+  private SinkRecord buildValidRecord(long offset) {
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
+    SchemaAndValue schemaAndValue =
+        jsonConverter.toConnectData(
+            TOPIC_NAME, "{\"name\": \"test\"}".getBytes(StandardCharsets.UTF_8));
+    return SinkRecordBuilder.forTopicPartition(TOPIC_NAME, PARTITION)
+        .withSchemaAndValue(schemaAndValue)
+        .withOffset(offset)
+        .build();
   }
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel() {
@@ -166,23 +180,13 @@ class SnowpipeStreamingPartitionChannelTest {
         () -> SnowpipeStreamingPartitionChannel.parseOffsetToken("12.5", "test_channel"));
   }
 
-  /** Custom StreamingClientSupplier that tracks channel operations for verification in tests. */
-  static class TrackingIngestClientSupplier implements StreamingClientSupplier {
+  /** Shared state holder that tracks channel operations for verification in tests. */
+  static class TrackingIngestClientSupplier {
 
     private final AtomicInteger closeCallCount = new AtomicInteger(0);
     private final AtomicInteger totalChannelsCreated = new AtomicInteger(0);
     private volatile boolean throwOnOffsetToken;
-
-    @Override
-    public SnowflakeStreamingIngestClient get(
-        final String clientName,
-        final String dbName,
-        final String schemaName,
-        final String pipeName,
-        final Map<String, String> connectorConfig,
-        final StreamingClientProperties streamingClientProperties) {
-      return new TrackingStreamingIngestClient(pipeName, this);
-    }
+    private volatile boolean throwOnAppendRow;
 
     int getCloseCallCount() {
       return closeCallCount.get();
@@ -194,6 +198,10 @@ class SnowpipeStreamingPartitionChannelTest {
 
     void setThrowOnOffsetToken(boolean throwOnOffsetToken) {
       this.throwOnOffsetToken = throwOnOffsetToken;
+    }
+
+    void setThrowOnAppendRow(boolean throwOnAppendRow) {
+      this.throwOnAppendRow = throwOnAppendRow;
     }
 
     void incrementCloseCallCount() {
@@ -379,7 +387,11 @@ class SnowpipeStreamingPartitionChannelTest {
     }
 
     @Override
-    public void appendRow(final Map<String, Object> row, final String offsetToken) {}
+    public void appendRow(final Map<String, Object> row, final String offsetToken) {
+      if (supplier.throwOnAppendRow) {
+        throw new SFException("ChannelInvalidated", "Test simulated channel invalidation", 0, "");
+      }
+    }
 
     @Override
     public void appendRows(
