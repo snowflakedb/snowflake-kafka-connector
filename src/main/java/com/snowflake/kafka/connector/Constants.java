@@ -32,6 +32,11 @@ public final class Constants {
     public static final String SNOWFLAKE_STREAMING_MAX_CLIENT_LAG =
         "snowflake.streaming.max.client.lag";
 
+    // Client-side validation
+    public static final String SNOWFLAKE_CLIENT_VALIDATION_ENABLED =
+        "snowflake.client.validation.enabled";
+    public static final boolean SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT = true;
+
     // Caching
     public static final String CACHE_TABLE_EXISTS = "snowflake.cache.table.exists";
     public static final boolean CACHE_TABLE_EXISTS_DEFAULT = true;

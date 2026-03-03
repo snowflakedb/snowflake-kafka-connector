@@ -377,6 +377,18 @@ public class ConnectorConfigDefinition {
             Width.NONE,
             KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS)
         .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT,
+            LOW,
+            "Enable client-side validation before sending data to Snowflake. "
+                + "When enabled, validates data types and schema compatibility. "
+                + "Default is true for KC v3 parity.",
+            CONNECTOR_CONFIG_DOC,
+            14,
+            Width.NONE,
+            "Enable Client Validation")
+        .define(
             KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
             BOOLEAN,
             KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT,
@@ -385,7 +397,7 @@ public class ConnectorConfigDefinition {
                 + " records are wrapped into legacy RECORD_CONTENT and RECORD_METADATA VARIANT"
                 + " columns for backward compatibility with KC v3.",
             CONNECTOR_CONFIG_DOC,
-            1,
+            15,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION);
   }
