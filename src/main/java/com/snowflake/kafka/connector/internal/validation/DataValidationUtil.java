@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -42,6 +43,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.Stack;
 import java.util.function.Supplier;
 import net.snowflake.client.jdbc.internal.snowflake.common.util.Power10;
@@ -1006,38 +1008,79 @@ class DataValidationUtil {
         columnName, input.getClass(), "REAL", new String[] {"Number", "String"}, insertRowIndex);
   }
 
+  static int validateAndParseBoolean(String columnName, Object input, long insertRowIndex) {
+    if (input instanceof Boolean) {
+      return (boolean) input ? 1 : 0;
+    } else if (input instanceof Number) {
+      return new BigDecimal(input.toString()).compareTo(BigDecimal.ZERO) == 0 ? 0 : 1;
+    } else if (input instanceof String) {
+      return convertStringToBoolean(columnName, (String) input, insertRowIndex) ? 1 : 0;
+    }
+
+    throw typeNotAllowedException(
+        columnName,
+        input.getClass(),
+        "BOOLEAN",
+        new String[] {"boolean", "Number", "String"},
+        insertRowIndex);
+  }
+
+  static void checkValueInRange(
+      String columnName,
+      BigDecimal bigDecimalValue,
+      int scale,
+      int precision,
+      final long insertRowIndex) {
+    BigDecimal comparand =
+        (precision >= scale) && (precision - scale) < POWER_10.length
+            ? POWER_10[precision - scale]
+            : BigDecimal.TEN.pow(precision - scale);
+    if (bigDecimalValue.abs().compareTo(comparand) >= 0) {
+      throw new SFException(
+          ErrorCode.INVALID_FORMAT_ROW,
+          String.format(
+              "Number out of representable exclusive range of (-1e%s..1e%s), rowIndex:%d,"
+                  + " column:%s, value:%s",
+              precision - scale, precision - scale, insertRowIndex, columnName, bigDecimalValue));
+    }
+  }
+
+  static void checkFixedLengthByteArray(
+      String columnName, byte[] bytes, int length, final long insertRowIndex) {
+    if (bytes.length != length) {
+      throw new SFException(
+          ErrorCode.INVALID_VALUE_ROW,
+          String.format(
+              "Binary length mismatch: expected:%d, actual:%d, rowIndex:%d, column:%s",
+              length, bytes.length, insertRowIndex, columnName));
+    }
+  }
+
+  static Set<String> allowedBooleanStringsLowerCased =
+      Sets.newHashSet("1", "0", "yes", "no", "y", "n", "t", "f", "true", "false", "on", "off");
+
+  private static boolean convertStringToBoolean(
+      String columnName, String value, final long insertRowIndex) {
+    String normalizedInput = value.toLowerCase().trim();
+    if (!allowedBooleanStringsLowerCased.contains(normalizedInput)) {
+      throw valueFormatNotAllowedException(
+          columnName,
+          "BOOLEAN",
+          "Not a valid boolean, see"
+              + " https://docs.snowflake.com/en/sql-reference/data-types-logical.html#conversion-to-boolean"
+              + " for the list of supported formats",
+          insertRowIndex);
+    }
+    return "1".equals(normalizedInput)
+        || "yes".equals(normalizedInput)
+        || "y".equals(normalizedInput)
+        || "t".equals(normalizedInput)
+        || "true".equals(normalizedInput)
+        || "on".equals(normalizedInput);
+  }
+
   /**
-   * Validates and parses input Iceberg INT column. Allowed Java types:
-   *
-   * <ul>
-   *   <li>Number String columnName, Object input, long insertRowIndex) { if (!(input instanceof
-   *       Map)) { throw typeNotAllowedException( columnName, input.getClass(), "MAP", new String[]
-   *       {"Map"}, insertRowIndex); } return (Map<?, ?>) input; }
-   *       <p>static void checkValueInRange( String columnName, BigDecimal bigDecimalValue, int
-   *       scale, int precision, final long insertRowIndex) { BigDecimal comparand = (precision >=
-   *       scale) && (precision - scale) < POWER_10.length ? POWER_10[precision - scale] :
-   *       BigDecimal.TEN.pow(precision - scale); if (bigDecimalValue.abs().compareTo(comparand) >=
-   *       0) { throw new SFException( ErrorCode.INVALID_FORMAT_ROW, String.format( "Number out of
-   *       representable exclusive range of (-1e%s..1e%s), rowIndex:%d," + " column:%s, value:%s",
-   *       precision - scale, precision - scale, insertRowIndex, columnName, bigDecimalValue)); } }
-   *       <p>static void checkFixedLengthByteArray( String columnName, byte[] bytes, int length,
-   *       final long insertRowIndex) { if (bytes.length != length) { throw new SFException(
-   *       ErrorCode.INVALID_VALUE_ROW, String.format( "Binary length mismatch: expected:%d,
-   *       actual:%d, rowIndex:%d, column:%s", length, bytes.length, insertRowIndex, columnName)); }
-   *       }
-   *       <p>static Set<String> allowedBooleanStringsLowerCased = Sets.newHashSet("1", "0", "yes",
-   *       "no", "y", "n", "t", "f", "true", "false", "on", "off");
-   *       <p>private static boolean convertStringToBoolean( String columnName, String value, final
-   *       long insertRowIndex) { String normalizedInput = value.toLowerCase().trim(); if
-   *       (!allowedBooleanStringsLowerCased.contains(normalizedInput)) { throw
-   *       valueFormatNotAllowedException( columnName, "BOOLEAN", "Not a valid boolean, see" + "
-   *       https://docs.snowflake.com/en/sql-reference/data-types-logical.html#conversion-to-boolean"
-   *       + " for the list of supported formats", insertRowIndex); } return
-   *       "1".equals(normalizedInput) || "yes".equals(normalizedInput) ||
-   *       "y".equals(normalizedInput) || "t".equals(normalizedInput) ||
-   *       "true".equals(normalizedInput) || "on".equals(normalizedInput); }
-   *       <p>/** Create exception that a Java type cannot be ingested into a specific Snowflake
-   *       column type
+   * Create exception that a Java type cannot be ingested into a specific Snowflake column type
    *
    * @param javaType Java type failing the validation
    * @param snowflakeType Target Snowflake column type
