@@ -435,6 +435,13 @@
             <version>${guava.version}</version>
         </dependency>
 
+        <!-- Caffeine cache library for client-side validation (copied from SSv1 SDK) -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>2.9.3</version>
+        </dependency>
+
         <!-- https://github.com/failsafe-lib/failsafe-->
         <dependency>
             <groupId>dev.failsafe</groupId>
