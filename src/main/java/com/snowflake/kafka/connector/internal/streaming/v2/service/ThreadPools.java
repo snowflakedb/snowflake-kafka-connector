@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ThreadPools {
   private static final KCLogger LOGGER = new KCLogger(ThreadPools.class.getName());
 
-  private static final Map<String, ConnectorThreadPool> connectors = new ConcurrentHashMap<>();
+  private static final Map<String, ConnectorThreadPool> connectorPools = new ConcurrentHashMap<>();
 
   private ThreadPools() {}
 
@@ -44,7 +44,7 @@ public class ThreadPools {
    * not yet exist.
    */
   public static ExecutorService getIoExecutor(final String connectorName) {
-    return connectors.computeIfAbsent(
+    return connectorPools.computeIfAbsent(
             connectorName,
             k -> {
               // This is a logical error but we can recover.
@@ -59,7 +59,7 @@ public class ThreadPools {
    * {@link #closeForTask(String, String)} to ensure the pool is shut down when no tasks remain.
    */
   public static void registerTask(final String connectorName, final String taskId) {
-    connectors.compute(
+    connectorPools.compute(
         connectorName,
         (key, pool) -> {
           if (pool == null) {
@@ -75,7 +75,7 @@ public class ThreadPools {
    * executor is shut down and removed from the registry.
    */
   public static void closeForTask(final String connectorName, final String taskId) {
-    connectors.computeIfPresent(
+    connectorPools.computeIfPresent(
         connectorName,
         (key, pool) -> {
           pool.taskIds.remove(taskId);
