@@ -47,7 +47,6 @@ public class ColumnSchema {
 
   /**
    * Construct ColumnSchema from DESCRIBE TABLE ResultSet row.
-   * Temporary workaround until system function is available.
    *
    * <p>Thread-safety: This method is NOT thread-safe. Caller must synchronize if sharing ResultSet.
    * <p>Resource management: Caller is responsible for closing the ResultSet.
