@@ -12,7 +12,6 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
-import static java.time.ZoneOffset.UTC;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_16_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
@@ -30,6 +29,7 @@ import static com.snowflake.kafka.connector.internal.validation.DataValidationUt
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseTimestamp;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseVariant;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseVariantNew;
+import static java.time.ZoneOffset.UTC;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -55,12 +55,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TimeZone;
-import com.snowflake.kafka.connector.internal.validation.ErrorCode;
-import com.snowflake.kafka.connector.internal.validation.SFException;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
