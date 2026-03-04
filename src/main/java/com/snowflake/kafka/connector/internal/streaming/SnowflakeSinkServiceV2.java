@@ -22,6 +22,7 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
+import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.Collections;
@@ -134,6 +135,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             taskMetrics,
             topicToTableMap,
             this.enableSanitization);
+
+    ThreadPools.registerTask(this.connectorName, this.taskId);
 
     LOGGER.info(
         "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {},"
@@ -306,9 +309,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     channelManager.waitForAllChannelsToCommitData();
 
-    // Release all streaming clients used by this service
-    // Clients will only be closed if no other tasks are using them
+    // Release all streaming clients used by this service.
+    // Clients will only be closed if no other tasks are using them.
     StreamingClientPools.closeTaskClients(connectorName, taskId);
+
+    // Release this task's claim on the shared thread pool.
+    // The pool is shut down when the last task for this connector unregisters.
+    ThreadPools.closeForTask(connectorName, taskId);
   }
 
   /* Undefined */

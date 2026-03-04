@@ -12,12 +12,14 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.io.IOException;
 import java.net.URLClassLoader;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -141,7 +143,8 @@ class StreamingClientPoolTest {
                 "test-connector",
                 connectorConfig,
                 streamingClientProperties,
-                TaskMetrics.noop());
+                TaskMetrics.noop(),
+                Executors.newSingleThreadExecutor());
       }
     }
   }
@@ -155,7 +158,13 @@ class StreamingClientPoolTest {
     @BeforeEach
     void setUp() {
       connectorName = "test-connector-" + UUID.randomUUID().toString().substring(0, 8);
+      ThreadPools.registerTask(connectorName, "test-task");
       pool = new StreamingClientPool(connectorName);
+    }
+
+    @AfterEach
+    void tearDownPool() {
+      ThreadPools.closeForTask(connectorName, "test-task");
     }
 
     @Test
@@ -334,7 +343,7 @@ class StreamingClientPoolTest {
     }
 
     @Test
-    void getClient_propagates_context_classloader_to_async_thread() {
+    void pool_threads_inherit_context_classloader_from_pool_creator() {
       AtomicReference<ClassLoader> capturedClassLoader = new AtomicReference<>();
       StreamingClientFactory.setStreamingClientSupplier(
           (clientName, dbName, schemaName, pipeName, config, props) -> {
@@ -343,19 +352,29 @@ class StreamingClientPoolTest {
           });
 
       // Simulate Kafka Connect's PluginClassLoader by setting a custom context classloader
+      // before creating the pool — the factory captures it at construction time.
       URLClassLoader fakePluginCL = new URLClassLoader(new java.net.URL[0], null);
       ClassLoader originalCL = Thread.currentThread().getContextClassLoader();
+      String clConnectorName = "test-connector-cl-" + UUID.randomUUID().toString().substring(0, 8);
       Thread.currentThread().setContextClassLoader(fakePluginCL);
+      StreamingClientPool poolWithCustomCL;
       try {
-        pool.getClient(
-            "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
+        ThreadPools.registerTask(clConnectorName, "test-task");
+        poolWithCustomCL = new StreamingClientPool(clConnectorName);
       } finally {
         Thread.currentThread().setContextClassLoader(originalCL);
       }
 
-      assertThat(capturedClassLoader.get())
-          .as("ForkJoinPool thread should have the caller's context classloader")
-          .isSameAs(fakePluginCL);
+      try {
+        poolWithCustomCL.getClient(
+            "task-0", "pipe-A", connectorConfig, streamingClientProperties, TaskMetrics.noop());
+
+        assertThat(capturedClassLoader.get())
+            .as("Pool thread should have the classloader from the pool creator")
+            .isSameAs(fakePluginCL);
+      } finally {
+        ThreadPools.closeForTask(clConnectorName, "test-task");
+      }
     }
 
     @Test
