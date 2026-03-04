@@ -113,7 +113,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
     this.batchOffsetFetcher =
         new BatchOffsetFetcher(
-            this.connectorName, this.taskId, connectorConfig, this.tolerateErrors, taskMetrics);
+            this.connectorName,
+            this.taskId,
+            connectorConfig,
+            this.tolerateErrors,
+            ThreadPools.getIoExecutor(this.connectorName),
+            taskMetrics);
     this.enableSanitization =
         Boolean.parseBoolean(
             connectorConfig.getOrDefault(
