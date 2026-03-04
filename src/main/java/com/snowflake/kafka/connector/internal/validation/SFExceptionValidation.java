@@ -4,6 +4,7 @@
  *
  * Modifications:
  * - Package changed to com.snowflake.kafka.connector.internal.validation
+ * - Class renamed to SFExceptionValidation to avoid conflict with com.snowflake.ingest.streaming.SFException
  *
  * Copyright (c) 2021 Snowflake Computing Inc. All rights reserved.
  */
@@ -15,9 +16,9 @@ import java.util.ResourceBundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Snowflake exception in the Ingest SDK */
-public class SFException extends RuntimeException {
-  static final Logger logger = LoggerFactory.getLogger(SFException.class);
+/** Snowflake exception for client-side validation */
+public class SFExceptionValidation extends RuntimeException {
+  static final Logger logger = LoggerFactory.getLogger(SFExceptionValidation.class);
   static final ResourceBundle errorMessageBundle =
       ResourceBundle.getBundle(ErrorCode.errorMessageResource);
 
@@ -37,7 +38,7 @@ public class SFException extends RuntimeException {
    * @param errorCode
    * @param params
    */
-  public SFException(Throwable cause, ErrorCode errorCode, Object... params) {
+  public SFExceptionValidation(Throwable cause, ErrorCode errorCode, Object... params) {
     super(getErrorMessage(errorCode, params), cause);
 
     this.vendorCode = errorCode.getMessageCode();
@@ -51,7 +52,7 @@ public class SFException extends RuntimeException {
    * @param errorCode
    * @param params
    */
-  public SFException(ErrorCode errorCode, Object... params) {
+  public SFExceptionValidation(ErrorCode errorCode, Object... params) {
     this(null, errorCode, params);
   }
 

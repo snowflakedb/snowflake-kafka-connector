@@ -209,7 +209,7 @@ class DataValidationUtil {
           throw valueFormatNotAllowedException(
               columnName, snowflakeType, "Not a valid JSON: duplicate field", insertRowIndex);
         }
-        throw new SFException(
+        throw new SFExceptionValidation(
             e,
             ErrorCode.IO_ERROR,
             String.format(
@@ -667,7 +667,7 @@ class DataValidationUtil {
       offsetDateTime = offsetDateTime.withOffsetSameLocal(ZoneOffset.UTC);
     }
     if (offsetDateTime.getYear() < 1 || offsetDateTime.getYear() > 9999) {
-      throw new SFException(
+      throw new SFExceptionValidation(
           ErrorCode.INVALID_VALUE_ROW,
           String.format(
               "Timestamp out of representable inclusive range of years between 1 and 9999,"
@@ -807,7 +807,7 @@ class DataValidationUtil {
         inputToOffsetDateTime(columnName, "DATE", input, ZoneOffset.UTC, insertRowIndex);
 
     if (offsetDateTime.getYear() < -9999 || offsetDateTime.getYear() > 9999) {
-      throw new SFException(
+      throw new SFExceptionValidation(
           ErrorCode.INVALID_VALUE_ROW,
           String.format(
               "Date out of representable inclusive range of years between -9999 and 9999,"
@@ -1036,7 +1036,7 @@ class DataValidationUtil {
             ? POWER_10[precision - scale]
             : BigDecimal.TEN.pow(precision - scale);
     if (bigDecimalValue.abs().compareTo(comparand) >= 0) {
-      throw new SFException(
+      throw new SFExceptionValidation(
           ErrorCode.INVALID_FORMAT_ROW,
           String.format(
               "Number out of representable exclusive range of (-1e%s..1e%s), rowIndex:%d,"
@@ -1048,7 +1048,7 @@ class DataValidationUtil {
   static void checkFixedLengthByteArray(
       String columnName, byte[] bytes, int length, final long insertRowIndex) {
     if (bytes.length != length) {
-      throw new SFException(
+      throw new SFExceptionValidation(
           ErrorCode.INVALID_VALUE_ROW,
           String.format(
               "Binary length mismatch: expected:%d, actual:%d, rowIndex:%d, column:%s",
@@ -1086,13 +1086,13 @@ class DataValidationUtil {
    * @param snowflakeType Target Snowflake column type
    * @param allowedJavaTypes Java types supported for the Java type
    */
-  private static SFException typeNotAllowedException(
+  private static SFExceptionValidation typeNotAllowedException(
       String columnName,
       Class<?> javaType,
       String snowflakeType,
       String[] allowedJavaTypes,
       final long insertRowIndex) {
-    return new SFException(
+    return new SFExceptionValidation(
         ErrorCode.INVALID_FORMAT_ROW,
         String.format(
             "Object of type %s cannot be ingested into Snowflake column %s of type %s, rowIndex:%d",
@@ -1111,11 +1111,11 @@ class DataValidationUtil {
    * @param snowflakeType Snowflake column type
    * @param reason Reason why value format is not allowed.
    * @param rowIndex Index of the Input row primarily for debugging purposes.
-   * @return SFException is thrown
+   * @return SFExceptionValidation is thrown
    */
-  private static SFException valueFormatNotAllowedException(
+  private static SFExceptionValidation valueFormatNotAllowedException(
       String columnName, String snowflakeType, String reason, final long rowIndex) {
-    return new SFException(
+    return new SFExceptionValidation(
         ErrorCode.INVALID_VALUE_ROW,
         String.format(
             "Value cannot be ingested into Snowflake column %s of type %s, rowIndex:%d, reason: %s",
