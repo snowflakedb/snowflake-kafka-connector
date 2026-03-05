@@ -95,20 +95,28 @@ public class ColumnSchema {
 
   /** Parse Snowflake type string (e.g., "NUMBER(38,0)", "VARCHAR(16777216)") into TypeInfo. */
   private static TypeInfo parseTypeString(String typeStr) {
+    // Input validation
+    if (typeStr == null || typeStr.trim().isEmpty()) {
+      throw new IllegalArgumentException("Type string cannot be null or empty");
+    }
+
     TypeInfo info = new TypeInfo();
 
     // Extract base type and parameters
     String baseType;
     String params = null;
-    int parenIdx = typeStr.indexOf('(');
+    String trimmedType = typeStr.trim();
+    int parenIdx = trimmedType.indexOf('(');
     if (parenIdx > 0) {
-      baseType = typeStr.substring(0, parenIdx).trim().toUpperCase();
-      int closeParenIdx = typeStr.indexOf(')', parenIdx);
-      if (closeParenIdx > 0) {
-        params = typeStr.substring(parenIdx + 1, closeParenIdx).trim();
+      baseType = trimmedType.substring(0, parenIdx).toUpperCase();
+      int closeParenIdx = trimmedType.indexOf(')', parenIdx);
+      if (closeParenIdx <= parenIdx) {
+        throw new IllegalArgumentException(
+            "Malformed type string (missing closing parenthesis): " + typeStr);
       }
+      params = trimmedType.substring(parenIdx + 1, closeParenIdx).trim();
     } else {
-      baseType = typeStr.trim().toUpperCase();
+      baseType = trimmedType.toUpperCase();
     }
 
     // Map to logical and physical types
@@ -126,10 +134,20 @@ public class ColumnSchema {
         info.physicalType = ColumnPhysicalType.SB16;
         if (params != null && params.contains(",")) {
           String[] parts = params.split(",");
-          info.precision = Integer.parseInt(parts[0].trim());
-          info.scale = Integer.parseInt(parts[1].trim());
+          try {
+            info.precision = Integer.parseInt(parts[0].trim());
+            info.scale = Integer.parseInt(parts[1].trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid numeric parameter in type string: " + typeStr, e);
+          }
         } else if (params != null) {
-          info.precision = Integer.parseInt(params.trim());
+          try {
+            info.precision = Integer.parseInt(params.trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid numeric parameter in type string: " + typeStr, e);
+          }
           info.scale = 0;
         } else {
           info.precision = 38;
@@ -155,7 +173,12 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TEXT;
         info.physicalType = ColumnPhysicalType.LOB;
         if (params != null) {
-          info.length = Integer.parseInt(params.trim());
+          try {
+            info.length = Integer.parseInt(params.trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid length parameter in type string: " + typeStr, e);
+          }
           // Safe multiplication to avoid integer overflow
           long byteLengthLong = (long) info.length * 4; // Max 4 bytes per UTF-8 character
           if (byteLengthLong > Integer.MAX_VALUE) {
@@ -174,7 +197,12 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.BINARY;
         info.physicalType = ColumnPhysicalType.BINARY;
         if (params != null) {
-          info.byteLength = Integer.parseInt(params.trim());
+          try {
+            info.byteLength = Integer.parseInt(params.trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid length parameter in type string: " + typeStr, e);
+          }
         } else {
           info.byteLength = 8388608; // Default BINARY max
         }
@@ -194,7 +222,12 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIME;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          info.scale = Integer.parseInt(params.trim());
+          try {
+            info.scale = Integer.parseInt(params.trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid scale parameter in type string: " + typeStr, e);
+          }
         } else {
           info.scale = 9; // Default TIME scale
         }
@@ -205,7 +238,12 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIMESTAMP_NTZ;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          info.scale = Integer.parseInt(params.trim());
+          try {
+            info.scale = Integer.parseInt(params.trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid scale parameter in type string: " + typeStr, e);
+          }
         } else {
           info.scale = 9; // Default TIMESTAMP scale
         }
@@ -215,7 +253,12 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIMESTAMP_LTZ;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          info.scale = Integer.parseInt(params.trim());
+          try {
+            info.scale = Integer.parseInt(params.trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid scale parameter in type string: " + typeStr, e);
+          }
         } else {
           info.scale = 9;
         }
@@ -225,7 +268,12 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIMESTAMP_NTZ;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          info.scale = Integer.parseInt(params.trim());
+          try {
+            info.scale = Integer.parseInt(params.trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid scale parameter in type string: " + typeStr, e);
+          }
         } else {
           info.scale = 9;
         }
@@ -235,7 +283,12 @@ public class ColumnSchema {
         info.logicalType = ColumnLogicalType.TIMESTAMP_TZ;
         info.physicalType = ColumnPhysicalType.SB8;
         if (params != null) {
-          info.scale = Integer.parseInt(params.trim());
+          try {
+            info.scale = Integer.parseInt(params.trim());
+          } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Invalid scale parameter in type string: " + typeStr, e);
+          }
         } else {
           info.scale = 9;
         }
