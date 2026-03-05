@@ -301,6 +301,41 @@ public class RowValidatorTest {
     assertDoesNotThrow(() -> RowValidator.validateSchema(schema));
   }
 
+  @Test
+  public void testValidateRowEmptyColumnName() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 100));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("", "value"); // Empty column name
+    row.put("COL1", "test value");
+
+    // Empty column name should be caught - it becomes empty after unquoting
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    // Empty column will be treated as extra column or skipped with warning
+  }
+
+  @Test
+  public void testValidateRowWhitespaceColumnName() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 100));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("   ", "value"); // Whitespace-only column name
+    row.put("\t\n", "value2"); // Control characters
+    row.put("COL1", "test value");
+
+    // Whitespace column names should be caught
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    // Whitespace columns will be treated as extra columns or skipped with warning
+  }
+
   // ================ Helper Methods ================
 
   private ResultSet mockDescribeTableRow(String name, String type, String nullable)

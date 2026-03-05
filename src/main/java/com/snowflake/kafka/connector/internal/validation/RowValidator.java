@@ -19,6 +19,10 @@ import org.slf4j.LoggerFactory;
 /**
  * Validates rows against a table schema using SSv1 validation logic. This is the main facade that
  * integrates DataValidationUtil with KC v4.
+ *
+ * <p>Thread-safety: This class is thread-safe. The schema map is immutably captured at construction
+ * time. Multiple threads can safely call validateRow() on the same RowValidator instance
+ * concurrently.
  */
 public class RowValidator {
   private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
@@ -47,24 +51,22 @@ public class RowValidator {
     // Input validation
     Objects.requireNonNull(row, "row cannot be null");
 
-    // Pre-compute unquoted row column names once for efficiency
-    Set<String> unquotedRowCols = new HashSet<>();
-    for (String colName : row.keySet()) {
-      unquotedRowCols.add(LiteralQuoteUtils.unquoteColumnName(colName));
-    }
+    // Normalize column names once to avoid repeated unquoting
+    Map<String, Object> normalizedRow = normalizeColumnNames(row);
 
     // Step 1: Structural validation (matching AbstractRowBuffer.verifyInputColumns)
-    Set<String> extraCols = detectExtraColumns(unquotedRowCols);
-    Set<String> missingNotNullCols = detectMissingNotNullColumns(unquotedRowCols);
-    Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(row);
+    Set<String> normalizedColNames = normalizedRow.keySet();
+    Set<String> extraCols = detectExtraColumns(normalizedColNames);
+    Set<String> missingNotNullCols = detectMissingNotNullColumns(normalizedColNames);
+    Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(normalizedRow);
 
     if (!extraCols.isEmpty() || !missingNotNullCols.isEmpty() || !nullNotNullCols.isEmpty()) {
       return ValidationResult.structuralError(extraCols, missingNotNullCols, nullNotNullCols);
     }
 
     // Step 2: Type/value validation (dispatch to DataValidationUtil)
-    for (Map.Entry<String, Object> entry : row.entrySet()) {
-      String colName = LiteralQuoteUtils.unquoteColumnName(entry.getKey());
+    for (Map.Entry<String, Object> entry : normalizedRow.entrySet()) {
+      String colName = entry.getKey(); // Already normalized
       Object value = entry.getValue();
       ColumnSchema col = columnSchemaMap.get(colName);
 
@@ -87,6 +89,22 @@ public class RowValidator {
     return ValidationResult.valid();
   }
 
+  /**
+   * Normalize column names by unquoting them once. This avoids repeated calls to
+   * LiteralQuoteUtils.unquoteColumnName() which can be expensive in high-throughput scenarios.
+   *
+   * @param row Original row with potentially quoted column names
+   * @return New map with normalized (unquoted) column names
+   */
+  private Map<String, Object> normalizeColumnNames(Map<String, Object> row) {
+    Map<String, Object> normalizedRow = new HashMap<>();
+    for (Map.Entry<String, Object> entry : row.entrySet()) {
+      String normalizedName = LiteralQuoteUtils.unquoteColumnName(entry.getKey());
+      normalizedRow.put(normalizedName, entry.getValue());
+    }
+    return normalizedRow;
+  }
+
   /** Validate a single column value using DataValidationUtil. */
   private void validateColumnValue(ColumnSchema col, Object value) throws SFExceptionValidation {
     // insertRowIndex parameter is used for error messages - use 0 for now
@@ -94,14 +112,7 @@ public class RowValidator {
 
     switch (col.getLogicalType()) {
       case BOOLEAN:
-        // Boolean doesn't have a dedicated validation method in DataValidationUtil
-        // Simple type coercion will be handled by the SDK
-        if (!(value instanceof Boolean)
-            && !(value instanceof String)
-            && !(value instanceof Number)) {
-          throw new SFExceptionValidation(
-              ErrorCode.INVALID_FORMAT_ROW, "Invalid boolean value for column");
-        }
+        DataValidationUtil.validateAndParseBoolean(col.getName(), value, insertRowIndex);
         break;
 
       case FIXED:
@@ -214,10 +225,10 @@ public class RowValidator {
   }
 
   /** Detect NOT NULL columns that have null values in the row. */
-  private Set<String> detectNullValuesInNotNullColumns(Map<String, Object> row) {
+  private Set<String> detectNullValuesInNotNullColumns(Map<String, Object> normalizedRow) {
     Set<String> nullNotNullCols = new HashSet<>();
-    for (Map.Entry<String, Object> entry : row.entrySet()) {
-      String colName = LiteralQuoteUtils.unquoteColumnName(entry.getKey());
+    for (Map.Entry<String, Object> entry : normalizedRow.entrySet()) {
+      String colName = entry.getKey(); // Already normalized
 
       // Validate column name is not empty
       if (colName == null || colName.trim().isEmpty()) {

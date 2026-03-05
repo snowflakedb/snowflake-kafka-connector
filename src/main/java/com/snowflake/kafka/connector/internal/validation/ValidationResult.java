@@ -7,6 +7,7 @@
 package com.snowflake.kafka.connector.internal.validation;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 /** Result of row validation containing validation status and error details. */
@@ -34,21 +35,38 @@ public class ValidationResult {
     this.hasStructuralError = hasStructuralError;
     this.valueError = valueError;
     this.columnName = columnName;
-    this.extraColNames = extraColNames != null ? extraColNames : Collections.emptySet();
+    // Create defensive immutable copies of all sets for thread safety
+    this.extraColNames = Collections.unmodifiableSet(new HashSet<>(extraColNames));
     this.missingNotNullColNames =
-        missingNotNullColNames != null ? missingNotNullColNames : Collections.emptySet();
+        Collections.unmodifiableSet(new HashSet<>(missingNotNullColNames));
     this.nullValueForNotNullColNames =
-        nullValueForNotNullColNames != null ? nullValueForNotNullColNames : Collections.emptySet();
+        Collections.unmodifiableSet(new HashSet<>(nullValueForNotNullColNames));
   }
 
   /** Create a valid result */
   public static ValidationResult valid() {
-    return new ValidationResult(true, false, false, null, null, null, null, null);
+    return new ValidationResult(
+        true,
+        false,
+        false,
+        null,
+        null,
+        Collections.emptySet(),
+        Collections.emptySet(),
+        Collections.emptySet());
   }
 
   /** Create a type/value error result */
   public static ValidationResult typeError(String columnName, String errorMessage) {
-    return new ValidationResult(false, true, false, errorMessage, columnName, null, null, null);
+    return new ValidationResult(
+        false,
+        true,
+        false,
+        errorMessage,
+        columnName,
+        Collections.emptySet(),
+        Collections.emptySet(),
+        Collections.emptySet());
   }
 
   /** Create a structural error result */
