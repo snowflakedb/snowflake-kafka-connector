@@ -10,8 +10,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * Represents the schema of a Snowflake table column for validation purposes.
- * Constructed from JDBC ResultSet (DESCRIBE TABLE or system function).
+ * Represents the schema of a Snowflake table column for validation purposes. Constructed from JDBC
+ * ResultSet (DESCRIBE TABLE or system function).
  */
 public class ColumnSchema {
   private final String name;
@@ -49,7 +49,9 @@ public class ColumnSchema {
    * Construct ColumnSchema from DESCRIBE TABLE ResultSet row.
    *
    * <p>Thread-safety: This method is NOT thread-safe. Caller must synchronize if sharing ResultSet.
+   *
    * <p>Resource management: Caller is responsible for closing the ResultSet.
+   *
    * <p>ResultSet state: Must be positioned at a valid row before calling.
    *
    * @param rs ResultSet positioned at a DESCRIBE TABLE row (must not be closed)
@@ -91,9 +93,7 @@ public class ColumnSchema {
     Integer byteLength;
   }
 
-  /**
-   * Parse Snowflake type string (e.g., "NUMBER(38,0)", "VARCHAR(16777216)") into TypeInfo.
-   */
+  /** Parse Snowflake type string (e.g., "NUMBER(38,0)", "VARCHAR(16777216)") into TypeInfo. */
   private static TypeInfo parseTypeString(String typeStr) {
     TypeInfo info = new TypeInfo();
 

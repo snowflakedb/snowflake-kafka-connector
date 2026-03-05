@@ -196,7 +196,9 @@ public class RowValidatorTest {
   @Test
   public void testValidateRowMissingNotNull() {
     Map<String, ColumnSchema> schema = new HashMap<>();
-    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, false, null, null, 100)); // NOT NULL
+    schema.put(
+        "COL1",
+        createColumnSchema("COL1", ColumnLogicalType.TEXT, false, null, null, 100)); // NOT NULL
 
     RowValidator validator = new RowValidator(schema);
 
@@ -212,7 +214,9 @@ public class RowValidatorTest {
   @Test
   public void testValidateRowNullInNotNull() {
     Map<String, ColumnSchema> schema = new HashMap<>();
-    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, false, null, null, 100)); // NOT NULL
+    schema.put(
+        "COL1",
+        createColumnSchema("COL1", ColumnLogicalType.TEXT, false, null, null, 100)); // NOT NULL
 
     RowValidator validator = new RowValidator(schema);
 
@@ -245,7 +249,8 @@ public class RowValidatorTest {
   @Test
   public void testValidateRowQuotedColumnName() {
     Map<String, ColumnSchema> schema = new HashMap<>();
-    schema.put("COL NAME", createColumnSchema("COL NAME", ColumnLogicalType.TEXT, true, null, null, 100));
+    schema.put(
+        "COL NAME", createColumnSchema("COL NAME", ColumnLogicalType.TEXT, true, null, null, 100));
 
     RowValidator validator = new RowValidator(schema);
 
@@ -259,7 +264,8 @@ public class RowValidatorTest {
   @Test
   public void testValidateSchemaUnsupportedType() {
     Map<String, ColumnSchema> schema = new HashMap<>();
-    ColumnSchema unknownCol = createColumnSchema("COL1", null, true, null, null, null); // null logicalType
+    ColumnSchema unknownCol =
+        createColumnSchema("COL1", null, true, null, null, null); // null logicalType
     schema.put("COL1", unknownCol);
 
     assertThrows(SFExceptionValidation.class, () -> RowValidator.validateSchema(schema));
@@ -289,7 +295,8 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 100));
     schema.put("COL2", createColumnSchema("COL2", ColumnLogicalType.FIXED, true, 38, 0, null));
-    schema.put("COL3", createColumnSchema("COL3", ColumnLogicalType.VARIANT, true, null, null, null));
+    schema.put(
+        "COL3", createColumnSchema("COL3", ColumnLogicalType.VARIANT, true, null, null, null));
 
     assertDoesNotThrow(() -> RowValidator.validateSchema(schema));
   }
