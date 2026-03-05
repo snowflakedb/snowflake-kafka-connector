@@ -179,16 +179,10 @@ public class ColumnSchema {
             throw new IllegalArgumentException(
                 "Invalid length parameter in type string: " + typeStr, e);
           }
-          // Safe multiplication to avoid integer overflow
-          long byteLengthLong = (long) info.length * 4; // Max 4 bytes per UTF-8 character
-          if (byteLengthLong > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException(
-                "VARCHAR byte length exceeds maximum: " + byteLengthLong);
-          }
-          info.byteLength = (int) byteLengthLong;
+          info.byteLength = info.length * 4; // Max 4 bytes per UTF-8 character
         } else {
           info.length = 16777216; // Default VARCHAR max
-          info.byteLength = 67108864; // Pre-calculated (16777216 * 4) to avoid overflow
+          info.byteLength = info.length * 4;
         }
         break;
 
