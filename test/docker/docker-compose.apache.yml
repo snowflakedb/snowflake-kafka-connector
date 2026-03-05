@@ -21,6 +21,7 @@ services:
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx2g"
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/usr/local/share/kafka/plugins/snowflake-connector
+      - ${V3_PLUGIN_PATH:-/tmp/sf-kafka-connect-v3}:/usr/local/share/kafka/plugins/snowflake-connector-v3
       - ${EXTRA_JARS_PATH:-/tmp/kafka-connect-extra-jars}:/usr/local/share/kafka/plugins/protobuf-converter
       - ./scripts/start-apache-kafka.sh:/opt/start.sh:ro
     command: ["/bin/bash", "/opt/start.sh"]

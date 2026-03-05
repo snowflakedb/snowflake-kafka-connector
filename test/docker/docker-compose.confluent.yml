@@ -79,6 +79,7 @@ services:
       SS_LOG_LEVEL: warn
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/opt/kafka-connect/plugins/snowflake-connector
+      - ${V3_PLUGIN_PATH:-/tmp/sf-kafka-connect-v3}:/opt/kafka-connect/plugins/snowflake-connector-v3
       - ${EXTRA_JARS_PATH:-/tmp/kafka-connect-extra-jars}:/opt/kafka-connect/plugins/protobuf-converter
       - ${JOLOKIA_JAR_PATH:-/dev/null}:/opt/jolokia/jolokia-agent.jar:ro
     healthcheck:
