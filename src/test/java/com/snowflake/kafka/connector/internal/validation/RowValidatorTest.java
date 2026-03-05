@@ -262,7 +262,7 @@ public class RowValidatorTest {
     ColumnSchema unknownCol = createColumnSchema("COL1", null, true, null, null, null); // null logicalType
     schema.put("COL1", unknownCol);
 
-    assertThrows(SFException.class, () -> RowValidator.validateSchema(schema));
+    assertThrows(SFExceptionValidation.class, () -> RowValidator.validateSchema(schema));
   }
 
   @Test
@@ -281,7 +281,7 @@ public class RowValidatorTest {
             "en-ci"); // Collated column
     schema.put("COL1", collatedCol);
 
-    assertThrows(SFException.class, () -> RowValidator.validateSchema(schema));
+    assertThrows(SFExceptionValidation.class, () -> RowValidator.validateSchema(schema));
   }
 
   @Test

@@ -7,20 +7,33 @@
 package com.snowflake.kafka.connector.internal.validation;
 
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Validates rows against a table schema using SSv1 validation logic.
  * This is the main facade that integrates DataValidationUtil with KC v4.
  */
 public class RowValidator {
+  private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
   private final Map<String, ColumnSchema> columnSchemaMap;
   private final ZoneId defaultTimezone = ZoneId.of("UTC");
 
   public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
-    this.columnSchemaMap = columnSchemaMap;
+    // Input validation
+    Objects.requireNonNull(columnSchemaMap, "columnSchemaMap cannot be null");
+    if (columnSchemaMap.isEmpty()) {
+      throw new IllegalArgumentException("columnSchemaMap cannot be empty");
+    }
+
+    // Defensive copy for thread safety
+    this.columnSchemaMap = Collections.unmodifiableMap(new HashMap<>(columnSchemaMap));
   }
 
   /**
@@ -32,6 +45,9 @@ public class RowValidator {
    * @return ValidationResult indicating success or failure with error details
    */
   public ValidationResult validateRow(Map<String, Object> row) {
+    // Input validation
+    Objects.requireNonNull(row, "row cannot be null");
+
     // Pre-compute unquoted row column names once for efficiency
     Set<String> unquotedRowCols = new HashSet<>();
     for (String colName : row.keySet()) {
@@ -54,7 +70,9 @@ public class RowValidator {
       ColumnSchema col = columnSchemaMap.get(colName);
 
       if (col == null) {
-        continue; // Already caught as extra column in structural validation
+        // Column not in schema - skip validation (already caught in structural validation)
+        logger.debug("Skipping validation for unknown column: {}", colName);
+        continue;
       }
       if (value == null) {
         continue; // Null handling done in structural validation
@@ -62,7 +80,7 @@ public class RowValidator {
 
       try {
         validateColumnValue(col, value);
-      } catch (SFException e) {
+      } catch (SFExceptionValidation e) {
         return ValidationResult.typeError(colName, e.getMessage());
       }
     }
@@ -73,7 +91,7 @@ public class RowValidator {
   /**
    * Validate a single column value using DataValidationUtil.
    */
-  private void validateColumnValue(ColumnSchema col, Object value) throws SFException {
+  private void validateColumnValue(ColumnSchema col, Object value) throws SFExceptionValidation {
     // insertRowIndex parameter is used for error messages - use 0 for now
     final long insertRowIndex = 0;
 
@@ -82,9 +100,9 @@ public class RowValidator {
         // Boolean doesn't have a dedicated validation method in DataValidationUtil
         // Simple type coercion will be handled by the SDK
         if (!(value instanceof Boolean) && !(value instanceof String) && !(value instanceof Number)) {
-          throw new SFException(
+          throw new SFExceptionValidation(
               ErrorCode.INVALID_FORMAT_ROW,
-              String.format("Invalid boolean value for column %s", col.getName()));
+              "Invalid boolean value for column");
         }
         break;
 
@@ -126,36 +144,15 @@ public class RowValidator {
         break;
 
       case TIMESTAMP_NTZ:
-        // trimTimezone=true for NTZ columns
-        DataValidationUtil.validateAndParseTimestamp(
-            col.getName(),
-            value,
-            col.getScale() != null ? col.getScale() : 9,
-            defaultTimezone,
-            true,
-            insertRowIndex);
+        validateTimestamp(col, value, insertRowIndex, true);
         break;
 
       case TIMESTAMP_LTZ:
-        // trimTimezone=false for LTZ columns
-        DataValidationUtil.validateAndParseTimestamp(
-            col.getName(),
-            value,
-            col.getScale() != null ? col.getScale() : 9,
-            defaultTimezone,
-            false,
-            insertRowIndex);
+        validateTimestamp(col, value, insertRowIndex, false);
         break;
 
       case TIMESTAMP_TZ:
-        // trimTimezone=false for TZ columns
-        DataValidationUtil.validateAndParseTimestamp(
-            col.getName(),
-            value,
-            col.getScale() != null ? col.getScale() : 9,
-            defaultTimezone,
-            false,
-            insertRowIndex);
+        validateTimestamp(col, value, insertRowIndex, false);
         break;
 
       case VARIANT:
@@ -171,11 +168,29 @@ public class RowValidator {
         break;
 
       default:
-        throw new SFException(
+        throw new SFExceptionValidation(
             ErrorCode.UNKNOWN_DATA_TYPE,
             col.getName(),
             col.getLogicalType());
     }
+  }
+
+  /**
+   * Validate a timestamp column value.
+   * @param col Column schema
+   * @param value Value to validate
+   * @param insertRowIndex Row index for error messages
+   * @param trimTimezone Whether to trim timezone (true for NTZ, false for LTZ/TZ)
+   */
+  private void validateTimestamp(ColumnSchema col, Object value, long insertRowIndex, boolean trimTimezone)
+      throws SFExceptionValidation {
+    DataValidationUtil.validateAndParseTimestamp(
+        col.getName(),
+        value,
+        col.getScale() != null ? col.getScale() : 9,
+        defaultTimezone,
+        trimTimezone,
+        insertRowIndex);
   }
 
   /**
@@ -214,6 +229,13 @@ public class RowValidator {
     Set<String> nullNotNullCols = new HashSet<>();
     for (Map.Entry<String, Object> entry : row.entrySet()) {
       String colName = LiteralQuoteUtils.unquoteColumnName(entry.getKey());
+
+      // Validate column name is not empty
+      if (colName == null || colName.trim().isEmpty()) {
+        logger.warn("Skipping validation for empty column name");
+        continue;
+      }
+
       Object value = entry.getValue();
 
       ColumnSchema col = columnSchemaMap.get(colName);
@@ -226,20 +248,20 @@ public class RowValidator {
 
   /**
    * Static validator for unsupported types at channel open time.
-   * Throws SFException if the schema contains unsupported types.
+   * Throws SFExceptionValidation if the schema contains unsupported types.
    *
    * @param schema Map of column name to ColumnSchema
-   * @throws SFException if unsupported types are found
+   * @throws SFExceptionValidation if unsupported types are found
    */
-  public static void validateSchema(Map<String, ColumnSchema> schema) throws SFException {
+  public static void validateSchema(Map<String, ColumnSchema> schema) throws SFExceptionValidation {
     for (ColumnSchema col : schema.values()) {
       if (col.getLogicalType() == null) {
-        throw new SFException(ErrorCode.UNKNOWN_DATA_TYPE, col.getName());
+        throw new SFExceptionValidation(ErrorCode.UNKNOWN_DATA_TYPE, col.getName());
       }
 
       // Reject collated columns (not supported in SSv1 validation)
       if (col.getCollation() != null && !col.getCollation().isEmpty()) {
-        throw new SFException(
+        throw new SFExceptionValidation(
             ErrorCode.UNSUPPORTED_DATA_TYPE,
             "Collated columns not supported",
             col.getName());
