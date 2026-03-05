@@ -73,6 +73,7 @@ class TombstoneRecordIngestionIT {
             .withBehaviorOnNullValues(behavior)
             .build();
     service.startPartitions(Collections.singleton(topicPartition));
+    service.awaitInitialization();
 
     Map<String, String> converterConfig = new HashMap<>();
     converterConfig.put("schemas.enable", "false");
@@ -104,6 +105,7 @@ class TombstoneRecordIngestionIT {
             .withBehaviorOnNullValues(behavior)
             .build();
     service.startPartitions(Collections.singleton(topicPartition));
+    service.awaitInitialization();
 
     // create one normal record
     SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);

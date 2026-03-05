@@ -36,6 +36,9 @@ public interface TopicPartitionChannel {
     return false;
   }
 
+  /** Blocks until channel initialization is complete. */
+  default void awaitInitialization() {}
+
   /* Return true is channel is closed. Caller should handle the logic for reopening the channel if it is closed. */
   boolean isChannelClosed();
 

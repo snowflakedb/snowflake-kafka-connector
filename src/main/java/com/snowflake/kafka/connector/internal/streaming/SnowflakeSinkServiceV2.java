@@ -363,7 +363,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       insert(record);
     }
 
-    firstSkippedOffsets.forEach(sinkTaskContext::offset);
+    // SinkTaskContext is not set in some tests.
+    // In those tests, we await initialization before calling insert to ensure nothing is skipped.
+    if (sinkTaskContext != null) {
+      firstSkippedOffsets.forEach(sinkTaskContext::offset);
+    } else {
+      assert firstSkippedOffsets.isEmpty();
+    }
   }
 
   /**
@@ -503,6 +509,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       return Optional.empty();
     }
     return metricsJmxReporter.map(MetricsJmxReporter::getMetricRegistry);
+  }
+
+  /** Blocks until all partition channels have finished initialization. */
+  @Override
+  public void awaitInitialization() {
+    channelManager.awaitAllPartitions();
   }
 
   @VisibleForTesting

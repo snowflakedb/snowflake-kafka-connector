@@ -520,6 +520,12 @@ public class SnowflakeSinkTask extends SinkTask {
     return result;
   }
 
+  /** Blocks until all partition channels have finished initialization. */
+  @VisibleForTesting
+  public void awaitInitialization() {
+    this.getSink().awaitInitialization();
+  }
+
   /**
    * For versions older than 2.6
    *

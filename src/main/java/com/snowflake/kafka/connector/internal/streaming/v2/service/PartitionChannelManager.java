@@ -325,4 +325,10 @@ public class PartitionChannelManager {
   public Map<String, TopicPartitionChannel> getPartitionChannels() {
     return partitionChannels;
   }
+
+  /** Blocks until all partition channels have finished initialization. */
+  @VisibleForTesting
+  public void awaitAllPartitions() {
+    partitionChannels.values().forEach(TopicPartitionChannel::awaitInitialization);
+  }
 }
