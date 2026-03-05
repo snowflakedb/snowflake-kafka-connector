@@ -174,6 +174,29 @@ class SnowflakeSinkServiceV2Test {
     assertTrue(captor.getValue().isEmpty());
   }
 
+  // --- transition from initializing to ready ---
+
+  @Test
+  void insertProcessesRecordsAfterChannelTransitionsFromInitializingToReady() {
+    TopicPartition tp = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel = mockChannel("ch_0", true);
+    when(mockChannelManager.getChannel(tp)).thenReturn(Optional.of(channel));
+
+    SinkRecord record1 = recordFor(TOPIC, 0, 10);
+    service.insert(Collections.singletonList(record1));
+
+    verify(channel, never()).insertRecord(any(), anyBoolean());
+    verify(mockSinkTaskContext).offset(tp, 10);
+
+    // Channel finishes initializing
+    when(channel.isInitializing()).thenReturn(false);
+
+    SinkRecord record2 = recordFor(TOPIC, 0, 10);
+    service.insert(List.of(record1, record2));
+
+    verify(channel).insertRecord(record2, true);
+  }
+
   // --- helpers ---
 
   private static TopicPartitionChannel mockChannel(String channelName, boolean initializing) {

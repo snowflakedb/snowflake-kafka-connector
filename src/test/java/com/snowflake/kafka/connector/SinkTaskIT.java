@@ -5,8 +5,10 @@ import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
+import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,11 +58,13 @@ class SinkTaskIT {
     config.put(Utils.TASK_ID, "0");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
+    final TopicPartition topicPartition = new TopicPartition(topicName, PARTITION);
+    sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     sinkTask.start(config);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
-    final TopicPartition topicPartition = new TopicPartition(topicName, PARTITION);
     topicPartitions.add(topicPartition);
     sinkTask.open(topicPartitions);
+    sinkTask.awaitInitialization();
 
     // commit offset should skip when offset=0
     Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
@@ -97,11 +101,13 @@ class SinkTaskIT {
     config.put(Utils.TASK_ID, "0");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
+    TopicPartition topicPartition = new TopicPartition(topicName, PARTITION);
+    sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     sinkTask.start(config);
     sinkTask.start(config);
     assertThat(sinkTask.version()).isEqualTo(Utils.VERSION);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
-    topicPartitions.add(new TopicPartition(topicName, PARTITION));
+    topicPartitions.add(topicPartition);
     // Test put and precommit without open
 
     // commit offset
@@ -143,17 +149,21 @@ class SinkTaskIT {
           TestUtils.transformProfileFileToConnectorConfiguration(false);
       ConnectorConfigTools.setDefaultValues(task0Config);
       task0Config.put(Utils.TASK_ID, "0");
+      task0.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartitions0.get(0))));
       task0.start(task0Config);
 
       Map<String, String> task1Config =
           TestUtils.transformProfileFileToConnectorConfiguration(false);
       ConnectorConfigTools.setDefaultValues(task1Config);
       task1Config.put(Utils.TASK_ID, "1");
+      task1.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartitions1.get(0))));
       task1.start(task1Config);
 
       // Open partitions
       task0.open(topicPartitions0);
       task1.open(topicPartitions1);
+      task0.awaitInitialization();
+      task1.awaitInitialization();
 
       // Put records to both tasks
       task0.put(createSinkRecords(partition0, RECORD_COUNT));

@@ -74,6 +74,7 @@ class TombstoneRecordIngestionIT {
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartitions(Collections.singleton(topicPartition));
+    service.awaitInitialization();
 
     // create one normal record
     SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);
@@ -101,6 +102,7 @@ class TombstoneRecordIngestionIT {
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartitions(Collections.singleton(topicPartition));
+    service.awaitInitialization();
 
     // create one normal record
     SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);
