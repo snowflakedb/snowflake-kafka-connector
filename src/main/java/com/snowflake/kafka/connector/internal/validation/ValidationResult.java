@@ -9,9 +9,7 @@ package com.snowflake.kafka.connector.internal.validation;
 import java.util.Collections;
 import java.util.Set;
 
-/**
- * Result of row validation containing validation status and error details.
- */
+/** Result of row validation containing validation status and error details. */
 public class ValidationResult {
   private final boolean valid;
   private final boolean hasTypeError;
@@ -37,8 +35,10 @@ public class ValidationResult {
     this.valueError = valueError;
     this.columnName = columnName;
     this.extraColNames = extraColNames != null ? extraColNames : Collections.emptySet();
-    this.missingNotNullColNames = missingNotNullColNames != null ? missingNotNullColNames : Collections.emptySet();
-    this.nullValueForNotNullColNames = nullValueForNotNullColNames != null ? nullValueForNotNullColNames : Collections.emptySet();
+    this.missingNotNullColNames =
+        missingNotNullColNames != null ? missingNotNullColNames : Collections.emptySet();
+    this.nullValueForNotNullColNames =
+        nullValueForNotNullColNames != null ? nullValueForNotNullColNames : Collections.emptySet();
   }
 
   /** Create a valid result */
@@ -100,10 +100,9 @@ public class ValidationResult {
   }
 
   /**
-   * Check if this structural error can be resolved with schema evolution.
-   * - Extra columns: YES - can add via ALTER TABLE ADD COLUMN
-   * - Null in NOT NULL: YES - can drop constraint via ALTER TABLE DROP NOT NULL
-   * - Missing NOT NULL columns: NO - cannot add data for missing columns
+   * Check if this structural error can be resolved with schema evolution. - Extra columns: YES -
+   * can add via ALTER TABLE ADD COLUMN - Null in NOT NULL: YES - can drop constraint via ALTER
+   * TABLE DROP NOT NULL - Missing NOT NULL columns: NO - cannot add data for missing columns
    *
    * @return true if the error can be resolved with schema evolution
    */
@@ -113,8 +112,8 @@ public class ValidationResult {
   }
 
   /**
-   * Check if this structural error cannot be resolved with schema evolution.
-   * This is true when data is missing required NOT NULL columns.
+   * Check if this structural error cannot be resolved with schema evolution. This is true when data
+   * is missing required NOT NULL columns.
    *
    * @return true if the error is unresolvable
    */

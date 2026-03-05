@@ -17,8 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Validates rows against a table schema using SSv1 validation logic.
- * This is the main facade that integrates DataValidationUtil with KC v4.
+ * Validates rows against a table schema using SSv1 validation logic. This is the main facade that
+ * integrates DataValidationUtil with KC v4.
  */
 public class RowValidator {
   private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
@@ -37,9 +37,8 @@ public class RowValidator {
   }
 
   /**
-   * Validate a row against the table schema.
-   * Performs both structural validation (column presence, NOT NULL checks)
-   * and type/value validation.
+   * Validate a row against the table schema. Performs both structural validation (column presence,
+   * NOT NULL checks) and type/value validation.
    *
    * @param row Map of column name to value
    * @return ValidationResult indicating success or failure with error details
@@ -88,9 +87,7 @@ public class RowValidator {
     return ValidationResult.valid();
   }
 
-  /**
-   * Validate a single column value using DataValidationUtil.
-   */
+  /** Validate a single column value using DataValidationUtil. */
   private void validateColumnValue(ColumnSchema col, Object value) throws SFExceptionValidation {
     // insertRowIndex parameter is used for error messages - use 0 for now
     final long insertRowIndex = 0;
@@ -99,10 +96,11 @@ public class RowValidator {
       case BOOLEAN:
         // Boolean doesn't have a dedicated validation method in DataValidationUtil
         // Simple type coercion will be handled by the SDK
-        if (!(value instanceof Boolean) && !(value instanceof String) && !(value instanceof Number)) {
+        if (!(value instanceof Boolean)
+            && !(value instanceof String)
+            && !(value instanceof Number)) {
           throw new SFExceptionValidation(
-              ErrorCode.INVALID_FORMAT_ROW,
-              "Invalid boolean value for column");
+              ErrorCode.INVALID_FORMAT_ROW, "Invalid boolean value for column");
         }
         break;
 
@@ -120,10 +118,7 @@ public class RowValidator {
       case TEXT:
       case CHAR:
         DataValidationUtil.validateAndParseString(
-            col.getName(),
-            value,
-            java.util.Optional.ofNullable(col.getLength()),
-            insertRowIndex);
+            col.getName(), value, java.util.Optional.ofNullable(col.getLength()), insertRowIndex);
         break;
 
       case BINARY:
@@ -169,20 +164,20 @@ public class RowValidator {
 
       default:
         throw new SFExceptionValidation(
-            ErrorCode.UNKNOWN_DATA_TYPE,
-            col.getName(),
-            col.getLogicalType());
+            ErrorCode.UNKNOWN_DATA_TYPE, col.getName(), col.getLogicalType());
     }
   }
 
   /**
    * Validate a timestamp column value.
+   *
    * @param col Column schema
    * @param value Value to validate
    * @param insertRowIndex Row index for error messages
    * @param trimTimezone Whether to trim timezone (true for NTZ, false for LTZ/TZ)
    */
-  private void validateTimestamp(ColumnSchema col, Object value, long insertRowIndex, boolean trimTimezone)
+  private void validateTimestamp(
+      ColumnSchema col, Object value, long insertRowIndex, boolean trimTimezone)
       throws SFExceptionValidation {
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),
@@ -193,9 +188,7 @@ public class RowValidator {
         insertRowIndex);
   }
 
-  /**
-   * Detect columns in the row that don't exist in the table schema.
-   */
+  /** Detect columns in the row that don't exist in the table schema. */
   private Set<String> detectExtraColumns(Set<String> unquotedRowCols) {
     Set<String> extraCols = new HashSet<>();
     for (String unquotedName : unquotedRowCols) {
@@ -206,9 +199,7 @@ public class RowValidator {
     return extraCols;
   }
 
-  /**
-   * Detect NOT NULL columns that are missing from the row.
-   */
+  /** Detect NOT NULL columns that are missing from the row. */
   private Set<String> detectMissingNotNullColumns(Set<String> unquotedRowCols) {
     Set<String> missingNotNullCols = new HashSet<>();
     for (Map.Entry<String, ColumnSchema> entry : columnSchemaMap.entrySet()) {
@@ -222,9 +213,7 @@ public class RowValidator {
     return missingNotNullCols;
   }
 
-  /**
-   * Detect NOT NULL columns that have null values in the row.
-   */
+  /** Detect NOT NULL columns that have null values in the row. */
   private Set<String> detectNullValuesInNotNullColumns(Map<String, Object> row) {
     Set<String> nullNotNullCols = new HashSet<>();
     for (Map.Entry<String, Object> entry : row.entrySet()) {
@@ -247,8 +236,8 @@ public class RowValidator {
   }
 
   /**
-   * Static validator for unsupported types at channel open time.
-   * Throws SFExceptionValidation if the schema contains unsupported types.
+   * Static validator for unsupported types at channel open time. Throws SFExceptionValidation if
+   * the schema contains unsupported types.
    *
    * @param schema Map of column name to ColumnSchema
    * @throws SFExceptionValidation if unsupported types are found
@@ -262,9 +251,7 @@ public class RowValidator {
       // Reject collated columns (not supported in SSv1 validation)
       if (col.getCollation() != null && !col.getCollation().isEmpty()) {
         throw new SFExceptionValidation(
-            ErrorCode.UNSUPPORTED_DATA_TYPE,
-            "Collated columns not supported",
-            col.getName());
+            ErrorCode.UNSUPPORTED_DATA_TYPE, "Collated columns not supported", col.getName());
       }
 
       // GEOGRAPHY and GEOMETRY are not in ColumnLogicalType enum
