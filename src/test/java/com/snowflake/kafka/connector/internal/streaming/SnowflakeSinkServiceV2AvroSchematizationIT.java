@@ -146,6 +146,7 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(new TopicPartition(topic, PARTITION));
+    service.awaitInitialization();
     return service;
   }
 

@@ -60,6 +60,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
             .withErrorReporter(errorReporter)
             .build();
     service.startPartition(topicPartition);
+    service.awaitInitialization();
 
     // Create a record that cannot be schematized (array at root level)
     String notSchematizeableJsonRecord = "[{\"name\":\"sf\",\"answer\":42}]";
