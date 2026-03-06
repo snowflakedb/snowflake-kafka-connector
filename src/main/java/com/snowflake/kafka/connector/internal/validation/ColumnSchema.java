@@ -94,6 +94,36 @@ public class ColumnSchema {
         null); // DESCRIBE TABLE doesn't return collation
   }
 
+  /**
+   * Construct ColumnSchema from DESCRIBE TABLE field values.
+   *
+   * <p>This is a convenience method that takes the three key fields from DescribeTableRow.
+   *
+   * @param columnName column name from DESCRIBE TABLE
+   * @param typeStr type string (e.g., "VARCHAR(100)", "NUMBER(38,0)")
+   * @param nullableStr nullable indicator ("Y" or "N")
+   * @return ColumnSchema
+   * @throws IllegalArgumentException if parameters are invalid
+   */
+  public static ColumnSchema fromDescribeTableFields(
+      String columnName, String typeStr, String nullableStr) {
+    boolean nullable = "Y".equals(nullableStr);
+
+    // Parse type string to extract logical type and parameters
+    TypeInfo typeInfo = parseTypeString(typeStr);
+
+    return new ColumnSchema(
+        columnName,
+        typeInfo.logicalType,
+        typeInfo.physicalType,
+        nullable,
+        typeInfo.precision,
+        typeInfo.scale,
+        typeInfo.length,
+        typeInfo.byteLength,
+        null); // DESCRIBE TABLE doesn't return collation
+  }
+
   private static class TypeInfo {
     ColumnLogicalType logicalType;
     ColumnPhysicalType physicalType;

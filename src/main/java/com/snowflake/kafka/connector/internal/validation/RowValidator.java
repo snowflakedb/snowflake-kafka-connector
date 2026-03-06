@@ -74,7 +74,7 @@ public class RowValidator {
 
       try {
         validateColumnValue(col, value);
-      } catch (SFException e) {
+      } catch (SFExceptionValidation e) {
         return ValidationResult.typeError(colName, e.getMessage());
       }
     }
@@ -85,7 +85,7 @@ public class RowValidator {
   /**
    * Validate a single column value using DataValidationUtil.
    */
-  private void validateColumnValue(ColumnSchema col, Object value) throws SFException {
+  private void validateColumnValue(ColumnSchema col, Object value) throws SFExceptionValidation {
     // insertRowIndex parameter is used for error messages - use 0 for now
     final long insertRowIndex = 0;
 
@@ -94,7 +94,7 @@ public class RowValidator {
         // Boolean doesn't have a dedicated validation method in DataValidationUtil
         // Simple type coercion will be handled by the SDK
         if (!(value instanceof Boolean) && !(value instanceof String) && !(value instanceof Number)) {
-          throw new SFException(
+          throw new SFExceptionValidation(
               ErrorCode.INVALID_FORMAT_ROW,
               String.format("Invalid boolean value for column %s", col.getName()));
         }
@@ -193,7 +193,7 @@ public class RowValidator {
         break;
 
       default:
-        throw new SFException(
+        throw new SFExceptionValidation(
             ErrorCode.UNKNOWN_DATA_TYPE,
             col.getName(),
             col.getLogicalType());
@@ -251,17 +251,17 @@ public class RowValidator {
    * Throws SFException if the schema contains unsupported types.
    *
    * @param schema Map of column name to ColumnSchema
-   * @throws SFException if unsupported types are found
+   * @throws SFExceptionValidation if unsupported types are found
    */
-  public static void validateSchema(Map<String, ColumnSchema> schema) throws SFException {
+  public static void validateSchema(Map<String, ColumnSchema> schema) throws SFExceptionValidation {
     for (ColumnSchema col : schema.values()) {
       if (col.getLogicalType() == null) {
-        throw new SFException(ErrorCode.UNKNOWN_DATA_TYPE, col.getName());
+        throw new SFExceptionValidation(ErrorCode.UNKNOWN_DATA_TYPE, col.getName());
       }
 
       // Reject collated columns (not supported in SSv1 validation)
       if (col.getCollation() != null && !col.getCollation().isEmpty()) {
-        throw new SFException(
+        throw new SFExceptionValidation(
             ErrorCode.UNSUPPORTED_DATA_TYPE,
             "Collated columns not supported",
             col.getName());
