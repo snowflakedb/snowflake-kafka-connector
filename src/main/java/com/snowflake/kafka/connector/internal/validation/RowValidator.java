@@ -27,7 +27,17 @@ import org.slf4j.LoggerFactory;
 public class RowValidator {
   private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
   private final Map<String, ColumnSchema> columnSchemaMap;
-  private final ZoneId defaultTimezone = ZoneId.of("UTC");
+
+  /**
+   * Default timezone for timestamp parsing, matching SSv1 SDK behavior.
+   *
+   * <p>When parsing timestamps without timezone information (e.g., "2024-03-06 10:00:00"), this
+   * timezone determines how the timestamp is interpreted. Must match SSv1 SDK's
+   * OpenChannelRequest.DEFAULT_DEFAULT_TIMEZONE to ensure identical validation behavior.
+   *
+   * <p>SSv1 SDK uses America/Los_Angeles, not UTC.
+   */
+  private final ZoneId defaultTimezone = ZoneId.of("America/Los_Angeles");
 
   public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
     // Input validation
