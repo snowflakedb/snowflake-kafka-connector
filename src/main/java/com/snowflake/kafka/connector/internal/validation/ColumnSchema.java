@@ -109,7 +109,8 @@ public class ColumnSchema {
     int parenIdx = trimmedType.indexOf('(');
     if (parenIdx > 0) {
       baseType = trimmedType.substring(0, parenIdx).toUpperCase();
-      int closeParenIdx = trimmedType.indexOf(')', parenIdx);
+      // Use lastIndexOf to handle nested types like OBJECT(a NUMBER(38,0), b VARCHAR)
+      int closeParenIdx = trimmedType.lastIndexOf(')');
       if (closeParenIdx <= parenIdx) {
         throw new IllegalArgumentException(
             "Malformed type string (missing closing parenthesis): " + typeStr);
@@ -294,11 +295,27 @@ public class ColumnSchema {
         break;
 
       case "OBJECT":
+        // Reject structured OBJECT types like OBJECT(a INT, b TEXT)
+        // SSv1 SDK only supports unstructured OBJECT
+        if (params != null && !params.trim().isEmpty()) {
+          throw new IllegalArgumentException(
+              "Structured OBJECT types are not supported by Snowpipe Streaming. "
+                  + "Use unstructured OBJECT instead. Type: "
+                  + typeStr);
+        }
         info.logicalType = ColumnLogicalType.OBJECT;
         info.physicalType = ColumnPhysicalType.LOB;
         break;
 
       case "ARRAY":
+        // Reject structured ARRAY types like ARRAY(INT)
+        // SSv1 SDK only supports unstructured ARRAY
+        if (params != null && !params.trim().isEmpty()) {
+          throw new IllegalArgumentException(
+              "Structured ARRAY types are not supported by Snowpipe Streaming. "
+                  + "Use unstructured ARRAY instead. Type: "
+                  + typeStr);
+        }
         info.logicalType = ColumnLogicalType.ARRAY;
         info.physicalType = ColumnPhysicalType.LOB;
         break;

@@ -336,6 +336,138 @@ public class RowValidatorTest {
     // Whitespace columns will be treated as extra columns or skipped with warning
   }
 
+  // ================ Code Review Fix Tests ================
+
+  /**
+   * Test that structured OBJECT types are rejected (Issue #1 from code review).
+   * SSv1 SDK doesn't support structured OBJECT types like OBJECT(a INT, b TEXT).
+   */
+  @Test
+  public void testStructuredObjectTypeRejected() throws SQLException {
+    ResultSet rs = mockDescribeTableRow("COL1", "OBJECT(a NUMBER(38,0), b VARCHAR(16777216))", "Y");
+
+    IllegalArgumentException exception =
+        assertThrows(IllegalArgumentException.class, () -> ColumnSchema.fromDescribeTableRow(rs));
+
+    assertTrue(exception.getMessage().contains("Structured OBJECT types are not supported"));
+    assertTrue(exception.getMessage().contains("unstructured OBJECT"));
+  }
+
+  /**
+   * Test that structured ARRAY types are rejected (Issue #1 from code review).
+   * SSv1 SDK doesn't support structured ARRAY types like ARRAY(INT).
+   */
+  @Test
+  public void testStructuredArrayTypeRejected() throws SQLException {
+    ResultSet rs = mockDescribeTableRow("COL1", "ARRAY(INT)", "Y");
+
+    IllegalArgumentException exception =
+        assertThrows(IllegalArgumentException.class, () -> ColumnSchema.fromDescribeTableRow(rs));
+
+    assertTrue(exception.getMessage().contains("Structured ARRAY types are not supported"));
+    assertTrue(exception.getMessage().contains("unstructured ARRAY"));
+  }
+
+  /**
+   * Test that unstructured OBJECT types are accepted.
+   */
+  @Test
+  public void testUnstructuredObjectTypeAccepted() throws SQLException {
+    ResultSet rs = mockDescribeTableRow("COL1", "OBJECT", "Y");
+    ColumnSchema schema = ColumnSchema.fromDescribeTableRow(rs);
+
+    assertEquals(ColumnLogicalType.OBJECT, schema.getLogicalType());
+    assertEquals(ColumnPhysicalType.LOB, schema.getPhysicalType());
+  }
+
+  /**
+   * Test that unstructured ARRAY types are accepted.
+   */
+  @Test
+  public void testUnstructuredArrayTypeAccepted() throws SQLException {
+    ResultSet rs = mockDescribeTableRow("COL1", "ARRAY", "Y");
+    ColumnSchema schema = ColumnSchema.fromDescribeTableRow(rs);
+
+    assertEquals(ColumnLogicalType.ARRAY, schema.getLogicalType());
+    assertEquals(ColumnPhysicalType.LOB, schema.getPhysicalType());
+  }
+
+  /**
+   * Test that nested type parsing uses lastIndexOf for correct parameter extraction (Issue #1).
+   * Without lastIndexOf, "OBJECT(a NUMBER(38,0), b TEXT)" would incorrectly extract params as
+   * "a NUMBER(38,0" instead of the full parameter list.
+   */
+  @Test
+  public void testNestedTypeParsingWithLastIndexOf() throws SQLException {
+    // This should fail with structured type error, not parsing error
+    ResultSet rs = mockDescribeTableRow("COL1", "OBJECT(a NUMBER(38,0), b VARCHAR(100))", "Y");
+
+    IllegalArgumentException exception =
+        assertThrows(IllegalArgumentException.class, () -> ColumnSchema.fromDescribeTableRow(rs));
+
+    // Should get structured type error, not malformed type string error
+    assertTrue(exception.getMessage().contains("Structured OBJECT types are not supported"));
+    assertFalse(exception.getMessage().contains("Malformed type string"));
+  }
+
+  /**
+   * Test that missing NOT NULL columns trigger schema evolution (Issue #3 from code review).
+   * KC v3 treated missing and null NOT NULL columns identically - both drop NOT NULL.
+   */
+  @Test
+  public void testMissingNotNullColumnTriggersSchemaEvolution() {
+    Map<String, ColumnSchema> schemaMap = new HashMap<>();
+    schemaMap.put(
+        "COL1",
+        createColumnSchema("COL1", ColumnLogicalType.FIXED, false, 38, 0, null)); // NOT NULL
+
+    RowValidator validator = new RowValidator(schemaMap);
+
+    // Missing COL1 entirely (not in row)
+    Map<String, Object> row = new HashMap<>();
+    // Empty row - missing NOT NULL column
+
+    ValidationResult result = validator.validateRow(row);
+
+    assertFalse(result.isValid());
+    assertTrue(result.hasStructuralError());
+    assertEquals(1, result.getMissingNotNullColNames().size());
+    assertTrue(result.getMissingNotNullColNames().contains("COL1"));
+
+    // Should trigger schema evolution (matches KC v3 behavior)
+    assertTrue(result.needsSchemaEvolution());
+    assertFalse(result.hasUnresolvableError()); // NOT unresolvable anymore
+  }
+
+  /**
+   * Test that null NOT NULL columns trigger schema evolution (Issue #3 from code review).
+   * This was already working, but verify it still works after fix.
+   */
+  @Test
+  public void testNullNotNullColumnTriggersSchemaEvolution() {
+    Map<String, ColumnSchema> schemaMap = new HashMap<>();
+    schemaMap.put(
+        "COL1",
+        createColumnSchema("COL1", ColumnLogicalType.FIXED, false, 38, 0, null)); // NOT NULL
+
+    RowValidator validator = new RowValidator(schemaMap);
+
+    // COL1 present but null
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", null);
+
+    ValidationResult result = validator.validateRow(row);
+
+    assertFalse(result.isValid());
+    assertTrue(result.hasStructuralError());
+    assertEquals(1, result.getNullValueForNotNullColNames().size());
+    assertTrue(result.getNullValueForNotNullColNames().contains("COL1"));
+
+    // Should trigger schema evolution
+    assertTrue(result.needsSchemaEvolution());
+    assertFalse(result.hasUnresolvableError());
+  }
+
   // ================ Helper Methods ================
 
   private ResultSet mockDescribeTableRow(String name, String type, String nullable)

@@ -80,13 +80,19 @@ public class RowValidator {
       Object value = entry.getValue();
       ColumnSchema col = columnSchemaMap.get(colName);
 
+      // These conditions should have been caught by structural validation above.
+      // If we reach here, it indicates a bug in structural validation logic.
       if (col == null) {
-        // Column not in schema - skip validation (already caught in structural validation)
-        logger.debug("Skipping validation for unknown column: {}", colName);
-        continue;
+        throw new IllegalStateException(
+            "Column "
+                + colName
+                + " not found in schema but was not caught by structural validation");
       }
       if (value == null) {
-        continue; // Null handling done in structural validation
+        throw new IllegalStateException(
+            "Null value for column "
+                + colName
+                + " but was not caught by structural validation");
       }
 
       try {
