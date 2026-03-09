@@ -1,6 +1,10 @@
+import json
+
 import pytest
 from confluent_kafka import avro
 from snowflake.connector import DictCursor
+
+from lib.matchers import ANY_INT
 
 FILE_NAME = "travis_correct_string_avrosr"
 CONFIG_FILE = f"{FILE_NAME}.json"
@@ -50,5 +54,11 @@ def test_string_avrosr(
     assert row["FIRSTNAME"] == "abc0"
     assert row["TIME"] == 1835
 
-    gold_meta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"offset":0,"partition":0,"topic":"travis_correct_string_avrosr_\w*"}'
-    driver.regexMatchMeta(row["RECORD_METADATA"], gold_meta)
+    record_metadata = json.loads(row["RECORD_METADATA"])
+    assert record_metadata == {
+        "CreateTime": ANY_INT,
+        "SnowflakeConnectorPushTime": ANY_INT,
+        "offset": 0,
+        "partition": 0,
+        "topic": topic,
+    }

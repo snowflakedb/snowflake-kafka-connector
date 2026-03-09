@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 import time
 import uuid
 from pathlib import Path
@@ -376,48 +375,6 @@ class KafkaDriver:
             .execute(f"SELECT count(*) FROM {table_name}")
             .fetchone()[0]
         )
-
-    # Escape JSON-structural characters that are also regex metacharacters,
-    # while preserving intentional regex wildcards like \d* and \w*.
-    _GOLD_REGEX_ESCAPE = str.maketrans(
-        {
-            '"': r"\"",
-            "{": r"\{",
-            "}": r"\}",
-            "[": r"\[",
-            "]": r"\]",
-            "+": r"\+",
-        }
-    )
-
-    @staticmethod
-    def _to_gold_regex(pattern):
-        """Wrap a gold pattern into a full-match regex, escaping JSON-structural characters."""
-        return f"^{pattern.translate(KafkaDriver._GOLD_REGEX_ESCAPE)}$"
-
-    def regexMatchOneLine(self, res, goldMetaRegex, goldContentRegex):
-        """Validate that a result row's metadata and content match the gold regex patterns."""
-        meta = res[0].replace(" ", "").replace("\n", "")
-        content = res[1].replace(" ", "").replace("\n", "")
-        goldMetaRegex = self._to_gold_regex(goldMetaRegex)
-        goldContentRegex = self._to_gold_regex(goldContentRegex)
-        if re.search(goldMetaRegex, meta) is None:
-            raise NonRetryableError(
-                f"Record meta data:\n{meta}\ndoes not match gold regex label:\n{goldMetaRegex}"
-            )
-        if re.search(goldContentRegex, content) is None:
-            raise NonRetryableError(
-                f"Record content:\n{content}\ndoes not match gold regex label:\n{goldContentRegex}"
-            )
-
-    def regexMatchMeta(self, meta, goldMetaRegex):
-        """Validate that a metadata string matches the gold regex pattern."""
-        meta = meta.replace(" ", "").replace("\n", "")
-        goldMetaRegex = self._to_gold_regex(goldMetaRegex)
-        if re.search(goldMetaRegex, meta) is None:
-            raise NonRetryableError(
-                f"Record meta data:\n{meta}\ndoes not match gold regex label:\n{goldMetaRegex}"
-            )
 
     def updateConnectorConfig(self, fileName, connectorName, configMap):
         with (Path("rest_request_generated") / f"{fileName}.json").open() as f:
