@@ -9,9 +9,7 @@ package com.snowflake.kafka.connector.internal.schemaevolution;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.connect.data.Schema;
 
-/**
- * Abstract base for mapping Kafka Connect types to Snowflake DDL types.
- */
+/** Abstract base for mapping Kafka Connect types to Snowflake DDL types. */
 public abstract class ColumnTypeMapper {
 
   public String mapToColumnType(Schema.Type kafkaType) {
@@ -29,8 +27,8 @@ public abstract class ColumnTypeMapper {
   public abstract Schema.Type mapJsonNodeTypeToKafkaType(JsonNode value);
 
   /**
-   * Infer Snowflake DDL type from a Java object value.
-   * Used for schema-less records where we need to determine column types from data.
+   * Infer Snowflake DDL type from a Java object value. Used for schema-less records where we need
+   * to determine column types from data.
    *
    * @param value Java object value
    * @return Snowflake DDL type string

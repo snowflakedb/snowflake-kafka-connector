@@ -14,7 +14,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -22,8 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Resolves table schema from Kafka SinkRecord.
- * Supports both schema-ful (Avro/Protobuf) and schema-less (JSON) records.
+ * Resolves table schema from Kafka SinkRecord. Supports both schema-ful (Avro/Protobuf) and
+ * schema-less (JSON) records.
  */
 public class TableSchemaResolver {
 
@@ -67,9 +66,7 @@ public class TableSchemaResolver {
         && !record.valueSchema().fields().isEmpty();
   }
 
-  /**
-   * For schema-ful records: extract types from the Kafka Connect schema.
-   */
+  /** For schema-ful records: extract types from the Kafka Connect schema. */
   private TableSchema getTableSchemaFromRecordSchema(
       SinkRecord record, Set<String> columnNamesSet) {
     Map<String, ColumnInfos> fullSchemaMap = getFullSchemaMapFromRecord(record);
@@ -92,9 +89,7 @@ public class TableSchemaResolver {
     return new TableSchema(filteredSchema);
   }
 
-  /**
-   * For schema-less records: infer types from the Java object values.
-   */
+  /** For schema-less records: infer types from the Java object values. */
   private TableSchema getTableSchemaFromData(SinkRecord record, Set<String> columnNamesSet) {
     Map<String, Object> recordMap =
         KafkaRecordConverter.convertToMap(record.valueSchema(), record.value());
@@ -111,9 +106,7 @@ public class TableSchemaResolver {
     return new TableSchema(inferredSchema);
   }
 
-  /**
-   * Extract full schema map from record's Kafka Connect schema.
-   */
+  /** Extract full schema map from record's Kafka Connect schema. */
   private Map<String, ColumnInfos> getFullSchemaMapFromRecord(SinkRecord record) {
     Map<String, ColumnInfos> schemaMap = new HashMap<>();
     Schema schema = record.valueSchema();

@@ -14,8 +14,8 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 
 /**
- * Contains target items for schema evolution: table name, columns to drop non-nullability,
- * and columns to add to the table.
+ * Contains target items for schema evolution: table name, columns to drop non-nullability, and
+ * columns to add to the table.
  *
  * <p>Note: Uses Sets instead of Lists (KC v3.2 used Lists) to match ValidationResult structure.
  */
@@ -29,7 +29,9 @@ public class SchemaEvolutionTargetItems {
       String tableName, Set<String> columnsToDropNonNullability, Set<String> columnsToAdd) {
     this.tableName = tableName;
     this.columnsToDropNonNullability =
-        columnsToDropNonNullability != null ? new HashSet<>(columnsToDropNonNullability) : Collections.emptySet();
+        columnsToDropNonNullability != null
+            ? new HashSet<>(columnsToDropNonNullability)
+            : Collections.emptySet();
     this.columnsToAdd = columnsToAdd != null ? new HashSet<>(columnsToAdd) : Collections.emptySet();
   }
 

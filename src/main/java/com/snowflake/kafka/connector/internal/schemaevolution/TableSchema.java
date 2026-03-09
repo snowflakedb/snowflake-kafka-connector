@@ -10,9 +10,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Wrapper around Map of column name to ColumnInfos.
- */
+/** Wrapper around Map of column name to ColumnInfos. */
 public class TableSchema {
   private final Map<String, ColumnInfos> columnInfos;
 

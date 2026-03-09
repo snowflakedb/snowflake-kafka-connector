@@ -9,9 +9,7 @@ package com.snowflake.kafka.connector.internal.schemaevolution;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * Represents column type and DDL comment for schema evolution.
- */
+/** Represents column type and DDL comment for schema evolution. */
 public class ColumnInfos {
   private final String columnType;
   private final String comments;

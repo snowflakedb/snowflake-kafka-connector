@@ -105,9 +105,7 @@ public class SchemaEvolutionTest {
 
     SchemaEvolutionTargetItems withDropNonNull =
         new SchemaEvolutionTargetItems(
-            "test_table",
-            new HashSet<>(Arrays.asList("COL2")),
-            Collections.emptySet());
+            "test_table", new HashSet<>(Arrays.asList("COL2")), Collections.emptySet());
     assertTrue(withDropNonNull.hasDataForSchemaEvolution());
 
     SchemaEvolutionTargetItems empty =
@@ -190,13 +188,11 @@ public class SchemaEvolutionTest {
     value.put("age", 30);
     value.put("active", true);
 
-    SinkRecord record =
-        new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
+    SinkRecord record = new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
 
     TableSchemaResolver resolver = new TableSchemaResolver();
     TableSchema result =
-        resolver.resolveTableSchemaFromRecord(
-            record, Arrays.asList("\"NAME\"", "\"AGE\""));
+        resolver.resolveTableSchemaFromRecord(record, Arrays.asList("\"NAME\"", "\"AGE\""));
 
     assertFalse(result.getColumnInfos().isEmpty());
   }
@@ -208,13 +204,11 @@ public class SchemaEvolutionTest {
     value.put("count", 42);
     value.put("active", true);
 
-    SinkRecord record =
-        new SinkRecord("topic", 0, null, null, null, value, 0);
+    SinkRecord record = new SinkRecord("topic", 0, null, null, null, value, 0);
 
     TableSchemaResolver resolver = new TableSchemaResolver();
     TableSchema result =
-        resolver.resolveTableSchemaFromRecord(
-            record, Arrays.asList("\"NAME\"", "\"COUNT\""));
+        resolver.resolveTableSchemaFromRecord(record, Arrays.asList("\"NAME\"", "\"COUNT\""));
 
     assertFalse(result.getColumnInfos().isEmpty());
   }

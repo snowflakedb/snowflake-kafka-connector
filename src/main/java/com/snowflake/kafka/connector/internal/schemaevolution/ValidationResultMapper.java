@@ -14,8 +14,8 @@ import java.util.Set;
 /**
  * Maps ValidationResult structural errors to SchemaEvolutionTargetItems.
  *
- * <p>Combines missing NOT NULL columns and null values in NOT NULL columns
- * into a single set of columns that need to drop their NOT NULL constraint.
+ * <p>Combines missing NOT NULL columns and null values in NOT NULL columns into a single set of
+ * columns that need to drop their NOT NULL constraint.
  */
 public class ValidationResultMapper {
 
