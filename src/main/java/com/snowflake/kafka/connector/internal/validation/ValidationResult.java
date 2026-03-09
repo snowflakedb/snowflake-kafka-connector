@@ -120,10 +120,10 @@ public class ValidationResult {
   /**
    * Check if this structural error can be resolved with schema evolution.
    *
-   * <p>Matches KC v3 behavior where ALL structural errors trigger schema evolution:
-   * - Extra columns: YES - add via ALTER TABLE ADD COLUMN
-   * - Null in NOT NULL: YES - drop constraint via ALTER TABLE DROP NOT NULL
-   * - Missing NOT NULL columns: YES - drop constraint via ALTER TABLE DROP NOT NULL (KC v3 behavior)
+   * <p>Matches KC v3 behavior where ALL structural errors trigger schema evolution: - Extra
+   * columns: YES - add via ALTER TABLE ADD COLUMN - Null in NOT NULL: YES - drop constraint via
+   * ALTER TABLE DROP NOT NULL - Missing NOT NULL columns: YES - drop constraint via ALTER TABLE
+   * DROP NOT NULL (KC v3 behavior)
    *
    * <p>KC v3's InsertErrorMapper.java joined missingNotNullColNames and nullValueForNotNullColNames
    * into a single list of columns to drop NOT NULL. We maintain this behavior.

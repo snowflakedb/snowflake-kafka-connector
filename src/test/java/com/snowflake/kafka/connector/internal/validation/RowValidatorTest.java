@@ -352,8 +352,8 @@ public class RowValidatorTest {
   // ================ Code Review Fix Tests ================
 
   /**
-   * Test that structured OBJECT types are rejected (Issue #1 from code review).
-   * SSv1 SDK doesn't support structured OBJECT types like OBJECT(a INT, b TEXT).
+   * Test that structured OBJECT types are rejected (Issue #1 from code review). SSv1 SDK doesn't
+   * support structured OBJECT types like OBJECT(a INT, b TEXT).
    */
   @Test
   public void testStructuredObjectTypeRejected() throws SQLException {
@@ -367,8 +367,8 @@ public class RowValidatorTest {
   }
 
   /**
-   * Test that structured ARRAY types are rejected (Issue #1 from code review).
-   * SSv1 SDK doesn't support structured ARRAY types like ARRAY(INT).
+   * Test that structured ARRAY types are rejected (Issue #1 from code review). SSv1 SDK doesn't
+   * support structured ARRAY types like ARRAY(INT).
    */
   @Test
   public void testStructuredArrayTypeRejected() throws SQLException {
@@ -381,9 +381,7 @@ public class RowValidatorTest {
     assertTrue(exception.getMessage().contains("unstructured ARRAY"));
   }
 
-  /**
-   * Test that unstructured OBJECT types are accepted.
-   */
+  /** Test that unstructured OBJECT types are accepted. */
   @Test
   public void testUnstructuredObjectTypeAccepted() throws SQLException {
     ResultSet rs = mockDescribeTableRow("COL1", "OBJECT", "Y");
@@ -393,9 +391,7 @@ public class RowValidatorTest {
     assertEquals(ColumnPhysicalType.LOB, schema.getPhysicalType());
   }
 
-  /**
-   * Test that unstructured ARRAY types are accepted.
-   */
+  /** Test that unstructured ARRAY types are accepted. */
   @Test
   public void testUnstructuredArrayTypeAccepted() throws SQLException {
     ResultSet rs = mockDescribeTableRow("COL1", "ARRAY", "Y");
@@ -407,8 +403,8 @@ public class RowValidatorTest {
 
   /**
    * Test that nested type parsing uses lastIndexOf for correct parameter extraction (Issue #1).
-   * Without lastIndexOf, "OBJECT(a NUMBER(38,0), b TEXT)" would incorrectly extract params as
-   * "a NUMBER(38,0" instead of the full parameter list.
+   * Without lastIndexOf, "OBJECT(a NUMBER(38,0), b TEXT)" would incorrectly extract params as "a
+   * NUMBER(38,0" instead of the full parameter list.
    */
   @Test
   public void testNestedTypeParsingWithLastIndexOf() throws SQLException {
@@ -424,8 +420,8 @@ public class RowValidatorTest {
   }
 
   /**
-   * Test that missing NOT NULL columns trigger schema evolution (Issue #3 from code review).
-   * KC v3 treated missing and null NOT NULL columns identically - both drop NOT NULL.
+   * Test that missing NOT NULL columns trigger schema evolution (Issue #3 from code review). KC v3
+   * treated missing and null NOT NULL columns identically - both drop NOT NULL.
    */
   @Test
   public void testMissingNotNullColumnTriggersSchemaEvolution() {
@@ -453,8 +449,8 @@ public class RowValidatorTest {
   }
 
   /**
-   * Test that null NOT NULL columns trigger schema evolution (Issue #3 from code review).
-   * This was already working, but verify it still works after fix.
+   * Test that null NOT NULL columns trigger schema evolution (Issue #3 from code review). This was
+   * already working, but verify it still works after fix.
    */
   @Test
   public void testNullNotNullColumnTriggersSchemaEvolution() {
@@ -482,15 +478,14 @@ public class RowValidatorTest {
   }
 
   /**
-   * Test that null values in nullable columns are valid (Graphite bot feedback).
-   * When a nullable column has a null value, it should pass validation.
+   * Test that null values in nullable columns are valid (Graphite bot feedback). When a nullable
+   * column has a null value, it should pass validation.
    */
   @Test
   public void testNullValueInNullableColumnIsValid() {
     Map<String, ColumnSchema> schemaMap = new HashMap<>();
     schemaMap.put(
-        "COL1",
-        createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null)); // NULLABLE
+        "COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null)); // NULLABLE
     schemaMap.put(
         "COL2",
         createColumnSchema("COL2", ColumnLogicalType.TEXT, true, null, null, 100)); // NULLABLE
@@ -510,15 +505,12 @@ public class RowValidatorTest {
     assertFalse(result.hasTypeError());
   }
 
-  /**
-   * Test that nullable column with actual value also validates correctly.
-   */
+  /** Test that nullable column with actual value also validates correctly. */
   @Test
   public void testNullableColumnWithValue() {
     Map<String, ColumnSchema> schemaMap = new HashMap<>();
     schemaMap.put(
-        "COL1",
-        createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null)); // NULLABLE
+        "COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null)); // NULLABLE
 
     RowValidator validator = new RowValidator(schemaMap);
 

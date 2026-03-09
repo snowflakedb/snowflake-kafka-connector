@@ -15,10 +15,10 @@ import java.sql.SQLException;
  */
 public class ColumnSchema {
   /**
-   * Maximum byte length for TEXT/VARCHAR columns, matching SSv1 SDK's BYTES_16_MB limit.
-   * SSv1 SDK enforces that strings can never be larger than 16MB bytes, even if the VARCHAR
-   * character length would theoretically allow more (e.g., VARCHAR(16777216) with 4-byte UTF-8
-   * chars could be 64MB, but is capped at 16MB).
+   * Maximum byte length for TEXT/VARCHAR columns, matching SSv1 SDK's BYTES_16_MB limit. SSv1 SDK
+   * enforces that strings can never be larger than 16MB bytes, even if the VARCHAR character length
+   * would theoretically allow more (e.g., VARCHAR(16777216) with 4-byte UTF-8 chars could be 64MB,
+   * but is capped at 16MB).
    *
    * @see DataValidationUtil line 721 in SSv1 SDK
    */
