@@ -118,25 +118,36 @@ public class ValidationResult {
   }
 
   /**
-   * Check if this structural error can be resolved with schema evolution. - Extra columns: YES -
-   * can add via ALTER TABLE ADD COLUMN - Null in NOT NULL: YES - can drop constraint via ALTER
-   * TABLE DROP NOT NULL - Missing NOT NULL columns: NO - cannot add data for missing columns
+   * Check if this structural error can be resolved with schema evolution.
+   *
+   * <p>Matches KC v3 behavior where ALL structural errors trigger schema evolution:
+   * - Extra columns: YES - add via ALTER TABLE ADD COLUMN
+   * - Null in NOT NULL: YES - drop constraint via ALTER TABLE DROP NOT NULL
+   * - Missing NOT NULL columns: YES - drop constraint via ALTER TABLE DROP NOT NULL (KC v3 behavior)
+   *
+   * <p>KC v3's InsertErrorMapper.java joined missingNotNullColNames and nullValueForNotNullColNames
+   * into a single list of columns to drop NOT NULL. We maintain this behavior.
    *
    * @return true if the error can be resolved with schema evolution
    */
   public boolean needsSchemaEvolution() {
     return hasStructuralError
-        && (!extraColNames.isEmpty() || !nullValueForNotNullColNames.isEmpty());
+        && (!extraColNames.isEmpty()
+            || !nullValueForNotNullColNames.isEmpty()
+            || !missingNotNullColNames.isEmpty());
   }
 
   /**
-   * Check if this structural error cannot be resolved with schema evolution. This is true when data
-   * is missing required NOT NULL columns.
+   * Check if this structural error cannot be resolved with schema evolution.
    *
-   * @return true if the error is unresolvable
+   * <p>In KC v3, all structural errors (extra columns, missing NOT NULL, null NOT NULL) were
+   * resolvable via schema evolution. We maintain the same behavior for backwards compatibility.
+   *
+   * @return true if the error is unresolvable (always false for structural errors)
    */
   public boolean hasUnresolvableError() {
-    return hasStructuralError && !missingNotNullColNames.isEmpty();
+    // All structural errors are resolvable via schema evolution (matches KC v3 behavior)
+    return false;
   }
 
   public String getErrorType() {
