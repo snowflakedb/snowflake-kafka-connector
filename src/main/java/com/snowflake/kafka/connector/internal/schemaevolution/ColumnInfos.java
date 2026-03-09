@@ -1,0 +1,63 @@
+/*
+ * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
+ */
+
+package com.snowflake.kafka.connector.internal.schemaevolution;
+
+import java.util.Objects;
+import java.util.Optional;
+
+/** Represents column type and DDL comment for schema evolution. */
+public class ColumnInfos {
+  private final String columnType;
+  private final String comments;
+
+  public ColumnInfos(String columnType, String comments) {
+    this.columnType = Objects.requireNonNull(columnType, "columnType cannot be null");
+    this.comments = comments;
+  }
+
+  public ColumnInfos(String columnType) {
+    this.columnType = Objects.requireNonNull(columnType, "columnType cannot be null");
+    this.comments = null;
+  }
+
+  public String getColumnType() {
+    return columnType;
+  }
+
+  public String getComments() {
+    return comments;
+  }
+
+  public String getDdlComments() {
+    return Optional.ofNullable(comments)
+        .map(comment -> String.format(" comment '%s' ", comment.replace("'", "''")))
+        .orElse(" comment 'column created by schema evolution from Snowflake Kafka Connector' ");
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ColumnInfos that = (ColumnInfos) o;
+    return Objects.equals(columnType, that.columnType) && Objects.equals(comments, that.comments);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(columnType, comments);
+  }
+
+  @Override
+  public String toString() {
+    return "ColumnInfos{"
+        + "columnType='"
+        + columnType
+        + '\''
+        + ", comments='"
+        + comments
+        + '\''
+        + '}';
+  }
+}
