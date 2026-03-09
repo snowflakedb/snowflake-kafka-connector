@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
- *
- * Ported from KC v3.2 for client-side schema evolution in KC v4.
  */
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
@@ -102,40 +100,7 @@ public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
     } else if (value.isObject()) {
       return STRUCT;
     } else {
-      // Default to STRING for unrecognized types (safer than returning null)
-      return STRING;
-    }
-  }
-
-  @Override
-  public String inferTypeFromJavaValue(Object value) {
-    if (value == null) {
-      return "VARCHAR";
-    } else if (value instanceof Short) {
-      return "SMALLINT";
-    } else if (value instanceof Integer) {
-      return "INT";
-    } else if (value instanceof Long) {
-      return "BIGINT";
-    } else if (value instanceof Float) {
-      return "FLOAT";
-    } else if (value instanceof Double) {
-      return "DOUBLE";
-    } else if (value instanceof Number) {
-      return "BIGINT";
-    } else if (value instanceof Boolean) {
-      return "BOOLEAN";
-    } else if (value instanceof String) {
-      return "VARCHAR";
-    } else if (value instanceof byte[]) {
-      return "BINARY";
-    } else if (value instanceof java.util.Collection) {
-      return "ARRAY";
-    } else if (value instanceof java.util.Map) {
-      return "VARIANT";
-    } else {
-      LOGGER.debug("Unknown Java type {}, defaulting to VARIANT", value.getClass().getName());
-      return "VARIANT";
+      return null;
     }
   }
 }

@@ -146,12 +146,9 @@ public enum SnowflakeErrors {
   ERROR_5020("5020", "Failed to register MBean in MbeanServer", "Object Name is invalid"),
   ERROR_5021(
       "5021",
-      "Unrecognizable data type during schema evolution",
-      "Could not infer Snowflake column type from record data"),
-  ERROR_5022(
-      "5022",
-      "Schema evolution column mismatch",
-      "Columns in data not found in Kafka Connect schema"),
+      "Failed to get data schema",
+      "Failed to get data schema. Unrecognizable data type in JSON object"),
+  ERROR_5022("5022", "Invalid column name", "Failed to find column in the schema"),
   ERROR_5027(
       "5027",
       "Data verification failed",

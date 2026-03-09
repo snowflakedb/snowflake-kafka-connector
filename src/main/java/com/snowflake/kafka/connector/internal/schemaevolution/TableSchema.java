@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
- *
- * Ported from KC v3.2 for client-side schema evolution in KC v4.
  */
 
 package com.snowflake.kafka.connector.internal.schemaevolution;

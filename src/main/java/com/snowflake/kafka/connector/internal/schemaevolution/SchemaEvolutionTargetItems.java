@@ -1,8 +1,5 @@
 /*
  * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
- *
- * Ported from KC v3.2 for client-side schema evolution in KC v4.
- * Adapted to use Sets instead of Lists for KC v4 ValidationResult compatibility.
  */
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
@@ -16,8 +13,6 @@ import javax.annotation.Nonnull;
 /**
  * Contains target items for schema evolution: table name, columns to drop non-nullability, and
  * columns to add to the table.
- *
- * <p>Note: Uses Sets instead of Lists (KC v3.2 used Lists) to match ValidationResult structure.
  */
 public class SchemaEvolutionTargetItems {
   private final String tableName;

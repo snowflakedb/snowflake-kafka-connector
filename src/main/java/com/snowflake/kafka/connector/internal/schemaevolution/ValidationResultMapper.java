@@ -1,8 +1,5 @@
 /*
  * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
- *
- * NEW file for KC v4 - adapted from KC v3.2's InsertErrorMapper.
- * Maps ValidationResult to SchemaEvolutionTargetItems for client-side schema evolution.
  */
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
