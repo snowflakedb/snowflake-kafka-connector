@@ -1,6 +1,8 @@
 import json
 from time import sleep
 
+import pytest
+
 FILE_NAME = "test_kc_pause_create"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 1000
@@ -15,6 +17,7 @@ def _send_batch(driver, topic, record_count):
     sleep(2)
 
 
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_kc_pause_create(
     driver, name_salt, create_connector, snowflake_table, wait_for_rows
 ):

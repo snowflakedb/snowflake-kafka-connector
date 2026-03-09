@@ -230,19 +230,15 @@ class KafkaDriver:
                     self.producer.flush()
         self.avroProducer.flush()
 
-    def consume_messages_dlq(self, fileName, partition_no, target_dlq_offset_number):
+    def consume_messages_dlq(self, config, partition_no, target_dlq_offset_number):
         """
 
-        :param fileName: File name to find out DLQ topic name from json config
+        :param config: Connector config
         :param partition_no: partition no to search for target offset
         :param target_dlq_offset_number: Target offset number to find which stops finding any more offsets in DLQ
         :return: count of offsets
         """
-        with (Path("rest_request_generated") / f"{fileName}.json").open() as f:
-            c = json.load(f)
-            config = c["config"]
-
-        dlq_topic_name = config["errors.deadletterqueue.topic.name"]
+        dlq_topic_name = config["config"]["errors.deadletterqueue.topic.name"]
         return self.consume_messages(
             dlq_topic_name, partition_no, target_dlq_offset_number
         )
@@ -376,18 +372,6 @@ class KafkaDriver:
             .fetchone()[0]
         )
 
-    def updateConnectorConfig(self, fileName, connectorName, configMap):
-        with (Path("rest_request_generated") / f"{fileName}.json").open() as f:
-            c = json.load(f)
-            config = c["config"]
-            for k in configMap:
-                config[k] = configMap[k]
-        requestURL = (
-            f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/config"
-        )
-        r = requests.put(requestURL, json=config, headers=self.httpHeader)
-        logger.info(f"{r} updated connector config")
-
     def restartConnector(self, connectorName):
         requestURL = (
             f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/restart"
@@ -428,7 +412,9 @@ class KafkaDriver:
         code = requests.delete(delete_url, timeout=10).status_code
         logger.info(f"Delete response code: {code}")
 
-    def createConnector(self, fileName, nameSalt):
+    def createConnector(self, fileName, nameSalt, *, config_transform=None):
+        """Returns the generated config."""
+
         rest_template_path = Path("rest_request_template")
         rest_generate_path = Path("rest_request_generated")
 
@@ -470,10 +456,19 @@ class KafkaDriver:
                 "CONFLUENT_SCHEMA_REGISTRY": self.schemaRegistryAddress,
                 "SNOWFLAKE_TEST_TOPIC": snowflake_topic_name,
                 "SNOWFLAKE_CONNECTOR_NAME": snowflake_connector_name,
+                "_NAME_SALT": nameSalt,
             },
         )
 
-        with (rest_generate_path / fileName).open("w") as fw:
+        # We dump the config to a file in case we'll want to inspect it later.
+        generated_filename = fileName
+
+        if config_transform is not None:
+            config = config_transform(config)
+
+            generated_filename = f"{fileName.split('.')[0]}_transformed.json"
+
+        with (rest_generate_path / generated_filename).open("w") as fw:
             json.dump(config, fw, indent=4)
 
         MAX_RETRY = 9
@@ -524,3 +519,5 @@ class KafkaDriver:
         logger.info(
             f"Get Connectors status:{getConnectorResponse.status_code}, response:{getConnectorResponse.content}"
         )
+
+        return config

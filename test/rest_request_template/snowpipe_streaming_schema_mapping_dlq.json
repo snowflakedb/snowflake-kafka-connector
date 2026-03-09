@@ -16,7 +16,7 @@
     "jmx": "true",
     "errors.tolerance": "all",
     "errors.log.enable": true,
-    "errors.deadletterqueue.topic.name": "DLQ_TOPIC_SCHEMA_MAPPING_DLQ",
+    "errors.deadletterqueue.topic.name": "DLQ_TOPIC_SCHEMA_MAPPING_DLQ_NAME_SALT",
     "errors.deadletterqueue.topic.replication.factor": 1
   }
 }

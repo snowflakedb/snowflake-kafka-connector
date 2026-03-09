@@ -46,6 +46,7 @@ def _chaos_operation(driver, connector_name, name_salt, counter):
 
 
 @pytest.mark.pressure
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_pressure_restart(driver, name_salt, create_topic, create_connector):
     connector_name = f"{FILE_NAME}{name_salt}"
     topics = create_topic(

@@ -38,12 +38,17 @@ def _build_records(test_version: str) -> list[bytes | None]:
 
 
 def test_string_json(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver,
+    name_salt,
+    connector_version,
+    create_connector,
+    snowflake_table,
+    wait_for_rows,
 ):
     topic = snowflake_table(
         FILE_NAME,
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f'(record_metadata variant, "number" varchar)',
+        f'(record_metadata variant, "NUMBER" varchar)',
     )
 
     create_connector(CONFIG_FILE)
@@ -64,12 +69,18 @@ def test_string_json(
         .fetchone()[0]
     )
 
+    match connector_version:
+        case "v3":
+            expected_header2 = []
+        case "v4":
+            expected_header2 = "[]"
+
     assert record_metadata == {
         "CreateTime": ANY_INT,
         "SnowflakeConnectorPushTime": ANY_INT,
         "headers": {
             "header1": "value1",
-            "header2": {} if driver.testVersion in OLD_VERSIONS else "[]",
+            "header2": expected_header2,
         },
         "offset": 0,
         "partition": 0,

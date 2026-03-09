@@ -18,7 +18,7 @@ def test_snowpipe_streaming_string_json_dlq(
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    config = create_connector(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send invalid data that cannot be deserialized --
@@ -34,7 +34,7 @@ def test_snowpipe_streaming_string_json_dlq(
     )
 
     # -- Verify: records should appear in the DLQ topic --
-    offsets_in_dlq = driver.consume_messages_dlq(FILE_NAME, 0, EXPECTED_IN_DLQ - 1)
+    offsets_in_dlq = driver.consume_messages_dlq(config, 0, EXPECTED_IN_DLQ - 1)
     assert offsets_in_dlq == EXPECTED_IN_DLQ, (
         f"Expected {EXPECTED_IN_DLQ} offsets in DLQ, got {offsets_in_dlq}"
     )

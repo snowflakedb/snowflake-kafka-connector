@@ -29,6 +29,7 @@ def _send_partition(driver, topic, partition, record_count):
 
 
 @pytest.mark.pressure
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_pressure(driver, create_topic, create_connector, wait_for_rows):
     topics = create_topic(
         [f"{FILE_NAME}_{i}" for i in range(TOPIC_COUNT)], num_partitions=PARTITION_COUNT
