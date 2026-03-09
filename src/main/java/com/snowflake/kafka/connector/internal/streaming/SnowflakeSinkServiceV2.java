@@ -139,7 +139,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             this.taskId,
             taskMetrics,
             topicToTableMap,
-            this.enableSanitization);
+            this.enableSanitization,
+            conn);
 
     ThreadPools.registerTask(this.connectorName, this.taskId);
 

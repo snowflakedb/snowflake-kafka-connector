@@ -147,7 +147,9 @@ class SnowpipeStreamingPartitionChannelTest {
         new SnowflakeMetadataConfig(),
         false,
         mockErrorHandler,
-        TaskMetrics.noop());
+        TaskMetrics.noop(),
+        false,
+        null);
   }
 
   @Test

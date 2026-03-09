@@ -271,6 +271,8 @@ class StreamingErrorHandlerIT {
         new SnowflakeMetadataConfig(),
         enableSchematization,
         errorHandler,
-        TaskMetrics.noop());
+        TaskMetrics.noop(),
+        false,
+        null);
   }
 }
