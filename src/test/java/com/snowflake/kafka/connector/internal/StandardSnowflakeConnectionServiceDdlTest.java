@@ -31,8 +31,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     when(mockJdbcConn.isClosed()).thenReturn(false);
     when(mockJdbcConn.prepareStatement(anyString())).thenReturn(mockStmt);
 
-    service =
-        createServiceWithMockConnection(mockJdbcConn);
+    service = createServiceWithMockConnection(mockJdbcConn);
   }
 
   private static StandardSnowflakeConnectionService createServiceWithMockConnection(

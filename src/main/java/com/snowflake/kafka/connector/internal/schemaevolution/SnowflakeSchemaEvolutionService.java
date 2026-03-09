@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
- *
- * Ported from KC v3.2 for client-side schema evolution in KC v4.
  */
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
@@ -14,8 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Executes schema evolution DDL (ALTER TABLE) based on validation results.
- * Handles adding columns and dropping NOT NULL constraints.
+ * Executes schema evolution DDL (ALTER TABLE) based on validation results. Handles adding columns
+ * and dropping NOT NULL constraints.
  */
 public class SnowflakeSchemaEvolutionService {
 
@@ -55,9 +53,7 @@ public class SnowflakeSchemaEvolutionService {
     // Add new columns FIRST (must exist before we can modify constraints)
     if (!targetItems.getColumnsToAdd().isEmpty()) {
       LOGGER.debug(
-          "Adding columns to table: {} columns: {}",
-          tableName,
-          targetItems.getColumnsToAdd());
+          "Adding columns to table: {} columns: {}", tableName, targetItems.getColumnsToAdd());
       TableSchema tableSchema =
           tableSchemaResolver.resolveTableSchemaFromRecord(
               record, new ArrayList<>(targetItems.getColumnsToAdd()));
