@@ -524,6 +524,24 @@ public class RowValidatorTest {
     assertTrue(result.isValid());
   }
 
+  /**
+   * Test that large VARCHAR lengths don't cause integer overflow (Graphite security issue). Without
+   * long cast, info.length * 4 can overflow for corrupted/malformed lengths.
+   */
+  @Test
+  public void testVarcharLargeValueNoOverflow() throws SQLException {
+    // Test with a value that would overflow if multiplied as int: Integer.MAX_VALUE / 2
+    // This simulates corrupted DESCRIBE TABLE result
+    int largeLength = Integer.MAX_VALUE / 2; // ~1 billion
+    ResultSet rs = mockDescribeTableRow("COL1", "VARCHAR(" + largeLength + ")", "Y");
+
+    ColumnSchema schema = ColumnSchema.fromDescribeTableRow(rs);
+
+    // Should not overflow - byteLength should be capped at MAX_LOB_SIZE_BYTES (16MB)
+    assertEquals(16777216, schema.getByteLength()); // 16MB cap
+    assertEquals(largeLength, schema.getLength()); // Original length preserved
+  }
+
   // ================ Helper Methods ================
 
   private ResultSet mockDescribeTableRow(String name, String type, String nullable)

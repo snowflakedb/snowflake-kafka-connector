@@ -191,11 +191,15 @@ public class ColumnSchema {
                 "Invalid length parameter in type string: " + typeStr, e);
           }
           // Cap at MAX_LOB_SIZE_BYTES (SSv1 SDK limit: strings never exceed 16MB bytes)
-          info.byteLength = Math.min(MAX_LOB_SIZE_BYTES, info.length * 4);
+          // Use long to prevent integer overflow if length is corrupted/malformed
+          long byteLengthLong = (long) info.length * 4;
+          info.byteLength = (int) Math.min(MAX_LOB_SIZE_BYTES, byteLengthLong);
         } else {
           info.length = 16777216; // Default VARCHAR max
           // Cap at MAX_LOB_SIZE_BYTES (SSv1 SDK limit: strings never exceed 16MB bytes)
-          info.byteLength = Math.min(MAX_LOB_SIZE_BYTES, info.length * 4);
+          // Use long to prevent integer overflow if length is corrupted/malformed
+          long byteLengthLong = (long) info.length * 4;
+          info.byteLength = (int) Math.min(MAX_LOB_SIZE_BYTES, byteLengthLong);
         }
         break;
 
