@@ -344,9 +344,8 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     boolean first = true;
     for (Map.Entry<String, ColumnInfos> entry : columnInfosMap.entrySet()) {
       if (!first) {
-        query.append(", ");
+        query.append(", if not exists ");
       }
-      // Quote column name to prevent SQL injection
       query.append(Utils.quoteNameIfNeeded(entry.getKey()));
       query.append(" ");
       query.append(entry.getValue().getColumnType());
@@ -363,7 +362,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
           "ALTER TABLE ADD COLUMN failed for table {} (may be concurrent race condition): {}",
           tableName,
           e.getMessage());
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2015.getException(e);
     }
   }
 
@@ -381,9 +380,14 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       if (!first) {
         query.append(", ");
       }
-      // Quote column name to prevent SQL injection
-      query.append(Utils.quoteNameIfNeeded(columnName));
-      query.append(" drop not null");
+      String quotedName = Utils.quoteNameIfNeeded(columnName);
+      query
+          .append(quotedName)
+          .append(" drop not null, ")
+          .append(quotedName)
+          .append(
+              " comment 'column altered to be nullable by schema evolution from Snowflake Kafka"
+                  + " Connector'");
       first = false;
     }
 
@@ -396,7 +400,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
           "ALTER TABLE DROP NOT NULL failed for table {} (may be concurrent race condition): {}",
           tableName,
           e.getMessage());
-      throw SnowflakeErrors.ERROR_2001.getException(e);
+      throw SnowflakeErrors.ERROR_2016.getException(e);
     }
   }
 }
