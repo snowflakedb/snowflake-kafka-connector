@@ -42,7 +42,20 @@ public class RowValidatorTest {
     assertEquals(ColumnPhysicalType.LOB, schema.getPhysicalType());
     assertFalse(schema.isNullable());
     assertEquals(16777216, schema.getLength());
-    assertEquals(16777216 * 4, schema.getByteLength()); // 4 bytes per char
+    // byteLength capped at 16MB (SSv1 SDK limit), not 16777216 * 4 = 64MB
+    assertEquals(16777216, schema.getByteLength());
+  }
+
+  @Test
+  public void testColumnSchemaParseVarcharSmall() throws SQLException {
+    // For small VARCHAR, byteLength = length * 4 (no capping needed)
+    ResultSet rs = mockDescribeTableRow("COL3", "VARCHAR(1000)", "Y");
+    ColumnSchema schema = ColumnSchema.fromDescribeTableRow(rs);
+
+    assertEquals("COL3", schema.getName());
+    assertEquals(ColumnLogicalType.TEXT, schema.getLogicalType());
+    assertEquals(1000, schema.getLength());
+    assertEquals(4000, schema.getByteLength()); // 1000 * 4, no capping
   }
 
   @Test
