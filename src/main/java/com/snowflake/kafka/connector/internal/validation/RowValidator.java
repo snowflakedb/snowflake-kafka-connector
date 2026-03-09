@@ -89,8 +89,13 @@ public class RowValidator {
                 + " not found in schema but was not caught by structural validation");
       }
       if (value == null) {
+        // Null values are valid for nullable columns, skip type validation
+        if (col.isNullable()) {
+          continue; // Valid null for nullable column
+        }
+        // Null value in NOT NULL column should have been caught by structural validation
         throw new IllegalStateException(
-            "Null value for column "
+            "Null value for NOT NULL column "
                 + colName
                 + " but was not caught by structural validation");
       }

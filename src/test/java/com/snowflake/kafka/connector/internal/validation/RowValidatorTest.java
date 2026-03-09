@@ -481,6 +481,57 @@ public class RowValidatorTest {
     assertFalse(result.hasUnresolvableError());
   }
 
+  /**
+   * Test that null values in nullable columns are valid (Graphite bot feedback).
+   * When a nullable column has a null value, it should pass validation.
+   */
+  @Test
+  public void testNullValueInNullableColumnIsValid() {
+    Map<String, ColumnSchema> schemaMap = new HashMap<>();
+    schemaMap.put(
+        "COL1",
+        createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null)); // NULLABLE
+    schemaMap.put(
+        "COL2",
+        createColumnSchema("COL2", ColumnLogicalType.TEXT, true, null, null, 100)); // NULLABLE
+
+    RowValidator validator = new RowValidator(schemaMap);
+
+    // Both columns present with null values (valid for nullable columns)
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", null);
+    row.put("COL2", null);
+
+    ValidationResult result = validator.validateRow(row);
+
+    // Should be valid - null is allowed for nullable columns
+    assertTrue(result.isValid());
+    assertFalse(result.hasStructuralError());
+    assertFalse(result.hasTypeError());
+  }
+
+  /**
+   * Test that nullable column with actual value also validates correctly.
+   */
+  @Test
+  public void testNullableColumnWithValue() {
+    Map<String, ColumnSchema> schemaMap = new HashMap<>();
+    schemaMap.put(
+        "COL1",
+        createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null)); // NULLABLE
+
+    RowValidator validator = new RowValidator(schemaMap);
+
+    // Nullable column with actual value
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", 42);
+
+    ValidationResult result = validator.validateRow(row);
+
+    // Should be valid
+    assertTrue(result.isValid());
+  }
+
   // ================ Helper Methods ================
 
   private ResultSet mockDescribeTableRow(String name, String type, String nullable)
