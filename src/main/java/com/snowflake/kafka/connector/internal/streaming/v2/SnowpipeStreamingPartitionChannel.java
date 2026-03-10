@@ -13,6 +13,7 @@ import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.schemaevolution.SchemaEvolutionTargetItems;
 import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvolutionService;
@@ -31,7 +32,6 @@ import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -351,7 +351,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       this.tableSchema = new HashMap<>();
       for (DescribeTableRow row : describeResult.get()) {
         ColumnSchema colSchema =
-            ColumnSchema.fromDescribeTableFields(row.getColumn(), row.getType(), "Y");
+            ColumnSchema.fromDescribeTableFields(row.getColumn(), row.getType(), row.getNullable());
         this.tableSchema.put(row.getColumn(), colSchema);
       }
 
@@ -382,14 +382,22 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private void handleValidationError(ValidationResult result, SinkRecord record) {
     String errorMsg =
         String.format(
-            "Validation failed for column %s: %s",
-            result.getColumnName(), result.getValueError());
-    streamingErrorHandler.handleError(
-        Collections.singletonList(new DataException(errorMsg)), record);
+            "Validation failed for column %s: %s", result.getColumnName(), result.getValueError());
+    streamingErrorHandler.handleError(new DataException(errorMsg), record);
   }
 
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
+    if (!enableSchematization) {
+      String errorMsg =
+          String.format(
+              "Structural validation error (schematization disabled): extraCols=%s,"
+                  + " missingNotNull=%s",
+              result.getExtraColNames(), result.getMissingNotNullColNames());
+      streamingErrorHandler.handleError(new DataException(errorMsg), record);
+      return;
+    }
+
     try {
       SchemaEvolutionTargetItems items =
           ValidationResultMapper.mapToSchemaEvolutionItems(result, tableName);
@@ -409,11 +417,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           String.format(
               "Schema mismatch after evolution attempt: extraCols=%s, missingNotNull=%s",
               result.getExtraColNames(), result.getMissingNotNullColNames());
-      streamingErrorHandler.handleError(
-          Collections.singletonList(new DataException(errorMsg)), record);
-    } catch (Exception e) {
+      streamingErrorHandler.handleError(new DataException(errorMsg), record);
+    } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Schema evolution failed for table {}", tableName, e);
-      streamingErrorHandler.handleError(Collections.singletonList(e), record);
+      throw e;
     }
   }
 

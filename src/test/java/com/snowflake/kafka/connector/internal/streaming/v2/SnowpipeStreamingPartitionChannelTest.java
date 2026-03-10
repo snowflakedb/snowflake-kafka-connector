@@ -4,7 +4,12 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.ChannelStatusBatch;
@@ -13,6 +18,8 @@ import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import com.snowflake.kafka.connector.internal.DescribeTableRow;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
@@ -24,6 +31,7 @@ import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -180,6 +188,156 @@ class SnowpipeStreamingPartitionChannelTest {
     assertThrows(
         ConnectException.class,
         () -> SnowpipeStreamingPartitionChannel.parseOffsetToken("12.5", "test_channel"));
+  }
+
+  // --- Validation integration tests ---
+
+  private SnowflakeConnectionService mockConnService;
+
+  private SnowpipeStreamingPartitionChannel createValidationEnabledChannel(
+      List<DescribeTableRow> describeResult, boolean enableSchematization) {
+    mockConnService = mock(SnowflakeConnectionService.class);
+    when(mockConnService.describeTable(TABLE_NAME)).thenReturn(Optional.of(describeResult));
+
+    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
+    final PartitionOffsetTracker offsetTracker =
+        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            TABLE_NAME,
+            CONNECTOR_NAME,
+            channelName,
+            System.currentTimeMillis(),
+            Optional.empty(),
+            offsetTracker.persistedOffsetRef(),
+            offsetTracker.processedOffsetRef(),
+            offsetTracker.consumerGroupOffsetRef());
+
+    return new SnowpipeStreamingPartitionChannel(
+        TABLE_NAME,
+        channelName,
+        pipeName,
+        trackingClient,
+        mockTelemetryService,
+        telemetryChannelStatus,
+        offsetTracker,
+        new SnowflakeMetadataConfig(),
+        enableSchematization,
+        mockErrorHandler,
+        TaskMetrics.noop(),
+        true,
+        mockConnService);
+  }
+
+  private static final List<DescribeTableRow> STANDARD_TABLE_SCHEMA =
+      Arrays.asList(
+          new DescribeTableRow("RECORD_CONTENT", "VARIANT", null, "Y"),
+          new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
+
+  @Test
+  void validationEnabled_validRecord_insertsSuccessfully() {
+    // enableSchematization=false so the record is wrapped into RECORD_CONTENT/RECORD_METADATA
+    SnowpipeStreamingPartitionChannel channel =
+        createValidationEnabledChannel(STANDARD_TABLE_SCHEMA, false);
+    SinkRecord record = buildValidRecord(0);
+
+    channel.insertRecord(record, true);
+
+    verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void validationEnabled_extraColumn_triggersSchemaEvolution() {
+    // Table only has RECORD_METADATA — RECORD_CONTENT will be "extra"
+    List<DescribeTableRow> schema =
+        Arrays.asList(new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
+
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true);
+
+    SinkRecord record = buildValidRecord(0);
+    channel.insertRecord(record, true);
+
+    // Schema evolution attempted, but refreshed schema still missing RECORD_CONTENT -> error
+    verify(mockErrorHandler).handleError(any(Exception.class), eq(record));
+  }
+
+  @Test
+  void validationEnabled_schematizationDisabled_structuralErrorRoutesToDlq() {
+    // Table only has RECORD_METADATA — RECORD_CONTENT will be "extra"
+    List<DescribeTableRow> schema =
+        Arrays.asList(new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
+
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false);
+
+    SinkRecord record = buildValidRecord(0);
+    channel.insertRecord(record, true);
+
+    // Should route to error handler without attempting schema evolution
+    verify(mockErrorHandler).handleError(any(Exception.class), eq(record));
+    verify(mockConnService, never()).appendColumnsToTable(any(), any());
+    verify(mockConnService, never()).alterNonNullableColumns(any(), any());
+  }
+
+  @Test
+  void validationEnabled_describeTableFails_disablesValidation() {
+    mockConnService = mock(SnowflakeConnectionService.class);
+    when(mockConnService.describeTable(TABLE_NAME)).thenReturn(Optional.empty());
+
+    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
+    final PartitionOffsetTracker offsetTracker =
+        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            TABLE_NAME,
+            CONNECTOR_NAME,
+            channelName,
+            System.currentTimeMillis(),
+            Optional.empty(),
+            offsetTracker.persistedOffsetRef(),
+            offsetTracker.processedOffsetRef(),
+            offsetTracker.consumerGroupOffsetRef());
+
+    SnowpipeStreamingPartitionChannel channel =
+        new SnowpipeStreamingPartitionChannel(
+            TABLE_NAME,
+            channelName,
+            pipeName,
+            trackingClient,
+            mockTelemetryService,
+            telemetryChannelStatus,
+            offsetTracker,
+            new SnowflakeMetadataConfig(),
+            true,
+            mockErrorHandler,
+            TaskMetrics.noop(),
+            true,
+            mockConnService);
+
+    // Validation disabled gracefully — record inserts without error
+    SinkRecord record = buildValidRecord(0);
+    channel.insertRecord(record, true);
+
+    verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
+  }
+
+  @Test
+  void validationEnabled_notNullColumn_detectsMissingValue() {
+    // RECORD_CONTENT and RECORD_METADATA are nullable, but REQUIRED_COL is NOT NULL
+    List<DescribeTableRow> schema =
+        Arrays.asList(
+            new DescribeTableRow("RECORD_CONTENT", "VARIANT", null, "Y"),
+            new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"),
+            new DescribeTableRow("REQUIRED_COL", "VARCHAR(100)", null, "N"));
+
+    // enableSchematization=true so schema evolution is attempted for the missing NOT NULL col
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true);
+
+    // Record doesn't have REQUIRED_COL — should trigger structural error
+    SinkRecord record = buildValidRecord(0);
+    channel.insertRecord(record, true);
+
+    verify(mockErrorHandler).handleError(any(Exception.class), eq(record));
   }
 
   /** Shared state holder that tracks channel operations for verification in tests. */

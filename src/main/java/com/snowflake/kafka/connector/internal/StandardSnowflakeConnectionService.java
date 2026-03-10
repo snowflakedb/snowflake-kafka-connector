@@ -301,7 +301,8 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
         String columnName = result.getString("name");
         String type = result.getString("type");
         String comment = result.getString("comment");
-        rows.add(new DescribeTableRow(columnName, type, comment));
+        String nullable = result.getString("null?");
+        rows.add(new DescribeTableRow(columnName, type, comment, nullable));
       }
       return Optional.of(rows);
     } catch (Exception e) {
