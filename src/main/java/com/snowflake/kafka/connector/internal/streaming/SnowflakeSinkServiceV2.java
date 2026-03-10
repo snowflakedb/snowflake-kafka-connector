@@ -143,6 +143,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     ThreadPools.registerTask(this.connectorName, this.taskId);
 
+    // Log validation configuration for operator visibility
+    logValidationConfiguration();
+
     LOGGER.info(
         "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {},"
             + " enableSanitization: {}",
@@ -150,6 +153,73 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.taskId,
         this.tolerateErrors,
         this.enableSanitization);
+  }
+
+  /**
+   * Log validation configuration at startup for operator visibility. Helps operators understand
+   * error handling behavior based on configuration.
+   */
+  private void logValidationConfiguration() {
+    boolean validationEnabled =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+                String.valueOf(
+                    KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT)));
+
+    String errorsTolerance =
+        connectorConfig.getOrDefault(
+            KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
+            KafkaConnectorConfigParams.ERRORS_TOLERANCE_DEFAULT);
+
+    String dlqTopic =
+        connectorConfig.getOrDefault(
+            KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
+            KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_DEFAULT);
+
+    boolean dlqConfigured = dlqTopic != null && !dlqTopic.trim().isEmpty();
+    boolean tolerateAll = "all".equalsIgnoreCase(errorsTolerance);
+
+    if (validationEnabled) {
+      // Validation enabled - explain error routing behavior
+      if (tolerateAll) {
+        if (dlqConfigured) {
+          LOGGER.info(
+              "Client-side validation enabled with errors.tolerance=all. "
+                  + "Validation failures will route to DLQ topic: {}",
+              dlqTopic);
+        } else {
+          LOGGER.warn(
+              "Client-side validation enabled with errors.tolerance=all but NO DLQ configured. "
+                  + "Invalid records will be silently dropped. "
+                  + "Configure '{}' to preserve failed records.",
+              KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
+        }
+      } else {
+        // errors.tolerance=none (default)
+        LOGGER.info(
+            "Client-side validation enabled with errors.tolerance=none. "
+                + "Validation failures will abort the task{}.",
+            dlqConfigured
+                ? " (DLQ is only used when errors.tolerance=all)"
+                : " (no DLQ configured)");
+      }
+    } else {
+      // Validation disabled - warn about ensuring server-side error handling
+      LOGGER.warn(
+          "Client-side validation DISABLED (High-Performance Mode). Ensure SSv2 Error Tables are"
+              + " configured to prevent silent data loss. See:"
+              + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview#error-handling");
+    }
+
+    // Check for legacy KC v3 config and warn if present
+    if (connectorConfig.containsKey("snowflake.enable.schematization")) {
+      LOGGER.warn(
+          "Config 'snowflake.enable.schematization' is not supported in KC v4. "
+              + "Schema evolution is now handled server-side via table property "
+              + "'ENABLE_SCHEMA_EVOLUTION'. For pre-created tables, run: "
+              + "ALTER TABLE ... SET ENABLE_SCHEMA_EVOLUTION = TRUE");
+    }
   }
 
   /**
