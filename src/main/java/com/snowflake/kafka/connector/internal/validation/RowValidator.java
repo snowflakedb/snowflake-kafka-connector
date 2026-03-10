@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 public class RowValidator {
   private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
   private final Map<String, ColumnSchema> columnSchemaMap;
+  private final ValidationMetrics metrics; // Optional metrics tracking
 
   /**
    * Default timezone for timestamp parsing, matching SSv1 SDK behavior.
@@ -40,6 +41,10 @@ public class RowValidator {
   private final ZoneId defaultTimezone = ZoneId.of("America/Los_Angeles");
 
   public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
+    this(columnSchemaMap, null);
+  }
+
+  public RowValidator(Map<String, ColumnSchema> columnSchemaMap, ValidationMetrics metrics) {
     // Input validation
     Objects.requireNonNull(columnSchemaMap, "columnSchemaMap cannot be null");
     if (columnSchemaMap.isEmpty()) {
@@ -48,6 +53,7 @@ public class RowValidator {
 
     // Defensive copy for thread safety
     this.columnSchemaMap = Collections.unmodifiableMap(new HashMap<>(columnSchemaMap));
+    this.metrics = metrics; // Can be null if metrics not enabled
   }
 
   /**
@@ -58,56 +64,87 @@ public class RowValidator {
    * @return ValidationResult indicating success or failure with error details
    */
   public ValidationResult validateRow(Map<String, Object> row) {
-    // Input validation
-    Objects.requireNonNull(row, "row cannot be null");
+    // Start metrics tracking
+    long startTime = System.currentTimeMillis();
 
-    // Normalize column names once to avoid repeated unquoting
-    Map<String, Object> normalizedRow = normalizeColumnNames(row);
+    try {
+      // Input validation
+      Objects.requireNonNull(row, "row cannot be null");
 
-    // Step 1: Structural validation (matching AbstractRowBuffer.verifyInputColumns)
-    Set<String> normalizedColNames = normalizedRow.keySet();
-    Set<String> extraCols = detectExtraColumns(normalizedColNames);
-    Set<String> missingNotNullCols = detectMissingNotNullColumns(normalizedColNames);
-    Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(normalizedRow);
+      // Normalize column names once to avoid repeated unquoting
+      Map<String, Object> normalizedRow = normalizeColumnNames(row);
 
-    if (!extraCols.isEmpty() || !missingNotNullCols.isEmpty() || !nullNotNullCols.isEmpty()) {
-      return ValidationResult.structuralError(extraCols, missingNotNullCols, nullNotNullCols);
-    }
+      // Step 1: Structural validation (matching AbstractRowBuffer.verifyInputColumns)
+      Set<String> normalizedColNames = normalizedRow.keySet();
+      Set<String> extraCols = detectExtraColumns(normalizedColNames);
+      Set<String> missingNotNullCols = detectMissingNotNullColumns(normalizedColNames);
+      Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(normalizedRow);
 
-    // Step 2: Type/value validation (dispatch to DataValidationUtil)
-    for (Map.Entry<String, Object> entry : normalizedRow.entrySet()) {
-      String colName = entry.getKey(); // Already normalized
-      Object value = entry.getValue();
-      ColumnSchema col = columnSchemaMap.get(colName);
-
-      // These conditions should have been caught by structural validation above.
-      // If we reach here, it indicates a bug in structural validation logic.
-      if (col == null) {
-        throw new IllegalStateException(
-            "Column "
-                + colName
-                + " not found in schema but was not caught by structural validation");
+      if (!extraCols.isEmpty() || !missingNotNullCols.isEmpty() || !nullNotNullCols.isEmpty()) {
+        ValidationResult result =
+            ValidationResult.structuralError(extraCols, missingNotNullCols, nullNotNullCols);
+        recordMetrics(startTime, result);
+        return result;
       }
-      if (value == null) {
-        // Null values are valid for nullable columns, skip type validation
-        if (col.isNullable()) {
-          continue; // Valid null for nullable column
+
+      // Step 2: Type/value validation (dispatch to DataValidationUtil)
+      for (Map.Entry<String, Object> entry : normalizedRow.entrySet()) {
+        String colName = entry.getKey(); // Already normalized
+        Object value = entry.getValue();
+        ColumnSchema col = columnSchemaMap.get(colName);
+
+        if (col == null) {
+          // Column not in schema - skip validation (already caught in structural validation)
+          logger.debug("Skipping validation for unknown column: {}", colName);
+          continue;
         }
-        // Null value in NOT NULL column should have been caught by structural validation
-        throw new IllegalStateException(
-            "Null value for NOT NULL column "
-                + colName
-                + " but was not caught by structural validation");
+        if (value == null) {
+          continue; // Null handling done in structural validation
+        }
+
+        try {
+          validateColumnValue(col, value);
+        } catch (SFExceptionValidation e) {
+          ValidationResult result = ValidationResult.typeError(colName, e.getMessage());
+          recordMetrics(startTime, result);
+          return result;
+        }
       }
 
-      try {
-        validateColumnValue(col, value);
-      } catch (SFExceptionValidation e) {
-        return ValidationResult.typeError(colName, e.getMessage());
+      ValidationResult result = ValidationResult.valid();
+      recordMetrics(startTime, result);
+      return result;
+    } catch (Exception e) {
+      // Unexpected exception during validation
+      long duration = System.currentTimeMillis() - startTime;
+      if (metrics != null) {
+        metrics.recordValidationFailure(duration, "exception");
       }
+      throw e; // Re-throw to caller
+    }
+  }
+
+  /**
+   * Record metrics for validation operation.
+   *
+   * @param startTime validation start time in milliseconds
+   * @param result validation result
+   */
+  private void recordMetrics(long startTime, ValidationResult result) {
+    if (metrics == null) {
+      return; // Metrics not enabled
     }
 
-    return ValidationResult.valid();
+    long duration = System.currentTimeMillis() - startTime;
+    if (result.isValid()) {
+      metrics.recordValidationSuccess(duration);
+    } else {
+      String errorType =
+          result.hasStructuralError()
+              ? "structural_error"
+              : result.hasTypeError() ? "type_error" : "unknown";
+      metrics.recordValidationFailure(duration, errorType);
+    }
   }
 
   /**
