@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2026 Snowflake Computing Inc. All rights reserved.
- *
- * Ported from KC v3.2 for client-side schema evolution in KC v4.
  */
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
@@ -9,9 +7,7 @@ package com.snowflake.kafka.connector.internal.schemaevolution;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * Represents column type and DDL comment for schema evolution.
- */
+/** Represents column type and DDL comment for schema evolution. */
 public class ColumnInfos {
   private final String columnType;
   private final String comments;
