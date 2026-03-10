@@ -256,6 +256,12 @@ compile_protobuf_dependencies() {
 
 compile_protobuf_dependencies
 
+# Download KC v3 JAR for dual-version testing (skips if already cached)
+info "Preparing KC v3 connector JAR..."
+V3_PLUGIN_DIR=$("$SCRIPT_DIR/download_v3_jar.sh")
+export V3_PLUGIN_PATH="$V3_PLUGIN_DIR"
+info "v3 plugin path: $V3_PLUGIN_PATH"
+
 if [ "$JMX_ENABLED" = "true" ]; then
     # Download Jolokia JMX agent for metrics scraping
     JOLOKIA_DIR="/tmp/jolokia"

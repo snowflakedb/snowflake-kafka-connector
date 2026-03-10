@@ -12,6 +12,7 @@ import pytest
 import snowflake.connector
 
 from lib.config import Profile, SnowflakeConnectorConfig
+from lib.config_migration import v4_config_to_v3
 from lib.driver import KafkaDriver
 
 logger = logging.getLogger(__name__)
@@ -136,23 +137,24 @@ def credentials_unsalted():
 
 
 @pytest.fixture(scope="session")
-def name_salt(request):
+def session_name_salt(request):
+    """Common name salt for all tests in this session."""
     salt = request.config.getoption("--name-salt")
     if salt is None:
         chars = string.ascii_letters + string.digits
         salt = "_" + "".join(random.choices(chars, k=7))
-    logger.info(f"Using name salt: {salt}")
+    logger.info(f"Using session name salt: {salt}")
     return salt
 
 
 @pytest.fixture(scope="session")
-def test_schema(credentials_unsalted, name_salt):
+def test_schema(credentials_unsalted, session_name_salt):
     """Create an isolated schema for this test session and drop it on teardown.
 
-    The schema name is `<original_schema><name_salt>`.
+    The schema name is `<original_schema><session_name_salt>`.
     """
     original_schema = credentials_unsalted.schema
-    salted_schema = f"{original_schema}{name_salt}"
+    salted_schema = f"{original_schema}{session_name_salt}"
     fqn = f"{credentials_unsalted.database}.{salted_schema}"
 
     conn_config = SnowflakeConnectorConfig.from_profile(credentials_unsalted)
@@ -198,17 +200,50 @@ def driver(request, credentials):
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(params=["v4", "v3"])
+def connector_version(request):
+    """The Snowflake Kafka Connector version under test.
+
+    Every test that (transitively) depends on this fixture is automatically run twice:
+    once for v4 and once for v3.
+    """
+    return request.param
+
+
+@pytest.fixture
+def name_salt(session_name_salt, connector_version):
+    """Diversify names between test runs and connector versions."""
+    if connector_version == "v3":
+        return f"{session_name_salt}_v3"
+    return session_name_salt
+
+
 @pytest.fixture()
-def create_connector(driver, name_salt):
-    """Factory fixture: call with a config filename to register a connector.
+def create_connector(driver, name_salt, connector_version):
+    """Factory fixture: call to register a connector for the current version.
 
     All connectors created during the test are torn down automatically.
+
+    Args:
+        v4_config_file: Config template for the v4 connector.
+        v3_config_file: Optional separate config template for v3. When omitted,
+            v4_config_file is auto-migrated via v4_config_to_v3.
     """
     created = []
 
-    def _create(config_filename: str):
-        driver.createConnector(config_filename, name_salt)
-        created.append(config_filename)
+    def _create(v4_config_filename: str):
+        match connector_version:
+            case "v3":
+                logger.info(f"Will transform {v4_config_filename} to KC v3 config")
+                config = driver.createConnector(
+                    v4_config_filename,
+                    name_salt,
+                    config_transform=v4_config_to_v3,
+                )
+            case "v4":
+                config = driver.createConnector(v4_config_filename, name_salt)
+        created.append(v4_config_filename)
+        return config
 
     try:
         yield _create

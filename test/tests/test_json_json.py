@@ -11,7 +11,7 @@ def test_json_json(driver, name_salt, create_connector, snowflake_table, wait_fo
     topic = snowflake_table(
         FILE_NAME,
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f'(record_metadata variant, "number" varchar)',
+        f'(record_metadata variant, "NUMBER" varchar)',
     )
 
     create_connector(CONFIG_FILE)

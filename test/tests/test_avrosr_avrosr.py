@@ -43,8 +43,15 @@ VALUE_SCHEMA = avro.loads("""
 
 @pytest.mark.confluent_only
 def test_avrosr_avrosr(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver,
+    connector_version,
+    name_salt,
+    create_connector,
+    snowflake_table,
+    wait_for_rows,
 ):
+    if connector_version == "v3":
+        pytest.skip("v3 plugin conflicts with Schema Registry classloading")
     topic = snowflake_table(
         FILE_NAME,
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} ("
