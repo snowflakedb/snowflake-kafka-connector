@@ -197,14 +197,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     if (!validationEnabled) {
       // VALIDATION DISABLED (High-Performance Mode)
-      // Must verify SSv2 Error Table is configured to prevent task crashes
+      // Must verify SSv2 Error Table is configured to prevent records from being silently dropped
       // TODO: Check Error Table configuration when SSv2 API exposes this information
       // For now, log warning as API is not yet available
       LOGGER.warn(
           "CLIENT-SIDE VALIDATION DISABLED (High-Performance Mode). Running without client-side"
-              + " validation requires a configured SSv2 Error Table to prevent task crashes. Verify"
-              + " Error Tables are enabled: ALTER TABLE ... SET ENABLE_SCHEMA_EVOLUTION = TRUE;"
-              + " See:"
+              + " validation requires a configured SSv2 Error Table to prevent records from being"
+              + " silently dropped. See:"
               + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview#error-handling");
       return;
     }
