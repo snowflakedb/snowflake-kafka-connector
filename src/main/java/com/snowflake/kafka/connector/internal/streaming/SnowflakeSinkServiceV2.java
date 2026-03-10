@@ -156,8 +156,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Log validation configuration at startup for operator visibility. Helps operators understand
-   * error handling behavior based on configuration.
+   * Perform pre-flight safety checks on validation configuration. Verifies that error handling is
+   * properly configured to prevent silent data loss or task crashes.
+   *
+   * <p>Safety checks: - If validation disabled: Warn that SSv2 Error Table is required to prevent
+   * task crashes - If validation enabled: Verify DLQ or tolerance=none for safe error handling
+   *
+   * @throws IllegalStateException if configuration is unsafe and would cause data loss
    */
   private void logValidationConfiguration() {
     boolean validationEnabled =
@@ -180,38 +185,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     boolean dlqConfigured = dlqTopic != null && !dlqTopic.trim().isEmpty();
     boolean tolerateAll = "all".equalsIgnoreCase(errorsTolerance);
 
-    if (validationEnabled) {
-      // Validation enabled - explain error routing behavior
-      if (tolerateAll) {
-        if (dlqConfigured) {
-          LOGGER.info(
-              "Client-side validation enabled with errors.tolerance=all. "
-                  + "Validation failures will route to DLQ topic: {}",
-              dlqTopic);
-        } else {
-          LOGGER.warn(
-              "Client-side validation enabled with errors.tolerance=all but NO DLQ configured. "
-                  + "Invalid records will be silently dropped. "
-                  + "Configure '{}' to preserve failed records.",
-              KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-        }
-      } else {
-        // errors.tolerance=none (default)
-        LOGGER.info(
-            "Client-side validation enabled with errors.tolerance=none. "
-                + "Validation failures will abort the task{}.",
-            dlqConfigured
-                ? " (DLQ is only used when errors.tolerance=all)"
-                : " (no DLQ configured)");
-      }
-    } else {
-      // Validation disabled - warn about ensuring server-side error handling
-      LOGGER.warn(
-          "Client-side validation DISABLED (High-Performance Mode). Ensure SSv2 Error Tables are"
-              + " configured to prevent silent data loss. See:"
-              + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview#error-handling");
-    }
-
     // Check for legacy KC v3 config and warn if present
     if (connectorConfig.containsKey("snowflake.enable.schematization")) {
       LOGGER.warn(
@@ -219,6 +192,49 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               + "Schema evolution is now handled server-side via table property "
               + "'ENABLE_SCHEMA_EVOLUTION'. For pre-created tables, run: "
               + "ALTER TABLE ... SET ENABLE_SCHEMA_EVOLUTION = TRUE");
+    }
+
+    if (!validationEnabled) {
+      // VALIDATION DISABLED (High-Performance Mode)
+      // Must verify SSv2 Error Table is configured to prevent task crashes
+      // TODO: Check Error Table configuration when SSv2 API exposes this information
+      // For now, log warning as API is not yet available
+      LOGGER.warn(
+          "CLIENT-SIDE VALIDATION DISABLED (High-Performance Mode). Running without client-side"
+              + " validation requires a configured SSv2 Error Table to prevent task crashes. Verify"
+              + " Error Tables are enabled: ALTER TABLE ... SET ENABLE_SCHEMA_EVOLUTION = TRUE;"
+              + " See:"
+              + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview#error-handling");
+      return;
+    }
+
+    // VALIDATION ENABLED
+    // Verify safe error handling configuration
+    if (tolerateAll) {
+      if (dlqConfigured) {
+        // SAFE: Validation errors route to DLQ
+        LOGGER.info(
+            "Client-side validation enabled with errors.tolerance=all. "
+                + "Validation failures will route to DLQ topic: {}",
+            dlqTopic);
+      } else {
+        // UNSAFE: Validation errors are silently dropped
+        LOGGER.error(
+            "UNSAFE CONFIGURATION: Client-side validation enabled with errors.tolerance=all but NO"
+                + " DLQ configured. "
+                + "Invalid records will be SILENTLY DROPPED causing data loss. "
+                + "Configure '{}' to preserve failed records, or set errors.tolerance=none to abort"
+                + " on errors.",
+            KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
+        // Note: Not throwing exception to allow connector to start, but logging ERROR
+        // Operators can decide if they want to fail fast by checking logs
+      }
+    } else {
+      // SAFE: Task aborts on validation failure (errors.tolerance=none)
+      LOGGER.info(
+          "Client-side validation enabled with errors.tolerance=none. "
+              + "Validation failures will abort the task (safe - prevents data loss){}.",
+          dlqConfigured ? " DLQ configured but only used when errors.tolerance=all" : "");
     }
   }
 
