@@ -203,8 +203,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.warn(
           "CLIENT-SIDE VALIDATION DISABLED (High-Performance Mode). Running without client-side"
               + " validation requires a configured SSv2 Error Table to prevent records from being"
-              + " silently dropped. See:"
-              + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview#error-handling");
+              + " silently dropped.");
       return;
     }
 
