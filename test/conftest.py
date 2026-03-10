@@ -25,51 +25,77 @@ _PROTO_DIR = Path(__file__).parent / "test_data"
 
 
 def pytest_addoption(parser):
+    """Register CLI options.
+
+    Every option falls back to an environment variable so that tests can
+    be launched inside a container where the compose file already sets
+    the values -- no long CLI arg lists needed.
+    """
     group = parser.getgroup("kafka-e2e", "Kafka connector end-to-end test options")
     group.addoption(
         "--kafka-address",
-        required=True,
-        help="Kafka bootstrap server address (e.g. kafka:9092)",
+        default=os.environ.get("KAFKA_BOOTSTRAP_SERVERS"),
+        help="Kafka bootstrap server address (env: KAFKA_BOOTSTRAP_SERVERS)",
     )
     group.addoption(
         "--schema-registry-address",
-        required=True,
-        help="Schema registry URL (e.g. http://schema-registry:8081)",
+        default=os.environ.get("SCHEMA_REGISTRY_URL", ""),
+        help="Schema registry URL (env: SCHEMA_REGISTRY_URL)",
     )
     group.addoption(
         "--kafka-connect-address",
-        required=True,
-        help="Kafka Connect REST address (e.g. kafka-connect:8083)",
+        default=os.environ.get("KAFKA_CONNECT_ADDRESS"),
+        help="Kafka Connect REST address (env: KAFKA_CONNECT_ADDRESS)",
     )
     group.addoption(
         "--platform",
         choices=["confluent", "apache"],
-        required=True,
-        help="Kafka platform: 'confluent' (with Schema Registry) or 'apache'",
+        default=os.environ.get("KAFKA_PLATFORM"),
+        help="Kafka platform: 'confluent' or 'apache' (env: KAFKA_PLATFORM)",
     )
     group.addoption(
         "--platform-version",
-        required=True,
-        help="Kafka / Confluent platform version under test (e.g. 7.8.0)",
+        default=os.environ.get("KAFKA_PLATFORM_VERSION"),
+        help="Kafka / Confluent platform version (env: KAFKA_PLATFORM_VERSION)",
     )
     group.addoption(
         "--name-salt",
-        default=None,
-        help="Unique salt appended to connector and topic names (auto-generated if omitted)",
+        default=os.environ.get("TEST_NAME_SALT"),
+        help="Unique salt appended to connector and topic names (env: TEST_NAME_SALT, auto-generated if omitted)",
     )
     # currently unused, all tests run on all clouds
     group.addoption(
         "--cloud",
         choices=["AWS", "GCP", "AZURE"],
-        default=None,
-        help="Snowflake cloud platform (AWS, GCP, or AZURE)",
+        default=os.environ.get("SF_CLOUD_PLATFORM"),
+        help="Snowflake cloud platform: AWS, GCP, or AZURE (env: SF_CLOUD_PLATFORM)",
     )
     group.addoption(
         "--enable-ssl",
         action="store_true",
-        default=False,
-        help="Enable SSL for Kafka connections",
+        default=os.environ.get("ENABLE_SSL", "").lower() in ("true", "1", "yes"),
+        help="Enable SSL for Kafka connections (env: ENABLE_SSL)",
     )
+
+
+_REQUIRED_OPTIONS = {
+    "--kafka-address": "KAFKA_BOOTSTRAP_SERVERS",
+    "--kafka-connect-address": "KAFKA_CONNECT_ADDRESS",
+    "--platform": "KAFKA_PLATFORM",
+    "--platform-version": "KAFKA_PLATFORM_VERSION",
+}
+
+
+def pytest_configure(config):
+    # Validate required options (set via CLI or env var)
+    missing = []
+    for opt, env in _REQUIRED_OPTIONS.items():
+        if config.getoption(opt) is None:
+            missing.append(f"  {opt}  (or env {env})")
+    if missing:
+        raise pytest.UsageError(
+            "Missing required configuration:\n" + "\n".join(missing)
+        )
 
 
 def pytest_collection_modifyitems(config, items):

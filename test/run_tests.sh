@@ -45,9 +45,9 @@ warn() {
 usage() {
     echo "Usage: $0 --platform=<confluent|apache> --platform-version=<version> [options]"
     echo ""
-    echo "Required:"
-    echo "  --platform=PLATFORM           Platform: 'confluent' or 'apache'"
-    echo "  --platform-version=VERSION    Kafka/Confluent platform version"
+    echo "Platform:"
+    echo "  --platform=PLATFORM           Platform: 'confluent' or 'apache' (default: confluent)"
+    echo "  --platform-version=VERSION    Kafka/Confluent platform version (default: 7.8.0)"
     echo "                                Confluent: 7.8.x, 6.2.x"
     echo "                                Apache: any version (e.g., 2.8.2, 3.7.0)"
     echo ""
@@ -56,6 +56,7 @@ usage() {
     echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
     echo "  --jmx                Enable JMX metrics scraping via Jolokia"
     echo "  --keep               Keep containers running after tests"
+    echo "  -i, --interactive    Start infra, then drop into a bash shell in the test-runner"
     echo "  --rebuild            Force rebuild of images"
     echo "  --logs-dir=DIR       Save service logs to a file in DIR on failure"
     echo "  -h, --help           Show this help message"
@@ -69,16 +70,18 @@ usage() {
     echo "  $0 --platform=apache --platform-version=2.8.2"
     echo "  $0 --platform=confluent --platform-version=7.8.0 -- -k test_string_json"
     echo "  $0 --platform=apache --platform-version=3.7.0 --keep -- -m pressure"
+    echo "  $0 --platform=confluent --platform-version=7.8.0 -i   # interactive shell"
     echo "  $0 --platform=confluent --platform-version=7.8.0 --logs-dir=/tmp/test-logs"
     exit 1
 }
 
 # Parse arguments
-PLATFORM=""
-PLATFORM_VERSION=""
+PLATFORM="confluent"
+PLATFORM_VERSION="7.8.0"
 JAVA_VERSION="11"
 JMX_ENABLED="false"
 KEEP_RUNNING="false"
+INTERACTIVE="false"
 FORCE_REBUILD="false"
 LOGS_DIR=""
 PASSTHROUGH_ARGS=()
@@ -107,6 +110,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --keep)
             KEEP_RUNNING="true"
+            shift
+            ;;
+        -i|--interactive)
+            INTERACTIVE="true"
             shift
             ;;
         --rebuild)
@@ -276,6 +283,11 @@ export SNOWFLAKE_CREDENTIAL_FILE
 export CONNECTOR_PLUGIN_PATH="$PLUGIN_DIR"
 export EXTRA_JARS_PATH="$EXTRA_JARS_DIR"
 
+# Env vars consumed by pytest via conftest.py (inside the test-runner container)
+export KAFKA_PLATFORM="$PLATFORM"
+export KAFKA_PLATFORM_VERSION="$PLATFORM_VERSION"
+export TEST_NAME_SALT
+
 cd "$DOCKER_DIR"
 
 # Build images
@@ -362,36 +374,32 @@ if [ "$JMX_ENABLED" = "true" ]; then
     echo ""
 fi
 
-# Build pytest arguments
-PYTEST_ARGS=(
-    -v
-    --platform "$PLATFORM"
-    --platform-version "$PLATFORM_VERSION"
-    --name-salt "$TEST_NAME_SALT"
-    --kafka-connect-address "$KAFKA_CONNECT_ADDRESS"
-)
+# All connection and platform info is passed via env vars (set in
+# docker-compose + the exports above), so pytest only needs -v here.
+PYTEST_ARGS=(-v)
 
-case $PLATFORM in
-    confluent)
-        PYTEST_ARGS+=(
-            --kafka-address "kafka:29092"
-            --schema-registry-address "http://schema-registry:8081"
-        )
-        ;;
-    apache)
-        PYTEST_ARGS+=(
-            --kafka-address "kafka:9092"
-            --schema-registry-address ""
-        )
-        ;;
-esac
+# Don't remove the test-runner container when --keep is set so the user
+# can exec into it for debugging.
+RUN_FLAGS=(-i)
+if [ "$INTERACTIVE" = "true" ]; then
+    RUN_FLAGS+=("-t")
+fi
+if [ "$KEEP_RUNNING" = "false" ]; then
+    RUN_FLAGS+=("--rm")
+fi
 
-# Run tests
-info "Running tests..."
+# Run tests (or drop into a shell with --interactive)
 set +e
-docker compose $COMPOSE_FILES run --rm -i test-runner \
-    pytest "${PYTEST_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
-TEST_EXIT_CODE=$?
+if [ "$INTERACTIVE" = "true" ]; then
+    info "Starting interactive shell in test-runner (run pytest manually)..."
+    docker compose $COMPOSE_FILES run ${RUN_FLAGS[@]} test-runner bash
+    TEST_EXIT_CODE=$?
+else
+    info "Running tests..."
+    docker compose $COMPOSE_FILES run ${RUN_FLAGS[@]} test-runner \
+        pytest "${PYTEST_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
+    TEST_EXIT_CODE=$?
+fi
 set -e
 
 # Stop the scraper before containers go away

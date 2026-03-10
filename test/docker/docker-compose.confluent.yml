@@ -116,5 +116,6 @@ services:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_CONNECT_ADDRESS: kafka-connect:8083
       KAFKA_CONNECT_HOST: kafka-connect
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
