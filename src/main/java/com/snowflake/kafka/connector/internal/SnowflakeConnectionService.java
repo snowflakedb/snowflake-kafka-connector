@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface SnowflakeConnectionService {
@@ -110,4 +112,20 @@ public interface SnowflakeConnectionService {
    * @param parameters query parameters
    */
   void executeQueryWithParameters(String query, String... parameters);
+
+  /**
+   * Add columns to an existing table via ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
+   *
+   * @param tableName table name
+   * @param columnInfosMap map of column name to ColumnInfos (type + comment)
+   */
+  void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap);
+
+  /**
+   * Drop NOT NULL constraints on columns via ALTER TABLE ... ALTER ... DROP NOT NULL.
+   *
+   * @param tableName table name
+   * @param columnNames list of column names to make nullable
+   */
+  void alterNonNullableColumns(String tableName, List<String> columnNames);
 }

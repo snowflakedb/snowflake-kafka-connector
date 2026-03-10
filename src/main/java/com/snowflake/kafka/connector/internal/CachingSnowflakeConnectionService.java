@@ -5,9 +5,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
+import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -205,6 +207,16 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     delegate.executeQueryWithParameters(query, parameters);
     pipeExistsCache.invalidateAll();
     tableExistsCache.invalidateAll();
+  }
+
+  @Override
+  public void appendColumnsToTable(String tableName, Map<String, ColumnInfos> columnInfosMap) {
+    delegate.appendColumnsToTable(tableName, columnInfosMap);
+  }
+
+  @Override
+  public void alterNonNullableColumns(String tableName, List<String> columnNames) {
+    delegate.alterNonNullableColumns(tableName, columnNames);
   }
 
   private void logStatsIfNeeded() {

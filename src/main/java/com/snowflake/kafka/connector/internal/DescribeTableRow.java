@@ -15,6 +15,18 @@ public class DescribeTableRow {
     this.comment = comment;
   }
 
+  public String getColumn() {
+    return column;
+  }
+
+  public String getType() {
+    return type;
+  }
+
+  public String getComment() {
+    return comment;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
