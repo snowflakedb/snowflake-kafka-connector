@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -338,6 +339,39 @@ class SnowpipeStreamingPartitionChannelTest {
     channel.insertRecord(record, true);
 
     verify(mockErrorHandler).handleError(any(Exception.class), eq(record));
+  }
+
+  @Test
+  void validationEnabled_multipleExtraColumns_passesCorrectlyQuotedNames() {
+    List<DescribeTableRow> schema =
+        Arrays.asList(new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
+
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true);
+
+    String json = "{\"city\": \"Hsinchu\", \"age\": 25, \"country\": \"TW\"}";
+    JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
+    SchemaAndValue schemaAndValue =
+        jsonConverter.toConnectData(TOPIC_NAME, json.getBytes(StandardCharsets.UTF_8));
+    SinkRecord record =
+        SinkRecordBuilder.forTopicPartition(TOPIC_NAME, PARTITION)
+            .withSchemaAndValue(schemaAndValue)
+            .withOffset(0)
+            .build();
+
+    channel.insertRecord(record, true);
+
+    verify(mockConnService)
+        .appendColumnsToTable(
+            eq(TABLE_NAME),
+            argThat(
+                columnInfos -> {
+                  if (columnInfos == null) return false;
+                  boolean hasCity = columnInfos.containsKey("\"CITY\"");
+                  boolean hasAge = columnInfos.containsKey("\"AGE\"");
+                  boolean hasCountry = columnInfos.containsKey("\"COUNTRY\"");
+                  return hasCity && hasAge && hasCountry;
+                }));
   }
 
   /** Shared state holder that tracks channel operations for verification in tests. */
