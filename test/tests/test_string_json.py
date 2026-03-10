@@ -1,5 +1,7 @@
 import json
 
+from lib.matchers import ANY_INT
+
 FILE_NAME = "travis_correct_string_json"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
@@ -56,11 +58,20 @@ def test_string_json(
     wait_for_rows(topic, RECORD_COUNT)
 
     # -- Verify first row content --
-    row = driver.snowflake_conn.cursor().execute(f"SELECT * FROM {topic}").fetchone()
+    record_metadata = json.loads(
+        driver.snowflake_conn.cursor()
+        .execute(f"SELECT record_metadata FROM {topic} LIMIT 1")
+        .fetchone()[0]
+    )
 
-    if driver.testVersion in OLD_VERSIONS:
-        gold_meta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{"header1":"value1","header2":{}},"offset":0,"partition":0,"topic":"travis_correct_string_json_\w*"}'
-    else:
-        gold_meta = r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"headers":{"header1":"value1","header2":"[]"},"offset":0,"partition":0,"topic":"travis_correct_string_json_\w*"}'
-
-    driver.regexMatchOneLine(row, gold_meta, r"0")
+    assert record_metadata == {
+        "CreateTime": ANY_INT,
+        "SnowflakeConnectorPushTime": ANY_INT,
+        "headers": {
+            "header1": "value1",
+            "header2": {} if driver.testVersion in OLD_VERSIONS else "[]",
+        },
+        "offset": 0,
+        "partition": 0,
+        "topic": topic,
+    }

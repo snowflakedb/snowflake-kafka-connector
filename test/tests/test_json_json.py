@@ -1,5 +1,7 @@
 import json
 
+from lib.matchers import ANY_INT
+
 FILE_NAME = "travis_correct_json_json"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
@@ -26,10 +28,15 @@ def test_json_json(driver, name_salt, create_connector, snowflake_table, wait_fo
     wait_for_rows(topic, RECORD_COUNT)
 
     # -- Verify first row content --
-    row = (
+    record_metadata = json.loads(
         driver.snowflake_conn.cursor()
-        .execute(f"SELECT * FROM {topic} LIMIT 1")
-        .fetchone()
+        .execute(f"SELECT record_metadata FROM {topic} LIMIT 1")
+        .fetchone()[0]
     )
-    gold_meta = r'{"SnowflakeConnectorPushTime":\d*,"key":{"number":"0"},"offset":0,"partition":0}'
-    driver.regexMatchOneLine(row, gold_meta, r"0")
+
+    assert record_metadata == {
+        "SnowflakeConnectorPushTime": ANY_INT,
+        "key": {"number": "0"},
+        "offset": 0,
+        "partition": 0,
+    }

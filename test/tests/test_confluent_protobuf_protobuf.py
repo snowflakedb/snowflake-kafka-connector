@@ -1,7 +1,11 @@
+import json
+
 import pytest
 from confluent_kafka import SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
+
+from lib.matchers import ANY_INT
 
 FILE_NAME = "travis_correct_confluent_protobuf_protobuf"
 CONFIG_FILE = f"{FILE_NAME}.json"
@@ -62,20 +66,33 @@ def test_confluent_protobuf_protobuf(
     # -- Verify first row content --
     row = (
         driver.snowflake_conn.cursor()
-        .execute(f"SELECT * FROM {topic} LIMIT 1")
+        .execute(f"SELECT record_metadata, record_content FROM {topic} LIMIT 1")
         .fetchone()
     )
 
-    gold_meta = (
-        r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"key":{"bytes_val":"3q0=","dateTime":1234,"device":'
-        r'{"deviceID":"555-4321","enabled":true},"double_array_val":'
-        r'[0.3333333333333333,32.21,4.343243210000000e+08],"float_val":4321.432,'
-        r'"int32_val":2147483647,"reading":321.321,"sint32_val":2147483647,"sint64_val":9223372036854775807,'
-        r'"uint32_val":4294967295,"uint64_val":-1},"offset":\d*,"partition":\d*,"topic":"travis_correct_confluent_protobuf_protobuf_\w*"}'
-    )
-    gold_content = (
-        r'{"bytes_val":"3q0=","dateTime":1234,"device":{"deviceID":"555-4321","enabled":true},"double_array_val":'
-        r'[0.3333333333333333,32.21,4.343243210000000e+08],"float_val":4321.432,"int32_val":2147483647,'
-        r'"reading":321.321,"sint32_val":2147483647,"sint64_val":9223372036854775807,"uint32_val":4294967295,"uint64_val":-1}'
-    )
-    driver.regexMatchOneLine(row, gold_meta, gold_content)
+    sensor_dict = {
+        "bytes_val": "3q0=",
+        "dateTime": 1234,
+        "device": {"deviceID": "555-4321", "enabled": True},
+        "double_array_val": [0.3333333333333333, 32.21, 4.343243210000000e08],
+        "float_val": 4321.432,
+        "int32_val": 2147483647,
+        "reading": 321.321,
+        "sint32_val": 2147483647,
+        "sint64_val": 9223372036854775807,
+        "uint32_val": 4294967295,
+        "uint64_val": -1,
+    }
+
+    record_metadata = json.loads(row[0])
+    assert record_metadata == {
+        "CreateTime": ANY_INT,
+        "SnowflakeConnectorPushTime": ANY_INT,
+        "key": sensor_dict,
+        "offset": ANY_INT,
+        "partition": ANY_INT,
+        "topic": topic,
+    }
+
+    record_content = json.loads(row[1])
+    assert record_content == sensor_dict

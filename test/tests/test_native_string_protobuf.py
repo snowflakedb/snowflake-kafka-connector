@@ -1,3 +1,7 @@
+import json
+
+from lib.matchers import ANY_INT
+
 FILE_NAME = "travis_correct_native_string_protobuf"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
@@ -43,18 +47,30 @@ def test_native_string_protobuf(
     # -- Verify first row content --
     row = (
         driver.snowflake_conn.cursor()
-        .execute(f"SELECT * FROM {topic} LIMIT 1")
+        .execute(f"SELECT record_metadata, record_content FROM {topic} LIMIT 1")
         .fetchone()
     )
 
-    gold_meta = (
-        r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,"offset":0,"partition":0,'
-        r'"topic":"travis_correct_native_string_protobuf_\w*"}'
-    )
-    gold_content = (
-        r'{"bytes_val":"3q0=","dateTime":1234,"device":{"deviceID":"555-4321","enabled":true},'
-        r'"double_array_val":[0.3333333333333333,32.21,4.343243210000000e+08],'
-        r'"float_val":4321.432,"int32_val":2147483647,"reading":321.321,"sint32_val":2147483647,'
-        r'"sint64_val":9223372036854775807,"uint32_val":4294967295,"uint64_val":18446744073709551615}'
-    )
-    driver.regexMatchOneLine(row, gold_meta, gold_content)
+    record_metadata = json.loads(row[0])
+    assert record_metadata == {
+        "CreateTime": ANY_INT,
+        "SnowflakeConnectorPushTime": ANY_INT,
+        "offset": 0,
+        "partition": 0,
+        "topic": topic,
+    }
+
+    record_content = json.loads(row[1])
+    assert record_content == {
+        "bytes_val": "3q0=",
+        "dateTime": 1234,
+        "device": {"deviceID": "555-4321", "enabled": True},
+        "double_array_val": [0.3333333333333333, 32.21, 4.343243210000000e08],
+        "float_val": 4321.432,
+        "int32_val": 2147483647,
+        "reading": 321.321,
+        "sint32_val": 2147483647,
+        "sint64_val": 9223372036854775807,
+        "uint32_val": 4294967295,
+        "uint64_val": 18446744073709551615,
+    }
