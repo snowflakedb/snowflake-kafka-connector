@@ -62,8 +62,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
         testAppender.containsMessage(Level.INFO, "Client-side validation enabled"),
         "Should log INFO about validation enabled");
     assertTrue(
-        testAppender.containsMessage(
-            Level.INFO, "Validation failures will abort the task (safe"),
+        testAppender.containsMessage(Level.INFO, "Validation failures will abort the task (safe"),
         "Should log that task will abort on validation failure");
   }
 
@@ -93,8 +92,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
         testAppender.containsMessage(Level.INFO, "Validation failures will route to DLQ topic"),
         "Should log that failures route to DLQ");
     assertTrue(
-        testAppender.containsMessage(Level.INFO, "my-dlq-topic"),
-        "Should log the DLQ topic name");
+        testAppender.containsMessage(Level.INFO, "my-dlq-topic"), "Should log the DLQ topic name");
   }
 
   /**
