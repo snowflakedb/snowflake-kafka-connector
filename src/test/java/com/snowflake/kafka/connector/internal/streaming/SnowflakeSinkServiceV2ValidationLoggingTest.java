@@ -6,8 +6,16 @@ import static org.mockito.Mockito.*;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.apache.log4j.AppenderSkeleton;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.spi.LoggingEvent;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -15,6 +23,23 @@ import org.junit.jupiter.api.Test;
  * logging for preventing data loss and task crashes.
  */
 public class SnowflakeSinkServiceV2ValidationLoggingTest {
+
+  private TestAppender testAppender;
+  private Logger logger;
+
+  @BeforeEach
+  public void setUp() {
+    // Capture logs from SnowflakeSinkServiceV2
+    logger = Logger.getLogger(SnowflakeSinkServiceV2.class);
+    testAppender = new TestAppender();
+    logger.addAppender(testAppender);
+    logger.setLevel(Level.INFO);
+  }
+
+  @AfterEach
+  public void tearDown() {
+    logger.removeAppender(testAppender);
+  }
 
   /**
    * Test SAFE config: Validation enabled + errors.tolerance=none
@@ -25,13 +50,21 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   public void testSafeConfigValidationEnabledWithToleranceNone() {
     Map<String, String> config = new HashMap<>();
     config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task.id", "0");
+    config.put("task_id", "0");
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "true");
     config.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "none");
 
-    // Should log INFO: "Validation failures will abort the task (safe)"
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
+
+    // Verify INFO log contains expected message
+    assertTrue(
+        testAppender.containsMessage(Level.INFO, "Client-side validation enabled"),
+        "Should log INFO about validation enabled");
+    assertTrue(
+        testAppender.containsMessage(
+            Level.INFO, "Validation failures will abort the task (safe"),
+        "Should log that task will abort on validation failure");
   }
 
   /**
@@ -43,15 +76,25 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   public void testSafeConfigValidationEnabledWithToleranceAllAndDlq() {
     Map<String, String> config = new HashMap<>();
     config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task.id", "0");
+    config.put("task_id", "0");
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "true");
     config.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "all");
     config.put(
         KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "my-dlq-topic");
 
-    // Should log INFO: "Validation failures will route to DLQ topic: my-dlq-topic"
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
+
+    // Verify INFO log contains expected message with DLQ topic name
+    assertTrue(
+        testAppender.containsMessage(Level.INFO, "Client-side validation enabled"),
+        "Should log INFO about validation enabled");
+    assertTrue(
+        testAppender.containsMessage(Level.INFO, "Validation failures will route to DLQ topic"),
+        "Should log that failures route to DLQ");
+    assertTrue(
+        testAppender.containsMessage(Level.INFO, "my-dlq-topic"),
+        "Should log the DLQ topic name");
   }
 
   /**
@@ -63,14 +106,24 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   public void testUnsafeConfigValidationEnabledWithToleranceAllNoDlq() {
     Map<String, String> config = new HashMap<>();
     config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task.id", "0");
+    config.put("task_id", "0");
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "true");
     config.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "all");
     // NO DLQ configured
 
-    // Should log ERROR: "UNSAFE CONFIGURATION... Invalid records will be SILENTLY DROPPED"
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
+
+    // Verify ERROR log about unsafe configuration
+    assertTrue(
+        testAppender.containsMessage(Level.ERROR, "UNSAFE CONFIGURATION"),
+        "Should log ERROR about unsafe configuration");
+    assertTrue(
+        testAppender.containsMessage(Level.ERROR, "SILENTLY DROPPED"),
+        "Should warn about silent data loss");
+    assertTrue(
+        testAppender.containsMessage(Level.ERROR, "causing data loss"),
+        "Should explicitly mention data loss");
   }
 
   /**
@@ -83,14 +136,25 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   public void testValidationDisabledWarnsAboutErrorTables() {
     Map<String, String> config = new HashMap<>();
     config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task.id", "0");
+    config.put("task_id", "0");
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
 
-    // Should log WARN: "Running without client-side validation requires a configured SSv2 Error
-    // Table"
-    // TODO: When SSv2 API exposes Error Table config, this should check and potentially fail
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
+
+    // Verify WARN log about High-Performance Mode
+    assertTrue(
+        testAppender.containsMessage(Level.WARN, "CLIENT-SIDE VALIDATION DISABLED"),
+        "Should log WARN about validation disabled");
+    assertTrue(
+        testAppender.containsMessage(Level.WARN, "High-Performance Mode"),
+        "Should mention High-Performance Mode");
+    assertTrue(
+        testAppender.containsMessage(Level.WARN, "SSv2 Error Table"),
+        "Should mention SSv2 Error Table requirement");
+    assertTrue(
+        testAppender.containsMessage(Level.WARN, "silently dropped"),
+        "Should warn about silent data loss risk");
   }
 
   /**
@@ -102,12 +166,22 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   public void testLegacySchematizationConfigWarning() {
     Map<String, String> config = new HashMap<>();
     config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task.id", "0");
+    config.put("task_id", "0");
     config.put("snowflake.enable.schematization", "true"); // Legacy config
 
-    // Should log WARN: "Config 'snowflake.enable.schematization' is not supported in KC v4"
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
+
+    // Verify WARN log about legacy config
+    assertTrue(
+        testAppender.containsMessage(Level.WARN, "snowflake.enable.schematization"),
+        "Should mention legacy config name");
+    assertTrue(
+        testAppender.containsMessage(Level.WARN, "not supported in KC v4"),
+        "Should explain config is not supported");
+    assertTrue(
+        testAppender.containsMessage(Level.WARN, "ENABLE_SCHEMA_EVOLUTION"),
+        "Should mention server-side schema evolution");
   }
 
   /** Helper to create SnowflakeSinkServiceV2 with minimal mocked dependencies. */
@@ -131,8 +205,42 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
           null, // behaviorOnNullValues
           mockMetrics);
     } catch (Exception e) {
-      // Constructor may throw due to missing configs - that's okay for this test
+      // Constructor may throw due to missing configs - print and return null
+      System.err.println("Failed to create service: " + e.getMessage());
+      e.printStackTrace();
       return null;
+    }
+  }
+
+  /** Test appender that captures log events for verification. */
+  private static class TestAppender extends AppenderSkeleton {
+    private final List<LoggingEvent> events = new ArrayList<>();
+
+    @Override
+    protected void append(LoggingEvent event) {
+      events.add(event);
+    }
+
+    @Override
+    public void close() {
+      // No-op
+    }
+
+    @Override
+    public boolean requiresLayout() {
+      return false;
+    }
+
+    public boolean containsMessage(Level level, String messageFragment) {
+      return events.stream()
+          .anyMatch(
+              event ->
+                  event.getLevel().equals(level)
+                      && event.getRenderedMessage().contains(messageFragment));
+    }
+
+    public List<LoggingEvent> getEvents() {
+      return new ArrayList<>(events);
     }
   }
 }
