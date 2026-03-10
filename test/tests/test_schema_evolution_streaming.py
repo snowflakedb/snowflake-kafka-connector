@@ -1,9 +1,12 @@
 import json
+import time
 
 from snowflake.connector import DictCursor
 
 FILE_NAME = "snowpipe_streaming_schema_evolution"
 CONFIG_FILE = f"{FILE_NAME}.json"
+DISABLED_FILE_NAME = "snowpipe_streaming_schema_evolution_disabled"
+DISABLED_CONFIG_FILE = f"{DISABLED_FILE_NAME}.json"
 
 
 def test_schema_evolution_add_columns(
@@ -133,4 +136,130 @@ def test_schema_evolution_multi_wave(
     )
     assert null_country_count == wave1_count, (
         f"Expected {wave1_count} rows with NULL country, got {null_country_count}"
+    )
+
+
+def test_schema_evolution_happy_path(
+    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+):
+    """Send records that match the existing table schema exactly.
+
+    Validation passes without triggering schema evolution. Verifies that
+    client-side validation does not interfere with normal ingestion.
+    """
+    topic = snowflake_table(
+        FILE_NAME,
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT, CITY VARCHAR, AGE NUMBER)",
+    )
+
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+
+    create_connector(CONFIG_FILE)
+    driver.startConnectorWaitTime()
+
+    record_count = 100
+    values = [
+        json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+        for i in range(record_count)
+    ]
+    driver.sendBytesData(topic, values, [], partition=0)
+
+    wait_for_rows(topic, record_count)
+
+    row = (
+        driver.snowflake_conn.cursor(DictCursor)
+        .execute(
+            f'SELECT "CITY", "AGE" FROM {topic} '
+            f"WHERE RECORD_METADATA:\"offset\"::number = 0"
+        )
+        .fetchone()
+    )
+    assert row is not None, "Expected row with offset 0"
+    assert row["CITY"] == "Hsinchu"
+    assert row["AGE"] == 0
+
+
+def test_schema_evolution_drop_not_null(
+    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+):
+    """Table has a NOT NULL column, but records omit it.
+
+    Schema evolution should drop the NOT NULL constraint and add the extra
+    column, allowing records to be ingested with NULL for the original column.
+    """
+    topic = snowflake_table(
+        FILE_NAME,
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT, STATUS VARCHAR NOT NULL DEFAULT 'active')",
+    )
+
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+
+    create_connector(CONFIG_FILE)
+    driver.startConnectorWaitTime()
+
+    record_count = 50
+    values = [
+        json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+        for i in range(record_count)
+    ]
+    driver.sendBytesData(topic, values, [], partition=0)
+
+    wait_for_rows(topic, record_count)
+
+    cols = {
+        row[0]: row[1]
+        for row in driver.snowflake_conn.cursor()
+        .execute(f"DESCRIBE TABLE {topic}")
+        .fetchall()
+    }
+    assert "CITY" in cols, f"Expected CITY column, got: {list(cols.keys())}"
+    assert "AGE" in cols, f"Expected AGE column, got: {list(cols.keys())}"
+    assert "STATUS" in cols
+
+    null_status_count = (
+        driver.snowflake_conn.cursor()
+        .execute(f"SELECT count(*) FROM {topic} WHERE STATUS IS NULL")
+        .fetchone()[0]
+    )
+    assert null_status_count == record_count, (
+        f"Expected {record_count} rows with NULL STATUS, got {null_status_count}"
+    )
+
+
+def test_schematization_disabled_extra_cols_to_dlq(
+    driver, name_salt, create_connector, snowflake_table
+):
+    """With schematization disabled, extra columns cause records to go to DLQ.
+
+    Structural validation errors are routed to the error handler when
+    schema evolution is not enabled.
+    """
+    topic = snowflake_table(
+        DISABLED_FILE_NAME,
+        f"CREATE OR REPLACE TABLE {DISABLED_FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT)",
+    )
+
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+
+    config = create_connector(DISABLED_CONFIG_FILE)
+    driver.startConnectorWaitTime()
+
+    record_count = 5
+    values = [
+        json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+        for i in range(record_count)
+    ]
+    driver.sendBytesData(topic, values, [], partition=0)
+
+    time.sleep(30)
+
+    count = driver.select_number_of_records(topic)
+    assert count == 0, f"Expected 0 rows in table (DLQ), got {count}"
+
+    offsets_in_dlq = driver.consume_messages_dlq(config, 0, record_count - 1)
+    assert offsets_in_dlq == record_count, (
+        f"Expected {record_count} records in DLQ, got {offsets_in_dlq}"
     )
