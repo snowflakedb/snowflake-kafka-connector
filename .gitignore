@@ -26,3 +26,4 @@ profile*.json
 
 licenses/
 ai-docs/
+*.log.*
