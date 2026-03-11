@@ -1,5 +1,4 @@
 import json
-import time
 
 import pytest
 from snowflake.connector import DictCursor
