@@ -1,6 +1,7 @@
 import json
 import time
 
+import pytest
 from snowflake.connector import DictCursor
 
 FILE_NAME = "snowpipe_streaming_schema_evolution"
@@ -18,7 +19,8 @@ def test_schema_evolution_add_columns(
     """
     topic = snowflake_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} (RECORD_METADATA VARIANT)",
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -64,13 +66,14 @@ def test_schema_evolution_multi_wave(
 ):
     """Send two waves of records with different schemas.
 
-    Wave 1: {city, age}           → ADD COLUMN for CITY, AGE
-    Wave 2: {city, age, country}  → ADD COLUMN for COUNTRY
+    Wave 1: {city, age}           -> ADD COLUMN for CITY, AGE
+    Wave 2: {city, age, country}  -> ADD COLUMN for COUNTRY
     Verifies that wave-1 rows have NULL for COUNTRY.
     """
     topic = snowflake_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} (RECORD_METADATA VARIANT)",
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -148,7 +151,8 @@ def test_schema_evolution_happy_path(
     topic = snowflake_table(
         FILE_NAME,
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT, CITY VARCHAR, AGE NUMBER)",
+        f"(RECORD_METADATA VARIANT, CITY VARCHAR, AGE NUMBER) "
+        f"ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -189,7 +193,8 @@ def test_schema_evolution_drop_not_null(
     topic = snowflake_table(
         FILE_NAME,
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT, STATUS VARCHAR NOT NULL DEFAULT 'active')",
+        f"(RECORD_METADATA VARIANT, STATUS VARCHAR NOT NULL) "
+        f"ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -226,13 +231,15 @@ def test_schema_evolution_drop_not_null(
     )
 
 
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_schematization_disabled_extra_cols_to_dlq(
     driver, name_salt, create_connector, snowflake_table
 ):
     """With schematization disabled, extra columns cause records to go to DLQ.
 
     Structural validation errors are routed to the error handler when
-    schema evolution is not enabled.
+    schema evolution is not enabled. v3 handles non-schematized records
+    differently (wraps in RECORD_CONTENT), so this test is v4-only.
     """
     topic = snowflake_table(
         DISABLED_FILE_NAME,
@@ -252,12 +259,10 @@ def test_schematization_disabled_extra_cols_to_dlq(
     ]
     driver.sendBytesData(topic, values, [], partition=0)
 
-    time.sleep(30)
-
-    count = driver.select_number_of_records(topic)
-    assert count == 0, f"Expected 0 rows in table (DLQ), got {count}"
-
     offsets_in_dlq = driver.consume_messages_dlq(config, 0, record_count - 1)
     assert offsets_in_dlq == record_count, (
         f"Expected {record_count} records in DLQ, got {offsets_in_dlq}"
     )
+
+    count = driver.select_number_of_records(topic)
+    assert count == 0, f"Expected 0 rows in table (DLQ), got {count}"

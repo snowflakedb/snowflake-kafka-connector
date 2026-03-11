@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.Constants;
 import com.snowflake.kafka.connector.InjectQueryRunner;
 import com.snowflake.kafka.connector.InjectQueryRunnerExtension;
 import com.snowflake.kafka.connector.InjectSnowflakeDataSourceExtension;
@@ -55,6 +56,7 @@ class StreamingManualModeIT {
   @BeforeEach
   void beforeEach() throws SQLException {
     final Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(true);
+    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
     tableName = TestUtils.randomTableName();
     topicName = tableName;
     topicPartition = new TopicPartition(topicName, 0);

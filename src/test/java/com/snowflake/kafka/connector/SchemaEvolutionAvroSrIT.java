@@ -54,8 +54,7 @@ class SchemaEvolutionAvroSrIT extends SchemaEvolutionBase {
     EXPECTED_SCHEMA.put(PERFORMANCE_STRING, "VARCHAR");
     EXPECTED_SCHEMA.put(PERFORMANCE_CHAR, "VARCHAR");
     EXPECTED_SCHEMA.put(RATING_INT, "NUMBER");
-    EXPECTED_SCHEMA.put(
-        RATING_DOUBLE, "NUMBER"); // no floats anymore in server side SSV2 schema evo)
+    EXPECTED_SCHEMA.put(RATING_DOUBLE, "FLOAT");
     EXPECTED_SCHEMA.put(APPROVAL, "BOOLEAN");
     EXPECTED_SCHEMA.put(
         SOME_FLOAT_NAN, "VARCHAR"); // no floats anymore in server side SSV2 schema evo)

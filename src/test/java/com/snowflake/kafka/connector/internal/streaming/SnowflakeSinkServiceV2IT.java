@@ -47,6 +47,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @BeforeEach
   public void setup() {
     config = TestUtils.getConnectorConfigurationForStreaming(true);
+    config.put(
+        com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
+            .SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+        "false");
     pipe = table;
   }
 

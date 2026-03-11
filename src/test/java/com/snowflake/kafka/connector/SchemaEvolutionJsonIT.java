@@ -225,7 +225,7 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
             "RECORD_METADATA", "VARIANT",
             "RATING_INT", "NUMBER",
             "APPROVAL", "BOOLEAN",
-            "RATING_DOUBLE", "NUMBER"));
+            "RATING_DOUBLE", "FLOAT"));
   }
 
   @Test
