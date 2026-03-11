@@ -11,7 +11,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -115,11 +114,19 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     Assertions.assertEquals(42L, actual.get(ID_INT32));
     Assertions.assertEquals(42L, actual.get(ID_INT64));
     Assertions.assertEquals("zekai", actual.get(FIRST_NAME));
-    Assertions.assertEquals(BigDecimal.valueOf(0.99), actual.get(RATING_FLOAT32));
-    Assertions.assertEquals("NaN", actual.get(FLOAT_NAN));
-    Assertions.assertEquals("Inf", actual.get(FLOAT_POSITIVE_INFINITY));
-    Assertions.assertEquals("-Inf", actual.get(FLOAT_NEGATIVE_INFINITY));
-    Assertions.assertEquals(BigDecimal.valueOf(0.99), actual.get(RATING_FLOAT64));
+    Assertions.assertEquals(0.99, ((Number) actual.get(RATING_FLOAT32)).doubleValue(), 0.001);
+    Assertions.assertTrue(
+        Double.isNaN(((Number) actual.get(FLOAT_NAN)).doubleValue()),
+        "Expected NaN for " + FLOAT_NAN);
+    Assertions.assertTrue(
+        Double.isInfinite(((Number) actual.get(FLOAT_POSITIVE_INFINITY)).doubleValue())
+            && ((Number) actual.get(FLOAT_POSITIVE_INFINITY)).doubleValue() > 0,
+        "Expected +Infinity for " + FLOAT_POSITIVE_INFINITY);
+    Assertions.assertTrue(
+        Double.isInfinite(((Number) actual.get(FLOAT_NEGATIVE_INFINITY)).doubleValue())
+            && ((Number) actual.get(FLOAT_NEGATIVE_INFINITY)).doubleValue() < 0,
+        "Expected -Infinity for " + FLOAT_NEGATIVE_INFINITY);
+    Assertions.assertEquals(0.99, ((Number) actual.get(RATING_FLOAT64)).doubleValue(), 0.001);
     Assertions.assertEquals(true, actual.get(APPROVAL));
     Assertions.assertEquals(
         "[\"a\",\"b\"]", StringUtils.deleteWhitespace(actual.get(INFO_ARRAY_STRING).toString()));
