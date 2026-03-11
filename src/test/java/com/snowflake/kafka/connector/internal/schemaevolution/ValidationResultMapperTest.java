@@ -25,9 +25,9 @@ class ValidationResultMapperTest {
         ValidationResultMapper.mapToSchemaEvolutionItems(result, "MY_TABLE");
 
     assertEquals("MY_TABLE", items.getTableName());
-    assertThat(items.getColumnsToAdd()).containsExactlyInAnyOrder("NEW_COL1", "NEW_COL2");
+    assertThat(items.getColumnsToAdd()).containsExactlyInAnyOrder("\"NEW_COL1\"", "\"NEW_COL2\"");
     assertThat(items.getColumnsToDropNonNullability())
-        .containsExactlyInAnyOrder("REQUIRED_COL", "NULLABLE_COL");
+        .containsExactlyInAnyOrder("\"REQUIRED_COL\"", "\"NULLABLE_COL\"");
     assertTrue(items.hasDataForSchemaEvolution());
   }
 
@@ -54,7 +54,7 @@ class ValidationResultMapperTest {
     SchemaEvolutionTargetItems items =
         ValidationResultMapper.mapToSchemaEvolutionItems(result, "T");
 
-    assertThat(items.getColumnsToAdd()).containsExactly("COL1");
+    assertThat(items.getColumnsToAdd()).containsExactly("\"COL1\"");
     assertThat(items.getColumnsToDropNonNullability()).isEmpty();
   }
 
@@ -68,7 +68,7 @@ class ValidationResultMapperTest {
         ValidationResultMapper.mapToSchemaEvolutionItems(result, "T");
 
     assertThat(items.getColumnsToAdd()).isEmpty();
-    assertThat(items.getColumnsToDropNonNullability()).containsExactly("COL1");
+    assertThat(items.getColumnsToDropNonNullability()).containsExactly("\"COL1\"");
   }
 
   @Test
@@ -81,7 +81,7 @@ class ValidationResultMapperTest {
         ValidationResultMapper.mapToSchemaEvolutionItems(result, "T");
 
     assertThat(items.getColumnsToAdd()).isEmpty();
-    assertThat(items.getColumnsToDropNonNullability()).containsExactly("COL1");
+    assertThat(items.getColumnsToDropNonNullability()).containsExactly("\"COL1\"");
   }
 
   @Test
@@ -96,6 +96,6 @@ class ValidationResultMapperTest {
         ValidationResultMapper.mapToSchemaEvolutionItems(result, "T");
 
     assertThat(items.getColumnsToDropNonNullability())
-        .containsExactlyInAnyOrder("MISSING1", "NULL1");
+        .containsExactlyInAnyOrder("\"MISSING1\"", "\"NULL1\"");
   }
 }
