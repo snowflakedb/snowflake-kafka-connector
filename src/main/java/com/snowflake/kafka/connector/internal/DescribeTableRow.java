@@ -6,12 +6,13 @@ import java.util.Objects;
 public class DescribeTableRow {
   private final String column;
   private final String type;
-
+  private final String nullable;
   private final String comment;
 
-  public DescribeTableRow(String column, String type, String comment) {
+  public DescribeTableRow(String column, String type, String nullable, String comment) {
     this.column = column;
     this.type = type;
+    this.nullable = nullable;
     this.comment = comment;
   }
 
@@ -21,6 +22,10 @@ public class DescribeTableRow {
 
   public String getType() {
     return type;
+  }
+
+  public String getNullable() {
+    return nullable;
   }
 
   public String getComment() {

@@ -385,6 +385,13 @@
             <version>2.1.8</version>
         </dependency>
 
+        <!-- Caffeine cache library for client-side validation (copied from SSv1 SDK) -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>2.9.3</version>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
         <dependency>
             <groupId>org.apache.kafka</groupId>

@@ -21,6 +21,7 @@ class Profile:
     protocol: str = None
     host: str = None
     port: int = None
+    url: str = None  # Alternative to host/port/protocol
 
     account: str = None
     user: str = None
@@ -40,11 +41,33 @@ class Profile:
     oauth_refresh_token: str = None
     oauth_token_endpoint: str = None
     des_rsa_key: str = None
+    enable_encryption: bool = None
+    enable_encryption_compression: bool = None
+    max_outstanding_snowflake_requests: int = None
 
     @staticmethod
     def load(path: Path) -> "Profile":
         with open(path) as f:
-            return Profile(**json.load(f))
+            data = json.load(f)
+            profile = Profile(**data)
+
+            # Parse url into host/port/protocol if provided (SSv2 format)
+            if profile.url and not profile.host:
+                from urllib.parse import urlparse
+                parsed = urlparse(profile.url)
+                profile.protocol = parsed.scheme or "https"
+                profile.host = parsed.hostname
+                profile.port = parsed.port or 443
+
+            # Parse host:port format if provided (KC v3 format)
+            elif profile.host and ':' in profile.host and not profile.port:
+                host_parts = profile.host.split(':')
+                profile.host = host_parts[0]
+                profile.port = int(host_parts[1])
+                if not profile.protocol:
+                    profile.protocol = "https"  # default protocol
+
+            return profile
 
     def get_or_infer_account(self) -> str:
         if self.account is not None:

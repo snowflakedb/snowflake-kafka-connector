@@ -12,6 +12,7 @@
     "key.converter":"org.apache.kafka.connect.storage.StringConverter",
     "value.converter":"org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",
-    "snowflake.jdbc.map": "isInsecureMode : true, notYetExistingProp : true"
+    "snowflake.jdbc.map": "isInsecureMode : true, notYetExistingProp : true",
+    "snowflake.client.validation.enabled": "true"
   }
 }
