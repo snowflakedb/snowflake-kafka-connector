@@ -55,15 +55,15 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
       new HashMap<String, String>() {
         {
           put(ID_INT8, "NUMBER");
-          put(ID_INT8_OPTIONAL, "VARCHAR");
+          put(ID_INT8_OPTIONAL, "NUMBER");
           put(ID_INT16, "NUMBER");
           put(ID_INT32, "NUMBER");
           put(ID_INT64, "NUMBER");
           put(FIRST_NAME, "VARCHAR");
           put(RATING_FLOAT32, "FLOAT");
-          put(FLOAT_NAN, "VARCHAR");
-          put(FLOAT_POSITIVE_INFINITY, "VARCHAR");
-          put(FLOAT_NEGATIVE_INFINITY, "VARCHAR");
+          put(FLOAT_NAN, "FLOAT");
+          put(FLOAT_POSITIVE_INFINITY, "FLOAT");
+          put(FLOAT_NEGATIVE_INFINITY, "FLOAT");
           put(RATING_FLOAT64, "FLOAT");
           put(APPROVAL, "BOOLEAN");
           put(INFO_ARRAY_STRING, "ARRAY");
