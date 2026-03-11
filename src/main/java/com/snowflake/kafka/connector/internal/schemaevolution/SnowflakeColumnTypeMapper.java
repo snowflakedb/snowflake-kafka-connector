@@ -29,13 +29,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Maps Kafka Connect types to Snowflake DDL types.
  *
- * <p>Type mappings:
- * - INT8 → BYTEINT, INT16 → SMALLINT, INT32 → INT
- * - INT64 → BIGINT (or TIMESTAMP with logical name)
- * - FLOAT32 → FLOAT, FLOAT64 → DOUBLE
- * - BOOLEAN → BOOLEAN, STRING → VARCHAR
- * - BYTES → BINARY (or VARCHAR for Decimal)
- * - ARRAY → ARRAY, STRUCT/MAP → VARIANT
+ * <p>Type mappings: - INT8 → BYTEINT, INT16 → SMALLINT, INT32 → INT - INT64 → BIGINT (or TIMESTAMP
+ * with logical name) - FLOAT32 → FLOAT, FLOAT64 → DOUBLE - BOOLEAN → BOOLEAN, STRING → VARCHAR -
+ * BYTES → BINARY (or VARCHAR for Decimal) - ARRAY → ARRAY, STRUCT/MAP → VARIANT
  */
 public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
 
@@ -143,8 +139,7 @@ public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
     } else if (value instanceof java.util.Map) {
       return "VARIANT";
     } else {
-      LOGGER.debug(
-          "Unknown Java type {}, defaulting to VARIANT", value.getClass().getName());
+      LOGGER.debug("Unknown Java type {}, defaulting to VARIANT", value.getClass().getName());
       return "VARIANT";
     }
   }

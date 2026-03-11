@@ -48,9 +48,7 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
-            "test_table",
-            Collections.emptySet(),
-            new HashSet<>(Arrays.asList("\"NEW_COL\"")));
+            "test_table", Collections.emptySet(), new HashSet<>(Arrays.asList("\"NEW_COL\"")));
 
     service.evolveSchemaIfNeeded(items, record);
 
@@ -64,9 +62,7 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
-            "test_table",
-            new HashSet<>(Arrays.asList("COL1", "COL2")),
-            Collections.emptySet());
+            "test_table", new HashSet<>(Arrays.asList("COL1", "COL2")), Collections.emptySet());
 
     service.evolveSchemaIfNeeded(items, record);
 
@@ -95,25 +91,22 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
   @Test
   public void testEvolveSchemaHandlesAddColumnFailure() {
-    Schema valueSchema =
-        SchemaBuilder.struct()
-            .field("col1", Schema.STRING_SCHEMA)
-            .build();
+    Schema valueSchema = SchemaBuilder.struct().field("col1", Schema.STRING_SCHEMA).build();
 
     Struct value = new Struct(valueSchema);
     value.put("col1", "test");
 
     SinkRecord record = new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
 
-    doThrow(new com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException("race", "2001"))
+    doThrow(
+            new com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException(
+                "race", "2001"))
         .when(mockConn)
         .appendColumnsToTable(anyString(), anyMap());
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
-            "test_table",
-            Collections.emptySet(),
-            new HashSet<>(Arrays.asList("\"COL1\"")));
+            "test_table", Collections.emptySet(), new HashSet<>(Arrays.asList("\"COL1\"")));
 
     // Should not throw - swallows exception and logs warning
     assertDoesNotThrow(() -> service.evolveSchemaIfNeeded(items, record));
@@ -123,15 +116,15 @@ public class SnowflakeSchemaEvolutionServiceTest {
   public void testEvolveSchemaHandlesDropNotNullFailure() {
     SinkRecord record = new SinkRecord("topic", 0, null, null, null, new HashMap<>(), 0);
 
-    doThrow(new com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException("race", "2001"))
+    doThrow(
+            new com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException(
+                "race", "2001"))
         .when(mockConn)
         .alterNonNullableColumns(anyString(), anyList());
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
-            "test_table",
-            new HashSet<>(Arrays.asList("COL1")),
-            Collections.emptySet());
+            "test_table", new HashSet<>(Arrays.asList("COL1")), Collections.emptySet());
 
     // Should not throw - swallows exception and logs warning
     assertDoesNotThrow(() -> service.evolveSchemaIfNeeded(items, record));
