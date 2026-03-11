@@ -344,7 +344,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     boolean first = true;
     for (Map.Entry<String, ColumnInfos> entry : columnInfosMap.entrySet()) {
       if (!first) {
-        query.append(", ");
+        query.append(", if not exists ");
       }
       // Quote column name to prevent SQL injection
       query.append(Utils.quoteNameIfNeeded(entry.getKey()));
@@ -382,8 +382,13 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
         query.append(", ");
       }
       // Quote column name to prevent SQL injection
-      query.append(Utils.quoteNameIfNeeded(columnName));
-      query.append(" drop not null");
+      String quotedName = Utils.quoteNameIfNeeded(columnName);
+      query.append(quotedName);
+      query.append(" drop not null, ");
+      query.append(quotedName);
+      query.append(
+          " comment 'column altered to be nullable by schema evolution from Snowflake Kafka"
+              + " Connector'");
       first = false;
     }
 
