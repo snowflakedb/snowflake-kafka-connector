@@ -368,10 +368,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       this.schemaEvolutionService = new SnowflakeSchemaEvolutionService(conn);
 
       LOGGER.info(
-          "Client-side validation enabled for channel {}. Table {} has {} columns",
+          "Client-side validation enabled for channel {}. Table {} has {} columns,"
+              + " schemaEvolution={}",
           channelName,
           tableName,
-          this.tableSchema.size());
+          this.tableSchema.size(),
+          enableSchematization);
     } catch (Exception e) {
       LOGGER.warn(
           "Failed to initialize client-side validation for channel {}. "
@@ -387,6 +389,16 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   private void handleValidationError(ValidationResult result, SinkRecord record) {
+    LOGGER.warn(
+        "Client-side validation failure [{}] channel={}, column={}, error={}, offset={}",
+        result.getErrorType(),
+        channelName,
+        result.getColumnName(),
+        result.getValueError(),
+        record.kafkaOffset());
+
+    telemetryService.reportValidationFailureEvent(channelName, tableName, result.getErrorType());
+
     String errorMsg =
         String.format(
             "Validation failed for column %s: %s", result.getColumnName(), result.getValueError());
@@ -395,14 +407,21 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
-    LOGGER.info(
-        "handleStructuralError for channel {}: hasSchemaEvolutionPermission={}, extraCols={},"
-            + " missingNotNull={}",
+    LOGGER.warn(
+        "Client-side structural validation failure [{}] channel={}, "
+            + "hasSchemaEvolutionPermission={}, extraCols={}, missingNotNull={}, "
+            + "nullNotNull={}, offset={}",
+        result.getErrorType(),
         channelName,
         hasSchemaEvolutionPermission,
         result.getExtraColNames(),
-        result.getMissingNotNullColNames());
+        result.getMissingNotNullColNames(),
+        result.getNullValueForNotNullColNames(),
+        record.kafkaOffset());
+
     if (!hasSchemaEvolutionPermission) {
+      telemetryService.reportValidationFailureEvent(channelName, tableName, result.getErrorType());
+
       String errorMsg =
           String.format(
               "Structural validation error (schema evolution disabled): extraCols=%s,"
