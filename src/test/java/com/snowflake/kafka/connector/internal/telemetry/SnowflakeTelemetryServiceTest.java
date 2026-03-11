@@ -26,6 +26,7 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 import net.snowflake.client.jdbc.telemetry.Telemetry;
 import net.snowflake.client.jdbc.telemetry.TelemetryData;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -79,6 +80,56 @@ public class SnowflakeTelemetryServiceTest {
     assertNotNull(dataNode.get("jdk_distribution"));
 
     validateKeyAndValueConverter(dataNode);
+
+    // FR10: client.validation.enabled should be present
+    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED));
+    assertEquals(
+        String.valueOf(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT),
+        dataNode.get(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED).asText());
+  }
+
+  @Test
+  public void testReportKafkaConnectStart_clientValidationExplicitlySet() {
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    LinkedList<TelemetryData> sentData = this.mockTelemetryClient.getSentTelemetryData();
+    assertEquals(1, sentData.size());
+
+    JsonNode dataNode = sentData.get(0).getMessage().get("data");
+    assertEquals(
+        "false",
+        dataNode.get(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED).asText());
+  }
+
+  @Test
+  public void testReportValidationFailureEvent() {
+    Map<String, String> connectorConfig = createConnectorConfig();
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    snowflakeTelemetryService.reportValidationFailureEvent(
+        "test_channel", "test_table", "type_error");
+
+    LinkedList<TelemetryData> sentData = this.mockTelemetryClient.getSentTelemetryData();
+    assertEquals(1, sentData.size());
+
+    JsonNode allNode = sentData.get(0).getMessage();
+    assertEquals(
+        SnowflakeTelemetryService.TelemetryType.KAFKA_VALIDATION_FAILURE.toString(),
+        allNode.get("type").asText());
+    assertEquals("kafka_connector", allNode.get("source").asText());
+
+    JsonNode dataNode = allNode.get("data");
+    assertNotNull(dataNode);
+    assertEquals("test_channel", dataNode.get("channel_name").asText());
+    assertEquals("test_table", dataNode.get("table_name").asText());
+    assertEquals("type_error", dataNode.get("error_type").asText());
+    assertTrue(dataNode.has(TelemetryConstants.UNIX_TIME));
   }
 
   @ParameterizedTest
