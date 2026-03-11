@@ -18,8 +18,7 @@ def test_schema_evolution_add_columns(
     """
     topic = snowflake_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT)",
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} (RECORD_METADATA VARIANT)",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -51,7 +50,7 @@ def test_schema_evolution_add_columns(
         .execute(
             f'SELECT "CITY", "AGE", RECORD_METADATA '
             f"FROM {topic} "
-            f"WHERE RECORD_METADATA:\"offset\"::number = 0"
+            f'WHERE RECORD_METADATA:"offset"::number = 0'
         )
         .fetchone()
     )
@@ -71,8 +70,7 @@ def test_schema_evolution_multi_wave(
     """
     topic = snowflake_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT)",
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} (RECORD_METADATA VARIANT)",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -121,7 +119,7 @@ def test_schema_evolution_multi_wave(
         driver.snowflake_conn.cursor(DictCursor)
         .execute(
             f'SELECT "CITY", "AGE", "COUNTRY" FROM {topic} '
-            f"WHERE RECORD_METADATA:\"offset\"::number = {wave1_count}"
+            f'WHERE RECORD_METADATA:"offset"::number = {wave1_count}'
         )
         .fetchone()
     )
@@ -171,7 +169,7 @@ def test_schema_evolution_happy_path(
         driver.snowflake_conn.cursor(DictCursor)
         .execute(
             f'SELECT "CITY", "AGE" FROM {topic} '
-            f"WHERE RECORD_METADATA:\"offset\"::number = 0"
+            f'WHERE RECORD_METADATA:"offset"::number = 0'
         )
         .fetchone()
     )
