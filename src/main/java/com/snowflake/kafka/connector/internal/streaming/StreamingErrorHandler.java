@@ -55,6 +55,14 @@ public class StreamingErrorHandler {
         this.kafkaRecordErrorReporter.reportError(kafkaSinkRecord, wrappedException);
       }
     } else {
+      // Preserve the record in DLQ before failing the task
+      if (isDLQTopicSet && kafkaRecordErrorReporter != null) {
+        LOGGER.warn(
+            "Routing failed record to DLQ topic before aborting task (errors.tolerance=none)");
+        DataException wrappedException =
+            new DataException("Error converting record: " + error.getMessage(), error);
+        this.kafkaRecordErrorReporter.reportError(kafkaSinkRecord, wrappedException);
+      }
       final String errMsg =
           String.format(
               "Error inserting Records using Streaming API with msg:%s", error.getMessage());
