@@ -5,8 +5,6 @@ from snowflake.connector import DictCursor
 
 FILE_NAME = "snowpipe_streaming_schema_evolution"
 CONFIG_FILE = f"{FILE_NAME}.json"
-DISABLED_FILE_NAME = "snowpipe_streaming_schema_evolution_disabled"
-DISABLED_CONFIG_FILE = f"{DISABLED_FILE_NAME}.json"
 
 
 def test_schema_evolution_add_columns(
@@ -231,24 +229,23 @@ def test_schema_evolution_drop_not_null(
 
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_schematization_disabled_extra_cols_to_dlq(
+def test_schema_evolution_disabled_extra_cols_to_dlq(
     driver, name_salt, create_connector, snowflake_table
 ):
-    """With schematization disabled, extra columns cause records to go to DLQ.
+    """Table without ENABLE_SCHEMA_EVOLUTION: extra columns go to DLQ.
 
-    Structural validation errors are routed to the error handler when
-    schema evolution is not enabled. v3 handles non-schematized records
-    differently (wraps in RECORD_CONTENT), so this test is v4-only.
+    When ENABLE_SCHEMA_EVOLUTION is not set on the table, client-side
+    validation detects extra columns but cannot evolve the schema, so
+    records are routed to the error handler.
     """
     topic = snowflake_table(
-        DISABLED_FILE_NAME,
-        f"CREATE OR REPLACE TABLE {DISABLED_FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT)",
+        FILE_NAME,
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} (RECORD_METADATA VARIANT)",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    config = create_connector(DISABLED_CONFIG_FILE)
+    config = create_connector(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     record_count = 5
