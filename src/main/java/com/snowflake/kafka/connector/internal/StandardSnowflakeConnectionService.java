@@ -320,6 +320,25 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
+  public boolean isSchemaEvolutionEnabled(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "SHOW TABLES LIKE '" + tableName + "' LIMIT 1";
+
+    try (PreparedStatement stmt = conn.prepareStatement(query)) {
+      ResultSet result = stmt.executeQuery();
+      if (result.next()) {
+        return "Y".equals(result.getString("enable_schema_evolution"));
+      }
+      return false;
+    } catch (SQLException e) {
+      LOGGER.warn(
+          "Failed to check ENABLE_SCHEMA_EVOLUTION for table {}: {}", tableName, e.getMessage());
+      return false;
+    }
+  }
+
+  @Override
   public void executeQueryWithParameters(String query, String... parameters) {
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
