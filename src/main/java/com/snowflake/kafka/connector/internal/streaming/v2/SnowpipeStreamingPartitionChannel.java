@@ -405,8 +405,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
       refreshTableSchema();
 
+      ValidationResult retryResult = result;
       if (rowValidator != null) {
-        ValidationResult retryResult = rowValidator.validateRow(transformedRecord);
+        retryResult = rowValidator.validateRow(transformedRecord);
         if (retryResult.isValid()) {
           insertRowWithFallback(transformedRecord, record.kafkaOffset());
           return;
@@ -416,7 +417,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String errorMsg =
           String.format(
               "Schema mismatch after evolution attempt: extraCols=%s, missingNotNull=%s",
-              result.getExtraColNames(), result.getMissingNotNullColNames());
+              retryResult.getExtraColNames(), retryResult.getMissingNotNullColNames());
       streamingErrorHandler.handleError(new DataException(errorMsg), record);
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Schema evolution failed for table {}", tableName, e);
