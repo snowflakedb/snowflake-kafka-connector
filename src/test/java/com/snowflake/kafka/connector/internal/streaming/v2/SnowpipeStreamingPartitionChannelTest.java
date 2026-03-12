@@ -158,6 +158,7 @@ class SnowpipeStreamingPartitionChannelTest {
         mockErrorHandler,
         TaskMetrics.noop(),
         false,
+        false,
         null);
   }
 
@@ -196,7 +197,9 @@ class SnowpipeStreamingPartitionChannelTest {
   private SnowflakeConnectionService mockConnService;
 
   private SnowpipeStreamingPartitionChannel createValidationEnabledChannel(
-      List<DescribeTableRow> describeResult, boolean enableSchematization) {
+      List<DescribeTableRow> describeResult,
+      boolean enableSchematization,
+      boolean enableSchemaEvolution) {
     mockConnService = mock(SnowflakeConnectionService.class);
     when(mockConnService.describeTable(TABLE_NAME)).thenReturn(Optional.of(describeResult));
 
@@ -227,6 +230,7 @@ class SnowpipeStreamingPartitionChannelTest {
         mockErrorHandler,
         TaskMetrics.noop(),
         true,
+        enableSchemaEvolution,
         mockConnService);
   }
 
@@ -239,7 +243,7 @@ class SnowpipeStreamingPartitionChannelTest {
   void validationEnabled_validRecord_insertsSuccessfully() {
     // enableSchematization=false so the record is wrapped into RECORD_CONTENT/RECORD_METADATA
     SnowpipeStreamingPartitionChannel channel =
-        createValidationEnabledChannel(STANDARD_TABLE_SCHEMA, false);
+        createValidationEnabledChannel(STANDARD_TABLE_SCHEMA, false, true);
     SinkRecord record = buildValidRecord(0);
 
     channel.insertRecord(record, true);
@@ -254,7 +258,7 @@ class SnowpipeStreamingPartitionChannelTest {
     List<DescribeTableRow> schema =
         Arrays.asList(new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
 
-    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true);
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true, true);
 
     SinkRecord record = buildValidRecord(0);
     channel.insertRecord(record, true);
@@ -264,17 +268,15 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void validationEnabled_schematizationDisabled_structuralErrorRoutesToDlq() {
-    // Table only has RECORD_METADATA — RECORD_CONTENT will be "extra"
+  void validationEnabled_schemaEvolutionDisabled_structuralErrorRoutesToDlq() {
     List<DescribeTableRow> schema =
         Arrays.asList(new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
 
-    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false);
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true, false);
 
     SinkRecord record = buildValidRecord(0);
     channel.insertRecord(record, true);
 
-    // Should route to error handler without attempting schema evolution
     verify(mockErrorHandler).handleError(any(Exception.class), eq(record));
     verify(mockConnService, never()).appendColumnsToTable(any(), any());
     verify(mockConnService, never()).alterNonNullableColumns(any(), any());
@@ -313,9 +315,9 @@ class SnowpipeStreamingPartitionChannelTest {
             mockErrorHandler,
             TaskMetrics.noop(),
             true,
+            true,
             mockConnService);
 
-    // Validation disabled gracefully — record inserts without error
     SinkRecord record = buildValidRecord(0);
     channel.insertRecord(record, true);
 
@@ -331,8 +333,8 @@ class SnowpipeStreamingPartitionChannelTest {
             new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"),
             new DescribeTableRow("REQUIRED_COL", "VARCHAR(100)", null, "N"));
 
-    // enableSchematization=true so schema evolution is attempted for the missing NOT NULL col
-    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true);
+    // enableSchemaEvolution=true so schema evolution is attempted for the missing NOT NULL col
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true, true);
 
     // Record doesn't have REQUIRED_COL — should trigger structural error
     SinkRecord record = buildValidRecord(0);
@@ -346,7 +348,7 @@ class SnowpipeStreamingPartitionChannelTest {
     List<DescribeTableRow> schema =
         Arrays.asList(new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
 
-    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true);
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true, true);
 
     String json = "{\"city\": \"Hsinchu\", \"age\": 25, \"country\": \"TW\"}";
     JsonConverter jsonConverter = new JsonConverter();

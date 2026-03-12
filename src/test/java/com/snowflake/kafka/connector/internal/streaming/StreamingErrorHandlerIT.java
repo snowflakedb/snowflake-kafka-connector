@@ -304,6 +304,7 @@ class StreamingErrorHandlerIT {
         errorHandler,
         TaskMetrics.noop(),
         false,
+        false,
         null);
   }
 }
