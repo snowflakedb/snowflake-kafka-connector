@@ -26,7 +26,7 @@ VALUE_SCHEMA = avro.loads(VALUE_SCHEMA_STR)
 GOLD_SCHEMA = {
     "ID": "NUMBER",
     "FIRST_NAME": "VARCHAR",
-    "RATING": "NUMBER",  # KCv4 maps Avro float to Snowflake NUMBER
+    "RATING": "FLOAT",
     "APPROVAL": "BOOLEAN",
     "INFO_MAP": "VARIANT",
     "RECORD_METADATA": "VARIANT",
@@ -36,12 +36,13 @@ RECORD = {
     "id": 100,
     "first_name": "Zekai",
     "rating": 0.99,
-    "approval": "true",
+    "approval": True,
     "info_map": {"TREE_1": "APPLE", "TREE_2": "PINEAPPLE"},
 }
 
 
 @pytest.mark.confluent_only
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_auto_table_creation(driver, name_salt, create_connector, wait_for_rows):
     """Verify auto table creation with Avro Schema Registry.
 

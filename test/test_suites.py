@@ -27,7 +27,6 @@ from test_suit.test_snowpipe_streaming_string_json_ignore_tombstone import (
 )
 
 from test_suit.test_string_avro import TestStringAvro
-from test_suit.test_string_json_ignore_tombstone import TestStringJsonIgnoreTombstone
 from cloud_platform import CloudPlatform
 
 

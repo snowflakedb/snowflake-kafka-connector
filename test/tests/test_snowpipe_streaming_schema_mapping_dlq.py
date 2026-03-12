@@ -31,7 +31,7 @@ def test_snowpipe_streaming_schema_mapping_dlq(
         f"(PERFORMANCE_STRING STRING, RATING_INT NUMBER, RECORD_METADATA VARIANT)",
     )
 
-    create_connector(CONFIG_FILE)
+    config = create_connector(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send incorrect data (string in NUMBER column) --
@@ -57,13 +57,10 @@ def test_snowpipe_streaming_schema_mapping_dlq(
         col_map[col[0]] = idx
 
     # -- Verify DLQ received failing records --
-    # Skip DLQ check on old Kafka versions that don't support it
-    old_versions = {"5.5.11", "2.5.1"}
-    if driver.testVersion not in old_versions:
-        offsets_in_dlq = driver.consume_messages_dlq(FILE_NAME, 0, EXPECTED_IN_DLQ - 1)
-        assert offsets_in_dlq == EXPECTED_IN_DLQ, (
-            f"Expected {EXPECTED_IN_DLQ} records in DLQ, got {offsets_in_dlq}"
-        )
+    offsets_in_dlq = driver.consume_messages_dlq(config, 0, EXPECTED_IN_DLQ - 1)
+    assert offsets_in_dlq == EXPECTED_IN_DLQ, (
+        f"Expected {EXPECTED_IN_DLQ} records in DLQ, got {offsets_in_dlq}"
+    )
 
     # -- Verify content of ingested rows --
     row = (

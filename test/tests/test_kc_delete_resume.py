@@ -1,4 +1,5 @@
 import json
+import pytest
 from time import sleep
 
 FILE_NAME = "test_kc_delete_resume"
@@ -15,6 +16,7 @@ def _send_batch(driver, topic, record_count):
     sleep(2)
 
 
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_kc_delete_resume(
     driver, name_salt, create_connector, snowflake_table, wait_for_rows
 ):

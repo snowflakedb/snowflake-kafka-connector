@@ -1,4 +1,6 @@
 import json
+import time
+import pytest
 from time import sleep
 
 FILE_NAME = "test_kc_delete_resume_chaos"
@@ -15,9 +17,8 @@ def _send_batch(driver, topic, record_count):
     sleep(2)
 
 
-def test_kc_delete_resume_chaos(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
-):
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
+def test_kc_delete_resume_chaos(driver, name_salt, create_connector, snowflake_table):
     """Verify connector behavior during delete with pressure and a failed resume.
 
     Sequence:
@@ -60,8 +61,15 @@ def test_kc_delete_resume_chaos(
     _send_batch(driver, topic, RECORD_COUNT)
 
     # -- Verify: between 1 and 2 batches ingested --
-    # Wait for at least 1 batch, then check the range
-    wait_for_rows(topic, RECORD_COUNT)
+    # Cannot use wait_for_rows (exact match) since batch 2 may partially arrive,
+    # making the total non-deterministic. Poll until count >= RECORD_COUNT instead.
+    deadline = time.monotonic() + 600
+    while driver.select_number_of_records(topic) < RECORD_COUNT:
+        if time.monotonic() >= deadline:
+            raise AssertionError(
+                f"Timed out waiting for at least {RECORD_COUNT} rows in {topic}"
+            )
+        sleep(10)
 
     count = driver.select_number_of_records(topic)
     upper_bound = RECORD_COUNT * 2

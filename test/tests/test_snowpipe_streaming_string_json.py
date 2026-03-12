@@ -27,18 +27,8 @@ def test_snowpipe_streaming_string_json(
         for i in range(RECORDS_PER_PARTITION - 2):
             values.append(json.dumps({"fieldName": str(i)}).encode("utf-8"))
 
-        if driver.testVersion == "2.5.1":
-            values.append(
-                json.dumps({"fieldName": str(RECORDS_PER_PARTITION - 1)}).encode(
-                    "utf-8"
-                )
-            )
-            values.append(
-                json.dumps({"fieldName": str(RECORDS_PER_PARTITION)}).encode("utf-8")
-            )
-        else:
-            values.append(None)
-            values.append(b"")
+        values.append(None)
+        values.append(b"")
 
         driver.sendBytesData(topic, values, [], partition=p)
         sleep(2)

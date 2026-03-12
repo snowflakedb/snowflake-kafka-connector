@@ -8,11 +8,17 @@ RECORDS_PER_PARTITION = 1000
 # Both None and "" are treated as tombstones in streaming mode (community converters).
 EXPECTED_PER_PARTITION = RECORDS_PER_PARTITION - 2
 
-LONG_FIELD = "numbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumbernumber"
+# TODO: KC v3 uses case-sensitive field names matching. But the column names are upper case by default.
+LONG_FIELD = "NUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBER"
 
 
 def test_snowpipe_streaming_string_json_ignore_tombstone(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    connector_version,
+    driver,
+    name_salt,
+    create_connector,
+    snowflake_table,
+    wait_for_rows,
 ):
     """Verify Snowpipe Streaming with behavior.on.null.values=IGNORE across
     multiple partitions.
@@ -39,17 +45,8 @@ def test_snowpipe_streaming_string_json_ignore_tombstone(
         for i in range(RECORDS_PER_PARTITION - 2):
             values.append(json.dumps({LONG_FIELD: str(i)}).encode("utf-8"))
 
-        # https://issues.apache.org/jira/browse/KAFKA-10477
-        if driver.testVersion != "2.5.1":
-            values.append(None)
-            values.append(b"")  # community converters treat this as a tombstone
-        else:
-            values.append(
-                json.dumps({LONG_FIELD: str(RECORDS_PER_PARTITION - 2)}).encode("utf-8")
-            )
-            values.append(
-                json.dumps({LONG_FIELD: str(RECORDS_PER_PARTITION - 1)}).encode("utf-8")
-            )
+        values.append(None)
+        values.append(b"")  # community converters treat this as a tombstone
 
         driver.sendBytesData(topic, values, [], partition=p)
         sleep(2)

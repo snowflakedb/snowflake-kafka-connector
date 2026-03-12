@@ -1,6 +1,8 @@
 import datetime
 import json
 
+import pytest
+
 FILE_NAME = "travis_correct_schema_mapping"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
@@ -14,7 +16,7 @@ RECORD = {
     "PERFORMANCE_HEX": "FFFFFFFF",
     "RATING_INT": 100,
     "RATING_DOUBLE": 0.99,
-    "APPROVAL": "true",
+    "APPROVAL": True,
     "APPROVAL_DATE": "2022-06-15",
     "APPROVAL_TIME": "23:59:59.999999",
     "INFO_ARRAY": ["HELLO", "WORLD"],
@@ -37,6 +39,7 @@ GOLD_VALUES = {
 }
 
 
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_schema_mapping(
     driver, name_salt, create_connector, snowflake_table, wait_for_rows
 ):

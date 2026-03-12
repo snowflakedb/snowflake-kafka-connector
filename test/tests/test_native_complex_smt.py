@@ -1,5 +1,7 @@
 import json
 
+from lib.matchers import ANY_INT, RegexMatch
+
 FILE_NAME = "travis_correct_native_complex_smt"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
@@ -39,17 +41,18 @@ def test_native_complex_smt(
     wait_for_rows(topic, RECORD_COUNT)
 
     # -- Verify first row: key extracted, c2 dropped --
-    row = (
+    meta_str, c1_str = (
         driver.snowflake_conn.cursor()
         .execute(f"SELECT * FROM {topic} LIMIT 1")
         .fetchone()
     )
 
-    gold_meta = (
-        r'{"CreateTime":\d*,"SnowflakeConnectorPushTime":\d*,'
-        r'"key":{"int":"\d"},'
-        r'"offset":0,"partition":0,'
-        r'"topic":"travis_correct_native_complex_smt_\w*"}'
-    )
-    gold_content = r'{"int":"\d"}'
-    driver.regexMatchOneLine(row, gold_meta, gold_content)
+    assert json.loads(meta_str) == {
+        "CreateTime": ANY_INT,
+        "SnowflakeConnectorPushTime": ANY_INT,
+        "key": {"int": RegexMatch(r"\d+")},
+        "offset": 0,
+        "partition": 0,
+        "topic": topic,
+    }
+    assert json.loads(c1_str) == {"int": RegexMatch(r"\d+")}

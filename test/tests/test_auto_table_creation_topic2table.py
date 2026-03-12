@@ -38,7 +38,7 @@ VALUE_SCHEMAS = [avro.loads(s) for s in VALUE_SCHEMA_STRS]
 GOLD_SCHEMA = {
     "ID": "NUMBER",
     "FIRST_NAME": "VARCHAR",
-    "RATING": "NUMBER",  # KCv4 maps Avro float to Snowflake NUMBER
+    "RATING": "FLOAT",
     "APPROVAL": "BOOLEAN",
     "INFO_MAP": "VARIANT",
     "RECORD_METADATA": "VARIANT",
@@ -47,7 +47,7 @@ GOLD_SCHEMA = {
 RECORDS = [
     {
         "id": 100,
-        "approval": "true",
+        "approval": True,
         "info_map": {"TREE_1": "APPLE", "TREE_2": "PINEAPPLE"},
     },
     {"id": 100, "first_name": "Zekai", "rating": 0.99},
@@ -55,6 +55,7 @@ RECORDS = [
 
 
 @pytest.mark.confluent_only
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_auto_table_creation_topic2table(
     driver, name_salt, create_connector, wait_for_rows
 ):
