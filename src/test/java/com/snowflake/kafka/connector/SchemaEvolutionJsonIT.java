@@ -69,7 +69,8 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
     snowflake.executeQueryWithParameters(
         "CREATE OR REPLACE TABLE "
             + tableName
-            + " (COL1 VARCHAR NOT NULL, COL2 VARCHAR) ENABLE_SCHEMA_EVOLUTION = true");
+            + " (RECORD_METADATA VARIANT, COL1 VARCHAR NOT NULL, COL2 VARCHAR)"
+            + " ENABLE_SCHEMA_EVOLUTION = true");
 
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);
@@ -225,7 +226,7 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
             "RECORD_METADATA", "VARIANT",
             "RATING_INT", "NUMBER",
             "APPROVAL", "BOOLEAN",
-            "RATING_DOUBLE", "NUMBER"));
+            "RATING_DOUBLE", "FLOAT"));
   }
 
   @Test

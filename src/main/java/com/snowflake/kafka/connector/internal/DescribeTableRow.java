@@ -8,11 +8,13 @@ public class DescribeTableRow {
   private final String type;
 
   private final String comment;
+  private final String nullable;
 
-  public DescribeTableRow(String column, String type, String comment) {
+  public DescribeTableRow(String column, String type, String comment, String nullable) {
     this.column = column;
     this.type = type;
     this.comment = comment;
+    this.nullable = nullable;
   }
 
   public String getColumn() {
@@ -25,6 +27,10 @@ public class DescribeTableRow {
 
   public String getComment() {
     return comment;
+  }
+
+  public String getNullable() {
+    return nullable;
   }
 
   @Override

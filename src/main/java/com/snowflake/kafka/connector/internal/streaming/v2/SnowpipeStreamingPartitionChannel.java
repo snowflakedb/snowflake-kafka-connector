@@ -10,8 +10,14 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.schemaevolution.SchemaEvolutionTargetItems;
+import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvolutionService;
+import com.snowflake.kafka.connector.internal.schemaevolution.ValidationResultMapper;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelInsertionException;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
@@ -19,14 +25,21 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import com.snowflake.kafka.connector.internal.validation.ColumnSchema;
+import com.snowflake.kafka.connector.internal.validation.RowValidator;
+import com.snowflake.kafka.connector.internal.validation.ValidationResult;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel {
@@ -63,6 +76,14 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final TaskMetrics taskMetrics;
 
+  // Client-side validation fields
+  private final boolean clientValidationEnabled;
+  private final SnowflakeConnectionService conn;
+  private final String tableName;
+  private volatile RowValidator rowValidator;
+  private volatile SnowflakeSchemaEvolutionService schemaEvolutionService;
+  private volatile Map<String, ColumnSchema> tableSchema;
+
   public SnowpipeStreamingPartitionChannel(
       String tableName,
       String channelName,
@@ -74,7 +95,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       SnowflakeMetadataConfig metadataConfig,
       boolean enableSchematization,
       StreamingErrorHandler streamingErrorHandler,
-      TaskMetrics taskMetrics) {
+      TaskMetrics taskMetrics,
+      boolean clientValidationEnabled,
+      SnowflakeConnectionService conn) {
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
@@ -85,6 +108,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.telemetryService = telemetryService;
     this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
     this.offsetTracker = offsetTracker;
+    this.clientValidationEnabled = clientValidationEnabled;
+    this.conn = conn;
+    this.tableName = tableName;
 
     LOGGER.info(
         "Initializing SnowpipeStreamingPartitionChannel channel: {}, pipe: {}",
@@ -92,6 +118,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         pipeName);
 
     this.channel = openChannelForTable(channelName);
+
+    if (clientValidationEnabled) {
+      initializeValidation();
+    } else {
+      LOGGER.info("Client-side validation disabled for channel {}", channelName);
+    }
+
     final long lastCommittedOffsetToken = fetchLatestOffsetFromChannel(this.channel);
     offsetTracker.initializeFromSnowflake(lastCommittedOffsetToken);
 
@@ -120,6 +153,20 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         final Map<String, Object> transformedRecord =
             record.getContentWithMetadata(metadataConfig.shouldIncludeAllMetadata());
         if (!transformedRecord.isEmpty()) {
+          if (clientValidationEnabled && rowValidator != null) {
+            ValidationResult validationResult = rowValidator.validateRow(transformedRecord);
+
+            if (!validationResult.isValid()) {
+              if (validationResult.hasStructuralError()) {
+                handleStructuralError(validationResult, kafkaSinkRecord, transformedRecord);
+              } else {
+                handleValidationError(validationResult, kafkaSinkRecord);
+              }
+              offsetTracker.recordProcessed(kafkaOffset);
+              return;
+            }
+          }
+
           insertRowWithFallback(transformedRecord, kafkaOffset);
         }
       }
@@ -287,6 +334,95 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     LOGGER.info(
         "Fetched offsetToken for channelName:{}, offset:{}", channel.getChannelName(), offsetToken);
     return parseOffsetToken(offsetToken, channel.getChannelName());
+  }
+
+  private void initializeValidation() {
+    try {
+      Optional<List<DescribeTableRow>> describeResult = conn.describeTable(tableName);
+      if (!describeResult.isPresent()) {
+        LOGGER.warn(
+            "Table {} not found during validation initialization. "
+                + "Client-side validation will be disabled for channel {}",
+            tableName,
+            channelName);
+        return;
+      }
+
+      this.tableSchema = new HashMap<>();
+      for (DescribeTableRow row : describeResult.get()) {
+        ColumnSchema colSchema =
+            ColumnSchema.fromDescribeTableFields(row.getColumn(), row.getType(), row.getNullable());
+        this.tableSchema.put(row.getColumn(), colSchema);
+      }
+
+      RowValidator.validateSchema(this.tableSchema);
+
+      this.rowValidator = new RowValidator(this.tableSchema);
+      this.schemaEvolutionService = new SnowflakeSchemaEvolutionService(conn);
+
+      LOGGER.info(
+          "Client-side validation enabled for channel {}. Table {} has {} columns",
+          channelName,
+          tableName,
+          this.tableSchema.size());
+    } catch (Exception e) {
+      LOGGER.warn(
+          "Failed to initialize client-side validation for channel {}. "
+              + "Validation will be disabled. Error: {}",
+          channelName,
+          e.getMessage());
+      this.rowValidator = null;
+    }
+  }
+
+  private void refreshTableSchema() {
+    initializeValidation();
+  }
+
+  private void handleValidationError(ValidationResult result, SinkRecord record) {
+    String errorMsg =
+        String.format(
+            "Validation failed for column %s: %s", result.getColumnName(), result.getValueError());
+    streamingErrorHandler.handleError(new DataException(errorMsg), record);
+  }
+
+  private void handleStructuralError(
+      ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
+    if (!enableSchematization) {
+      String errorMsg =
+          String.format(
+              "Structural validation error (schematization disabled): extraCols=%s,"
+                  + " missingNotNull=%s",
+              result.getExtraColNames(), result.getMissingNotNullColNames());
+      streamingErrorHandler.handleError(new DataException(errorMsg), record);
+      return;
+    }
+
+    try {
+      SchemaEvolutionTargetItems items =
+          ValidationResultMapper.mapToSchemaEvolutionItems(result, tableName);
+      schemaEvolutionService.evolveSchemaIfNeeded(items, record);
+
+      refreshTableSchema();
+
+      ValidationResult retryResult = result;
+      if (rowValidator != null) {
+        retryResult = rowValidator.validateRow(transformedRecord);
+        if (retryResult.isValid()) {
+          insertRowWithFallback(transformedRecord, record.kafkaOffset());
+          return;
+        }
+      }
+
+      String errorMsg =
+          String.format(
+              "Schema mismatch after evolution attempt: extraCols=%s, missingNotNull=%s",
+              retryResult.getExtraColNames(), retryResult.getMissingNotNullColNames());
+      streamingErrorHandler.handleError(new DataException(errorMsg), record);
+    } catch (SnowflakeKafkaConnectorException e) {
+      LOGGER.error("Schema evolution failed for table {}", tableName, e);
+      throw e;
+    }
   }
 
   /**

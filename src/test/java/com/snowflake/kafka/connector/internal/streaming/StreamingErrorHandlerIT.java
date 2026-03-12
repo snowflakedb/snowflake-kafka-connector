@@ -99,6 +99,37 @@ class StreamingErrorHandlerIT {
     assertEquals(0, errorReporter.getReportedRecords().size());
   }
 
+  // ── errors.tolerance = NONE + DLQ configured ─────────────────────
+
+  @Test
+  void brokenRecord_toleranceNone_withDLQ_shouldRouteToDlqThenThrow() {
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+    Map<String, String> config = baseConfig();
+    config.put("errors.deadletterqueue.topic.name", "my-dlq-topic");
+    // errors.tolerance defaults to "none"
+
+    SnowpipeStreamingPartitionChannel channel = createChannel(config, errorReporter);
+    SinkRecord brokenSinkRecord = buildBrokenValueRecord(0);
+
+    DataException thrown =
+        assertThrows(DataException.class, () -> channel.insertRecord(brokenSinkRecord, true));
+
+    assertNotNull(thrown.getCause(), "DataException should wrap the original conversion exception");
+
+    // Record should be preserved in DLQ before task failure
+    assertEquals(
+        1,
+        errorReporter.getReportedRecords().size(),
+        "Record should be routed to DLQ even when tolerance=none");
+
+    InMemoryKafkaRecordErrorReporter.ReportedRecord reported =
+        errorReporter.getReportedRecords().get(0);
+    assertEquals(brokenSinkRecord, reported.getRecord());
+    assertTrue(
+        reported.getException() instanceof DataException,
+        "DLQ should receive DataException wrapper");
+  }
+
   // ── errors.tolerance = ALL + DLQ configured ────────────────────────────────
 
   @Test
@@ -271,6 +302,8 @@ class StreamingErrorHandlerIT {
         new SnowflakeMetadataConfig(),
         enableSchematization,
         errorHandler,
-        TaskMetrics.noop());
+        TaskMetrics.noop(),
+        false,
+        null);
   }
 }

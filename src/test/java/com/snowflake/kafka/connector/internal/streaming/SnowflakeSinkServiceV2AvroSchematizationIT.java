@@ -11,7 +11,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,16 +54,16 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
       new HashMap<String, String>() {
         {
           put(ID_INT8, "NUMBER");
-          put(ID_INT8_OPTIONAL, "VARCHAR");
+          put(ID_INT8_OPTIONAL, "NUMBER");
           put(ID_INT16, "NUMBER");
           put(ID_INT32, "NUMBER");
           put(ID_INT64, "NUMBER");
           put(FIRST_NAME, "VARCHAR");
-          put(RATING_FLOAT32, "NUMBER");
-          put(FLOAT_NAN, "VARCHAR");
-          put(FLOAT_POSITIVE_INFINITY, "VARCHAR");
-          put(FLOAT_NEGATIVE_INFINITY, "VARCHAR");
-          put(RATING_FLOAT64, "NUMBER");
+          put(RATING_FLOAT32, "FLOAT");
+          put(FLOAT_NAN, "FLOAT");
+          put(FLOAT_POSITIVE_INFINITY, "FLOAT");
+          put(FLOAT_NEGATIVE_INFINITY, "FLOAT");
+          put(RATING_FLOAT64, "FLOAT");
           put(APPROVAL, "BOOLEAN");
           put(INFO_ARRAY_STRING, "ARRAY");
           put(INFO_ARRAY_INT, "ARRAY");
@@ -115,11 +114,19 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     Assertions.assertEquals(42L, actual.get(ID_INT32));
     Assertions.assertEquals(42L, actual.get(ID_INT64));
     Assertions.assertEquals("zekai", actual.get(FIRST_NAME));
-    Assertions.assertEquals(BigDecimal.valueOf(0.99), actual.get(RATING_FLOAT32));
-    Assertions.assertEquals("NaN", actual.get(FLOAT_NAN));
-    Assertions.assertEquals("Inf", actual.get(FLOAT_POSITIVE_INFINITY));
-    Assertions.assertEquals("-Inf", actual.get(FLOAT_NEGATIVE_INFINITY));
-    Assertions.assertEquals(BigDecimal.valueOf(0.99), actual.get(RATING_FLOAT64));
+    Assertions.assertEquals(0.99, ((Number) actual.get(RATING_FLOAT32)).doubleValue(), 0.001);
+    Assertions.assertTrue(
+        Double.isNaN(((Number) actual.get(FLOAT_NAN)).doubleValue()),
+        "Expected NaN for " + FLOAT_NAN);
+    Assertions.assertTrue(
+        Double.isInfinite(((Number) actual.get(FLOAT_POSITIVE_INFINITY)).doubleValue())
+            && ((Number) actual.get(FLOAT_POSITIVE_INFINITY)).doubleValue() > 0,
+        "Expected +Infinity for " + FLOAT_POSITIVE_INFINITY);
+    Assertions.assertTrue(
+        Double.isInfinite(((Number) actual.get(FLOAT_NEGATIVE_INFINITY)).doubleValue())
+            && ((Number) actual.get(FLOAT_NEGATIVE_INFINITY)).doubleValue() < 0,
+        "Expected -Infinity for " + FLOAT_NEGATIVE_INFINITY);
+    Assertions.assertEquals(0.99, ((Number) actual.get(RATING_FLOAT64)).doubleValue(), 0.001);
     Assertions.assertEquals(true, actual.get(APPROVAL));
     Assertions.assertEquals(
         "[\"a\",\"b\"]", StringUtils.deleteWhitespace(actual.get(INFO_ARRAY_STRING).toString()));

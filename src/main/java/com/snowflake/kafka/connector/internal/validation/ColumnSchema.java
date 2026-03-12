@@ -77,6 +77,18 @@ public class ColumnSchema {
     String name = rs.getString("name");
     String typeStr = rs.getString("type");
     String nullStr = rs.getString("null?");
+    return fromDescribeTableFields(name, typeStr, nullStr);
+  }
+
+  /**
+   * Construct ColumnSchema from individual DESCRIBE TABLE fields.
+   *
+   * @param name Column name
+   * @param typeStr Type string (e.g. "NUMBER(38,0)", "VARCHAR(16777216)")
+   * @param nullStr Nullable flag ("Y" or "N")
+   * @return ColumnSchema
+   */
+  public static ColumnSchema fromDescribeTableFields(String name, String typeStr, String nullStr) {
     boolean nullable = "Y".equals(nullStr);
 
     // Parse type string to extract logical type and parameters

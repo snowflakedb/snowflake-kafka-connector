@@ -5,14 +5,13 @@
 package com.snowflake.kafka.connector.internal.schemaevolution;
 
 import com.snowflake.kafka.connector.internal.validation.ValidationResult;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * Maps ValidationResult structural errors to SchemaEvolutionTargetItems.
- *
- * <p>Combines missing NOT NULL columns and null values in NOT NULL columns into a single set of
- * columns that need to drop their NOT NULL constraint.
+ * Maps {@link ValidationResult} to {@link SchemaEvolutionTargetItems}, re-quoting column names so
+ * they match the format expected by {@link TableSchemaResolver} and DDL operations.
  */
 public class ValidationResultMapper {
 
@@ -25,13 +24,19 @@ public class ValidationResultMapper {
    */
   public static SchemaEvolutionTargetItems mapToSchemaEvolutionItems(
       ValidationResult result, String tableName) {
-    Set<String> extraColNames = result.getExtraColNames();
-    Set<String> columnsToDropNonNull = new HashSet<>();
-
-    // Combine both NOT NULL violations into a single set
-    columnsToDropNonNull.addAll(result.getMissingNotNullColNames());
-    columnsToDropNonNull.addAll(result.getNullValueForNotNullColNames());
+    Set<String> extraColNames = quoteAll(result.getExtraColNames());
+    Set<String> columnsToDropNonNull =
+        quoteAll(
+            Stream.concat(
+                    result.getMissingNotNullColNames().stream(),
+                    result.getNullValueForNotNullColNames().stream())
+                .collect(Collectors.toSet()));
 
     return new SchemaEvolutionTargetItems(tableName, columnsToDropNonNull, extraColNames);
+  }
+
+  /** Wrap each name in double quotes to match the format used by {@link TableSchemaResolver}. */
+  private static Set<String> quoteAll(Set<String> names) {
+    return names.stream().map(name -> "\"" + name + "\"").collect(Collectors.toSet());
   }
 }

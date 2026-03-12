@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
@@ -57,6 +58,7 @@ public class PartitionChannelManager {
   private final SnowflakeMetadataConfig metadataConfig;
   private final Map<String, String> topicToTableMap;
   private final boolean enableSanitization;
+  private final SnowflakeConnectionService conn;
 
   private final PartitionChannelBuilder partitionChannelBuilder;
   private final Map<String, TopicPartitionChannel> partitionChannels;
@@ -72,7 +74,8 @@ public class PartitionChannelManager {
       String taskId,
       TaskMetrics taskMetrics,
       Map<String, String> topicToTableMap,
-      boolean enableSanitization) {
+      boolean enableSanitization,
+      SnowflakeConnectionService conn) {
     this.telemetryService = telemetryService;
     this.connectorConfig = connectorConfig;
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
@@ -84,6 +87,7 @@ public class PartitionChannelManager {
     this.taskMetrics = taskMetrics;
     this.topicToTableMap = topicToTableMap;
     this.enableSanitization = enableSanitization;
+    this.conn = conn;
     this.partitionChannelBuilder = this::buildChannel;
     this.partitionChannels = new ConcurrentHashMap<>();
   }
@@ -108,6 +112,7 @@ public class PartitionChannelManager {
     this.sinkTaskContext = null;
     this.metricsJmxReporter = Optional.empty();
     this.taskMetrics = null;
+    this.conn = null;
   }
 
   /** Gets a unique identifier consisting of connector name, topic name and partition number. */
@@ -201,6 +206,13 @@ public class PartitionChannelManager {
             streamingClientProperties,
             taskMetrics);
 
+    final boolean clientValidationEnabled =
+        Boolean.parseBoolean(
+            connectorConfig.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+                String.valueOf(
+                    KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT)));
+
     return new SnowpipeStreamingPartitionChannel(
         tableName,
         channelName,
@@ -212,7 +224,9 @@ public class PartitionChannelManager {
         this.metadataConfig,
         enableSchematization,
         streamingErrorHandler,
-        this.taskMetrics);
+        this.taskMetrics,
+        clientValidationEnabled,
+        this.conn);
   }
 
   public void waitForAllChannelsToCommitData() {
