@@ -63,6 +63,7 @@ jobs:
         sudo service squid start
 
     - name: Unit and Integration Test - ${{ matrix.snowflake_cloud }}
+      id: java_tests
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         SHELL: "/bin/bash"
@@ -74,3 +75,7 @@ jobs:
         cd test
         trap 'echo "::group::Last 1000 lines of logs"; tail -n 1000 build.log || true; echo "::endgroup::"' ERR
         stdbuf -oL -eL ./build_runtime_jar.sh ../../snowflake-kafka-connector verify apache ${{ matrix.snowflake_cloud }} 2>&1 | tee build.log
+
+    - name: Report Java test failures to job summary
+      if: failure() && steps.java_tests.outcome == 'failure'
+      run: ./.github/scripts/parse_java_test_reports.py "${{ github.workspace }}"

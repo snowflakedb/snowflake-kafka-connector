@@ -3,6 +3,7 @@ import os
 import random
 import string
 import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import List
 
 import pytest
 import snowflake.connector
+from _pytest.reports import TestReport
 
 from lib.config import Profile, SnowflakeConnectorConfig
 from lib.config_migration import v4_config_to_v3
@@ -336,3 +338,49 @@ def wait_for_rows(driver):
             time.sleep(interval)
 
     return _wait
+
+
+# ---------------------------------------------------------------------------
+# GitHub Actions step summary (failures only)
+# ---------------------------------------------------------------------------
+
+_github_summary_failures: List[TestReport] = []
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item):
+    """Collect failed test reports for GITHUB_STEP_SUMMARY."""
+    outcome = yield
+    report = outcome.get_result()
+    if report.when == "call" and report.failed and report.longrepr:
+        _github_summary_failures.append(report)
+
+
+def _python_error_annotation(report: TestReport) -> None:
+    """Emit a ::error workflow command to stderr for GitHub annotations."""
+    filename, line, domain = report.location
+    parts = [f"file=test/{filename}", f"title={domain}"]
+    if line is not None:
+        parts.append(f"line={line + 1}")
+    opts = ",".join(parts)
+    message = report.longrepr.reprcrash.message
+    print(f"::error {opts}::{message}", file=sys.stderr)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Append failure summary to GITHUB_STEP_SUMMARY when set (e.g. in GitHub Actions)."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path or not _github_summary_failures or exitstatus == 0:
+        return
+    for report in _github_summary_failures:
+        _python_error_annotation(report)
+    try:
+        with open(summary_path, "a", encoding="utf-8") as summary_file:
+            summary_file.write("\n## Python test failures\n\n")
+            for report in _github_summary_failures:
+                summary_file.write(f"### {report.nodeid}\n\n")
+                summary_file.write("```\n")
+                summary_file.write(report.longreprtext)
+                summary_file.write("\n```\n\n")
+    except OSError:
+        logger.debug("Could not write to GITHUB_STEP_SUMMARY", exc_info=True)
