@@ -31,6 +31,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -281,23 +284,38 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void startPartitions(Collection<TopicPartition> partitions) {
-    final Map<String, String> tableToPipeMapping = new HashMap<>();
+    final Map<String, String> tableToPipeMapping = new ConcurrentHashMap<>();
+    final ExecutorService ioExecutor = ThreadPools.getIoExecutor(this.connectorName);
 
     final Collection<String> uniqueTopics =
         partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
 
-    for (String topic : uniqueTopics) {
-      final String tableName = getTableName(topic, this.topicToTableMap, this.enableSanitization);
-      createTableIfNotExists(tableName);
+    CompletableFuture<?>[] futures =
+        uniqueTopics.stream()
+            .map(
+                topic ->
+                    CompletableFuture.runAsync(
+                        () -> {
+                          final String tableName =
+                              getTableName(topic, this.topicToTableMap, this.enableSanitization);
+                          createTableIfNotExists(tableName);
 
-      // Look for a pipe with the same name as the table. Otherwise, use the default pipe.
-      final boolean pipeExists = this.conn.pipeExist(tableName);
-      final String targetPipeName = pipeExists ? tableName : buildDefaultPipeName(tableName);
+                          // Look for a pipe with the same name as the table. Otherwise, use the
+                          // default pipe.
+                          final boolean pipeExists = this.conn.pipeExist(tableName);
+                          final String targetPipeName =
+                              pipeExists ? tableName : buildDefaultPipeName(tableName);
 
-      tableToPipeMapping.put(tableName, targetPipeName);
-      LOGGER.info(
-          "Table: {}, pipe exists: {}, using pipe: {}", tableName, pipeExists, targetPipeName);
-    }
+                          tableToPipeMapping.put(tableName, targetPipeName);
+                          LOGGER.info(
+                              "Table: {}, pipe exists: {}, using pipe: {}",
+                              tableName,
+                              pipeExists,
+                              targetPipeName);
+                        },
+                        ioExecutor))
+            .toArray(CompletableFuture[]::new);
+    CompletableFuture.allOf(futures).join();
 
     channelManager.startPartitions(partitions, tableToPipeMapping);
   }

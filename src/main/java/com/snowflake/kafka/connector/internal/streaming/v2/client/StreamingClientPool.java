@@ -8,10 +8,8 @@ import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import org.apache.kafka.connect.errors.ConnectException;
 
 /**
  * Manages clients for a single connector. Tracks which tasks use which pipes and only closes
@@ -39,7 +37,7 @@ public class StreamingClientPool {
    * can be kicked off asynchronously, allowing multiple pipes to initialize in parallel.
    */
   static class RefCountedClient {
-    private final CompletableFuture<SnowflakeStreamingIngestClient> clientFuture;
+    final CompletableFuture<SnowflakeStreamingIngestClient> clientFuture;
     private final Set<String> taskIds = ConcurrentHashMap.newKeySet();
 
     RefCountedClient(
@@ -79,22 +77,6 @@ public class StreamingClientPool {
       return taskIds.size();
     }
 
-    /**
-     * Blocks until the client is ready, unwrapping {@link CompletionException} so callers see the
-     * original exception type.
-     */
-    SnowflakeStreamingIngestClient awaitClient(String pipeName) {
-      try {
-        return clientFuture.join();
-      } catch (CompletionException e) {
-        if (e.getCause() instanceof RuntimeException) {
-          throw (RuntimeException) e.getCause();
-        }
-        throw new ConnectException(
-            "Unexpected error creating streaming client for pipe: " + pipeName, e.getCause());
-      }
-    }
-
     void close(String pipeName, String connectorName) {
       LOGGER.info(
           "Closing client for pipe {} in connector {} (last task stopped)",
@@ -111,7 +93,11 @@ public class StreamingClientPool {
     LOGGER.info("Created client manager for connector: {}", connectorName);
   }
 
-  SnowflakeStreamingIngestClient getClient(
+  /**
+   * Asynchronously gets or creates a client for the given task and pipe. The returned future
+   * completes when the client is ready.
+   */
+  CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String taskId,
       final String pipeName,
       final Map<String, String> connectorConfig,
@@ -136,24 +122,20 @@ public class StreamingClientPool {
               return current;
             });
 
-    // Block until this specific client is ready — lock is NOT held, so other pipes can proceed.
-    SnowflakeStreamingIngestClient client;
-    try {
-      client = entry.awaitClient(pipeName);
-    } catch (RuntimeException e) {
-      // Only remove if the entry still holds the same (failed) future.
-      pipes.compute(pipeName, (key, current) -> current == entry ? null : current);
-      throw e;
-    }
-
-    LOGGER.info(
-        "Task {} now using pipe {} for connector {}, total tasks on this pipe: {}",
-        taskId,
-        pipeName,
-        connectorName,
-        entry.taskCount());
-
-    return client;
+    return entry.clientFuture.whenComplete(
+        (client, error) -> {
+          if (error != null) {
+            // Only remove if the entry still holds the same (failed) future.
+            pipes.compute(pipeName, (key, current) -> current == entry ? null : current);
+          } else {
+            LOGGER.info(
+                "Task {} now using pipe {} for connector {}, total tasks on this pipe: {}",
+                taskId,
+                pipeName,
+                connectorName,
+                entry.taskCount());
+          }
+        });
   }
 
   long getClientCountForTask(final String taskId) {
