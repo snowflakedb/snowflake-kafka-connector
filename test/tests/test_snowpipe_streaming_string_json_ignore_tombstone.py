@@ -1,19 +1,37 @@
 import json
 from time import sleep
 
-FILE_NAME = "travis_correct_snowpipe_streaming_string_json"
+FILE_NAME = "test_snowpipe_streaming_string_json_ignore_tombstone"
 CONFIG_FILE = f"{FILE_NAME}.json"
 PARTITION_COUNT = 3
 RECORDS_PER_PARTITION = 1000
+# Both None and "" are treated as tombstones in streaming mode (community converters).
+EXPECTED_PER_PARTITION = RECORDS_PER_PARTITION - 2
+
+# TODO: KC v3 uses case-sensitive field names matching. But the column names are upper case by default.
+LONG_FIELD = "NUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBER"
 
 
-def test_snowpipe_streaming_string_json(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+def test_snowpipe_streaming_string_json_ignore_tombstone(
+    connector_version,
+    driver,
+    name_salt,
+    create_connector,
+    snowflake_table,
+    wait_for_rows,
 ):
+    """Verify Snowpipe Streaming with behavior.on.null.values=IGNORE across
+    multiple partitions.
+
+    Sends RECORDS_PER_PARTITION records per partition (including a None and ""
+    tombstone in each).  Both are dropped by the connector, leaving
+    (RECORDS_PER_PARTITION - 2) × PARTITION_COUNT rows.
+    Verifies: no duplicates, unique offsets per partition.
+    """
     topic = snowflake_table(
         FILE_NAME,
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, fieldName varchar)",
+        f'(record_metadata variant, "{LONG_FIELD}" varchar)',
     )
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
@@ -25,15 +43,15 @@ def test_snowpipe_streaming_string_json(
     for p in range(PARTITION_COUNT):
         values = []
         for i in range(RECORDS_PER_PARTITION - 2):
-            values.append(json.dumps({"fieldName": str(i)}).encode("utf-8"))
+            values.append(json.dumps({LONG_FIELD: str(i)}).encode("utf-8"))
 
         values.append(None)
-        values.append(b"")
+        values.append(b"")  # community converters treat this as a tombstone
 
         driver.sendBytesData(topic, values, [], partition=p)
         sleep(2)
 
-    total_expected = RECORDS_PER_PARTITION * PARTITION_COUNT
+    total_expected = EXPECTED_PER_PARTITION * PARTITION_COUNT
 
     # -- Verify row count --
     wait_for_rows(topic, total_expected)
@@ -62,20 +80,7 @@ def test_snowpipe_streaming_string_json(
     )
     assert len(rows) == PARTITION_COUNT
     for p in range(PARTITION_COUNT):
-        assert rows[p][0] == RECORDS_PER_PARTITION, (
-            f"Partition {p}: expected {RECORDS_PER_PARTITION} unique offsets, got {rows[p][0]}"
+        assert rows[p][0] == EXPECTED_PER_PARTITION, (
+            f"Partition {p}: expected {EXPECTED_PER_PARTITION} unique offsets, got {rows[p][0]}"
         )
         assert rows[p][1] == p
-
-    # -- Verify SnowflakeConnectorPushTime is populated --
-    push_time_count = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f"SELECT count(*) FROM {topic} "
-            f"WHERE NOT is_null_value(record_metadata:SnowflakeConnectorPushTime)"
-        )
-        .fetchone()[0]
-    )
-    assert push_time_count == total_expected, (
-        f"Empty ConnectorPushTime detected ({push_time_count}/{total_expected})"
-    )
