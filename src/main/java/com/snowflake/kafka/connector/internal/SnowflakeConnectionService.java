@@ -130,10 +130,12 @@ public interface SnowflakeConnectionService {
   void alterNonNullableColumns(String tableName, List<String> columnNames);
 
   /**
-   * Checks whether ENABLE_SCHEMA_EVOLUTION is set to TRUE on the given table.
+   * Check whether the user has the role privilege to do schema evolution and whether the schema
+   * evolution option is enabled on the table.
    *
    * @param tableName table name
-   * @return true if schema evolution is enabled, false otherwise
+   * @param role the role of the user
+   * @return whether schema evolution has the required permission to be performed
    */
-  boolean isSchemaEvolutionEnabled(String tableName);
+  boolean hasSchemaEvolutionPermission(String tableName, String role);
 }

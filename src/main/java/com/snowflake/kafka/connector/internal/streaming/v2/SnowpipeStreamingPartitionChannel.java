@@ -85,7 +85,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile RowValidator rowValidator;
   private volatile SnowflakeSchemaEvolutionService schemaEvolutionService;
   private volatile Map<String, ColumnSchema> tableSchema;
-  private final boolean enableSchemaEvolution;
+  private final boolean hasSchemaEvolutionPermission;
 
   public SnowpipeStreamingPartitionChannel(
       String tableName,
@@ -101,7 +101,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       StreamingErrorHandler streamingErrorHandler,
       TaskMetrics taskMetrics,
       boolean clientValidationEnabled,
-      boolean enableSchemaEvolution,
+      boolean hasSchemaEvolutionPermission,
       SnowflakeConnectionService conn) {
     this.channelName = channelName;
     this.pipeName = pipeName;
@@ -115,7 +115,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
     this.offsetTracker = offsetTracker;
     this.clientValidationEnabled = clientValidationEnabled;
-    this.enableSchemaEvolution = enableSchemaEvolution;
+    this.hasSchemaEvolutionPermission = hasSchemaEvolutionPermission;
     this.conn = conn;
     this.tableName = tableName;
 
@@ -395,7 +395,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
-    if (!enableSchemaEvolution) {
+    if (!hasSchemaEvolutionPermission) {
       String errorMsg =
           String.format(
               "Structural validation error (schema evolution disabled): extraCols=%s,"
