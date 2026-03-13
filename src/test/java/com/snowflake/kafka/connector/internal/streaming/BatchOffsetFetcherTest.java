@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionCh
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientSupplier;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
+import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,7 +32,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.kafka.common.TopicPartition;
@@ -59,7 +59,8 @@ class BatchOffsetFetcherTest {
     config.put(NAME, connectorName);
     config.put(Utils.TASK_ID, TASK_ID);
 
-    ioExecutor = Executors.newCachedThreadPool();
+    ThreadPools.registerTask(connectorName, TASK_ID, config);
+    ioExecutor = ThreadPools.getIoExecutor(connectorName);
     fetcher =
         new BatchOffsetFetcher(
             connectorName, TASK_ID, config, false, ioExecutor, TaskMetrics.noop());
@@ -71,7 +72,7 @@ class BatchOffsetFetcherTest {
 
   @AfterEach
   void tearDown() {
-    ioExecutor.shutdownNow();
+    ThreadPools.closeForTask(connectorName, TASK_ID);
     StreamingClientFactory.resetStreamingClientSupplier();
   }
 

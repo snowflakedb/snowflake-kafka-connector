@@ -41,6 +41,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.kafka.common.TopicPartition;
@@ -48,6 +50,7 @@ import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,6 +66,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
   private SnowflakeTelemetryService mockTelemetryService;
   private StreamingErrorHandler mockErrorHandler;
+  private ExecutorService openChannelIoExecutor;
   private TrackingIngestClientSupplier trackingClientSupplier;
   private TrackingStreamingIngestClient trackingClient;
   private InMemorySinkTaskContext sinkTaskContext;
@@ -83,6 +87,12 @@ class SnowpipeStreamingPartitionChannelTest {
 
     trackingClientSupplier = new TrackingIngestClientSupplier();
     trackingClient = new TrackingStreamingIngestClient(pipeName, trackingClientSupplier);
+    openChannelIoExecutor = Executors.newSingleThreadExecutor();
+  }
+
+  @AfterEach
+  void tearDown() {
+    openChannelIoExecutor.shutdownNow();
   }
 
   @Test
@@ -150,6 +160,7 @@ class SnowpipeStreamingPartitionChannelTest {
         channelName,
         pipeName,
         trackingClient,
+        openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
         offsetTracker,
@@ -219,6 +230,7 @@ class SnowpipeStreamingPartitionChannelTest {
         channelName,
         pipeName,
         trackingClient,
+        openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
         offsetTracker,
@@ -305,6 +317,7 @@ class SnowpipeStreamingPartitionChannelTest {
             channelName,
             pipeName,
             trackingClient,
+            openChannelIoExecutor,
             mockTelemetryService,
             telemetryChannelStatus,
             offsetTracker,

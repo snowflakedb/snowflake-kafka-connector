@@ -110,6 +110,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
     }
 
+    ThreadPools.registerTask(this.connectorName, this.taskId, connectorConfig);
+
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
     this.batchOffsetFetcher =
         new BatchOffsetFetcher(
@@ -141,8 +143,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             topicToTableMap,
             this.enableSanitization,
             conn);
-
-    ThreadPools.registerTask(this.connectorName, this.taskId);
 
     // Log validation configuration for operator visibility
     logValidationConfiguration();

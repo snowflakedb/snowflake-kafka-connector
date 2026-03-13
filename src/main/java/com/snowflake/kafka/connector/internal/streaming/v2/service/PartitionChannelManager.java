@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -212,12 +213,15 @@ public class PartitionChannelManager {
                 KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
                 String.valueOf(
                     KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT)));
+    final ExecutorService openChannelIoExecutor =
+        ThreadPools.getOpenChannelIoExecutor(connectorName);
 
     return new SnowpipeStreamingPartitionChannel(
         tableName,
         channelName,
         pipeName,
         streamingClient,
+        openChannelIoExecutor,
         this.telemetryService,
         telemetryChannelStatus,
         offsetTracker,
