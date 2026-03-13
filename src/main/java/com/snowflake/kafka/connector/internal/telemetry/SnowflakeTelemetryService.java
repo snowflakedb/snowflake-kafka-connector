@@ -40,6 +40,9 @@ public class SnowflakeTelemetryService {
   public static final String JDK_VERSION = "jdk_version";
   public static final String JDK_DISTRIBUTION = "jdk_distribution";
   private static final String TOPICS = "topics";
+  private static final String CHANNEL_NAME = "channel_name";
+  private static final String TABLE_NAME = "table_name";
+  private static final String ERROR_TYPE = "error_type";
 
   // Telemetry instance fetched from JDBC
   private final Telemetry telemetry;
@@ -96,6 +99,22 @@ public class SnowflakeTelemetryService {
     msg.put(ERROR_DETAIL, errorDetail);
 
     send(TelemetryType.KAFKA_FATAL_ERROR, msg);
+  }
+
+  /**
+   * Reports a client-side validation failure event.
+   *
+   * @param channelName the channel where the failure occurred
+   * @param tableName the target table
+   * @param errorType the error type (type_error or structural_error)
+   */
+  public void reportValidationFailureEvent(String channelName, String tableName, String errorType) {
+    ObjectNode msg = getObjectNode();
+    msg.put(CHANNEL_NAME, channelName);
+    msg.put(TABLE_NAME, tableName);
+    msg.put(ERROR_TYPE, errorType);
+    msg.put(TIME, System.currentTimeMillis());
+    send(TelemetryType.KAFKA_VALIDATION_FAILURE, msg);
   }
 
   /**
@@ -303,6 +322,14 @@ public class SnowflakeTelemetryService {
             String.valueOf(
                 KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT)));
 
+    // Client-side validation mode
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+            String.valueOf(
+                KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT)));
+
     // Caching configuration
     dataObjectNode.put(
         KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
@@ -331,7 +358,8 @@ public class SnowflakeTelemetryService {
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_CHANNEL_USAGE("kafka_channel_usage"),
-    KAFKA_CHANNEL_START("kafka_channel_start");
+    KAFKA_CHANNEL_START("kafka_channel_start"),
+    KAFKA_VALIDATION_FAILURE("kafka_validation_failure");
 
     private final String name;
 

@@ -40,7 +40,6 @@ public class RowValidator {
   private final ZoneId defaultTimezone = ZoneId.of("America/Los_Angeles");
 
   public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
-    // Input validation
     Objects.requireNonNull(columnSchemaMap, "columnSchemaMap cannot be null");
     if (columnSchemaMap.isEmpty()) {
       throw new IllegalArgumentException("columnSchemaMap cannot be empty");
@@ -58,7 +57,6 @@ public class RowValidator {
    * @return ValidationResult indicating success or failure with error details
    */
   public ValidationResult validateRow(Map<String, Object> row) {
-    // Input validation
     Objects.requireNonNull(row, "row cannot be null");
 
     // Normalize column names once to avoid repeated unquoting
@@ -89,11 +87,9 @@ public class RowValidator {
                 + " not found in schema but was not caught by structural validation");
       }
       if (value == null) {
-        // Null values are valid for nullable columns, skip type validation
         if (col.isNullable()) {
-          continue; // Valid null for nullable column
+          continue;
         }
-        // Null value in NOT NULL column should have been caught by structural validation
         throw new IllegalStateException(
             "Null value for NOT NULL column "
                 + colName
