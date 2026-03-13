@@ -11,7 +11,34 @@ from confluent_kafka.admin import AdminClient, ConfigResource, NewPartitions, Ne
 from confluent_kafka.avro import AvroProducer
 
 from lib.config import Profile, SnowflakeConnectorConfig
-from test_suit.test_utils import NonRetryableError, ResetAndRetry, RetryableError
+
+
+class Error(Exception):
+    """Base class for test exceptions"""
+
+    pass
+
+
+class ResetAndRetry(Error):
+    """Raised when we want to reset the retry count"""
+
+    def __init__(self, msg=""):
+        self.msg = msg
+
+
+class RetryableError(Error):
+    """Raised when we can retry"""
+
+    def __init__(self, msg=""):
+        self.msg = msg
+
+
+class NonRetryableError(Error):
+    """Raised when we cannot retry"""
+
+    def __init__(self, msg=""):
+        self.msg = msg
+
 
 logger = logging.getLogger(__name__)
 
