@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -79,55 +78,12 @@ public class StreamingClientProperties {
 
     // Override only if the streaming client properties are explicitly set in config
     this.parameterOverrides = new HashMap<>();
-
-    combineStreamingClientOverriddenProperties(connectorConfig);
-  }
-
-  /**
-   * Fetches the properties from {@link
-   * com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP}
-   * and combines it with parameter provider. This parameter provider needs a lowercase String in
-   * its key since Ingest SDK fetches the key from <a
-   * href="https://github.com/snowflakedb/snowflake-ingest-java/blob/master/src/main/java/net/snowflake/ingest/utils/ParameterProvider.java">Ingest
-   * SDK</a>
-   *
-   * @param connectorConfig Input connector config
-   */
-  private void combineStreamingClientOverriddenProperties(Map<String, String> connectorConfig) {
-    Optional<String> clientOverrideProperties =
-        Optional.ofNullable(connectorConfig.get(SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
-    Map<String, String> clientOverridePropertiesMap = new HashMap<>();
-    clientOverrideProperties.ifPresent(
-        overriddenKeyValuePairs -> {
-          LOGGER.info(
-              "Overridden map provided for streaming client properties: {}",
-              overriddenKeyValuePairs);
-          Map<String, String> overriddenPairs =
-              Utils.parseCommaSeparatedKeyValuePairs(overriddenKeyValuePairs);
-          overriddenPairs.forEach(
-              (key, value) -> clientOverridePropertiesMap.put(key.toLowerCase(), value));
-          parameterOverrides.putAll(clientOverridePropertiesMap);
-        });
-    parameterOverrides.forEach(
-        (key, value) -> LOGGER.info("Streaming Client Config is overridden for {}={}", key, value));
-  }
-
-  /**
-   * Gets the loggable properties, see {@link
-   * StreamingClientProperties#LOGGABLE_STREAMING_CONFIG_PROPERTIES}
-   *
-   * @return A formatted string with the loggable properties
-   */
-  public String getLoggableClientProperties() {
-    return this.clientProperties == null | this.clientProperties.isEmpty()
-        ? ""
-        : this.clientProperties.entrySet().stream()
-            .filter(
-                propKvp ->
-                    LOGGABLE_STREAMING_CONFIG_PROPERTIES.stream()
-                        .anyMatch(propKvp.getKey().toString()::equalsIgnoreCase))
-            .collect(Collectors.toList())
-            .toString();
+    String overrideMap = connectorConfig.get(SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
+    if (overrideMap != null && !overrideMap.isEmpty()) {
+      Utils.parseCommaSeparatedKeyValuePairs(overrideMap)
+          .forEach((key, value) -> this.parameterOverrides.put(key.toLowerCase(), value));
+      LOGGER.info("Streaming Client config overrides: {}", this.parameterOverrides);
+    }
   }
 
   /**
