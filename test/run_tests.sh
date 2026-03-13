@@ -393,16 +393,22 @@ fi
 if [ "$KEEP_RUNNING" = "false" ]; then
     RUN_FLAGS+=("--rm")
 fi
+# When running in GitHub Actions, mount GITHUB_STEP_SUMMARY so pytest can append failures.
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    SUMMARY_DIR="$(dirname "$GITHUB_STEP_SUMMARY")"
+    SUMMARY_FILE="$(basename "$GITHUB_STEP_SUMMARY")"
+    RUN_FLAGS+=(-v "${SUMMARY_DIR}:/github_step_summary" -e "GITHUB_STEP_SUMMARY=/github_step_summary/${SUMMARY_FILE}")
+fi
 
 # Run tests (or drop into a shell with --interactive)
 set +e
 if [ "$INTERACTIVE" = "true" ]; then
     info "Starting interactive shell in test-runner (run pytest manually)..."
-    docker compose $COMPOSE_FILES run ${RUN_FLAGS[@]} test-runner bash
+    docker compose $COMPOSE_FILES run "${RUN_FLAGS[@]}" test-runner bash
     TEST_EXIT_CODE=$?
 else
     info "Running tests..."
-    docker compose $COMPOSE_FILES run ${RUN_FLAGS[@]} test-runner \
+    docker compose $COMPOSE_FILES run "${RUN_FLAGS[@]}" test-runner \
         pytest "${PYTEST_ARGS[@]}" "${PASSTHROUGH_ARGS[@]}"
     TEST_EXIT_CODE=$?
 fi
