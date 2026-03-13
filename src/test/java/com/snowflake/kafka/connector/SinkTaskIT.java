@@ -32,7 +32,7 @@ class SinkTaskIT {
   public void setup() {
     topicName = TestUtils.randomTableName();
     snowflakeConnectionService = TestUtils.getConnectionService();
-    snowflakeConnectionService.createTableWithMetadataColumn(topicName);
+    snowflakeConnectionService.createTableWithOnlyMetadataColumn(topicName);
   }
 
   @AfterEach

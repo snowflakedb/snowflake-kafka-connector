@@ -126,7 +126,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
     this.channel = openChannelForTable(channelName);
 
-    if (clientValidationEnabled) {
+    if (this.clientValidationEnabled) {
       initializeValidation();
     } else {
       LOGGER.info("Client-side validation disabled for channel {}", channelName);

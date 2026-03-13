@@ -283,6 +283,7 @@ class ChannelStatusCheckIT {
     config.put(KafkaConnectorConfigParams.NAME, connectorName);
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE, "false");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
     return config;
   }
 
