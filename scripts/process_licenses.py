@@ -43,6 +43,7 @@ ADDITIONAL_LICENSES_MAP = {
     "com.fasterxml.jackson.dataformat:jackson-dataformat-protobuf": APACHE_LICENSE,
     "com.github.ben-manes.caffeine:caffeine": APACHE_LICENSE,
     "com.github.luben:zstd-jni": BSD_2_CLAUSE_LICENSE,
+    "com.google.auto.value:auto-value-annotations": APACHE_LICENSE,
     "com.google.code.findbugs:jsr305": APACHE_LICENSE,
     "com.google.crypto.tink:tink": APACHE_LICENSE,
     "com.google.errorprone:error_prone_annotations": APACHE_LICENSE,

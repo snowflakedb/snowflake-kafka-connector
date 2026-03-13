@@ -68,7 +68,7 @@
         <slf4j-api.version>2.0.17</slf4j-api.version>
         <parquet.version>1.14.4</parquet.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
-
+        <auto-value.version>1.10.4</auto-value.version>
 
     </properties>
 
@@ -125,6 +125,20 @@
                 </configuration>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>com.google.auto.value</groupId>
+                            <artifactId>auto-value</artifactId>
+                            <version>${auto-value.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
 
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -433,6 +447,20 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
+        </dependency>
+
+        <!-- Annotations (@AutoValue) visible to source; processor is on annotationProcessorPaths only -->
+        <dependency>
+            <groupId>com.google.auto.value</groupId>
+            <artifactId>auto-value-annotations</artifactId>
+            <version>${auto-value.version}</version>
+        </dependency>
+        <!-- Processor only needed at compile time (generates AutoValue_* classes) -->
+        <dependency>
+            <groupId>com.google.auto.value</groupId>
+            <artifactId>auto-value</artifactId>
+            <version>${auto-value.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <!-- Caffeine cache library for client-side validation (copied from SSv1 SDK) -->
