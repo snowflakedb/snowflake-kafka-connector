@@ -7,16 +7,11 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
 
 /* Utility class/Helper methods for streaming related ingestion. */
 public class StreamingUtils {
-
-  public static final long STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC =
-      Duration.ofSeconds(1).getSeconds();
-
   // TODO: Modify STREAMING_CONSTANT to Constants. after SNOW-352846 is released
   public static final String STREAMING_CONSTANT_AUTHORIZATION_TYPE = "authorization_type";
 

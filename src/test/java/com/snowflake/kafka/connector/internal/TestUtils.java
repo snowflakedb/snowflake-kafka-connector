@@ -26,7 +26,6 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_USER;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_USE_PROXY;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -210,7 +209,6 @@ public class TestUtils {
         transformProfileFileToConnectorConfiguration(takeEncryptedKey);
     // On top of existing properties, add
     configuration.put(Utils.TASK_ID, "0");
-    configuration.put(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
 
     return configuration;
   }

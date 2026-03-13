@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.ConnectorConfigTools.BOOLEAN_VALIDATOR;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
 
 import com.google.common.base.Strings;
@@ -47,9 +46,6 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
       } catch (ConfigException e) {
         invalidParams.put(ERRORS_LOG_ENABLE_CONFIG, e.getMessage());
       }
-    }
-    if (inputConfig.containsKey(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG)) {
-      ensureValidLong(inputConfig, SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, invalidParams);
     }
 
     // Validate schematization config

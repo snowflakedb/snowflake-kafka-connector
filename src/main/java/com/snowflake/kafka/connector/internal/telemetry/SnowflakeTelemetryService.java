@@ -257,10 +257,6 @@ public class SnowflakeTelemetryService {
     addConfigIfPresent(
         userProvidedConfig,
         dataObjectNode,
-        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG);
-    addConfigIfPresent(
-        userProvidedConfig,
-        dataObjectNode,
         KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
 
     // Behavior on null values

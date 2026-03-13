@@ -44,13 +44,11 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     topicPartition = new TopicPartition(topic, PARTITION);
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
     ConnectorConfigTools.setDefaultValues(config);
-    // "snowflake.streaming.max.client.lag" = 1 second, for faster tests
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG, "1");
     config.put(
         KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
         ConnectorConfigTools.ErrorTolerance.NONE.toString());
     config.put(KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
-    // only insert fist topic to topicTable
+    // only insert first topic to topicTable
     Map<String, String> topic2Table = new HashMap<>();
     topic2Table.put(topic, tableName);
 
