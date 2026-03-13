@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.Constants;
 import com.snowflake.kafka.connector.InjectQueryRunner;
 import com.snowflake.kafka.connector.InjectQueryRunnerExtension;
 import com.snowflake.kafka.connector.InjectSnowflakeDataSourceExtension;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -57,11 +58,12 @@ class StreamingManualModeIT {
   void beforeEach() throws SQLException {
     final Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(true);
     config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    SinkTaskConfig sinkTaskConfig = SinkTaskConfig.from(config);
     tableName = TestUtils.randomTableName();
     topicName = tableName;
     topicPartition = new TopicPartition(topicName, 0);
     snowflakeSinkService =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, sinkTaskConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     queryRunner.execute(

@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.v2.service;
 
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,17 +38,12 @@ public class ThreadPools {
     final ExecutorService openChannelIoExecutor;
     final AtomicInteger refCount = new AtomicInteger(0);
 
-    ConnectorThreadPool(String connectorName, Map<String, String> connectorConfig) {
+    ConnectorThreadPool(String connectorName, int openChannelIoThreads) {
       LOGGER.info("Creating I/O thread pool for connector: {}", connectorName);
       this.ioExecutor =
           Executors.newCachedThreadPool(new DaemonThreadFactory(connectorName + "-io"));
 
-      int maxThreads = KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT;
-      String configured =
-          connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS);
-      if (configured != null) {
-        maxThreads = Math.max(1, Integer.parseInt(configured.trim()));
-      }
+      int maxThreads = Math.max(1, openChannelIoThreads);
       LOGGER.info(
           "Creating channel thread pool for connector: {}, threads: {}", connectorName, maxThreads);
       this.openChannelIoExecutor =
@@ -59,7 +54,7 @@ public class ThreadPools {
 
   /**
    * Returns the I/O executor (cached thread pool) for the given connector. The pool must have been
-   * created by a prior call to {@link #registerTask(String, Map)}.
+   * created by a prior call to {@link #registerTask(String, SinkTaskConfig)}.
    */
   public static ExecutorService getIoExecutor(final String connectorName) {
     ConnectorThreadPool pool = connectorPools.get(connectorName);
@@ -71,7 +66,7 @@ public class ThreadPools {
 
   /**
    * Returns the open-channel executor (fixed-size thread pool) for the given connector. The pool
-   * must have been created by a prior call to {@link #registerTask(String, Map)}.
+   * must have been created by a prior call to {@link #registerTask(String, SinkTaskConfig)}.
    */
   public static ExecutorService getOpenChannelIoExecutor(final String connectorName) {
     ConnectorThreadPool pool = connectorPools.get(connectorName);
@@ -86,13 +81,12 @@ public class ThreadPools {
    * first task for the connector. Must be paired with a later call to {@link #closeForTask(String)}
    * to ensure the pools are shut down when no tasks remain.
    */
-  public static void registerTask(
-      final String connectorName, final Map<String, String> connectorConfig) {
+  public static void registerTask(final String connectorName, final SinkTaskConfig config) {
     connectorPools.compute(
         connectorName,
         (key, pool) -> {
           if (pool == null) {
-            pool = new ConnectorThreadPool(connectorName, connectorConfig);
+            pool = new ConnectorThreadPool(connectorName, config.getOpenChannelIoThreads());
           }
           pool.refCount.incrementAndGet();
           return pool;

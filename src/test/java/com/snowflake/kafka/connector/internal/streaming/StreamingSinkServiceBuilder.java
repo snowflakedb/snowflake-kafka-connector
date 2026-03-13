@@ -1,51 +1,38 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
 public class StreamingSinkServiceBuilder {
 
   private final SnowflakeConnectionService conn;
-  private final Map<String, String> connectorConfig;
+  private SinkTaskConfig config;
 
   private KafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
   private SinkTaskContext sinkTaskContext = new InMemorySinkTaskContext(Collections.emptySet());
   private Optional<MetricsJmxReporter> metricsJmxReporter = Optional.empty();
   private TaskMetrics taskMetrics = TaskMetrics.noop();
-  private Map<String, String> topicToTableMap = new HashMap<>();
-  private ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues =
-      ConnectorConfigTools.BehaviorOnNullValues.DEFAULT;
 
   public static StreamingSinkServiceBuilder builder(
-      SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
-    return new StreamingSinkServiceBuilder(conn, connectorConfig);
+      SnowflakeConnectionService conn, SinkTaskConfig config) {
+    return new StreamingSinkServiceBuilder(conn, config);
   }
 
   public SnowflakeSinkServiceV2 build() {
     return new SnowflakeSinkServiceV2(
-        conn,
-        connectorConfig,
-        errorReporter,
-        sinkTaskContext,
-        metricsJmxReporter,
-        topicToTableMap,
-        behaviorOnNullValues,
-        taskMetrics);
+        conn, config, errorReporter, sinkTaskContext, metricsJmxReporter, taskMetrics);
   }
 
-  private StreamingSinkServiceBuilder(
-      SnowflakeConnectionService conn, Map<String, String> connectorConfig) {
+  private StreamingSinkServiceBuilder(SnowflakeConnectionService conn, SinkTaskConfig config) {
     this.conn = conn;
-    this.connectorConfig = connectorConfig;
+    this.config = config;
   }
 
   public StreamingSinkServiceBuilder withErrorReporter(KafkaRecordErrorReporter errorReporter) {
@@ -60,17 +47,6 @@ public class StreamingSinkServiceBuilder {
 
   public StreamingSinkServiceBuilder withMetricsJmxReporter(MetricsJmxReporter reporter) {
     this.metricsJmxReporter = Optional.of(reporter);
-    return this;
-  }
-
-  public StreamingSinkServiceBuilder withTopicToTableMap(Map<String, String> topic2TableMap) {
-    topicToTableMap = topic2TableMap;
-    return this;
-  }
-
-  public StreamingSinkServiceBuilder withBehaviorOnNullValues(
-      ConnectorConfigTools.BehaviorOnNullValues behavior) {
-    behaviorOnNullValues = behavior;
     return this;
   }
 }

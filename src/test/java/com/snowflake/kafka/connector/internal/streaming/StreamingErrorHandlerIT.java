@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -277,8 +277,9 @@ class StreamingErrorHandlerIT {
 
   private SnowpipeStreamingPartitionChannel createChannel(
       Map<String, String> config, InMemoryKafkaRecordErrorReporter errorReporter) {
+    SinkTaskConfig taskConfig = SinkTaskConfig.from(config);
     StreamingErrorHandler errorHandler =
-        new StreamingErrorHandler(config, errorReporter, mockTelemetryService);
+        new StreamingErrorHandler(taskConfig, errorReporter, mockTelemetryService);
 
     final TopicPartition topicPartition = new TopicPartition(TOPIC, PARTITION);
     final PartitionOffsetTracker offsetTracker =
@@ -294,12 +295,7 @@ class StreamingErrorHandlerIT {
             offsetTracker.processedOffsetRef(),
             offsetTracker.consumerGroupOffsetRef());
 
-    boolean enableSchematization =
-        Boolean.parseBoolean(
-            config.getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-                String.valueOf(
-                    KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
+    boolean enableSchematization = taskConfig.isEnableSchematization();
 
     return new SnowpipeStreamingPartitionChannel(
         "test_table",

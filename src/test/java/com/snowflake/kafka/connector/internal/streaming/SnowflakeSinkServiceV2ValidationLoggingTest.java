@@ -3,13 +3,12 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -48,11 +47,13 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
    */
   @Test
   public void testSafeConfigValidationEnabledWithToleranceNone() {
-    Map<String, String> config = new HashMap<>();
-    config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task_id", "0");
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "true");
-    config.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "none");
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .clientValidationEnabled(true)
+            .tolerateErrors(false)
+            .build();
 
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
@@ -73,13 +74,14 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
    */
   @Test
   public void testSafeConfigValidationEnabledWithToleranceAllAndDlq() {
-    Map<String, String> config = new HashMap<>();
-    config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task_id", "0");
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "true");
-    config.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "all");
-    config.put(
-        KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "my-dlq-topic");
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .clientValidationEnabled(true)
+            .tolerateErrors(true)
+            .dlqTopicName("my-dlq-topic")
+            .build();
 
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
@@ -102,12 +104,14 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
    */
   @Test
   public void testUnsafeConfigValidationEnabledWithToleranceAllNoDlq() {
-    Map<String, String> config = new HashMap<>();
-    config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task_id", "0");
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "true");
-    config.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "all");
-    // NO DLQ configured
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .clientValidationEnabled(true)
+            .tolerateErrors(true)
+            .dlqTopicName("")
+            .build();
 
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
@@ -132,10 +136,12 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
    */
   @Test
   public void testValidationDisabledWarnsAboutErrorTables() {
-    Map<String, String> config = new HashMap<>();
-    config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task_id", "0");
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .clientValidationEnabled(false)
+            .build();
 
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
@@ -162,10 +168,12 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
    */
   @Test
   public void testLegacySchematizationConfigWarning() {
-    Map<String, String> config = new HashMap<>();
-    config.put(KafkaConnectorConfigParams.NAME, "test-connector");
-    config.put("task_id", "0");
-    config.put("snowflake.enable.schematization", "true"); // Legacy config
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .enableSchematization(true)
+            .build();
 
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
@@ -183,7 +191,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   }
 
   /** Helper to create SnowflakeSinkServiceV2 with minimal mocked dependencies. */
-  private SnowflakeSinkServiceV2 createServiceWithConfig(Map<String, String> config) {
+  private SnowflakeSinkServiceV2 createServiceWithConfig(SinkTaskConfig config) {
     // Mock dependencies
     SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
     when(mockConn.isClosed()).thenReturn(false);
@@ -199,8 +207,6 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
           null, // recordErrorReporter
           null, // sinkTaskContext
           java.util.Optional.empty(), // metricsJmxReporter
-          new HashMap<>(), // topicToTableMap
-          null, // behaviorOnNullValues
           mockMetrics);
     } catch (Exception e) {
       // Constructor may throw due to missing configs - print and return null

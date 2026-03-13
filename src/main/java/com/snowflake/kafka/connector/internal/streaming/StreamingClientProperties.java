@@ -17,18 +17,14 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
-
 import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Object to convert and store properties for {@code
@@ -39,51 +35,49 @@ public class StreamingClientProperties {
   public static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
   public static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
 
-  // contains converted config properties that are loggable (not PII data)
-  public static final List<String> LOGGABLE_STREAMING_CONFIG_PROPERTIES =
-      Stream.of(
-              StreamingIngestClientConfigParams.ACCOUNT_URL,
-              StreamingIngestClientConfigParams.ROLE,
-              StreamingIngestClientConfigParams.USER,
-              StreamingUtils.STREAMING_CONSTANT_AUTHORIZATION_TYPE)
-          .collect(Collectors.toList());
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
   public final Properties clientProperties;
   public final String clientName;
   public final Map<String, Object> parameterOverrides;
 
-  /**
-   * Creates non-null properties, client name and parameter overrides for the {@code
-   * net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient} from the given connectorConfig
-   * Properties are created by {@link StreamingUtils#convertConfigForStreamingClient(Map)} and are a
-   * subset of the given connector configuration
-   *
-   * @param connectorConfig Given connector configuration. Null configs are treated as an empty map
-   */
-  public StreamingClientProperties(Map<String, String> connectorConfig) {
-    // treat null config as empty config
-    if (connectorConfig == null) {
-      LOGGER.warn(
-          "Creating empty streaming client properties because given connector config was empty");
-      connectorConfig = new HashMap<>();
+  /** Constructor used by {@link #from(SinkTaskConfig)}. */
+  private StreamingClientProperties(
+      Properties clientProperties, String clientName, Map<String, Object> parameterOverrides) {
+    this.clientProperties = clientProperties;
+    this.clientName = clientName;
+    this.parameterOverrides = parameterOverrides;
+  }
+
+  /** Creates streaming client properties from parsed {@link SinkTaskConfig}. */
+  public static StreamingClientProperties from(SinkTaskConfig config) {
+    Properties clientProperties = new Properties();
+    if (config.getSnowflakeUrl() != null) {
+      clientProperties.put(StreamingIngestClientConfigParams.ACCOUNT_URL, config.getSnowflakeUrl());
+    }
+    if (config.getSnowflakeRole() != null) {
+      clientProperties.put(StreamingIngestClientConfigParams.ROLE, config.getSnowflakeRole());
+    }
+    if (config.getSnowflakeUser() != null) {
+      clientProperties.put(StreamingIngestClientConfigParams.USER, config.getSnowflakeUser());
+    }
+    if (config.getSnowflakePrivateKey() != null) {
+      clientProperties.put(
+          StreamingIngestClientConfigParams.PRIVATE_KEY, config.getSnowflakePrivateKey());
     }
 
-    this.clientProperties = StreamingUtils.convertConfigForStreamingClient(connectorConfig);
-
-    this.clientName =
+    String clientName =
         STREAMING_CLIENT_PREFIX_NAME
-            + connectorConfig.getOrDefault(
-                com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.NAME,
-                DEFAULT_CLIENT_NAME);
+            + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME);
 
-    // Override only if the streaming client properties are explicitly set in config
-    this.parameterOverrides = new HashMap<>();
-    String overrideMap = connectorConfig.get(SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
+    Map<String, Object> parameterOverrides = new HashMap<>();
+    String overrideMap = config.getStreamingClientProviderOverrideMap();
     if (overrideMap != null && !overrideMap.isEmpty()) {
       Utils.parseCommaSeparatedKeyValuePairs(overrideMap)
-          .forEach((key, value) -> this.parameterOverrides.put(key.toLowerCase(), value));
-      LOGGER.info("Streaming Client config overrides: {}", this.parameterOverrides);
+          .forEach((key, value) -> parameterOverrides.put(key.toLowerCase(), value));
+      LOGGER.info("Streaming Client config overrides: {}", parameterOverrides);
     }
+
+    return new StreamingClientProperties(clientProperties, clientName, parameterOverrides);
   }
 
   /**
