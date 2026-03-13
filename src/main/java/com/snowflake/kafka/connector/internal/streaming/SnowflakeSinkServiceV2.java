@@ -142,7 +142,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @throws IllegalStateException if configuration is unsafe and would cause data loss
    */
   private void logValidationConfiguration() {
-    boolean validationEnabled = taskConfig.isClientValidationEnabled();
+    boolean schematizationEnabled = taskConfig.isEnableSchematization();
+    boolean validationEnabled = schematizationEnabled && taskConfig.isClientValidationEnabled();
+
     String errorsTolerance =
         taskConfig.isTolerateErrors()
             ? ConnectorConfigTools.ErrorTolerance.ALL.toString()
@@ -162,28 +164,35 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     if (!validationEnabled) {
-      // VALIDATION DISABLED (High-Performance Mode)
-      // Must verify SSv2 Error Table is configured to prevent records from being silently dropped
-      // TODO: Check Error Table configuration when SSv2 API exposes this information
-      // For now, log warning as API is not yet available
-      LOGGER.warn(
-          "CLIENT-SIDE VALIDATION DISABLED (High-Performance Mode). Running without client-side"
-              + " validation requires a configured SSv2 Error Table to prevent records from being"
-              + " silently dropped.");
+      if (!schematizationEnabled) {
+        if (taskConfig.isClientValidationEnabled()) {
+          LOGGER.warn(
+              "'{}' is ignored when '{}' is disabled. Client-side validation requires"
+                  + " schematization — the setting will be treated as false.",
+              KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+              KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION);
+        }
+        LOGGER.info(
+            "Schematization is disabled — client-side validation is implicitly off. "
+                + "The connector wraps payloads into RECORD_CONTENT/RECORD_METADATA and relies on "
+                + "server-side schema evolution and SSv2 Error Table for error handling.");
+      } else {
+        LOGGER.warn(
+            "CLIENT-SIDE VALIDATION DISABLED (High-Performance Mode). Running without client-side"
+                + " validation requires a configured SSv2 Error Table to prevent records from being"
+                + " silently dropped.");
+      }
       return;
     }
 
-    // VALIDATION ENABLED
-    // Verify safe error handling configuration
+    // VALIDATION ENABLED (only reachable when schematization is also enabled)
     if (tolerateAll) {
       if (dlqConfigured) {
-        // SAFE: Validation errors route to DLQ
         LOGGER.info(
             "Client-side validation enabled with errors.tolerance=all. "
                 + "Validation failures will route to DLQ topic: {}",
             dlqTopic);
       } else {
-        // UNSAFE: Validation errors are silently dropped
         LOGGER.error(
             "UNSAFE CONFIGURATION: Client-side validation enabled with errors.tolerance=all but NO"
                 + " DLQ configured. "
@@ -191,11 +200,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                 + "Configure '{}' to preserve failed records, or set errors.tolerance=none to abort"
                 + " on errors.",
             KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-        // Note: Not throwing exception to allow connector to start, but logging ERROR
-        // Operators can decide if they want to fail fast by checking logs
       }
     } else {
-      // SAFE: Task aborts on validation failure (errors.tolerance=none)
       LOGGER.info(
           "Client-side validation enabled with errors.tolerance=none. "
               + "Validation failures will abort the task (safe - prevents data loss){}.",

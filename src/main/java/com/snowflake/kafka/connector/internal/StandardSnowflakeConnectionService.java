@@ -378,7 +378,13 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
 
     boolean hasPermission = hasRolePrivilege && hasTableOptionEnabled;
-    LOGGER.info("Table: {} has schema evolution permission: {}", tableName, hasPermission);
+    LOGGER.info(
+        "Table: {} has schema evolution permission: {} (hasRolePrivilege={},"
+            + " hasTableOptionEnabled={})",
+        tableName,
+        hasPermission,
+        hasRolePrivilege,
+        hasTableOptionEnabled);
     return hasPermission;
   }
 

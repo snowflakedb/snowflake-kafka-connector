@@ -196,8 +196,7 @@ public class PartitionChannelManager {
         schemaEvolutionPermissionCache.computeIfAbsent(
             tableName,
             t ->
-                conn.hasSchemaEvolutionPermission(
-                    t, connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)));
+                conn.hasSchemaEvolutionPermission(t, taskConfig.getSnowflakeRole()));
 
     return new SnowpipeStreamingPartitionChannel(
         tableName,
