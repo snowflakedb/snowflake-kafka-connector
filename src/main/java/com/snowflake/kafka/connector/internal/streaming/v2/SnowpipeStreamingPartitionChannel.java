@@ -121,16 +121,19 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         channelName,
         pipeName);
 
-    this.channel = openChannelForTable(channelName);
+    OpenChannelResult openChannelResult = openChannelForTable(channelName);
+    final long lastCommittedOffsetToken =
+        parseOffsetToken(
+            openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(), channelName);
+    LOGGER.info("New channel {} has offset token {}", channelName, lastCommittedOffsetToken);
+    offsetTracker.initializeFromSnowflake(lastCommittedOffsetToken);
+    this.channel = openChannelResult.getChannel();
 
     if (clientValidationEnabled) {
       initializeValidation();
     } else {
       LOGGER.info("Client-side validation disabled for channel {}", channelName);
     }
-
-    final long lastCommittedOffsetToken = fetchLatestOffsetFromChannel(this.channel);
-    offsetTracker.initializeFromSnowflake(lastCommittedOffsetToken);
 
     this.telemetryService.reportKafkaPartitionStart(
         new SnowflakeTelemetryChannelCreation(tableName, channelName, System.currentTimeMillis()));
@@ -272,9 +275,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     if (!channel.isClosed()) {
       closeChannelWithoutFlushing(channel);
     }
-    SnowflakeStreamingIngestChannel newChannel = openChannelForTable(channelName);
+    OpenChannelResult openChannelResult = openChannelForTable(channelName);
 
-    final long offsetRecoveredFromSnowflake = fetchLatestOffsetFromChannel(newChannel);
+    final long offsetRecoveredFromSnowflake =
+        parseOffsetToken(
+            openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(), channelName);
 
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
       LOGGER.info(
@@ -285,7 +290,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     }
 
     offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
-    this.channel = newChannel;
+    this.channel = openChannelResult.getChannel();
 
     LOGGER.info(
         "{} Channel {} recovery complete, offsetRecoveredFromSnowflake={}",
@@ -442,7 +447,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    *
    * @return new channel which was fetched after open/reopen
    */
-  private SnowflakeStreamingIngestChannel openChannelForTable(final String channelName) {
+  private OpenChannelResult openChannelForTable(final String channelName) {
     final OpenChannelResult result;
     try (TaskMetrics.TimingContext ignored = taskMetrics.timeChannelOpen()) {
       result = streamingClient.openChannel(channelName, null);
@@ -459,7 +464,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           "Successfully opened streaming channel: {}, initialErrorCount: {}",
           channelName,
           this.initialErrorCount);
-      return result.getChannel();
+      return result;
     } else {
       LOGGER.error(
           "Failed to open channel: {}, error code: {}", channelName, channelStatus.getStatusCode());
