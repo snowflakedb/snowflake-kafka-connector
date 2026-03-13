@@ -18,8 +18,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
-import static com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams.MAX_CLIENT_LAG;
 
 import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
 import com.snowflake.kafka.connector.Utils;
@@ -81,11 +79,6 @@ public class StreamingClientProperties {
 
     // Override only if the streaming client properties are explicitly set in config
     this.parameterOverrides = new HashMap<>();
-    Optional<String> snowpipeStreamingMaxClientLag =
-        Optional.ofNullable(connectorConfig.get(SNOWFLAKE_STREAMING_MAX_CLIENT_LAG));
-    snowpipeStreamingMaxClientLag.ifPresent(
-        overriddenValue ->
-            parameterOverrides.put(MAX_CLIENT_LAG, String.format("%s second", overriddenValue)));
 
     combineStreamingClientOverriddenProperties(connectorConfig);
   }
@@ -98,32 +91,9 @@ public class StreamingClientProperties {
    * href="https://github.com/snowflakedb/snowflake-ingest-java/blob/master/src/main/java/net/snowflake/ingest/utils/ParameterProvider.java">Ingest
    * SDK</a>
    *
-   * <p>MAX_CLIENT_LAG can be provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG
-   *
-   * <p>We will honor the value provided explicitly over the ones in
-   * SNOWPIPE_STREAMING_CLIENT_PARAMETER_OVERRIDE_MAP
-   *
-   * <p>Example, if two configs are provided and map has MAX_CLIENT_LAG, Value from
-   * snowflake.streaming.max.client.lag will be honored.
-   *
-   * <ol>
-   *   <li>snowflake.streaming.client.provider.override.map =
-   *       MAX_CLIENT_LAG:30,MAX_CHANNEL_SIZE_IN_BYTES:10000000
-   *   <li>snowflake.streaming.max.client.lag = 60
-   *   <li>MAX_CLIENT_LAG will honor 60 seconds.
-   * </ol>
-   *
-   * <p>If <b>snowflake.streaming.max.client.lag</b> is not provided, we pass in the map as is to
-   * Streaming Client (all lowercase keys).
-   *
-   * <p>Please note, Streaming Client
-   *
    * @param connectorConfig Input connector config
    */
   private void combineStreamingClientOverriddenProperties(Map<String, String> connectorConfig) {
-    // MAX_CLIENT_LAG property can also be present in override map, in that case, we will honor the
-    // value provided in SNOWPIPE_STREAMING_MAX_CLIENT_LAG since it preceded and was released in
-    // earlier versions.
     Optional<String> clientOverrideProperties =
         Optional.ofNullable(connectorConfig.get(SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
     Map<String, String> clientOverridePropertiesMap = new HashMap<>();
@@ -135,36 +105,11 @@ public class StreamingClientProperties {
           Map<String, String> overriddenPairs =
               Utils.parseCommaSeparatedKeyValuePairs(overriddenKeyValuePairs);
           overriddenPairs.forEach(
-              (overriddenKey, overriddenValue) -> {
-                if (overriddenKey.equalsIgnoreCase(MAX_CLIENT_LAG)) {
-                  clientOverridePropertiesMap.put(
-                      MAX_CLIENT_LAG, String.format("%s second", overriddenValue));
-                } else {
-                  clientOverridePropertiesMap.put(overriddenKey.toLowerCase(), overriddenValue);
-                }
-              });
-          overrideStreamingClientPropertyIfSet(
-              clientOverridePropertiesMap, MAX_CLIENT_LAG, SNOWFLAKE_STREAMING_MAX_CLIENT_LAG);
+              (key, value) -> clientOverridePropertiesMap.put(key.toLowerCase(), value));
           parameterOverrides.putAll(clientOverridePropertiesMap);
         });
     parameterOverrides.forEach(
         (key, value) -> LOGGER.info("Streaming Client Config is overridden for {}={}", key, value));
-  }
-
-  private void overrideStreamingClientPropertyIfSet(
-      Map<String, String> clientOverridePropertiesMap,
-      String streamingClientPropName,
-      String connectorPropName) {
-    if (clientOverridePropertiesMap.containsKey(streamingClientPropName)
-        && parameterOverrides.containsKey(streamingClientPropName)) {
-      LOGGER.info(
-          "Honoring {} value in {} for streaming client provider, since it is"
-              + " explicitly provided. Using: {}",
-          connectorPropName,
-          streamingClientPropName,
-          parameterOverrides.get(streamingClientPropName));
-      clientOverridePropertiesMap.remove(streamingClientPropName);
-    }
   }
 
   /**

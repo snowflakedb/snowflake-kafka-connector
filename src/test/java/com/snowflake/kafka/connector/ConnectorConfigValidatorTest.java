@@ -17,7 +17,6 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME;
@@ -350,40 +349,6 @@ public class ConnectorConfigValidatorTest {
           config.put(KafkaConnectorConfigParams.VALUE_CONVERTER, converter.getClass().toString());
           connectorConfigValidator.validateConfig(config);
         });
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-    SNOWFLAKE_STREAMING_MAX_CLIENT_LAG + ", 1",
-    SNOWFLAKE_STREAMING_MAX_CLIENT_LAG + ", 3"
-  })
-  public void shouldNotThrowExceptionForProperStreamingClientPropsValue(String prop, String value) {
-    // GIVEN
-    Map<String, String> config = getConfig();
-
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "ACCOUNTADMIN");
-    config.put(prop, value);
-
-    // WHEN/THEN
-    connectorConfigValidator.validateConfig(config);
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-    SNOWFLAKE_STREAMING_MAX_CLIENT_LAG + ", fdf",
-    SNOWFLAKE_STREAMING_MAX_CLIENT_LAG + ", 10 dsada"
-  })
-  public void shouldThrowExceptionForInvalidStreamingClientPropsValue(String prop, String value) {
-    // GIVEN
-    Map<String, String> config = getConfig();
-
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "ACCOUNTADMIN");
-    config.put(prop, value);
-
-    // WHEN/THEN
-    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(prop);
   }
 
   @Test

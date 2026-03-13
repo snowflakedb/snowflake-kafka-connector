@@ -6,7 +6,6 @@ import static org.apache.kafka.common.config.ConfigDef.Type.*;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.internal.streaming.StreamingUtils;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Width;
 
@@ -238,17 +237,6 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.JMX_OPT_DEFAULT,
             HIGH,
             "Whether to enable JMX MBeans for custom SF metrics")
-        .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG,
-            LONG,
-            StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC,
-            atLeast(StreamingUtils.STREAMING_BUFFER_FLUSH_TIME_MINIMUM_SEC),
-            LOW,
-            "Decide how often the buffer in the Ingest SDK will be flushed",
-            CONNECTOR_CONFIG_DOC,
-            6,
-            Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG)
         //  TODO(SNOW-3136086): decide if this should be configurable
         // .define(
         //     KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS,
@@ -270,8 +258,7 @@ public class ConnectorConfigDefinition {
             LOW,
             "Map of Key value pairs representing Streaming Client Properties to Override. These are"
                 + " optional and recommended to use ONLY after consulting Snowflake Support. Format"
-                + " : comma-separated tuples, e.g.:"
-                + " MAX_CLIENT_LAG:5000,other_key:value...",
+                + " : comma-separated tuples, e.g.: key1:value1,key2:value2",
             CONNECTOR_CONFIG_DOC,
             0,
             Width.NONE,

@@ -29,8 +29,6 @@ public final class Constants {
     public static final boolean SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT = true;
     public static final String SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
         "snowflake.streaming.client.provider.override.map";
-    public static final String SNOWFLAKE_STREAMING_MAX_CLIENT_LAG =
-        "snowflake.streaming.max.client.lag";
     public static final String SNOWFLAKE_OPEN_CHANNEL_IO_THREADS =
         "snowflake.open.channel.io.threads";
     public static final int SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT = 50;
@@ -53,8 +51,6 @@ public final class Constants {
         "snowflake.cache.pipe.exists.expire.ms";
     public static final long CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT = 5 * 60 * 1000L;
     public static final long CACHE_PIPE_EXISTS_EXPIRE_MS_MIN = 1L;
-
-    public static final int SNOWPIPE_STREAMING_MAX_CLIENT_LAG_SECONDS_DEFAULT = 1;
 
     public static final String BEHAVIOR_ON_NULL_VALUES = "behavior.on.null.values";
     public static final String VALUE_CONVERTER_SCHEMAS_ENABLE = "value.converter.schemas.enable";
@@ -113,6 +109,5 @@ public final class Constants {
     public static final String ACCOUNT_URL = "url";
     public static final String ROLE = "role";
     public static final String PRIVATE_KEY = "private_key";
-    public static final String MAX_CLIENT_LAG = "max_client_lag";
   }
 }
