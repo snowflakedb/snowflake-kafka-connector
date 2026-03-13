@@ -143,7 +143,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             },
             openChannelIoExecutor);
 
-    if (clientValidationEnabled) {
+    if (this.clientValidationEnabled) {
       initializeValidation();
     } else {
       LOGGER.info("Client-side validation disabled for channel {}", channelName);
