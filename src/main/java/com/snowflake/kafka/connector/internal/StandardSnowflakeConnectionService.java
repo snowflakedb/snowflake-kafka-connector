@@ -353,7 +353,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
 
     boolean hasTableOptionEnabled = false;
-    query = "show tables like '" + tableName + "' limit 1";
+    query = "show tables like ? limit 1";
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
       stmt.setString(1, tableName);
