@@ -251,17 +251,39 @@ class SnowpipeStreamingPartitionChannelTest {
           new DescribeTableRow("RECORD_CONTENT", "VARIANT", null, "Y"),
           new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
 
+  private static final List<DescribeTableRow> SCHEMATIZED_TABLE_SCHEMA =
+      Arrays.asList(
+          new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"),
+          new DescribeTableRow("NAME", "VARCHAR(16777216)", null, "Y"));
+
   @Test
   void validationEnabled_validRecord_insertsSuccessfully() {
-    // enableSchematization=false so the record is wrapped into RECORD_CONTENT/RECORD_METADATA
+    // enableSchematization=true: record {"name":"test"} becomes flat column NAME
     SnowpipeStreamingPartitionChannel channel =
-        createValidationEnabledChannel(STANDARD_TABLE_SCHEMA, false, true);
+        createValidationEnabledChannel(SCHEMATIZED_TABLE_SCHEMA, true, true);
     SinkRecord record = buildValidRecord(0);
 
     channel.insertRecord(record, true);
 
     verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void schematizationOff_skipsValidation_evenIfConfiguredTrue() {
+    // When schematization=false, client validation is implicitly disabled
+    List<DescribeTableRow> schema =
+        Arrays.asList(new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
+
+    // Pass clientValidationEnabled=true in the constructor, but schematization=false
+    // should override it to effectively false
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false, true);
+    SinkRecord record = buildValidRecord(0);
+
+    channel.insertRecord(record, true);
+
+    // No validation error even though table is missing RECORD_CONTENT — validation was skipped
+    verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
   }
 
   @Test

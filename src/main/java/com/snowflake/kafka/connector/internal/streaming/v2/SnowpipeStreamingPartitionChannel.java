@@ -114,7 +114,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.telemetryService = telemetryService;
     this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
     this.offsetTracker = offsetTracker;
-    this.clientValidationEnabled = clientValidationEnabled;
+    this.clientValidationEnabled = clientValidationEnabled && enableSchematization;
     this.hasSchemaEvolutionPermission = hasSchemaEvolutionPermission;
     this.conn = conn;
     this.tableName = tableName;
@@ -395,17 +395,26 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
+    LOGGER.info(
+        "handleStructuralError for channel {}: hasSchemaEvolutionPermission={}, extraCols={},"
+            + " missingNotNull={}",
+        channelName,
+        hasSchemaEvolutionPermission,
+        result.getExtraColNames(),
+        result.getMissingNotNullColNames());
     if (!hasSchemaEvolutionPermission) {
       String errorMsg =
           String.format(
               "Structural validation error (schema evolution disabled): extraCols=%s,"
                   + " missingNotNull=%s",
               result.getExtraColNames(), result.getMissingNotNullColNames());
+      LOGGER.info("Routing to DLQ for channel {}: {}", channelName, errorMsg);
       streamingErrorHandler.handleError(new DataException(errorMsg), record);
       return;
     }
 
     try {
+      LOGGER.info("Attempting schema evolution for channel {}, table {}", channelName, tableName);
       SchemaEvolutionTargetItems items =
           ValidationResultMapper.mapToSchemaEvolutionItems(result, tableName);
       schemaEvolutionService.evolveSchemaIfNeeded(items, record);

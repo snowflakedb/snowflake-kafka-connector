@@ -84,7 +84,7 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   }
 
   /**
-   * Validates if the configs are allowed values when schematization is enabled.
+   * Validates schematization-related config constraints.
    *
    * <p>return a map of invalid params
    */
