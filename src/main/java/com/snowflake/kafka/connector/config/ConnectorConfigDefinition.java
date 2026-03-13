@@ -249,6 +249,19 @@ public class ConnectorConfigDefinition {
             6,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_CLIENT_LAG)
+        //  TODO(SNOW-3136086): decide if this should be configurable
+        // .define(
+        //     KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS,
+        //     INT,
+        //     KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT,
+        //     atLeast(1),
+        //     LOW,
+        //     "Number of threads per connector per worker used to open streaming channels in"
+        //         + " parallel.",
+        //     CONNECTOR_CONFIG_DOC,
+        //     16,
+        //     Width.NONE,
+        //     KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS)
         .define(
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
             STRING,

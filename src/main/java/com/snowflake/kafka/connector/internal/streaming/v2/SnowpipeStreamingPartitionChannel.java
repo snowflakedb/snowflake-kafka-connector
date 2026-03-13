@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -71,6 +72,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private final String pipeName;
 
   private final SnowflakeStreamingIngestClient streamingClient;
+  private final ExecutorService openChannelIoExecutor;
 
   private final StreamingErrorHandler streamingErrorHandler;
 
@@ -89,6 +91,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String channelName,
       String pipeName,
       SnowflakeStreamingIngestClient streamingClient,
+      ExecutorService openChannelIoExecutor,
       SnowflakeTelemetryService telemetryService,
       SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
       PartitionOffsetTracker offsetTracker,
@@ -101,6 +104,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
+    this.openChannelIoExecutor = openChannelIoExecutor;
     this.metadataConfig = metadataConfig;
     this.enableSchematization = enableSchematization;
     this.streamingErrorHandler = streamingErrorHandler;

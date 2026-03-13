@@ -23,12 +23,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -49,6 +52,7 @@ class StreamingErrorHandlerIT {
 
   private SnowflakeTelemetryService mockTelemetryService;
   private InMemorySinkTaskContext sinkTaskContext;
+  private ExecutorService openChannelIoExecutor;
 
   @BeforeEach
   void setUp() {
@@ -60,6 +64,12 @@ class StreamingErrorHandlerIT {
 
     sinkTaskContext =
         new InMemorySinkTaskContext(Collections.singleton(new TopicPartition(TOPIC, PARTITION)));
+    openChannelIoExecutor = Executors.newSingleThreadExecutor();
+  }
+
+  @AfterEach
+  void tearDown() {
+    openChannelIoExecutor.shutdownNow();
   }
 
   // ── errors.tolerance = NONE (default) ──────────────────────────────────────
@@ -296,6 +306,7 @@ class StreamingErrorHandlerIT {
         channelName,
         pipeName,
         new FakeSnowflakeStreamingIngestClient(pipeName, "test_connector"),
+        openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
         offsetTracker,

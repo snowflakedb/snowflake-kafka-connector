@@ -12,6 +12,7 @@ import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
+import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,6 +46,8 @@ public class StreamingClientManagerIT {
     pipe2 = table2 + DEFAULT_PIPE_NAME_SUFFIX;
     connectionService.createTableWithMetadataColumn(table1);
     connectionService.createTableWithMetadataColumn(table2);
+    ThreadPools.registerTask(testConnectorName, task1, connectorConfig);
+    ThreadPools.registerTask(testConnectorName, task2, connectorConfig);
   }
 
   @AfterEach
@@ -53,6 +56,8 @@ public class StreamingClientManagerIT {
     TestUtils.dropTable(table2);
     closeTaskClients(task1);
     closeTaskClients(task2);
+    ThreadPools.closeForTask(testConnectorName, task1);
+    ThreadPools.closeForTask(testConnectorName, task2);
   }
 
   @Test

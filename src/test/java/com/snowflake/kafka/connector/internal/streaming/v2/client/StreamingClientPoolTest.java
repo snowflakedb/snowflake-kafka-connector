@@ -158,7 +158,7 @@ class StreamingClientPoolTest {
     @BeforeEach
     void setUp() {
       connectorName = "test-connector-" + UUID.randomUUID().toString().substring(0, 8);
-      ThreadPools.registerTask(connectorName, "test-task");
+      ThreadPools.registerTask(connectorName, "test-task", connectorConfig);
       pool = new StreamingClientPool(connectorName);
     }
 
@@ -359,7 +359,7 @@ class StreamingClientPoolTest {
       Thread.currentThread().setContextClassLoader(fakePluginCL);
       StreamingClientPool poolWithCustomCL;
       try {
-        ThreadPools.registerTask(clConnectorName, "test-task");
+        ThreadPools.registerTask(clConnectorName, "test-task", connectorConfig);
         poolWithCustomCL = new StreamingClientPool(clConnectorName);
       } finally {
         Thread.currentThread().setContextClassLoader(originalCL);
