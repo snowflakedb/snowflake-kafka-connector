@@ -321,7 +321,7 @@ class SnowpipeStreamingPartitionChannelTest {
   private SnowpipeStreamingPartitionChannel createValidationEnabledChannel(
       List<DescribeTableRow> describeResult,
       boolean enableSchematization,
-      boolean enableSchemaEvolution) {
+      boolean hasSchemaEvolutionPermission) {
     mockConnService = mock(SnowflakeConnectionService.class);
     when(mockConnService.describeTable(TABLE_NAME)).thenReturn(Optional.of(describeResult));
 
@@ -353,7 +353,7 @@ class SnowpipeStreamingPartitionChannelTest {
         mockErrorHandler,
         TaskMetrics.noop(),
         true,
-        enableSchemaEvolution,
+        hasSchemaEvolutionPermission,
         mockConnService);
   }
 
@@ -457,7 +457,8 @@ class SnowpipeStreamingPartitionChannelTest {
             new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"),
             new DescribeTableRow("REQUIRED_COL", "VARCHAR(100)", null, "N"));
 
-    // enableSchemaEvolution=true so schema evolution is attempted for the missing NOT NULL col
+    // hasSchemaEvolutionPermission=true so schema evolution is attempted for the missing NOT NULL
+    // col
     SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true, true);
 
     // Record doesn't have REQUIRED_COL — should trigger structural error

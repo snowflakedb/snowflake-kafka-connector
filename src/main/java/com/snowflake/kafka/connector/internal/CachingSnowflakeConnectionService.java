@@ -220,8 +220,8 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
-  public boolean isSchemaEvolutionEnabled(String tableName) {
-    return delegate.isSchemaEvolutionEnabled(tableName);
+  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+    return delegate.hasSchemaEvolutionPermission(tableName, role);
   }
 
   private void logStatsIfNeeded() {
