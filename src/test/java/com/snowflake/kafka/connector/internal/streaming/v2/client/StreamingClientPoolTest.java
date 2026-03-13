@@ -8,6 +8,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
@@ -30,13 +31,14 @@ import org.junit.jupiter.api.Test;
 
 class StreamingClientPoolTest {
 
-  private Map<String, String> connectorConfig;
+  private SinkTaskConfig connectorConfig;
   private StreamingClientProperties streamingClientProperties;
 
   @BeforeEach
   void setUp() {
-    connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
-    streamingClientProperties = new StreamingClientProperties(connectorConfig);
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    connectorConfig = SinkTaskConfig.from(config);
+    streamingClientProperties = StreamingClientProperties.from(connectorConfig);
   }
 
   @AfterEach

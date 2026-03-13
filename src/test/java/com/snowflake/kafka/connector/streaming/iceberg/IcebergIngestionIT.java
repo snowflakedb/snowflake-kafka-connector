@@ -3,7 +3,7 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -13,7 +13,6 @@ import com.snowflake.kafka.connector.streaming.iceberg.sql.ComplexJsonRecord;
 import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
@@ -42,22 +41,21 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     tableName = TestUtils.randomTableName();
     topic = tableName;
     topicPartition = new TopicPartition(topic, PARTITION);
+
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
     ConnectorConfigTools.setDefaultValues(config);
-    config.put(
-        KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
-        ConnectorConfigTools.ErrorTolerance.NONE.toString());
-    config.put(KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "test_DLQ");
-    // only insert first topic to topicTable
-    Map<String, String> topic2Table = new HashMap<>();
-    topic2Table.put(topic, tableName);
+    SinkTaskConfig sinkTaskConfig =
+        SinkTaskConfig.builderFrom(config)
+            .tolerateErrors(false)
+            .dlqTopicName("test_DLQ")
+            .topicToTableMap(Collections.singletonMap(topic, tableName))
+            .build();
 
     kafkaRecordErrorReporter = new InMemoryKafkaRecordErrorReporter();
     service =
-        StreamingSinkServiceBuilder.builder(snowflakeDatabase, config)
+        StreamingSinkServiceBuilder.builder(snowflakeDatabase, sinkTaskConfig)
             .withErrorReporter(kafkaRecordErrorReporter)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withTopicToTableMap(topic2Table)
             .build();
   }
 

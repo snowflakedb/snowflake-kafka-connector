@@ -2,8 +2,8 @@ package com.snowflake.kafka.connector.internal.streaming.v2.service;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -17,7 +17,6 @@ import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPart
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -55,8 +54,7 @@ public class PartitionChannelManager {
 
   private final SinkTaskContext sinkTaskContext;
 
-  private final Map<String, String> connectorConfig;
-  private final SnowflakeMetadataConfig metadataConfig;
+  private final SinkTaskConfig taskConfig;
   private final Map<String, String> topicToTableMap;
   private final boolean enableSanitization;
   private final SnowflakeConnectionService conn;
@@ -66,28 +64,24 @@ public class PartitionChannelManager {
 
   public PartitionChannelManager(
       SnowflakeTelemetryService telemetryService,
-      Map<String, String> connectorConfig,
+      SinkTaskConfig taskConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
-      SnowflakeMetadataConfig metadataConfig,
       SinkTaskContext sinkTaskContext,
       Optional<MetricsJmxReporter> metricsJmxReporter,
       String connectorName,
       String taskId,
       TaskMetrics taskMetrics,
-      Map<String, String> topicToTableMap,
-      boolean enableSanitization,
       SnowflakeConnectionService conn) {
     this.telemetryService = telemetryService;
-    this.connectorConfig = connectorConfig;
+    this.taskConfig = taskConfig;
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
-    this.metadataConfig = metadataConfig;
     this.sinkTaskContext = sinkTaskContext;
     this.metricsJmxReporter = metricsJmxReporter;
     this.connectorName = connectorName;
     this.taskId = taskId;
     this.taskMetrics = taskMetrics;
-    this.topicToTableMap = topicToTableMap;
-    this.enableSanitization = enableSanitization;
+    this.topicToTableMap = taskConfig.getTopicToTableMap();
+    this.enableSanitization = taskConfig.isEnableSanitization();
     this.conn = conn;
     this.partitionChannelBuilder = this::buildChannel;
     this.partitionChannels = new ConcurrentHashMap<>();
@@ -107,9 +101,8 @@ public class PartitionChannelManager {
     this.partitionChannelBuilder = partitionChannelBuilder;
     this.partitionChannels = new ConcurrentHashMap<>();
     this.telemetryService = null;
-    this.connectorConfig = null;
+    this.taskConfig = null;
     this.kafkaRecordErrorReporter = null;
-    this.metadataConfig = null;
     this.sinkTaskContext = null;
     this.metricsJmxReporter = Optional.empty();
     this.taskMetrics = null;
@@ -172,17 +165,14 @@ public class PartitionChannelManager {
       TopicPartition topicPartition, String tableName, String channelName, String pipeName) {
 
     final StreamingErrorHandler streamingErrorHandler =
-        new StreamingErrorHandler(connectorConfig, kafkaRecordErrorReporter, telemetryService);
-
-    final boolean enableSchematization =
-        Boolean.parseBoolean(
-            connectorConfig.getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-                String.valueOf(
-                    KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
-
+        new StreamingErrorHandler(taskConfig, kafkaRecordErrorReporter, telemetryService);
+    final boolean enableSchematization = taskConfig.isEnableSchematization();
     final StreamingClientProperties streamingClientProperties =
-        new StreamingClientProperties(connectorConfig);
+        StreamingClientProperties.from(taskConfig);
+    final SnowflakeStreamingIngestClient streamingClient =
+        StreamingClientPools.getClient(
+            connectorName, taskId, pipeName, taskConfig, streamingClientProperties, taskMetrics);
+    final boolean clientValidationEnabled = taskConfig.isClientValidationEnabled();
 
     final PartitionOffsetTracker offsetTracker =
         new PartitionOffsetTracker(topicPartition, this.sinkTaskContext, channelName);
@@ -198,21 +188,6 @@ public class PartitionChannelManager {
             offsetTracker.processedOffsetRef(),
             offsetTracker.consumerGroupOffsetRef());
 
-    final SnowflakeStreamingIngestClient streamingClient =
-        StreamingClientPools.getClient(
-            connectorName,
-            taskId,
-            pipeName,
-            connectorConfig,
-            streamingClientProperties,
-            taskMetrics);
-
-    final boolean clientValidationEnabled =
-        Boolean.parseBoolean(
-            connectorConfig.getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
-                String.valueOf(
-                    KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT)));
     final ExecutorService openChannelIoExecutor =
         ThreadPools.getOpenChannelIoExecutor(connectorName);
 
@@ -225,7 +200,7 @@ public class PartitionChannelManager {
         this.telemetryService,
         telemetryChannelStatus,
         offsetTracker,
-        this.metadataConfig,
+        taskConfig.getMetadataConfig(),
         enableSchematization,
         streamingErrorHandler,
         this.taskMetrics,

@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.NAME;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -14,7 +13,8 @@ import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.ChannelStatusBatch;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
@@ -55,15 +55,13 @@ class BatchOffsetFetcherTest {
     // Unique name per test to avoid StreamingClientPools caching across tests
     connectorName = "test_connector_" + UUID.randomUUID().toString().substring(0, 8);
 
-    Map<String, String> config = new HashMap<>();
-    config.put(NAME, connectorName);
-    config.put(Utils.TASK_ID, TASK_ID);
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder().connectorName(connectorName).taskId(TASK_ID).build();
 
-    ThreadPools.registerTask(connectorName, config);
+    ThreadPools.registerTask(connectorName, taskConfig);
     ioExecutor = ThreadPools.getIoExecutor(connectorName);
     fetcher =
-        new BatchOffsetFetcher(
-            connectorName, TASK_ID, config, false, ioExecutor, TaskMetrics.noop());
+        new BatchOffsetFetcher(connectorName, TASK_ID, taskConfig, ioExecutor, TaskMetrics.noop());
     channels = new HashMap<>();
 
     clientSupplier = new CountingClientSupplier();
@@ -248,7 +246,7 @@ class BatchOffsetFetcherTest {
         String dbName,
         String schemaName,
         String pipeName,
-        Map<String, String> connectorConfig,
+        SinkTaskConfig config,
         StreamingClientProperties streamingClientProperties) {
       SnowflakeStreamingIngestClient client = mock(SnowflakeStreamingIngestClient.class);
       when(client.getChannelStatus(any()))

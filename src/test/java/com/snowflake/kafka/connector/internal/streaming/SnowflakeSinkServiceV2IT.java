@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 import static com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager.makeChannelName;
 
 import com.codahale.metrics.Gauge;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -41,16 +42,13 @@ import org.mockito.Mockito;
 public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
   private final SnowflakeConnectionService conn = TestUtils.getConnectionServiceWithEncryptedKey();
-  private Map<String, String> config;
+  private SinkTaskConfig.Builder configBuilder;
   private String pipe;
 
   @BeforeEach
   public void setup() {
-    config = TestUtils.getConnectorConfigurationForStreaming(true);
-    config.put(
-        com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
-            .SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
-        "false");
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(true);
+    configBuilder = SinkTaskConfig.builderFrom(config).clientValidationEnabled(false);
     pipe = table;
   }
 
@@ -64,7 +62,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   public void testChannelCloseIngestion()
       throws Exception { // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(topicPartition);
@@ -109,7 +107,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   public void testRebalanceOpenCloseIngestion()
       throws Exception { // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(topicPartition);
@@ -147,7 +145,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   public void testStreamingIngestion()
       throws Exception { // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(topicPartition);
@@ -209,7 +207,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(connectionService, config)
+        StreamingSinkServiceBuilder.builder(connectionService, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withMetricsJmxReporter(
                 new com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter(
@@ -330,11 +328,11 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
       topics.add(topicName);
       topic2Table.put(topicName, table);
     }
+    configBuilder.topicToTableMap(topic2Table);
 
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withTopicToTableMap(topic2Table)
             .build();
 
     for (int topic = 0; topic < topicCount; topic++) {
@@ -383,12 +381,11 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     for (int partition = 0; partition < partitionCount; partition++) {
       topicPartitions.add(new TopicPartition(topic, partition));
     }
-    Map<String, String> topic2Table = new HashMap<>();
-    topic2Table.put(topic, table);
+    configBuilder.topicToTableMap(Collections.singletonMap(topic, table));
+
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withTopicToTableMap(topic2Table)
             .build();
 
     service.startPartitions(topicPartitions);
@@ -497,7 +494,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             startOffset + 3);
 
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(topicPartition);
@@ -651,12 +648,12 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             avroInputKey.value(),
             startOffset + 2);
 
-    config.put("errors.tolerance", "all");
-    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
-    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+    configBuilder.tolerateErrors(true);
+    configBuilder.dlqTopicName("DLQ_TOPIC");
+    configBuilder.errorsLogEnable(true);
 
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(topicPartition);
@@ -706,14 +703,14 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             brokenInputValue.value(),
             startOffset + 2);
 
-    config.put("errors.tolerance", "all");
-    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
-    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+    configBuilder.tolerateErrors(true);
+    configBuilder.dlqTopicName("DLQ_TOPIC");
+    configBuilder.errorsLogEnable(true);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withErrorReporter(errorReporter)
             .build();
@@ -750,14 +747,14 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     SinkRecord correctValue =
         new SinkRecord(topic, partition, null, "key1", null, Map.of("name", "john"), 2);
 
-    config.put("errors.tolerance", "all");
-    config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
-    config.put("errors.deadletterqueue.topic.replication.factor", "1");
+    configBuilder.tolerateErrors(true);
+    configBuilder.dlqTopicName("DLQ_TOPIC");
+    configBuilder.errorsLogEnable(true);
 
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withErrorReporter(errorReporter)
             .build();
@@ -785,7 +782,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   public void testStreamingIngestionWithExactlyOnceSemanticsNoOverlappingOffsets()
       throws Exception {
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(topicPartition);
@@ -811,7 +808,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     // initialize a new sink service
     SnowflakeSinkService service2 =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service2.startPartition(topicPartition);
@@ -835,7 +832,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @Test
   public void testStreamingIngestionWithExactlyOnceSemanticsOverlappingOffsets() throws Exception {
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(topicPartition);
@@ -856,7 +853,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     // initialize a new sink service
     SnowflakeSinkService service2 =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service2.startPartition(topicPartition);
