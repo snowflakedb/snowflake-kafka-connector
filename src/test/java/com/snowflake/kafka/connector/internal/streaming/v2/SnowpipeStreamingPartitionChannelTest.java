@@ -138,7 +138,7 @@ class SnowpipeStreamingPartitionChannelTest {
   void closeChannelAsyncCancelsInitializationBeforeChannelOpens() throws Exception {
     // Block the single-threaded executor so the channel init task is queued but not started
     CountDownLatch blockExecutor = new CountDownLatch(1);
-    ioExecutor.submit(
+    openChannelIoExecutor.submit(
         () -> {
           blockExecutor.await();
           return null;

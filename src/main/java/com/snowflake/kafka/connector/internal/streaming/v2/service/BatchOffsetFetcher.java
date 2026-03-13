@@ -114,6 +114,15 @@ public class BatchOffsetFetcher {
                 pipeName,
                 channelsByPartition.size(),
                 e);
+          } catch (Exception e) {
+            // Catch any other exception (e.g. NPE, SDK wrapping, future SDK changes) so one bad
+            // pipe (e.g. table/pipe dropped) does not fail preCommit for all partitions.
+            LOGGER.error(
+                "Unexpected error fetching committed offsets for pipe: {}, skipping {} channel(s). "
+                    + "If this persists, consider reporting to the Snowflake Ingest SDK team.",
+                pipeName,
+                channelsByPartition.size(),
+                e);
           }
         },
         ioExecutor);

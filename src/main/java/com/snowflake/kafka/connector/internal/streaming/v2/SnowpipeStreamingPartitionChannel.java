@@ -141,7 +141,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               offsetTracker.initializeFromSnowflake(lastCommittedOffsetToken);
               return openChannelResult.getChannel();
             },
-            ioExecutor);
+            openChannelIoExecutor);
 
     if (clientValidationEnabled) {
       initializeValidation();
