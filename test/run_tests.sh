@@ -8,7 +8,9 @@
 # Examples:
 #   ./run_tests.sh --platform=apache --platform-version=2.8.2
 #   ./run_tests.sh --platform=apache --platform-version=3.7.0
+#   ./run_tests.sh --platform=apache --platform-version=4.0.0
 #   ./run_tests.sh --platform=confluent --platform-version=7.8.0
+#   ./run_tests.sh --platform=confluent --platform-version=8.0.0
 #   ./run_tests.sh --platform=confluent --platform-version=7.8.0 -- tests/test_string_json.py
 #
 # Prerequisites:
@@ -48,8 +50,8 @@ usage() {
     echo "Platform:"
     echo "  --platform=PLATFORM           Platform: 'confluent' or 'apache' (default: confluent)"
     echo "  --platform-version=VERSION    Kafka/Confluent platform version (default: 7.8.0)"
-    echo "                                Confluent: 7.8.x, 6.2.x"
-    echo "                                Apache: any version (e.g., 2.8.2, 3.7.0)"
+    echo "                                Confluent: 6.2.x, 7.x, 8.x (KRaft)"
+    echo "                                Apache: 2.x, 3.x, 4.x (KRaft)"
     echo ""
     echo "Options:"
     echo "  --cloud=CLOUD        Snowflake cloud platform: AWS, GCP, or AZURE"
@@ -67,7 +69,9 @@ usage() {
     echo ""
     echo "Examples:"
     echo "  $0 --platform=confluent --platform-version=7.8.0"
+    echo "  $0 --platform=confluent --platform-version=8.0.0    # KRaft mode"
     echo "  $0 --platform=apache --platform-version=2.8.2"
+    echo "  $0 --platform=apache --platform-version=4.0.0       # KRaft mode"
     echo "  $0 --platform=confluent --platform-version=7.8.0 -- -k test_string_json"
     echo "  $0 --platform=apache --platform-version=3.7.0 --keep -- -m pressure"
     echo "  $0 --platform=confluent --platform-version=7.8.0 -i   # interactive shell"
@@ -150,6 +154,9 @@ fi
 # Base compose file + platform-specific compose file
 BASE_COMPOSE="-f docker-compose.base.yml"
 
+SCALA_VERSION="2.12"
+KRAFT_MODE="false"
+
 case $PLATFORM in
     confluent)
         case $PLATFORM_VERSION in
@@ -158,29 +165,46 @@ case $PLATFORM in
                 # 6.2.x containers are only available for linux/amd64
                 COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.confluent.yml -f docker-compose.amd64.yml"
                 info "Note: Confluent 6.2.x requires linux/amd64 (using emulation on ARM)"
+                START_SERVICES="zookeeper kafka schema-registry kafka-connect"
                 ;;
             7.*)
                 info "Platform: Confluent $PLATFORM_VERSION"
                 COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.confluent.yml"
+                START_SERVICES="zookeeper kafka schema-registry kafka-connect"
+                ;;
+            8.*)
+                info "Platform: Confluent $PLATFORM_VERSION (KRaft mode)"
+                COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.confluent-kraft.yml"
+                START_SERVICES="kafka schema-registry kafka-connect"
                 ;;
             *)
-                error_exit "Unsupported Confluent version: $PLATFORM_VERSION (supported: 6.2.x, 7.x)"
+                error_exit "Unsupported Confluent version: $PLATFORM_VERSION (supported: 6.2.x, 7.x, 8.x)"
                 ;;
         esac
         CONFLUENT_VERSION="$PLATFORM_VERSION"
         KAFKA_VERSION=""
         KAFKA_CONNECT_ADDRESS="kafka-connect:8083"
         HEALTH_CHECK_SERVICE="kafka-connect"
-        START_SERVICES="zookeeper kafka schema-registry kafka-connect"
         ;;
     apache)
-        info "Platform: Apache Kafka $PLATFORM_VERSION (official tarball)"
         COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.apache.yml"
         CONFLUENT_VERSION=""
         KAFKA_VERSION="$PLATFORM_VERSION"
         KAFKA_CONNECT_ADDRESS="kafka:8083"
         HEALTH_CHECK_SERVICE="kafka"
         START_SERVICES="kafka"
+
+        case $PLATFORM_VERSION in
+            4.*)
+                info "Platform: Apache Kafka $PLATFORM_VERSION (KRaft mode)"
+                SCALA_VERSION="2.13"
+                KRAFT_MODE="true"
+                JAVA_VERSION="17"
+                ;;
+            *)
+                info "Platform: Apache Kafka $PLATFORM_VERSION (official tarball)"
+                ;;
+        esac
         ;;
     *)
         error_exit "Unknown platform: $PLATFORM (supported: confluent, apache)"
@@ -285,6 +309,8 @@ info "Test name salt: $TEST_NAME_SALT"
 export CONFLUENT_VERSION
 export KAFKA_VERSION
 export JAVA_VERSION
+export SCALA_VERSION
+export KRAFT_MODE
 export SNOWFLAKE_CREDENTIAL_FILE
 export CONNECTOR_PLUGIN_PATH="$PLUGIN_DIR"
 export EXTRA_JARS_PATH="$EXTRA_JARS_DIR"

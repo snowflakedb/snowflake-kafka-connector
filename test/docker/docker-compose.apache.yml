@@ -1,9 +1,11 @@
-# Apache Kafka services - mirrors run_test_apache.sh setup exactly
+# Apache Kafka services
+# Supports both ZooKeeper mode (<=3.x) and KRaft mode (4.x+)
 # Usage: docker compose -f docker-compose.base.yml -f docker-compose.apache.yml up
 
 services:
-  # Single container running Zookeeper + Kafka + Kafka Connect
-  # This mirrors exactly how run_test_apache.sh runs them
+  # Single container running Kafka + Kafka Connect
+  # ZooKeeper mode: also runs ZK inside the container
+  # KRaft mode (KRAFT_MODE=true): combined broker+controller, no ZK
   kafka:
     build:
       context: ..
@@ -11,6 +13,7 @@ services:
       args:
         KAFKA_VERSION: ${KAFKA_VERSION:-2.8.2}
         JAVA_VERSION: ${JAVA_VERSION:-11}
+        SCALA_VERSION: ${SCALA_VERSION:-2.12}
     hostname: kafka
     container_name: test-kafka
     ports:
@@ -19,6 +22,7 @@ services:
       - "8083:8083"
     environment:
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx2g"
+      KRAFT_MODE: ${KRAFT_MODE:-false}
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/usr/local/share/kafka/plugins/snowflake-connector
       - ${V3_PLUGIN_PATH:-/tmp/sf-kafka-connect-v3}:/usr/local/share/kafka/plugins/snowflake-connector-v3
