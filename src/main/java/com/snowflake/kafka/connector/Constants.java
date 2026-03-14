@@ -18,6 +18,8 @@ public final class Constants {
         "snowflake.private.key.passphrase";
     public static final String SNOWFLAKE_ROLE_NAME = "snowflake.role.name";
     public static final String SNOWFLAKE_JDBC_MAP = "snowflake.jdbc.map";
+    public static final String SNOWFLAKE_APPLICATION = "snowflake.application";
+
     public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";
     public static final String SNOWFLAKE_METADATA_TOPIC = "snowflake.metadata.topic";
     public static final String SNOWFLAKE_METADATA_OFFSET_AND_PARTITION =

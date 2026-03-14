@@ -51,9 +51,14 @@ public class StreamingClientFactory {
   }
 
   private static String clientName(final Map<String, String> connectorConfig) {
-    return STREAMING_CLIENT_V2_PREFIX_NAME
-        + connectorConfig.getOrDefault(KafkaConnectorConfigParams.NAME, DEFAULT_CLIENT_NAME)
-        + createdClientId.incrementAndGet();
+    String application = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_APPLICATION);
+    if (application == null) {
+      return STREAMING_CLIENT_V2_PREFIX_NAME + connectorConfig
+              .getOrDefault(KafkaConnectorConfigParams.NAME, DEFAULT_CLIENT_NAME) + createdClientId.incrementAndGet();
+    }
+    LOGGER.debug("using property {} = {} for ingest client name",
+            KafkaConnectorConfigParams.SNOWFLAKE_APPLICATION, application);
+    return application + createdClientId.incrementAndGet();
   }
 
   public static Properties getClientProperties(final Map<String, String> connectorConfig) {
