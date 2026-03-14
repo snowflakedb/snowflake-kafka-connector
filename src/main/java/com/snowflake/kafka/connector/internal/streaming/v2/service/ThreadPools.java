@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Like {@link com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools},
  * this class uses a static {@link ConcurrentHashMap} keyed by connector name. Each connector gets
  * its own pools, and the pools are shut down when the last task for a connector calls {@link
- * #closeForTask(String, String)}.
+ * #closeForTask(String)}.
  */
 public class ThreadPools {
   private static final KCLogger LOGGER = new KCLogger(ThreadPools.class.getName());
@@ -59,7 +59,7 @@ public class ThreadPools {
 
   /**
    * Returns the I/O executor (cached thread pool) for the given connector. The pool must have been
-   * created by a prior call to {@link #registerTask(String, String, Map)}.
+   * created by a prior call to {@link #registerTask(String, Map)}.
    */
   public static ExecutorService getIoExecutor(final String connectorName) {
     ConnectorThreadPool pool = connectorPools.get(connectorName);
@@ -71,7 +71,7 @@ public class ThreadPools {
 
   /**
    * Returns the open-channel executor (fixed-size thread pool) for the given connector. The pool
-   * must have been created by a prior call to {@link #registerTask(String, String, Map)}.
+   * must have been created by a prior call to {@link #registerTask(String, Map)}.
    */
   public static ExecutorService getOpenChannelIoExecutor(final String connectorName) {
     ConnectorThreadPool pool = connectorPools.get(connectorName);
@@ -83,11 +83,11 @@ public class ThreadPools {
 
   /**
    * Registers a task as a user of the connector's thread pools, creating the pools if this is the
-   * first task for the connector. Must be paired with a later call to {@link #closeForTask(String,
-   * String)} to ensure the pools are shut down when no tasks remain.
+   * first task for the connector. Must be paired with a later call to {@link #closeForTask(String)}
+   * to ensure the pools are shut down when no tasks remain.
    */
   public static void registerTask(
-      final String connectorName, final String taskId, final Map<String, String> connectorConfig) {
+      final String connectorName, final Map<String, String> connectorConfig) {
     connectorPools.compute(
         connectorName,
         (key, pool) -> {
@@ -103,7 +103,7 @@ public class ThreadPools {
    * Unregisters a task from the connector's thread pools. When the last task unregisters, the
    * executors are shut down and removed from the registry.
    */
-  public static void closeForTask(final String connectorName, final String taskId) {
+  public static void closeForTask(final String connectorName) {
     connectorPools.computeIfPresent(
         connectorName,
         (key, pool) -> {
