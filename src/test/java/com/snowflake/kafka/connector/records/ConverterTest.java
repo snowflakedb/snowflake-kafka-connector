@@ -170,7 +170,7 @@ class ConverterTest {
     Map<String, String> result = KafkaRecordConverter.convertHeaders(headers);
 
     // Timestamp should be converted to epoch millis string
-    String expectedTimestamp = String.valueOf(timestampValue.getTime());
+    String expectedTimestamp = String.valueOf(timestampValue.toInstant());
     assertEquals(expectedTimestamp, result.get("timestampHeader"));
     assertEquals("true", result.get("boolHeader"));
   }
