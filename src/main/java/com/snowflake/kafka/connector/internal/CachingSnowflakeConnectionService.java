@@ -219,6 +219,11 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     delegate.alterNonNullableColumns(tableName, columnNames);
   }
 
+  @Override
+  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+    return delegate.hasSchemaEvolutionPermission(tableName, role);
+  }
+
   private void logStatsIfNeeded() {
     final long now = System.currentTimeMillis();
     final long lastLogged = lastStatsLogTimestamp.get();

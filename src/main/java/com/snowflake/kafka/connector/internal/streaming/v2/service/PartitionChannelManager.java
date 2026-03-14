@@ -63,6 +63,7 @@ public class PartitionChannelManager {
 
   private final PartitionChannelBuilder partitionChannelBuilder;
   private final Map<String, TopicPartitionChannel> partitionChannels;
+  private final Map<String, Boolean> schemaEvolutionPermissionCache = new ConcurrentHashMap<>();
 
   public PartitionChannelManager(
       SnowflakeTelemetryService telemetryService,
@@ -216,6 +217,13 @@ public class PartitionChannelManager {
     final ExecutorService openChannelIoExecutor =
         ThreadPools.getOpenChannelIoExecutor(connectorName);
 
+    final boolean hasSchemaEvolutionPermission =
+        schemaEvolutionPermissionCache.computeIfAbsent(
+            tableName,
+            t ->
+                conn.hasSchemaEvolutionPermission(
+                    t, connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)));
+
     return new SnowpipeStreamingPartitionChannel(
         tableName,
         channelName,
@@ -230,6 +238,7 @@ public class PartitionChannelManager {
         streamingErrorHandler,
         this.taskMetrics,
         clientValidationEnabled,
+        hasSchemaEvolutionPermission,
         this.conn);
   }
 

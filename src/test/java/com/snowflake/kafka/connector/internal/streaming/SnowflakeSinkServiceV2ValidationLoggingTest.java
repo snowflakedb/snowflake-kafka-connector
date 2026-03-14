@@ -156,30 +156,28 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   }
 
   /**
-   * Test: Legacy KC v3 config warning
+   * Test: Schematization disabled — validation implicitly off
    *
-   * <p>Warns if snowflake.enable.schematization is present (not supported in KC v4)
+   * <p>When schematization is off, client-side validation is implicitly disabled regardless of the
+   * client.validation.enabled setting. The connector relies on server-side schema evolution and
+   * SSv2 Error Table.
    */
   @Test
-  public void testLegacySchematizationConfigWarning() {
+  public void testSchematizationOffImplicitlyDisablesValidation() {
     Map<String, String> config = new HashMap<>();
     config.put(KafkaConnectorConfigParams.NAME, "test-connector");
     config.put("task_id", "0");
-    config.put("snowflake.enable.schematization", "true"); // Legacy config
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION, "false");
 
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
     assertNotNull(service);
 
-    // Verify WARN log about legacy config
     assertTrue(
-        testAppender.containsMessage(Level.WARN, "snowflake.enable.schematization"),
-        "Should mention legacy config name");
+        testAppender.containsMessage(Level.INFO, "Schematization is disabled"),
+        "Should log that schematization is off");
     assertTrue(
-        testAppender.containsMessage(Level.WARN, "not supported in KC v4"),
-        "Should explain config is not supported");
-    assertTrue(
-        testAppender.containsMessage(Level.WARN, "ENABLE_SCHEMA_EVOLUTION"),
-        "Should mention server-side schema evolution");
+        testAppender.containsMessage(Level.INFO, "client-side validation is implicitly off"),
+        "Should log that validation is implicitly off");
   }
 
   /** Helper to create SnowflakeSinkServiceV2 with minimal mocked dependencies. */

@@ -57,6 +57,7 @@ public class SmtIT extends ConnectClusterBaseIT {
   @Test
   void test_with_record_content_variant_added_by_smt() throws Exception {
     final Map<String, String> config = defaultProperties(topicName, connectorName);
+    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
     config.put("transforms", "add_record_content");
     config.put(
         "transforms.add_record_content.type",
@@ -165,6 +166,7 @@ public class SmtIT extends ConnectClusterBaseIT {
   private Map<String, String> smtProperties(
       String smtTopic, String smtConnector, String behaviorOnNull) {
     Map<String, String> config = defaultProperties(smtTopic, smtConnector);
+    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
 
     config.put(VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
     config.put("value.converter.schemas.enable", "false");

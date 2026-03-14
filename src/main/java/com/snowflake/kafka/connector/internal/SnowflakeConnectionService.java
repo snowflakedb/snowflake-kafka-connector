@@ -128,4 +128,14 @@ public interface SnowflakeConnectionService {
    * @param columnNames list of column names to make nullable
    */
   void alterNonNullableColumns(String tableName, List<String> columnNames);
+
+  /**
+   * Check whether the user has the role privilege to do schema evolution and whether the schema
+   * evolution option is enabled on the table.
+   *
+   * @param tableName table name
+   * @param role the role of the user
+   * @return whether schema evolution has the required permission to be performed
+   */
+  boolean hasSchemaEvolutionPermission(String tableName, String role);
 }

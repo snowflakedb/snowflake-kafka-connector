@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -317,6 +318,74 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
         }
       }
     }
+  }
+
+  @Override
+  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+    LOGGER.info("Checking schema evolution permission for table {}", tableName);
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    String query = "show grants on table identifier(?)";
+    List<String> schemaEvolutionAllowedPrivilegeList =
+        Arrays.asList("EVOLVE SCHEMA", "ALL", "OWNERSHIP");
+    boolean hasRolePrivilege = false;
+    String myRole =
+        (role.charAt(0) == '"' && role.charAt(role.length() - 1) == '"')
+            ? role.substring(1, role.length() - 1)
+            : role.toUpperCase();
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      ResultSet result = stmt.executeQuery();
+      while (result.next()) {
+        if (!result.getString("grantee_name").equals(myRole)) {
+          continue;
+        }
+        if (schemaEvolutionAllowedPrivilegeList.contains(
+            result.getString("privilege").toUpperCase())) {
+          hasRolePrivilege = true;
+        }
+      }
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+
+    boolean hasTableOptionEnabled = false;
+    query = "show tables like ? limit 1";
+    try {
+      PreparedStatement stmt = conn.prepareStatement(query);
+      stmt.setString(1, tableName);
+      ResultSet result = stmt.executeQuery();
+      while (result.next()) {
+        String enableSchemaEvolution = "N";
+        try {
+          enableSchemaEvolution = result.getString("enable_schema_evolution");
+        } catch (SQLException e) {
+          LOGGER.warn(
+              "enable_schema_evolution column not found in SHOW TABLES output for table {}: {}",
+              tableName,
+              e.getMessage());
+        }
+        if (enableSchemaEvolution.equals("Y")) {
+          hasTableOptionEnabled = true;
+        }
+      }
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+
+    boolean hasPermission = hasRolePrivilege && hasTableOptionEnabled;
+    LOGGER.info(
+        "Table: {} has schema evolution permission: {} (hasRolePrivilege={},"
+            + " hasTableOptionEnabled={})",
+        tableName,
+        hasPermission,
+        hasRolePrivilege,
+        hasTableOptionEnabled);
+    return hasPermission;
   }
 
   @Override
