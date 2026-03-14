@@ -14,6 +14,8 @@ def v4_config_to_v3(config: dict) -> dict:
     # v3 defaults to schematization off; v4 defaults to on.
     # Preserve v4's default by setting it explicitly for v3 when unspecified.
     v3["config"].setdefault("snowflake.enable.schematization", "true")
+    v3["config"].setdefault("buffer.flush.time", "1")
+    v3["config"].setdefault("snowflake.streaming.max.client.lag", "1")
     return v3
 
 

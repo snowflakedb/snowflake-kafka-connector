@@ -313,11 +313,29 @@ def snowflake_table(driver, name_salt):
 
 @pytest.fixture(scope="session")
 def wait_for_rows(driver):
-    """Returns a polling helper that waits until a Snowflake table reaches the expected row count."""
+    """Returns a polling helper that waits until a Snowflake table reaches the expected row count.
+
+    Supports an optional ``connector_name`` parameter: when provided, each
+    poll iteration also checks the Kafka Connect task status via the REST API.
+    If any task is in FAILED state the helper raises immediately instead of
+    waiting for the full timeout -- a failed task will never produce more rows.
+
+    Default timeout/interval can be overridden globally via environment
+    variables ``E2E_WAIT_TIMEOUT`` and ``E2E_WAIT_INTERVAL``.
+    """
+    default_timeout = int(os.environ.get("E2E_WAIT_TIMEOUT", "300"))
+    default_interval = int(os.environ.get("E2E_WAIT_INTERVAL", "5"))
 
     def _wait(
-        table_name: str, expected: int, *, timeout: int = 600, interval: int = 10
+        table_name: str,
+        expected: int,
+        *,
+        timeout: int | None = None,
+        interval: int | None = None,
+        connector_name: str | None = None,
     ):
+        timeout = timeout if timeout is not None else default_timeout
+        interval = interval if interval is not None else default_interval
         deadline = time.monotonic() + timeout
         while True:
             count = driver.select_number_of_records(table_name)
@@ -328,6 +346,18 @@ def wait_for_rows(driver):
                     f"Timed out waiting for {expected} rows in {table_name} "
                     f"(got {count} after {timeout}s)"
                 )
+            if connector_name is not None:
+                failed = driver.get_failed_tasks(connector_name)
+                if failed:
+                    traces = "\n".join(
+                        f"  task {t['id']}: {t.get('trace', 'no trace')}"
+                        for t in failed
+                    )
+                    raise AssertionError(
+                        f"Connector {connector_name} has FAILED tasks while "
+                        f"waiting for {expected} rows in {table_name} "
+                        f"(got {count}):\n{traces}"
+                    )
             logger.info(
                 "Waiting for %d rows in %s (currently %d), retrying in %ds...",
                 expected,

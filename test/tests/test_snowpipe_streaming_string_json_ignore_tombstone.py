@@ -36,7 +36,8 @@ def test_snowpipe_streaming_string_json_ignore_tombstone(
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    config = create_connector(CONFIG_FILE)
+    connector_name = config["name"]
     driver.startConnectorWaitTime()
 
     # -- Send --
@@ -54,7 +55,7 @@ def test_snowpipe_streaming_string_json_ignore_tombstone(
     total_expected = EXPECTED_PER_PARTITION * PARTITION_COUNT
 
     # -- Verify row count --
-    wait_for_rows(topic, total_expected)
+    wait_for_rows(topic, total_expected, connector_name=connector_name)
 
     # -- Verify no duplicates --
     dup = (

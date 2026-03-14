@@ -399,6 +399,34 @@ class KafkaDriver:
             .fetchone()[0]
         )
 
+    def get_connector_status(self, connector_name: str) -> dict | None:
+        """Query Kafka Connect REST API for connector and task states.
+
+        Returns the parsed JSON from GET /connectors/{name}/status, e.g.:
+        {
+          "name": "...",
+          "connector": {"state": "RUNNING", ...},
+          "tasks": [{"id": 0, "state": "RUNNING", ...}, ...]
+        }
+        Returns None if the connector is not found or the request fails.
+        """
+        url = f"http://{self.kafkaConnectAddress}/connectors/{connector_name}/status"
+        try:
+            r = requests.get(url, timeout=10)
+            if r.ok:
+                return r.json()
+            logger.debug(f"GET {url} returned {r.status_code}: {r.text[:200]}")
+        except Exception as e:
+            logger.debug(f"Failed to query connector status: {e}")
+        return None
+
+    def get_failed_tasks(self, connector_name: str) -> list:
+        """Return list of FAILED tasks with their traces, or empty list."""
+        status = self.get_connector_status(connector_name)
+        if status is None:
+            return []
+        return [t for t in status.get("tasks", []) if t.get("state") == "FAILED"]
+
     def restartConnector(self, connectorName):
         requestURL = (
             f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/restart"
@@ -514,9 +542,9 @@ class KafkaDriver:
             except Exception as e:
                 logger.error(f"An exception occurred: {e}")
             logger.info(
-                "=== sleep for 10 secs to wait for kafka connect to accept connection ==="
+                "=== sleep for 3 secs to wait for kafka connect to accept connection ==="
             )
-            time.sleep(10)
+            time.sleep(3)
             retry += 1
         if retry == MAX_RETRY:
             logger.error(f"Kafka Delete request not successful: {delete_url}")
@@ -530,7 +558,7 @@ class KafkaDriver:
             logger.error(
                 f"Failed creating connector:{snowflake_connector_name} due to:{r.reason} and HTTP response_code:{r.status_code}"
             )
-            time.sleep(30)
+            time.sleep(10)
             logger.info(
                 f"Retrying POST request for connector:{snowflake_connector_name}"
             )
