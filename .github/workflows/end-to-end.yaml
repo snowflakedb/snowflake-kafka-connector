@@ -23,14 +23,21 @@ jobs:
             snowflake_cloud: 'AWS'
             java_test_version: '11'
           - platform: apache
-            platform_version: '3.7.2'
+            platform_version: '3.9.2'
             snowflake_cloud: 'GCP'
+            java_test_version: '17'
+          - platform: apache
+            platform_version: '4.1.1'
+            snowflake_cloud: 'AWS'
             java_test_version: '17'
           - platform: confluent
             platform_version: '6.2.15'
             snowflake_cloud: 'AZURE'
           - platform: confluent
-            platform_version: '7.8.2'
+            platform_version: '7.9.3'
+            snowflake_cloud: 'AWS'
+          - platform: confluent
+            platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
     steps:
     - uses: actions/checkout@v4

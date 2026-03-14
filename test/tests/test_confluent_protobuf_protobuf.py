@@ -38,9 +38,13 @@ def test_confluent_protobuf_protobuf(
     create_connector,
     snowflake_table,
     wait_for_rows,
+    request,
 ):
     if connector_version == "v3":
         pytest.skip("v3 plugin conflicts with Schema Registry classloading")
+    platform_version = request.config.getoption("--platform-version") or ""
+    if platform_version.startswith("8."):
+        pytest.skip("BlueApron protobuf converter incompatible with Confluent 8.x")
     topic = snowflake_table(
         FILE_NAME,
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "

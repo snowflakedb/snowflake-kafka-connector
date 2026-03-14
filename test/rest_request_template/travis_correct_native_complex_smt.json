@@ -18,6 +18,6 @@
     "transforms.extractInt.type":"org.apache.kafka.connect.transforms.ExtractField$Key",
     "transforms.extractInt.field":"c1",
     "transforms.dropFieldC2.type":"org.apache.kafka.connect.transforms.ReplaceField$Value",
-    "transforms.dropFieldC2.blacklist":"c2"
+    "transforms.dropFieldC2.exclude":"c2"
   }
 }

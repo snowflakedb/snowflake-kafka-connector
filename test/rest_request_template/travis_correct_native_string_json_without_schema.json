@@ -14,6 +14,6 @@
     "value.converter.schemas.enable":"false",
     "transforms":"dropFieldC2",
     "transforms.dropFieldC2.type":"org.apache.kafka.connect.transforms.ReplaceField$Value",
-    "transforms.dropFieldC2.blacklist":"c2"
+    "transforms.dropFieldC2.exclude":"c2"
   }
 }
