@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.streaming.v2.service;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,11 +32,11 @@ public class ThreadPools {
 
   private ThreadPools() {}
 
-  /** Holds the executors and the set of task IDs currently using them. */
+  /** Holds the executors and a reference count of tasks currently using them. */
   private static class ConnectorThreadPool {
     final ExecutorService ioExecutor;
     final ExecutorService openChannelIoExecutor;
-    final Set<String> taskIds = ConcurrentHashMap.newKeySet();
+    final AtomicInteger refCount = new AtomicInteger(0);
 
     ConnectorThreadPool(String connectorName, Map<String, String> connectorConfig) {
       LOGGER.info("Creating I/O thread pool for connector: {}", connectorName);
@@ -95,7 +94,7 @@ public class ThreadPools {
           if (pool == null) {
             pool = new ConnectorThreadPool(connectorName, connectorConfig);
           }
-          pool.taskIds.add(taskId);
+          pool.refCount.incrementAndGet();
           return pool;
         });
   }
@@ -108,8 +107,7 @@ public class ThreadPools {
     connectorPools.computeIfPresent(
         connectorName,
         (key, pool) -> {
-          pool.taskIds.remove(taskId);
-          if (pool.taskIds.isEmpty()) {
+          if (pool.refCount.decrementAndGet() == 0) {
             LOGGER.info("Shutting down thread pools for connector: {}", connectorName);
             pool.ioExecutor.shutdownNow();
             pool.openChannelIoExecutor.shutdownNow();
