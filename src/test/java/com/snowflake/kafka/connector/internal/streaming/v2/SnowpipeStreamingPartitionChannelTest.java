@@ -41,8 +41,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.kafka.common.TopicPartition;
@@ -99,6 +101,8 @@ class SnowpipeStreamingPartitionChannelTest {
   void shouldNotCloseChannelOnFirstOpen() {
     // When: Creating a new channel (first open)
     final SnowpipeStreamingPartitionChannel channel = createPartitionChannel();
+    // Wait for async init to complete
+    channel.getChannel();
 
     // Then: close() should not have been called because channel was null initially
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
@@ -108,6 +112,8 @@ class SnowpipeStreamingPartitionChannelTest {
   void shouldCloseOpenChannelBeforeReopening() {
     // Given: A partition channel is created and its underlying channel is open
     final SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    // Wait for async init to complete
+    partitionChannel.getChannel();
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
     assertTrue(!partitionChannel.isChannelClosed(), "Channel should be open before recovery");
 
@@ -123,9 +129,114 @@ class SnowpipeStreamingPartitionChannelTest {
         thrown.getCause() instanceof TopicPartitionChannelInsertionException,
         "Expected TopicPartitionChannelInsertionException cause, got: " + thrown.getCause());
 
-    // Then: the old channel should have been closed before the new one was opened
+    // reopenChannel closes the old channel before opening a new one
     assertEquals(closeCountBeforeRecovery + 1, trackingClientSupplier.getCloseCallCount());
     assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void closeChannelAsyncCancelsInitializationBeforeChannelOpens() throws Exception {
+    // Block the single-threaded executor so the channel init task is queued but not started
+    CountDownLatch blockExecutor = new CountDownLatch(1);
+    openChannelIoExecutor.submit(
+        () -> {
+          blockExecutor.await();
+          return null;
+        });
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+
+    // closeChannelAsync sets cancelled=true while the init task is still queued
+    CompletableFuture<Void> closeFuture = partitionChannel.closeChannelAsync();
+
+    // Unblock the executor — init task starts, sees cancelled=true, throws CancellationException
+    blockExecutor.countDown();
+
+    // The close future should complete via the exceptionally branch
+    closeFuture.get(5, TimeUnit.SECONDS);
+
+    // No SDK channel was ever opened or closed
+    assertEquals(0, trackingClientSupplier.getTotalChannelsCreated());
+    assertEquals(0, trackingClientSupplier.getCloseCallCount());
+  }
+
+  @Test
+  void reopenChannelRecoversAfterFailedAsyncInitialization() {
+    // Make the first openChannel call (during async init) throw
+    trackingClientSupplier.setThrowOnOpenChannel(true);
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+
+    // Wait for the async init to complete exceptionally
+    assertThrows(SFException.class, partitionChannel::getChannel);
+    assertEquals(
+        0,
+        trackingClientSupplier.getTotalChannelsCreated(),
+        "No channels should have been created since openChannel threw");
+
+    // Allow subsequent openChannel calls to succeed (simulating a transient failure)
+    trackingClientSupplier.setThrowOnOpenChannel(false);
+
+    // First insertRecord triggers recovery via the Failsafe fallback. reopenChannel handles
+    // the failed init future gracefully (skips close, opens a new channel). The fallback
+    // still throws TopicPartitionChannelInsertionException to signal the record wasn't
+    // inserted — Kafka will re-deliver it.
+    RuntimeException thrown =
+        assertThrows(
+            RuntimeException.class, () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+    assertTrue(
+        thrown.getCause() instanceof TopicPartitionChannelInsertionException,
+        "Expected TopicPartitionChannelInsertionException cause, got: " + thrown.getCause());
+
+    assertEquals(
+        1,
+        trackingClientSupplier.getTotalChannelsCreated(),
+        "reopenChannel should have opened a new channel after transient init failure");
+
+    // Second insertRecord succeeds — the channel is now valid
+    partitionChannel.insertRecord(buildValidRecord(1), true);
+  }
+
+  @Test
+  void reopenChannelClosesOldChannelWhenAsyncInitSucceeded() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+    assertEquals(0, trackingClientSupplier.getCloseCallCount());
+
+    // Trigger reopenChannel via appendRow SFException
+    trackingClientSupplier.setThrowOnAppendRow(true);
+    assertThrows(
+        RuntimeException.class, () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+
+    // reopenChannel should have closed the old channel BEFORE opening the new one
+    assertEquals(
+        1,
+        trackingClientSupplier.getCloseCallCount(),
+        "Old channel should have been closed during reopenChannel");
+    assertEquals(
+        2,
+        trackingClientSupplier.getTotalChannelsCreated(),
+        "A new channel should have been opened during reopenChannel");
+
+    // The new channel should be functional
+    trackingClientSupplier.setThrowOnAppendRow(false);
+    partitionChannel.insertRecord(buildValidRecord(1), true);
+  }
+
+  @Test
+  void insertRecordRetriesOnBackpressureWithoutReopeningChannel() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+
+    // appendRow will throw MemoryThresholdExceeded once, then succeed on retry
+    trackingClientSupplier.setRetryableAppendRowFailures(3);
+
+    partitionChannel.insertRecord(buildValidRecord(0), true);
+
+    // No channel reopening should have happened — only a retry of the same appendRow
+    assertEquals(0, trackingClientSupplier.getCloseCallCount());
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
   }
 
   private SinkRecord buildValidRecord(long offset) {
@@ -394,6 +505,9 @@ class SnowpipeStreamingPartitionChannelTest {
     private final AtomicInteger totalChannelsCreated = new AtomicInteger(0);
     private volatile boolean throwOnOffsetToken;
     private volatile boolean throwOnAppendRow;
+    private volatile boolean throwOnOpenChannel;
+    private final AtomicInteger retryableAppendRowFailures = new AtomicInteger(0);
+    private volatile CountDownLatch blockOnOpenChannel;
 
     int getCloseCallCount() {
       return closeCallCount.get();
@@ -409,6 +523,18 @@ class SnowpipeStreamingPartitionChannelTest {
 
     void setThrowOnAppendRow(boolean throwOnAppendRow) {
       this.throwOnAppendRow = throwOnAppendRow;
+    }
+
+    void setThrowOnOpenChannel(boolean throwOnOpenChannel) {
+      this.throwOnOpenChannel = throwOnOpenChannel;
+    }
+
+    void setRetryableAppendRowFailures(int count) {
+      this.retryableAppendRowFailures.set(count);
+    }
+
+    void setBlockOnOpenChannel(CountDownLatch latch) {
+      this.blockOnOpenChannel = latch;
     }
 
     void incrementCloseCallCount() {
@@ -436,6 +562,18 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public OpenChannelResult openChannel(final String channelName, final String offsetToken) {
+      if (supplier.throwOnOpenChannel) {
+        throw new SFException("OpenChannelFailed", "Test simulated openChannel failure", 0, "");
+      }
+      CountDownLatch latch = supplier.blockOnOpenChannel;
+      if (latch != null) {
+        try {
+          latch.await();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
+        }
+      }
       supplier.incrementChannelsCreated();
       final ChannelStatus channelStatus =
           new ChannelStatus(
@@ -595,6 +733,9 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public void appendRow(final Map<String, Object> row, final String offsetToken) {
+      if (supplier.retryableAppendRowFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
+        throw new SFException("MemoryThresholdExceeded", "Test simulated backpressure", 0, "");
+      }
       if (supplier.throwOnAppendRow) {
         throw new SFException("ChannelInvalidated", "Test simulated channel invalidation", 0, "");
       }
