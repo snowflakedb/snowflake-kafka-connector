@@ -103,6 +103,7 @@ class StreamingManualModeIT {
 
       List<SinkRecord> records = buildContentSinkRecords();
       snowflakeSinkService.startPartition(topicPartition);
+      snowflakeSinkService.awaitInitialization();
       snowflakeSinkService.insert(records);
 
       // Wait for data to be ingested into the table
@@ -138,6 +139,7 @@ class StreamingManualModeIT {
     void test_streaming_ingestion_with_user_defined_table_and_default_pipe() throws Exception {
       List<SinkRecord> records = buildContentSinkRecords();
       snowflakeSinkService.startPartition(topicPartition);
+      snowflakeSinkService.awaitInitialization();
       snowflakeSinkService.insert(records);
 
       // Wait for data to be ingested into the table

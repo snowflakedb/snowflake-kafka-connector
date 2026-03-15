@@ -93,6 +93,9 @@ public interface SnowflakeSinkService {
 
   Map<String, TopicPartitionChannel> getPartitionChannels();
 
+  /** Blocks until all partition channels have finished initialization. No-op by default. */
+  default void awaitInitialization() {}
+
   /* Get metric registry of an associated partition */
   @VisibleForTesting
   Optional<MetricRegistry> getMetricRegistry(final String partitionIdentifier);

@@ -67,6 +67,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final String taskId;
 
   private final Map<String, String> connectorConfig;
+  private final SinkTaskContext sinkTaskContext;
 
   // Set that keeps track of the channels that have been seen per input batch
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
@@ -92,6 +93,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
     this.conn = conn;
     this.connectorConfig = connectorConfig;
+    this.sinkTaskContext = sinkTaskContext;
     this.metricsJmxReporter = metricsJmxReporter;
     this.topicToTableMap = topicToTableMap;
     this.behaviorOnNullValues = behaviorOnNullValues;
@@ -154,6 +156,27 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.taskId,
         this.tolerateErrors,
         this.enableSanitization);
+  }
+
+  @VisibleForTesting
+  SnowflakeSinkServiceV2(
+      PartitionChannelManager channelManager,
+      BatchOffsetFetcher batchOffsetFetcher,
+      SinkTaskContext sinkTaskContext,
+      ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues,
+      boolean tolerateErrors) {
+    this.channelManager = channelManager;
+    this.batchOffsetFetcher = batchOffsetFetcher;
+    this.sinkTaskContext = sinkTaskContext;
+    this.behaviorOnNullValues = behaviorOnNullValues;
+    this.tolerateErrors = tolerateErrors;
+    this.conn = null;
+    this.connectorConfig = null;
+    this.topicToTableMap = null;
+    this.metricsJmxReporter = Optional.empty();
+    this.connectorName = null;
+    this.taskId = null;
+    this.enableSanitization = false;
   }
 
   /**
@@ -288,6 +311,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
+  private Set<TopicPartition> currentlyInitializing(Collection<TopicPartition> partitions) {
+    return partitions.stream()
+        .filter(
+            tp -> {
+              return channelManager
+                  .getChannel(tp)
+                  .map(TopicPartitionChannel::isInitializing)
+                  .orElse(false);
+            })
+        .collect(Collectors.toSet());
+  }
+
   /**
    * @param records records coming from Kafka. Please note, they are not just from single topic and
    *     partition. It depends on the kafka connect worker node which can consume from multiple
@@ -296,12 +331,44 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void insert(final Collection<SinkRecord> records) {
     channelsVisitedPerBatch.clear();
+
+    // Skip partitions for which the partition-channel bridge is currently being initialized.
+    Set<TopicPartition> partitions =
+        records.stream()
+            .map(record -> new TopicPartition(record.topic(), record.kafkaPartition()))
+            .collect(Collectors.toSet());
+
+    Set<TopicPartition> initializingPartitions = currentlyInitializing(partitions);
+    if (!initializingPartitions.isEmpty()) {
+      LOGGER.debug(
+          "Skipping put for {}/{} partitions that are currently being initialized: {}",
+          initializingPartitions.size(),
+          partitions.size(),
+          initializingPartitions);
+    }
+
+    Map<TopicPartition, Long> firstSkippedOffsets = new HashMap<>();
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
         continue;
       }
+
+      TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
+      if (initializingPartitions.contains(tp)) {
+        firstSkippedOffsets.putIfAbsent(tp, record.kafkaOffset());
+        continue;
+      }
+
       insert(record);
+    }
+
+    // SinkTaskContext is not set in some tests.
+    // In those tests, we await initialization before calling insert to ensure nothing is skipped.
+    if (sinkTaskContext != null) {
+      firstSkippedOffsets.forEach(sinkTaskContext::offset);
+    } else {
+      assert firstSkippedOffsets.isEmpty();
     }
   }
 
@@ -320,7 +387,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         .getChannel(topicPartition)
         .map(TopicPartitionChannel::isChannelClosed)
         .orElse(true)) {
-      LOGGER.warn("Channel hasn't been initialized for {}", topicPartition);
+      LOGGER.warn("Streaming channel doesn't exist or is closed for {}", topicPartition);
       startPartition(topicPartition);
     }
 
@@ -360,7 +427,24 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public Map<TopicPartition, Long> getCommittedOffsets(
       final Collection<TopicPartition> partitions) {
-    return batchOffsetFetcher.getCommittedOffsets(partitions, channelManager::getChannel);
+
+    // Skip partitions for which the partition-channel bridge is currently being initialized.
+    Set<TopicPartition> initializingPartitions = currentlyInitializing(partitions);
+    if (!initializingPartitions.isEmpty()) {
+      LOGGER.info(
+          "Skipping preCommit for {}/{} partitions that are currently being initialized: {}",
+          initializingPartitions.size(),
+          partitions.size(),
+          initializingPartitions);
+    }
+
+    Set<TopicPartition> partitionsToFetchOffsetsFor =
+        partitions.stream()
+            .filter(tp -> !initializingPartitions.contains(tp))
+            .collect(Collectors.toSet());
+
+    return batchOffsetFetcher.getCommittedOffsets(
+        partitionsToFetchOffsetsFor, channelManager::getChannel);
   }
 
   @Override
@@ -425,6 +509,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       return Optional.empty();
     }
     return metricsJmxReporter.map(MetricsJmxReporter::getMetricRegistry);
+  }
+
+  /** Blocks until all partition channels have finished initialization. */
+  @Override
+  public void awaitInitialization() {
+    channelManager.awaitAllPartitions();
   }
 
   @VisibleForTesting
