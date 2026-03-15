@@ -59,7 +59,7 @@ class BatchOffsetFetcherTest {
     config.put(NAME, connectorName);
     config.put(Utils.TASK_ID, TASK_ID);
 
-    ThreadPools.registerTask(connectorName, TASK_ID, config);
+    ThreadPools.registerTask(connectorName, config);
     ioExecutor = ThreadPools.getIoExecutor(connectorName);
     fetcher =
         new BatchOffsetFetcher(
@@ -72,7 +72,7 @@ class BatchOffsetFetcherTest {
 
   @AfterEach
   void tearDown() {
-    ThreadPools.closeForTask(connectorName, TASK_ID);
+    ThreadPools.closeForTask(connectorName);
     StreamingClientFactory.resetStreamingClientSupplier();
   }
 

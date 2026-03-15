@@ -46,8 +46,8 @@ public class StreamingClientManagerIT {
     pipe2 = table2 + DEFAULT_PIPE_NAME_SUFFIX;
     connectionService.createTableWithMetadataColumn(table1);
     connectionService.createTableWithMetadataColumn(table2);
-    ThreadPools.registerTask(testConnectorName, task1, connectorConfig);
-    ThreadPools.registerTask(testConnectorName, task2, connectorConfig);
+    ThreadPools.registerTask(testConnectorName, connectorConfig);
+    ThreadPools.registerTask(testConnectorName, connectorConfig);
   }
 
   @AfterEach
@@ -56,8 +56,8 @@ public class StreamingClientManagerIT {
     TestUtils.dropTable(table2);
     closeTaskClients(task1);
     closeTaskClients(task2);
-    ThreadPools.closeForTask(testConnectorName, task1);
-    ThreadPools.closeForTask(testConnectorName, task2);
+    ThreadPools.closeForTask(testConnectorName);
+    ThreadPools.closeForTask(testConnectorName);
   }
 
   @Test
