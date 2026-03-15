@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -45,7 +45,7 @@ public class StreamingClientPool {
     RefCountedClient(
         String pipeName,
         String connectorName,
-        Map<String, String> connectorConfig,
+        SinkTaskConfig config,
         StreamingClientProperties streamingClientProperties,
         TaskMetrics taskMetrics,
         ExecutorService executor) {
@@ -56,7 +56,7 @@ public class StreamingClientPool {
               () -> {
                 try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
                   return StreamingClientFactory.createClient(
-                      pipeName, connectorConfig, streamingClientProperties);
+                      pipeName, config, streamingClientProperties);
                 }
               },
               executor);
@@ -114,7 +114,7 @@ public class StreamingClientPool {
   SnowflakeStreamingIngestClient getClient(
       final String taskId,
       final String pipeName,
-      final Map<String, String> connectorConfig,
+      final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties,
       final TaskMetrics taskMetrics) {
 
@@ -127,7 +127,7 @@ public class StreamingClientPool {
                     new RefCountedClient(
                         pipeName,
                         connectorName,
-                        connectorConfig,
+                        config,
                         streamingClientProperties,
                         taskMetrics,
                         ioExecutor);

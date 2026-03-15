@@ -6,6 +6,7 @@ import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.ChannelStatusBatch;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
@@ -37,25 +38,23 @@ public class BatchOffsetFetcher {
 
   private final String connectorName;
   private final String taskId;
-  private final Map<String, String> connectorConfig;
+  private final SinkTaskConfig taskConfig;
   private final StreamingClientProperties streamingClientProperties;
   private final boolean tolerateErrors;
   private final ExecutorService ioExecutor;
-
   private final TaskMetrics taskMetrics;
 
   public BatchOffsetFetcher(
       String connectorName,
       String taskId,
-      Map<String, String> connectorConfig,
-      boolean tolerateErrors,
+      SinkTaskConfig taskConfig,
       ExecutorService ioExecutor,
       TaskMetrics taskMetrics) {
     this.connectorName = connectorName;
     this.taskId = taskId;
-    this.connectorConfig = connectorConfig;
-    this.streamingClientProperties = new StreamingClientProperties(connectorConfig);
-    this.tolerateErrors = tolerateErrors;
+    this.taskConfig = taskConfig;
+    this.streamingClientProperties = StreamingClientProperties.from(taskConfig);
+    this.tolerateErrors = taskConfig.isTolerateErrors();
     this.ioExecutor = ioExecutor;
     this.taskMetrics = taskMetrics;
   }
@@ -132,12 +131,7 @@ public class BatchOffsetFetcher {
 
     SnowflakeStreamingIngestClient client =
         StreamingClientPools.getClient(
-            connectorName,
-            taskId,
-            pipeName,
-            connectorConfig,
-            streamingClientProperties,
-            taskMetrics);
+            connectorName, taskId, pipeName, taskConfig, streamingClientProperties, taskMetrics);
 
     final ChannelStatusBatch batch;
     try (TaskMetrics.TimingContext ignored = taskMetrics.timeOffsetFetch()) {

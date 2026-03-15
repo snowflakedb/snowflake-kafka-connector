@@ -6,6 +6,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.StreamingSinkServiceBuilder;
@@ -62,20 +63,17 @@ class TombstoneRecordIngestionIT {
   void testStreamingTombstoneBehavior(ConnectorConfigTools.BehaviorOnNullValues behavior)
       throws Exception {
     // setup
-    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
     TopicPartition topicPartition = new TopicPartition(topic, partition);
-    Map<String, String> topic2Table = new HashMap<>();
-    topic2Table.put(topic, table);
+    SinkTaskConfig taskConfig =
+        SinkTaskConfig.builderFrom(TestUtils.getConnectorConfigurationForStreaming(false))
+            .topicToTableMap(Collections.singletonMap(topic, table))
+            .behaviorOnNullValues(behavior)
+            .build();
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(getConnectionService(), connectorConfig)
+        StreamingSinkServiceBuilder.builder(getConnectionService(), taskConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withTopicToTableMap(topic2Table)
-            .withBehaviorOnNullValues(behavior)
             .build();
     service.startPartitions(Collections.singleton(topicPartition));
-
-    Map<String, String> converterConfig = new HashMap<>();
-    converterConfig.put("schemas.enable", "false");
 
     // create one normal record
     SinkRecord normalRecord = TestUtils.createNativeJsonSinkRecords(0, 1, topic, partition).get(0);
@@ -92,16 +90,15 @@ class TombstoneRecordIngestionIT {
   void testStreamingTombstoneBehaviorWithSchematization(
       ConnectorConfigTools.BehaviorOnNullValues behavior) throws Exception {
     // setup
-    Map<String, String> connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
-
     TopicPartition topicPartition = new TopicPartition(topic, partition);
-    Map<String, String> topic2Table = new HashMap<>();
-    topic2Table.put(topic, table);
+    SinkTaskConfig taskConfig =
+        SinkTaskConfig.builderFrom(TestUtils.getConnectorConfigurationForStreaming(false))
+            .topicToTableMap(Collections.singletonMap(topic, table))
+            .behaviorOnNullValues(behavior)
+            .build();
     SnowflakeSinkServiceV2 service =
-        StreamingSinkServiceBuilder.builder(getConnectionService(), connectorConfig)
+        StreamingSinkServiceBuilder.builder(getConnectionService(), taskConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withTopicToTableMap(topic2Table)
-            .withBehaviorOnNullValues(behavior)
             .build();
     service.startPartitions(Collections.singleton(topicPartition));
 

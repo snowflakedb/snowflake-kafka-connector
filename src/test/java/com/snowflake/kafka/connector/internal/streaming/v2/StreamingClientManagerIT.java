@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.*;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 public class StreamingClientManagerIT {
 
   private Map<String, String> connectorConfig;
+  private SinkTaskConfig sinkTaskConfig;
   private StreamingClientProperties streamingClientProperties;
   private String testConnectorName;
   private String pipe1, pipe2;
@@ -36,7 +38,8 @@ public class StreamingClientManagerIT {
     final SnowflakeConnectionService connectionService =
         TestUtils.getConnectionServiceWithEncryptedKey();
     connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
-    streamingClientProperties = new StreamingClientProperties(connectorConfig);
+    sinkTaskConfig = SinkTaskConfig.from(connectorConfig);
+    streamingClientProperties = StreamingClientProperties.from(sinkTaskConfig);
     table1 = "table1" + salt;
     table2 = "table2" + salt;
     task1 = "task1" + salt;
@@ -46,8 +49,8 @@ public class StreamingClientManagerIT {
     pipe2 = table2 + DEFAULT_PIPE_NAME_SUFFIX;
     connectionService.createTableWithMetadataColumn(table1);
     connectionService.createTableWithMetadataColumn(table2);
-    ThreadPools.registerTask(testConnectorName, connectorConfig);
-    ThreadPools.registerTask(testConnectorName, connectorConfig);
+    ThreadPools.registerTask(testConnectorName, sinkTaskConfig);
+    ThreadPools.registerTask(testConnectorName, sinkTaskConfig);
   }
 
   @AfterEach
@@ -142,6 +145,8 @@ public class StreamingClientManagerIT {
     // Given
     String privateKey = generatePemPrivateKey();
     Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, "test_connector");
+    connectorConfig.put(com.snowflake.kafka.connector.Utils.TASK_ID, "0");
     connectorConfig.put(
         KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://test.snowflakecomputing.com");
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, privateKey);
@@ -149,7 +154,8 @@ public class StreamingClientManagerIT {
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "TEST_ROLE");
 
     // When
-    Properties properties = StreamingClientFactory.getClientProperties(connectorConfig);
+    SinkTaskConfig taskConfig = SinkTaskConfig.from(connectorConfig);
+    Properties properties = StreamingClientFactory.getClientProperties(taskConfig);
 
     // Then
     assertThat(properties).isNotNull();
@@ -188,7 +194,7 @@ public class StreamingClientManagerIT {
         testConnectorName,
         task,
         pipe,
-        connectorConfig,
+        sinkTaskConfig,
         streamingClientProperties,
         TaskMetrics.noop());
   }

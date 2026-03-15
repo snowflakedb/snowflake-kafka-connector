@@ -24,6 +24,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import java.util.HashMap;
@@ -58,7 +60,8 @@ public class StreamingClientPropertiesTest {
     Map<String, Object> expectedParameterOverrides = new HashMap<>();
 
     // test get properties
-    StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties resultProperties = StreamingClientProperties.from(config);
 
     // verify
     assert resultProperties.clientProperties.equals(expectedProps);
@@ -72,15 +75,17 @@ public class StreamingClientPropertiesTest {
     Map<String, String> connectorConfig =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
+    connectorConfig.put(Utils.TASK_ID, "0");
     connectorConfig.put(
         SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "EXAMPLE_PARAM1:1,EXAMPLE_PARAM2:2");
 
-    Map<String, String> expectedParameterOverrides = new HashMap<>();
+    Map<String, Object> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(EXAMPLE_PARAM1, "1");
     expectedParameterOverrides.put(EXAMPLE_PARAM2, "2");
 
     // WHEN
-    StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties resultProperties = StreamingClientProperties.from(config);
 
     // THEN
     assertThat(resultProperties.parameterOverrides).isEqualTo(expectedParameterOverrides);
@@ -92,15 +97,17 @@ public class StreamingClientPropertiesTest {
     Map<String, String> connectorConfig =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
+    connectorConfig.put(Utils.TASK_ID, "0");
     connectorConfig.put(
         SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "EXAMPLE_PARAM1:1,EXAMPLE_PARAM2:2");
 
-    Map<String, String> expectedParameterOverrides = new HashMap<>();
+    Map<String, Object> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(EXAMPLE_PARAM1, "1");
     expectedParameterOverrides.put(EXAMPLE_PARAM2, "2");
 
     // WHEN
-    StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties resultProperties = StreamingClientProperties.from(config);
 
     // THEN
     assertThat(resultProperties.parameterOverrides).isEqualTo(expectedParameterOverrides);
@@ -129,7 +136,8 @@ public class StreamingClientPropertiesTest {
     expectedParameterOverrides.put(EXAMPLE_PARAM2, "10000000");
 
     // test get properties
-    StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties resultProperties = StreamingClientProperties.from(config);
 
     // verify
     assert resultProperties.clientProperties.equals(expectedProps);
@@ -150,7 +158,8 @@ public class StreamingClientPropertiesTest {
 
     // test get properties
     try {
-      StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
+      SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+      StreamingClientProperties.from(config);
       Assert.fail("Should throw an exception");
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
@@ -163,7 +172,8 @@ public class StreamingClientPropertiesTest {
 
     // test get properties
     try {
-      StreamingClientProperties resultProperties = new StreamingClientProperties(connectorConfig);
+      SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+      StreamingClientProperties.from(config);
       Assert.fail("Should throw an exception");
     } catch (SnowflakeKafkaConnectorException exception) {
       assert exception
@@ -181,8 +191,8 @@ public class StreamingClientPropertiesTest {
     config2.put(KafkaConnectorConfigParams.NAME, "dogConnector");
 
     // get properties
-    StreamingClientProperties prop1 = new StreamingClientProperties(config1);
-    StreamingClientProperties prop2 = new StreamingClientProperties(config2);
+    StreamingClientProperties prop1 = StreamingClientProperties.from(SinkTaskConfig.from(config1));
+    StreamingClientProperties prop2 = StreamingClientProperties.from(SinkTaskConfig.from(config2));
 
     assert prop1.equals(prop2);
     assert prop1.hashCode() == prop2.hashCode();
@@ -194,8 +204,8 @@ public class StreamingClientPropertiesTest {
         SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
         "max_append_request_buffer_duration_ms:10000");
 
-    prop1 = new StreamingClientProperties(config1);
-    prop2 = new StreamingClientProperties(config2);
+    prop1 = StreamingClientProperties.from(SinkTaskConfig.from(config1));
+    prop2 = StreamingClientProperties.from(SinkTaskConfig.from(config2));
 
     assert !prop1.equals(prop2);
     assert prop1.hashCode() != prop2.hashCode();

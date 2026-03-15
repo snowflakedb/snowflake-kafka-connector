@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -151,40 +152,20 @@ public class SnowflakeSinkTask extends SinkTask {
     this.DYNAMIC_LOGGER.info("starting task...");
     final long startNanos = System.nanoTime();
 
+    // Parse raw config once into typed structure; validates required fields and applies defaults
+    final SinkTaskConfig config = SinkTaskConfig.from(parsedConfig);
+
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
-    this.taskConfigId = parsedConfig.get(Utils.TASK_ID);
-    if (this.taskConfigId == null || this.taskConfigId.trim().isEmpty()) {
-      throw new IllegalArgumentException(
-          "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
-    }
+    this.taskConfigId = config.getTaskId();
 
     // generate topic to table map
-    this.topic2table = getTopicToTableMap(parsedConfig);
+    this.topic2table = new HashMap<>(config.getTopicToTableMap());
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 
     // enable jvm proxy
     Utils.enableJVMProxy(parsedConfig);
-
-    // Falling back to default behavior which is to ingest an empty json string if we get null
-    // value. (Tombstone record)
-    ConnectorConfigTools.BehaviorOnNullValues behavior =
-        ConnectorConfigTools.BehaviorOnNullValues.DEFAULT;
-    if (parsedConfig.containsKey(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES)) {
-      // we can always assume here that value passed in would be an allowed value, otherwise the
-      // connector would never start or reach the sink task stage
-      behavior =
-          ConnectorConfigTools.BehaviorOnNullValues.valueOf(
-              parsedConfig.get(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES));
-    }
-
-    // we would have already validated the config inside SFConnector start()
-    boolean enableCustomJMXMonitoring = KafkaConnectorConfigParams.JMX_OPT_DEFAULT;
-    if (parsedConfig.containsKey(KafkaConnectorConfigParams.JMX_OPT)) {
-      enableCustomJMXMonitoring =
-          Boolean.parseBoolean(parsedConfig.get(KafkaConnectorConfigParams.JMX_OPT));
-    }
 
     KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 
@@ -198,10 +179,10 @@ public class SnowflakeSinkTask extends SinkTask {
       this.sink.closeAll();
     }
 
-    String connectorName = parsedConfig.get(Constants.KafkaConnectorConfigParams.NAME);
+    String connectorName = config.getConnectorName();
 
     Optional<MetricsJmxReporter> metricsJmxReporter =
-        enableCustomJMXMonitoring
+        config.isJmxEnabled()
             ? Optional.of(
                 new MetricsJmxReporter(new com.codahale.metrics.MetricRegistry(), connectorName))
             : Optional.empty();
@@ -225,12 +206,10 @@ public class SnowflakeSinkTask extends SinkTask {
     this.sink =
         new SnowflakeSinkServiceV2(
             conn,
-            parsedConfig,
+            config,
             kafkaRecordErrorReporter,
             this.context,
             metricsJmxReporter,
-            topic2table,
-            behavior,
             this.taskMetrics);
 
     // Initialize and start periodic telemetry reporter for channel status

@@ -1,8 +1,8 @@
 package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
-import java.util.Map;
 
 public interface StreamingClientSupplier {
   SnowflakeStreamingIngestClient get(
@@ -10,6 +10,6 @@ public interface StreamingClientSupplier {
       String dbName,
       String schemaName,
       String pipeName,
-      Map<String, String> connectorConfig,
+      SinkTaskConfig config,
       StreamingClientProperties streamingClientProperties);
 }

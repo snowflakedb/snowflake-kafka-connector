@@ -2,15 +2,13 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import java.security.PrivateKey;
 import java.util.Base64;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -39,38 +37,38 @@ public class StreamingClientFactory {
 
   static SnowflakeStreamingIngestClient createClient(
       final String pipeName,
-      final Map<String, String> connectorConfig,
+      final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties) {
 
-    String clientName = clientName(connectorConfig);
-    String dbName = Utils.getDatabase(connectorConfig);
-    String schemaName = Utils.getSchema(connectorConfig);
+    String clientName = clientNameFromConfig(config);
+    String dbName = config.getSnowflakeDatabase();
+    String schemaName = config.getSnowflakeSchema();
 
     return ingestClientSupplier.get(
-        clientName, dbName, schemaName, pipeName, connectorConfig, streamingClientProperties);
+        clientName, dbName, schemaName, pipeName, config, streamingClientProperties);
   }
 
-  private static String clientName(final Map<String, String> connectorConfig) {
+  private static String clientNameFromConfig(final SinkTaskConfig config) {
     return STREAMING_CLIENT_V2_PREFIX_NAME
-        + connectorConfig.getOrDefault(KafkaConnectorConfigParams.NAME, DEFAULT_CLIENT_NAME)
+        + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME)
         + createdClientId.incrementAndGet();
   }
 
-  public static Properties getClientProperties(final Map<String, String> connectorConfig) {
+  public static Properties getClientProperties(final SinkTaskConfig config) {
     final Properties props = new Properties();
-    SnowflakeURL url =
-        new SnowflakeURL(connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
-    final String privateKeyStr =
-        connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
-    final String privateKeyPassphrase =
-        connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
+    if (config.getSnowflakeUrl() == null) {
+      return props;
+    }
+    SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
+    final String privateKeyStr = config.getSnowflakePrivateKey();
+    final String privateKeyPassphrase = config.getSnowflakePrivateKeyPassphrase();
     final PrivateKey privateKey =
         PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
     final String privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
     props.put("private_key", privateKeyEncoded);
 
-    props.put("user", connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME));
-    props.put("role", connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
+    props.put("user", config.getSnowflakeUser());
+    props.put("role", config.getSnowflakeRole());
     props.put("account", url.getAccount());
     props.put("host", url.getUrlWithoutPort());
     return props;
@@ -83,11 +81,11 @@ public class StreamingClientFactory {
         final String dbName,
         final String schemaName,
         final String pipeName,
-        final Map<String, String> connectorConfig,
+        final SinkTaskConfig config,
         final StreamingClientProperties streamingClientProperties) {
 
       return SnowflakeStreamingIngestClientFactory.builder(clientName, dbName, schemaName, pipeName)
-          .setProperties(getClientProperties(connectorConfig))
+          .setProperties(getClientProperties(config))
           .setParameterOverrides(streamingClientProperties.parameterOverrides)
           .build();
     }
