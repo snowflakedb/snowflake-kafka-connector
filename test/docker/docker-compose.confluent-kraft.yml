@@ -1,0 +1,29 @@
+# KRaft mode override for Confluent 8.x+
+# Usage: docker compose -f docker-compose.base.yml -f docker-compose.confluent.yml -f docker-compose.confluent-kraft.yml up
+#
+# Layers KRaft-specific Kafka broker config on top of the base Confluent compose
+# file. Only the differences are specified here; shared services (kafka-connect,
+# schema-registry, test-runner) are inherited to avoid config drift.
+
+services:
+  # Confluent 8.x dropped cp-zookeeper. Replace the inherited zookeeper service
+  # with a tiny stub that satisfies kafka's depends_on from the base file.
+  zookeeper:
+    image: busybox:1.37
+    command: ["sleep", "infinity"]
+    healthcheck:
+      test: ["CMD-SHELL", "true"]
+      interval: 1s
+      retries: 1
+
+  kafka:
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
