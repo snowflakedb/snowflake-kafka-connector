@@ -356,7 +356,9 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     query = "show tables like ? limit 1";
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
+      String escapedTableName =
+          tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
+      stmt.setString(1, escapedTableName);
       ResultSet result = stmt.executeQuery();
       while (result.next()) {
         String enableSchemaEvolution = "N";
