@@ -174,7 +174,7 @@ case $PLATFORM in
                 ;;
             8.*)
                 info "Platform: Confluent $PLATFORM_VERSION (KRaft mode)"
-                COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.confluent-kraft.yml"
+                COMPOSE_FILES="$BASE_COMPOSE -f docker-compose.confluent.yml -f docker-compose.confluent-kraft.yml"
                 START_SERVICES="kafka schema-registry kafka-connect"
                 ;;
             *)
