@@ -173,6 +173,63 @@ def test_schema_evolution_multi_wave(
     )
 
 
+def test_schema_evolution_disabled_mid_stream(
+    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+):
+    """ENABLE_SCHEMA_EVOLUTION toggled off after initial evolution."""
+    topic = snowflake_table(
+        FILE_NAME,
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+    )
+
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+
+    create_connector(CONFIG_FILE)
+    driver.startConnectorWaitTime()
+
+    # Wave 1: evolve schema while ENABLE_SCHEMA_EVOLUTION=TRUE
+    wave1_count = 50
+    wave1 = [
+        json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+        for i in range(wave1_count)
+    ]
+    driver.sendBytesData(topic, wave1, [], partition=0)
+    wait_for_rows(topic, wave1_count)
+
+    _assert_success_rows(driver, topic, schematization=True, record_count=wave1_count)
+
+    # Disable schema evolution on the table
+    driver.snowflake_conn.cursor().execute(
+        f"ALTER TABLE {topic} SET ENABLE_SCHEMA_EVOLUTION = FALSE"
+    )
+
+    # Wave 2: new column COUNTRY — DDL is still attempted and succeeds
+    # because the test role has OWNERSHIP privilege.
+    wave2_count = 50
+    wave2 = [
+        json.dumps({"city": "Taipei", "age": 100 + i, "country": "TW"}).encode("utf-8")
+        for i in range(wave2_count)
+    ]
+    driver.sendBytesData(topic, wave2, [], partition=0)
+
+    total = wave1_count + wave2_count
+    wait_for_rows(topic, total)
+
+    cols = {
+        row[0]: row[1]
+        for row in driver.snowflake_conn.cursor()
+        .execute(f"DESCRIBE TABLE {topic}")
+        .fetchall()
+    }
+    assert "COUNTRY" in cols, (
+        f"Expected COUNTRY column (DDL succeeded via OWNERSHIP), got: {list(cols.keys())}"
+    )
+
+    count = driver.select_number_of_records(topic)
+    assert count == total, f"Expected {total} rows, got {count}"
+
+
 def test_schema_evolution_happy_path(
     driver, name_salt, create_connector, snowflake_table, wait_for_rows
 ):
