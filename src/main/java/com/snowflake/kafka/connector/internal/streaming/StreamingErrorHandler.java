@@ -4,10 +4,10 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
 
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import java.util.Map;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -23,13 +23,12 @@ public class StreamingErrorHandler {
   private final SnowflakeTelemetryService telemetryServiceV2;
 
   public StreamingErrorHandler(
-      Map<String, String> sfConnectorConfig,
+      SinkTaskConfig config,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SnowflakeTelemetryService telemetryServiceV2) {
-
-    this.logErrors = StreamingUtils.logErrors(sfConnectorConfig);
-    this.isDLQTopicSet = !Strings.isNullOrEmpty(StreamingUtils.getDlqTopicName(sfConnectorConfig));
-    this.errorTolerance = StreamingUtils.tolerateErrors(sfConnectorConfig);
+    this.logErrors = config.isErrorsLogEnable();
+    this.isDLQTopicSet = !Strings.isNullOrEmpty(config.getDlqTopicName());
+    this.errorTolerance = config.isTolerateErrors();
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
     this.telemetryServiceV2 = telemetryServiceV2;
   }

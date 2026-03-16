@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
@@ -34,7 +35,7 @@ public class StreamingClientPools {
    * @param connectorName the name of the connector
    * @param taskId the ID of the task requesting the client
    * @param pipeName the pipe name
-   * @param connectorConfig connector configuration
+   * @param config parsed task config
    * @param streamingClientProperties streaming client properties
    * @param taskMetrics metrics to record client creation time (noop-safe)
    * @return the client for this pipe
@@ -44,7 +45,7 @@ public class StreamingClientPools {
       final String connectorName,
       final String taskId,
       final String pipeName,
-      final Map<String, String> connectorConfig,
+      final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties,
       final TaskMetrics taskMetrics) {
 
@@ -60,7 +61,7 @@ public class StreamingClientPools {
     }
 
     return getPool(connectorName)
-        .getClient(taskId, pipeName, connectorConfig, streamingClientProperties, taskMetrics);
+        .getClient(taskId, pipeName, config, streamingClientProperties, taskMetrics);
   }
 
   private static StreamingClientPool getPool(final String connectorName) {

@@ -1,11 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMA_REGISTRY_URL;
-
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -25,18 +21,15 @@ import org.junit.jupiter.api.Test;
 public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkServiceV2BaseIT {
 
   private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
-  private Map<String, String> config;
+  private SinkTaskConfig sinkTaskConfig;
   private SnowflakeSinkService service;
   private String pipe;
 
   @BeforeEach
   public void setup() {
-    config = TestUtils.getConnectorConfigurationForStreaming(false);
-    config.put(VALUE_CONVERTER, "org.apache.kafka.connect.json.JsonConverter");
-    config.put(VALUE_CONVERTER_SCHEMA_REGISTRY_URL, "http://fake-url");
-    config.put("schemas.enable", "false");
-    config.put(ERRORS_TOLERANCE_CONFIG, "all");
-    config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq_topic");
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    sinkTaskConfig =
+        SinkTaskConfig.builderFrom(config).tolerateErrors(true).dlqTopicName("dlq_topic").build();
     pipe = table;
   }
 
@@ -55,7 +48,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
 
     service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, sinkTaskConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .withErrorReporter(errorReporter)
             .build();

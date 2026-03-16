@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getTableContentOn
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -141,8 +142,9 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
 
   private SnowflakeSinkService createService() {
     Map<String, String> config = prepareConfig();
+    SinkTaskConfig sinkTaskConfig = SinkTaskConfig.from(config);
     SnowflakeSinkService service =
-        StreamingSinkServiceBuilder.builder(conn, config)
+        StreamingSinkServiceBuilder.builder(conn, sinkTaskConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
     service.startPartition(new TopicPartition(topic, PARTITION));
