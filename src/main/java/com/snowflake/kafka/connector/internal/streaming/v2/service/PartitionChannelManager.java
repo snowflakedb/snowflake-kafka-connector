@@ -194,9 +194,7 @@ public class PartitionChannelManager {
 
     final boolean hasSchemaEvolutionPermission =
         schemaEvolutionPermissionCache.computeIfAbsent(
-            tableName,
-            t ->
-                conn.hasSchemaEvolutionPermission(t, taskConfig.getSnowflakeRole()));
+            tableName, t -> conn.hasSchemaEvolutionPermission(t, taskConfig.getSnowflakeRole()));
 
     return new SnowpipeStreamingPartitionChannel(
         tableName,

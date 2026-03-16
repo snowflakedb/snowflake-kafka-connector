@@ -169,12 +169,12 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
    * SSv2 Error Table.
    */
   @Test
-  public void testLegacySchematizationConfigWarning() {
+  public void testSchematizationOffImplicitlyDisablesValidation() {
     SinkTaskConfig config =
         SinkTaskConfigTestBuilder.builder()
             .connectorName("test-connector")
             .taskId("0")
-            .enableSchematization(true)
+            .enableSchematization(false)
             .build();
 
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
