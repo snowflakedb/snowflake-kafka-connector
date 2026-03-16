@@ -110,7 +110,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
     }
 
-    ThreadPools.registerTask(this.connectorName, this.taskId, connectorConfig);
+    ThreadPools.registerTask(this.connectorName, connectorConfig);
 
     this.tolerateErrors = StreamingUtils.tolerateErrors(connectorConfig);
     this.batchOffsetFetcher =
@@ -405,7 +405,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     // Release this task's claim on the shared thread pool.
     // The pool is shut down when the last task for this connector unregisters.
-    ThreadPools.closeForTask(connectorName, taskId);
+    ThreadPools.closeForTask(connectorName);
   }
 
   /* Undefined */
