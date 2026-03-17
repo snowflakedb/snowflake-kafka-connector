@@ -321,10 +321,11 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
-  public boolean hasSchemaEvolutionPermission(String tableName, String role) {
+  public boolean shouldEvolveSchema(String tableName, String role) {
     LOGGER.info("Checking schema evolution permission for table {}", tableName);
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
+    InternalUtils.assertNotEmpty("role", role);
 
     String query = "show grants on table identifier(?)";
     List<String> schemaEvolutionAllowedPrivilegeList =

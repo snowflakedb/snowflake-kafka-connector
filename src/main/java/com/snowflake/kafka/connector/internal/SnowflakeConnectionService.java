@@ -137,5 +137,5 @@ public interface SnowflakeConnectionService {
    * @param role the role of the user
    * @return whether schema evolution has the required permission to be performed
    */
-  boolean hasSchemaEvolutionPermission(String tableName, String role);
+  boolean shouldEvolveSchema(String tableName, String role);
 }

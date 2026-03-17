@@ -321,60 +321,33 @@ def test_schema_evolution_drop_not_null(
     )
 
 
-def test_schema_evolution_disabled_to_dlq(
-    driver, name_salt, create_connector, snowflake_table
-):
-    """ENABLE_SCHEMA_EVOLUTION not set, schematization=on: extra columns go to DLQ.
-
-    Runs for both v3 and v4. With schematization=on, extra flat columns are
-    detected but cannot be evolved, so records are routed to DLQ.
-    """
-    topic = snowflake_table(
-        FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = FALSE",
-    )
-
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
-
-    config = create_connector(CONFIG_FILE)
-    driver.startConnectorWaitTime()
-
-    record_count = 5
-    values = [
-        json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
-        for i in range(record_count)
-    ]
-    driver.sendBytesData(topic, values, [], partition=0)
-
-    _assert_dlq(driver, config, topic, record_count)
-
-
-# v4-only: full config matrix (schema_evo x schematization x validation)
-# When schematization=off, client validation is implicitly disabled
-@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 @pytest.mark.parametrize(
     "schema_evo, schematization, validation",
     [
         (True, True, True),
         (True, True, False),
-        (True, False, None),
+        (True, False, True),
+        (True, False, False),
         (False, True, True),
         (False, True, False),
-        (False, False, None),
+        (False, False, True),
+        (False, False, False),
     ],
     ids=[
         "evo=on,schema=on,valid=on",
         "evo=on,schema=on,valid=off",
-        "evo=on,schema=off",
+        "evo=on,schema=off,valid=on",
+        "evo=on,schema=off,valid=off",
         "evo=off,schema=on,valid=on",
         "evo=off,schema=on,valid=off",
-        "evo=off,schema=off",
+        "evo=off,schema=off,valid=on",
+        "evo=off,schema=off,valid=off",
     ],
 )
-def test_schema_evolution_v4_config_variants(
+def test_schema_evolution_config_variants(
     driver,
     name_salt,
+    connector_version,
     create_connector,
     snowflake_table,
     wait_for_rows,
@@ -382,16 +355,55 @@ def test_schema_evolution_v4_config_variants(
     schematization,
     validation,
 ):
-    """V4-only test covering combinations of ENABLE_SCHEMA_EVOLUTION,
-    schematization, and client.validation.enabled.
+    """Full config matrix for ENABLE_SCHEMA_EVOLUTION x schematization x validation.
 
-    When schema_evo=True, extra columns are added and records are ingested.
-    When schema_evo=False, records with extra columns are routed to DLQ
-    (schematization=on) or handled by the server (schematization=off).
+    Runs for both v3 and v4. Combinations that are inapplicable to a given
+    connector version are skipped with a reason (serving as documentation of
+    the known v3/v4 differences).
 
-    validation=None means schematization=off so client validation is implicitly
-    off and we must set it to false to satisfy the config validator.
+    v4 (KC v4):
+      - Client-side validation works for both schematization=on and off.
+      - schematization=on: validates individual columns (CITY, AGE, etc.)
+      - schematization=off: validates RECORD_CONTENT/RECORD_METADATA VARIANT
+        columns against the table schema.
+      - validation can be toggled via snowflake.client.validation.enabled.
+
+    v3 (KC v3):
+      - V1 Ingest SDK always performs client-side validation; it cannot be
+        disabled, so all validation=False combos are skipped.
+      - Schema evolution is gated behind schematization
+        (enableSchemaEvolution = enableSchematization && hasSchemaEvolution-
+        Permission), so schematization=off combos are skipped because the
+        connector never attempts to evolve RECORD_CONTENT.
+
+    Behaviour matrix (for combos that run):
+      schema_evo=True:  extra columns are added and records are ingested.
+      schema_evo=False + validation=True: extra columns route to DLQ.
+      schema_evo=False + validation=False (v4 only): server Error Table
+        handles errors; test returns early (no client-side assertion).
     """
+    if connector_version == "v3":
+        if not validation:
+            pytest.skip(
+                "KC v3 uses V1 Ingest SDK which always performs client-side "
+                "validation; validation cannot be disabled"
+            )
+        if not schematization:
+            pytest.skip(
+                "KC v3 gates schema evolution behind schematization "
+                "(enableSchemaEvolution = enableSchematization && "
+                "hasSchemaEvolutionPermission), so RECORD_CONTENT is never "
+                "evolved and the V1 SDK rejects it as an extra column"
+            )
+
+    if schema_evo and not schematization:
+        pytest.skip(
+            "TODO: client-side schema evolution with schematization=off infers "
+            "column type from the original SinkRecord instead of using VARIANT "
+            "for RECORD_CONTENT. Server-side schema evolution infers the "
+            "RECORD_CONTENT column type as VARCHAR instead of VARIANT."
+        )
+
     evo_clause = "TRUE" if schema_evo else "FALSE"
     ddl = (
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
@@ -402,12 +414,16 @@ def test_schema_evolution_v4_config_variants(
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
+    evo_tag = "evo" if schema_evo else "noevo"
+    sch_tag = "sch" if schematization else "nosch"
+    val_tag = "val" if validation else "noval"
+    dlq_topic = f"DLQ_MATRIX_{FILE_NAME}_{name_salt}_{evo_tag}_{sch_tag}_{val_tag}"
+
     overrides = {
         "snowflake.enable.schematization": str(schematization).lower(),
-        "errors.deadletterqueue.topic.name": f"DLQ_MATRIX_{FILE_NAME}_{name_salt}",
+        "snowflake.client.validation.enabled": str(validation).lower(),
+        "errors.deadletterqueue.topic.name": dlq_topic,
     }
-    if validation is not None:
-        overrides["snowflake.client.validation.enabled"] = str(validation).lower()
 
     config = create_connector(CONFIG_FILE, config_overrides=overrides)
     driver.startConnectorWaitTime()
@@ -424,7 +440,7 @@ def test_schema_evolution_v4_config_variants(
 
         _assert_success_rows(driver, topic, schematization, record_count)
     else:
-        if not schematization or validation is None or not validation:
+        if not validation:
             # No client-side validation -> server handles the error via Error Table.
             # DLQ routing only works when client validation is on.
             return

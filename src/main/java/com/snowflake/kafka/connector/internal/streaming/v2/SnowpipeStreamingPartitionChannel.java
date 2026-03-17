@@ -89,7 +89,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile RowValidator rowValidator;
   private volatile SnowflakeSchemaEvolutionService schemaEvolutionService;
   private volatile Map<String, ColumnSchema> tableSchema;
-  private final boolean hasSchemaEvolutionPermission;
+  private final boolean shouldEvolveSchema;
 
   public SnowpipeStreamingPartitionChannel(
       String tableName,
@@ -105,7 +105,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       StreamingErrorHandler streamingErrorHandler,
       TaskMetrics taskMetrics,
       boolean clientValidationEnabled,
-      boolean hasSchemaEvolutionPermission,
+      boolean shouldEvolveSchema,
       SnowflakeConnectionService conn) {
     this.channelName = channelName;
     this.pipeName = pipeName;
@@ -118,8 +118,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.telemetryService = telemetryService;
     this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
     this.offsetTracker = offsetTracker;
-    this.clientValidationEnabled = clientValidationEnabled && enableSchematization;
-    this.hasSchemaEvolutionPermission = hasSchemaEvolutionPermission;
+    this.clientValidationEnabled = clientValidationEnabled;
+    this.shouldEvolveSchema = shouldEvolveSchema;
     this.conn = conn;
     this.tableName = tableName;
 
@@ -143,7 +143,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             },
             openChannelIoExecutor);
 
-    if (this.clientValidationEnabled) {
+    if (clientValidationEnabled) {
       initializeValidation();
     } else {
       LOGGER.info("Client-side validation disabled for channel {}", channelName);
@@ -435,13 +435,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
     LOGGER.info(
-        "handleStructuralError for channel {}: hasSchemaEvolutionPermission={}, extraCols={},"
+        "handleStructuralError for channel {}: shouldEvolveSchema={}, extraCols={},"
             + " missingNotNull={}",
         channelName,
-        hasSchemaEvolutionPermission,
+        shouldEvolveSchema,
         result.getExtraColNames(),
         result.getMissingNotNullColNames());
-    if (!hasSchemaEvolutionPermission) {
+    if (!shouldEvolveSchema) {
       String errorMsg =
           String.format(
               "Structural validation error (schema evolution disabled): extraCols=%s,"

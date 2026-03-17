@@ -61,7 +61,7 @@ public class PartitionChannelManager {
 
   private final PartitionChannelBuilder partitionChannelBuilder;
   private final Map<String, TopicPartitionChannel> partitionChannels;
-  private final Map<String, Boolean> schemaEvolutionPermissionCache = new ConcurrentHashMap<>();
+  private final Map<String, Boolean> shouldEvolveSchemaCache = new ConcurrentHashMap<>();
 
   public PartitionChannelManager(
       SnowflakeTelemetryService telemetryService,
@@ -192,9 +192,9 @@ public class PartitionChannelManager {
     final ExecutorService openChannelIoExecutor =
         ThreadPools.getOpenChannelIoExecutor(connectorName);
 
-    final boolean hasSchemaEvolutionPermission =
-        schemaEvolutionPermissionCache.computeIfAbsent(
-            tableName, t -> conn.hasSchemaEvolutionPermission(t, taskConfig.getSnowflakeRole()));
+    final boolean shouldEvolveSchema =
+        shouldEvolveSchemaCache.computeIfAbsent(
+            tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
 
     return new SnowpipeStreamingPartitionChannel(
         tableName,
@@ -210,7 +210,7 @@ public class PartitionChannelManager {
         streamingErrorHandler,
         this.taskMetrics,
         clientValidationEnabled,
-        hasSchemaEvolutionPermission,
+        shouldEvolveSchema,
         this.conn);
   }
 
