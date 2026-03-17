@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
-import net.snowflake.client.jdbc.internal.snowflake.common.util.Power10;
 
 /**
  * This class represents the outcome of timestamp parsing and validation. It contains methods needed
@@ -54,7 +53,7 @@ public class TimestampWrapper {
     }
     this.epoch = offsetDateTime.toEpochSecond();
     this.fraction =
-        offsetDateTime.getNano() / Power10.intTable[9 - scale] * Power10.intTable[9 - scale];
+        offsetDateTime.getNano() / Power10Util.intTable[9 - scale] * Power10Util.intTable[9 - scale];
     this.timezoneOffsetSeconds = offsetDateTime.getOffset().getTotalSeconds();
     this.scale = scale;
   }

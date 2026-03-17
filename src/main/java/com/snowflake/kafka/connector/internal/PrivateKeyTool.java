@@ -7,8 +7,7 @@ import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.security.spec.PKCS8EncodedKeySpec;
-import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
-import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
+import java.util.Base64;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.bouncycastle.openssl.PEMParser;
@@ -35,8 +34,12 @@ public final class PrivateKeyTool {
     key = key.replaceAll("-+[A-Za-z ]+-+", "");
     key = key.replaceAll("\\s", "");
 
-    java.security.Security.addProvider(new BouncyCastleProvider());
-    byte[] encoded = Base64.decodeBase64(key);
+    byte[] encoded;
+    try {
+      encoded = Base64.getDecoder().decode(key);
+    } catch (IllegalArgumentException e) {
+      throw SnowflakeErrors.ERROR_0002.getException(e);
+    }
     try {
       KeyFactory kf = KeyFactory.getInstance("RSA");
       PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);

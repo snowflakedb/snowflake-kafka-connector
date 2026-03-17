@@ -2,7 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.transformProfileFileToConnectorConfiguration;
 
-import com.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.api.driver.SnowflakeDriver;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import java.sql.Connection;
 import java.util.Map;

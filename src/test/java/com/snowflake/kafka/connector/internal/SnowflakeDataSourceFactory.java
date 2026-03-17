@@ -5,7 +5,7 @@ import java.security.PrivateKey;
 import java.util.Map;
 import java.util.Properties;
 import javax.sql.DataSource;
-import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.api.driver.SnowflakeDriver;
 import org.apache.commons.dbcp2.ConnectionFactory;
 import org.apache.commons.dbcp2.DriverConnectionFactory;
 import org.apache.commons.dbcp2.PoolableConnection;
