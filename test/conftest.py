@@ -233,17 +233,23 @@ def create_connector(driver, name_salt, connector_version):
     """
     created = []
 
-    def _create(v4_config_filename: str):
-        match connector_version:
-            case "v3":
-                logger.info(f"Will transform {v4_config_filename} to KC v3 config")
-                config = driver.createConnector(
-                    v4_config_filename,
-                    name_salt,
-                    config_transform=v4_config_to_v3,
-                )
-            case "v4":
-                config = driver.createConnector(v4_config_filename, name_salt)
+    def _create(v4_config_filename: str, config_overrides: dict = None):
+        def try_convert_and_apply_overrides(config):
+            match connector_version:
+                case "v3":
+                    logger.info(f"Will transform {v4_config_filename} to KC v3 config")
+                    config = v4_config_to_v3(config)
+                case "v4":
+                    pass
+            if config_overrides:
+                config["config"].update(config_overrides)
+            return config
+
+        config = driver.createConnector(
+            v4_config_filename,
+            name_salt,
+            config_transform=try_convert_and_apply_overrides,
+        )
         created.append(v4_config_filename)
         return config
 

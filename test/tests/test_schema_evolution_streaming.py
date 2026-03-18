@@ -5,16 +5,71 @@ from snowflake.connector import DictCursor
 
 FILE_NAME = "snowpipe_streaming_schema_evolution"
 CONFIG_FILE = f"{FILE_NAME}.json"
-DISABLED_FILE_NAME = "snowpipe_streaming_schema_evolution_disabled"
-DISABLED_CONFIG_FILE = f"{DISABLED_FILE_NAME}.json"
+
+
+def _assert_success_rows(driver, topic, schematization, record_count):
+    """Shared assertions for successful schema evolution tests."""
+    cols = {
+        row[0]: row[1]
+        for row in driver.snowflake_conn.cursor()
+        .execute(f"DESCRIBE TABLE {topic}")
+        .fetchall()
+    }
+
+    if schematization:
+        assert "CITY" in cols, f"Expected CITY column, got: {list(cols.keys())}"
+        assert "AGE" in cols, f"Expected AGE column, got: {list(cols.keys())}"
+
+        row = (
+            driver.snowflake_conn.cursor(DictCursor)
+            .execute(
+                f'SELECT "CITY", "AGE" FROM {topic} '
+                f'WHERE RECORD_METADATA:"offset"::number = 0'
+            )
+            .fetchone()
+        )
+        assert row is not None, "Expected row with offset 0"
+        assert row["CITY"] == "Hsinchu"
+        assert row["AGE"] == 0
+    else:
+        assert "RECORD_CONTENT" in cols, (
+            f"Expected RECORD_CONTENT column, got: {list(cols.keys())}"
+        )
+
+        row = (
+            driver.snowflake_conn.cursor(DictCursor)
+            .execute(
+                f"SELECT RECORD_CONTENT FROM {topic} "
+                f'WHERE RECORD_METADATA:"offset"::number = 0'
+            )
+            .fetchone()
+        )
+        assert row is not None, "Expected row with offset 0"
+        content = json.loads(row["RECORD_CONTENT"])
+        assert content["city"] == "Hsinchu"
+        assert content["age"] == 0
+
+    count = driver.select_number_of_records(topic)
+    assert count == record_count, f"Expected {record_count} rows, got {count}"
+
+
+def _assert_dlq(driver, config, topic, record_count):
+    """Shared assertions for DLQ tests."""
+    offsets_in_dlq = driver.consume_messages_dlq(config, 0, record_count - 1)
+    assert offsets_in_dlq == record_count, (
+        f"Expected {record_count} records in DLQ, got {offsets_in_dlq}"
+    )
+
+    count = driver.select_number_of_records(topic)
+    assert count == 0, f"Expected 0 rows in table (DLQ), got {count}"
 
 
 def test_schema_evolution_add_columns(
     driver, name_salt, create_connector, snowflake_table, wait_for_rows
 ):
-    """Create a table with only RECORD_METADATA, send records with extra fields.
+    """ENABLE_SCHEMA_EVOLUTION=TRUE, schematization=on, send records with extra fields.
 
-    Verifies that unquoted column names (city, age) are correctly evolved as CITY, AGE.
+    Runs for both v3 and v4. Flat columns CITY, AGE are added via schema evolution.
     """
     topic = snowflake_table(
         FILE_NAME,
@@ -36,28 +91,7 @@ def test_schema_evolution_add_columns(
 
     wait_for_rows(topic, record_count)
 
-    cols = {
-        row[0]: row[1]
-        for row in driver.snowflake_conn.cursor()
-        .execute(f"DESCRIBE TABLE {topic}")
-        .fetchall()
-    }
-    assert "CITY" in cols, f"Expected CITY column, got: {list(cols.keys())}"
-    assert "AGE" in cols, f"Expected AGE column, got: {list(cols.keys())}"
-    assert "RECORD_METADATA" in cols
-
-    row = (
-        driver.snowflake_conn.cursor(DictCursor)
-        .execute(
-            f'SELECT "CITY", "AGE", RECORD_METADATA '
-            f"FROM {topic} "
-            f'WHERE RECORD_METADATA:"offset"::number = 0'
-        )
-        .fetchone()
-    )
-    assert row is not None, "Expected row with offset 0"
-    assert row["CITY"] == "Hsinchu"
-    assert row["AGE"] == 0
+    _assert_success_rows(driver, topic, schematization=True, record_count=record_count)
 
 
 def test_schema_evolution_multi_wave(
@@ -137,6 +171,63 @@ def test_schema_evolution_multi_wave(
     assert null_country_count == wave1_count, (
         f"Expected {wave1_count} rows with NULL country, got {null_country_count}"
     )
+
+
+def test_schema_evolution_disabled_mid_stream(
+    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+):
+    """ENABLE_SCHEMA_EVOLUTION toggled off after initial evolution."""
+    topic = snowflake_table(
+        FILE_NAME,
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+    )
+
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+
+    create_connector(CONFIG_FILE)
+    driver.startConnectorWaitTime()
+
+    # Wave 1: evolve schema while ENABLE_SCHEMA_EVOLUTION=TRUE
+    wave1_count = 50
+    wave1 = [
+        json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+        for i in range(wave1_count)
+    ]
+    driver.sendBytesData(topic, wave1, [], partition=0)
+    wait_for_rows(topic, wave1_count)
+
+    _assert_success_rows(driver, topic, schematization=True, record_count=wave1_count)
+
+    # Disable schema evolution on the table
+    driver.snowflake_conn.cursor().execute(
+        f"ALTER TABLE {topic} SET ENABLE_SCHEMA_EVOLUTION = FALSE"
+    )
+
+    # Wave 2: new column COUNTRY — DDL is still attempted and succeeds
+    # because the test role has OWNERSHIP privilege.
+    wave2_count = 50
+    wave2 = [
+        json.dumps({"city": "Taipei", "age": 100 + i, "country": "TW"}).encode("utf-8")
+        for i in range(wave2_count)
+    ]
+    driver.sendBytesData(topic, wave2, [], partition=0)
+
+    total = wave1_count + wave2_count
+    wait_for_rows(topic, total)
+
+    cols = {
+        row[0]: row[1]
+        for row in driver.snowflake_conn.cursor()
+        .execute(f"DESCRIBE TABLE {topic}")
+        .fetchall()
+    }
+    assert "COUNTRY" in cols, (
+        f"Expected COUNTRY column (DDL succeeded via OWNERSHIP), got: {list(cols.keys())}"
+    )
+
+    count = driver.select_number_of_records(topic)
+    assert count == total, f"Expected {total} rows, got {count}"
 
 
 def test_schema_evolution_happy_path(
@@ -230,38 +321,117 @@ def test_schema_evolution_drop_not_null(
     )
 
 
-@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_schematization_disabled_extra_cols_to_dlq(
-    driver, name_salt, create_connector, snowflake_table
+@pytest.mark.parametrize("schema_evo", [True, False], ids=["evo=on", "evo=off"])
+@pytest.mark.parametrize(
+    "schematization", [True, False], ids=["schema=on", "schema=off"]
+)
+@pytest.mark.parametrize("validation", [True, False], ids=["valid=on", "valid=off"])
+def test_schema_evolution_config_variants(
+    driver,
+    name_salt,
+    connector_version,
+    create_connector,
+    snowflake_table,
+    wait_for_rows,
+    schema_evo,
+    schematization,
+    validation,
 ):
-    """With schematization disabled, extra columns cause records to go to DLQ.
+    """Full config matrix for ENABLE_SCHEMA_EVOLUTION x schematization x validation.
 
-    Structural validation errors are routed to the error handler when
-    schema evolution is not enabled. v3 handles non-schematized records
-    differently (wraps in RECORD_CONTENT), so this test is v4-only.
+    Runs for both v3 and v4. Combinations that are inapplicable to a given
+    connector version are skipped with a reason (serving as documentation of
+    the known v3/v4 differences).
+
+    v4 (KC v4):
+      - Client-side validation works for both schematization=on and off.
+      - schematization=on: validates individual columns (CITY, AGE, etc.)
+      - schematization=off: validates RECORD_CONTENT/RECORD_METADATA VARIANT
+        columns against the table schema.
+      - validation can be toggled via snowflake.client.validation.enabled.
+
+    v3 (KC v3):
+      - V1 Ingest SDK always performs client-side validation; it cannot be
+        disabled, so all validation=False combos are skipped.
+      - Schema evolution is gated behind schematization
+        (enableSchemaEvolution = enableSchematization && hasSchemaEvolution-
+        Permission), so schematization=off combos are skipped because the
+        connector never attempts to evolve RECORD_CONTENT.
+
+    Behaviour matrix (for combos that run):
+      schema_evo=True:  extra columns are added and records are ingested.
+      schema_evo=False + validation=True: extra columns route to DLQ.
+      schema_evo=False + validation=False (v4 only): server Error Table
+        handles errors; test returns early (no client-side assertion).
     """
-    topic = snowflake_table(
-        DISABLED_FILE_NAME,
-        f"CREATE OR REPLACE TABLE {DISABLED_FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT)",
+    if connector_version == "v3":
+        if not validation:
+            pytest.skip(
+                "KC v3 uses V1 Ingest SDK which always performs client-side "
+                "validation; validation cannot be disabled"
+            )
+        if not schematization:
+            pytest.skip(
+                "KC v3 gates schema evolution behind schematization "
+                "(enableSchemaEvolution = enableSchematization && "
+                "hasSchemaEvolutionPermission), so RECORD_CONTENT is never "
+                "evolved and the V1 SDK rejects it as an extra column"
+            )
+
+    if schema_evo and not schematization:
+        pytest.skip(
+            "TODO: client-side schema evolution with schematization=off infers "
+            "column type from the original SinkRecord instead of using VARIANT "
+            "for RECORD_CONTENT. Server-side schema evolution infers the "
+            "RECORD_CONTENT column type as VARCHAR instead of VARIANT."
+        )
+
+    evo_clause = "TRUE" if schema_evo else "FALSE"
+    ddl = (
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = {evo_clause}"
     )
+
+    topic = snowflake_table(FILE_NAME, ddl)
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    config = create_connector(DISABLED_CONFIG_FILE)
+    evo_tag = "evo" if schema_evo else "noevo"
+    sch_tag = "sch" if schematization else "nosch"
+    val_tag = "val" if validation else "noval"
+    dlq_topic = f"DLQ_MATRIX_{FILE_NAME}_{name_salt}_{evo_tag}_{sch_tag}_{val_tag}"
+
+    overrides = {
+        "snowflake.enable.schematization": str(schematization).lower(),
+        "snowflake.client.validation.enabled": str(validation).lower(),
+        "errors.deadletterqueue.topic.name": dlq_topic,
+    }
+
+    config = create_connector(CONFIG_FILE, config_overrides=overrides)
     driver.startConnectorWaitTime()
 
-    record_count = 5
-    values = [
-        json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
-        for i in range(record_count)
-    ]
-    driver.sendBytesData(topic, values, [], partition=0)
+    if schema_evo:
+        record_count = 100
+        values = [
+            json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+            for i in range(record_count)
+        ]
+        driver.sendBytesData(topic, values, [], partition=0)
 
-    offsets_in_dlq = driver.consume_messages_dlq(config, 0, record_count - 1)
-    assert offsets_in_dlq == record_count, (
-        f"Expected {record_count} records in DLQ, got {offsets_in_dlq}"
-    )
+        wait_for_rows(topic, record_count)
 
-    count = driver.select_number_of_records(topic)
-    assert count == 0, f"Expected 0 rows in table (DLQ), got {count}"
+        _assert_success_rows(driver, topic, schematization, record_count)
+    else:
+        if not validation:
+            # No client-side validation -> server handles the error via Error Table.
+            # DLQ routing only works when client validation is on.
+            return
+
+        record_count = 5
+        values = [
+            json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+            for i in range(record_count)
+        ]
+        driver.sendBytesData(topic, values, [], partition=0)
+
+        _assert_dlq(driver, config, topic, record_count)

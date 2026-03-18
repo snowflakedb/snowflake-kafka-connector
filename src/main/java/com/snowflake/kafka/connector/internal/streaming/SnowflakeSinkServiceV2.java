@@ -142,7 +142,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * @throws IllegalStateException if configuration is unsafe and would cause data loss
    */
   private void logValidationConfiguration() {
-    boolean validationEnabled = taskConfig.isClientValidationEnabled();
     String errorsTolerance =
         taskConfig.isTolerateErrors()
             ? ConnectorConfigTools.ErrorTolerance.ALL.toString()
@@ -159,9 +158,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               + "Schema evolution is now handled server-side via table property "
               + "'ENABLE_SCHEMA_EVOLUTION'. For pre-created tables, run: "
               + "ALTER TABLE ... SET ENABLE_SCHEMA_EVOLUTION = TRUE");
+    } else {
+      LOGGER.info(
+          "Schematization is disabled — the connector wraps payloads into"
+              + " RECORD_CONTENT/RECORD_METADATA.");
     }
 
-    if (!validationEnabled) {
+    if (!taskConfig.isClientValidationEnabled()) {
       // VALIDATION DISABLED (High-Performance Mode)
       // Must verify SSv2 Error Table is configured to prevent records from being silently dropped
       // TODO: Check Error Table configuration when SSv2 API exposes this information

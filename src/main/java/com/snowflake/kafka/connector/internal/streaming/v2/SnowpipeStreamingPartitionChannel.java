@@ -89,6 +89,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile RowValidator rowValidator;
   private volatile SnowflakeSchemaEvolutionService schemaEvolutionService;
   private volatile Map<String, ColumnSchema> tableSchema;
+  private final boolean shouldEvolveSchema;
 
   public SnowpipeStreamingPartitionChannel(
       String tableName,
@@ -104,6 +105,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       StreamingErrorHandler streamingErrorHandler,
       TaskMetrics taskMetrics,
       boolean clientValidationEnabled,
+      boolean shouldEvolveSchema,
       SnowflakeConnectionService conn) {
     this.channelName = channelName;
     this.pipeName = pipeName;
@@ -117,6 +119,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
     this.offsetTracker = offsetTracker;
     this.clientValidationEnabled = clientValidationEnabled;
+    this.shouldEvolveSchema = shouldEvolveSchema;
     this.conn = conn;
     this.tableName = tableName;
 
@@ -431,17 +434,26 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
-    if (!enableSchematization) {
+    LOGGER.info(
+        "handleStructuralError for channel {}: shouldEvolveSchema={}, extraCols={},"
+            + " missingNotNull={}",
+        channelName,
+        shouldEvolveSchema,
+        result.getExtraColNames(),
+        result.getMissingNotNullColNames());
+    if (!shouldEvolveSchema) {
       String errorMsg =
           String.format(
-              "Structural validation error (schematization disabled): extraCols=%s,"
+              "Structural validation error (schema evolution disabled): extraCols=%s,"
                   + " missingNotNull=%s",
               result.getExtraColNames(), result.getMissingNotNullColNames());
+      LOGGER.info("Routing to DLQ for channel {}: {}", channelName, errorMsg);
       streamingErrorHandler.handleError(new DataException(errorMsg), record);
       return;
     }
 
     try {
+      LOGGER.info("Attempting schema evolution for channel {}, table {}", channelName, tableName);
       SchemaEvolutionTargetItems items =
           ValidationResultMapper.mapToSchemaEvolutionItems(result, tableName);
       schemaEvolutionService.evolveSchemaIfNeeded(items, record);

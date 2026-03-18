@@ -471,12 +471,10 @@ class KafkaDriver:
         """Returns the generated config."""
 
         rest_template_path = Path("rest_request_template")
-        rest_generate_path = Path("rest_request_generated")
 
         logger.info(
             f"=== generate sink connector rest request from {rest_template_path} ==="
         )
-        rest_generate_path.mkdir(parents=True, exist_ok=True)
         snowflake_connector_name = fileName.split(".")[0] + nameSalt
         snowflake_topic_name = snowflake_connector_name
 
@@ -515,16 +513,8 @@ class KafkaDriver:
             },
         )
 
-        # We dump the config to a file in case we'll want to inspect it later.
-        generated_filename = fileName
-
         if config_transform is not None:
             config = config_transform(config)
-
-            generated_filename = f"{fileName.split('.')[0]}_transformed.json"
-
-        with (rest_generate_path / generated_filename).open("w") as fw:
-            json.dump(config, fw, indent=4)
 
         MAX_RETRY = 9
         retry = 0
