@@ -321,29 +321,11 @@ def test_schema_evolution_drop_not_null(
     )
 
 
+@pytest.mark.parametrize("schema_evo", [True, False], ids=["evo=on", "evo=off"])
 @pytest.mark.parametrize(
-    "schema_evo, schematization, validation",
-    [
-        (True, True, True),
-        (True, True, False),
-        (True, False, True),
-        (True, False, False),
-        (False, True, True),
-        (False, True, False),
-        (False, False, True),
-        (False, False, False),
-    ],
-    ids=[
-        "evo=on,schema=on,valid=on",
-        "evo=on,schema=on,valid=off",
-        "evo=on,schema=off,valid=on",
-        "evo=on,schema=off,valid=off",
-        "evo=off,schema=on,valid=on",
-        "evo=off,schema=on,valid=off",
-        "evo=off,schema=off,valid=on",
-        "evo=off,schema=off,valid=off",
-    ],
+    "schematization", [True, False], ids=["schema=on", "schema=off"]
 )
+@pytest.mark.parametrize("validation", [True, False], ids=["valid=on", "valid=off"])
 def test_schema_evolution_config_variants(
     driver,
     name_salt,
