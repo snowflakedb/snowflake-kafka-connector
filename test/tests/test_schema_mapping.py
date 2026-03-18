@@ -13,7 +13,8 @@ RECORD = {
     # SnowflakeJsonConverter stripped them.  The standard JsonConverter
     # preserves the key as-is, so we omit the embedded quotes.
     "case_sensitive_PERFORMANCE_CHAR": "A",
-    "PERFORMANCE_HEX": "FFFFFFFF",
+    # Ingest SDK decodes BINARY values as base64, not hex.
+    "PERFORMANCE_BINARY": "/////w==",
     "RATING_INT": 100,
     "RATING_DOUBLE": 0.99,
     "APPROVAL": True,
@@ -27,7 +28,7 @@ RECORD = {
 GOLD_VALUES = {
     "PERFORMANCE_STRING": "Excellent",
     "case_sensitive_PERFORMANCE_CHAR": "A",
-    "PERFORMANCE_HEX": b"\xff\xff\xff\xff",
+    "PERFORMANCE_BINARY": b"\xff\xff\xff\xff",
     "RATING_INT": 100,
     "RATING_DOUBLE": 0.99,
     "APPROVAL": True,
@@ -54,7 +55,7 @@ def test_schema_mapping(
         f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} ("
         f"PERFORMANCE_STRING STRING, "
         f'"case_sensitive_PERFORMANCE_CHAR" CHAR, '
-        f"PERFORMANCE_HEX BINARY, "
+        f"PERFORMANCE_BINARY BINARY, "
         f"RATING_INT NUMBER, "
         f"RATING_DOUBLE DOUBLE, "
         f"APPROVAL BOOLEAN, "
