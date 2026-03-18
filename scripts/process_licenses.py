@@ -82,7 +82,7 @@ ADDITIONAL_LICENSES_MAP = {
     "net.snowflake:snowflake-ingest-sdk": APACHE_LICENSE,
     "org.agrona:agrona": APACHE_LICENSE,
     "org.antlr:antlr4-runtime": BSD_3_CLAUSE_LICENSE,
-    "org.apache.kafka:kafka-clients" : APACHE_LICENSE,
+    "org.apache.kafka:kafka-clients": APACHE_LICENSE,
     "org.apache.parquet:parquet-common": APACHE_LICENSE,
     "org.apache.parquet:parquet-format-structures": APACHE_LICENSE,
     "org.bouncycastle:bc-fips": BOUNCY_CASTLE_LICENSE,
@@ -95,18 +95,23 @@ ADDITIONAL_LICENSES_MAP = {
     "org.xerial.snappy:snappy-java": APACHE_LICENSE,
     "org.yaml:snakeyaml": APACHE_LICENSE,
     "org.roaringbitmap:RoaringBitmap": APACHE_LICENSE,
-    "org.jspecify:jspecify": APACHE_LICENSE
+    "org.jspecify:jspecify": APACHE_LICENSE,
 }
 
 
 def parse_cmdline_args():
     if len(sys.argv) != 4:
-        raise Exception("usage: process_licenses.py DEPENDENCY_LIST_FILE_PATH DEPENDENCIES_DIR TARGET_DIR")
+        raise Exception(
+            "usage: process_licenses.py DEPENDENCY_LIST_FILE_PATH DEPENDENCIES_DIR TARGET_DIR"
+        )
     dependency_list_file_path = Path(sys.argv[1]).absolute()
     dependencies_dir_path = Path(sys.argv[2]).absolute()
     target_dir = Path(sys.argv[3]).absolute()
 
-    if not dependency_list_file_path.exists() or not dependency_list_file_path.is_file():
+    if (
+        not dependency_list_file_path.exists()
+        or not dependency_list_file_path.is_file()
+    ):
         raise Exception(f"File {dependency_list_file_path} does not exist")
 
     if not dependencies_dir_path.exists() or not dependencies_dir_path.is_dir():
@@ -150,18 +155,26 @@ def main():
             for zip_info in current_jar_as_zip.infolist():
                 if zip_info.is_dir():
                     continue
-                if zip_info.filename in ("META-INF/LICENSE.txt", "META-INF/LICENSE", "META-INF/LICENSE.md"):
+                if zip_info.filename in (
+                    "META-INF/LICENSE.txt",
+                    "META-INF/LICENSE",
+                    "META-INF/LICENSE.md",
+                ):
                     license_found = True
                     dependency_with_license_count += 1
                     # Extract license to the target directory
                     zip_info.filename = f"LICENSE_{group_id}__{artifact_id}"
                     current_jar_as_zip.extract(zip_info, target_dir)
                     break
-                if "license" in zip_info.filename.lower():  # Log potential license matches
+                if (
+                    "license" in zip_info.filename.lower()
+                ):  # Log potential license matches
                     print(f"Potential license match: {current_jar} {zip_info}")
 
             if not license_found:
-                print(f"License not found {current_jar}; using value from ADDITIONAL_LICENSES_MAP")
+                print(
+                    f"License not found {current_jar}; using value from ADDITIONAL_LICENSES_MAP"
+                )
                 license_name = ADDITIONAL_LICENSES_MAP.get(dependency_lookup_key)
                 if license_name:
                     dependency_without_license_count += 1
@@ -170,16 +183,21 @@ def main():
                     err_msg = f"The dependency {dependency_lookup_key} does not ship a license file, but neither is it not defined in ADDITIONAL_LICENSES_MAP"
                     raise Exception(err_msg)
 
-    with open(Path(target_dir, "ADDITIONAL_LICENCES"), "w") as additional_licenses_handle:
+    with open(
+        Path(target_dir, "ADDITIONAL_LICENCES"), "w"
+    ) as additional_licenses_handle:
         additional_licenses_handle.write(missing_licenses_str)
 
     if dependency_count < 30:
-        raise Exception(f"Suspiciously low number of dependency JARs detected in {dependency_jars_path}: {dependency_count}")
+        raise Exception(
+            f"Suspiciously low number of dependency JARs detected in {dependency_jars_path}: {dependency_count}"
+        )
     print("License generation finished")
     print(f"\tTotal dependencies: {dependency_count}")
     print(f"\tTotal dependencies (with license): {dependency_with_license_count}")
     print(f"\tTotal dependencies (without license): {dependency_without_license_count}")
     print(f"\tIgnored dependencies: {dependency_ignored_count}")
+
 
 if __name__ == "__main__":
     main()
