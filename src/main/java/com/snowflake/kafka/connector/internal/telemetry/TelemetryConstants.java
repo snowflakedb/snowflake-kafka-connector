@@ -23,5 +23,6 @@ public final class TelemetryConstants {
       "topic_partition_channel_creation_time";
   public static final String TOPIC_PARTITION_CHANNEL_CLOSE_TIME =
       "topic_partition_channel_close_time";
+  public static final String VALIDATION_FAILURE_COUNT = "validation_failure_count";
   // ********** ^ Streaming Constants ^ **********//
 }

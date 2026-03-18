@@ -33,6 +33,10 @@ public class StreamingErrorHandler {
     this.telemetryServiceV2 = telemetryServiceV2;
   }
 
+  public boolean isLogErrors() {
+    return logErrors;
+  }
+
   public void handleError(Exception error, SinkRecord kafkaSinkRecord) {
     if (logErrors) {
       LOGGER.error("Insert Row Error message:{}", error.getMessage());

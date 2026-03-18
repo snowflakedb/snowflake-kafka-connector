@@ -299,6 +299,14 @@ public class SnowflakeTelemetryService {
             String.valueOf(
                 KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT)));
 
+    // Client-side validation mode
+    dataObjectNode.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+        userProvidedConfig.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
+            String.valueOf(
+                KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT)));
+
     // Caching configuration
     dataObjectNode.put(
         KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
