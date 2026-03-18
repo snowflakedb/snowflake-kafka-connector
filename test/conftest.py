@@ -7,7 +7,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import pytest
 import snowflake.connector
@@ -221,7 +221,7 @@ def name_salt(session_name_salt, connector_version):
 
 
 @pytest.fixture()
-def create_connector(driver, name_salt, connector_version):
+def create_connector(driver: KafkaDriver, name_salt: str, connector_version: str):
     """Factory fixture: call to register a connector for the current version.
 
     All connectors created during the test are torn down automatically.
@@ -233,8 +233,10 @@ def create_connector(driver, name_salt, connector_version):
     """
     created = []
 
-    def _create(v4_config_filename: str, config_overrides: dict = None):
-        def try_convert_and_apply_overrides(config):
+    def _create(
+        v4_config_filename: str, *, config_overrides: Dict[str, str] = None
+    ) -> dict:
+        def try_convert_and_apply_overrides(config: Dict[str, str]) -> Dict[str, str]:
             match connector_version:
                 case "v3":
                     logger.info(f"Will transform {v4_config_filename} to KC v3 config")
@@ -242,22 +244,22 @@ def create_connector(driver, name_salt, connector_version):
                 case "v4":
                     pass
             if config_overrides:
-                config["config"].update(config_overrides)
+                config.update(config_overrides)
             return config
 
-        config = driver.createConnector(
-            v4_config_filename,
-            name_salt,
+        rest_request = driver.createConnector(
+            name_salt=name_salt,
+            rest_request_template_filename=v4_config_filename,
             config_transform=try_convert_and_apply_overrides,
         )
-        created.append(v4_config_filename)
-        return config
+        created.append(rest_request["name"])
+        return rest_request
 
     try:
         yield _create
     finally:
-        for config_filename in reversed(created):
-            driver.closeConnector(config_filename, name_salt)
+        for connector_name in reversed(created):
+            driver.closeConnector(connector_name)
 
 
 @pytest.fixture

@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from typing import Callable, Dict
 import uuid
 from pathlib import Path
 
@@ -458,31 +459,60 @@ class KafkaDriver:
         r = requests.delete(requestURL, headers=self.httpHeader)
         logger.info(f"{r} delete connector")
 
-    def closeConnector(self, fileName, nameSalt):
-        snowflake_connector_name = fileName.split(".")[0] + nameSalt
-        delete_url = (
-            f"http://{self.kafkaConnectAddress}/connectors/{snowflake_connector_name}"
-        )
-        logger.info(f"=== Delete connector {snowflake_connector_name} ===")
+    def closeConnector(self, connector_name: str):
+        delete_url = f"http://{self.kafkaConnectAddress}/connectors/{connector_name}"
+        logger.info(f"=== Delete connector {connector_name} ===")
         code = requests.delete(delete_url, timeout=10).status_code
         logger.info(f"Delete response code: {code}")
 
-    def createConnector(self, fileName, nameSalt, *, config_transform=None):
-        """Returns the generated config."""
+    Config = Dict[str, str]
 
-        rest_template_path = Path("rest_request_template")
+    def createConnector(
+        self,
+        name_salt: str,
+        *,
+        # Either pass those:
+        unsalted_name: str = None,
+        config_template: Config = None,
+        # Or those (deprecated):
+        rest_request_template_filename: str = None,
+        config_transform: Callable[[Config], Config] = None,
+    ):
+        """Creates the connector either with:
+        - an unsalted name and a config template
+        - a REST request template filename and an optional transform
 
+        Returns the generated config."""
+
+        match rest_request_template_filename:
+            case None:
+                assert unsalted_name is not None
+                assert config_template is not None
+                assert config_transform is None
+                rest_request_template = {
+                    "name": "SNOWFLAKE_CONNECTOR_NAME",
+                    "config": config_template,
+                }
+            case _:
+                assert unsalted_name is None
+                assert config_template is None
+                rest_request_template_path = (
+                    Path("rest_request_template") / rest_request_template_filename
+                )
+                logger.info(
+                    f"=== Generating connector REST request from {rest_request_template_path} ==="
+                )
+                unsalted_name = rest_request_template_filename.split(".")[0]
+                with rest_request_template_path.open() as f:
+                    rest_request_template = json.load(f)
+
+        snowflake_connector_name = unsalted_name + name_salt
+        logger.info(f"=== Creating connector: {snowflake_connector_name} ===")
         logger.info(
-            f"=== generate sink connector rest request from {rest_template_path} ==="
+            f"Config template: {json.dumps(rest_request_template['config'], indent=4)}"
         )
-        snowflake_connector_name = fileName.split(".")[0] + nameSalt
+
         snowflake_topic_name = snowflake_connector_name
-
-        logger.info(
-            f"=== Connector Config JSON: {fileName}, Connector Name: {snowflake_connector_name} ==="
-        )
-        with (rest_template_path / fileName).open() as f:
-            config_template = json.load(f)
 
         def replace_values(obj, replacements):
             """Recursively traverse a parsed JSON object, applying substring replacements to string values."""
@@ -497,8 +527,8 @@ class KafkaDriver:
             else:
                 return obj
 
-        config = replace_values(
-            config_template,
+        rest_request = replace_values(
+            rest_request_template,
             {
                 "SNOWFLAKE_HOST": self.credentials.make_url(),
                 "SNOWFLAKE_DATABASE": self.credentials.database,
@@ -509,12 +539,12 @@ class KafkaDriver:
                 "CONFLUENT_SCHEMA_REGISTRY": self.schemaRegistryAddress,
                 "SNOWFLAKE_TEST_TOPIC": snowflake_topic_name,
                 "SNOWFLAKE_CONNECTOR_NAME": snowflake_connector_name,
-                "_NAME_SALT": nameSalt,
+                "_NAME_SALT": name_salt,
             },
         )
 
         if config_transform is not None:
-            config = config_transform(config)
+            rest_request["config"] = config_transform(rest_request["config"])
 
         MAX_RETRY = 9
         retry = 0
@@ -540,7 +570,7 @@ class KafkaDriver:
             logger.error(f"Kafka Delete request not successful: {delete_url}")
 
         logger.info(f"Post HTTP request to Create Connector: {post_url}")
-        r = requests.post(post_url, json=config, headers=self.httpHeader)
+        r = requests.post(post_url, json=rest_request, headers=self.httpHeader)
         logger.info(
             f"Connector Name:{snowflake_connector_name} POST Response:{r.status_code}"
         )
@@ -552,7 +582,7 @@ class KafkaDriver:
             logger.info(
                 f"Retrying POST request for connector:{snowflake_connector_name}"
             )
-            r = requests.post(post_url, json=config, headers=self.httpHeader)
+            r = requests.post(post_url, json=rest_request, headers=self.httpHeader)
             logger.info(
                 f"Connector Name:{snowflake_connector_name} POST Response:{r.status_code}"
             )
@@ -565,4 +595,4 @@ class KafkaDriver:
             f"Get Connectors status:{getConnectorResponse.status_code}, response:{getConnectorResponse.content}"
         )
 
-        return config
+        return rest_request

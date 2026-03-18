@@ -40,7 +40,9 @@ def test_kc_delete_create_chaos(
     _send_batch(driver, topic, RECORD_COUNT)
     sleep(SLEEP_TIME)
 
-    driver.createConnector(CONFIG_FILE, name_salt)
+    driver.createConnector(
+        name_salt=name_salt, rest_request_template_filename=CONFIG_FILE
+    )
     sleep(SLEEP_TIME)
 
     _send_batch(driver, topic, RECORD_COUNT)
