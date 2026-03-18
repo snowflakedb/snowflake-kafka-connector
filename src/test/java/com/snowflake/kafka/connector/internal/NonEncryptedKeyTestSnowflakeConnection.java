@@ -2,11 +2,11 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.transformProfileFileToConnectorConfiguration;
 
-import net.snowflake.client.api.driver.SnowflakeDriver;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import java.sql.Connection;
 import java.util.Map;
 import java.util.Properties;
+import net.snowflake.client.api.driver.SnowflakeDriver;
 
 /** Connection to test environment generated from a profile file stored locally. */
 public class NonEncryptedKeyTestSnowflakeConnection {

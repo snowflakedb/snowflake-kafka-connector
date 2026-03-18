@@ -169,11 +169,9 @@ public class InternalUtils {
         && conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT) != null) {
       proxyProperties.put(JdbcPropertyKeys.USE_PROXY, "true");
       proxyProperties.put(
-          JdbcPropertyKeys.PROXY_HOST,
-          conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
+          JdbcPropertyKeys.PROXY_HOST, conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
       proxyProperties.put(
-          JdbcPropertyKeys.PROXY_PORT,
-          conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT));
+          JdbcPropertyKeys.PROXY_PORT, conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT));
 
       // nonProxyHosts parameter is not required. Check if it was set or not.
       if (conf.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS) != null) {

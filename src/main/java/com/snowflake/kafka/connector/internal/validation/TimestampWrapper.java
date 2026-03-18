@@ -53,7 +53,9 @@ public class TimestampWrapper {
     }
     this.epoch = offsetDateTime.toEpochSecond();
     this.fraction =
-        offsetDateTime.getNano() / Power10Util.intTable[9 - scale] * Power10Util.intTable[9 - scale];
+        offsetDateTime.getNano()
+            / Power10Util.intTable[9 - scale]
+            * Power10Util.intTable[9 - scale];
     this.timezoneOffsetSeconds = offsetDateTime.getOffset().getTotalSeconds();
     this.scale = scale;
   }
