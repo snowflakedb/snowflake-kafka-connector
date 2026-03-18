@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.telemetry;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.channelMetricPrefix;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -10,6 +11,8 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.ObjectMapper;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -69,5 +72,33 @@ public class SnowflakeTelemetryChannelStatusTest {
     snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
     verify(metricsJmxReporter, times(0))
         .removeMetricsFromRegistry(channelMetricPrefix(channelName));
+  }
+
+  @Test
+  public void testValidationFailureCountInDumpTo() {
+    SnowflakeTelemetryChannelStatus status =
+        new SnowflakeTelemetryChannelStatus(
+            tableName,
+            connectorName,
+            channelName,
+            1234,
+            Optional.empty(),
+            new AtomicLong(-1),
+            new AtomicLong(-1),
+            new AtomicLong(-1));
+
+    // Initially zero
+    ObjectNode msg = new ObjectMapper().createObjectNode();
+    status.dumpTo(msg);
+    assertEquals(0, msg.get(TelemetryConstants.VALIDATION_FAILURE_COUNT).asLong());
+
+    // Increment and verify
+    status.incValidationFailureCount();
+    status.incValidationFailureCount();
+    status.incValidationFailureCount();
+
+    msg = new ObjectMapper().createObjectNode();
+    status.dumpTo(msg);
+    assertEquals(3, msg.get(TelemetryConstants.VALIDATION_FAILURE_COUNT).asLong());
   }
 }

@@ -408,7 +408,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
       LOGGER.info(
           "Client-side validation enabled for channel {}. Table {} has {} columns,"
-              + " schemaEvolution={}",
+              + " enableSchematization={}",
           channelName,
           tableName,
           this.tableSchema.size(),
@@ -428,15 +428,17 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   private void handleValidationError(ValidationResult result, SinkRecord record) {
-    LOGGER.warn(
-        "Client-side validation failure [{}] channel={}, column={}, error={}, offset={}",
-        result.getErrorType(),
-        channelName,
-        result.getColumnName(),
-        result.getValueError(),
-        record.kafkaOffset());
+    if (streamingErrorHandler.isLogErrors()) {
+      LOGGER.warn(
+          "Client-side validation failure [{}] channel={}, column={}, error={}, offset={}",
+          result.getErrorType(),
+          channelName,
+          result.getColumnName(),
+          result.getValueError(),
+          record.kafkaOffset());
+    }
 
-    telemetryService.reportValidationFailureEvent(channelName, tableName, result.getErrorType());
+    snowflakeTelemetryChannelStatus.incValidationFailureCount();
 
     String errorMsg =
         String.format(
@@ -446,20 +448,22 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private void handleStructuralError(
       ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
-    LOGGER.warn(
-        "Client-side structural validation failure [{}] channel={}, "
-            + "hasSchemaEvolutionPermission={}, extraCols={}, missingNotNull={}, "
-            + "nullNotNull={}, offset={}",
-        result.getErrorType(),
-        channelName,
-        shouldEvolveSchema,
-        result.getExtraColNames(),
-        result.getMissingNotNullColNames(),
-        result.getNullValueForNotNullColNames(),
-        record.kafkaOffset());
+    if (streamingErrorHandler.isLogErrors()) {
+      LOGGER.warn(
+          "Client-side structural validation failure [{}] channel={}, "
+              + "hasSchemaEvolutionPermission={}, extraCols={}, missingNotNull={}, "
+              + "nullNotNull={}, offset={}",
+          result.getErrorType(),
+          channelName,
+          shouldEvolveSchema,
+          result.getExtraColNames(),
+          result.getMissingNotNullColNames(),
+          result.getNullValueForNotNullColNames(),
+          record.kafkaOffset());
+    }
 
     if (!shouldEvolveSchema) {
-      telemetryService.reportValidationFailureEvent(channelName, tableName, result.getErrorType());
+      snowflakeTelemetryChannelStatus.incValidationFailureCount();
 
       String errorMsg =
           String.format(
@@ -487,6 +491,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           return;
         }
       }
+
+      snowflakeTelemetryChannelStatus.incValidationFailureCount();
 
       String errorMsg =
           String.format(
