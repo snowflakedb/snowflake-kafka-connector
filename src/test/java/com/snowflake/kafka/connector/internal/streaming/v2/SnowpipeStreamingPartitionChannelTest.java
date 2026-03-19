@@ -262,14 +262,6 @@ class SnowpipeStreamingPartitionChannelTest {
         partitionChannel.isInitializing(), "Should not be initializing after future completes");
   }
 
-  @Test
-  void isInitializingReturnsFalseAfterSuccessfulInit() {
-    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
-    partitionChannel.getChannel();
-
-    assertFalse(partitionChannel.isInitializing());
-  }
-
   private SinkRecord buildValidRecord(long offset) {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);

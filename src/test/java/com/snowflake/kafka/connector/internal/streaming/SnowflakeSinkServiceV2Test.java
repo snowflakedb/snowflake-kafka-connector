@@ -9,11 +9,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
+import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,6 +28,7 @@ import java.util.function.Function;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -33,6 +36,7 @@ import org.mockito.ArgumentCaptor;
 class SnowflakeSinkServiceV2Test {
 
   private static final String TOPIC = "test_topic";
+  private static final String CONNECTOR_NAME = "test_connector";
 
   private PartitionChannelManager mockChannelManager;
   private BatchOffsetFetcher mockBatchOffsetFetcher;
@@ -45,13 +49,22 @@ class SnowflakeSinkServiceV2Test {
     mockBatchOffsetFetcher = mock(BatchOffsetFetcher.class);
     mockSinkTaskContext = mock(SinkTaskContext.class);
 
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.isClosed()).thenReturn(false);
+
     service =
         new SnowflakeSinkServiceV2(
-            mockChannelManager,
-            mockBatchOffsetFetcher,
+            mockConn,
+            SinkTaskConfigTestBuilder.builder().connectorName(CONNECTOR_NAME).taskId("0").build(),
             mockSinkTaskContext,
-            ConnectorConfigTools.BehaviorOnNullValues.DEFAULT,
-            false);
+            Optional.empty(),
+            () -> mockBatchOffsetFetcher,
+            () -> mockChannelManager);
+  }
+
+  @AfterEach
+  void tearDown() {
+    ThreadPools.closeForTask(CONNECTOR_NAME);
   }
 
   // --- insert() skip logic ---

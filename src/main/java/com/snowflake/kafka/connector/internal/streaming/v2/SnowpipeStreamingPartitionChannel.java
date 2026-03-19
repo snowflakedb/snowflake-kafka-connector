@@ -625,6 +625,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       return this.getChannel().isClosed();
     } catch (RuntimeException e) {
       // If the channel failed to initialize, we consider it closed.
+      LOGGER.warn(
+          "Channel {} failed to initialize, treating as closed: {}", channelName, e.getMessage());
       return true;
     }
   }

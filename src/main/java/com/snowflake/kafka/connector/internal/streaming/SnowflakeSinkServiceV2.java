@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -83,6 +84,38 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SinkTaskContext sinkTaskContext,
       Optional<MetricsJmxReporter> metricsJmxReporter,
       TaskMetrics taskMetrics) {
+    this(
+        conn,
+        taskConfig,
+        sinkTaskContext,
+        metricsJmxReporter,
+        () ->
+            new BatchOffsetFetcher(
+                taskConfig.getConnectorName(),
+                taskConfig.getTaskId(),
+                taskConfig,
+                ThreadPools.getIoExecutor(taskConfig.getConnectorName()),
+                taskMetrics),
+        () ->
+            new PartitionChannelManager(
+                conn.getTelemetryClient(),
+                taskConfig,
+                recordErrorReporter,
+                sinkTaskContext,
+                metricsJmxReporter,
+                taskConfig.getConnectorName(),
+                taskConfig.getTaskId(),
+                taskMetrics,
+                conn));
+  }
+
+  SnowflakeSinkServiceV2(
+      SnowflakeConnectionService conn,
+      SinkTaskConfig taskConfig,
+      SinkTaskContext sinkTaskContext,
+      Optional<MetricsJmxReporter> metricsJmxReporter,
+      Supplier<BatchOffsetFetcher> batchOffsetFetcherFactory,
+      Supplier<PartitionChannelManager> channelManagerFactory) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -90,37 +123,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.taskConfig = taskConfig;
     this.sinkTaskContext = sinkTaskContext;
     this.metricsJmxReporter = metricsJmxReporter;
-    this.topicToTableMap = taskConfig.getTopicToTableMap();
-    this.behaviorOnNullValues = taskConfig.getBehaviorOnNullValues();
 
     // Connector name and task ID already validated by SinkTaskConfig.from()
     this.connectorName = taskConfig.getConnectorName();
     this.taskId = taskConfig.getTaskId();
-
+    this.topicToTableMap = taskConfig.getTopicToTableMap();
+    this.behaviorOnNullValues = taskConfig.getBehaviorOnNullValues();
     this.tolerateErrors = taskConfig.isTolerateErrors();
     this.enableSanitization = taskConfig.isEnableSanitization();
 
     ThreadPools.registerTask(this.connectorName, taskConfig);
 
-    this.batchOffsetFetcher =
-        new BatchOffsetFetcher(
-            this.connectorName,
-            this.taskId,
-            taskConfig,
-            ThreadPools.getIoExecutor(this.connectorName),
-            taskMetrics);
-
-    this.channelManager =
-        new PartitionChannelManager(
-            conn.getTelemetryClient(),
-            taskConfig,
-            recordErrorReporter,
-            sinkTaskContext,
-            metricsJmxReporter,
-            this.connectorName,
-            this.taskId,
-            taskMetrics,
-            conn);
+    this.batchOffsetFetcher = batchOffsetFetcherFactory.get();
+    this.channelManager = channelManagerFactory.get();
 
     // Log validation configuration for operator visibility
     logValidationConfiguration();
@@ -132,27 +147,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.taskId,
         this.tolerateErrors,
         this.enableSanitization);
-  }
-
-  @VisibleForTesting
-  SnowflakeSinkServiceV2(
-      PartitionChannelManager channelManager,
-      BatchOffsetFetcher batchOffsetFetcher,
-      SinkTaskContext sinkTaskContext,
-      ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues,
-      boolean tolerateErrors) {
-    this.channelManager = channelManager;
-    this.batchOffsetFetcher = batchOffsetFetcher;
-    this.sinkTaskContext = sinkTaskContext;
-    this.behaviorOnNullValues = behaviorOnNullValues;
-    this.tolerateErrors = tolerateErrors;
-    this.conn = null;
-    this.taskConfig = null;
-    this.topicToTableMap = null;
-    this.metricsJmxReporter = Optional.empty();
-    this.connectorName = null;
-    this.taskId = null;
-    this.enableSanitization = false;
   }
 
   /**
@@ -316,7 +310,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           initializingPartitions);
     }
 
-    Map<TopicPartition, Long> firstSkippedOffsets = new HashMap<>();
+    Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
@@ -325,7 +319,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
       TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
       if (initializingPartitions.contains(tp)) {
-        firstSkippedOffsets.putIfAbsent(tp, record.kafkaOffset());
+        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
         continue;
       }
 
@@ -335,9 +329,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // SinkTaskContext is not set in some tests.
     // In those tests, we await initialization before calling insert to ensure nothing is skipped.
     if (sinkTaskContext != null) {
-      firstSkippedOffsets.forEach(sinkTaskContext::offset);
+      if (!offsetsOfFirstSkippedRecord.isEmpty()) {
+        LOGGER.info(
+            "Rewinding offsets for initializing partitions: {}", offsetsOfFirstSkippedRecord);
+        offsetsOfFirstSkippedRecord.forEach(sinkTaskContext::offset);
+      }
     } else {
-      assert firstSkippedOffsets.isEmpty();
+      if (!offsetsOfFirstSkippedRecord.isEmpty()) {
+        throw new IllegalStateException(
+            "Records were skipped but SinkTaskContext is null, cannot rewind offsets: "
+                + offsetsOfFirstSkippedRecord);
+      }
     }
   }
 
