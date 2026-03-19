@@ -18,11 +18,13 @@ def _send_batch(driver, topic, record_count):
 
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_kc_delete_resume_chaos(driver, name_salt, create_connector, snowflake_table):
+def test_kc_delete_resume_chaos(
+    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+):
     """Verify connector behavior during delete with pressure and a failed resume.
 
     Sequence:
-      1. Send batch 1 → ingested
+      1. Send batch 1 → wait for ingestion → ingested
       2. Delete connector
       3. Send batch 2 (pressure during deletion) → partially ingested
       4. Resume connector → fails silently (connector was deleted)
@@ -45,8 +47,9 @@ def test_kc_delete_resume_chaos(driver, name_salt, create_connector, snowflake_t
     create_connector(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
-    # -- Send batch 1 --
+    # -- Send batch 1 and wait for it to be ingested --
     _send_batch(driver, topic, RECORD_COUNT)
+    wait_for_rows(topic, RECORD_COUNT, connector_name=connector_name)
 
     # -- Delete connector + pressure (batch 2 sent during deletion) --
     driver.deleteConnector(connector_name)
@@ -61,17 +64,20 @@ def test_kc_delete_resume_chaos(driver, name_salt, create_connector, snowflake_t
     _send_batch(driver, topic, RECORD_COUNT)
 
     # -- Verify: between 1 and 2 batches ingested --
-    # Cannot use wait_for_rows (exact match) since batch 2 may partially arrive,
+    # Cannot use wait_for_rows (exact match) since batch 2 may partially arrive
+    # (deleteConnector returns immediately without waiting for full shutdown),
     # making the total non-deterministic. Poll until count >= RECORD_COUNT instead.
-    deadline = time.monotonic() + 600
-    while driver.select_number_of_records(topic) < RECORD_COUNT:
+    deadline = time.monotonic() + 60
+    while True:
+        count = driver.select_number_of_records(topic)
+        if count >= RECORD_COUNT:
+            break
         if time.monotonic() >= deadline:
             raise AssertionError(
-                f"Timed out waiting for at least {RECORD_COUNT} rows in {topic}"
+                f"Expected at least {RECORD_COUNT} rows in {topic}, got {count}"
             )
-        sleep(10)
+        sleep(5)
 
-    count = driver.select_number_of_records(topic)
     upper_bound = RECORD_COUNT * 2
     assert count <= upper_bound, (
         f"Expected at most {upper_bound} rows, got {count} — "

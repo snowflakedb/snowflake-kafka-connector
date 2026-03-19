@@ -23,7 +23,7 @@ def test_kc_delete_resume(
     """Verify that resuming a deleted connector is a no-op.
 
     Sequence:
-      1. Send batch 1 → ingested
+      1. Send batch 1 → wait for ingestion → ingested
       2. Delete connector
       3. Resume connector → fails silently (connector was deleted)
       4. Send batch 2 → NOT ingested (no running connector)
@@ -42,8 +42,9 @@ def test_kc_delete_resume(
     create_connector(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
-    # -- Send batch 1 --
+    # -- Send batch 1 and wait for it to be ingested before deleting --
     _send_batch(driver, topic, RECORD_COUNT)
+    wait_for_rows(topic, RECORD_COUNT, connector_name=connector_name)
 
     # -- Delete connector --
     driver.deleteConnector(connector_name)
