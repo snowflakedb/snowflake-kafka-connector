@@ -201,13 +201,14 @@ class SnowflakeSinkServiceV2Test {
     verify(channel, never()).insertRecord(any(), anyBoolean());
     verify(mockSinkTaskContext).offset(tp, 10);
 
-    // Channel finishes initializing
+    // Channel finishes initializing — Kafka re-delivers from the rewound offset
     when(channel.isInitializing()).thenReturn(false);
 
-    SinkRecord record2 = recordFor(TOPIC, 0, 10);
+    SinkRecord record2 = recordFor(TOPIC, 0, 11);
     service.insert(List.of(record1, record2));
 
-    verify(channel).insertRecord(record2, true);
+    verify(channel).insertRecord(record1, true);
+    verify(channel).insertRecord(record2, false);
   }
 
   // --- helpers ---

@@ -53,7 +53,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private static final KCLogger LOGGER = new KCLogger(SnowflakeSinkServiceV2.class.getName());
 
-  // Used to connect to Snowflake, could be null during testing
   private final SnowflakeConnectionService conn;
 
   private final Map<String, String> topicToTableMap;
@@ -326,20 +325,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       insert(record);
     }
 
-    // SinkTaskContext is not set in some tests.
-    // In those tests, we await initialization before calling insert to ensure nothing is skipped.
-    if (sinkTaskContext != null) {
-      if (!offsetsOfFirstSkippedRecord.isEmpty()) {
-        LOGGER.info(
-            "Rewinding offsets for initializing partitions: {}", offsetsOfFirstSkippedRecord);
-        offsetsOfFirstSkippedRecord.forEach(sinkTaskContext::offset);
-      }
-    } else {
-      if (!offsetsOfFirstSkippedRecord.isEmpty()) {
-        throw new IllegalStateException(
-            "Records were skipped but SinkTaskContext is null, cannot rewind offsets: "
-                + offsetsOfFirstSkippedRecord);
-      }
+    if (!offsetsOfFirstSkippedRecord.isEmpty()) {
+      LOGGER.info("Rewinding offsets for initializing partitions: {}", offsetsOfFirstSkippedRecord);
+      offsetsOfFirstSkippedRecord.forEach(sinkTaskContext::offset);
     }
   }
 
