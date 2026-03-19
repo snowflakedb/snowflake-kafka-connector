@@ -70,6 +70,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
+    sinkTask.awaitInitialization();
 
     // commit offset
     final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
@@ -106,6 +107,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();
     topicPartitions.add(new TopicPartition(topicName, partition));
     sinkTask.open(topicPartitions);
+    sinkTask.awaitInitialization();
 
     final long noOfRecords = 1L;
     final long lastOffsetNo = noOfRecords - 1;
@@ -133,6 +135,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     topicPartitions.add(new TopicPartition(topicName, partition + 1));
 
     sinkTask.open(topicPartitions);
+    sinkTask.awaitInitialization();
 
     // trying to put same records
     sinkTask.put(records);
@@ -333,6 +336,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     task.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     task.start(config);
     task.open(Collections.singletonList(topicPartition));
+    task.awaitInitialization();
 
     // Create and send records
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 5, topicName, 0);
@@ -400,6 +404,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     task.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
     task.start(config);
     task.open(Collections.singletonList(topicPartition));
+    task.awaitInitialization();
 
     // Create and send records
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 5, topicName, 0);

@@ -50,7 +50,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private static final KCLogger LOGGER =
       new KCLogger(SnowpipeStreamingPartitionChannel.class.getName());
 
-  private CompletableFuture<SnowflakeStreamingIngestChannel> channel;
+  private volatile CompletableFuture<SnowflakeStreamingIngestChannel> channel;
   private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
   private final PartitionOffsetTracker offsetTracker;
@@ -610,11 +610,23 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
+  public boolean isInitializing() {
+    return !channel.isDone();
+  }
+
+  @Override
+  public void awaitInitialization() {
+    channel.join();
+  }
+
+  @Override
   public boolean isChannelClosed() {
     try {
       return this.getChannel().isClosed();
     } catch (RuntimeException e) {
       // If the channel failed to initialize, we consider it closed.
+      LOGGER.warn(
+          "Channel {} failed to initialize, treating as closed: {}", channelName, e.getMessage());
       return true;
     }
   }
