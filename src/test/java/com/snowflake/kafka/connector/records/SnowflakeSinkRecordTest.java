@@ -635,7 +635,7 @@ class SnowflakeSinkRecordTest {
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
     assertTrue(content.containsKey("RECORD_CONTENT"));
-    assertEquals("just a plain string", content.get("RECORD_CONTENT"));
+    assertEquals("\"just a plain string\"", content.get("RECORD_CONTENT"));
   }
 
   @Test
@@ -652,7 +652,8 @@ class SnowflakeSinkRecordTest {
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
     assertTrue(content.containsKey("RECORD_CONTENT"));
-    assertEquals(Base64.getEncoder().encodeToString(bytes), content.get("RECORD_CONTENT"));
+    assertEquals(
+        "\"" + Base64.getEncoder().encodeToString(bytes) + "\"", content.get("RECORD_CONTENT"));
   }
 
   @Test

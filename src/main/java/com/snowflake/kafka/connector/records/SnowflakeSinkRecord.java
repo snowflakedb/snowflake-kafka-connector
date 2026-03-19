@@ -2,6 +2,8 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.validation.SqlIdentifierNormalizer;
 import java.time.Instant;
@@ -105,13 +107,23 @@ public final class SnowflakeSinkRecord {
     }
   }
 
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
   private static Map<String, Object> wrapAsRecordContent(Schema schema, Object value) {
     Map<String, Object> content = new HashMap<>();
     Object convertedValue;
     if (value instanceof Map || value instanceof Struct) {
+      // Store as Map so the SDK infers VARIANT (not VARCHAR from a JSON string)
       convertedValue = KafkaRecordConverter.convertToMap(schema, value);
     } else {
-      convertedValue = KafkaRecordConverter.convertValue(schema, value);
+      // For primitive values (strings, bytes, etc.), JSON-serialize so the SDK
+      // can insert them as valid JSON into VARIANT columns.
+      try {
+        convertedValue =
+            MAPPER.writeValueAsString(KafkaRecordConverter.convertValue(schema, value));
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException("Failed to serialize record content", e);
+      }
     }
     content.put(Utils.TABLE_COLUMN_CONTENT, convertedValue);
     return content;
