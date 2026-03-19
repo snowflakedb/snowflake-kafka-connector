@@ -535,7 +535,30 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       LOGGER.info("Attempting schema evolution for channel {}, table {}", channelName, tableName);
       SchemaEvolutionTargetItems items =
           ValidationResultMapper.mapToSchemaEvolutionItems(result, tableName);
-      schemaEvolutionService.evolveSchemaIfNeeded(items, snowflakeRecord);
+      // When schematization is off, the transformed record has different columns
+      // (RECORD_CONTENT, RECORD_METADATA) than the original SinkRecord. Use a
+      // synthetic record so the resolver infers VARIANT for those columns.
+      SnowflakeSinkRecord recordForEvolution;
+      if (enableSchematization) {
+        recordForEvolution = snowflakeRecord;
+      } else {
+        SinkRecord syntheticKafkaRecord =
+            new SinkRecord(
+                kafkaRecord.topic(),
+                kafkaRecord.kafkaPartition(),
+                null,
+                null,
+                null,
+                transformedRecord,
+                kafkaRecord.kafkaOffset());
+        recordForEvolution =
+            SnowflakeSinkRecord.from(
+                syntheticKafkaRecord,
+                metadataConfig,
+                true,
+                enableColumnIdentifierNormalization);
+      }
+      schemaEvolutionService.evolveSchemaIfNeeded(items, recordForEvolution);
 
       refreshTableSchema();
 

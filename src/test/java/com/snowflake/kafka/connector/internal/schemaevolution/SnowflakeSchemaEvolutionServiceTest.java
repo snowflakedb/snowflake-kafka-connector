@@ -169,4 +169,33 @@ public class SnowflakeSchemaEvolutionServiceTest {
     inOrder.verify(mockConn).appendColumnsToTable(eq("test_table"), anyMap());
     inOrder.verify(mockConn).alterNonNullableColumns(eq("test_table"), anyList());
   }
+
+  @Test
+  public void testEvolveSchemaWithTransformedRecordContent() {
+    // Simulates the schematization=off path where the transformed record
+    // contains RECORD_CONTENT (a Map) instead of the original flat fields.
+    Map<String, Object> transformedRecord = new HashMap<>();
+    transformedRecord.put("RECORD_CONTENT", new HashMap<>(Map.of("city", "Hsinchu", "age", 42)));
+    transformedRecord.put("RECORD_METADATA", new HashMap<>(Map.of("offset", 0)));
+
+    SinkRecord syntheticKafkaRecord =
+        new SinkRecord("topic", 0, null, null, null, transformedRecord, 0);
+    SnowflakeSinkRecord syntheticRecord = toSinkRecord(syntheticKafkaRecord);
+
+    SchemaEvolutionTargetItems items =
+        new SchemaEvolutionTargetItems(
+            "test_table",
+            Collections.emptySet(),
+            new HashSet<>(Arrays.asList("RECORD_CONTENT")));
+
+    service.evolveSchemaIfNeeded(items, syntheticRecord);
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, ColumnInfos>> schemaCaptor = ArgumentCaptor.forClass(Map.class);
+    verify(mockConn).appendColumnsToTable(eq("test_table"), schemaCaptor.capture());
+
+    Map<String, ColumnInfos> addedColumns = schemaCaptor.getValue();
+    assertTrue(addedColumns.containsKey("RECORD_CONTENT"));
+    assertEquals("VARIANT", addedColumns.get("RECORD_CONTENT").getColumnType());
+  }
 }

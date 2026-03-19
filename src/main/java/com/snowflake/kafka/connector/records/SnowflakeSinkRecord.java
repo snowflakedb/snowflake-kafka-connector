@@ -2,8 +2,6 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.validation.SqlIdentifierNormalizer;
 import java.time.Instant;
@@ -22,8 +20,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * Snowflake Streaming Ingest SDK ({@code Map<String, Object>}).
  */
 public final class SnowflakeSinkRecord {
-
-  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   static final String OFFSET = "offset";
 
@@ -111,18 +107,13 @@ public final class SnowflakeSinkRecord {
 
   private static Map<String, Object> wrapAsRecordContent(Schema schema, Object value) {
     Map<String, Object> content = new HashMap<>();
-    try {
-      Object convertedValue;
-      if (value instanceof Map || value instanceof Struct) {
-        convertedValue = KafkaRecordConverter.convertToMap(schema, value);
-      } else {
-        convertedValue = KafkaRecordConverter.convertValue(schema, value);
-      }
-      String jsonString = MAPPER.writeValueAsString(convertedValue);
-      content.put(Utils.TABLE_COLUMN_CONTENT, jsonString);
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException("Failed to serialize value to JSON", e);
+    Object convertedValue;
+    if (value instanceof Map || value instanceof Struct) {
+      convertedValue = KafkaRecordConverter.convertToMap(schema, value);
+    } else {
+      convertedValue = KafkaRecordConverter.convertValue(schema, value);
     }
+    content.put(Utils.TABLE_COLUMN_CONTENT, convertedValue);
     return content;
   }
 

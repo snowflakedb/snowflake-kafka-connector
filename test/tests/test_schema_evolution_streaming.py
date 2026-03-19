@@ -333,14 +333,6 @@ def test_schema_evolution_config_variants(
                 "evolved and the V1 SDK rejects it as an extra column"
             )
 
-    if schema_evo and not schematization:
-        pytest.skip(
-            "TODO: client-side schema evolution with schematization=off infers "
-            "column type from the original SinkRecord instead of using VARIANT "
-            "for RECORD_CONTENT. Server-side schema evolution infers the "
-            "RECORD_CONTENT column type as VARCHAR instead of VARIANT."
-        )
-
     evo_clause = "TRUE" if schema_evo else "FALSE"
     table = create_table(
         FILE_NAME.upper(),
@@ -387,4 +379,82 @@ def test_schema_evolution_config_variants(
         ]
         driver.sendBytesData(topic, values, [], partition=0)
 
-        _assert_dlq(driver, config, table, record_count)
+        _assert_dlq(driver, config, topic, record_count)
+
+
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
+@pytest.mark.parametrize("validation", [True, False], ids=["valid=on", "valid=off"])
+def test_schema_evolution_nested_record_content(
+    driver, name_salt, create_connector, snowflake_table, wait_for_rows, validation
+):
+    """Schema evolution with schematization=off and nested data.
+
+    Verifies that RECORD_CONTENT is created as VARIANT (not VARCHAR) and that
+    nested objects, arrays, and mixed types are preserved and queryable.
+    """
+    topic = snowflake_table(
+        FILE_NAME,
+        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
+        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+    )
+
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+
+    overrides = {
+        "snowflake.enable.schematization": "false",
+        "snowflake.client.validation.enabled": str(validation).lower(),
+    }
+    create_connector(CONFIG_FILE, config_overrides=overrides)
+    driver.startConnectorWaitTime()
+
+    record_count = 50
+    values = [
+        json.dumps(
+            {
+                "user": {"name": "Alice", "scores": [1, 2, 3]},
+                "tags": ["a", "b"],
+                "count": i,
+            }
+        ).encode("utf-8")
+        for i in range(record_count)
+    ]
+    driver.sendBytesData(topic, values, [], partition=0)
+
+    wait_for_rows(topic, record_count)
+
+    # Verify RECORD_CONTENT column exists and is VARIANT
+    cols = {
+        row[0]: row[1]
+        for row in driver.snowflake_conn.cursor()
+        .execute(f"DESCRIBE TABLE {topic}")
+        .fetchall()
+    }
+    assert "RECORD_CONTENT" in cols, (
+        f"Expected RECORD_CONTENT column, got: {list(cols.keys())}"
+    )
+    assert "VARIANT" in cols["RECORD_CONTENT"].upper(), (
+        f"Expected RECORD_CONTENT to be VARIANT, got: {cols['RECORD_CONTENT']}"
+    )
+
+    # Verify nested data is queryable
+    row = (
+        driver.snowflake_conn.cursor(DictCursor)
+        .execute(
+            f"SELECT "
+            f"RECORD_CONTENT:user.name::string AS user_name, "
+            f"RECORD_CONTENT:user.scores[0]::number AS first_score, "
+            f"RECORD_CONTENT:tags[0]::string AS first_tag, "
+            f"RECORD_CONTENT:count::number AS cnt "
+            f"FROM {topic} "
+            f'WHERE RECORD_METADATA:"offset"::number = 0'
+        )
+        .fetchone()
+    )
+    assert row is not None, "Expected row with offset 0"
+    assert row["USER_NAME"] == "Alice"
+    assert row["FIRST_SCORE"] == 1
+    assert row["FIRST_TAG"] == "a"
+    assert row["CNT"] == 0
+
+    count = driver.select_number_of_records(topic)
+    assert count == record_count, f"Expected {record_count} rows, got {count}"
