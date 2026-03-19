@@ -7,7 +7,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test-runner
-    container_name: test-runner
     environment:
       SNOWFLAKE_CREDENTIAL_FILE: /credentials/profile.json
       KAFKA_PLATFORM: ${KAFKA_PLATFORM:-}
@@ -29,4 +28,3 @@ services:
 
 networks:
   default:
-    name: kafka-test-network
