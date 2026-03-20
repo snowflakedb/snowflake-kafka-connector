@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -10,8 +11,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
@@ -211,7 +214,90 @@ class SnowflakeSinkServiceV2Test {
     verify(channel).insertRecord(record2, false);
   }
 
+  // --- startPartitions() pipe resolution (FR5) ---
+
+  @Test
+  void startPartitionsThrowsWhenValidationEnabledAndNonDefaultPipeExists() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.isClosed()).thenReturn(false);
+    when(mockConn.tableExist(TOPIC)).thenReturn(true);
+    when(mockConn.pipeExist(TOPIC)).thenReturn(true);
+
+    SnowflakeSinkServiceV2 svc = buildService(mockConn, /* clientValidationEnabled= */ true);
+
+    TopicPartition tp = new TopicPartition(TOPIC, 0);
+    SnowflakeKafkaConnectorException exception =
+        assertThrows(SnowflakeKafkaConnectorException.class, () -> svc.startPartitions(Set.of(tp)));
+
+    assertTrue(exception.getMessage().contains("0032"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void startPartitionsUsesDefaultPipeWhenValidationEnabledAndNoNonDefaultPipe() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.isClosed()).thenReturn(false);
+    when(mockConn.tableExist(TOPIC)).thenReturn(true);
+    when(mockConn.pipeExist(TOPIC)).thenReturn(false);
+
+    PartitionChannelManager channelMgr = mock(PartitionChannelManager.class);
+    SnowflakeSinkServiceV2 svc =
+        buildService(mockConn, /* clientValidationEnabled= */ true, channelMgr);
+
+    TopicPartition tp = new TopicPartition(TOPIC, 0);
+    svc.startPartitions(Set.of(tp));
+
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(channelMgr).startPartitions(any(), captor.capture());
+    assertEquals(TOPIC + "-STREAMING", captor.getValue().get(TOPIC));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void startPartitionsUsesNonDefaultPipeWhenValidationDisabled() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.isClosed()).thenReturn(false);
+    when(mockConn.tableExist(TOPIC)).thenReturn(true);
+    when(mockConn.pipeExist(TOPIC)).thenReturn(true);
+
+    PartitionChannelManager channelMgr = mock(PartitionChannelManager.class);
+    SnowflakeSinkServiceV2 svc =
+        buildService(mockConn, /* clientValidationEnabled= */ false, channelMgr);
+
+    TopicPartition tp = new TopicPartition(TOPIC, 0);
+    svc.startPartitions(Set.of(tp));
+
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(channelMgr).startPartitions(any(), captor.capture());
+    assertEquals(TOPIC, captor.getValue().get(TOPIC));
+  }
+
   // --- helpers ---
+
+  private SnowflakeSinkServiceV2 buildService(
+      SnowflakeConnectionService conn, boolean clientValidationEnabled) {
+    return buildService(conn, clientValidationEnabled, mock(PartitionChannelManager.class));
+  }
+
+  private SnowflakeSinkServiceV2 buildService(
+      SnowflakeConnectionService conn,
+      boolean clientValidationEnabled,
+      PartitionChannelManager channelManager) {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .clientValidationEnabled(clientValidationEnabled)
+            .enableSanitization(false)
+            .build();
+    return new SnowflakeSinkServiceV2(
+        conn,
+        config,
+        mockSinkTaskContext,
+        Optional.empty(),
+        () -> mock(BatchOffsetFetcher.class),
+        () -> channelManager);
+  }
 
   private static TopicPartitionChannel mockChannel(String channelName, boolean initializing) {
     TopicPartitionChannel channel = mock(TopicPartitionChannel.class);

@@ -164,7 +164,13 @@ public enum SnowflakeErrors {
   ERROR_5030(
       "5030",
       "Channel error count threshold exceeded",
-      "Channel has reported errors during data ingestion. Check the channel history for details.");
+      "Channel has reported errors during data ingestion. Check the channel history for details."),
+  ERROR_0032(
+      "0032",
+      "Non-default pipe not supported with client-side validation",
+      "Client-side validation only supports default pipes ({table}-STREAMING). Either disable"
+          + " client-side validation (snowflake.client.validation.enabled=false) or drop the"
+          + " existing pipe so the connector uses the default pipe.");
 
   // properties
 
