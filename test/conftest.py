@@ -228,9 +228,9 @@ def create_custom_connector(driver: KafkaDriver, name_salt: str):
         name: str
         config: Dict[str, str]
 
-        def close(self):
-            driver.closeConnector(self.name)
+        def close(self, **kwargs):
             created.remove(self)
+            return driver.closeConnector(self.name, **kwargs)
 
     created: List[Connector] = []
 
