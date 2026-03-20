@@ -7,7 +7,13 @@ from pathlib import Path
 
 import requests
 import snowflake.connector
-from confluent_kafka import Consumer, KafkaError, Producer
+from confluent_kafka import (
+    Consumer,
+    ConsumerGroupTopicPartitions,
+    KafkaError,
+    Producer,
+    TopicPartition,
+)
 from confluent_kafka.admin import AdminClient, ConfigResource, NewPartitions, NewTopic
 from confluent_kafka.avro import AvroProducer
 
@@ -427,6 +433,29 @@ class KafkaDriver:
         if status is None:
             return []
         return [t for t in status.get("tasks", []) if t.get("state") == "FAILED"]
+
+    def get_consumer_group_offset(
+        self, connector_name: str, topic: str, partition: int = 0
+    ) -> int | None:
+        """Query the committed consumer group offset for a connector's sink task.
+
+        Returns the committed offset, or None if no offset has been committed yet.
+        """
+        group_id = f"connect-{connector_name}"
+        request = ConsumerGroupTopicPartitions(
+            group_id, [TopicPartition(topic, partition)]
+        )
+        futures = self.adminClient.list_consumer_group_offsets([request])
+        response = futures[group_id].result()
+        for topic_partition in response.topic_partitions:
+            if topic_partition.error:
+                logger.error(
+                    f"Error querying offset for {group_id}/{topic}[{partition}]: "
+                    f"{topic_partition.error}"
+                )
+                return None
+            return topic_partition.offset
+        return None
 
     def restartConnector(self, connectorName):
         requestURL = (
