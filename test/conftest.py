@@ -340,23 +340,29 @@ def wait_for_rows(driver):
         *,
         timeout: int | None = None,
         interval: int | None = None,
+        at_least: bool = False,
         connector_name: str | None = None,
     ):
-        timeout = timeout if timeout is not None else default_timeout
-        interval = interval if interval is not None else default_interval
+        timeout = timeout or default_timeout
+        interval = interval or default_interval
         deadline = time.monotonic() + timeout
         while True:
             count = driver.select_number_of_records(table_name)
             if count == expected:
                 return count
+            if at_least and count > expected:
+                return count
+            if not at_least and count > expected:
+                raise AssertionError(
+                    f"Found more than {expected} rows in {table_name} (got {count})"
+                )
             if time.monotonic() >= deadline:
                 raise AssertionError(
                     f"Timed out waiting for {expected} rows in {table_name} "
                     f"(got {count} after {timeout}s)"
                 )
             if connector_name is not None:
-                failed = driver.get_failed_tasks(connector_name)
-                if failed:
+                if failed := driver.get_failed_tasks(connector_name):
                     traces = "\n".join(
                         f"  task {t['id']}: {t.get('trace', 'no trace')}"
                         for t in failed
@@ -367,11 +373,8 @@ def wait_for_rows(driver):
                         f"(got {count}):\n{traces}"
                     )
             logger.info(
-                "Waiting for %d rows in %s (currently %d), retrying in %ds...",
-                expected,
-                table_name,
-                count,
-                interval,
+                f"Waiting for {'at least ' if at_least else ''}{expected} rows "
+                f"in {table_name} (currently {count}), retrying in {interval}s..."
             )
             time.sleep(interval)
 
