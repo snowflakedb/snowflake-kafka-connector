@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import logging
 import os
 import random
@@ -218,6 +219,39 @@ def name_salt(session_name_salt, connector_version):
     if connector_version == "v3":
         return f"{session_name_salt}_v3"
     return session_name_salt
+
+
+@pytest.fixture()
+def create_custom_connector(driver: KafkaDriver, name_salt: str):
+    @dataclass
+    class Connector:
+        name: str
+        config: Dict[str, str]
+
+        def close(self):
+            driver.closeConnector(self.name)
+            created.remove(self)
+
+    created: List[Connector] = []
+
+    def _create(
+        unsalted_name: str,
+        config_template: Dict[str, str],
+    ) -> Connector:
+        rest_request = driver.createConnector(
+            name_salt=name_salt,
+            unsalted_name=unsalted_name,
+            config_template=config_template,
+        )
+        connector = Connector(name=rest_request["name"], config=rest_request["config"])
+        created.append(connector)
+        return connector
+
+    try:
+        yield _create
+    finally:
+        for connector in reversed(created):
+            driver.closeConnector(connector.name)
 
 
 @pytest.fixture()
