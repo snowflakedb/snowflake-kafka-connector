@@ -37,6 +37,15 @@ public final class Constants {
     public static final String SNOWFLAKE_VALIDATION = "snowflake.validation";
     public static final String SNOWFLAKE_VALIDATION_DEFAULT = "server_side";
 
+    // Snowpipe Streaming Classic (SSv1) offset migration
+    public static final String SNOWFLAKE_SSV1_OFFSET_MIGRATION =
+        "snowflake.streaming.classic.offset.migration";
+    public static final String SNOWFLAKE_SSV1_OFFSET_MIGRATION_DEFAULT = "skip";
+    public static final String SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME =
+        "snowflake.streaming.classic.offset.migration.include.connector.name";
+    public static final boolean SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME_DEFAULT =
+        false;
+
     // Caching
     public static final String CACHE_TABLE_EXISTS = "snowflake.cache.table.exists";
     public static final boolean CACHE_TABLE_EXISTS_DEFAULT = true;

@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
@@ -138,4 +139,21 @@ public interface SnowflakeConnectionService {
    * @return true if error_logging is "Y", false otherwise or if the column is not present
    */
   boolean hasErrorLoggingEnabled(String tableName);
+
+  /**
+   * Calls SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET to migrate the committed offset from an SSv1 channel
+   * to an SSv2 channel. The system function reads the SSv1 offset and writes it directly to the
+   * SSv2 channel in FDB.
+   *
+   * @param tableName unqualified table name (the JDBC session's database/schema are used)
+   * @param ssv1ChannelName SSv1 channel name ({topic}_{partition} or
+   *     {connectorName}_{topic}_{partition})
+   * @param ssv2ChannelName SSv2 channel name ({connectorName}_{topic}_{partition})
+   * @param pipeName SSv2 pipe name
+   * @return the parsed {@link Ssv1MigrationResponse} indicating whether the channel was found and
+   *     (if so) the migrated offset value
+   * @throws RuntimeException if the system function call fails (SQL error, unexpected response)
+   */
+  Ssv1MigrationResponse migrateSsv1ChannelOffset(
+      String tableName, String ssv1ChannelName, String ssv2ChannelName, String pipeName);
 }

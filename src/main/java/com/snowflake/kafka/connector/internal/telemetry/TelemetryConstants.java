@@ -41,5 +41,10 @@ public final class TelemetryConstants {
   public static final String BACKPRESSURE_RETRY_COUNT = "backpressure_retry_count";
   public static final String APPEND_ROW_FALLBACK_COUNT = "append_row_fallback_count";
   public static final String SCHEMA_EVOLUTION_FAILURE_COUNT = "schema_evolution_failure_count";
+  // SSv1 offset migration
+  public static final String SSV1_MIGRATION_MODE = "ssv1_migration_mode";
+  public static final String SSV1_MIGRATION_OUTCOME = "ssv1_migration_outcome";
+  public static final String SSV1_CHANNEL_NAME = "ssv1_channel_name";
+  public static final String SSV1_MIGRATED_OFFSET = "ssv1_migrated_offset";
   // ********** ^ Streaming Constants ^ **********//
 }

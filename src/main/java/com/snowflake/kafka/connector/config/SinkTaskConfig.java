@@ -9,6 +9,7 @@ import com.snowflake.kafka.connector.TopicToTableParser;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.CachingConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.HashMap;
 import java.util.Map;
@@ -78,6 +79,10 @@ public abstract class SinkTaskConfig {
 
   @Nullable
   public abstract String getSnowflakeSchema();
+
+  public abstract Ssv1MigrationMode getSsv1MigrationMode();
+
+  public abstract boolean isSsv1MigrationIncludeConnectorName();
 
   /**
    * Parses the raw connector config map into an immutable SinkTaskConfig. Applies defaults for
@@ -203,6 +208,20 @@ public abstract class SinkTaskConfig {
     CachingConfig cachingConfig = CachingConfig.fromConfig(config);
     SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(config);
 
+    Ssv1MigrationMode ssv1MigrationMode =
+        Ssv1MigrationMode.fromConfig(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION,
+                KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION_DEFAULT));
+
+    boolean ssv1MigrationIncludeConnectorName =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME_DEFAULT)));
+
     String snowflakeUrl = config.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
     String snowflakeUser = config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
     String snowflakeRole = config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
@@ -235,7 +254,9 @@ public abstract class SinkTaskConfig {
         .snowflakePrivateKey(snowflakePrivateKey)
         .snowflakePrivateKeyPassphrase(snowflakePrivateKeyPassphrase)
         .snowflakeDatabase(snowflakeDatabase)
-        .snowflakeSchema(snowflakeSchema);
+        .snowflakeSchema(snowflakeSchema)
+        .ssv1MigrationMode(ssv1MigrationMode)
+        .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName);
   }
 
   /** Creates a new builder. Used by {@link #from(Map)} and by tests. */
@@ -296,6 +317,11 @@ public abstract class SinkTaskConfig {
     public abstract Builder snowflakeDatabase(String snowflakeDatabase);
 
     public abstract Builder snowflakeSchema(String snowflakeSchema);
+
+    public abstract Builder ssv1MigrationMode(Ssv1MigrationMode ssv1MigrationMode);
+
+    public abstract Builder ssv1MigrationIncludeConnectorName(
+        boolean ssv1MigrationIncludeConnectorName);
 
     public abstract SinkTaskConfig build();
   }

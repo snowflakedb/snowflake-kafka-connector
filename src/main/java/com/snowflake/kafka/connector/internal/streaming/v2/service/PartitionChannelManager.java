@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Collection;
 import java.util.Map;
@@ -202,6 +203,23 @@ public class PartitionChannelManager {
             && shouldEvolveSchemaCache.computeIfAbsent(
                 tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
 
+    // KC v3 defaulted to V1 channel naming: {topic}_{partition}.
+    // Customers who set snowflake.streaming.channel.name.include.connector.name=true
+    // in KC v3 used V2 naming: {connectorName}_{topic}_{partition} (same as KC v4).
+    final Ssv1MigrationMode ssv1MigrationMode = taskConfig.getSsv1MigrationMode();
+    final Optional<String> ssv1ChannelName;
+    if (ssv1MigrationMode != Ssv1MigrationMode.SKIP) {
+      String topic = topicPartition.topic();
+      int partition = topicPartition.partition();
+      ssv1ChannelName =
+          Optional.of(
+              taskConfig.isSsv1MigrationIncludeConnectorName()
+                  ? connectorName + "_" + topic + "_" + partition
+                  : topic + "_" + partition);
+    } else {
+      ssv1ChannelName = Optional.empty();
+    }
+
     return new SnowpipeStreamingPartitionChannel(
         tableName,
         channelName,
@@ -218,7 +236,9 @@ public class PartitionChannelManager {
         this.taskMetrics,
         clientValidationEnabled,
         shouldEvolveSchema,
-        this.conn);
+        this.conn,
+        ssv1MigrationMode,
+        ssv1ChannelName);
   }
 
   /**
@@ -291,6 +311,7 @@ public class PartitionChannelManager {
     CompletableFuture.allOf(futures).join();
 
     partitionChannels.clear();
+
     LOGGER.info(
         "Completed closing all partition channels for connector: {}, task: {}",
         this.connectorName,

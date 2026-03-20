@@ -6,6 +6,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
 import java.util.List;
@@ -252,6 +253,12 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     } catch (Exception e) {
       throw new RuntimeException("Error accessing error logging cache for table: " + tableName, e);
     }
+  }
+
+  @Override
+  public Ssv1MigrationResponse migrateSsv1ChannelOffset(
+      String tableName, String ssv1ChannelName, String ssv2ChannelName, String pipeName) {
+    return delegate.migrateSsv1ChannelOffset(tableName, ssv1ChannelName, ssv2ChannelName, pipeName);
   }
 
   private void logStatsIfNeeded() {

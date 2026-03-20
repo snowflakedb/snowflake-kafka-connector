@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,6 +28,8 @@ import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.nio.charset.StandardCharsets;
@@ -62,6 +65,7 @@ class SnowpipeStreamingPartitionChannelTest {
   private static final String TABLE_NAME = "test_table";
   private static final String TOPIC_NAME = "test_topic";
   private static final int PARTITION = 0;
+  private static final String SSV1_CHANNEL_NAME = TOPIC_NAME + "_" + PARTITION;
 
   private String channelName;
   private String pipeName;
@@ -356,7 +360,9 @@ class SnowpipeStreamingPartitionChannelTest {
         TaskMetrics.noop(),
         false,
         false,
-        null);
+        null,
+        Ssv1MigrationMode.SKIP,
+        Optional.empty());
   }
 
   @Test
@@ -430,7 +436,9 @@ class SnowpipeStreamingPartitionChannelTest {
         TaskMetrics.noop(),
         true,
         shouldEvolveSchema,
-        mockConnService);
+        mockConnService,
+        Ssv1MigrationMode.SKIP,
+        Optional.empty());
   }
 
   private static final List<DescribeTableRow> STANDARD_TABLE_SCHEMA =
@@ -517,7 +525,9 @@ class SnowpipeStreamingPartitionChannelTest {
             TaskMetrics.noop(),
             true,
             true,
-            mockConnService);
+            mockConnService,
+            Ssv1MigrationMode.SKIP,
+            Optional.empty());
 
     SinkRecord record = buildValidRecord(0);
     channel.insertRecord(record, true);
@@ -612,6 +622,256 @@ class SnowpipeStreamingPartitionChannelTest {
     channel.insertRecord(record, true);
 
     verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
+  }
+
+  // --- SSv1 offset migration tests ---
+
+  private SnowpipeStreamingPartitionChannel createPartitionChannelWithMigration(
+      Ssv1MigrationMode migrationMode, SnowflakeConnectionService mockConn) {
+    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
+    final PartitionOffsetTracker offsetTracker =
+        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            TABLE_NAME,
+            CONNECTOR_NAME,
+            channelName,
+            System.currentTimeMillis(),
+            Optional.empty(),
+            offsetTracker.persistedOffsetRef(),
+            offsetTracker.processedOffsetRef(),
+            offsetTracker.consumerGroupOffsetRef());
+
+    return new SnowpipeStreamingPartitionChannel(
+        TABLE_NAME,
+        channelName,
+        pipeName,
+        trackingClient,
+        openChannelIoExecutor,
+        mockTelemetryService,
+        telemetryChannelStatus,
+        offsetTracker,
+        new SnowflakeMetadataConfig(),
+        false,
+        true,
+        mockErrorHandler,
+        TaskMetrics.noop(),
+        false,
+        false,
+        mockConn,
+        migrationMode,
+        migrationMode == Ssv1MigrationMode.SKIP
+            ? Optional.empty()
+            : Optional.of(SSV1_CHANNEL_NAME));
+  }
+
+  @Test
+  void migration_skip_doesNotConsultSsv1() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.SKIP, mockConn);
+    channel.getChannel();
+
+    // System function should never be called when mode is SKIP
+    verify(mockConn, never()).migrateSsv1ChannelOffset(any(), any(), any(), any());
+  }
+
+  @Test
+  void migration_bestEffort_usesSsv1OffsetWhenSsv2HasNone() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName))
+        .thenReturn(Ssv1MigrationResponse.migrated(100L));
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.BEST_EFFORT, mockConn);
+    channel.getChannel();
+
+    // SSv2 has no offset (null from FakeClient), so SSv1 should be consulted
+    verify(mockConn).migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName);
+    // Kafka offset should be set to ssv1Offset + 1 (101)
+    assertEquals(101L, sinkTaskContext.offset(new TopicPartition(TOPIC_NAME, PARTITION)));
+  }
+
+  @Test
+  void migration_bestEffort_proceedsWhenSsv1NotFound() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName))
+        .thenReturn(Ssv1MigrationResponse.channelNotFound());
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.BEST_EFFORT, mockConn);
+    channel.getChannel();
+
+    // SSv1 not found — best_effort falls through to consumer group offset
+    verify(mockConn).migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName);
+  }
+
+  @Test
+  void migration_bestEffort_proceedsWhenSsv1HasNoOffset() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName))
+        .thenReturn(Ssv1MigrationResponse.channelFoundNoOffset());
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.BEST_EFFORT, mockConn);
+    channel.getChannel();
+
+    // SSv1 channel exists but has no committed offset — best_effort falls through
+    verify(mockConn).migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName);
+  }
+
+  @Test
+  void migration_bestEffort_ignoresSsv1WhenSsv2HasOffset() {
+    // Pre-seed an offset in the tracking client so SSv2 openChannel returns a non-null offset
+    trackingClient =
+        new TrackingStreamingIngestClient(pipeName, trackingClientSupplier) {
+          @Override
+          public OpenChannelResult openChannel(String channelNameArg, String offsetToken) {
+            OpenChannelResult result = super.openChannel(channelNameArg, offsetToken);
+            ChannelStatus status =
+                new ChannelStatus(
+                    "db",
+                    "schema",
+                    pipeName,
+                    channelNameArg,
+                    "SUCCESS",
+                    "50",
+                    Instant.now(),
+                    0,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    Instant.now());
+            return new OpenChannelResult(result.getChannel(), status);
+          }
+        };
+
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.BEST_EFFORT, mockConn);
+    channel.getChannel();
+
+    // SSv2 already has an offset, so system function should NOT be called
+    verify(mockConn, never()).migrateSsv1ChannelOffset(any(), any(), any(), any());
+    // Kafka offset should be set to ssv2Offset + 1 (51)
+    assertEquals(51L, sinkTaskContext.offset(new TopicPartition(TOPIC_NAME, PARTITION)));
+  }
+
+  @Test
+  void migration_strict_usesSsv1OffsetWhenFound() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName))
+        .thenReturn(Ssv1MigrationResponse.migrated(100L));
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.STRICT, mockConn);
+    channel.getChannel();
+
+    // SSv1 found — strict mode migrates the offset just like best_effort
+    verify(mockConn).migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName);
+    assertEquals(101L, sinkTaskContext.offset(new TopicPartition(TOPIC_NAME, PARTITION)));
+  }
+
+  @Test
+  void migration_strict_throwsWhenSsv1NotFound() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName))
+        .thenReturn(Ssv1MigrationResponse.channelNotFound());
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.STRICT, mockConn);
+
+    // SSv1 not found — strict mode fails rather than falling through
+    assertThrows(ConnectException.class, () -> channel.getChannel());
+  }
+
+  @Test
+  void migration_strict_proceedsWhenSsv1HasNoOffset() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName))
+        .thenReturn(Ssv1MigrationResponse.channelFoundNoOffset());
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.STRICT, mockConn);
+    channel.getChannel();
+
+    // SSv1 channel exists but has no committed offset — strict does NOT throw because the
+    // channel was found (nothing to migrate is different from channel not existing)
+    verify(mockConn).migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName);
+  }
+
+  @Test
+  void migration_ssv2OpenFails_doesNotConsultSsv1() {
+    // Simulate SSv2 openChannel failure
+    trackingClientSupplier.setThrowOnOpenChannel(true);
+
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.BEST_EFFORT, mockConn);
+
+    // SSv2 open failed, so the channel init future should fail
+    assertThrows(RuntimeException.class, () -> channel.getChannel());
+
+    // System function should NOT have been called — SSv2 must open successfully first
+    verify(mockConn, never()).migrateSsv1ChannelOffset(any(), any(), any(), any());
+  }
+
+  @Test
+  void migration_systemFunctionFails_propagatesException() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName))
+        .thenThrow(
+            new RuntimeException(
+                "SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET failed for ssv1Channel=" + SSV1_CHANNEL_NAME));
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.BEST_EFFORT, mockConn);
+
+    // The system function failure must propagate, not silently fall through to consumer group
+    // offset. Falling through would risk duplicates if the consumer group offset is behind
+    // the SSv1 offset.
+    RuntimeException exception = assertThrows(RuntimeException.class, () -> channel.getChannel());
+    assertTrue(exception.getMessage().contains("SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET"));
+  }
+
+  @Test
+  void migration_bestEffort_consultsSsv1DuringReopenChannel() {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName))
+        .thenReturn(Ssv1MigrationResponse.migrated(100L));
+
+    // Fail the initial channel open so no migration fires during construction
+    trackingClientSupplier.setThrowOnOpenChannel(true);
+
+    SnowpipeStreamingPartitionChannel channel =
+        createPartitionChannelWithMigration(Ssv1MigrationMode.BEST_EFFORT, mockConn);
+    assertThrows(RuntimeException.class, () -> channel.getChannel());
+
+    // Initial open failed — system function should not have been called
+    verify(mockConn, never()).migrateSsv1ChannelOffset(any(), any(), any(), any());
+
+    // Allow the next openChannel to succeed
+    trackingClientSupplier.setThrowOnOpenChannel(false);
+
+    // Trigger reopenChannel via insertRecord: getChannel() re-throws the SFException from the
+    // failed init future, which AppendRowWithFallbackPolicy catches and invokes reopenChannel.
+    // reopenChannel's .exceptionally() handler handles the failed init, then opens a new channel.
+    channel.insertRecord(buildValidRecord(0), true);
+
+    // Wait for the async reopen to complete
+    channel.getChannel();
+
+    // reopenChannel should have consulted SSv1 exactly once (the initial open never reached it)
+    verify(mockConn, times(1))
+        .migrateSsv1ChannelOffset(TABLE_NAME, SSV1_CHANNEL_NAME, channelName, pipeName);
+    // Kafka offset should be set to ssv1Offset + 1 (101)
+    assertEquals(101L, sinkTaskContext.offset(new TopicPartition(TOPIC_NAME, PARTITION)));
   }
 
   /** Shared state holder that tracks channel operations for verification in tests. */
