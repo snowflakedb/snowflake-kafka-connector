@@ -10,7 +10,6 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import net.snowflake.client.core.SFSessionProperty;
 import org.junit.jupiter.api.Test;
 
 public class InternalUtilsTest {
@@ -135,7 +134,7 @@ public class InternalUtilsTest {
         InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(config, url);
 
     // then — the role from connector config must appear in the JDBC properties
-    String rolePropertyKey = SFSessionProperty.ROLE.getPropertyKey();
+    String rolePropertyKey = JdbcPropertyKeys.ROLE;
     assertTrue(
         props.containsKey(rolePropertyKey),
         "JDBC properties must contain the role property (key='"

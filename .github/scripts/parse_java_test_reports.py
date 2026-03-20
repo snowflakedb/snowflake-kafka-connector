@@ -73,7 +73,9 @@ def _emit_error_annotation(
     """Print one ::error workflow command to stderr for GitHub annotations."""
     title = f"{classname}#{name}"
     first_line = _first_line_for_annotation(exc_type, message, stack_trace)
-    first_line_escaped = first_line.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    first_line_escaped = (
+        first_line.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    )
     file_path = _classname_to_path(classname, connector_root)
     file_line = _line_in_test_class(stack_trace, classname) if stack_trace else None
     parts = [f"title={title}"]
@@ -89,7 +91,11 @@ def main() -> None:
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not summary_path:
         sys.exit(0)
-    connector_root = Path(sys.argv[1]) if len(sys.argv) >= 2 else Path(os.environ.get("GITHUB_WORKSPACE", "."))
+    connector_root = (
+        Path(sys.argv[1])
+        if len(sys.argv) >= 2
+        else Path(os.environ.get("GITHUB_WORKSPACE", "."))
+    )
     surefire_dir = connector_root / "target" / "surefire-reports"
     failsafe_dir = connector_root / "target" / "failsafe-reports"
     all_failures = []
@@ -107,7 +113,9 @@ def main() -> None:
     # Group by class for headings: class -> [(name, exc_type, message, stack_trace), ...]
     by_class = {}
     for classname, name, exc_type, message, stack_trace in all_failures:
-        by_class.setdefault(classname, []).append((name, exc_type, message, stack_trace))
+        by_class.setdefault(classname, []).append(
+            (name, exc_type, message, stack_trace)
+        )
     lines = ["", "## Java test failures", ""]
     for classname in sorted(by_class.keys()):
         short_name = classname.split(".")[-1] if classname else classname

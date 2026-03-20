@@ -46,7 +46,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.Supplier;
-import net.snowflake.client.jdbc.internal.snowflake.common.util.Power10;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.output.StringBuilderWriter;
@@ -110,9 +109,9 @@ class DataValidationUtil {
   private static final BigDecimal[] POWER_10 = makePower10Table();
 
   private static BigDecimal[] makePower10Table() {
-    BigDecimal[] power10 = new BigDecimal[Power10.sb16Size];
-    for (int i = 0; i < Power10.sb16Size; i++) {
-      power10[i] = new BigDecimal(Power10.sb16Table[i]);
+    BigDecimal[] power10 = new BigDecimal[Power10Util.sb16Size];
+    for (int i = 0; i < Power10Util.sb16Size; i++) {
+      power10[i] = new BigDecimal(Power10Util.sb16Table[i]);
     }
     return power10;
   }
@@ -884,7 +883,7 @@ class DataValidationUtil {
       String columnName, Object input, int scale, long insertRowIndex) {
     if (input instanceof LocalTime) {
       LocalTime localTime = (LocalTime) input;
-      return BigInteger.valueOf(localTime.toNanoOfDay()).divide(Power10.sb16Table[9 - scale]);
+      return BigInteger.valueOf(localTime.toNanoOfDay()).divide(Power10Util.sb16Table[9 - scale]);
     } else if (input instanceof OffsetTime) {
       return validateAndParseTime(
           columnName, ((OffsetTime) input).toLocalTime(), scale, insertRowIndex);
@@ -951,11 +950,11 @@ class DataValidationUtil {
       long val = Long.parseLong(input);
 
       if (val > -SECONDS_LIMIT_FOR_EPOCH && val < SECONDS_LIMIT_FOR_EPOCH) {
-        epochNanos = BigInteger.valueOf(val).multiply(Power10.sb16Table[9]);
+        epochNanos = BigInteger.valueOf(val).multiply(Power10Util.sb16Table[9]);
       } else if (val > -MILLISECONDS_LIMIT_FOR_EPOCH && val < MILLISECONDS_LIMIT_FOR_EPOCH) {
-        epochNanos = BigInteger.valueOf(val).multiply(Power10.sb16Table[6]);
+        epochNanos = BigInteger.valueOf(val).multiply(Power10Util.sb16Table[6]);
       } else if (val > -MICROSECONDS_LIMIT_FOR_EPOCH && val < MICROSECONDS_LIMIT_FOR_EPOCH) {
-        epochNanos = BigInteger.valueOf(val).multiply(Power10.sb16Table[3]);
+        epochNanos = BigInteger.valueOf(val).multiply(Power10Util.sb16Table[3]);
       } else {
         epochNanos = BigInteger.valueOf(val);
       }
@@ -965,8 +964,8 @@ class DataValidationUtil {
     }
 
     return Instant.ofEpochSecond(
-        epochNanos.divide(Power10.sb16Table[9]).longValue(),
-        epochNanos.remainder(Power10.sb16Table[9]).longValue());
+        epochNanos.divide(Power10Util.sb16Table[9]).longValue(),
+        epochNanos.remainder(Power10Util.sb16Table[9]).longValue());
   }
 
   /**

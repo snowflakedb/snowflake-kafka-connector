@@ -1,10 +1,10 @@
 package com.snowflake.ingest.streaming.internal;
 
+import com.snowflake.kafka.connector.internal.validation.Power10Util;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
-import net.snowflake.client.jdbc.internal.snowflake.common.util.Power10;
 
 /**
  * Copy of {@code net.snowflake.ingest.streaming.internal.TimestampWrapper} from
@@ -28,7 +28,9 @@ public class TimestampWrapper {
     }
     this.epoch = offsetDateTime.toEpochSecond();
     this.fraction =
-        offsetDateTime.getNano() / Power10.intTable[9 - scale] * Power10.intTable[9 - scale];
+        offsetDateTime.getNano()
+            / Power10Util.intTable[9 - scale]
+            * Power10Util.intTable[9 - scale];
     this.timezoneOffsetSeconds = offsetDateTime.getOffset().getTotalSeconds();
     this.scale = scale;
   }

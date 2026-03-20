@@ -11,7 +11,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Properties;
-import net.snowflake.client.core.SFSessionProperty;
 
 public class InternalUtils {
   // authenticator type
@@ -24,7 +23,7 @@ public class InternalUtils {
   static final String JDBC_SSL = "ssl";
   static final String JDBC_SESSION_KEEP_ALIVE = "client_session_keep_alive";
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
-  static final String JDBC_TOKEN = SFSessionProperty.TOKEN.getPropertyKey();
+  static final String JDBC_TOKEN = JdbcPropertyKeys.TOKEN;
   static final String JDBC_QUERY_RESULT_FORMAT = "JDBC_QUERY_RESULT_FORMAT";
   // internal parameters
 
@@ -117,7 +116,7 @@ public class InternalUtils {
       }
     }
 
-    properties.put(SFSessionProperty.AUTHENTICATOR.getPropertyKey(), SNOWFLAKE_JWT);
+    properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
     if (isBlank(privateKey)) {
       throw SnowflakeErrors.ERROR_0013.getException();
     }
@@ -126,7 +125,7 @@ public class InternalUtils {
 
     // set role for JDBC connection (SNOW-3029864)
     if (!isBlank(role)) {
-      properties.put(SFSessionProperty.ROLE.getPropertyKey(), role);
+      properties.put(JdbcPropertyKeys.ROLE, role);
     }
 
     // set ssl
@@ -139,7 +138,7 @@ public class InternalUtils {
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
     // SNOW-989387 - Set query resultset format to JSON as a workaround
     properties.put(JDBC_QUERY_RESULT_FORMAT, "json");
-    properties.put(SFSessionProperty.ALLOW_UNDERSCORES_IN_HOST.getPropertyKey(), "true");
+    properties.put(JdbcPropertyKeys.ALLOW_UNDERSCORES_IN_HOST, "true");
 
     if (!properties.containsKey(JDBC_SCHEMA)) {
       throw SnowflakeErrors.ERROR_0014.getException();
@@ -168,18 +167,16 @@ public class InternalUtils {
     // Set proxyHost and proxyPort only if both of them are present and are non null
     if (conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST) != null
         && conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT) != null) {
-      proxyProperties.put(SFSessionProperty.USE_PROXY.getPropertyKey(), "true");
+      proxyProperties.put(JdbcPropertyKeys.USE_PROXY, "true");
       proxyProperties.put(
-          SFSessionProperty.PROXY_HOST.getPropertyKey(),
-          conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
+          JdbcPropertyKeys.PROXY_HOST, conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
       proxyProperties.put(
-          SFSessionProperty.PROXY_PORT.getPropertyKey(),
-          conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT));
+          JdbcPropertyKeys.PROXY_PORT, conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT));
 
       // nonProxyHosts parameter is not required. Check if it was set or not.
       if (conf.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS) != null) {
         proxyProperties.put(
-            SFSessionProperty.NON_PROXY_HOSTS.getPropertyKey(),
+            JdbcPropertyKeys.NON_PROXY_HOSTS,
             conf.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS));
       }
 
@@ -189,8 +186,8 @@ public class InternalUtils {
       String password = conf.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
 
       if (username != null && password != null) {
-        proxyProperties.put(SFSessionProperty.PROXY_USER.getPropertyKey(), username);
-        proxyProperties.put(SFSessionProperty.PROXY_PASSWORD.getPropertyKey(), password);
+        proxyProperties.put(JdbcPropertyKeys.PROXY_USER, username);
+        proxyProperties.put(JdbcPropertyKeys.PROXY_PASSWORD, password);
       }
     }
     return proxyProperties;
