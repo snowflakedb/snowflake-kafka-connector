@@ -15,11 +15,6 @@ services:
         JAVA_VERSION: ${JAVA_VERSION:-11}
         SCALA_VERSION: ${SCALA_VERSION:-2.12}
     hostname: kafka
-    container_name: test-kafka
-    ports:
-      - "2181:2181"
-      - "9092:9092"
-      - "8083:8083"
     environment:
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx2g"
       KRAFT_MODE: ${KRAFT_MODE:-false}

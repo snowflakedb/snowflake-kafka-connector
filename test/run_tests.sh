@@ -25,6 +25,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_DIR="$SCRIPT_DIR/docker"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Unique Docker Compose project name per worktree, derived from the repo
+# directory basename. Prevents collisions when multiple worktrees run tests
+# concurrently (Docker Compose defaults to the parent directory name, which
+# is always "docker" here).
+export COMPOSE_PROJECT_NAME="$(basename "$PROJECT_ROOT")"
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
