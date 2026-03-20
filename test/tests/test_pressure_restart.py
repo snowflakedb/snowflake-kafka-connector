@@ -42,7 +42,9 @@ def _chaos_operation(driver, connector_name, name_salt, counter):
     elif phase == 6:
         driver.deleteConnector(connector_name)
     elif phase == 0 and counter > 0:
-        driver.createConnector(CONFIG_FILE, name_salt)
+        driver.createConnector(
+            name_salt=name_salt, rest_request_template_filename=CONFIG_FILE
+        )
 
 
 @pytest.mark.pressure

@@ -35,10 +35,14 @@ def test_kc_recreate(
     # -- Send 1/2, create (idempotent) twice, send 2/2 --
     _send_batch(driver, topic, RECORD_COUNT)
 
-    driver.createConnector(CONFIG_FILE, name_salt)
+    driver.createConnector(
+        name_salt=name_salt, rest_request_template_filename=CONFIG_FILE
+    )
     sleep(SLEEP_TIME)
 
-    driver.createConnector(CONFIG_FILE, name_salt)
+    driver.createConnector(
+        name_salt=name_salt, rest_request_template_filename=CONFIG_FILE
+    )
     sleep(SLEEP_TIME)
 
     _send_batch(driver, topic, RECORD_COUNT)
