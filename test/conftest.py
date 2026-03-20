@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import logging
 import os
 import random
@@ -221,6 +222,39 @@ def name_salt(session_name_salt, connector_version):
 
 
 @pytest.fixture()
+def create_custom_connector(driver: KafkaDriver, name_salt: str):
+    @dataclass
+    class Connector:
+        name: str
+        config: Dict[str, str]
+
+        def close(self, **kwargs):
+            created.remove(self)
+            return driver.closeConnector(self.name, **kwargs)
+
+    created: List[Connector] = []
+
+    def _create(
+        unsalted_name: str,
+        config_template: Dict[str, str],
+    ) -> Connector:
+        rest_request = driver.createConnector(
+            name_salt=name_salt,
+            unsalted_name=unsalted_name,
+            config_template=config_template,
+        )
+        connector = Connector(name=rest_request["name"], config=rest_request["config"])
+        created.append(connector)
+        return connector
+
+    try:
+        yield _create
+    finally:
+        for connector in reversed(created):
+            driver.closeConnector(connector.name)
+
+
+@pytest.fixture()
 def create_connector(driver: KafkaDriver, name_salt: str, connector_version: str):
     """Factory fixture: call to register a connector for the current version.
 
@@ -340,23 +374,29 @@ def wait_for_rows(driver):
         *,
         timeout: int | None = None,
         interval: int | None = None,
+        at_least: bool = False,
         connector_name: str | None = None,
     ):
-        timeout = timeout if timeout is not None else default_timeout
-        interval = interval if interval is not None else default_interval
+        timeout = timeout or default_timeout
+        interval = interval or default_interval
         deadline = time.monotonic() + timeout
         while True:
             count = driver.select_number_of_records(table_name)
             if count == expected:
                 return count
+            if at_least and count > expected:
+                return count
+            if not at_least and count > expected:
+                raise AssertionError(
+                    f"Found more than {expected} rows in {table_name} (got {count})"
+                )
             if time.monotonic() >= deadline:
                 raise AssertionError(
                     f"Timed out waiting for {expected} rows in {table_name} "
                     f"(got {count} after {timeout}s)"
                 )
             if connector_name is not None:
-                failed = driver.get_failed_tasks(connector_name)
-                if failed:
+                if failed := driver.get_failed_tasks(connector_name):
                     traces = "\n".join(
                         f"  task {t['id']}: {t.get('trace', 'no trace')}"
                         for t in failed
@@ -367,11 +407,8 @@ def wait_for_rows(driver):
                         f"(got {count}):\n{traces}"
                     )
             logger.info(
-                "Waiting for %d rows in %s (currently %d), retrying in %ds...",
-                expected,
-                table_name,
-                count,
-                interval,
+                f"Waiting for {'at least ' if at_least else ''}{expected} rows "
+                f"in {table_name} (currently {count}), retrying in {interval}s..."
             )
             time.sleep(interval)
 

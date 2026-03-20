@@ -6,6 +6,32 @@ from typing import Dict
 V4_CONNECTOR_CLASS = "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector"
 V3_CONNECTOR_CLASS = "com.snowflake.kafka.connector.SnowflakeSinkConnector"
 
+V3_CONFIG_TEMPLATE = {
+    "connector.class": V3_CONNECTOR_CLASS,
+    "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
+    # placeholders for templating
+    "snowflake.url.name": "SNOWFLAKE_HOST",
+    "snowflake.user.name": "SNOWFLAKE_USER",
+    "snowflake.private.key": "SNOWFLAKE_PRIVATE_KEY",
+    "snowflake.database.name": "SNOWFLAKE_DATABASE",
+    "snowflake.schema.name": "SNOWFLAKE_SCHEMA",
+    "snowflake.role.name": "SNOWFLAKE_ROLE",
+    # make tests fast
+    "buffer.flush.time": "1",
+    "snowflake.streaming.max.client.lag": "1",
+}
+
+V4_CONFIG_TEMPLATE = {
+    "connector.class": V4_CONNECTOR_CLASS,
+    # placeholders for templating
+    "snowflake.url.name": "SNOWFLAKE_HOST",
+    "snowflake.user.name": "SNOWFLAKE_USER",
+    "snowflake.private.key": "SNOWFLAKE_PRIVATE_KEY",
+    "snowflake.database.name": "SNOWFLAKE_DATABASE",
+    "snowflake.schema.name": "SNOWFLAKE_SCHEMA",
+    "snowflake.role.name": "SNOWFLAKE_ROLE",
+}
+
 
 def v4_config_to_v3(config: Dict[str, str]) -> Dict[str, str]:
     """Convert a v4 connector config to v3 equivalent."""

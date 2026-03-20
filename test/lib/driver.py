@@ -7,7 +7,13 @@ from pathlib import Path
 
 import requests
 import snowflake.connector
-from confluent_kafka import Consumer, KafkaError, Producer
+from confluent_kafka import (
+    Consumer,
+    ConsumerGroupTopicPartitions,
+    KafkaError,
+    Producer,
+    TopicPartition,
+)
 from confluent_kafka.admin import AdminClient, ConfigResource, NewPartitions, NewTopic
 from confluent_kafka.avro import AvroProducer
 
@@ -428,6 +434,29 @@ class KafkaDriver:
             return []
         return [t for t in status.get("tasks", []) if t.get("state") == "FAILED"]
 
+    def get_consumer_group_offset(
+        self, connector_name: str, topic: str, partition: int = 0
+    ) -> int | None:
+        """Query the committed consumer group offset for a connector's sink task.
+
+        Returns the committed offset, or None if no offset has been committed yet.
+        """
+        group_id = f"connect-{connector_name}"
+        request = ConsumerGroupTopicPartitions(
+            group_id, [TopicPartition(topic, partition)]
+        )
+        futures = self.adminClient.list_consumer_group_offsets([request])
+        response = futures[group_id].result()
+        for topic_partition in response.topic_partitions:
+            if topic_partition.error:
+                logger.error(
+                    f"Error querying offset for {group_id}/{topic}[{partition}]: "
+                    f"{topic_partition.error}"
+                )
+                return None
+            return topic_partition.offset
+        return None
+
     def restartConnector(self, connectorName):
         requestURL = (
             f"http://{self.kafkaConnectAddress}/connectors/{connectorName}/restart"
@@ -459,11 +488,43 @@ class KafkaDriver:
         r = requests.delete(requestURL, headers=self.httpHeader)
         logger.info(f"{r} delete connector")
 
-    def closeConnector(self, connector_name: str):
-        delete_url = f"http://{self.kafkaConnectAddress}/connectors/{connector_name}"
+    def closeConnector(self, connector_name: str, *, wait_timeout: int = None):
+        """Delete a connector.
+        If `wait_timeout` is provided, also wait for it to fully disappear.
+
+        The Kafka Connect DELETE endpoint returns immediately, but the worker
+        shuts down the task's consumer asynchronously.  We poll until a GET
+        returns 404 so the caller can safely assume no consumer is running.
+        """
+        base_url = f"http://{self.kafkaConnectAddress}/connectors/{connector_name}"
         logger.info(f"=== Delete connector {connector_name} ===")
-        code = requests.delete(delete_url, timeout=10).status_code
-        logger.info(f"Delete response code: {code}")
+        response = requests.delete(base_url, timeout=10)
+        match response.ok:
+            case True:
+                logger.info(f"Delete response code: {response.status_code}")
+            case False:
+                logger.error(
+                    f"Failed to delete connector {connector_name}: {response.text}"
+                )
+
+        if wait_timeout is None:
+            return response.ok
+
+        deadline = time.monotonic() + wait_timeout
+        while time.monotonic() < deadline:
+            status_code = requests.get(base_url, timeout=5).status_code
+            if status_code == 404:
+                logger.info(f"Connector {connector_name} fully removed")
+                return True
+            logger.debug(
+                f"Connector {connector_name} still present (status {status_code}), "
+                f"waiting..."
+            )
+            time.sleep(1)
+        logging.error(
+            f"Connector {connector_name} did not disappear within {wait_timeout}s"
+        )
+        return False
 
     Config = Dict[str, str]
 
