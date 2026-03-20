@@ -488,11 +488,43 @@ class KafkaDriver:
         r = requests.delete(requestURL, headers=self.httpHeader)
         logger.info(f"{r} delete connector")
 
-    def closeConnector(self, connector_name: str):
-        delete_url = f"http://{self.kafkaConnectAddress}/connectors/{connector_name}"
+    def closeConnector(self, connector_name: str, *, wait_timeout: int = None):
+        """Delete a connector.
+        If `wait_timeout` is provided, also wait for it to fully disappear.
+
+        The Kafka Connect DELETE endpoint returns immediately, but the worker
+        shuts down the task's consumer asynchronously.  We poll until a GET
+        returns 404 so the caller can safely assume no consumer is running.
+        """
+        base_url = f"http://{self.kafkaConnectAddress}/connectors/{connector_name}"
         logger.info(f"=== Delete connector {connector_name} ===")
-        code = requests.delete(delete_url, timeout=10).status_code
-        logger.info(f"Delete response code: {code}")
+        response = requests.delete(base_url, timeout=10)
+        match response.ok:
+            case True:
+                logger.info(f"Delete response code: {response.status_code}")
+            case False:
+                logger.error(
+                    f"Failed to delete connector {connector_name}: {response.text}"
+                )
+
+        if wait_timeout is None:
+            return response.ok
+
+        deadline = time.monotonic() + wait_timeout
+        while time.monotonic() < deadline:
+            status_code = requests.get(base_url, timeout=5).status_code
+            if status_code == 404:
+                logger.info(f"Connector {connector_name} fully removed")
+                return True
+            logger.debug(
+                f"Connector {connector_name} still present (status {status_code}), "
+                f"waiting..."
+            )
+            time.sleep(1)
+        logging.error(
+            f"Connector {connector_name} did not disappear within {wait_timeout}s"
+        )
+        return False
 
     Config = Dict[str, str]
 
