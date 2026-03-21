@@ -193,14 +193,15 @@ def wait_for_rows(driver: KafkaDriver):  # noqa: F811 — pytest fixture injecti
         deadline = time.monotonic() + timeout
         while True:
             count = driver.select_number_of_records(table_name)
-            if count == expected:
-                return count
-            if at_least and count > expected:
-                return count
-            if not at_least and count > expected:
-                raise AssertionError(
-                    f"Found more than {expected} rows in {table_name} (got {count})"
-                )
+            if count is not None:
+                if count == expected:
+                    return count
+                if at_least and count > expected:
+                    return count
+                if not at_least and count > expected:
+                    raise AssertionError(
+                        f"Found more than {expected} rows in {table_name} (got {count})"
+                    )
             if time.monotonic() >= deadline:
                 raise AssertionError(
                     f"Timed out waiting for {expected} rows in {table_name} "
