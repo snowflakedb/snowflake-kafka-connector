@@ -144,7 +144,7 @@ def session_name_salt(request):
     """Common name salt for all tests in this session."""
     salt = request.config.getoption("--name-salt")
     if salt is None:
-        chars = string.ascii_letters + string.digits
+        chars = string.ascii_uppercase + string.digits
         salt = "_" + "".join(random.choices(chars, k=7))
     logger.info(f"Using session name salt: {salt}")
     return salt
@@ -217,7 +217,7 @@ def connector_version(request):
 def name_salt(session_name_salt, connector_version):
     """Diversify names between test runs and connector versions."""
     if connector_version == "v3":
-        return f"{session_name_salt}_v3"
+        return f"{session_name_salt}_V3"
     return session_name_salt
 
 
