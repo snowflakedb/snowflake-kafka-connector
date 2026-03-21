@@ -71,6 +71,15 @@ public class Utils {
   }
 
   /**
+   * Wrap a raw column name in double quotes for use in SQL DDL. The name is used as-is (no case
+   * change). This is appropriate when the input is already a raw internal column name (e.g. from
+   * DESCRIBE TABLE or after SQL identifier normalization).
+   */
+  public static String quoteRawName(String rawName) {
+    return '"' + rawName.replace("\"", "\"\"") + '"';
+  }
+
+  /**
    * Check the connector version from Maven repo, report if any update version is available.
    *
    * <p>A URl connection timeout is added in case Maven repo is not reachable in a proxy'd

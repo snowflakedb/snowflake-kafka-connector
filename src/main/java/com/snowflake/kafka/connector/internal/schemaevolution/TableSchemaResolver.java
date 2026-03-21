@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.util.HashMap;
@@ -43,7 +42,9 @@ public class TableSchemaResolver {
   }
 
   /**
-   * Collect column data types from either the Kafka Connect schema or the content values.
+   * Collect column data types from either the Kafka Connect schema or the content values. Column
+   * names in {@code columnsToInclude} and the returned TableSchema keys are raw internal names (as
+   * returned by DESCRIBE TABLE or as normalized at record creation time).
    *
    * @param record the SnowflakeSinkRecord containing schema and content
    * @param columnsToInclude the names of the columns to include in the schema
@@ -73,15 +74,15 @@ public class TableSchemaResolver {
       SnowflakeSinkRecord record, Set<String> columnNamesSet) {
     JsonNode recordNode = OBJECT_MAPPER.valueToTree(record.getContent());
     Map<String, ColumnInfos> schemaMap = getFullSchemaMapFromRecord(record);
-    Map<Boolean, List<ColumnValuePair>> columnsWitValue =
+    Map<Boolean, List<ColumnValuePair>> columnsWithValue =
         Streams.stream(recordNode.fields())
             .map(ColumnValuePair::from)
-            .filter(pair -> columnNamesSet.contains(pair.getQuotedColumnName()))
+            .filter(pair -> columnNamesSet.contains(pair.getColumnName()))
             .collect(
-                Collectors.partitioningBy((pair -> schemaMap.containsKey(pair.getColumnName()))));
+                Collectors.partitioningBy(pair -> schemaMap.containsKey(pair.getColumnName())));
 
-    List<ColumnValuePair> notFoundFieldsInSchema = columnsWitValue.get(false);
-    List<ColumnValuePair> foundFieldsInSchema = columnsWitValue.get(true);
+    List<ColumnValuePair> notFoundFieldsInSchema = columnsWithValue.get(false);
+    List<ColumnValuePair> foundFieldsInSchema = columnsWithValue.get(true);
 
     if (!notFoundFieldsInSchema.isEmpty()) {
       throw SnowflakeErrors.ERROR_5022.getException(
@@ -96,9 +97,7 @@ public class TableSchemaResolver {
         foundFieldsInSchema.stream()
             .map(
                 pair ->
-                    Maps.immutableEntry(
-                        Utils.quoteNameIfNeeded(pair.getQuotedColumnName()),
-                        schemaMap.get(pair.getColumnName())))
+                    Maps.immutableEntry(pair.getColumnName(), schemaMap.get(pair.getColumnName())))
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey, Map.Entry::getValue, (oldValue, newValue) -> newValue));
@@ -111,11 +110,11 @@ public class TableSchemaResolver {
     Map<String, ColumnInfos> columnsInferredFromJson =
         Streams.stream(recordNode.fields())
             .map(ColumnValuePair::from)
-            .filter(pair -> columnNamesSet.contains(pair.getQuotedColumnName()))
+            .filter(pair -> columnNamesSet.contains(pair.getColumnName()))
             .map(
                 pair ->
                     Maps.immutableEntry(
-                        pair.getQuotedColumnName(),
+                        pair.getColumnName(),
                         new ColumnInfos(inferDataTypeFromJsonObject(pair.getJsonNode()))))
             .collect(
                 Collectors.toMap(
@@ -126,8 +125,8 @@ public class TableSchemaResolver {
   /**
    * Build column type information from a Kafka Connect schema.
    *
-   * @param schema the Kafka Connect value schema
-   * @return a Map where the key is the raw field name and value is ColumnInfos
+   * @param record the SnowflakeSinkRecord containing the schema
+   * @return a Map where the key is the field name and value is ColumnInfos
    */
   private Map<String, ColumnInfos> getFullSchemaMapFromRecord(SnowflakeSinkRecord record) {
     Map<String, ColumnInfos> schemaMap = new HashMap<>();
@@ -166,7 +165,6 @@ public class TableSchemaResolver {
 
   private static class ColumnValuePair {
     private final String columnName;
-    private final String quotedColumnName;
     private final JsonNode jsonNode;
 
     public static ColumnValuePair from(Map.Entry<String, JsonNode> field) {
@@ -175,16 +173,11 @@ public class TableSchemaResolver {
 
     private ColumnValuePair(String columnName, JsonNode jsonNode) {
       this.columnName = columnName;
-      this.quotedColumnName = Utils.quoteNameIfNeeded(columnName);
       this.jsonNode = jsonNode;
     }
 
     public String getColumnName() {
       return columnName;
-    }
-
-    public String getQuotedColumnName() {
-      return quotedColumnName;
     }
 
     public JsonNode getJsonNode() {

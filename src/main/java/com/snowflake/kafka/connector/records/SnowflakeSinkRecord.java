@@ -5,12 +5,15 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.validation.SqlIdentifierNormalizer;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 
@@ -56,15 +59,24 @@ public final class SnowflakeSinkRecord {
   }
 
   public static SnowflakeSinkRecord from(
-      SinkRecord record, SnowflakeMetadataConfig metadataConfig, boolean enableSchematization) {
-    return from(record, metadataConfig, Instant.now(), enableSchematization);
+      SinkRecord record,
+      SnowflakeMetadataConfig metadataConfig,
+      boolean enableSchematization,
+      boolean enableColumnIdentifierNormalization) {
+    return from(
+        record,
+        metadataConfig,
+        Instant.now(),
+        enableSchematization,
+        enableColumnIdentifierNormalization);
   }
 
   public static SnowflakeSinkRecord from(
       SinkRecord record,
       SnowflakeMetadataConfig metadataConfig,
       Instant connectorPushTime,
-      boolean enableSchematization) {
+      boolean enableSchematization,
+      boolean enableColumnIdentifierNormalization) {
     // First validate the key if present - a broken key means a broken record
     if (record.key() != null && record.keySchema() != null) {
       try {
@@ -80,14 +92,18 @@ public final class SnowflakeSinkRecord {
 
     try {
       Map<String, Object> content;
+      Schema schema = record.valueSchema();
       if (enableSchematization) {
-        content = KafkaRecordConverter.convertToMap(record.valueSchema(), record.value());
+        content = KafkaRecordConverter.convertToMap(schema, record.value());
+        if (enableColumnIdentifierNormalization) {
+          content = normalizeColumnNames(content);
+          schema = normalizeSchemaFieldNames(schema);
+        }
       } else {
-        content = wrapAsRecordContent(record.valueSchema(), record.value());
+        content = wrapAsRecordContent(schema, record.value());
       }
       Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
-      return new SnowflakeSinkRecord(
-          content, metadata, record.valueSchema(), RecordState.VALID, null);
+      return new SnowflakeSinkRecord(content, metadata, schema, RecordState.VALID, null);
     } catch (Exception e) {
       return createBrokenRecord(record, metadataConfig, connectorPushTime, e);
     }
@@ -215,6 +231,33 @@ public final class SnowflakeSinkRecord {
 
   public Schema getSchema() {
     return schema;
+  }
+
+  private static Schema normalizeSchemaFieldNames(Schema schema) {
+    if (schema == null || schema.type() != Schema.Type.STRUCT) {
+      return schema;
+    }
+    SchemaBuilder builder = SchemaBuilder.struct();
+    if (schema.name() != null) {
+      builder.name(schema.name());
+    }
+    if (schema.isOptional()) {
+      builder.optional();
+    }
+    for (Field field : schema.fields()) {
+      String normalizedName = SqlIdentifierNormalizer.normalizeSqlIdentifier(field.name());
+      builder.field(normalizedName, field.schema());
+    }
+    return builder.build();
+  }
+
+  private static Map<String, Object> normalizeColumnNames(Map<String, Object> content) {
+    Map<String, Object> normalized = new HashMap<>(content.size());
+    for (Map.Entry<String, Object> entry : content.entrySet()) {
+      normalized.put(
+          SqlIdentifierNormalizer.normalizeSqlIdentifier(entry.getKey()), entry.getValue());
+    }
+    return normalized;
   }
 
   public Map<String, Object> getContent() {

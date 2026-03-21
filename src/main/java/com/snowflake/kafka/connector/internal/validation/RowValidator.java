@@ -61,22 +61,23 @@ public class RowValidator {
     // Input validation
     Objects.requireNonNull(row, "row cannot be null");
 
-    // Normalize column names once to avoid repeated unquoting
-    Map<String, Object> normalizedRow = normalizeColumnNames(row);
+    // Column names are expected to be already normalized (raw internal names) by the caller.
+    // When column identifier normalization is enabled, SnowflakeSinkRecord sanitizes keys
+    // at record creation time. DESCRIBE TABLE results are already raw names.
 
     // Step 1: Structural validation (matching AbstractRowBuffer.verifyInputColumns)
-    Set<String> normalizedColNames = normalizedRow.keySet();
-    Set<String> extraCols = detectExtraColumns(normalizedColNames);
-    Set<String> missingNotNullCols = detectMissingNotNullColumns(normalizedColNames);
-    Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(normalizedRow);
+    Set<String> colNames = row.keySet();
+    Set<String> extraCols = detectExtraColumns(colNames);
+    Set<String> missingNotNullCols = detectMissingNotNullColumns(colNames);
+    Set<String> nullNotNullCols = detectNullValuesInNotNullColumns(row);
 
     if (!extraCols.isEmpty() || !missingNotNullCols.isEmpty() || !nullNotNullCols.isEmpty()) {
       return ValidationResult.structuralError(extraCols, missingNotNullCols, nullNotNullCols);
     }
 
     // Step 2: Type/value validation (dispatch to DataValidationUtil)
-    for (Map.Entry<String, Object> entry : normalizedRow.entrySet()) {
-      String colName = entry.getKey(); // Already normalized
+    for (Map.Entry<String, Object> entry : row.entrySet()) {
+      String colName = entry.getKey();
       Object value = entry.getValue();
       ColumnSchema col = columnSchemaMap.get(colName);
 
@@ -108,22 +109,6 @@ public class RowValidator {
     }
 
     return ValidationResult.valid();
-  }
-
-  /**
-   * Normalize column names by unquoting them once. This avoids repeated calls to
-   * LiteralQuoteUtils.unquoteColumnName() which can be expensive in high-throughput scenarios.
-   *
-   * @param row Original row with potentially quoted column names
-   * @return New map with normalized (unquoted) column names
-   */
-  private Map<String, Object> normalizeColumnNames(Map<String, Object> row) {
-    Map<String, Object> normalizedRow = new HashMap<>();
-    for (Map.Entry<String, Object> entry : row.entrySet()) {
-      String normalizedName = LiteralQuoteUtils.unquoteColumnName(entry.getKey());
-      normalizedRow.put(normalizedName, entry.getValue());
-    }
-    return normalizedRow;
   }
 
   /** Validate a single column value using DataValidationUtil. */

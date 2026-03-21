@@ -58,6 +58,9 @@ public class SmtIT extends ConnectClusterBaseIT {
   void test_with_record_content_variant_added_by_smt() throws Exception {
     final Map<String, String> config = defaultProperties(topicName, connectorName);
     config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    config.put(
+        Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
+        "false");
     config.put("transforms", "add_record_content");
     config.put(
         "transforms.add_record_content.type",

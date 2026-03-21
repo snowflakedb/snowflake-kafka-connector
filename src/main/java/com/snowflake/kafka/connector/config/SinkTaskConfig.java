@@ -43,6 +43,8 @@ public abstract class SinkTaskConfig {
 
   public abstract boolean isEnableSchematization();
 
+  public abstract boolean isEnableColumnIdentifierNormalization();
+
   public abstract boolean isClientValidationEnabled();
 
   public abstract int getOpenChannelIoThreads();
@@ -167,6 +169,14 @@ public abstract class SinkTaskConfig {
                 String.valueOf(
                     KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
 
+    boolean enableColumnIdentifierNormalization =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION_DEFAULT)));
+
     boolean clientValidationEnabled =
         Boolean.parseBoolean(
             config.getOrDefault(
@@ -206,6 +216,7 @@ public abstract class SinkTaskConfig {
         .dlqTopicName(dlqTopicName)
         .enableSanitization(enableSanitization)
         .enableSchematization(enableSchematization)
+        .enableColumnIdentifierNormalization(enableColumnIdentifierNormalization)
         .clientValidationEnabled(clientValidationEnabled)
         .openChannelIoThreads(openChannelIoThreads)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
@@ -250,6 +261,9 @@ public abstract class SinkTaskConfig {
     public abstract Builder enableSanitization(boolean enableSanitization);
 
     public abstract Builder enableSchematization(boolean enableSchematization);
+
+    public abstract Builder enableColumnIdentifierNormalization(
+        boolean enableColumnIdentifierNormalization);
 
     public abstract Builder clientValidationEnabled(boolean clientValidationEnabled);
 

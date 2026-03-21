@@ -419,7 +419,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       if (!first) {
         query.append(", if not exists ");
       }
-      query.append(Utils.quoteNameIfNeeded(entry.getKey()));
+      query.append(Utils.quoteRawName(entry.getKey()));
       query.append(" ");
       query.append(entry.getValue().getColumnType());
       query.append(entry.getValue().getDdlComments());
@@ -453,7 +453,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       if (!first) {
         query.append(", ");
       }
-      String quotedName = Utils.quoteNameIfNeeded(columnName);
+      String quotedName = Utils.quoteRawName(columnName);
       query
           .append(quotedName)
           .append(" drop not null, ")
