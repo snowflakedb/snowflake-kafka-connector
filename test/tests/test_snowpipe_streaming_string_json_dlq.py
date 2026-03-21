@@ -8,17 +8,16 @@ EXPECTED_IN_DLQ = 5
 
 
 def test_snowpipe_streaming_string_json_dlq(
-    driver, name_salt, create_connector, snowflake_table
+    driver, create_connector_from_file, create_table
 ):
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, record_content variant)",
+        columns="(record_metadata variant, record_content variant)",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    config = create_connector(CONFIG_FILE)
+    config = create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send invalid data that cannot be deserialized --

@@ -8,7 +8,7 @@ RECORD_COUNT = 100
 
 
 def test_native_complex_smt(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify a complex SMT chain: ValueToKey + ExtractField$Key + ReplaceField$Value.
 
@@ -19,13 +19,12 @@ def test_native_complex_smt(
 
     After transforms, the key holds the c1 value and the value retains only c1.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, c1 variant)",
+        columns="(record_metadata variant, c1 variant)",
     )
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send 100 records --

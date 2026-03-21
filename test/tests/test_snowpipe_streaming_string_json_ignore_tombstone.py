@@ -13,11 +13,9 @@ LONG_FIELD = "NUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBER
 
 
 def test_snowpipe_streaming_string_json_ignore_tombstone(
-    connector_version,
     driver,
-    name_salt,
-    create_connector,
-    snowflake_table,
+    create_connector_from_file,
+    create_table,
     wait_for_rows,
 ):
     """Verify Snowpipe Streaming with behavior.on.null.values=IGNORE across
@@ -28,15 +26,14 @@ def test_snowpipe_streaming_string_json_ignore_tombstone(
     (RECORDS_PER_PARTITION - 2) × PARTITION_COUNT rows.
     Verifies: no duplicates, unique offsets per partition.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f'(record_metadata variant, "{LONG_FIELD}" varchar)',
+        columns=f'(record_metadata variant, "{LONG_FIELD}" varchar)',
     )
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
 
-    config = create_connector(CONFIG_FILE)
+    config = create_connector_from_file(CONFIG_FILE)
     connector_name = config["name"]
     driver.startConnectorWaitTime()
 

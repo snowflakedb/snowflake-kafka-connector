@@ -25,15 +25,18 @@ def _build_sensor(sensor_pb2):
 
 
 def test_native_string_protobuf(
-    sensor_pb2, driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    sensor_pb2,
+    driver,
+    create_connector_from_file,
+    create_table,
+    wait_for_rows,
 ):
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, record_content variant)",
+        columns="(record_metadata variant, record_content variant)",
     )
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send --

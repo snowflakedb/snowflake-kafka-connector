@@ -8,17 +8,16 @@ RECORDS_PER_PARTITION = 1000
 
 
 def test_snowpipe_streaming_string_json(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, fieldName varchar)",
+        columns="(record_metadata variant, fieldName varchar)",
     )
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send --

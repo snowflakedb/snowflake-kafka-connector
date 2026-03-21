@@ -35,8 +35,8 @@ def test_confluent_protobuf_protobuf(
     driver,
     connector_version,
     name_salt,
-    create_connector,
-    snowflake_table,
+    create_connector_from_file,
+    create_table,
     wait_for_rows,
     request,
 ):
@@ -45,13 +45,12 @@ def test_confluent_protobuf_protobuf(
     platform_version = request.config.getoption("--platform-version") or ""
     if platform_version.startswith("8."):
         pytest.skip("BlueApron protobuf converter incompatible with Confluent 8.x")
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, record_content variant)",
+        columns="(record_metadata variant, record_content variant)",
     )
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send via schema-registry-backed protobuf producer --

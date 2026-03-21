@@ -11,14 +11,13 @@ RECORDS_PER_PARTITION = 1000
 def test_multiple_topic_to_one_table_snowpipe_streaming(
     driver,
     name_salt,
-    create_connector,
-    snowflake_table,
+    create_connector_from_file,
+    create_table,
     wait_for_rows,
 ):
-    table = snowflake_table(
+    table = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, field1 varchar)",
+        columns="(record_metadata variant, field1 varchar)",
     )
 
     topics = []
@@ -27,7 +26,7 @@ def test_multiple_topic_to_one_table_snowpipe_streaming(
         driver.createTopics(t, partitionNum=PARTITION_COUNT, replicationNum=1)
         topics.append(t)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send --

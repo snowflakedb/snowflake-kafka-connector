@@ -19,7 +19,7 @@ def _send_batch(driver, topic, record_count):
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_kc_delete_resume_chaos(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify connector behavior during delete with pressure and a failed resume.
 
@@ -35,16 +35,15 @@ def test_kc_delete_resume_chaos(
     the deletion completes; batch 3 is never ingested because resume
     cannot recreate a deleted connector).
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, column1 varchar)",
+        columns="(record_metadata variant, column1 varchar)",
     )
 
     connector_name = f"{FILE_NAME}{name_salt}"
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send batch 1 and wait for it to be ingested --

@@ -44,7 +44,7 @@ GOLD_VALUES = {
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_schema_mapping(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify that each data type maps to the correct Snowflake column type
     and that RECORD_METADATA is automatically added.
@@ -52,29 +52,29 @@ def test_schema_mapping(
     Tests STRING, CHAR, BINARY, NUMBER, DOUBLE, BOOLEAN, DATE, TIME,
     ARRAY, VARIANT, and OBJECT columns.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} ("
-        f"PERFORMANCE_STRING STRING, "
-        f'"case_sensitive_PERFORMANCE_CHAR" CHAR, '
-        # f"PERFORMANCE_BINARY BINARY, "  # see TODO: SNOW-3256183
-        f"RATING_INT NUMBER, "
-        f"RATING_DOUBLE DOUBLE, "
-        f"APPROVAL BOOLEAN, "
-        f"APPROVAL_DATE DATE, "
-        f"APPROVAL_TIME TIME, "
-        f"INFO_ARRAY ARRAY, "
-        f"INFO VARIANT, "
-        f"INFO_OBJECT OBJECT, "
-        f"RECORD_METADATA VARIANT"
-        f")",
+        columns="("
+        "PERFORMANCE_STRING STRING, "
+        '"case_sensitive_PERFORMANCE_CHAR" CHAR, '
+        # "PERFORMANCE_BINARY BINARY, "  # see TODO: SNOW-3256183
+        "RATING_INT NUMBER, "
+        "RATING_DOUBLE DOUBLE, "
+        "APPROVAL BOOLEAN, "
+        "APPROVAL_DATE DATE, "
+        "APPROVAL_TIME TIME, "
+        "INFO_ARRAY ARRAY, "
+        "INFO VARIANT, "
+        "INFO_OBJECT OBJECT, "
+        "RECORD_METADATA VARIANT"
+        ")",
     )
 
     # TODO: SNOW-3236195: RowValidator uppercases unquoted column names via
     # LiteralQuoteUtils.unquoteColumnName(), but DESCRIBE TABLE preserves case for
     # quoted columns (e.g. "case_sensitive_PERFORMANCE_CHAR"). This causes a false
     # structural error. Fix by normalizing both sides in RowValidator.
-    create_connector(
+    create_connector_from_file(
         CONFIG_FILE,
         config_overrides={"snowflake.client.validation.enabled": "false"},
     )

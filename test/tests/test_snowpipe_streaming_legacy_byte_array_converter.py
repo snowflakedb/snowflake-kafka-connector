@@ -7,20 +7,19 @@ RECORD_COUNT = 100
 
 
 def test_snowpipe_streaming_legacy_byte_array_converter(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify that ByteArrayConverter is accepted when enable.schematization=false
     and that raw byte payloads land (base64-encoded) in the legacy RECORD_CONTENT column.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA variant, RECORD_CONTENT variant)",
+        columns="(RECORD_METADATA variant, RECORD_CONTENT variant)",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send raw byte records --

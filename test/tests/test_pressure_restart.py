@@ -49,13 +49,13 @@ def _chaos_operation(driver, connector_name, name_salt, counter):
 
 @pytest.mark.pressure
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_pressure_restart(driver, name_salt, create_topic, create_connector):
+def test_pressure_restart(driver, name_salt, create_topics, create_connector_from_file):
     connector_name = f"{FILE_NAME}{name_salt}"
-    topics = create_topic(
+    topics = create_topics(
         [f"{FILE_NAME}{i}" for i in range(TOPIC_COUNT)], num_partitions=PARTITION_COUNT
     )
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     total = TOPIC_COUNT * PARTITION_COUNT

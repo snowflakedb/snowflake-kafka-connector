@@ -23,19 +23,17 @@ def _build_records() -> list[bytes | None]:
 
 def test_string_json(
     driver,
-    name_salt,
     connector_version,
-    create_connector,
-    snowflake_table,
+    create_connector_from_file,
+    create_table,
     wait_for_rows,
 ):
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f'(record_metadata variant, "NUMBER" varchar)',
+        columns='(record_metadata variant, "NUMBER" varchar)',
     )
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send --

@@ -57,7 +57,7 @@ RECORDS = [
 @pytest.mark.confluent_only
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_auto_table_creation_topic2table(
-    driver, name_salt, create_connector, wait_for_rows
+    driver, name_salt, create_connector_from_file, wait_for_rows
 ):
     """Verify auto table creation with two topics mapped to one table.
 
@@ -77,7 +77,7 @@ def test_auto_table_creation_topic2table(
         driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
     try:
-        create_connector(CONFIG_FILE)
+        create_connector_from_file(CONFIG_FILE)
         driver.startConnectorWaitTime()
 
         # -- Send --

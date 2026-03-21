@@ -27,20 +27,18 @@ VALUE_SCHEMA = avro.loads("""
 def test_string_avrosr(
     driver,
     connector_version,
-    name_salt,
-    create_connector,
-    snowflake_table,
+    create_connector_from_file,
+    create_table,
     wait_for_rows,
 ):
     if connector_version == "v3":
         pytest.skip("v3 plugin conflicts with Schema Registry classloading")
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, id number, firstName varchar, time number)",
+        columns="(record_metadata variant, id number, firstName varchar, time number)",
     )
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send --

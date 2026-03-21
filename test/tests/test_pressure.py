@@ -30,12 +30,12 @@ def _send_partition(driver, topic, partition, record_count):
 
 @pytest.mark.pressure
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_pressure(driver, create_topic, create_connector, wait_for_rows):
-    topics = create_topic(
+def test_pressure(driver, create_topics, create_connector_from_file, wait_for_rows):
+    topics = create_topics(
         [f"{FILE_NAME}_{i}" for i in range(TOPIC_COUNT)], num_partitions=PARTITION_COUNT
     )
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     total = TOPIC_COUNT * PARTITION_COUNT
