@@ -1,13 +1,12 @@
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 import pytest
+
+from lib.config_migration import V4_CONFIG_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
-FILE_NAME = "travis_pressure_string_json"
-CONFIG_FILE = f"{FILE_NAME}.json"
 TOPIC_COUNT = 200
 PARTITION_COUNT = 12
 RECORD_COUNT = 10_000
@@ -30,12 +29,31 @@ def _send_partition(driver, topic, partition, record_count):
 
 @pytest.mark.pressure
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_pressure(driver, create_topics, create_connector_from_file, wait_for_rows):
+def test_pressure_init(driver, create_topics, create_custom_connector, wait_for_rows):
+    test_name = "test_pressure_init"
+
     topics = create_topics(
-        [f"{FILE_NAME}_{i}" for i in range(TOPIC_COUNT)], num_partitions=PARTITION_COUNT
+        [f"{test_name}_{i}" for i in range(TOPIC_COUNT)],
+        num_partitions=PARTITION_COUNT,
     )
 
-    create_connector_from_file(CONFIG_FILE)
+    connector = create_custom_connector(
+        test_name,
+        {
+            **V4_CONFIG_TEMPLATE,
+            "tasks.max": "10",
+            "topics.regex": f"{test_name}.*",
+            "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+            "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+            "value.converter.schemas.enable": "false",
+            "snowflake.client.validation.enabled": "false",
+            # Increase max poll interval from 5 to 10 minutes to avoid constant rebalancing.
+            # This is required when we have a large number of topics across tasks.
+            # We might be able to remove this once we parallelize table and pipe metadata lookups.
+            "consumer.override.max.poll.interval.ms": "600000",
+        },
+    )
+
     driver.startConnectorWaitTime()
 
     total = TOPIC_COUNT * PARTITION_COUNT
@@ -52,4 +70,10 @@ def test_pressure(driver, create_topics, create_connector_from_file, wait_for_ro
 
     for i, topic in enumerate(topics):
         logger.info("Verifying topic %d/%d: %s", i + 1, TOPIC_COUNT, topic)
-        wait_for_rows(topic, PARTITION_COUNT * RECORD_COUNT, timeout=1800)
+        wait_for_rows(
+            topic,
+            PARTITION_COUNT * RECORD_COUNT,
+            interval=10,
+            timeout=1800,
+            connector_name=connector.name,
+        )

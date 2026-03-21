@@ -116,9 +116,9 @@ Stress tests use the same Docker infrastructure but with `-m pressure` passed to
 
 When `-m pressure` is set, pytest selects only the pressure-marked tests:
 
-1. **TestPressureRestart** (`test_suit/test_pressure_restart.py`) -- Creates 10 topics with 3 partitions each and sends 200,000 records per partition. During verification, the connector is periodically restarted, paused, resumed, and deleted/recreated to test resilience under load.
+1. **test_pressure_restart** (`tests/pressure/test_pressure_restart.py`) -- Creates 10 topics with 3 partitions each and sends 200,000 records per partition. During verification, the connector is periodically restarted, paused, resumed, and deleted/recreated to test resilience under load.
 
-2. **TestPressure** (`test_suit/test_pressure.py`) -- Creates 200 topics with 12 partitions each and sends 10,000 records per partition (2,400 partitions, 24M records total). Sends are parallelized across 10 threads.
+2. **test_pressure_init** (`tests/pressure/test_pressure_init.py`) -- Creates 200 topics with 12 partitions each and sends 10,000 records per partition (2,400 partitions, 24M records total). Sends are parallelized across 10 threads.
 
 Both tests verify that the exact expected row count appears in Snowflake.
 

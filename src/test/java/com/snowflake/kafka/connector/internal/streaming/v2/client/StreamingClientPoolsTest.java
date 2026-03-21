@@ -8,7 +8,6 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,17 +15,16 @@ import org.junit.jupiter.api.Test;
 
 class StreamingClientPoolsTest {
 
-  private Map<String, String> connectorConfig;
+  private SinkTaskConfig sinkTaskConfig;
   private StreamingClientProperties streamingClientProperties;
   private String connectorName;
 
   @BeforeEach
   void setUp() {
-    connectorConfig = TestUtils.getConnectorConfigurationForStreaming(false);
-    streamingClientProperties =
-        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig));
+    sinkTaskConfig = SinkTaskConfig.from(TestUtils.getConnectorConfigurationForStreaming(false));
+    streamingClientProperties = StreamingClientProperties.from(sinkTaskConfig);
     connectorName = "test-connector-pools-" + UUID.randomUUID().toString().substring(0, 8);
-    ThreadPools.registerTask(connectorName, SinkTaskConfig.from(connectorConfig));
+    ThreadPools.registerTask(connectorName, sinkTaskConfig);
   }
 
   @AfterEach
@@ -51,7 +49,7 @@ class StreamingClientPoolsTest {
                     connectorName,
                     "test-task",
                     "pipe-A",
-                    SinkTaskConfig.from(connectorConfig),
+                    sinkTaskConfig,
                     streamingClientProperties,
                     TaskMetrics.noop()))
         .isSameAs(originalException);

@@ -5,10 +5,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
 
+from lib.config_migration import V4_CONFIG_TEMPLATE
+from lib.driver import KafkaDriver
+
 logger = logging.getLogger(__name__)
 
-FILE_NAME = "travis_pressure_restart"
-CONFIG_FILE = f"{FILE_NAME}.json"
 TOPIC_COUNT = 10
 PARTITION_COUNT = 3
 RECORD_COUNT = 200_000
@@ -30,33 +31,25 @@ def _send_partition(driver, topic, partition, record_count):
     driver.sendBytesData(topic, values, [], partition)
 
 
-def _chaos_operation(driver, connector_name, name_salt, counter):
-    """Cycle through connector lifecycle operations, matching the original mod-7 pattern."""
-    phase = counter % 7
-    if phase in (2, 3):
-        driver.restartConnector(connector_name)
-    elif phase == 4:
-        driver.pauseConnector(connector_name)
-    elif phase == 5:
-        driver.resumeConnector(connector_name)
-    elif phase == 6:
-        driver.deleteConnector(connector_name)
-    elif phase == 0 and counter > 0:
-        driver.createConnector(
-            name_salt=name_salt, rest_request_template_filename=CONFIG_FILE
-        )
-
-
 @pytest.mark.pressure
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_pressure_restart(driver, name_salt, create_topics, create_connector_from_file):
-    connector_name = f"{FILE_NAME}{name_salt}"
+def test_pressure_restart(driver: KafkaDriver, create_topics, create_custom_connector):
+    test_name = "test_pressure_restart"
+
     topics = create_topics(
-        [f"{FILE_NAME}{i}" for i in range(TOPIC_COUNT)], num_partitions=PARTITION_COUNT
+        [f"{test_name}{i}" for i in range(TOPIC_COUNT)], num_partitions=PARTITION_COUNT
     )
 
-    create_connector_from_file(CONFIG_FILE)
-    driver.startConnectorWaitTime()
+    config = {
+        **V4_CONFIG_TEMPLATE,
+        "tasks.max": "10",
+        "topics.regex": f"{test_name}.*",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false",
+        "snowflake.client.validation.enabled": "false",
+    }
+    connector = create_custom_connector(test_name, config)
 
     total = TOPIC_COUNT * PARTITION_COUNT
     with ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
@@ -70,13 +63,23 @@ def test_pressure_restart(driver, name_salt, create_topics, create_connector_fro
             if i % 10 == 0 or i == total:
                 logger.info(f"Sent {i}/{total} partitions")
 
-    chaos_counter = 0
+    phase = 0
     for i, topic in enumerate(topics):
         logger.info(f"Verifying topic {i + 1}/{TOPIC_COUNT}: {topic}")
         deadline = time.monotonic() + 600
         while True:
-            chaos_counter += 1
-            _chaos_operation(driver, connector_name, name_salt, chaos_counter)
+            phase = (phase + 1) % 7
+            match phase:
+                case 2 | 3:
+                    driver.restartConnector(connector.name)
+                case 4:
+                    driver.pauseConnector(connector.name)
+                case 5:
+                    driver.resumeConnector(connector.name)
+                case 6:
+                    connector.close()
+                case 0:
+                    connector = create_custom_connector(test_name, config)
 
             count = driver.select_number_of_records(topic)
             if count == EXPECTED_PER_TOPIC:

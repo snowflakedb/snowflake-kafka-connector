@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import org.apache.kafka.common.TopicPartition;
@@ -244,7 +245,14 @@ public class PartitionChannelManager {
                         streamingClientProperties,
                         taskMetrics))
             .toArray(CompletableFuture[]::new);
-    CompletableFuture.allOf(clientFutures).join();
+    try {
+      CompletableFuture.allOf(clientFutures).join();
+    } catch (CompletionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      }
+      throw e;
+    }
   }
 
   public void waitForAllChannelsToCommitData() {
