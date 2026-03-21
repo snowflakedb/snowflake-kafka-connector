@@ -16,10 +16,11 @@ def test_native_string_json_without_schema(
     Connector config uses StringConverter key + JsonConverter value with a
     ReplaceField transform that removes 'c2'.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, val varchar)",
     )
+    topic = table.name
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -32,20 +33,16 @@ def test_native_string_json_without_schema(
     driver.sendBytesData(topic, values)
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row: only 'val' survives the SMT --
-    meta_str, val_str = (
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT * FROM {topic} LIMIT 1")
-        .fetchone()
-    )
+    row = table.select("*")[0]
 
-    assert json.loads(meta_str) == {
+    assert json.loads(row["RECORD_METADATA"]) == {
         "CreateTime": ANY_INT,
         "SnowflakeConnectorPushTime": ANY_INT,
         "offset": 0,
         "partition": 0,
         "topic": topic,
     }
-    assert val_str == "0"
+    assert row["VAL"] == "0"

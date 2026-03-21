@@ -31,10 +31,11 @@ def test_native_string_protobuf(
     create_table,
     wait_for_rows,
 ):
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, record_content variant)",
     )
+    topic = table.name
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -45,16 +46,12 @@ def test_native_string_protobuf(
     driver.sendBytesData(topic, values)
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row content --
-    row = (
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT record_metadata, record_content FROM {topic} LIMIT 1")
-        .fetchone()
-    )
+    row = table.select("record_metadata, record_content", "LIMIT 1")[0]
 
-    record_metadata = json.loads(row[0])
+    record_metadata = json.loads(row["RECORD_METADATA"])
     assert record_metadata == {
         "CreateTime": ANY_INT,
         "SnowflakeConnectorPushTime": ANY_INT,
@@ -63,7 +60,7 @@ def test_native_string_protobuf(
         "topic": topic,
     }
 
-    record_content = json.loads(row[1])
+    record_content = json.loads(row["RECORD_CONTENT"])
     assert record_content == {
         "bytes_val": "3q0=",
         "dateTime": 1234,

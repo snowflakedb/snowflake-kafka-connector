@@ -12,10 +12,11 @@ def test_snowpipe_streaming_legacy_string_json(
     legacy RECORD_CONTENT / RECORD_METADATA VARIANT columns — the same
     table layout that KC v3 used by default.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(RECORD_METADATA variant, RECORD_CONTENT variant)",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -30,30 +31,29 @@ def test_snowpipe_streaming_legacy_string_json(
     driver.sendBytesData(topic, values, [], partition=0)
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify RECORD_CONTENT contains original JSON fields --
-    row = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f"SELECT RECORD_CONTENT, RECORD_METADATA FROM {topic} "
-            f'WHERE RECORD_METADATA:"offset"::number = 0'
-        )
-        .fetchone()
-    )
-    assert row is not None, "Expected row with offset 0"
+    row = table.select(
+        "RECORD_CONTENT, RECORD_METADATA",
+        'WHERE RECORD_METADATA:"offset"::number = 0',
+    )[0]
 
-    content = json.loads(row[0])
+    content = json.loads(row["RECORD_CONTENT"])
     # VARIANT may store the payload as a JSON-encoded string (double-encoded)
     if isinstance(content, str):
         content = json.loads(content)
     assert content["city"] == "Portland", (
-        f"Expected city=Portland in RECORD_CONTENT, got: {row[0]}"
+        f"Expected city=Portland in RECORD_CONTENT, got: {row['RECORD_CONTENT']}"
     )
-    assert content["age"] == 0, f"Expected age=0 in RECORD_CONTENT, got: {row[0]}"
+    assert content["age"] == 0, (
+        f"Expected age=0 in RECORD_CONTENT, got: {row['RECORD_CONTENT']}"
+    )
 
-    metadata = json.loads(row[1])
+    metadata = json.loads(row["RECORD_METADATA"])
     if isinstance(metadata, str):
         metadata = json.loads(metadata)
     for key in ("offset", "partition", "topic"):
-        assert key in metadata, f"RECORD_METADATA missing '{key}': {row[1]}"
+        assert key in metadata, (
+            f"RECORD_METADATA missing '{key}': {row['RECORD_METADATA']}"
+        )

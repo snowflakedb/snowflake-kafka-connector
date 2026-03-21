@@ -8,10 +8,11 @@ RECORD_COUNT = 100
 
 
 def test_json_json(driver, create_connector_from_file, create_table, wait_for_rows):
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns='(record_metadata variant, "NUMBER" varchar)',
     )
+    topic = table.name
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -24,14 +25,10 @@ def test_json_json(driver, create_connector_from_file, create_table, wait_for_ro
     driver.sendBytesData(topic, values, keys)
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row content --
-    record_metadata = json.loads(
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT record_metadata FROM {topic} LIMIT 1")
-        .fetchone()[0]
-    )
+    record_metadata = json.loads(table.select_scalar("record_metadata"))
 
     assert record_metadata == {
         "SnowflakeConnectorPushTime": ANY_INT,

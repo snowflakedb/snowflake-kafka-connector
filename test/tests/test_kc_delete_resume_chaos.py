@@ -35,10 +35,11 @@ def test_kc_delete_resume_chaos(
     the deletion completes; batch 3 is never ingested because resume
     cannot recreate a deleted connector).
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, column1 varchar)",
     )
+    topic = table.name
 
     connector_name = f"{FILE_NAME}{name_salt}"
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -48,7 +49,7 @@ def test_kc_delete_resume_chaos(
 
     # -- Send batch 1 and wait for it to be ingested --
     _send_batch(driver, topic, RECORD_COUNT)
-    wait_for_rows(topic, RECORD_COUNT, connector_name=connector_name)
+    wait_for_rows(table.name, RECORD_COUNT, connector_name=connector_name)
 
     # -- Delete connector + pressure (batch 2 sent during deletion) --
     driver.deleteConnector(connector_name)
@@ -68,12 +69,12 @@ def test_kc_delete_resume_chaos(
     # making the total non-deterministic. Poll until count >= RECORD_COUNT instead.
     deadline = time.monotonic() + 60
     while True:
-        count = driver.select_number_of_records(topic)
+        count = table.select_scalar("count(*)")
         if count >= RECORD_COUNT:
             break
         if time.monotonic() >= deadline:
             raise AssertionError(
-                f"Expected at least {RECORD_COUNT} rows in {topic}, got {count}"
+                f"Expected at least {RECORD_COUNT} rows in {table.name}, got {count}"
             )
         sleep(5)
 

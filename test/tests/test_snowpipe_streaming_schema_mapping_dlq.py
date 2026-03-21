@@ -25,10 +25,11 @@ def test_snowpipe_streaming_schema_mapping_dlq(
 
     Only type (3) should land in the table. Types (1) and (2) go to DLQ.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(PERFORMANCE_STRING STRING, RATING_INT NUMBER, RECORD_METADATA VARIANT)",
     )
+    topic = table.name
 
     config = create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -46,14 +47,7 @@ def test_snowpipe_streaming_schema_mapping_dlq(
     _send_records(driver, topic, correct_record, RECORDS_PER_TYPE)
 
     # -- Verify correct records landed in table --
-    wait_for_rows(topic, EXPECTED_IN_TABLE)
-
-    # -- Build column index map --
-    col_info = driver.snowflake_conn.cursor().execute(f"DESC TABLE {topic}").fetchall()
-
-    col_map = {}
-    for idx, col in enumerate(col_info):
-        col_map[col[0]] = idx
+    wait_for_rows(table.name, EXPECTED_IN_TABLE)
 
     # -- Verify DLQ received failing records --
     offsets_in_dlq = driver.consume_messages_dlq(config, 0, EXPECTED_IN_DLQ - 1)
@@ -62,15 +56,10 @@ def test_snowpipe_streaming_schema_mapping_dlq(
     )
 
     # -- Verify content of ingested rows --
-    row = (
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT * FROM {topic} LIMIT 1")
-        .fetchone()
-    )
+    row = table.select("*")[0]
 
     for field, gold in {"PERFORMANCE_STRING": "Excellent", "RATING_INT": 100}.items():
-        idx = col_map[field]
-        actual = row[idx]
+        actual = row[field]
         if isinstance(actual, str):
             assert "".join(actual.split()) == gold, (
                 f"Column {field}: expected {gold!r}, got {actual!r}"
