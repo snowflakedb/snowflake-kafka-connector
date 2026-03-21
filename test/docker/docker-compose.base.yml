@@ -9,10 +9,10 @@ services:
       dockerfile: Dockerfile.test-runner
     environment:
       SNOWFLAKE_CREDENTIAL_FILE: /credentials/profile.json
-      KAFKA_PLATFORM: ${KAFKA_PLATFORM:-}
-      KAFKA_PLATFORM_VERSION: ${KAFKA_PLATFORM_VERSION:-}
-      TEST_NAME_SALT: ${TEST_NAME_SALT:-}
-      SF_CLOUD_PLATFORM: ${SF_CLOUD_PLATFORM:-}
+      KAFKA_PLATFORM:
+      KAFKA_PLATFORM_VERSION:
+      TEST_NAME_SALT:
+      SF_CLOUD_PLATFORM:
       ENABLE_SSL: ${ENABLE_SSL:-false}
     volumes:
       - ${SNOWFLAKE_CREDENTIAL_FILE:?SNOWFLAKE_CREDENTIAL_FILE is required}:/credentials/profile.json:ro
