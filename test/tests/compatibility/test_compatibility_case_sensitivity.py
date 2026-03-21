@@ -135,7 +135,6 @@ def test_compatibility_case_sensitivity_table_name(
 
 def test_compatibility_case_sensitivity_ingestion_columns(
     driver: KafkaDriver,
-    case,
     create_connector,
     create_topics,
     create_table,
@@ -157,8 +156,6 @@ def test_compatibility_case_sensitivity_ingestion_columns(
             payload={"A": "upper A"},
             expected_values=["upper A"],
         ),
-        # In KC v3, unquoted key `a` is uppercased to `A`.
-        # In KC v4, unquoted key `a` is left as is but is matched by the pipe.
         ColumnIngestionCase(
             case_name="lower_b_into_upper_B",
             column_names=["B"],
@@ -166,37 +163,33 @@ def test_compatibility_case_sensitivity_ingestion_columns(
             payload={"b": "lower b into upper B"},
             expected_values=["lower b into upper B"],
         ),
-        # KC v4 requires columns to be quoted to pass client-side validation
-        # and it doesn't process quoted column names when ingesting. This is a bug.
-        *case(
-            v3=[
-                ColumnIngestionCase(
-                    case_name="lower_c_into_lower_c",
-                    column_names=["c"],
-                    column_types=["VARCHAR"],
-                    # KC v3 requires quotes to not uppercase the key.
-                    payload={'"c"': "lower c into lower c"},
-                    expected_values=["lower c into lower c"],
-                ),
-                # NB this only works in KC v4 because the schema validator checks the wrong column.
-                # If we tried to ingest into columns "D" and "e", it would fail client-side validation.
-                # TODO(skurella/alhuang): rename to `pair_D_e`
-                ColumnIngestionCase(
-                    case_name="pair_D_d",
-                    column_names=["D", "d"],
-                    column_types=["VARCHAR", "VARCHAR"],
-                    payload={"D": "upper D", case(v3='"d"', v4="d"): "lower d"},
-                    expected_values=["upper D", "lower d"],
-                ),
-            ],
-            v4=[],
+        ColumnIngestionCase(
+            case_name="lower_c_into_lower_c",
+            column_names=["c"],
+            column_types=["VARCHAR"],
+            # KC v3 requires quotes to not uppercase the key.
+            payload={'"c"': "lower c into lower c"},
+            expected_values=["lower c into lower c"],
+        ),
+        ColumnIngestionCase(
+            case_name="pair_D_d",
+            column_names=["D", "d"],
+            column_types=["VARCHAR", "VARCHAR"],
+            payload={"D": "upper D", '"d"': "lower d"},
+            expected_values=["upper D", "lower d"],
+        ),
+        ColumnIngestionCase(
+            case_name="pair_E_f",
+            column_names=["E", "f"],
+            column_types=["VARCHAR", "VARCHAR"],
+            payload={"E": "upper E", '"f"': "lower f"},
+            expected_values=["upper E", "lower f"],
         ),
         ColumnIngestionCase(
             case_name="unicode",
             column_names=["❄️"],
             column_types=["VARCHAR"],
-            # KC v3 doesn't support special characters in unquoted column names.
-            payload={case(v3='"❄️"', v4="❄️"): "unicode ❄️"},
+            payload={'"❄️"': "unicode ❄️"},
             expected_values=["unicode ❄️"],
         ),
         # We don't process keys beyond the first level.
@@ -261,6 +254,128 @@ def test_compatibility_case_sensitivity_ingestion_columns(
                 actual_value = json.loads(actual_row[column_name])
             else:
                 actual_value = actual_row[column_name]
+            assert actual_value == expected_value, (
+                f"{test_case.case_name}.{column_name}: "
+                f"expected {expected_value}, got {actual_value}"
+            )
+
+
+def test_case_sensitivity_schema_evolution(
+    driver: KafkaDriver,
+    connector_version: str,
+    create_connector,
+    create_topics,
+    create_table,
+    wait_for_rows,
+):
+    @dataclass(frozen=True)
+    class SchemaEvolutionCase:
+        case_name: str
+        payload: dict[str, str]
+        expected_values: dict[str, str]
+
+    test_cases = [
+        SchemaEvolutionCase(
+            case_name="upper_A",
+            payload={"A": "upper A"},
+            expected_values={"A": "upper A"},
+        ),
+        SchemaEvolutionCase(
+            case_name="lower_b_into_upper_B",
+            payload={"b": "lower b into upper B"},
+            expected_values={"B": "lower b into upper B"},
+        ),
+        SchemaEvolutionCase(
+            case_name="quoted_c",
+            payload={'"c"': "quoted c"},
+            expected_values={"c": "quoted c"},
+        ),
+        SchemaEvolutionCase(
+            case_name="pair_D_d",
+            payload={"D": "upper D", '"d"': "lower d"},
+            expected_values={"D": "upper D", "d": "lower d"},
+        ),
+        SchemaEvolutionCase(
+            case_name="pair_E_f",
+            payload={"E": "upper E", '"f"': "lower f"},
+            expected_values={"E": "upper E", "f": "lower f"},
+        ),
+        # Funny enough, KC v3 is able to ingest an unquoted unicode column
+        # if it immediately follows a schema evolution,
+        # whereas a regular ingestion would fail.
+        SchemaEvolutionCase(
+            case_name="unicode",
+            payload={"❄️": "unicode"},
+            expected_values={"❄️": "unicode"},
+        ),
+    ]
+
+    topics = create_topics(
+        [test_case.case_name for test_case in test_cases],
+        with_tables=False,
+    )
+    tables = [
+        create_table(
+            test_case.case_name.upper(),
+            columns='("RECORD_METADATA" VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE',
+            cleanup_topic=False,
+        )
+        for test_case in test_cases
+    ]
+
+    connector = create_connector(
+        v3_config={
+            **V3_CONFIG_TEMPLATE,
+            "topics": ",".join(topics),
+            "tasks.max": "1",
+            "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+            "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+            "value.converter.schemas.enable": "false",
+            # KC v3 needs this connector setting to attempt schema evolution.
+            # KC v4 ignores it and instead relies on the table property below.
+            "snowflake.enable.schematization": "true",
+        }
+    )
+    driver.startConnectorWaitTime()
+
+    for topic, test_case in zip(topics, test_cases, strict=True):
+        driver.sendBytesData(topic, [json.dumps(test_case.payload).encode("utf-8")])
+
+    for test_case, table in zip(test_cases, tables, strict=True):
+        wait_for_rows(table.name, 1, connector_name=connector.name)
+
+        actual_column_names = {column[0] for column in table.schema()}
+        expected_column_names = set(test_case.expected_values.keys()) | {
+            "RECORD_METADATA"
+        }
+        match connector_version:
+            case "v3":
+                assert actual_column_names == expected_column_names, (
+                    f"{test_case.case_name}: "
+                    f"expected {expected_column_names}, got {actual_column_names}"
+                )
+            case "v4":
+                # Until SNOW-3291723 is rolled out, server-side schema evolution might
+                # race with client-side schema evolution and also create uppercase columns.
+                assert expected_column_names <= actual_column_names, (
+                    f"{test_case.case_name}: "
+                    f"expected at least {expected_column_names}, got {actual_column_names}"
+                )
+                actual_phantom_column_names = (
+                    actual_column_names - expected_column_names
+                )
+                allowed_phantom_column_names = {
+                    c.upper() for c in test_case.expected_values.keys()
+                }
+                assert actual_phantom_column_names <= allowed_phantom_column_names, (
+                    f"{test_case.case_name}: "
+                    f"expected at least {expected_column_names}, got {actual_column_names}"
+                    f"allowed phantom column names: {allowed_phantom_column_names}"
+                )
+
+        actual_row = table.select("*")[0]
+        for column_name, expected_value in test_case.expected_values.items():
+            actual_value = actual_row[column_name]
             assert actual_value == expected_value, (
                 f"{test_case.case_name}.{column_name}: "
                 f"expected {expected_value}, got {actual_value}"
