@@ -306,16 +306,22 @@ def create_topic(driver: KafkaDriver, name_salt):
     """
     created: List[str] = []
 
-    def _create_one(topic, num_partitions, replication_factor):
+    def _create_one(topic, num_partitions, replication_factor, create_table):
         salted = f"{topic}{name_salt}"
+        logger.info(f"Creating topic {salted}")
         driver.createTopics(salted, num_partitions, replication_factor)
-        driver.create_table(salted)
+        if create_table:
+            driver.create_table(salted)
         return salted
 
-    def _create(topics: List[str], *, num_partitions=1, replication_factor=1):
+    def _create(
+        topics: List[str], *, num_partitions=1, replication_factor=1, create_table=True
+    ):
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = [
-                executor.submit(_create_one, t, num_partitions, replication_factor)
+                executor.submit(
+                    _create_one, t, num_partitions, replication_factor, create_table
+                )
                 for t in topics
             ]
             for future in as_completed(futures):
