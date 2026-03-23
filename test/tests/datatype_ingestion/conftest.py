@@ -379,7 +379,7 @@ def standalone_ingest(driver, mode_salt, ingestion_mode, typed_table):
 
     created_connectors = []
 
-    def _run(test_id, col_ddl, values, *, timeout=60):
+    def _run(test_id, col_ddl, values, *, timeout=30):
         topic = typed_table(test_id, col_ddl)
         connector_name = f"{test_id}{mode_salt}"
         dlq_topic = f"dlq_{test_id}{mode_salt}"
