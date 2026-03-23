@@ -22,13 +22,14 @@ RECORD = {
 def test_schema_not_supported_converter(
     driver, create_connector_from_file, create_table
 ):
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns='(PERFORMANCE_STRING STRING, "case_sensitive_PERFORMANCE_CHAR" CHAR, '
         "PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, "
         "APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, "
         "INFO_ARRAY ARRAY, INFO VARIANT, INFO_OBJECT OBJECT)",
     )
+    topic = table.name
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -40,7 +41,7 @@ def test_schema_not_supported_converter(
 
     # -- Verify: nothing should be ingested with unsupported converters --
     time.sleep(30)
-    count = driver.select_number_of_records(topic)
+    count = table.select_scalar("count(*)")
     assert count == 0, (
         f"Expected 0 rows but got {count}; unsupported converter should reject all records"
     )

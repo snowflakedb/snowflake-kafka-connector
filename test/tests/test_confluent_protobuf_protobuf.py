@@ -45,10 +45,11 @@ def test_confluent_protobuf_protobuf(
     platform_version = request.config.getoption("--platform-version") or ""
     if platform_version.startswith("8."):
         pytest.skip("BlueApron protobuf converter incompatible with Confluent 8.x")
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, record_content variant)",
     )
+    topic = table.name
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -72,14 +73,10 @@ def test_confluent_protobuf_protobuf(
     producer.flush()
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row content --
-    row = (
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT record_metadata, record_content FROM {topic} LIMIT 1")
-        .fetchone()
-    )
+    row = table.select("record_metadata, record_content")[0]
 
     sensor_dict = {
         "bytes_val": "3q0=",
@@ -95,7 +92,7 @@ def test_confluent_protobuf_protobuf(
         "uint64_val": -1,
     }
 
-    record_metadata = json.loads(row[0])
+    record_metadata = json.loads(row["RECORD_METADATA"])
     assert record_metadata == {
         "CreateTime": ANY_INT,
         "SnowflakeConnectorPushTime": ANY_INT,
@@ -105,5 +102,5 @@ def test_confluent_protobuf_protobuf(
         "topic": topic,
     }
 
-    record_content = json.loads(row[1])
+    record_content = json.loads(row["RECORD_CONTENT"])
     assert record_content == sensor_dict

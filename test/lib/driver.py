@@ -329,80 +329,36 @@ class KafkaDriver:
 
     def cleanTableStagePipe(self, topic: str):
         logger.info(f"=== Drop table {topic} ===")
-        self.snowflake_conn.cursor().execute(f"DROP table IF EXISTS {topic}")
+        self.snowflake_conn.cursor().execute(
+            "DROP TABLE IF EXISTS identifier(%s)", (topic,)
+        )
 
         # Drop SSv2 streaming pipe (current naming convention: tableName-STREAMING)
         ssv2PipeName = f"{topic}-STREAMING"
         logger.info(f"=== Drop SSv2 pipe {ssv2PipeName} ===")
-        self.snowflake_conn.cursor().execute(f"DROP PIPE IF EXISTS {ssv2PipeName}")
+        self.snowflake_conn.cursor().execute(
+            "DROP PIPE IF EXISTS identifier(%s)", (ssv2PipeName,)
+        )
 
         logger.info("=== Done ===")
 
-    def enable_schema_evolution_for_iceberg(self, table: str):
-        self.snowflake_conn.cursor().execute(
-            f"alter iceberg table {table} set ENABLE_SCHEMA_EVOLUTION = true"
-        )
-
-    def create_empty_iceberg_table(self, table_name: str, external_volume: str):
-        sql = f"""
-            CREATE ICEBERG TABLE IF NOT EXISTS {table_name} (
-                record_metadata OBJECT()
-            )
-            EXTERNAL_VOLUME = '{external_volume}'
-            CATALOG = 'SNOWFLAKE'
-            BASE_LOCATION = '{table_name}'
-            ;
-        """
-        self.snowflake_conn.cursor().execute(sql)
-
     def create_table(self, table_name: str):
-        sql = f"""
-                CREATE TABLE IF NOT EXISTS {table_name} (
-                    RECORD_METADATA VARIANT
-                )
-            """
         logger.info(f"=== Creating table {table_name} ===")
-        logger.info(f"{sql}")
-        self.snowflake_conn.cursor().execute(sql)
-        logger.info(f"=== Table {table_name} created ===")
+        self.snowflake_conn.cursor().execute(
+            "CREATE TABLE IF NOT EXISTS identifier(%s) (RECORD_METADATA VARIANT)",
+            (table_name,),
+        )
 
     def drop_table(self, table_name: str):
-        sql = f"""
-                DROP TABLE IF EXISTS {table_name}
-            """
         logger.info(f"=== Dropping table {table_name} ===")
-        self.snowflake_conn.cursor().execute(sql)
-        logger.info(f"=== Table {table_name} dropped ===")
-
-    def create_iceberg_table_with_sample_content(
-        self, table_name: str, external_volume: str
-    ):
-        sql = f"""
-            CREATE ICEBERG TABLE IF NOT EXISTS {table_name} (
-                record_content OBJECT(
-                    id INT,
-                    body_temperature FLOAT,
-                    name STRING,
-                    approved_coffee_types ARRAY(STRING),
-                    animals_possessed OBJECT(dogs BOOLEAN, cats BOOLEAN)
-                )
-            )
-            EXTERNAL_VOLUME = '{external_volume}'
-            CATALOG = 'SNOWFLAKE'
-            BASE_LOCATION = '{table_name}'
-            ;
-        """
-        self.snowflake_conn.cursor().execute(sql)
-
-    def drop_iceberg_table(self, table_name: str):
         self.snowflake_conn.cursor().execute(
-            f"DROP ICEBERG TABLE IF EXISTS {table_name}"
+            "DROP TABLE IF EXISTS identifier(%s)", (table_name,)
         )
 
-    def select_number_of_records(self, table_name: str) -> str:
+    def select_number_of_records(self, table_name: str) -> str | None:
         return (
             self.snowflake_conn.cursor()
-            .execute(f"SELECT count(*) FROM {table_name}")
+            .execute("SELECT count(*) FROM identifier(%s)", (table_name,))
             .fetchone()[0]
         )
 

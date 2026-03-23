@@ -11,10 +11,11 @@ def test_snowpipe_streaming_legacy_string_converter(
     """Verify that StringConverter is accepted when enable.schematization=false
     and that raw string payloads land in the legacy RECORD_CONTENT column.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(RECORD_METADATA variant, RECORD_CONTENT variant)",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -26,26 +27,23 @@ def test_snowpipe_streaming_legacy_string_converter(
     driver.sendBytesData(topic, values, [], partition=0)
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify RECORD_CONTENT contains the string payload --
-    row = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f"SELECT RECORD_CONTENT, RECORD_METADATA FROM {topic} "
-            f'WHERE RECORD_METADATA:"offset"::number = 0'
-        )
-        .fetchone()
-    )
-    assert row is not None, "Expected row with offset 0"
+    row = table.select(
+        "RECORD_CONTENT, RECORD_METADATA",
+        'WHERE RECORD_METADATA:"offset"::number = 0',
+    )[0]
 
-    content = str(row[0])
+    content = str(row["RECORD_CONTENT"])
     assert "hello world 0" in content, (
-        f"Expected 'hello world 0' in RECORD_CONTENT, got: {row[0]}"
+        f"Expected 'hello world 0' in RECORD_CONTENT, got: {row['RECORD_CONTENT']}"
     )
 
-    metadata = json.loads(row[1])
+    metadata = json.loads(row["RECORD_METADATA"])
     if isinstance(metadata, str):
         metadata = json.loads(metadata)
     for key in ("offset", "partition", "topic"):
-        assert key in metadata, f"RECORD_METADATA missing '{key}': {row[1]}"
+        assert key in metadata, (
+            f"RECORD_METADATA missing '{key}': {row['RECORD_METADATA']}"
+        )

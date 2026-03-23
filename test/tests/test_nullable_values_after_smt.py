@@ -1,7 +1,5 @@
 import json
 
-from snowflake.connector import DictCursor
-
 FILE_NAME = "nullable_values_after_smt"
 CONFIG_FILE = f"{FILE_NAME}.json"
 TOTAL_EVENTS = 200
@@ -11,10 +9,11 @@ EXPECTED_ROWS = 100  # only every-other event has optionalField
 def test_nullable_values_after_smt(
     driver, create_connector_from_file, create_table, wait_for_rows
 ):
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(index number, from_optional_field boolean, record_metadata variant)",
     )
+    topic = table.name
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -32,17 +31,11 @@ def test_nullable_values_after_smt(
     driver.sendBytesData(topic, values)
 
     # -- Verify row count --
-    wait_for_rows(topic, EXPECTED_ROWS)
+    wait_for_rows(table.name, EXPECTED_ROWS)
 
     # -- Verify content --
-    rows = (
-        driver.snowflake_conn.cursor(DictCursor)
-        .execute(
-            f"SELECT index, from_optional_field, "
-            f"record_metadata:offset::number AS offset "
-            f"FROM {topic}"
-        )
-        .fetchall()
+    rows = table.select(
+        "index, from_optional_field, record_metadata:offset::number AS offset",
     )
 
     parsed = [

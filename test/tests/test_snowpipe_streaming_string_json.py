@@ -10,10 +10,11 @@ RECORDS_PER_PARTITION = 1000
 def test_snowpipe_streaming_string_json(
     driver, create_connector_from_file, create_table, wait_for_rows
 ):
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, fieldName varchar)",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
 
@@ -35,46 +36,35 @@ def test_snowpipe_streaming_string_json(
     total_expected = RECORDS_PER_PARTITION * PARTITION_COUNT
 
     # -- Verify row count --
-    wait_for_rows(topic, total_expected)
+    wait_for_rows(table.name, total_expected)
 
     # -- Verify no duplicates --
-    dup = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f'SELECT record_metadata:"offset"::string AS offset_no, '
-            f'record_metadata:"partition"::string AS partition_no '
-            f"FROM {topic} GROUP BY offset_no, partition_no HAVING count(*) > 1"
-        )
-        .fetchone()
+    result = table.select(
+        'record_metadata:"offset"::string AS offset_no, '
+        'record_metadata:"partition"::string AS partition_no',
+        "GROUP BY offset_no, partition_no HAVING count(*) > 1",
     )
-    assert dup is None, f"Duplicate detected: {dup}"
+    assert not result, f"Duplicate detected: {result[0]}"
 
     # -- Verify unique offsets per partition --
-    rows = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f'SELECT count(DISTINCT record_metadata:"offset"::number) AS unique_offsets, '
-            f'record_metadata:"partition"::number AS partition_no '
-            f"FROM {topic} GROUP BY partition_no ORDER BY partition_no"
-        )
-        .fetchall()
+    rows = table.select(
+        'count(DISTINCT record_metadata:"offset"::number) AS unique_offsets, '
+        'record_metadata:"partition"::number AS partition_no',
+        "GROUP BY partition_no ORDER BY partition_no",
     )
     assert len(rows) == PARTITION_COUNT
     for p in range(PARTITION_COUNT):
-        assert rows[p][0] == RECORDS_PER_PARTITION, (
-            f"Partition {p}: expected {RECORDS_PER_PARTITION} unique offsets, got {rows[p][0]}"
+        assert rows[p]["UNIQUE_OFFSETS"] == RECORDS_PER_PARTITION, (
+            f"Partition {p}: expected {RECORDS_PER_PARTITION} unique offsets, "
+            f"got {rows[p]['UNIQUE_OFFSETS']}"
         )
-        assert rows[p][1] == p
+        assert rows[p]["PARTITION_NO"] == p
 
     # -- Verify SnowflakeConnectorPushTime is populated --
-    push_time_count = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f"SELECT count(*) FROM {topic} "
-            f"WHERE NOT is_null_value(record_metadata:SnowflakeConnectorPushTime)"
-        )
-        .fetchone()[0]
-    )
+    push_time_count = table.select(
+        "count(*)",
+        "WHERE NOT is_null_value(record_metadata:SnowflakeConnectorPushTime)",
+    )[0]["COUNT(*)"]
     assert push_time_count == total_expected, (
         f"Empty ConnectorPushTime detected ({push_time_count}/{total_expected})"
     )

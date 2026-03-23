@@ -2,8 +2,6 @@ import json
 
 import pytest
 from confluent_kafka import avro
-from snowflake.connector import DictCursor
-
 from lib.matchers import ANY_INT
 
 FILE_NAME = "travis_correct_avrosr_avrosr"
@@ -52,7 +50,7 @@ def test_avrosr_avrosr(
 ):
     if connector_version == "v3":
         pytest.skip("v3 plugin conflicts with Schema Registry classloading")
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, id number, firstName varchar, time number, "
         "someFloat number, someFloatNaN varchar, "
@@ -60,6 +58,7 @@ def test_avrosr_avrosr(
         "someDouble number, someDoubleNaN varchar, "
         "someDoublePositiveInfinity varchar, someDoubleNegativeInfinity varchar)",
     )
+    topic = table.name
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -85,14 +84,10 @@ def test_avrosr_avrosr(
     driver.sendAvroSRData(topic, values, VALUE_SCHEMA, keys, KEY_SCHEMA)
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row content --
-    row = (
-        driver.snowflake_conn.cursor(DictCursor)
-        .execute(f"SELECT * FROM {topic} LIMIT 1")
-        .fetchone()
-    )
+    row = table.select("*")[0]
 
     assert row["ID"] == 0
     assert row["FIRSTNAME"] == "abc0"

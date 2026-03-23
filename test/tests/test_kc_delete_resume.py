@@ -30,10 +30,11 @@ def test_kc_delete_resume(
 
     Only batch 1 should appear in the table (RECORD_COUNT rows).
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, column1 varchar)",
     )
+    topic = table.name
 
     connector_name = f"{FILE_NAME}{name_salt}"
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -43,7 +44,7 @@ def test_kc_delete_resume(
 
     # -- Send batch 1 and wait for it to be ingested before deleting --
     _send_batch(driver, topic, RECORD_COUNT)
-    wait_for_rows(topic, RECORD_COUNT, connector_name=connector_name)
+    wait_for_rows(table.name, RECORD_COUNT, connector_name=connector_name)
 
     # -- Delete connector --
     driver.deleteConnector(connector_name)
@@ -57,4 +58,4 @@ def test_kc_delete_resume(
     _send_batch(driver, topic, RECORD_COUNT)
 
     # -- Verify only batch 1 was ingested --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT, connector_name=connector_name)

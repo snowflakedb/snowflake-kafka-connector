@@ -44,7 +44,8 @@ def test_migration_without_duplicates(
 
     test_name = "test_migration_without_duplicates"
 
-    topic = create_table(columns='(record_metadata variant, "NUMBER" varchar)')
+    table = create_table(columns='(record_metadata variant, "NUMBER" varchar)')
+    topic = table.name
 
     producer = RecordProducer(driver, topic)
 
@@ -62,7 +63,7 @@ def test_migration_without_duplicates(
     producer.send(10)
     logging.info(f"Produced 10 records (total: {producer.records_produced})")
     wait_for_rows(
-        table_name=topic,
+        table_name=table.name,
         expected=producer.records_produced,
         connector_name=v3_connector.name,
     )
@@ -95,7 +96,7 @@ def test_migration_without_duplicates(
         f"Waiting for all {producer.records_produced} records to land in Snowflake"
     )
     wait_for_rows(
-        table_name=topic,
+        table_name=table.name,
         expected=producer.records_produced,
         connector_name=v4_connector.name,
     )
@@ -117,10 +118,11 @@ def test_migration_with_possible_duplicates(
     test_name = "test_migration_with_possible_duplicates"
     warmup_records = 10
 
-    topic = create_table(
+    table = create_table(
         test_name,
         columns='(record_metadata variant, "NUMBER" varchar)',
     )
+    topic = table.name
 
     producer = RecordProducer(driver, topic)
 
@@ -140,7 +142,7 @@ def test_migration_with_possible_duplicates(
         f"Produced {warmup_records} records (total: {producer.records_produced})"
     )
     wait_for_rows(
-        table_name=topic,
+        table_name=table.name,
         expected=producer.records_produced,
         connector_name=v3_connector.name,
     )
@@ -150,12 +152,10 @@ def test_migration_with_possible_duplicates(
 
     try:
         logging.info("Waiting for v3 to ingest beyond the warmup batch")
-        assert wait_for(
-            lambda: driver.select_number_of_records(topic) > warmup_records
-        ), f"v3 never ingested beyond {warmup_records} warmup records"
-        logging.info(
-            f"v3 ingested {driver.select_number_of_records(topic)} rows so far"
+        assert wait_for(lambda: table.select_scalar("count(*)") > warmup_records), (
+            f"v3 never ingested beyond {warmup_records} warmup records"
         )
+        logging.info(f"v3 ingested {table.select_scalar('count(*)')} rows so far")
 
         logging.info("Closing v3 connector while data is still flowing")
         assert v3_connector.close(wait_timeout=60)
@@ -171,41 +171,34 @@ def test_migration_with_possible_duplicates(
         records_produced_so_far = producer.records_produced
         logging.info(
             f"Snapshot: {records_produced_so_far} records produced, "
-            f"{driver.select_number_of_records(topic)} rows in Snowflake"
+            f"{table.select_scalar('count(*)')} rows in Snowflake"
         )
         assert wait_for(
-            lambda: driver.select_number_of_records(topic) > records_produced_so_far
+            lambda: table.select_scalar("count(*)") > records_produced_so_far
         ), f"v4 never ingested beyond {records_produced_so_far} rows"
         logging.info(
-            f"v4 is actively ingesting ({driver.select_number_of_records(topic)} rows)"
+            f"v4 is actively ingesting ({table.select_scalar('count(*)')} rows)"
         )
 
     finally:
         producer.stop_continuous()
 
-    def select_scalar(projection: str):
-        return (
-            driver.snowflake_conn.cursor()
-            .execute(f"SELECT {projection} FROM {topic}")
-            .fetchone()[0]
-        )
-
     expected = producer.records_produced
     logging.info(
         f"Waiting for all {expected} distinct records to land in Snowflake "
-        f"(currently {select_scalar('count(distinct number)')} distinct, "
-        f"{select_scalar('count(*)')} total)"
+        f"(currently {table.select_scalar('count(distinct number)')} distinct, "
+        f"{table.select_scalar('count(*)')} total)"
     )
     assert wait_for(
-        lambda: select_scalar("count(distinct number)") == expected,
+        lambda: table.select_scalar("count(distinct number)") == expected,
         timeout=120,
     ), (
         f"Expected {expected} distinct records, "
-        f"got {select_scalar('count(distinct number)')} distinct / {select_scalar('count(*)')} total"
+        f"got {table.select_scalar('count(distinct number)')} distinct / {table.select_scalar('count(*)')} total"
     )
 
-    distinct_offsets = select_scalar("count(distinct record_metadata:offset)")
-    total_rows = select_scalar("count(*)")
+    distinct_offsets = table.select_scalar("count(distinct record_metadata:offset)")
+    total_rows = table.select_scalar("count(*)")
     logging.info(
         f"Final: {expected} distinct records, {distinct_offsets} distinct offsets, "
         f"{total_rows} total rows (duplicates: {total_rows - expected})"

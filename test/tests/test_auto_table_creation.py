@@ -3,6 +3,8 @@ from confluent_kafka import avro
 from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 from time import sleep
 
+from lib.fixtures.table import Table
+
 FILE_NAME = "travis_correct_auto_table_creation"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
@@ -52,7 +54,8 @@ def test_auto_table_creation(
     based on the registered Avro schema.  Verifies column types match
     the expected schema.
     """
-    topic = f"{FILE_NAME}{name_salt}"
+    table = Table(driver, f"{FILE_NAME}{name_salt}")
+    topic = table.name
 
     # Register schema with Schema Registry
     sr_client = SchemaRegistryClient({"url": driver.schemaRegistryAddress})
@@ -71,12 +74,10 @@ def test_auto_table_creation(
         sleep(2)
 
         # -- Verify row count --
-        wait_for_rows(topic, RECORD_COUNT)
+        wait_for_rows(table.name, RECORD_COUNT)
 
         # -- Verify auto-created table schema --
-        col_info = (
-            driver.snowflake_conn.cursor().execute(f"DESC TABLE {topic}").fetchall()
-        )
+        col_info = table.schema()
 
         col_names = []
         for col in col_info:

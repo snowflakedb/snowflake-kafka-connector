@@ -10,10 +10,11 @@ EXPECTED_IN_DLQ = 5
 def test_snowpipe_streaming_string_json_dlq(
     driver, create_connector_from_file, create_table
 ):
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, record_content variant)",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -27,7 +28,7 @@ def test_snowpipe_streaming_string_json_dlq(
 
     # -- Verify: no rows should land in the table --
     time.sleep(30)
-    count = driver.select_number_of_records(topic)
+    count = table.select_scalar("count(*)")
     assert count == EXPECTED_IN_TABLE, (
         f"Expected {EXPECTED_IN_TABLE} rows but got {count}"
     )

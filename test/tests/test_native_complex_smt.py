@@ -19,10 +19,11 @@ def test_native_complex_smt(
 
     After transforms, the key holds the c1 value and the value retains only c1.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, c1 variant)",
     )
+    topic = table.name
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -37,16 +38,12 @@ def test_native_complex_smt(
     driver.sendBytesData(topic, values)
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row: key extracted, c2 dropped --
-    meta_str, c1_str = (
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT * FROM {topic} LIMIT 1")
-        .fetchone()
-    )
+    row = table.select("*")[0]
 
-    assert json.loads(meta_str) == {
+    assert json.loads(row["RECORD_METADATA"]) == {
         "CreateTime": ANY_INT,
         "SnowflakeConnectorPushTime": ANY_INT,
         "key": {"int": RegexMatch(r"\d+")},
@@ -54,4 +51,4 @@ def test_native_complex_smt(
         "partition": 0,
         "topic": topic,
     }
-    assert json.loads(c1_str) == {"int": RegexMatch(r"\d+")}
+    assert json.loads(row["C1"]) == {"int": RegexMatch(r"\d+")}

@@ -3,6 +3,8 @@ from confluent_kafka import avro
 from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 from time import sleep
 
+from lib.fixtures.table import Table
+
 FILE_NAME = "travis_correct_auto_table_creation_topic2table"
 CONFIG_FILE = f"{FILE_NAME}.json"
 TOPIC_COUNT = 2
@@ -65,8 +67,8 @@ def test_auto_table_creation_topic2table(
     the same Snowflake table via topic2table.map.  The connector should
     auto-create the table with the union of all fields.
     """
-    table = f"{FILE_NAME}{name_salt}"
-    topics = [f"{table}{i}" for i in range(TOPIC_COUNT)]
+    table = Table(driver, f"{FILE_NAME}{name_salt}")
+    topics = [f"{table.name}{i}" for i in range(TOPIC_COUNT)]
 
     # Register schemas and create Kafka topics
     sr_client = SchemaRegistryClient({"url": driver.schemaRegistryAddress})
@@ -87,12 +89,10 @@ def test_auto_table_creation_topic2table(
             sleep(2)
 
         # -- Verify total row count (both topics → one table) --
-        wait_for_rows(table, RECORD_COUNT * TOPIC_COUNT)
+        wait_for_rows(table.name, RECORD_COUNT * TOPIC_COUNT)
 
         # -- Verify auto-created table schema (union of both schemas) --
-        col_info = (
-            driver.snowflake_conn.cursor().execute(f"DESC TABLE {table}").fetchall()
-        )
+        col_info = table.schema()
 
         col_names = []
         for col in col_info:

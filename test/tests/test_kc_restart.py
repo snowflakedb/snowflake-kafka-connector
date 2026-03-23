@@ -21,10 +21,11 @@ def _send_batch(driver, topic, record_count):
 def test_kc_restart(
     driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(record_metadata variant, column1 varchar)",
     )
+    topic = table.name
 
     connector_name = f"{FILE_NAME}{name_salt}"
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
@@ -46,4 +47,4 @@ def test_kc_restart(
     _send_batch(driver, topic, RECORD_COUNT)
 
     # -- Verify --
-    wait_for_rows(topic, RECORD_COUNT * 3)
+    wait_for_rows(table.name, RECORD_COUNT * 3, connector_name=connector_name)

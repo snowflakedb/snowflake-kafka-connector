@@ -52,7 +52,7 @@ def test_schema_mapping(
     Tests STRING, CHAR, BINARY, NUMBER, DOUBLE, BOOLEAN, DATE, TIME,
     ARRAY, VARIANT, and OBJECT columns.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="("
         "PERFORMANCE_STRING STRING, "
@@ -69,6 +69,7 @@ def test_schema_mapping(
         "RECORD_METADATA VARIANT"
         ")",
     )
+    topic = table.name
 
     # TODO: SNOW-3236195: RowValidator uppercases unquoted column names via
     # LiteralQuoteUtils.unquoteColumnName(), but DESCRIBE TABLE preserves case for
@@ -86,25 +87,13 @@ def test_schema_mapping(
     driver.sendBytesData(topic, values, keys)
 
     # -- Verify row count --
-    wait_for_rows(topic, RECORD_COUNT)
-
-    # -- Build column index map --
-    col_info = driver.snowflake_conn.cursor().execute(f"DESC TABLE {topic}").fetchall()
-
-    col_map = {}
-    for idx, col in enumerate(col_info):
-        col_map[col[0]] = idx
+    wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify content of first row --
-    row = (
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT * FROM {topic} LIMIT 1")
-        .fetchone()
-    )
+    row = table.select("*")[0]
 
     for field, gold in GOLD_VALUES.items():
-        idx = col_map[field]
-        actual = row[idx]
+        actual = row[field]
         if isinstance(actual, str):
             # Remove formatting whitespace added by Snowflake
             assert "".join(actual.split()) == gold, (

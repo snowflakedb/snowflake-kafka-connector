@@ -42,49 +42,37 @@ def test_multiple_topic_to_one_table_snowpipe_streaming(
     total_expected = RECORDS_PER_PARTITION * PARTITION_COUNT * TOPIC_COUNT
 
     # -- Verify row count --
-    wait_for_rows(table, total_expected)
+    wait_for_rows(table.name, total_expected)
 
     # -- Verify no over-duplication (each offset+partition combo appears at most TOPIC_COUNT times) --
-    dup = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f'SELECT record_metadata:"offset"::string AS offset_no, '
-            f'record_metadata:"partition"::string AS partition_no '
-            f"FROM {table} GROUP BY offset_no, partition_no HAVING count(*) > {TOPIC_COUNT}"
-        )
-        .fetchone()
+    result = table.select(
+        'record_metadata:"offset"::string AS offset_no, '
+        'record_metadata:"partition"::string AS partition_no',
+        f"GROUP BY offset_no, partition_no HAVING count(*) > {TOPIC_COUNT}",
     )
-    assert dup is None, f"Over-duplication detected: {dup}"
+    assert not result, f"Over-duplication detected: {result[0]}"
 
     # -- Verify unique offsets per partition --
-    rows = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f'SELECT count(DISTINCT record_metadata:"offset"::number) AS unique_offsets, '
-            f'record_metadata:"partition"::number AS partition_no '
-            f"FROM {table} GROUP BY partition_no ORDER BY partition_no"
-        )
-        .fetchall()
+    rows = table.select(
+        'count(DISTINCT record_metadata:"offset"::number) AS unique_offsets, '
+        'record_metadata:"partition"::number AS partition_no',
+        "GROUP BY partition_no ORDER BY partition_no",
     )
     assert len(rows) == PARTITION_COUNT
     for p in range(PARTITION_COUNT):
-        assert rows[p][0] == RECORDS_PER_PARTITION
-        assert rows[p][1] == p
+        assert rows[p]["UNIQUE_OFFSETS"] == RECORDS_PER_PARTITION
+        assert rows[p]["PARTITION_NO"] == p
 
     # -- Verify all topics contributed to each partition --
-    topic_rows = (
-        driver.snowflake_conn.cursor()
-        .execute(
-            f'SELECT count(DISTINCT record_metadata:"topic"::string) AS topic_no, '
-            f'record_metadata:"partition"::number AS partition_no '
-            f"FROM {table} GROUP BY partition_no ORDER BY partition_no"
-        )
-        .fetchall()
+    topic_rows = table.select(
+        'count(DISTINCT record_metadata:"topic"::string) AS topic_no, '
+        'record_metadata:"partition"::number AS partition_no',
+        "GROUP BY partition_no ORDER BY partition_no",
     )
     assert len(topic_rows) == PARTITION_COUNT
     for p in range(PARTITION_COUNT):
-        assert topic_rows[p][0] == TOPIC_COUNT
-        assert topic_rows[p][1] == p
+        assert topic_rows[p]["TOPIC_NO"] == TOPIC_COUNT
+        assert topic_rows[p]["PARTITION_NO"] == p
 
     # -- Cleanup extra Kafka topics (table/main topic handled by fixture) --
     for t in topics:

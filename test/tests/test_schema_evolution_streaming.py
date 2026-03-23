@@ -1,66 +1,52 @@
 import json
 
 import pytest
-from snowflake.connector import DictCursor
 
 FILE_NAME = "snowpipe_streaming_schema_evolution"
 CONFIG_FILE = f"{FILE_NAME}.json"
 
 
-def _assert_success_rows(driver, topic, schematization, record_count):
+def _assert_success_rows(table, schematization, record_count):
     """Shared assertions for successful schema evolution tests."""
-    cols = {
-        row[0]: row[1]
-        for row in driver.snowflake_conn.cursor()
-        .execute(f"DESCRIBE TABLE {topic}")
-        .fetchall()
-    }
+    cols = {row[0]: row[1] for row in table.schema()}
 
     if schematization:
         assert "CITY" in cols, f"Expected CITY column, got: {list(cols.keys())}"
         assert "AGE" in cols, f"Expected AGE column, got: {list(cols.keys())}"
 
-        row = (
-            driver.snowflake_conn.cursor(DictCursor)
-            .execute(
-                f'SELECT "CITY", "AGE" FROM {topic} '
-                f'WHERE RECORD_METADATA:"offset"::number = 0'
-            )
-            .fetchone()
+        rows = table.select(
+            '"CITY", "AGE"',
+            'WHERE RECORD_METADATA:"offset"::number = 0',
         )
-        assert row is not None, "Expected row with offset 0"
-        assert row["CITY"] == "Hsinchu"
-        assert row["AGE"] == 0
+        assert rows, "Expected row with offset 0"
+        assert rows[0]["CITY"] == "Hsinchu"
+        assert rows[0]["AGE"] == 0
     else:
         assert "RECORD_CONTENT" in cols, (
             f"Expected RECORD_CONTENT column, got: {list(cols.keys())}"
         )
 
-        row = (
-            driver.snowflake_conn.cursor(DictCursor)
-            .execute(
-                f"SELECT RECORD_CONTENT FROM {topic} "
-                f'WHERE RECORD_METADATA:"offset"::number = 0'
-            )
-            .fetchone()
+        rows = table.select(
+            "RECORD_CONTENT",
+            'WHERE RECORD_METADATA:"offset"::number = 0',
         )
-        assert row is not None, "Expected row with offset 0"
-        content = json.loads(row["RECORD_CONTENT"])
+        assert rows, "Expected row with offset 0"
+        content = json.loads(rows[0]["RECORD_CONTENT"])
         assert content["city"] == "Hsinchu"
         assert content["age"] == 0
 
-    count = driver.select_number_of_records(topic)
+    count = table.select_scalar("count(*)")
     assert count == record_count, f"Expected {record_count} rows, got {count}"
 
 
-def _assert_dlq(driver, config, topic, record_count):
+def _assert_dlq(driver, config, table, record_count):
     """Shared assertions for DLQ tests."""
     offsets_in_dlq = driver.consume_messages_dlq(config, 0, record_count - 1)
     assert offsets_in_dlq == record_count, (
         f"Expected {record_count} records in DLQ, got {offsets_in_dlq}"
     )
 
-    count = driver.select_number_of_records(topic)
+    count = table.select_scalar("count(*)")
     assert count == 0, f"Expected 0 rows in table (DLQ), got {count}"
 
 
@@ -71,10 +57,11 @@ def test_schema_evolution_add_columns(
 
     Runs for both v3 and v4. Flat columns CITY, AGE are added via schema evolution.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -88,9 +75,9 @@ def test_schema_evolution_add_columns(
     ]
     driver.sendBytesData(topic, values, [], partition=0)
 
-    wait_for_rows(topic, record_count)
+    wait_for_rows(table.name, record_count)
 
-    _assert_success_rows(driver, topic, schematization=True, record_count=record_count)
+    _assert_success_rows(table, schematization=True, record_count=record_count)
 
 
 def test_schema_evolution_multi_wave(
@@ -102,10 +89,11 @@ def test_schema_evolution_multi_wave(
     Wave 2: {city, age, country}  -> ADD COLUMN for COUNTRY
     Verifies that wave-1 rows have NULL for COUNTRY.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -119,7 +107,7 @@ def test_schema_evolution_multi_wave(
     ]
     driver.sendBytesData(topic, wave1, [], partition=0)
 
-    wait_for_rows(topic, wave1_count)
+    wait_for_rows(table.name, wave1_count)
 
     wave2_count = 50
     wave2 = [
@@ -135,37 +123,26 @@ def test_schema_evolution_multi_wave(
     driver.sendBytesData(topic, wave2, [], partition=0)
 
     total_expected = wave1_count + wave2_count
-    wait_for_rows(topic, total_expected)
+    wait_for_rows(table.name, total_expected)
 
-    cols = {
-        row[0]: row[1]
-        for row in driver.snowflake_conn.cursor()
-        .execute(f"DESCRIBE TABLE {topic}")
-        .fetchall()
-    }
+    cols = {row[0]: row[1] for row in table.schema()}
     assert "CITY" in cols
     assert "AGE" in cols
     assert "COUNTRY" in cols, (
         f"Expected COUNTRY column after wave 2, got: {list(cols.keys())}"
     )
 
-    row = (
-        driver.snowflake_conn.cursor(DictCursor)
-        .execute(
-            f'SELECT "CITY", "AGE", "COUNTRY" FROM {topic} '
-            f'WHERE RECORD_METADATA:"offset"::number = {wave1_count}'
-        )
-        .fetchone()
+    rows = table.select(
+        '"CITY", "AGE", "COUNTRY"',
+        f'WHERE RECORD_METADATA:"offset"::number = {wave1_count}',
     )
-    assert row is not None, f"Expected row at offset {wave1_count}"
-    assert row["CITY"] == "Taipei"
-    assert row["COUNTRY"] == "TW"
+    assert rows, f"Expected row at offset {wave1_count}"
+    assert rows[0]["CITY"] == "Taipei"
+    assert rows[0]["COUNTRY"] == "TW"
 
-    null_country_count = (
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT count(*) FROM {topic} WHERE COUNTRY IS NULL")
-        .fetchone()[0]
-    )
+    null_country_count = table.select("count(*)", "WHERE COUNTRY IS NULL")[0][
+        "COUNT(*)"
+    ]
     assert null_country_count == wave1_count, (
         f"Expected {wave1_count} rows with NULL country, got {null_country_count}"
     )
@@ -175,10 +152,11 @@ def test_schema_evolution_disabled_mid_stream(
     driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """ENABLE_SCHEMA_EVOLUTION toggled off after initial evolution."""
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -192,13 +170,13 @@ def test_schema_evolution_disabled_mid_stream(
         for i in range(wave1_count)
     ]
     driver.sendBytesData(topic, wave1, [], partition=0)
-    wait_for_rows(topic, wave1_count)
+    wait_for_rows(table.name, wave1_count)
 
-    _assert_success_rows(driver, topic, schematization=True, record_count=wave1_count)
+    _assert_success_rows(table, schematization=True, record_count=wave1_count)
 
     # Disable schema evolution on the table
     driver.snowflake_conn.cursor().execute(
-        f"ALTER TABLE {topic} SET ENABLE_SCHEMA_EVOLUTION = FALSE"
+        "ALTER TABLE identifier(%s) SET ENABLE_SCHEMA_EVOLUTION = FALSE", (table.name,)
     )
 
     # Wave 2: new column COUNTRY — DDL is still attempted and succeeds
@@ -211,19 +189,14 @@ def test_schema_evolution_disabled_mid_stream(
     driver.sendBytesData(topic, wave2, [], partition=0)
 
     total = wave1_count + wave2_count
-    wait_for_rows(topic, total)
+    wait_for_rows(table.name, total)
 
-    cols = {
-        row[0]: row[1]
-        for row in driver.snowflake_conn.cursor()
-        .execute(f"DESCRIBE TABLE {topic}")
-        .fetchall()
-    }
+    cols = {row[0]: row[1] for row in table.schema()}
     assert "COUNTRY" in cols, (
         f"Expected COUNTRY column (DDL succeeded via OWNERSHIP), got: {list(cols.keys())}"
     )
 
-    count = driver.select_number_of_records(topic)
+    count = table.select_scalar("count(*)")
     assert count == total, f"Expected {total} rows, got {count}"
 
 
@@ -235,11 +208,12 @@ def test_schema_evolution_happy_path(
     Validation passes without triggering schema evolution. Verifies that
     client-side validation does not interfere with normal ingestion.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(RECORD_METADATA VARIANT, CITY VARCHAR, AGE NUMBER) "
         "ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -253,19 +227,15 @@ def test_schema_evolution_happy_path(
     ]
     driver.sendBytesData(topic, values, [], partition=0)
 
-    wait_for_rows(topic, record_count)
+    wait_for_rows(table.name, record_count)
 
-    row = (
-        driver.snowflake_conn.cursor(DictCursor)
-        .execute(
-            f'SELECT "CITY", "AGE" FROM {topic} '
-            f'WHERE RECORD_METADATA:"offset"::number = 0'
-        )
-        .fetchone()
+    rows = table.select(
+        '"CITY", "AGE"',
+        'WHERE RECORD_METADATA:"offset"::number = 0',
     )
-    assert row is not None, "Expected row with offset 0"
-    assert row["CITY"] == "Hsinchu"
-    assert row["AGE"] == 0
+    assert rows, "Expected row with offset 0"
+    assert rows[0]["CITY"] == "Hsinchu"
+    assert rows[0]["AGE"] == 0
 
 
 def test_schema_evolution_drop_not_null(
@@ -276,11 +246,12 @@ def test_schema_evolution_drop_not_null(
     Schema evolution should drop the NOT NULL constraint and add the extra
     column, allowing records to be ingested with NULL for the original column.
     """
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns="(RECORD_METADATA VARIANT, STATUS VARCHAR NOT NULL) "
         "ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -294,23 +265,14 @@ def test_schema_evolution_drop_not_null(
     ]
     driver.sendBytesData(topic, values, [], partition=0)
 
-    wait_for_rows(topic, record_count)
+    wait_for_rows(table.name, record_count)
 
-    cols = {
-        row[0]: row[1]
-        for row in driver.snowflake_conn.cursor()
-        .execute(f"DESCRIBE TABLE {topic}")
-        .fetchall()
-    }
+    cols = {row[0]: row[1] for row in table.schema()}
     assert "CITY" in cols, f"Expected CITY column, got: {list(cols.keys())}"
     assert "AGE" in cols, f"Expected AGE column, got: {list(cols.keys())}"
     assert "STATUS" in cols
 
-    null_status_count = (
-        driver.snowflake_conn.cursor()
-        .execute(f"SELECT count(*) FROM {topic} WHERE STATUS IS NULL")
-        .fetchone()[0]
-    )
+    null_status_count = table.select("count(*)", "WHERE STATUS IS NULL")[0]["COUNT(*)"]
     assert null_status_count == record_count, (
         f"Expected {record_count} rows with NULL STATUS, got {null_status_count}"
     )
@@ -382,10 +344,11 @@ def test_schema_evolution_config_variants(
         )
 
     evo_clause = "TRUE" if schema_evo else "FALSE"
-    topic = create_table(
+    table = create_table(
         FILE_NAME,
         columns=f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = {evo_clause}",
     )
+    topic = table.name
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -411,9 +374,9 @@ def test_schema_evolution_config_variants(
         ]
         driver.sendBytesData(topic, values, [], partition=0)
 
-        wait_for_rows(topic, record_count)
+        wait_for_rows(table.name, record_count)
 
-        _assert_success_rows(driver, topic, schematization, record_count)
+        _assert_success_rows(table, schematization, record_count)
     else:
         if not validation:
             # No client-side validation -> server handles the error via Error Table.
@@ -427,4 +390,4 @@ def test_schema_evolution_config_variants(
         ]
         driver.sendBytesData(topic, values, [], partition=0)
 
-        _assert_dlq(driver, config, topic, record_count)
+        _assert_dlq(driver, config, table, record_count)
