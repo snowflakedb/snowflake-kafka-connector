@@ -252,13 +252,23 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       final String tableName = getTableName(topic, this.topicToTableMap, this.enableSanitization);
       createTableIfNotExists(tableName);
 
-      // Look for a pipe with the same name as the table. Otherwise, use the default pipe.
-      final boolean pipeExists = this.conn.pipeExist(tableName);
-      final String targetPipeName = pipeExists ? tableName : buildDefaultPipeName(tableName);
+      // Client-side validation only supports default pipes.
+      // When validation is enabled, reject non-default pipes (pipes whose name equals the table
+      // name) because validation assumptions may not hold for user-created pipes.
+      final String targetPipeName;
+      if (taskConfig.isClientValidationEnabled()) {
+        if (this.conn.pipeExist(tableName)) {
+          throw SnowflakeErrors.ERROR_0032.getException("table: " + tableName);
+        }
+        targetPipeName = buildDefaultPipeName(tableName);
+      } else {
+        // When validation is disabled (high-performance mode), allow non-default pipes.
+        final boolean pipeExists = this.conn.pipeExist(tableName);
+        targetPipeName = pipeExists ? tableName : buildDefaultPipeName(tableName);
+      }
 
       tableToPipeMapping.put(tableName, targetPipeName);
-      LOGGER.info(
-          "Table: {}, pipe exists: {}, using pipe: {}", tableName, pipeExists, targetPipeName);
+      LOGGER.info("Table: {}, using pipe: {}", tableName, targetPipeName);
     }
 
     channelManager.startPartitions(partitions, tableToPipeMapping);
