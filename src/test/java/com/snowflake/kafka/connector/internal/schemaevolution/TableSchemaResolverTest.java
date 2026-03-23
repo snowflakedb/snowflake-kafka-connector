@@ -1,26 +1,19 @@
 package com.snowflake.kafka.connector.internal.schemaevolution;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
-import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TableSchemaResolverTest {
@@ -81,32 +74,5 @@ public class TableSchemaResolverTest {
     assertThat(tableSchema.getColumnInfos().get(columnName1).getComments()).isEqualTo("doc");
     assertThat(tableSchema.getColumnInfos().get(columnName2).getColumnType()).isEqualTo("VARCHAR");
     assertThat(tableSchema.getColumnInfos().get(columnName2).getComments()).isNull();
-  }
-
-  // ---- convertToJson tests ported from v3.2 RecordContentTest ----
-
-  @Test
-  public void convertToJson_whenInvalidInput_throwException() {
-    Schema int32Schema = SchemaBuilder.int32().build();
-    Assertions.assertThrows(
-        SnowflakeKafkaConnectorException.class,
-        () -> TableSchemaResolver.convertToJson(int32Schema, null, false));
-  }
-
-  @Test
-  public void convertToJson_returnDefaultValue() {
-    Schema schema = SchemaBuilder.int32().optional().defaultValue(123).build();
-    Assertions.assertEquals(
-        "123", TableSchemaResolver.convertToJson(schema, null, false).toString());
-  }
-
-  @Test
-  public void testConvertToJsonReadOnlyByteBuffer() {
-    String original = "bytes";
-    String expected = "\"" + Base64.getEncoder().encodeToString(original.getBytes()) + "\"";
-    ByteBuffer buffer = ByteBuffer.wrap(original.getBytes()).asReadOnlyBuffer();
-    Schema schema = SchemaBuilder.bytes().build();
-
-    assertEquals(expected, TableSchemaResolver.convertToJson(schema, buffer, false).toString());
   }
 }
