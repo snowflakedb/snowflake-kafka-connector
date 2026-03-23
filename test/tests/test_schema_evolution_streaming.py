@@ -298,6 +298,11 @@ def test_schema_evolution_config_variants(
     connector version are skipped with a reason (serving as documentation of
     the known v3/v4 differences).
 
+    Schema evolution is gated behind schematization in both v3 and v4, so
+    schematization=off combos are always skipped. When schematization is off,
+    RECORD_CONTENT is created as VARIANT at table creation time and schema
+    evolution is never attempted.
+
     v4 (KC v4):
       - Client-side validation works for both schematization=on and off.
       - schematization=on: validates individual columns (CITY, AGE, etc.)
@@ -308,10 +313,6 @@ def test_schema_evolution_config_variants(
     v3 (KC v3):
       - V1 Ingest SDK always performs client-side validation; it cannot be
         disabled, so all validation=False combos are skipped.
-      - Schema evolution is gated behind schematization
-        (enableSchemaEvolution = enableSchematization && hasSchemaEvolution-
-        Permission), so schematization=off combos are skipped because the
-        connector never attempts to evolve RECORD_CONTENT.
 
     Behaviour matrix (for combos that run):
       schema_evo=True:  extra columns are added and records are ingested.
@@ -319,18 +320,20 @@ def test_schema_evolution_config_variants(
       schema_evo=False + validation=False (v4 only): server Error Table
         handles errors; test returns early (no client-side assertion).
     """
+    if not schematization:
+        pytest.skip(
+            "Schema evolution is gated behind schematization "
+            "(enableSchemaEvolution = enableSchematization && "
+            "hasSchemaEvolutionPermission). When schematization is off, "
+            "RECORD_CONTENT is created as VARIANT at table creation time "
+            "and schema evolution is never attempted."
+        )
+
     if connector_version == "v3":
         if not validation:
             pytest.skip(
                 "KC v3 uses V1 Ingest SDK which always performs client-side "
                 "validation; validation cannot be disabled"
-            )
-        if not schematization:
-            pytest.skip(
-                "KC v3 gates schema evolution behind schematization "
-                "(enableSchemaEvolution = enableSchematization && "
-                "hasSchemaEvolutionPermission), so RECORD_CONTENT is never "
-                "evolved and the V1 SDK rejects it as an extra column"
             )
 
     evo_clause = "TRUE" if schema_evo else "FALSE"
@@ -380,81 +383,3 @@ def test_schema_evolution_config_variants(
         driver.sendBytesData(topic, values, [], partition=0)
 
         _assert_dlq(driver, config, topic, record_count)
-
-
-@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-@pytest.mark.parametrize("validation", [True, False], ids=["valid=on", "valid=off"])
-def test_schema_evolution_nested_record_content(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows, validation
-):
-    """Schema evolution with schematization=off and nested data.
-
-    Verifies that RECORD_CONTENT is created as VARIANT (not VARCHAR) and that
-    nested objects, arrays, and mixed types are preserved and queryable.
-    """
-    topic = snowflake_table(
-        FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
-    )
-
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
-
-    overrides = {
-        "snowflake.enable.schematization": "false",
-        "snowflake.client.validation.enabled": str(validation).lower(),
-    }
-    create_connector(CONFIG_FILE, config_overrides=overrides)
-    driver.startConnectorWaitTime()
-
-    record_count = 50
-    values = [
-        json.dumps(
-            {
-                "user": {"name": "Alice", "scores": [1, 2, 3]},
-                "tags": ["a", "b"],
-                "count": i,
-            }
-        ).encode("utf-8")
-        for i in range(record_count)
-    ]
-    driver.sendBytesData(topic, values, [], partition=0)
-
-    wait_for_rows(topic, record_count)
-
-    # Verify RECORD_CONTENT column exists and is VARIANT
-    cols = {
-        row[0]: row[1]
-        for row in driver.snowflake_conn.cursor()
-        .execute(f"DESCRIBE TABLE {topic}")
-        .fetchall()
-    }
-    assert "RECORD_CONTENT" in cols, (
-        f"Expected RECORD_CONTENT column, got: {list(cols.keys())}"
-    )
-    assert "VARIANT" in cols["RECORD_CONTENT"].upper(), (
-        f"Expected RECORD_CONTENT to be VARIANT, got: {cols['RECORD_CONTENT']}"
-    )
-
-    # Verify nested data is queryable
-    row = (
-        driver.snowflake_conn.cursor(DictCursor)
-        .execute(
-            f"SELECT "
-            f"RECORD_CONTENT:user.name::string AS user_name, "
-            f"RECORD_CONTENT:user.scores[0]::number AS first_score, "
-            f"RECORD_CONTENT:tags[0]::string AS first_tag, "
-            f"RECORD_CONTENT:count::number AS cnt "
-            f"FROM {topic} "
-            f'WHERE RECORD_METADATA:"offset"::number = 0'
-        )
-        .fetchone()
-    )
-    assert row is not None, "Expected row with offset 0"
-    assert row["USER_NAME"] == "Alice"
-    assert row["FIRST_SCORE"] == 1
-    assert row["FIRST_TAG"] == "a"
-    assert row["CNT"] == 0
-
-    count = driver.select_number_of_records(topic)
-    assert count == record_count, f"Expected {record_count} rows, got {count}"

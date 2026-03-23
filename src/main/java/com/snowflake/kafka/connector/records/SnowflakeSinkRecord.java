@@ -2,8 +2,6 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.validation.SqlIdentifierNormalizer;
 import java.time.Instant;
@@ -107,23 +105,24 @@ public final class SnowflakeSinkRecord {
     }
   }
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-
+  /**
+   * Wraps the record value under the {@code RECORD_CONTENT} key.
+   *
+   * <p>For structured types (Map/Struct) the value is converted to a Map so the SDK infers VARIANT.
+   *
+   * <p>For primitive types the converted value is placed directly into the map. The SSv2 SDK
+   * serializes the map to NDJSON via Jackson, which handles native Java types (String, Number,
+   * Boolean) correctly for VARIANT columns. Unlike KCv3/SSv1 (which required JSON-serialized
+   * strings because SSv1 re-parsed them via {@code readTree}), SSv2 passes NDJSON straight to the
+   * server — so JSON-serializing here would produce double-quoted strings.
+   */
   private static Map<String, Object> wrapAsRecordContent(Schema schema, Object value) {
     Map<String, Object> content = new HashMap<>();
     Object convertedValue;
     if (value instanceof Map || value instanceof Struct) {
-      // Store as Map so the SDK infers VARIANT (not VARCHAR from a JSON string)
       convertedValue = KafkaRecordConverter.convertToMap(schema, value);
     } else {
-      // For primitive values (strings, bytes, etc.), JSON-serialize so the SDK
-      // can insert them as valid JSON into VARIANT columns.
-      try {
-        convertedValue =
-            MAPPER.writeValueAsString(KafkaRecordConverter.convertValue(schema, value));
-      } catch (JsonProcessingException e) {
-        throw new RuntimeException("Failed to serialize record content", e);
-      }
+      convertedValue = KafkaRecordConverter.convertValue(schema, value);
     }
     content.put(Utils.TABLE_COLUMN_CONTENT, convertedValue);
     return content;

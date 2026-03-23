@@ -517,7 +517,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           kafkaRecord.kafkaOffset());
     }
 
-    if (!shouldEvolveSchema) {
+    if (!enableSchematization || !shouldEvolveSchema) {
       snowflakeTelemetryChannelStatus.incValidationFailureCount();
 
       String errorMsg =
