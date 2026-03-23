@@ -1,3 +1,4 @@
+// CI test: verify ITs pass on latest master
 package com.snowflake.kafka.connector;
 
 import static java.util.Arrays.*;
