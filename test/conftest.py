@@ -1,26 +1,31 @@
-from dataclasses import dataclass
 import logging
 import os
-import random
-import string
-import subprocess
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 from typing import Dict, List
 
 import pytest
-import snowflake.connector
 from _pytest.reports import TestReport
 
-from lib.config import Profile, SnowflakeConnectorConfig
 from lib.config_migration import v4_config_to_v3
 from lib.driver import KafkaDriver
+from lib.fixtures.session import (  # noqa: F401 — re-exported for pytest discovery
+    sensor_pb2,
+    credentials_unsalted,
+    session_name_salt,
+    test_schema,
+    credentials,
+    driver,
+)
+from lib.fixtures.connector import (  # noqa: F401
+    create_topics,
+    create_connector,
+    create_custom_connector,
+)
+from lib.fixtures.table import create_table  # noqa: F401
+from lib.fixtures.function import connector_version, name_salt  # noqa: F401
 
 logger = logging.getLogger(__name__)
-
-_PROTO_DIR = Path(__file__).parent / "test_data"
 
 
 # ---------------------------------------------------------------------------
@@ -111,152 +116,15 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
-# ---------------------------------------------------------------------------
-# Session-scoped fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def sensor_pb2():
-    """Compile sensor.proto and return the generated module."""
-    subprocess.run(
-        ["protoc", "--python_out=.", "sensor.proto"],
-        cwd=_PROTO_DIR,
-        check=True,
-    )
-    import test_data.sensor_pb2
-
-    return test_data.sensor_pb2
-
-
-@pytest.fixture(scope="session")
-def credentials_unsalted():
-    """Load the credentials from the environment variable SNOWFLAKE_CREDENTIAL_FILE."""
-    credential_path = Path(os.environ["SNOWFLAKE_CREDENTIAL_FILE"])
-    assert credential_path.is_file(), (
-        f"SNOWFLAKE_CREDENTIAL_FILE={credential_path} does not exist"
-    )
-    return Profile.load(credential_path)
-
-
-@pytest.fixture(scope="session")
-def session_name_salt(request):
-    """Common name salt for all tests in this session."""
-    salt = request.config.getoption("--name-salt")
-    if salt is None:
-        chars = string.ascii_uppercase + string.digits
-        salt = "_" + "".join(random.choices(chars, k=7))
-    logger.info(f"Using session name salt: {salt}")
-    return salt
-
-
-@pytest.fixture(scope="session")
-def test_schema(credentials_unsalted, session_name_salt):
-    """Create an isolated schema for this test session and drop it on teardown.
-
-    The schema name is `<original_schema><session_name_salt>`.
-    """
-    original_schema = credentials_unsalted.schema
-    salted_schema = f"{original_schema}{session_name_salt}"
-    fqn = f"{credentials_unsalted.database}.{salted_schema}"
-
-    conn_config = SnowflakeConnectorConfig.from_profile(credentials_unsalted)
-    try:
-        logger.info(f"Creating test schema: {fqn}")
-        conn = snowflake.connector.connect(**conn_config.to_dict())
-        conn.cursor().execute(f"CREATE SCHEMA IF NOT EXISTS {fqn}")
-        yield salted_schema
-    finally:
-        logger.info(f"Dropping test schema: {fqn}")
-        conn = snowflake.connector.connect(**conn_config.to_dict())
-        conn.cursor().execute(f"DROP SCHEMA IF EXISTS {fqn} CASCADE")
-        conn.close()
-
-
-@pytest.fixture(scope="session")
-def credentials(credentials_unsalted, test_schema):
-    """Load the credentials from the environment variable SNOWFLAKE_CREDENTIAL_FILE and replaces the schema with its salted version.
-
-    Mutating
-    `credentials.schema` before the driver is built ensures that every
-    Snowflake object (tables, pipes, channels) created by both the test
-    harness and the Kafka connector lands in the throwaway schema.
-    """
-    credentials_unsalted.schema = test_schema
-    return credentials_unsalted
-
-
-@pytest.fixture(scope="session")
-def driver(request, credentials):
-    return KafkaDriver(
-        kafkaAddress=request.config.getoption("--kafka-address"),
-        schemaRegistryAddress=request.config.getoption("--schema-registry-address"),
-        kafkaConnectAddress=request.config.getoption("--kafka-connect-address"),
-        credentials=credentials,
-        testVersion=request.config.getoption("--platform-version"),
-        enableSSL=request.config.getoption("--enable-ssl"),
-    )
-
-
-# ---------------------------------------------------------------------------
-# Per-test fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(params=["v4", "v3"])
-def connector_version(request):
-    """The Snowflake Kafka Connector version under test.
-
-    Every test that (transitively) depends on this fixture is automatically run twice:
-    once for v4 and once for v3.
-    """
-    return request.param
-
-
-@pytest.fixture
-def name_salt(session_name_salt, connector_version):
-    """Diversify names between test runs and connector versions."""
-    if connector_version == "v3":
-        return f"{session_name_salt}_V3"
-    return session_name_salt
-
-
 @pytest.fixture()
-def create_custom_connector(driver: KafkaDriver, name_salt: str):
-    @dataclass
-    class Connector:
-        name: str
-        config: Dict[str, str]
+def create_connector_from_file(
+    driver: KafkaDriver,  # noqa: F811
+    name_salt: str,  # noqa: F811
+    connector_version: str,  # noqa: F811
+):
+    """DEPRECATED
 
-        def close(self, **kwargs):
-            created.remove(self)
-            return driver.closeConnector(self.name, **kwargs)
-
-    created: List[Connector] = []
-
-    def _create(
-        unsalted_name: str,
-        config_template: Dict[str, str],
-    ) -> Connector:
-        rest_request = driver.createConnector(
-            name_salt=name_salt,
-            unsalted_name=unsalted_name,
-            config_template=config_template,
-        )
-        connector = Connector(name=rest_request["name"], config=rest_request["config"])
-        created.append(connector)
-        return connector
-
-    try:
-        yield _create
-    finally:
-        for connector in reversed(created):
-            driver.closeConnector(connector.name)
-
-
-@pytest.fixture()
-def create_connector(driver: KafkaDriver, name_salt: str, connector_version: str):
-    """Factory fixture: call to register a connector for the current version.
+    Factory fixture: call to register a connector for the current version.
 
     All connectors created during the test are torn down automatically.
 
@@ -296,71 +164,8 @@ def create_connector(driver: KafkaDriver, name_salt: str, connector_version: str
             driver.closeConnector(connector_name)
 
 
-@pytest.fixture
-def create_topic(driver: KafkaDriver, name_salt):
-    """Factory fixture: call with a topic name to create a topic.
-
-    The Kafka topic is cleaned up after the test.  The corresponding
-    Snowflake table is left for the session-scoped `test_schema`
-    teardown (`DROP SCHEMA ... CASCADE`) to remove.
-    """
-    created: List[str] = []
-
-    def _create_one(topic, num_partitions, replication_factor, create_table):
-        salted = f"{topic}{name_salt}"
-        logger.info(f"Creating topic {salted}")
-        driver.createTopics(salted, num_partitions, replication_factor)
-        if create_table:
-            driver.create_table(salted)
-        return salted
-
-    def _create(
-        topics: List[str], *, num_partitions=1, replication_factor=1, create_table=True
-    ):
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [
-                executor.submit(
-                    _create_one, t, num_partitions, replication_factor, create_table
-                )
-                for t in topics
-            ]
-            for future in as_completed(futures):
-                created.append(future.result())
-        return [f"{t}{name_salt}" for t in topics]
-
-    try:
-        yield _create
-    finally:
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            for _ in executor.map(driver.deleteTopic, created):
-                pass
-
-
-@pytest.fixture()
-def snowflake_table(driver, name_salt):
-    """Factory fixture: call with a base name and a DDL statement to create a table.
-
-    The Kafka topic is cleaned up after the test.  The Snowflake table
-    (and associated stage/pipe) is left for the session-scoped
-    `test_schema` teardown (`DROP SCHEMA ... CASCADE`) to remove.
-    """
-    created = []
-
-    def _create(base_name: str, ddl: str):
-        topic = base_name + name_salt
-        driver.snowflake_conn.cursor().execute(ddl)
-        created.append(topic)
-        return topic
-
-    try:
-        yield _create
-    finally:
-        for topic in created:
-            driver.deleteTopic(topic)
-
-
 @pytest.fixture(scope="session")
-def wait_for_rows(driver):
+def wait_for_rows(driver: KafkaDriver):  # noqa: F811 — pytest fixture injection, not a true redefinition
     """Returns a polling helper that waits until a Snowflake table reaches the expected row count.
 
     Supports an optional ``connector_name`` parameter: when provided, each

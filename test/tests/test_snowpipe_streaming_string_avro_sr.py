@@ -27,23 +27,21 @@ VALUE_SCHEMA = avro.loads("""
 def test_snowpipe_streaming_string_avro_sr(
     driver,
     connector_version,
-    name_salt,
-    create_connector,
-    snowflake_table,
+    create_connector_from_file,
+    create_table,
     wait_for_rows,
 ):
     if connector_version == "v3":
         pytest.skip("v3 plugin conflicts with Schema Registry classloading")
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} ("
-        f"record_metadata variant, id number, firstName string, "
-        f"time number, someFloat number, someFloatNaN string)",
+        columns="(record_metadata variant, id number, firstName string, "
+        "time number, someFloat number, someFloatNaN string)",
     )
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send --

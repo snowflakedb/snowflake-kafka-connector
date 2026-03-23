@@ -65,21 +65,20 @@ def _assert_dlq(driver, config, topic, record_count):
 
 
 def test_schema_evolution_add_columns(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """ENABLE_SCHEMA_EVOLUTION=TRUE, schematization=on, send records with extra fields.
 
     Runs for both v3 and v4. Flat columns CITY, AGE are added via schema evolution.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+        columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     record_count = 100
@@ -95,7 +94,7 @@ def test_schema_evolution_add_columns(
 
 
 def test_schema_evolution_multi_wave(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """Send two waves of records with different schemas.
 
@@ -103,15 +102,14 @@ def test_schema_evolution_multi_wave(
     Wave 2: {city, age, country}  -> ADD COLUMN for COUNTRY
     Verifies that wave-1 rows have NULL for COUNTRY.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+        columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     wave1_count = 50
@@ -174,18 +172,17 @@ def test_schema_evolution_multi_wave(
 
 
 def test_schema_evolution_disabled_mid_stream(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """ENABLE_SCHEMA_EVOLUTION toggled off after initial evolution."""
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+        columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # Wave 1: evolve schema while ENABLE_SCHEMA_EVOLUTION=TRUE
@@ -231,23 +228,22 @@ def test_schema_evolution_disabled_mid_stream(
 
 
 def test_schema_evolution_happy_path(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """Send records that match the existing table schema exactly.
 
     Validation passes without triggering schema evolution. Verifies that
     client-side validation does not interfere with normal ingestion.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT, CITY VARCHAR, AGE NUMBER) "
-        f"ENABLE_SCHEMA_EVOLUTION = TRUE",
+        columns="(RECORD_METADATA VARIANT, CITY VARCHAR, AGE NUMBER) "
+        "ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     record_count = 100
@@ -273,23 +269,22 @@ def test_schema_evolution_happy_path(
 
 
 def test_schema_evolution_drop_not_null(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """Table has a NOT NULL column, but records omit it.
 
     Schema evolution should drop the NOT NULL constraint and add the extra
     column, allowing records to be ingested with NULL for the original column.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT, STATUS VARCHAR NOT NULL) "
-        f"ENABLE_SCHEMA_EVOLUTION = TRUE",
+        columns="(RECORD_METADATA VARIANT, STATUS VARCHAR NOT NULL) "
+        "ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     record_count = 50
@@ -330,8 +325,8 @@ def test_schema_evolution_config_variants(
     driver,
     name_salt,
     connector_version,
-    create_connector,
-    snowflake_table,
+    create_connector_from_file,
+    create_table,
     wait_for_rows,
     schema_evo,
     schematization,
@@ -387,12 +382,10 @@ def test_schema_evolution_config_variants(
         )
 
     evo_clause = "TRUE" if schema_evo else "FALSE"
-    ddl = (
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = {evo_clause}"
+    topic = create_table(
+        FILE_NAME,
+        columns=f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = {evo_clause}",
     )
-
-    topic = snowflake_table(FILE_NAME, ddl)
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
@@ -407,7 +400,7 @@ def test_schema_evolution_config_variants(
         "errors.deadletterqueue.topic.name": dlq_topic,
     }
 
-    config = create_connector(CONFIG_FILE, config_overrides=overrides)
+    config = create_connector_from_file(CONFIG_FILE, config_overrides=overrides)
     driver.startConnectorWaitTime()
 
     if schema_evo:

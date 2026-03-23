@@ -36,20 +36,15 @@ from lib.utils import RecordProducer, wait_for
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_migration_without_duplicates(
     driver: KafkaDriver,
-    name_salt,
     create_custom_connector,
-    snowflake_table,
+    create_table,
     wait_for_rows,
 ):
     """Test migration when there are no in-flight data during switchover."""
 
     test_name = "test_migration_without_duplicates"
 
-    topic = snowflake_table(
-        test_name,
-        f"CREATE OR REPLACE TABLE {test_name}{name_salt} "
-        f'(record_metadata variant, "NUMBER" varchar)',
-    )
+    topic = create_table(columns='(record_metadata variant, "NUMBER" varchar)')
 
     producer = RecordProducer(driver, topic)
 
@@ -113,9 +108,8 @@ def test_migration_without_duplicates(
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_migration_with_possible_duplicates(
     driver: KafkaDriver,
-    name_salt,
     create_custom_connector,
-    snowflake_table,
+    create_table,
     wait_for_rows,
 ):
     """Test migration when there are in-flight data during switchover."""
@@ -123,10 +117,9 @@ def test_migration_with_possible_duplicates(
     test_name = "test_migration_with_possible_duplicates"
     warmup_records = 10
 
-    topic = snowflake_table(
+    topic = create_table(
         test_name,
-        f"CREATE OR REPLACE TABLE {test_name}{name_salt} "
-        f'(record_metadata variant, "NUMBER" varchar)',
+        columns='(record_metadata variant, "NUMBER" varchar)',
     )
 
     producer = RecordProducer(driver, topic)

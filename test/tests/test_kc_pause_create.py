@@ -19,18 +19,17 @@ def _send_batch(driver, topic, record_count):
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_kc_pause_create(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(record_metadata variant, column1 varchar)",
+        columns="(record_metadata variant, column1 varchar)",
     )
 
     connector_name = f"{FILE_NAME}{name_salt}"
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send 1/2, pause, create, send 2/2 --

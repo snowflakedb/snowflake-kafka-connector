@@ -6,21 +6,20 @@ RECORD_COUNT = 100
 
 
 def test_snowpipe_streaming_legacy_string_json(
-    driver, name_salt, create_connector, snowflake_table, wait_for_rows
+    driver, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify that enable.schematization=false wraps JSON records into the
     legacy RECORD_CONTENT / RECORD_METADATA VARIANT columns — the same
     table layout that KC v3 used by default.
     """
-    topic = snowflake_table(
+    topic = create_table(
         FILE_NAME,
-        f"CREATE OR REPLACE TABLE {FILE_NAME}{name_salt} "
-        f"(RECORD_METADATA variant, RECORD_CONTENT variant)",
+        columns="(RECORD_METADATA variant, RECORD_CONTENT variant)",
     )
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    create_connector(CONFIG_FILE)
+    create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
 
     # -- Send JSON records --
