@@ -308,7 +308,11 @@ if [ "$JMX_ENABLED" = "true" ]; then
 fi
 
 # Generate test name salt
-TEST_NAME_SALT="_$(echo $RANDOM$RANDOM | base64 | cut -c1-7)"
+TEST_NAME_SALT="$(python3 -c '
+import random, string
+chars = string.ascii_uppercase + string.digits
+print("_" + "".join(random.choices(chars, k=7)))
+')"
 info "Test name salt: $TEST_NAME_SALT"
 
 # Export environment for docker-compose

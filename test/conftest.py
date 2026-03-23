@@ -144,7 +144,7 @@ def session_name_salt(request):
     """Common name salt for all tests in this session."""
     salt = request.config.getoption("--name-salt")
     if salt is None:
-        chars = string.ascii_letters + string.digits
+        chars = string.ascii_uppercase + string.digits
         salt = "_" + "".join(random.choices(chars, k=7))
     logger.info(f"Using session name salt: {salt}")
     return salt
@@ -217,7 +217,7 @@ def connector_version(request):
 def name_salt(session_name_salt, connector_version):
     """Diversify names between test runs and connector versions."""
     if connector_version == "v3":
-        return f"{session_name_salt}_v3"
+        return f"{session_name_salt}_V3"
     return session_name_salt
 
 
@@ -306,16 +306,22 @@ def create_topic(driver: KafkaDriver, name_salt):
     """
     created: List[str] = []
 
-    def _create_one(topic, num_partitions, replication_factor):
+    def _create_one(topic, num_partitions, replication_factor, create_table):
         salted = f"{topic}{name_salt}"
+        logger.info(f"Creating topic {salted}")
         driver.createTopics(salted, num_partitions, replication_factor)
-        driver.create_table(salted)
+        if create_table:
+            driver.create_table(salted)
         return salted
 
-    def _create(topics: List[str], *, num_partitions=1, replication_factor=1):
+    def _create(
+        topics: List[str], *, num_partitions=1, replication_factor=1, create_table=True
+    ):
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = [
-                executor.submit(_create_one, t, num_partitions, replication_factor)
+                executor.submit(
+                    _create_one, t, num_partitions, replication_factor, create_table
+                )
                 for t in topics
             ]
             for future in as_completed(futures):
