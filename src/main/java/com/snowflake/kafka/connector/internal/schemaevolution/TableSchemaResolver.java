@@ -13,6 +13,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
@@ -34,7 +35,6 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
-import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,14 +80,14 @@ public class TableSchemaResolver {
   }
 
   /**
-   * With the list of columns, collect their data types from either the schema or the data itself
+   * Collect column data types from either the Kafka Connect schema or the content values.
    *
-   * @param record the sink record that contains the schema and actual data
+   * @param record the SnowflakeSinkRecord containing schema and content
    * @param columnsToInclude the names of the columns to include in the schema
    * @return a Map object where the key is column name and value is ColumnInfos
    */
-  public TableSchema resolveTableSchemaFromRecord(
-      SinkRecord record, List<String> columnsToInclude) {
+  public TableSchema resolveTableSchemaFromSnowflakeRecord(
+      SnowflakeSinkRecord record, List<String> columnsToInclude) {
     if (columnsToInclude == null || columnsToInclude.isEmpty()) {
       return new TableSchema(ImmutableMap.of());
     }
@@ -101,15 +101,14 @@ public class TableSchemaResolver {
     }
   }
 
-  private boolean hasSchema(SinkRecord record) {
-    return record.valueSchema() != null
-        && record.valueSchema().fields() != null
-        && !record.valueSchema().fields().isEmpty();
+  private boolean hasSchema(SnowflakeSinkRecord record) {
+    Schema schema = record.getSchema();
+    return schema != null && schema.fields() != null && !schema.fields().isEmpty();
   }
 
   private TableSchema getTableSchemaFromRecordSchema(
-      SinkRecord record, Set<String> columnNamesSet) {
-    JsonNode recordNode = convertToJson(record.valueSchema(), record.value(), true);
+      SnowflakeSinkRecord record, Set<String> columnNamesSet) {
+    JsonNode recordNode = convertToJson(null, record.getContent(), true);
     Map<String, ColumnInfos> schemaMap = getFullSchemaMapFromRecord(record);
     Map<Boolean, List<ColumnValuePair>> columnsWitValue =
         Streams.stream(recordNode.fields())
@@ -143,8 +142,9 @@ public class TableSchemaResolver {
     return new TableSchema(columnsInferredFromSchema);
   }
 
-  private TableSchema getTableSchemaFromJson(SinkRecord record, Set<String> columnNamesSet) {
-    JsonNode recordNode = convertToJson(record.valueSchema(), record.value(), true);
+  private TableSchema getTableSchemaFromJson(
+      SnowflakeSinkRecord record, Set<String> columnNamesSet) {
+    JsonNode recordNode = convertToJson(null, record.getContent(), true);
     Map<String, ColumnInfos> columnsInferredFromJson =
         Streams.stream(recordNode.fields())
             .map(ColumnValuePair::from)
@@ -161,14 +161,14 @@ public class TableSchemaResolver {
   }
 
   /**
-   * Given a SinkRecord, get the schema information from it
+   * Build column type information from a Kafka Connect schema.
    *
-   * @param record the sink record that contains the schema and actual data
-   * @return a Map object where the key is column name and value is ColumnInfos
+   * @param schema the Kafka Connect value schema
+   * @return a Map where the key is the raw field name and value is ColumnInfos
    */
-  private Map<String, ColumnInfos> getFullSchemaMapFromRecord(SinkRecord record) {
+  private Map<String, ColumnInfos> getFullSchemaMapFromRecord(SnowflakeSinkRecord record) {
     Map<String, ColumnInfos> schemaMap = new HashMap<>();
-    Schema schema = record.valueSchema();
+    Schema schema = record.getSchema();
     if (schema != null && schema.fields() != null) {
       for (Field field : schema.fields()) {
         String columnType =

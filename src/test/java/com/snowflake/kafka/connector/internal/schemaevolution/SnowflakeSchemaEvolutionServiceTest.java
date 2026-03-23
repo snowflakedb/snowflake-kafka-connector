@@ -11,6 +11,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.util.*;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -24,6 +26,8 @@ import org.mockito.InOrder;
 /** Tests for SnowflakeSchemaEvolutionService */
 public class SnowflakeSchemaEvolutionServiceTest {
 
+  private static final SnowflakeMetadataConfig METADATA_CONFIG = new SnowflakeMetadataConfig();
+
   private SnowflakeConnectionService mockConn;
   private SnowflakeSchemaEvolutionService service;
 
@@ -31,6 +35,10 @@ public class SnowflakeSchemaEvolutionServiceTest {
   public void setUp() {
     mockConn = mock(SnowflakeConnectionService.class);
     service = new SnowflakeSchemaEvolutionService(mockConn);
+  }
+
+  private static SnowflakeSinkRecord toSinkRecord(SinkRecord kafkaRecord) {
+    return SnowflakeSinkRecord.from(kafkaRecord, METADATA_CONFIG, true);
   }
 
   @Test
@@ -45,7 +53,8 @@ public class SnowflakeSchemaEvolutionServiceTest {
     value.put("name", "Alice");
     value.put("new_col", 42);
 
-    SinkRecord record = new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
+    SinkRecord kafkaRecord = new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord);
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
@@ -59,7 +68,8 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
   @Test
   public void testEvolveSchemaDropNotNull() {
-    SinkRecord record = new SinkRecord("topic", 0, null, null, null, new HashMap<>(), 0);
+    SinkRecord kafkaRecord = new SinkRecord("topic", 0, null, null, null, new HashMap<>(), 0);
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord);
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
@@ -78,7 +88,8 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
   @Test
   public void testEvolveSchemaNoDataSkipsExecution() {
-    SinkRecord record = new SinkRecord("topic", 0, null, null, null, null, 0);
+    SinkRecord kafkaRecord = new SinkRecord("topic", 0, null, null, null, null, 0);
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord);
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
@@ -97,7 +108,8 @@ public class SnowflakeSchemaEvolutionServiceTest {
     Struct value = new Struct(valueSchema);
     value.put("col1", "test");
 
-    SinkRecord record = new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
+    SinkRecord kafkaRecord = new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord);
 
     doThrow(
             new com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException(
@@ -114,7 +126,8 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
   @Test
   public void testEvolveSchemaHandlesDropNotNullFailure() {
-    SinkRecord record = new SinkRecord("topic", 0, null, null, null, new HashMap<>(), 0);
+    SinkRecord kafkaRecord = new SinkRecord("topic", 0, null, null, null, new HashMap<>(), 0);
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord);
 
     doThrow(
             new com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException(
@@ -141,7 +154,8 @@ public class SnowflakeSchemaEvolutionServiceTest {
     value.put("existing_col", "hello");
     value.put("new_col", 99);
 
-    SinkRecord record = new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
+    SinkRecord kafkaRecord = new SinkRecord("topic", 0, null, null, valueSchema, value, 0);
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord);
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(

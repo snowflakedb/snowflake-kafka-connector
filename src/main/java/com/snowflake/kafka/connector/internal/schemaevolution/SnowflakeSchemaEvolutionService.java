@@ -6,8 +6,8 @@ package com.snowflake.kafka.connector.internal.schemaevolution;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.util.ArrayList;
-import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,9 +41,10 @@ public class SnowflakeSchemaEvolutionService {
    * modification will fail if the column doesn't exist yet.
    *
    * @param targetItems target items for schema evolution
-   * @param record the sink record that contains the schema and actual data
+   * @param record the sink record that contains the schema and content
    */
-  public void evolveSchemaIfNeeded(SchemaEvolutionTargetItems targetItems, SinkRecord record) {
+  public void evolveSchemaIfNeeded(
+      SchemaEvolutionTargetItems targetItems, SnowflakeSinkRecord record) {
     if (!targetItems.hasDataForSchemaEvolution()) {
       return;
     }
@@ -55,7 +56,7 @@ public class SnowflakeSchemaEvolutionService {
       LOGGER.debug(
           "Adding columns to table: {} columns: {}", tableName, targetItems.getColumnsToAdd());
       TableSchema tableSchema =
-          tableSchemaResolver.resolveTableSchemaFromRecord(
+          tableSchemaResolver.resolveTableSchemaFromSnowflakeRecord(
               record, new ArrayList<>(targetItems.getColumnsToAdd()));
       try {
         conn.appendColumnsToTable(tableName, tableSchema.getColumnInfos());
