@@ -173,7 +173,7 @@ The existing `test_schema_mapping.py` is the beginning of type compatibility tes
 
 | Status | Test | Version | Rationale | File |
 |:------:|------|---------|-----------|------|
-| 🟡 | Type mapping (JSON): 10 types, positive only | dual | Client-side validation differs between v3 (SSv1 built-in) and v4 (RowValidator copy) -- must verify parity. Currently v4-only with `validation.enabled=false`. | `test_schema_mapping.py` |
+| 🟡 | Type mapping (JSON): 10 types, positive only | dual | Client-side validation differs between v3 (SSv1 built-in) and v4 (RowValidator copy) -- must verify parity. Currently v4-only with `validation.enabled=false`. Superseded by `test_type_compatibility.py` for comprehensive dual-mode coverage. | `test_schema_mapping.py` |
 | 🟢 | Unsupported converter rejection | v4 | Converter rejection is KC framework level | `test_schema_not_supported_converter.py` |
 
 #### 3.1.5 Table Creation
@@ -413,27 +413,53 @@ All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, du
 
 | Status | Snowflake Type | SSv1 (v3) | V4 RowValidator | SSv2 (v4) | What to Test | Notes |
 |:------:|----------------|-----------|-----------------|-----------|-------------|-------|
-| 🟡 | NUMBER / INT / BIGINT / SMALLINT / TINYINT / BYTEINT | Supported | FIXED | Supported | Positive: each integer subtype with valid values. Negative: overflow beyond NUMBER(38,0), precision loss for NUMBER(p,s), string in NUMBER column. | `test_schema_mapping.py` covers NUMBER only, positive only, v4-only. Needs dual + negative cases. SDK ref: `NumericTypesIT.java`. |
-| 🟡 | FLOAT / DOUBLE / REAL | Supported | REAL | Supported | Positive: normal floats, NaN, +/-Infinity. Negative: string in FLOAT column, extreme precision values. | `test_schema_mapping.py` covers DOUBLE positive only. SDK ref: `NumericTypesIT.java`. |
-| 🟡 | BOOLEAN | Supported | Supported | Supported | Positive: true/false, 0/1, "true"/"false" coercion. Negative: arbitrary string in BOOLEAN column, number > 1. | `test_schema_mapping.py` positive only. SDK ref: `LogicalTypesIT.java`. |
-| 🟡 | VARCHAR / STRING / TEXT / CHAR | Supported | TEXT/CHAR | Supported | Positive: normal strings, Unicode, multi-byte chars, VARCHAR(n) within limit, CHAR(n). Negative: exceeding VARCHAR(n) limit, exceeding 16 MB max. | `test_schema_mapping.py` covers STRING/CHAR positive. SDK ref: `StringsIT.java`. |
-| 🔴 | BINARY / VARBINARY | Supported | Supported | Supported | Positive: hex strings, byte arrays of various lengths. Negative: exceeding max length, invalid hex. | Disabled in `test_schema_mapping.py` (SNOW-3256183: hex/base64 differs across clouds). Must resolve before testing. SDK ref: `BinaryIT.java`. |
-| 🟡 | DATE | Supported | Supported | Supported | Positive: ISO format, epoch days. Negative: invalid dates (Feb 29 non-leap year), out-of-range dates. | `test_schema_mapping.py` positive only. SDK ref: `DateTimeIT.java`. |
-| 🟡 | TIME | Supported | Supported | Supported | Positive: TIME(0) through TIME(9), various formats. Negative: invalid time values (25:00:00), wrong scale. | `test_schema_mapping.py` positive only. SDK ref: `DateTimeIT.java`. |
-| 🔴 | TIMESTAMP_NTZ | Supported | Supported | Supported | Positive: ISO format, epoch, various scales. Negative: invalid timestamps, out-of-range. | Not tested at all. SDK ref: `DateTimeIT.java`. |
-| 🔴 | TIMESTAMP_LTZ | Supported | Supported | Supported | Positive: timezone-aware values, Instant. Negative: invalid timezone, out-of-range. | Not tested. SDK ref: `DateTimeIT.java`. |
-| 🔴 | TIMESTAMP_TZ | Supported | Supported | Supported | Positive: values with offset (+05:30), ZonedDateTime. Negative: invalid offset format. | Not tested. SDK ref: `DateTimeIT.java`. |
-| 🟡 | VARIANT | Supported | Supported | Supported | Positive: nested JSON objects, arrays, primitives. Negative: exceeding 16 MB size limit, malformed JSON. | `test_schema_mapping.py` positive only. Known v3/v4 difference in string-vs-parsed storage. SDK ref: `SemiStructuredIT.java`. |
-| 🟡 | ARRAY (unstructured) | Supported | Supported | Supported | Positive: nested arrays, mixed types. Negative: exceeding 16 MB, non-array in ARRAY column. | `test_schema_mapping.py` positive only. SDK ref: `SemiStructuredIT.java`. |
-| 🟡 | OBJECT (unstructured) | Supported | Supported | Supported | Positive: nested objects, mixed value types. Negative: exceeding 16 MB, non-object in OBJECT column. | `test_schema_mapping.py` positive only. SDK ref: `SemiStructuredIT.java`. |
-| 🔴 | ARRAY (structured) | Iceberg only | Rejected | Iceberg only | Negative: verify RowValidator rejects structured ARRAY for non-Iceberg tables. | `RowValidatorTest.java` unit-tests this. E2E confirms rejection. |
-| 🔴 | OBJECT (structured) | Iceberg only | Rejected | Iceberg only | Negative: verify RowValidator rejects structured OBJECT for non-Iceberg tables. | Same. |
+| 🟢 | NUMBER / INT / BIGINT / SMALLINT / TINYINT / BYTEINT | Supported | FIXED | Supported | Positive: each integer subtype with valid values. Negative: overflow beyond NUMBER(38,0), precision loss for NUMBER(p,s), string in NUMBER column. | `test_type_compatibility.py`: `test_dt_number`, `test_dt_number_with_scale`. v3 passes, v4 passes. DLQ routing not yet verified (infra bug). |
+| 🟢 | FLOAT / DOUBLE / REAL | Supported | REAL | Supported | Positive: normal floats, NaN, +/-Infinity. Negative: string in FLOAT column, extreme precision values. | `test_type_compatibility.py`: `test_dt_float`, `test_dt_float_special`. Both modes pass for positive values. NaN/Inf parity confirmed. |
+| 🟡 | BOOLEAN | Supported | Supported | Supported | Positive: true/false, 0/1, "true"/"false" coercion. Negative: arbitrary string in BOOLEAN column, number > 1. | `test_type_compatibility.py`: `test_dt_boolean`, `test_dt_boolean_coercion`. **DIVERGENCE**: v4 rejects "yes"/"no" tokens; v4 maps 0->True, 1->False (reversed vs v3). See findings below. |
+| 🟢 | VARCHAR / STRING / TEXT / CHAR | Supported | TEXT/CHAR | Supported | Positive: normal strings, Unicode, multi-byte chars, VARCHAR(n) within limit, CHAR(n). Negative: exceeding VARCHAR(n) limit, exceeding 16 MB max. | `test_type_compatibility.py`: `test_dt_varchar`, `test_dt_varchar_length_limit`. Both modes pass. |
+| 🟡 | BINARY / VARBINARY | Supported | Supported | **Partial** | Positive: hex strings, byte arrays of various lengths. Negative: exceeding max length, invalid hex. | `test_type_compatibility.py`: `test_dt_binary`. **DIVERGENCE**: v3 ingests 4/4 hex strings; v4 only 2/4 (SNOW-3256183). |
+| 🟢 | DATE | Supported | Supported | Supported | Positive: ISO format, epoch days. Negative: invalid dates (Feb 29 non-leap year), out-of-range dates. | `test_type_compatibility.py`: `test_dt_date`. v3 and v4 positive values match. DLQ not yet verified. |
+| 🟢 | TIME | Supported | Supported | Supported | Positive: TIME(0) through TIME(9), various formats. Negative: invalid time values (25:00:00), wrong scale. | `test_type_compatibility.py`: `test_dt_time`. v3 and v4 positive values match. DLQ not yet verified. |
+| 🟡 | TIMESTAMP_NTZ | Supported | Supported | **Partial** | Positive: ISO format, epoch, various scales. Negative: invalid timestamps, out-of-range. | `test_type_compatibility.py`: `test_dt_timestamp_ntz`, `test_dt_timestamp_ntz_epoch`. **DIVERGENCE**: v4 rejects integer epoch (java.lang.Long). ISO strings work in both modes. |
+| 🟢 | TIMESTAMP_LTZ | Supported | Supported | Supported | Positive: timezone-aware values, Instant. Negative: invalid timezone, out-of-range. | `test_type_compatibility.py`: `test_dt_timestamp_ltz`. v3 and v4 positive values match. |
+| 🟢 | TIMESTAMP_TZ | Supported | Supported | Supported | Positive: values with offset (+05:30), ZonedDateTime. Negative: invalid offset format. | `test_type_compatibility.py`: `test_dt_timestamp_tz`. v3 and v4 positive values match. |
+| 🟡 | VARIANT | Supported | Supported | Supported | Positive: nested JSON objects, arrays, primitives. Negative: exceeding 16 MB size limit, malformed JSON. | `test_type_compatibility.py`: `test_dt_variant`. Positive values match. **DIVERGENCE**: NULL in VARIANT column stored as string `'null'` in v4 vs SQL NULL in v3. |
+| 🟢 | ARRAY (unstructured) | Supported | Supported | Supported | Positive: nested arrays, mixed types. Negative: exceeding 16 MB, non-array in ARRAY column. | `test_type_compatibility.py`: `test_dt_array`. Both modes pass. |
+| 🟢 | OBJECT (unstructured) | Supported | Supported | Supported | Positive: nested objects, mixed value types. Negative: exceeding 16 MB, non-object in OBJECT column. | `test_type_compatibility.py`: `test_dt_object`. Both modes pass. |
+| 🟡 | ARRAY (structured) | Rejected | Expected: Rejected | **Accepted** | Negative: verify RowValidator rejects structured ARRAY for non-Iceberg tables. | `test_unsupported_types.py`: `test_dt_structured_array`. **DIVERGENCE**: v3 rejects, v4 ACCEPTS structured ARRAY(NUMBER) and ingests data. Contradicts ColumnSchema.java analysis. |
+| 🟡 | OBJECT (structured) | Rejected | Expected: Rejected | **Accepted** | Negative: verify RowValidator rejects structured OBJECT for non-Iceberg tables. | `test_unsupported_types.py`: `test_dt_structured_object`. **DIVERGENCE**: v3 rejects, v4 ACCEPTS structured OBJECT(name VARCHAR, age NUMBER). |
 | 🔴 | Collated VARCHAR | Rejected | Rejected | Rejected | Negative: verify columns with collation are rejected at startup or DLQ. | `RowValidatorTest.java` unit-tests this. |
-| 🔴 | NULL (all types) | Supported | Supported | Supported | Positive: NULL in every supported column type. Verify NULL is stored correctly, not coerced. | SDK ref: `NullIT.java`. |
-| 🔴 | Type mismatch (cross-type) | DLQ/error | DLQ/error | DLQ/error | Negative: string in NUMBER, number in BOOLEAN, object in STRING, etc. Verify DLQ routing is identical v3/v4. | Core FR1 parity test. |
-| ⚪ | GEOGRAPHY / GEOMETRY | Not supported | Not supported | Not supported | N/A: not supported in Snowpipe Streaming. | -- |
-| ⚪ | UUID / VECTOR / DECFLOAT | Unknown | Not supported | Unknown | N/A: no SDK support. | -- |
+| 🟢 | NULL (all types) | Supported | Supported | Supported | Positive: NULL in every supported column type. Verify NULL is stored correctly, not coerced. | `test_type_compatibility.py`: `test_dt_null` (12 types parametrized). All pass except VARIANT (see VARIANT note above). |
+| 🟡 | Type mismatch (cross-type) | DLQ/error | DLQ/error | DLQ/error | Negative: string in NUMBER, number in BOOLEAN, object in STRING, etc. Verify DLQ routing is identical v3/v4. | `test_type_compatibility.py`: 4 cross-type tests. **BLOCKED**: DLQ infrastructure bug prevents DLQ count verification. Also **DIVERGENCE**: v4 silently drops object->VARCHAR (v3 stringifies and ingests). |
+| ⚪ | GEOGRAPHY / GEOMETRY | Not supported | Not supported | Not supported | N/A: not supported in Snowpipe Streaming. | `test_unsupported_types.py`: both modes correctly reject. |
+| 🟡 | VECTOR | Not in v3 SDK | Not supported | Supported | Positive: VECTOR(FLOAT, 3) embeddings. | `test_unsupported_types.py`: `test_dt_vector`. v3 skipped, v4 passes. |
 | ⚪ | MAP | Iceberg only | Not supported | Iceberg only | Out of scope for non-Iceberg tests. | -- |
+
+### E2E Test Results: Confirmed v3/v4 Divergences
+
+Tests run: 78 (31 failed, 46 passed, 1 skipped). Test files: `test_type_compatibility.py`, `test_unsupported_types.py`. Platform: Apache Kafka 3.7.0. Run time: ~50 min.
+
+**Infrastructure issue**: The batch DLQ reader (`DlqReader`) returns `dlq_count=0` for all tests in both modes. This is a test infrastructure bug -- the bad records are either not routed to the shared DLQ topic by the batch connector, or the Kafka consumer isn't draining properly. DLQ assertions are currently unreliable. **12 of 31 failures are caused by this bug, not by behavioral differences.**
+
+#### Confirmed Behavioral Divergences (v4-compat differs from v3)
+
+| # | Type | Test | v3 Behavior | v4-compat Behavior | Severity | Ticket |
+|---|------|------|-------------|-------------------|----------|--------|
+| D1 | BINARY | `test_dt_binary` | 4/4 hex strings ingested | 2/4 ingested (server-side cast failure) | High | SNOW-3256183 |
+| D2 | BOOLEAN | `test_dt_boolean_coercion` | `[False,True,True,False,True,False]` for `[0,1,"true","false","yes","no"]` | `[True,False,True,False]` -- "yes"/"no" rejected, 0->True/1->False reversed | High | -- |
+| D3 | TIMESTAMP_NTZ | `test_dt_timestamp_ntz_epoch` | Integer epoch `1705312800` ingested as `2024-01-15T10:00:00` | 0 rows, 0 DLQ -- epoch integer silently dropped | High | -- |
+| D4 | NULL VARIANT | `test_dt_null[variant]` | SQL NULL (`None`) | JSON string `'null'` | Medium | -- |
+| D5 | Object->VARCHAR | `test_dt_xtype_object_to_varchar` | 1 row (stringified JSON) | 0 rows, 0 DLQ -- silently dropped | Medium | -- |
+| D6 | Structured OBJECT | `test_dt_structured_object` | Rejected (connector error) | **Accepted** -- 1 row ingested | Medium | -- |
+| D7 | Structured ARRAY | `test_dt_structured_array` | Rejected (connector error) | **Accepted** -- 1 row ingested | Medium | -- |
+
+**D2 detail**: The boolean coercion test reveals two sub-issues: (a) v4 RowValidator rejects string tokens "yes"/"no" that v3 SSv1 accepts via `DataValidationUtil.validateAndParseBoolean`; (b) v4 maps integer 0->True and 1->False (reversed from v3's 0->False, 1->True). The reversal suggests a bug in the v4 boolean parsing path.
+
+**D6/D7 detail**: Contradicts the ColumnSchema.java analysis (lines 326-349 should reject structured types). The v4 SSv2 SDK appears to accept structured OBJECT/ARRAY columns for non-Iceberg tables, while v3 rejects them. This is the opposite of what was expected.
+
+#### Tests Passing in Both Modes (no divergence)
+
+NUMBER (positive), NUMBER(10,2) (positive), FLOAT (positive + NaN/Inf), VARCHAR, VARCHAR(10), DATE (positive), TIME (positive), TIMESTAMP_NTZ (ISO strings), TIMESTAMP_LTZ (positive), TIMESTAMP_TZ (positive), VARIANT (JSON objects/arrays), OBJECT, ARRAY, NULL (11 of 12 types), GEOGRAPHY (rejected), GEOMETRY (rejected), VECTOR (v4-only, passes).
 
 ### Avro-Specific Type Mapping (`test_type_compatibility_avro.py`)
 
@@ -472,8 +498,8 @@ The E2E tests do not need to duplicate every SDK test case. They should focus on
 | Category | JSON (native) | Avro SR | Protobuf SR | Protobuf (native) | String | Bytes |
 |----------|:---:|:---:|:---:|:---:|:---:|:---:|
 | Basic Ingestion | 🟢 | ⚫ | ⚫ | 🟢 | 🟢 (legacy) | 🟢 (legacy) |
-| Type Compatibility | 🔴 | 🔴 | -- | -- | -- | -- |
-| Schema Evolution (client) | 🟢 | 🟢 | 🔴 | -- | -- | -- |
+| Type Compatibility | 🟡 | 🔴 | -- | -- | -- | -- |
+| Schema Evolution (client) | 🟢 | ⚫ | 🔴 | -- | -- | -- |
 | Schema Evolution (server) | 🔴 | 🔴 | -- | -- | -- | -- |
 | DLQ (compat) | 🟡 | 🔴 | 🔴 | -- | -- | -- |
 | Abort (compat) | 🔴 | -- | -- | -- | -- | -- |
@@ -489,8 +515,8 @@ The E2E tests do not need to duplicate every SDK test case. They should focus on
 | Category | Compatibility (dual where needed) | High-Throughput (v4-only) |
 |----------|:---:|:---:|
 | Basic Ingestion | 🟢 (2 dual, rest v4-only -- justified) | 🔴 (2 tests) |
-| Type Compatibility | 🔴 (new test file needed) | ⚪ |
-| Schema Evolution (client) | 🟢 (9 🟢, 2 🟡 xfail) | -- |
+| Type Compatibility | 🟡 (tests written, DLQ infra fix needed) | ⚪ |
+| Schema Evolution (client) | 🟡 (7 🟢, 2 ⚫, 2 🟡 xfail) | -- |
 | Schema Evolution (server) | -- | 🔴 (6 tests) |
 | DLQ | 🟡 (1 needs dual, 5 missing) | ⚪ |
 | Abort | 🔴 (3 tests) | ⚪ |
@@ -508,7 +534,7 @@ The E2E tests do not need to duplicate every SDK test case. They should focus on
 | Category | 🟢 Confirmed | ⚫ v3 Blocked | 🟡 Needs Rework | 🔴 New Needed |
 |----------|:-:|:-:|:-:|:-:|
 | Data Ingestion | 2 | 4 | 0 | 0 |
-| Type Compatibility | 0 | 4 | 1 | ~20 |
+| Type Compatibility | 10 | 4 | 7 | 1 (collated) |
 | Error Handling (DLQ) | 0 | 2 | 1 | 3 + type DLQ |
 | Error Handling (Abort) | 0 | 0 | 0 | 3 |
 | Schema Evolution | 9 | 0 | 2 | 0 |
@@ -526,8 +552,8 @@ Must be complete before GA. Focus on type compatibility and error handling parit
 
 | # | Status | Test | FR | Category | Work Type |
 |---|:------:|------|----|---------|----|
-| 1 | 🔴 | `test_type_compatibility.py`: positive type tests for all Snowflake types (dual) | FR1 | Type parity | New |
-| 2 | 🔴 | `test_type_compatibility.py`: negative type tests -- DLQ routing for invalid values (dual) | FR1 | Type parity | New |
+| 1 | 🟡 | `test_type_compatibility.py`: positive type tests for all Snowflake types (dual) | FR1 | Type parity | Written -- 22 tests, 5 divergences found. DLQ assertions blocked by infra bug. |
+| 2 | 🟡 | `test_type_compatibility.py`: negative type tests -- DLQ routing for invalid values (dual) | FR1 | Type parity | Written -- 4 cross-type + 6 per-type DLQ tests. DLQ reader infra needs fix. |
 | 3 | 🟡 | Convert DLQ test to dual + un-skip schema mapping DLQ | FR1 | DLQ parity | Convert |
 | 4 | 🔴 | DLQ Kafka headers preserved (v3/v4 byte-for-byte comparison) | FR9 | DLQ parity | New |
 | 5 | 🔴 | Abort: deserialization error -> task FAILED (dual) | FR2 | Abort | New |
