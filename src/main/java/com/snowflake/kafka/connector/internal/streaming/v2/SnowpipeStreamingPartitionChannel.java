@@ -288,9 +288,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private void reopenChannel(final String reason) {
     LOGGER.warn("{} Channel {} recovery initiated", reason, this.channelName);
 
-    if (this.snowflakeTelemetryChannelStatus != null
-        && this.snowflakeTelemetryChannelStatus.getRecoveryCount() != null) {
-      this.snowflakeTelemetryChannelStatus.getRecoveryCount().inc();
+    if (this.snowflakeTelemetryChannelStatus != null) {
+      this.snowflakeTelemetryChannelStatus.incRecoveryCount();
     }
 
     this.channel =
@@ -400,6 +399,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                 + "Client-side validation will be disabled for channel {}",
             tableName,
             channelName);
+        this.snowflakeTelemetryChannelStatus.setValidationDisabled();
         return;
       }
 
@@ -428,6 +428,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               + "Validation will be disabled. Error: {}",
           channelName,
           e.getMessage());
+      this.snowflakeTelemetryChannelStatus.setValidationDisabled();
       this.rowValidator = null;
     }
   }
