@@ -437,9 +437,18 @@ All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, du
 
 ### E2E Test Results: Confirmed v3/v4 Divergences
 
-Tests run: 78 (31 failed, 46 passed, 1 skipped). Test files: `test_type_compatibility.py`, `test_unsupported_types.py`. Platform: Apache Kafka 3.7.0. Run time: ~50 min.
+Tests run: 78 (31 failed, 46 passed, 1 skipped). Test files: `test_type_compatibility.py`, `test_unsupported_types.py`. Platform: Apache Kafka 3.7.0. Run time: **~30 min** (improved from ~50 min via `expected` row parameter in `_ingest()`).
 
-**Infrastructure issue**: The batch DLQ reader (`DlqReader`) returns `dlq_count=0` for all tests in both modes. This is a test infrastructure bug -- the bad records are either not routed to the shared DLQ topic by the batch connector, or the Kafka consumer isn't draining properly. DLQ assertions are currently unreliable. **12 of 31 failures are caused by this bug, not by behavioral differences.**
+| Group | Time | Tests |
+|-------|------|-------|
+| v3 batch | ~7 min | 34 (22 pass, 12 fail) |
+| v4-compat batch | ~11 min | 34 (17 pass, 17 fail) |
+| v3 standalone | ~16 min | 5 (4 pass, 1 skip) |
+| v4-compat standalone | ~5 min | 5 (3 pass, 2 fail) |
+
+**Infrastructure issue**: The batch DLQ reader (`DlqReader`) returns `dlq_count=0` for all tests in both modes. Bad records are silently dropped by both v3 (SSv1 catches inside `appendRow()`) and v4 (RowValidator catches before `put()`) when `errors.tolerance=all` -- the records never reach Kafka Connect's DLQ pipeline. **24 of 31 failures are caused by this, not by behavioral differences.** The remaining 7 are real v3/v4 divergences.
+
+**Environment note**: In K8s/DinD environments, set `CONNECTOR_PLUGIN_PATH`, `V3_PLUGIN_PATH`, and `EXTRA_JARS_PATH` to host-shared paths (e.g., under `/home/repo/`) since `/tmp` is pod-local and bind mounts to Docker containers won't work.
 
 #### Confirmed Behavioral Divergences (v4-compat differs from v3)
 
