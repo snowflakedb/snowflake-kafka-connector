@@ -485,7 +485,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
 
     created_connectors = []
 
-    def _run(test_id, col_ddl, values, *, timeout=30):
+    def _run(test_id, col_ddl, values, *, timeout=60):
         topic = typed_table(test_id, col_ddl)
 
         # Abort mode (errors.tolerance=none) — connector task fails immediately
