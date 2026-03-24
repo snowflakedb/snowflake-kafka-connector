@@ -356,11 +356,16 @@ class KafkaDriver:
         )
 
     def select_number_of_records(self, table_name: str) -> str | None:
-        return (
-            self.snowflake_conn.cursor()
-            .execute("SELECT count(*) FROM identifier(%s)", (table_name,))
-            .fetchone()[0]
-        )
+        try:
+            return (
+                self.snowflake_conn.cursor()
+                .execute("SELECT count(*) FROM identifier(%s)", (table_name,))
+                .fetchone()[0]
+            )
+        except snowflake.connector.errors.ProgrammingError as e:
+            if "does not exist or not authorized" in e.msg:
+                return None
+            raise
 
     def get_connector_status(self, connector_name: str) -> dict | None:
         """Query Kafka Connect REST API for connector and task states.
