@@ -248,7 +248,7 @@ fi
 info "Credentials: $SNOWFLAKE_CREDENTIAL_FILE"
 
 # Check for connector plugin based on platform
-PLUGIN_DIR="${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}"
+PLUGIN_DIR="/tmp/sf-kafka-connect-plugin"
 rm -rf "$PLUGIN_DIR"
 mkdir -p "$PLUGIN_DIR"
 
@@ -279,7 +279,7 @@ fi
 info "Plugin prepared in $PLUGIN_DIR"
 
 # Build protobuf dependencies
-EXTRA_JARS_DIR="${EXTRA_JARS_PATH:-/tmp/kafka-connect-extra-jars}"
+EXTRA_JARS_DIR="/tmp/kafka-connect-extra-jars"
 mkdir -p "$EXTRA_JARS_DIR"
 
 compile_protobuf_dependencies() {
