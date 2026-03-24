@@ -510,6 +510,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       }
 
       snowflakeTelemetryChannelStatus.incValidationFailureCount();
+      snowflakeTelemetryChannelStatus.incSchemaEvolutionFailureCount();
 
       String errorMsg =
           String.format(
@@ -609,7 +610,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     String errMsg =
         String.format(
             "Failure closing streaming channel %s, error: %s", this.channelName, e.getMessage());
-    this.telemetryService.reportKafkaConnectFatalError(errMsg);
+    this.telemetryService.reportKafkaConnectFatalError(
+        errMsg, this.channelName, this.tableName, this.pipeName);
 
     // Only SFExceptions are swallowed.
     // If a channel-related error occurs, it shouldn't fail a connector task.
@@ -763,7 +765,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       if (tolerateErrors) {
         LOGGER.warn(errorMessage);
       } else {
-        this.telemetryService.reportKafkaConnectFatalError(errorMessage);
+        this.telemetryService.reportKafkaConnectFatalError(
+            errorMessage, this.channelName, this.tableName, this.pipeName);
         throw ERROR_5030.getException(errorMessage);
       }
     } else if (currentErrorCount > 0) {

@@ -98,6 +98,28 @@ public class SnowflakeTelemetryService {
     send(TelemetryType.KAFKA_FATAL_ERROR, msg);
   }
 
+  public void reportKafkaConnectFatalError(
+      final String errorDetail,
+      final String channelName,
+      final String tableName,
+      final String pipeName) {
+    ObjectNode msg = getObjectNode();
+
+    msg.put(TIME, System.currentTimeMillis());
+    msg.put(ERROR_DETAIL, errorDetail);
+    if (channelName != null) {
+      msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_NAME, channelName);
+    }
+    if (tableName != null) {
+      msg.put(TelemetryConstants.TABLE_NAME, tableName);
+    }
+    if (pipeName != null) {
+      msg.put(TelemetryConstants.PIPE_NAME, pipeName);
+    }
+
+    send(TelemetryType.KAFKA_FATAL_ERROR, msg);
+  }
+
   /**
    * Reports connector's partition usage.
    *

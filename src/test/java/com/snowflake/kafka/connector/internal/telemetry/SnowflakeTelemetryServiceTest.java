@@ -178,6 +178,26 @@ public class SnowflakeTelemetryServiceTest {
     assertEquals(dataNode.get(TelemetryConstants.ERROR_DETAIL).asText(), expectedException);
   }
 
+  @Test
+  public void testReportKafkaConnectFatalErrorWithChannelContext() {
+    Map<String, String> connectorConfig = createConnectorConfig();
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    snowflakeTelemetryService.reportKafkaConnectFatalError(
+        "test error", "myChannel", "myTable", "myPipe");
+
+    LinkedList<TelemetryData> sentData = this.mockTelemetryClient.getSentTelemetryData();
+    assertEquals(1, sentData.size());
+
+    JsonNode dataNode = sentData.get(0).getMessage().get("data");
+    assertEquals("test error", dataNode.get(TelemetryConstants.ERROR_DETAIL).asText());
+    assertEquals(
+        "myChannel", dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_NAME).asText());
+    assertEquals("myTable", dataNode.get(TelemetryConstants.TABLE_NAME).asText());
+    assertEquals("myPipe", dataNode.get(TelemetryConstants.PIPE_NAME).asText());
+  }
+
   @ParameterizedTest
   @EnumSource(value = IngestionMethodConfig.class)
   public void testReportKafkaPartitionUsage(IngestionMethodConfig ingestionMethodConfig) {
@@ -305,6 +325,9 @@ public class SnowflakeTelemetryServiceTest {
     // Backpressure/fallback counts (0 since not incremented in this test)
     assertEquals(0, dataNode.get(TelemetryConstants.BACKPRESSURE_RETRY_COUNT).asLong());
     assertEquals(0, dataNode.get(TelemetryConstants.APPEND_ROW_FALLBACK_COUNT).asLong());
+
+    // Schema evolution failure count
+    assertEquals(0, dataNode.get(TelemetryConstants.SCHEMA_EVOLUTION_FAILURE_COUNT).asLong());
   }
 
   @ParameterizedTest

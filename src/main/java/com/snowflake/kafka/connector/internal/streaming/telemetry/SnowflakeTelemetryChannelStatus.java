@@ -88,6 +88,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   // Counts of SDK backpressure retries and channel-reopen fallbacks during appendRow.
   private final AtomicLong backpressureRetryCount = new AtomicLong(0);
   private final AtomicLong appendRowFallbackCount = new AtomicLong(0);
+  private final AtomicLong schemaEvolutionFailureCount = new AtomicLong(0);
 
   /**
    * Creates a new object tracking {@link
@@ -162,6 +163,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
         this.lastErrorOffsetTokenUpperBound);
     msg.put(TelemetryConstants.BACKPRESSURE_RETRY_COUNT, this.backpressureRetryCount.get());
     msg.put(TelemetryConstants.APPEND_ROW_FALLBACK_COUNT, this.appendRowFallbackCount.get());
+    msg.put(
+        TelemetryConstants.SCHEMA_EVOLUTION_FAILURE_COUNT, this.schemaEvolutionFailureCount.get());
   }
 
   private void registerChannelJMXMetrics(MetricsJmxReporter reporter) {
@@ -242,6 +245,11 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Increments the append-row fallback counter. Thread-safe. */
   public void incAppendRowFallbackCount() {
     this.appendRowFallbackCount.incrementAndGet();
+  }
+
+  /** Increments the schema evolution failure counter. Thread-safe. */
+  public void incSchemaEvolutionFailureCount() {
+    this.schemaEvolutionFailureCount.incrementAndGet();
   }
 
   /** Updates SDK-reported metrics from a ChannelStatus response. */
