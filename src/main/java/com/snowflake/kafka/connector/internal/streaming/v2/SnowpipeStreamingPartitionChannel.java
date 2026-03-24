@@ -693,6 +693,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     logChannelStatus(status);
     handleChannelErrors(status, tolerateErrors);
 
+    this.snowflakeTelemetryChannelStatus.updateFromChannelStatus(status);
+
     long committedOffset =
         parseOffsetToken(status.getLatestCommittedOffsetToken(), this.channelName);
     offsetTracker.updatePersistedOffset(committedOffset);
