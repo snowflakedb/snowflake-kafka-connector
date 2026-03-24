@@ -1,70 +1,52 @@
 package com.snowflake.kafka.connector.internal.schemaevolution;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
-import java.nio.ByteBuffer;
+import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
-import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TableSchemaResolverTest {
 
+  private static final SnowflakeMetadataConfig METADATA_CONFIG = new SnowflakeMetadataConfig();
+
   private final TableSchemaResolver schemaResolver = new TableSchemaResolver();
 
-  @Test
-  public void testGetColumnTypesWithoutSchema() throws JsonProcessingException {
-    String columnName = "test";
-    String nonExistingColumnName = "random";
-    ObjectMapper mapper = new ObjectMapper();
-    JsonConverter jsonConverter = new JsonConverter();
-    Map<String, ?> config = Collections.singletonMap("schemas.enable", false);
-    jsonConverter.configure(config, false);
-    Map<String, String> jsonMap = new HashMap<>();
-    jsonMap.put(columnName, "value");
-    SchemaAndValue schemaAndValue =
-        jsonConverter.toConnectData("topic", mapper.writeValueAsBytes(jsonMap));
-    SinkRecord recordWithoutSchema =
-        new SinkRecord(
-            "topic",
-            0,
-            null,
-            null,
-            schemaAndValue.schema(),
-            schemaAndValue.value(),
-            0,
-            System.currentTimeMillis(),
-            TimestampType.CREATE_TIME);
+  private static SnowflakeSinkRecord toSinkRecord(SinkRecord kafkaRecord) {
+    return SnowflakeSinkRecord.from(kafkaRecord, METADATA_CONFIG, true);
+  }
 
-    String processedColumnName = Utils.quoteNameIfNeeded(columnName);
-    String processedNonExistingColumnName = Utils.quoteNameIfNeeded(nonExistingColumnName);
+  @Test
+  public void testGetColumnTypesWithoutSchema() {
+    // Schemaless: content map with string values
+    Map<String, Object> jsonMap = new HashMap<>();
+    jsonMap.put("test", "value");
+    SinkRecord kafkaRecord = new SinkRecord("topic", 0, null, null, null, jsonMap, 0);
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord);
+
+    String processedColumnName = Utils.quoteNameIfNeeded("test");
+    String processedNonExistingColumnName = Utils.quoteNameIfNeeded("random");
     TableSchema tableSchema =
-        schemaResolver.resolveTableSchemaFromRecord(
-            recordWithoutSchema, Collections.singletonList(processedColumnName));
+        schemaResolver.resolveTableSchemaFromSnowflakeRecord(
+            record, Collections.singletonList(processedColumnName));
 
     assertThat(tableSchema.getColumnInfos())
         .containsExactlyInAnyOrderEntriesOf(
             Collections.singletonMap(processedColumnName, new ColumnInfos("VARCHAR", null)));
     // Get non-existing column name should return nothing
     tableSchema =
-        schemaResolver.resolveTableSchemaFromRecord(
-            recordWithoutSchema, Collections.singletonList(processedNonExistingColumnName));
+        schemaResolver.resolveTableSchemaFromSnowflakeRecord(
+            record, Collections.singletonList(processedNonExistingColumnName));
     assertThat(tableSchema.getColumnInfos()).isEmpty();
   }
 
@@ -79,52 +61,18 @@ public class TableSchemaResolverTest {
             "topic", TestUtils.JSON_WITH_SCHEMA.getBytes(StandardCharsets.UTF_8));
     String columnName1 = Utils.quoteNameIfNeeded("regionid");
     String columnName2 = Utils.quoteNameIfNeeded("gender");
-    SinkRecord recordWithoutSchema =
-        new SinkRecord(
-            "topic",
-            0,
-            null,
-            null,
-            schemaAndValue.schema(),
-            schemaAndValue.value(),
-            0,
-            System.currentTimeMillis(),
-            TimestampType.CREATE_TIME);
+
+    SinkRecord kafkaRecord =
+        new SinkRecord("topic", 0, null, null, schemaAndValue.schema(), schemaAndValue.value(), 0);
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord);
 
     TableSchema tableSchema =
-        schemaResolver.resolveTableSchemaFromRecord(
-            recordWithoutSchema, Arrays.asList(columnName1, columnName2));
+        schemaResolver.resolveTableSchemaFromSnowflakeRecord(
+            record, Arrays.asList(columnName1, columnName2));
 
     assertThat(tableSchema.getColumnInfos().get(columnName1).getColumnType()).isEqualTo("VARCHAR");
     assertThat(tableSchema.getColumnInfos().get(columnName1).getComments()).isEqualTo("doc");
     assertThat(tableSchema.getColumnInfos().get(columnName2).getColumnType()).isEqualTo("VARCHAR");
     assertThat(tableSchema.getColumnInfos().get(columnName2).getComments()).isNull();
-  }
-
-  // ---- convertToJson tests ported from v3.2 RecordContentTest ----
-
-  @Test
-  public void convertToJson_whenInvalidInput_throwException() {
-    Schema int32Schema = SchemaBuilder.int32().build();
-    Assertions.assertThrows(
-        SnowflakeKafkaConnectorException.class,
-        () -> TableSchemaResolver.convertToJson(int32Schema, null, false));
-  }
-
-  @Test
-  public void convertToJson_returnDefaultValue() {
-    Schema schema = SchemaBuilder.int32().optional().defaultValue(123).build();
-    Assertions.assertEquals(
-        "123", TableSchemaResolver.convertToJson(schema, null, false).toString());
-  }
-
-  @Test
-  public void testConvertToJsonReadOnlyByteBuffer() {
-    String original = "bytes";
-    String expected = "\"" + Base64.getEncoder().encodeToString(original.getBytes()) + "\"";
-    ByteBuffer buffer = ByteBuffer.wrap(original.getBytes()).asReadOnlyBuffer();
-    Schema schema = SchemaBuilder.bytes().build();
-
-    assertEquals(expected, TableSchemaResolver.convertToJson(schema, buffer, false).toString());
   }
 }

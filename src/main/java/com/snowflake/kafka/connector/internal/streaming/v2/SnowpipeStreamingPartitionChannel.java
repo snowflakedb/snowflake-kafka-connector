@@ -179,7 +179,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
             if (!validationResult.isValid()) {
               if (validationResult.hasStructuralError()) {
-                handleStructuralError(validationResult, kafkaSinkRecord, transformedRecord);
+                handleStructuralError(validationResult, kafkaSinkRecord, record, transformedRecord);
               } else {
                 handleValidationError(validationResult, kafkaSinkRecord);
               }
@@ -447,7 +447,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   private void handleStructuralError(
-      ValidationResult result, SinkRecord record, Map<String, Object> transformedRecord) {
+      ValidationResult result,
+      SinkRecord kafkaRecord,
+      SnowflakeSinkRecord snowflakeRecord,
+      Map<String, Object> transformedRecord) {
     if (streamingErrorHandler.isLogErrors()) {
       LOGGER.warn(
           "Client-side structural validation failure [{}] channel={}, "
@@ -459,7 +462,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           result.getExtraColNames(),
           result.getMissingNotNullColNames(),
           result.getNullValueForNotNullColNames(),
-          record.kafkaOffset());
+          kafkaRecord.kafkaOffset());
     }
 
     if (!shouldEvolveSchema) {
@@ -471,7 +474,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                   + " missingNotNull=%s",
               result.getExtraColNames(), result.getMissingNotNullColNames());
       LOGGER.info("Routing to DLQ for channel {}: {}", channelName, errorMsg);
-      streamingErrorHandler.handleError(new DataException(errorMsg), record);
+      streamingErrorHandler.handleError(new DataException(errorMsg), kafkaRecord);
       return;
     }
 
@@ -479,7 +482,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       LOGGER.info("Attempting schema evolution for channel {}, table {}", channelName, tableName);
       SchemaEvolutionTargetItems items =
           ValidationResultMapper.mapToSchemaEvolutionItems(result, tableName);
-      schemaEvolutionService.evolveSchemaIfNeeded(items, record);
+      schemaEvolutionService.evolveSchemaIfNeeded(items, snowflakeRecord);
 
       refreshTableSchema();
 
@@ -487,7 +490,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       if (rowValidator != null) {
         retryResult = rowValidator.validateRow(transformedRecord);
         if (retryResult.isValid()) {
-          insertRowWithFallback(transformedRecord, record.kafkaOffset());
+          insertRowWithFallback(transformedRecord, kafkaRecord.kafkaOffset());
           return;
         }
       }
@@ -498,7 +501,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           String.format(
               "Schema mismatch after evolution attempt: extraCols=%s, missingNotNull=%s",
               retryResult.getExtraColNames(), retryResult.getMissingNotNullColNames());
-      streamingErrorHandler.handleError(new DataException(errorMsg), record);
+      streamingErrorHandler.handleError(new DataException(errorMsg), kafkaRecord);
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Schema evolution failed for table {}", tableName, e);
       throw e;

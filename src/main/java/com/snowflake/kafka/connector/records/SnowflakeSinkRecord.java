@@ -32,6 +32,7 @@ public final class SnowflakeSinkRecord {
 
   private final Map<String, Object> content;
   private final Map<String, Object> metadata;
+  private final Schema schema;
   private final RecordState state;
   private final Exception brokenReason;
 
@@ -44,10 +45,12 @@ public final class SnowflakeSinkRecord {
   private SnowflakeSinkRecord(
       Map<String, Object> content,
       Map<String, Object> metadata,
+      Schema schema,
       RecordState state,
       Exception brokenReason) {
     this.content = content;
     this.metadata = metadata;
+    this.schema = schema;
     this.state = state;
     this.brokenReason = brokenReason;
   }
@@ -83,7 +86,8 @@ public final class SnowflakeSinkRecord {
         content = wrapAsRecordContent(record.valueSchema(), record.value());
       }
       Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
-      return new SnowflakeSinkRecord(content, metadata, RecordState.VALID, null);
+      return new SnowflakeSinkRecord(
+          content, metadata, record.valueSchema(), RecordState.VALID, null);
     } catch (Exception e) {
       return createBrokenRecord(record, metadataConfig, connectorPushTime, e);
     }
@@ -109,7 +113,8 @@ public final class SnowflakeSinkRecord {
   private static SnowflakeSinkRecord createTombstoneRecord(
       SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
     Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
-    return new SnowflakeSinkRecord(Collections.emptyMap(), metadata, RecordState.TOMBSTONE, null);
+    return new SnowflakeSinkRecord(
+        Collections.emptyMap(), metadata, record.valueSchema(), RecordState.TOMBSTONE, null);
   }
 
   private static SnowflakeSinkRecord createBrokenRecord(
@@ -118,7 +123,8 @@ public final class SnowflakeSinkRecord {
       Instant connectorPushTime,
       Exception reason) {
     Map<String, Object> metadata = buildMetadataSafe(record, metadataConfig, connectorPushTime);
-    return new SnowflakeSinkRecord(Collections.emptyMap(), metadata, RecordState.BROKEN, reason);
+    return new SnowflakeSinkRecord(
+        Collections.emptyMap(), metadata, record.valueSchema(), RecordState.BROKEN, reason);
   }
 
   private static Map<String, Object> buildMetadataSafe(
@@ -205,6 +211,10 @@ public final class SnowflakeSinkRecord {
       // If key conversion fails, store the key as a string representation
       metadata.put(KEY, String.valueOf(key));
     }
+  }
+
+  public Schema getSchema() {
+    return schema;
   }
 
   public Map<String, Object> getContent() {
