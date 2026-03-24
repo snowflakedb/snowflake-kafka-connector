@@ -58,11 +58,13 @@ public class EmbeddedProxyServer extends ExternalResource {
     try {
       serverSocket = new ServerSocket(0); // random available port
       running = true;
-      executor = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "proxy-worker");
-        t.setDaemon(true);
-        return t;
-      });
+      executor =
+          Executors.newCachedThreadPool(
+              r -> {
+                Thread t = new Thread(r, "proxy-worker");
+                t.setDaemon(true);
+                return t;
+              });
 
       Thread acceptThread = new Thread(this::acceptLoop, "proxy-accept");
       acceptThread.setDaemon(true);
@@ -111,9 +113,10 @@ public class EmbeddedProxyServer extends ExternalResource {
 
       // Check authentication
       if (!checkAuth(proxyAuth)) {
-        String response = "HTTP/1.1 407 Proxy Authentication Required\r\n"
-            + "Proxy-Authenticate: Basic realm=\"proxy\"\r\n"
-            + "Content-Length: 0\r\n\r\n";
+        String response =
+            "HTTP/1.1 407 Proxy Authentication Required\r\n"
+                + "Proxy-Authenticate: Basic realm=\"proxy\"\r\n"
+                + "Content-Length: 0\r\n\r\n";
         out.write(response.getBytes(StandardCharsets.US_ASCII));
         out.flush();
         client.close();
@@ -132,7 +135,10 @@ public class EmbeddedProxyServer extends ExternalResource {
       }
     } catch (Exception e) {
       LOGGER.debug("Client handler error: {}", e.getMessage());
-      try { client.close(); } catch (IOException ignored) {}
+      try {
+        client.close();
+      } catch (IOException ignored) {
+      }
     }
   }
 
@@ -201,8 +207,8 @@ public class EmbeddedProxyServer extends ExternalResource {
   private boolean checkAuth(String proxyAuth) {
     if (proxyAuth == null) return false;
     if (!proxyAuth.startsWith("Basic ")) return false;
-    String decoded = new String(
-        Base64.getDecoder().decode(proxyAuth.substring(6)), StandardCharsets.UTF_8);
+    String decoded =
+        new String(Base64.getDecoder().decode(proxyAuth.substring(6)), StandardCharsets.UTF_8);
     return decoded.equals(username + ":" + password);
   }
 

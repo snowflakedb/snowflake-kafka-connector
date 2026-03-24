@@ -172,9 +172,9 @@ public class TestUtils {
    * <p>The name is {@code <original_schema>_<7-char random salt>}. A JVM shutdown hook drops the
    * schema with CASCADE so all tables/pipes/channels are cleaned up automatically.
    *
-   * <p>A re-entrancy guard ({@code creatingEphemeralSchema}) handles the circular call path:
-   * {@code getOrCreateEphemeralSchema → getConnection → transformProfileFileToConnectorConfiguration
-   * → getOrCreateEphemeralSchema}. During bootstrap the original schema is returned so the JDBC
+   * <p>A re-entrancy guard ({@code creatingEphemeralSchema}) handles the circular call path: {@code
+   * getOrCreateEphemeralSchema → getConnection → transformProfileFileToConnectorConfiguration →
+   * getOrCreateEphemeralSchema}. During bootstrap the original schema is returned so the JDBC
    * connection can be established.
    */
   private static String getOrCreateEphemeralSchema() {
