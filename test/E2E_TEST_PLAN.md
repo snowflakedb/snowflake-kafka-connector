@@ -411,64 +411,78 @@ Parity risk: v3 relied on step 4 only (SSv1's built-in validation). V4 adds step
 
 All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, dual mode) and **`test_type_compatibility_avro.py`** (Avro SR format, dual but v3 blocked). Each test covers both **positive** (valid values land correctly) and **negative** (invalid values routed to DLQ) cases for that type.
 
-| Status | Snowflake Type | SSv1 (v3) | V4 RowValidator | SSv2 (v4) | What to Test | Notes |
-|:------:|----------------|-----------|-----------------|-----------|-------------|-------|
-| 🟢 | NUMBER / INT / BIGINT / SMALLINT / TINYINT / BYTEINT | Supported | FIXED | Supported | Positive: each integer subtype with valid values. Negative: overflow beyond NUMBER(38,0), precision loss for NUMBER(p,s), string in NUMBER column. | `test_type_compatibility.py`: `test_dt_number`, `test_dt_number_with_scale`. v3 passes, v4 passes. DLQ routing not yet verified (infra bug). |
-| 🟢 | FLOAT / DOUBLE / REAL | Supported | REAL | Supported | Positive: normal floats, NaN, +/-Infinity. Negative: string in FLOAT column, extreme precision values. | `test_type_compatibility.py`: `test_dt_float`, `test_dt_float_special`. Both modes pass for positive values. NaN/Inf parity confirmed. |
-| 🟡 | BOOLEAN | Supported | Supported | Supported | Positive: true/false, 0/1, "true"/"false" coercion. Negative: arbitrary string in BOOLEAN column, number > 1. | `test_type_compatibility.py`: `test_dt_boolean`, `test_dt_boolean_coercion`. **DIVERGENCE**: v4 rejects "yes"/"no" tokens; v4 maps 0->True, 1->False (reversed vs v3). See findings below. |
-| 🟢 | VARCHAR / STRING / TEXT / CHAR | Supported | TEXT/CHAR | Supported | Positive: normal strings, Unicode, multi-byte chars, VARCHAR(n) within limit, CHAR(n). Negative: exceeding VARCHAR(n) limit, exceeding 16 MB max. | `test_type_compatibility.py`: `test_dt_varchar`, `test_dt_varchar_length_limit`. Both modes pass. |
-| 🟡 | BINARY / VARBINARY | Supported | Supported | **Partial** | Positive: hex strings, byte arrays of various lengths. Negative: exceeding max length, invalid hex. | `test_type_compatibility.py`: `test_dt_binary`. **DIVERGENCE**: v3 ingests 4/4 hex strings; v4 only 2/4 (SNOW-3256183). |
-| 🟢 | DATE | Supported | Supported | Supported | Positive: ISO format, epoch days. Negative: invalid dates (Feb 29 non-leap year), out-of-range dates. | `test_type_compatibility.py`: `test_dt_date`. v3 and v4 positive values match. DLQ not yet verified. |
-| 🟢 | TIME | Supported | Supported | Supported | Positive: TIME(0) through TIME(9), various formats. Negative: invalid time values (25:00:00), wrong scale. | `test_type_compatibility.py`: `test_dt_time`. v3 and v4 positive values match. DLQ not yet verified. |
-| 🟡 | TIMESTAMP_NTZ | Supported | Supported | **Partial** | Positive: ISO format, epoch, various scales. Negative: invalid timestamps, out-of-range. | `test_type_compatibility.py`: `test_dt_timestamp_ntz`, `test_dt_timestamp_ntz_epoch`. **DIVERGENCE**: v4 rejects integer epoch (java.lang.Long). ISO strings work in both modes. |
-| 🟢 | TIMESTAMP_LTZ | Supported | Supported | Supported | Positive: timezone-aware values, Instant. Negative: invalid timezone, out-of-range. | `test_type_compatibility.py`: `test_dt_timestamp_ltz`. v3 and v4 positive values match. |
-| 🟢 | TIMESTAMP_TZ | Supported | Supported | Supported | Positive: values with offset (+05:30), ZonedDateTime. Negative: invalid offset format. | `test_type_compatibility.py`: `test_dt_timestamp_tz`. v3 and v4 positive values match. |
-| 🟡 | VARIANT | Supported | Supported | Supported | Positive: nested JSON objects, arrays, primitives. Negative: exceeding 16 MB size limit, malformed JSON. | `test_type_compatibility.py`: `test_dt_variant`. Positive values match. **DIVERGENCE**: NULL in VARIANT column stored as string `'null'` in v4 vs SQL NULL in v3. |
-| 🟢 | ARRAY (unstructured) | Supported | Supported | Supported | Positive: nested arrays, mixed types. Negative: exceeding 16 MB, non-array in ARRAY column. | `test_type_compatibility.py`: `test_dt_array`. Both modes pass. |
-| 🟢 | OBJECT (unstructured) | Supported | Supported | Supported | Positive: nested objects, mixed value types. Negative: exceeding 16 MB, non-object in OBJECT column. | `test_type_compatibility.py`: `test_dt_object`. Both modes pass. |
-| 🟡 | ARRAY (structured) | Rejected | Expected: Rejected | **Accepted** | Negative: verify RowValidator rejects structured ARRAY for non-Iceberg tables. | `test_unsupported_types.py`: `test_dt_structured_array`. **DIVERGENCE**: v3 rejects, v4 ACCEPTS structured ARRAY(NUMBER) and ingests data. Contradicts ColumnSchema.java analysis. |
-| 🟡 | OBJECT (structured) | Rejected | Expected: Rejected | **Accepted** | Negative: verify RowValidator rejects structured OBJECT for non-Iceberg tables. | `test_unsupported_types.py`: `test_dt_structured_object`. **DIVERGENCE**: v3 rejects, v4 ACCEPTS structured OBJECT(name VARCHAR, age NUMBER). |
-| 🔴 | Collated VARCHAR | Rejected | Rejected | Rejected | Negative: verify columns with collation are rejected at startup or DLQ. | `RowValidatorTest.java` unit-tests this. |
-| 🟢 | NULL (all types) | Supported | Supported | Supported | Positive: NULL in every supported column type. Verify NULL is stored correctly, not coerced. | `test_type_compatibility.py`: `test_dt_null` (12 types parametrized). All pass except VARIANT (see VARIANT note above). |
-| 🟡 | Type mismatch (cross-type) | DLQ/error | DLQ/error | DLQ/error | Negative: string in NUMBER, number in BOOLEAN, object in STRING, etc. Verify DLQ routing is identical v3/v4. | `test_type_compatibility.py`: 4 cross-type tests. **BLOCKED**: DLQ infrastructure bug prevents DLQ count verification. Also **DIVERGENCE**: v4 silently drops object->VARCHAR (v3 stringifies and ingests). |
-| ⚪ | GEOGRAPHY / GEOMETRY | Not supported | Not supported | Not supported | N/A: not supported in Snowpipe Streaming. | `test_unsupported_types.py`: both modes correctly reject. |
-| 🟡 | VECTOR | Not in v3 SDK | Not supported | Supported | Positive: VECTOR(FLOAT, 3) embeddings. | `test_unsupported_types.py`: `test_dt_vector`. v3 skipped, v4 passes. |
-| ⚪ | MAP | Iceberg only | Not supported | Iceberg only | Out of scope for non-Iceberg tests. | -- |
+| Status | Snowflake Type | Test Functions | v3 | v4-compat | v4-ht | Notes |
+|:------:|----------------|----------------|:--:|:---------:|:-----:|-------|
+| 🟢 | NUMBER | `test_number` | Pass | Pass | Pass | Integers, zero, negative, max/min INT, invalid strings/objects. All modes identical. |
+| 🟢 | NUMBER(p,s) | `test_number_with_scale` | Pass | Pass | Pass | Decimals, negative, zero, max scale. Invalid text → DLQ. All modes identical. |
+| 🟢 | FLOAT | `test_float` | Pass | Pass | Pass | pi, negative, zero, scientific notation. Invalid text/array → DLQ. |
+| 🟢 | FLOAT (special) | `test_float_special` | Pass | Pass | Pass | NaN, +Infinity, -Infinity as string representations. All modes identical. |
+| 🟢 | VARCHAR | `test_varchar` | Pass | Pass | Pass | Normal strings, special chars, 1000-char string. All modes identical. |
+| 🟢 | VARCHAR(10) | `test_varchar_length_limit` | Pass | Pass | Pass | At-limit and over-limit strings. Over-limit → DLQ in all modes. |
+| 🟡 | BINARY | `test_binary` | Pass | **Diverges** | **Diverges** | **D1/D2**: v3 ingests all 4 hex strings. v4: bin_hello/bin_zero rejected (no DLQ); bin_dead/bin_long ingested with garbled bytes (base64 vs hex decode). SNOW-3256183. |
+| 🟢 | BOOLEAN | `test_boolean` | Pass | Pass | Pass | true/false literals, invalid objects/arrays → DLQ. All modes identical. |
+| 🟡 | BOOLEAN (coercion) | `test_boolean_coercion` | Pass | **Diverges** | **Diverges** | **D3**: v3 coerces numeric 0→False, 1→True. v4 rejects numeric 0/1 — silently dropped (no DLQ). String tokens "true"/"false" work in all modes. |
+| 🟢 | DATE | `test_date` | Pass | Pass | Pass | ISO dates, epoch, future. Invalid string → DLQ. All modes identical. |
+| 🟢 | TIME | `test_time` | Pass | Pass | Pass | Normal, midnight, end-of-day. Invalid string → DLQ. All modes identical. |
+| 🟢 | TIMESTAMP_NTZ | `test_timestamp_ntz` | Pass | Pass | Pass | ISO timestamps. Invalid string → DLQ. All modes identical. |
+| 🟡 | TIMESTAMP_NTZ (epoch) | `test_timestamp_ntz_epoch` | Pass | **Diverges** | **Diverges** | **D4**: v3 ingests integer epoch correctly. v4-compat rejects (DLQ'd). v4-ht ingests but timestamp shifted by session TZ (UTC-8 → 8h off). |
+| 🟢 | TIMESTAMP_LTZ | `test_timestamp_ltz` | Pass | Pass | Pass | TZ-aware timestamps, epoch. Invalid → DLQ. All modes identical. |
+| 🟢 | TIMESTAMP_TZ | `test_timestamp_tz` | Pass | Pass | Pass | Timestamps with offset. Invalid → DLQ. All modes identical. |
+| 🟢 | VARIANT | `test_variant` | Pass | Pass | Pass | Objects, arrays, nested, integers, floats, booleans, JSON strings. All modes identical. |
+| 🟡 | VARIANT (bare str) | `test_variant_bare_string` | Pass | Pass | **Diverges** | **D6**: Bare string "hello" → DLQ on v3/v4-compat (not valid JSON). v4-ht ingests it as JSON-quoted VARIANT string. |
+| 🟢 | OBJECT | `test_object` | Pass | Pass | Pass | Simple, nested, with arrays, from JSON string. All modes identical. |
+| 🟢 | ARRAY | `test_array` | Pass | Pass | Pass | Strings, numbers, objects. All modes identical. |
+| 🟡 | ARRAY (JSON str) | `test_array_json_string` | Pass | **Diverges** | **Diverges** | **D7**: v3 (SSv1) parses `"[1,2,3]"` → array `[1,2,3]`. v4 (SSv2) stores as literal `["[1,2,3]"]`. |
+| 🟢 | NULL (11 types) | `test_null[COL_*]` | Pass | Pass | Pass | NULL in NUMBER, FLOAT, VARCHAR, BOOLEAN, DATE, TIME, TS_NTZ, TS_LTZ, TS_TZ, OBJECT, ARRAY — SQL NULL in all modes. |
+| 🟡 | NULL (VARIANT) | `test_null[COL_VARIANT]` | Pass | **Diverges** | **Diverges** | **D5**: v3 stores SQL NULL. v4 stores string `'null'` (JSON null serialized as text). |
+| 🟡 | Cross-type mismatch | `test_cross_type_mismatch` | Pass | **Diverges** | **Diverges** | **D8**: object→VARCHAR coerced on v3/v4-ht, DLQ'd on v4-compat. **D9**: numeric→BOOLEAN DLQ'd on v3, silently dropped on v4-compat (no DLQ). v4-ht drops without DLQ (structural). |
+| 🟢 | GEOGRAPHY | `test_dt_geography` | Pass | Pass | Pass | Rejected in all modes (Snowpipe Streaming limitation). Correct error message confirmed. |
+| 🟢 | GEOMETRY | `test_dt_geometry` | Pass | Pass | Pass | Rejected in all modes. Correct error message confirmed. |
+| 🟡 | VECTOR | `test_dt_vector` | Skip | Pass | Pass | v3 SDK lacks VECTOR support (skipped). v4 ingests VECTOR(FLOAT,3) correctly. |
+| 🟡 | Structured OBJECT | `test_dt_structured_object` | Pass | **Diverges** | **Diverges** | **D10**: v3 rejects (channel open error). v4 accepts and ingests structured OBJECT(name VARCHAR, age NUMBER). |
+| 🟡 | Structured ARRAY | `test_dt_structured_array` | Pass | **Diverges** | **Diverges** | **D11**: v3 rejects (channel open error). v4 accepts and ingests structured ARRAY(NUMBER). |
+| 🔴 | Collated VARCHAR | -- | -- | -- | -- | Not yet tested. `RowValidatorTest.java` covers unit level. |
+| ⚪ | MAP | -- | -- | -- | -- | Iceberg only — out of scope for non-Iceberg tests. |
 
-### E2E Test Results: Confirmed v3/v4 Divergences
+### E2E Test Results (2026-03-24)
 
-Tests run: 78 (31 failed, 46 passed, 1 skipped). Test files: `test_type_compatibility.py`, `test_unsupported_types.py`. Platform: Apache Kafka 3.7.0. Run time: **~30 min** (improved from ~50 min via `expected` row parameter in `_ingest()`).
+**115 passed, 1 skipped, 0 failed.** Run time: ~8 min. Platform: Apache Kafka 3.7.0. Connector: v4 RC8 + v3 3.5.3.
 
-| Group | Time | Tests |
-|-------|------|-------|
-| v3 batch | ~7 min | 34 (22 pass, 12 fail) |
-| v4-compat batch | ~11 min | 34 (17 pass, 17 fail) |
-| v3 standalone | ~16 min | 5 (4 pass, 1 skip) |
-| v4-compat standalone | ~5 min | 5 (3 pass, 2 fail) |
+Tests run across 3 ingestion modes (v3, v4-compat, v4-ht) × all type/unsupported tests. Divergences are captured inline via `DIVERGENCE` log warnings — grep test output to find them all.
 
-**Infrastructure issue**: The batch DLQ reader (`DlqReader`) returns `dlq_count=0` for all tests in both modes. Bad records are silently dropped by both v3 (SSv1 catches inside `appendRow()`) and v4 (RowValidator catches before `put()`) when `errors.tolerance=all` -- the records never reach Kafka Connect's DLQ pipeline. **24 of 31 failures are caused by this, not by behavioral differences.** The remaining 7 are real v3/v4 divergences.
+| Group | Tests | Status |
+|-------|-------|--------|
+| v3 (type compat) | 34 | 34 pass |
+| v4-compat (type compat) | 34 | 34 pass (13 divergences logged) |
+| v4-ht (type compat) | 34 | 34 pass (15 divergences logged) |
+| v3 (unsupported) | 5 | 4 pass, 1 skip (VECTOR) |
+| v4-compat (unsupported) | 5 | 5 pass |
+| v4-ht (unsupported) | 5 | 5 pass |
+| migration | 2 | 2 pass |
 
-**Environment note**: In K8s/DinD environments, set `CONNECTOR_PLUGIN_PATH`, `V3_PLUGIN_PATH`, and `EXTRA_JARS_PATH` to host-shared paths (e.g., under `/home/repo/`) since `/tmp` is pod-local and bind mounts to Docker containers won't work.
+#### Confirmed Behavioral Divergences
 
-#### Confirmed Behavioral Divergences (v4-compat differs from v3)
+| # | Type | Cases | v3 Behavior | v4-compat | v4-ht | Severity | Ticket |
+|---|------|-------|-------------|-----------|-------|----------|--------|
+| D1 | BINARY | bin_hello, bin_zero | Ingested (correct hex decode) | Rejected, no DLQ (silently dropped) | Rejected, no DLQ | High | SNOW-3256183 |
+| D2 | BINARY | bin_dead, bin_long | Ingested (correct hex decode) | Ingested with garbled bytes (base64-decoded instead of hex) | Ingested with garbled bytes | High | SNOW-3256183 |
+| D3 | BOOLEAN | bool_zero, bool_one | Ingested (0→False, 1→True) | Rejected, no DLQ (silently dropped) | Rejected, no DLQ | High | -- |
+| D4 | TIMESTAMP_NTZ | tsntz_int_epoch | Ingested (epoch → 2024-01-15T10:00:00) | Rejected, DLQ'd | Ingested with wrong value (2024-01-15T02:00 — session TZ shift) | High | -- |
+| D5 | VARIANT (NULL) | null_variant | SQL NULL | String `'null'` | String `'null'` | Medium | -- |
+| D6 | VARIANT (bare str) | var_str | Rejected, DLQ'd | Rejected, DLQ'd | Ingested as JSON-quoted string | Low | -- |
+| D7 | ARRAY (JSON str) | arr_str_json | Parsed: `[1,2,3]` | Literal: `["[1,2,3]"]` | Literal: `["[1,2,3]"]` | Medium | -- |
+| D8 | Cross-type | xtype_obj_str | Ingested (object coerced to JSON string) | Rejected, DLQ'd | Ingested (coerced) | Medium | -- |
+| D9 | Cross-type | xtype_num_bool_1/2/3 | Rejected, DLQ'd | Rejected, no DLQ (silently dropped) | Rejected, no DLQ | Medium | -- |
+| D10 | Structured OBJECT | -- | Rejected (channel open error) | Accepted, ingested | Accepted, ingested | Medium | -- |
+| D11 | Structured ARRAY | -- | Rejected (channel open error) | Accepted, ingested | Accepted, ingested | Medium | -- |
 
-| # | Type | Test | v3 Behavior | v4-compat Behavior | Severity | Ticket |
-|---|------|------|-------------|-------------------|----------|--------|
-| D1 | BINARY | `test_dt_binary` | 4/4 hex strings ingested | 2/4 ingested (server-side cast failure) | High | SNOW-3256183 |
-| D2 | BOOLEAN | `test_dt_boolean_coercion` | `[False,True,True,False,True,False]` for `[0,1,"true","false","yes","no"]` | `[True,False,True,False]` -- "yes"/"no" rejected, 0->True/1->False reversed | High | -- |
-| D3 | TIMESTAMP_NTZ | `test_dt_timestamp_ntz_epoch` | Integer epoch `1705312800` ingested as `2024-01-15T10:00:00` | 0 rows, 0 DLQ -- epoch integer silently dropped | High | -- |
-| D4 | NULL VARIANT | `test_dt_null[variant]` | SQL NULL (`None`) | JSON string `'null'` | Medium | -- |
-| D5 | Object->VARCHAR | `test_dt_xtype_object_to_varchar` | 1 row (stringified JSON) | 0 rows, 0 DLQ -- silently dropped | Medium | -- |
-| D6 | Structured OBJECT | `test_dt_structured_object` | Rejected (connector error) | **Accepted** -- 1 row ingested | Medium | -- |
-| D7 | Structured ARRAY | `test_dt_structured_array` | Rejected (connector error) | **Accepted** -- 1 row ingested | Medium | -- |
+**D1/D2 detail**: SSv2 does not recognize hex-encoded binary strings the way SSv1 does. Some values (bin_hello `48656C6C6F`, bin_zero `00`) are outright rejected. Others (bin_dead `DEADBEEF`, bin_long `FF*100`) are ingested but with garbled bytes — SSv2 appears to base64-decode instead of hex-decode.
 
-**D2 detail**: The boolean coercion test reveals two sub-issues: (a) v4 RowValidator rejects string tokens "yes"/"no" that v3 SSv1 accepts via `DataValidationUtil.validateAndParseBoolean`; (b) v4 maps integer 0->True and 1->False (reversed from v3's 0->False, 1->True). The reversal suggests a bug in the v4 boolean parsing path.
+**D3 detail**: v4 RowValidator rejects numeric 0/1 for BOOLEAN columns. v4-compat silently drops them (not routed to DLQ). v4-ht also drops them server-side. String tokens "true"/"false" work on all modes. "yes"/"no" tokens not currently tested.
 
-**D6/D7 detail**: Contradicts the ColumnSchema.java analysis (lines 326-349 should reject structured types). The v4 SSv2 SDK appears to accept structured OBJECT/ARRAY columns for non-Iceberg tables, while v3 rejects them. This is the opposite of what was expected.
+**D4 detail**: v4-compat rejects `java.lang.Long` for TIMESTAMP_NTZ and routes to DLQ. v4-ht ingests it but interprets the epoch in the session timezone (America/Los_Angeles = UTC-8) instead of UTC, resulting in an 8-hour shift.
 
-#### Tests Passing in Both Modes (no divergence)
-
-NUMBER (positive), NUMBER(10,2) (positive), FLOAT (positive + NaN/Inf), VARCHAR, VARCHAR(10), DATE (positive), TIME (positive), TIMESTAMP_NTZ (ISO strings), TIMESTAMP_LTZ (positive), TIMESTAMP_TZ (positive), VARIANT (JSON objects/arrays), OBJECT, ARRAY, NULL (11 of 12 types), GEOGRAPHY (rejected), GEOMETRY (rejected), VECTOR (v4-only, passes).
+**D10/D11 detail**: Contradicts ColumnSchema.java analysis. SSv2 SDK accepts structured OBJECT/ARRAY columns for non-Iceberg tables, while v3 (SSv1) rejects them at channel open.
 
 ### Avro-Specific Type Mapping (`test_type_compatibility_avro.py`)
 
