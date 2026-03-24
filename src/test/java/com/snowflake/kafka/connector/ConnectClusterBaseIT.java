@@ -79,6 +79,7 @@ public abstract class ConnectClusterBaseIT {
     config.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
     config.put(KafkaConnectorConfigParams.NAME, connectorName);
     config.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE, "false");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION, "true");
 
     return config;
   }

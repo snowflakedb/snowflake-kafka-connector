@@ -80,7 +80,7 @@ public final class Constants {
     // Treat column as sql identifier, normalize it to raw internal column name when enabled.
     public static final String SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION =
         "snowflake.enable.column.identifier.normalization";
-    public static final boolean SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION_DEFAULT = true;
+    public static final boolean SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION_DEFAULT = false;
     // MDC logging header
     public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
     public static final String ENABLE_MDC_LOGGING_DEFAULT = "false";

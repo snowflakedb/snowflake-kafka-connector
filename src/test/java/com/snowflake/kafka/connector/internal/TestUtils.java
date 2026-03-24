@@ -290,6 +290,12 @@ public class TestUtils {
         transformProfileFileToConnectorConfiguration(takeEncryptedKey);
     // On top of existing properties, add
     configuration.put(Utils.TASK_ID, "0");
+    // Existing tests assume column identifier normalization is enabled (uppercasing JSON keys
+    // to match Snowflake's default uppercase column names).
+    configuration.put(
+        com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
+            .SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
+        "true");
 
     return configuration;
   }

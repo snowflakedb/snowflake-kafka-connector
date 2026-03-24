@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -413,13 +412,15 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
 
+    // identifier(?) works for the table name but NOT for column names in ADD COLUMN.
+    // Column names are quoted inline to preserve case (e.g. "age" vs "AGE").
     StringBuilder query = new StringBuilder("alter table identifier(?) add column if not exists ");
     boolean first = true;
     for (Map.Entry<String, ColumnInfos> entry : columnInfosMap.entrySet()) {
       if (!first) {
         query.append(", if not exists ");
       }
-      query.append(Utils.quoteRawName(entry.getKey()));
+      query.append(quoteIdentifier(entry.getKey()));
       query.append(" ");
       query.append(entry.getValue().getColumnType());
       query.append(entry.getValue().getDdlComments());
@@ -447,20 +448,22 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
 
+    // identifier(?) works for the table name but NOT for column names in ALTER ... DROP NOT NULL.
+    // Column names are quoted inline to preserve case.
     StringBuilder query = new StringBuilder("alter table identifier(?) alter ");
     boolean first = true;
-    for (String columnName : columnNames) {
+    for (String colName : columnNames) {
       if (!first) {
         query.append(", ");
       }
-      String quotedName = Utils.quoteRawName(columnName);
+      String quoted = quoteIdentifier(colName);
       query
-          .append(quotedName)
+          .append(quoted)
           .append(" drop not null, ")
-          .append(quotedName)
+          .append(quoted)
           .append(
-              " comment 'column altered to be nullable by schema evolution from Snowflake Kafka"
-                  + " Connector'");
+              " comment 'column altered to be nullable by schema evolution from"
+                  + " Snowflake Kafka Connector'");
       first = false;
     }
 
@@ -475,5 +478,15 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
           e.getMessage());
       throw SnowflakeErrors.ERROR_2016.getException(e);
     }
+  }
+
+  /**
+   * Wraps a raw column name in double quotes to preserve case in DDL statements. Snowflake treats
+   * unquoted identifiers as case-insensitive (uppercased), so quoting is required for
+   * case-sensitive column names like {@code "age"} vs {@code "AGE"}. Internal double quotes are
+   * escaped per SQL standard.
+   */
+  private static String quoteIdentifier(String name) {
+    return "\"" + name.replace("\"", "\"\"") + "\"";
   }
 }

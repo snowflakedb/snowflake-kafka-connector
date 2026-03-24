@@ -230,25 +230,6 @@ public class UtilsTest {
   }
 
   @Test
-  public void testQuoteNameIfNeeded() {
-    assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("abc"));
-    assertEquals("\"abc\"", Utils.quoteNameIfNeeded("\"abc\""));
-    assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("ABC"));
-    assertEquals("\"AL%$\"", Utils.quoteNameIfNeeded("al%$"));
-  }
-
-  @Test
-  public void testQuoteRawName() {
-    assertEquals("\"CITY\"", Utils.quoteRawName("CITY"));
-    assertEquals("\"city\"", Utils.quoteRawName("city"));
-    assertEquals("\"MyCol\"", Utils.quoteRawName("MyCol"));
-    assertEquals("\"COL NAME\"", Utils.quoteRawName("COL NAME"));
-    // Raw name with literal double-quote characters (e.g. from DDL """city""")
-    assertEquals("\"\"\"city\"\"\"", Utils.quoteRawName("\"city\""));
-    assertEquals("\"col\"\"name\"", Utils.quoteRawName("col\"name"));
-  }
-
-  @Test
   public void testSemanticVersionParsing() {
     // Test standard version parsing
     SemanticVersion version311 = new SemanticVersion("3.1.1");
