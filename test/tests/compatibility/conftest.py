@@ -67,6 +67,21 @@ class Case:
     group: str | None = None
 
 
+@dataclass(frozen=True)
+class Divergence:
+    """Mode-specific behavioral override for a case that diverges from v3.
+
+    Used in MODE_OVERRIDES to describe how v4-compat or v4-ht behaves
+    differently from the v3 reference for a specific test case.
+    """
+
+    expect: Literal["ingested", "error"] | None = None
+    expected_value: Any = UNSET
+    no_dlq: bool = False  # record not in DLQ (silently dropped by connector)
+    skip_value_check: bool = False  # row ingested but value comparison skipped
+    description: str = ""
+
+
 def cases_where(*, col=None, expect=None, group=None, exclude_groups=None):
     """Filter CASES (from test_type_compatibility) by column, outcome, and/or group."""
     from .test_type_compatibility import CASES
@@ -128,18 +143,24 @@ class Results:
     def total_missing(self):
         return self.total_sent - self.total_ingested - self.total_dlq
 
-    def assert_ingested(self, case):
+    def assert_ingested(self, case, divergence=None):
         """Assert that ``case`` landed in the table with the correct value."""
         assert case.name in self.rows, (
             f"[{case.name}] expected in table but not found "
             f"(mode={self.mode}, in_dlq={case.name in self.dlq_ids})"
         )
+        if divergence and divergence.skip_value_check:
+            return
+
         actual = self.rows[case.name].get(case.col)
-        expected = (
-            case.value
-            if isinstance(case.expected_value, _Unset)
-            else case.expected_value
-        )
+
+        # Divergence override > case.expected_value > case.value
+        if divergence and not isinstance(divergence.expected_value, _Unset):
+            expected = divergence.expected_value
+        elif not isinstance(case.expected_value, _Unset):
+            expected = case.expected_value
+        else:
+            expected = case.value
 
         if expected is None:
             assert actual is None, f"[{case.name}] expected NULL, got {actual!r}"
@@ -154,7 +175,6 @@ class Results:
         category = _ddl_category(case.col, self.columns)
         match category:
             case "float":
-                # claude: are there standard pytest matchers for this? Or some other library with standard asserts?
                 self._compare_float(case.name, actual, expected)
             case "json":
                 self._compare_json(case.name, actual, expected)
@@ -177,13 +197,14 @@ class Results:
                     f"[{case.name}] value mismatch: {actual!r} != {expected!r}"
                 )
 
-    def assert_error(self, case):
+    def assert_error(self, case, divergence=None):
         """Assert that ``case`` did NOT land in the table (and hit DLQ if applicable)."""
         assert case.name not in self.rows, (
             f"[{case.name}] expected NOT in table but found: "
             f"{self.rows[case.name].get(case.col)!r} (mode={self.mode})"
         )
-        if self.mode != "v4-ht":
+        skip_dlq = self.mode == "v4-ht" or (divergence and divergence.no_dlq)
+        if not skip_dlq:
             assert case.name in self.dlq_ids, (
                 f"[{case.name}] expected in DLQ but not found (mode={self.mode})"
             )

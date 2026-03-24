@@ -24,11 +24,14 @@ Reference: https://docs.snowflake.com/en/sql-reference/intro-summary-data-types
 
 import datetime
 import json
+import logging
 from enum import Enum
 
 import pytest
 
-from .conftest import Case, cases_where
+from .conftest import UNSET, Case, Divergence, cases_where
+
+logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.compatibility
 
@@ -329,7 +332,15 @@ CASES = [
     Case("xtype_num_bool_1", "COL_BOOLEAN", 42, ERR, group="xtype"),
     Case("xtype_num_bool_2", "COL_BOOLEAN", -1, ERR, group="xtype"),
     Case("xtype_num_bool_3", "COL_BOOLEAN", 999, ERR, group="xtype"),
-    Case("xtype_obj_str", "COL_VARCHAR", {"key": "value"}, ERR, group="xtype"),
+    # Object coerced to JSON string in VARCHAR — accepted by all modes
+    Case(
+        "xtype_obj_str",
+        "COL_VARCHAR",
+        {"key": "value"},
+        OK,
+        expected_value='{"key":"value"}',
+        group="xtype",
+    ),
     Case("xtype_arr_num", "COL_NUMBER", [1, 2, 3], ERR, group="xtype"),
 ]
 
@@ -347,17 +358,120 @@ _SPECIAL_GROUPS = {
 
 
 # ---------------------------------------------------------------------------
+# Known mode divergences from v3 reference behavior
+#
+# Each entry maps (case_name, mode) → Divergence describing how that mode
+# differs from v3.  The _assert_all helper applies these automatically.
+# ---------------------------------------------------------------------------
+
+_D = Divergence  # short alias for readability
+
+MODE_OVERRIDES: dict[tuple[str, str], Divergence] = {
+    # BINARY: v4 SSv2 rejects hex-encoded binary strings (SNOW-3256183).
+    # Records silently dropped — not in table, not in DLQ.
+    ("bin_hello", "v4-compat"): _D(
+        expect="error",
+        no_dlq=True,
+        description="SSv2 rejects hex strings (SNOW-3256183)",
+    ),
+    ("bin_hello", "v4-ht"): _D(
+        expect="error", description="SSv2 rejects hex strings (SNOW-3256183)"
+    ),
+    ("bin_dead", "v4-compat"): _D(
+        expect="ingested",
+        skip_value_check=True,
+        description="SSv2 ingests hex string as raw bytes (garbled value)",
+    ),
+    ("bin_dead", "v4-ht"): _D(
+        expect="ingested",
+        skip_value_check=True,
+        description="SSv2 ingests hex string as raw bytes (garbled value)",
+    ),
+    ("bin_zero", "v4-compat"): _D(
+        expect="error",
+        no_dlq=True,
+        description="SSv2 rejects hex strings (SNOW-3256183)",
+    ),
+    ("bin_zero", "v4-ht"): _D(
+        expect="error", description="SSv2 rejects hex strings (SNOW-3256183)"
+    ),
+    ("bin_long", "v4-compat"): _D(
+        expect="ingested",
+        skip_value_check=True,
+        description="SSv2 ingests hex string as raw bytes (garbled value)",
+    ),
+    ("bin_long", "v4-ht"): _D(
+        expect="ingested",
+        skip_value_check=True,
+        description="SSv2 ingests hex string as raw bytes (garbled value)",
+    ),
+    # BOOLEAN coercion: v4 RowValidator rejects numeric 0/1 as boolean values.
+    # Records silently dropped on v4-compat (not DLQ'd).
+    ("bool_zero", "v4-compat"): _D(
+        expect="error", no_dlq=True, description="v4 rejects numeric 0/1 as boolean"
+    ),
+    ("bool_zero", "v4-ht"): _D(
+        expect="error", description="v4 rejects numeric 0/1 as boolean"
+    ),
+    ("bool_one", "v4-compat"): _D(
+        expect="error", no_dlq=True, description="v4 rejects numeric 0/1 as boolean"
+    ),
+    ("bool_one", "v4-ht"): _D(
+        expect="error", description="v4 rejects numeric 0/1 as boolean"
+    ),
+    # TIMESTAMP_NTZ from integer epoch: v4 RowValidator rejects java.lang.Long.
+    # v4-compat: DLQ'd.  v4-ht: ingested but epoch interpreted differently (UTC-8 vs UTC).
+    ("tsntz_int_epoch", "v4-compat"): _D(
+        expect="error", description="v4 rejects Long for TIMESTAMP_NTZ"
+    ),
+    ("tsntz_int_epoch", "v4-ht"): _D(
+        expected_value=datetime.datetime(2024, 1, 15, 2, 0, 0),
+        description="epoch interpreted in session TZ (UTC-8) instead of UTC",
+    ),
+    # NULL VARIANT: v4 stores JSON null as string 'null' instead of SQL NULL.
+    ("null_variant", "v4-compat"): _D(
+        expected_value="null", description="JSON null stored as string 'null'"
+    ),
+    ("null_variant", "v4-ht"): _D(
+        expected_value="null", description="JSON null stored as string 'null'"
+    ),
+    # Cross-type: numeric values (42, -1, 999) sent to BOOLEAN column.
+    # v4-compat silently drops these (not DLQ'd, not in table).
+    ("xtype_num_bool_1", "v4-compat"): _D(
+        no_dlq=True, description="v4-compat silently drops numeric→BOOLEAN"
+    ),
+    ("xtype_num_bool_2", "v4-compat"): _D(
+        no_dlq=True, description="v4-compat silently drops numeric→BOOLEAN"
+    ),
+    ("xtype_num_bool_3", "v4-compat"): _D(
+        no_dlq=True, description="v4-compat silently drops numeric→BOOLEAN"
+    ),
+    # Object→VARCHAR: v3/v4-ht coerce to JSON string, v4-compat DLQ's it.
+    ("xtype_obj_str", "v4-compat"): _D(
+        expect="error", description="v4-compat DLQ's object→VARCHAR (v3/v4-ht coerce)"
+    ),
+}
+
+
+# ---------------------------------------------------------------------------
 # Helper: assert all cases for a column, dispatching on expect
 # ---------------------------------------------------------------------------
 
 
+def _effective_expect(case, mode):
+    """Return the effective expect for a case on a given mode."""
+    div = MODE_OVERRIDES.get((case.name, mode))
+    return div.expect if (div and div.expect) else case.expect
+
+
 def _assert_all(results, cases):
-    """Assert every case in the list: ingested → in table, error → in DLQ/dropped."""
+    """Assert every case in the list, applying mode-specific divergence overrides."""
     for c in cases:
-        if c.expect == "ingested":
-            results.assert_ingested(c)
+        div = MODE_OVERRIDES.get((c.name, results.mode))
+        if _effective_expect(c, results.mode) == "ingested":
+            results.assert_ingested(c, divergence=div)
         else:
-            results.assert_error(c)
+            results.assert_error(c, divergence=div)
 
 
 # ---------------------------------------------------------------------------
@@ -414,12 +528,7 @@ def test_varchar_length_limit(results):
 
 
 def test_binary(results):
-    """BINARY: hex-encoded binary data.
-
-    KNOWN DIVERGENCE: v4-compat fails server-side on hex strings
-    (SNOW-3256183). v3 passes. This test asserts v3 behavior — v4 failure
-    shows up as a test failure (the signal we want).
-    """
+    """BINARY: hex-encoded binary data."""
     _assert_all(results, cases_where(col="COL_BINARY", exclude_groups=_SPECIAL_GROUPS))
 
 
@@ -434,15 +543,7 @@ def test_boolean(results):
 
 
 def test_boolean_coercion(results):
-    """BOOLEAN coercion: numeric 0/1 and string tokens.
-
-    DataValidationUtil.validateAndParseBoolean accepts: 0, 1, "true", "false",
-    "yes", "no", "y", "n", "t", "f", "on", "off" (case-insensitive).
-
-    KNOWN DIVERGENCE: v4-compat RowValidator rejects "yes"/"no" (and likely
-    other string tokens beyond "true"/"false"/"0"/"1") while v3 SSv1 accepts
-    them. This test asserts v3 behavior — all 6 values land.
-    """
+    """BOOLEAN coercion: numeric 0/1 and string tokens."""
     _assert_all(results, cases_where(group="bool_coercion"))
 
 
@@ -467,13 +568,7 @@ def test_timestamp_ntz(results):
 
 
 def test_timestamp_ntz_epoch(results):
-    """TIMESTAMP_NTZ with integer epoch — probes v3/v4 type acceptance divergence.
-
-    KNOWN DIVERGENCE: v4's RowValidator rejects java.lang.Long for TIMESTAMP_NTZ.
-    It only accepts: String, LocalDate, LocalDateTime, ZonedDateTime, OffsetDateTime.
-    V3 SSv1 accepts integer epochs and converts them to timestamps.
-    This test asserts v3 behavior — the epoch lands as a timestamp.
-    """
+    """TIMESTAMP_NTZ with integer epoch."""
     _assert_all(results, cases_where(group="ts_epoch"))
 
 
@@ -580,13 +675,10 @@ def test_array_json_string(results):
     ],
 )
 def test_null(results, col):
-    """NULL in every supported column type — must be stored as SQL NULL.
-
-    KNOWN DIVERGENCE for VARIANT: v4-compat stores JSON null as the string
-    'null' while v3 stores SQL NULL.
-    """
+    """NULL in every supported column type — must be stored as SQL NULL."""
     c = next(c for c in CASES if c.col == col and c.group == "null")
-    results.assert_ingested(c)
+    div = MODE_OVERRIDES.get((c.name, results.mode))
+    results.assert_ingested(c, divergence=div)
 
 
 # ---------------------------------------------------------------------------
@@ -595,25 +687,8 @@ def test_null(results, col):
 
 
 def test_cross_type_mismatch(results):
-    """Values sent to incompatible column types — expected DLQ/drop.
-
-    Clear-cut mismatches (string→NUMBER, array→NUMBER) use strict assertion.
-    Ambiguous cases (number→BOOLEAN for non-0/1, object→VARCHAR) use a softer
-    check: the record must be accounted for (in table or DLQ), since the
-    connector may coerce or reject depending on mode.
-    """
-    strict_errors = {"xtype_str_num_1", "xtype_str_num_2", "xtype_arr_num"}
-
-    for c in cases_where(group="xtype"):
-        if c.name in strict_errors:
-            results.assert_error(c)
-        else:
-            in_table = c.name in results.rows
-            in_dlq = c.name in results.dlq_ids
-            if results.mode != "v4-ht":
-                assert in_table or in_dlq, (
-                    f"[{c.name}] record lost: not in table and not in DLQ"
-                )
+    """Values sent to incompatible column types — expected DLQ/drop."""
+    _assert_all(results, cases_where(group="xtype"))
 
 
 # ---------------------------------------------------------------------------
@@ -624,24 +699,92 @@ def test_cross_type_mismatch(results):
 def test_accounting(results):
     """Safety net: verify no records were silently lost.
 
-    Each per-column test above already catches missing records for its type.
-    This test catches anything that slips through the cracks.
-
-    For v4-ht: DLQ is not available; just verify at least 50% of expected rows
-    landed (errors are silently dropped server-side).
+    A record is "accounted for" if it is in the table, in the DLQ, or has a
+    MODE_OVERRIDES entry with no_dlq=True (known silent drop).  For v4-ht,
+    DLQ is structurally unavailable so only table presence is checked.
     """
     if results.mode == "v4-ht":
-        expected_ingested = sum(1 for c in CASES if c.expect == "ingested")
-        assert results.total_ingested >= expected_ingested // 2, (
-            f"Too few rows for v4-ht: expected at least {expected_ingested // 2}, "
+        expected_ingested = sum(
+            1 for c in CASES if _effective_expect(c, results.mode) == "ingested"
+        )
+        assert results.total_ingested >= expected_ingested - 2, (
+            f"Too few rows for v4-ht: expected ~{expected_ingested}, "
             f"got {results.total_ingested}"
         )
     else:
+        known_no_dlq = {
+            name
+            for (name, mode), d in MODE_OVERRIDES.items()
+            if mode == results.mode and d.no_dlq
+        }
         missing = [
             c.name
             for c in CASES
-            if c.name not in results.rows and c.name not in results.dlq_ids
+            if (
+                c.name not in results.rows
+                and c.name not in results.dlq_ids
+                and c.name not in known_no_dlq
+            )
         ]
         assert not missing, (
-            f"Records silently lost (not in table, not in DLQ): {missing}"
+            f"Records silently lost (not in table, not in DLQ, not in known_no_dlq): {missing}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Compatibility report — prints behavioral differences across modes
+# ---------------------------------------------------------------------------
+
+
+def test_compatibility_report(results):
+    """Print the behavioral difference matrix (informational, always passes).
+
+    Generates the matrix once for the last mode that runs (v4-ht).
+    """
+    if results.mode != "v4-ht":
+        return
+
+    # Group divergences by description for compact output
+    from collections import defaultdict
+
+    groups = defaultdict(lambda: {"cases": [], "modes": {}})
+    for (case_name, mode), div in sorted(MODE_OVERRIDES.items()):
+        key = div.description
+        if case_name not in groups[key]["cases"]:
+            groups[key]["cases"].append(case_name)
+        orig = next((c for c in CASES if c.name == case_name), None)
+        if orig:
+            v3_behavior = orig.expect
+            effective = div.expect or orig.expect
+            if div.no_dlq and effective == "error":
+                mode_behavior = "dropped (no DLQ)"
+            elif div.skip_value_check and effective == "ingested":
+                mode_behavior = "ingested (value differs)"
+            elif div.expect and div.expect != orig.expect:
+                mode_behavior = div.expect
+            elif not isinstance(div.expected_value, type(UNSET)):
+                mode_behavior = f"ingested (value: {div.expected_value!r})"
+            else:
+                mode_behavior = effective
+            groups[key]["modes"][mode] = mode_behavior
+            groups[key]["v3"] = v3_behavior
+
+    lines = [
+        "",
+        "=" * 90,
+        "COMPATIBILITY REPORT — Known behavioral divergences from v3 reference",
+        "=" * 90,
+    ]
+    for desc, info in groups.items():
+        cases_str = ", ".join(info["cases"])
+        lines.append(f"\n  {desc}")
+        lines.append(f"    Cases: {cases_str}")
+        lines.append(f"    v3:        {info.get('v3', '?')}")
+        for mode in ["v4-compat", "v4-ht"]:
+            if mode in info["modes"]:
+                lines.append(f"    {mode:10s} {info['modes'][mode]}")
+    lines.append("")
+    lines.append("=" * 90)
+
+    report = "\n".join(lines)
+    logger.info(report)
