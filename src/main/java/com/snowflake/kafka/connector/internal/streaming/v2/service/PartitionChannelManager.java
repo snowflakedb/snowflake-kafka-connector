@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import org.apache.kafka.common.TopicPartition;
@@ -142,6 +143,8 @@ public class PartitionChannelManager {
         this.connectorName,
         this.taskId);
 
+    warmUpStreamingClients(tableToPipeMapping);
+
     for (TopicPartition topicPartition : partitions) {
       final String tableName = getTableName(topicPartition);
       final String pipeName = tableToPipeMapping.get(tableName);
@@ -212,6 +215,44 @@ public class PartitionChannelManager {
         clientValidationEnabled,
         shouldEvolveSchema,
         this.conn);
+  }
+
+  /**
+   * Pre-warms the {@link StreamingClientPools} cache by creating clients for all distinct pipes in
+   * parallel. Subsequent per-partition calls to {@link StreamingClientPools#getClient} in {@link
+   * #buildChannel} will return the cached clients immediately.
+   *
+   * <p>Skipped when using the test constructor (connectorConfig is null).
+   */
+  private void warmUpStreamingClients(Map<String, String> tableToPipeMapping) {
+    if (taskConfig == null) {
+      return;
+    }
+
+    final StreamingClientProperties streamingClientProperties =
+        StreamingClientProperties.from(taskConfig);
+
+    CompletableFuture<?>[] clientFutures =
+        tableToPipeMapping.values().stream()
+            .distinct()
+            .map(
+                pipeName ->
+                    StreamingClientPools.getClientAsync(
+                        connectorName,
+                        taskId,
+                        pipeName,
+                        taskConfig,
+                        streamingClientProperties,
+                        taskMetrics))
+            .toArray(CompletableFuture[]::new);
+    try {
+      CompletableFuture.allOf(clientFutures).join();
+    } catch (CompletionException e) {
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      }
+      throw e;
+    }
   }
 
   public void waitForAllChannelsToCommitData() {

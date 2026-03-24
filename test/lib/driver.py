@@ -593,7 +593,8 @@ class KafkaDriver:
         )
         if not r.ok:
             logger.error(
-                f"Failed creating connector:{snowflake_connector_name} due to:{r.reason} and HTTP response_code:{r.status_code}"
+                f"Failed creating connector {snowflake_connector_name}: "
+                f"{r.status_code} {r.reason}, {r.text}"
             )
             time.sleep(10)
             logger.info(
