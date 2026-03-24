@@ -1,12 +1,12 @@
 package com.snowflake.kafka.connector.internal.telemetry;
 
-import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import java.sql.Connection;
 import java.util.Map;
+import java.util.Set;
 import net.snowflake.client.internal.jdbc.telemetry.Telemetry;
 import net.snowflake.client.internal.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.internal.jdbc.telemetry.TelemetryUtil;
@@ -200,132 +200,28 @@ public class SnowflakeTelemetryService {
     return taskID;
   }
 
+  // IMPORTANT: update this set when adding new credential/secret config params.
+  private static final Set<String> SENSITIVE_KEYS =
+      Set.of(
+          KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+          KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
+          KafkaConnectorConfigParams.JVM_PROXY_USERNAME,
+          KafkaConnectorConfigParams.JVM_PROXY_PASSWORD,
+          KafkaConnectorConfigParams.HTTPS_PROXY_USER,
+          KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD,
+          KafkaConnectorConfigParams.HTTP_PROXY_USER,
+          KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD);
+
   /**
-   * Adds specific user provided connector properties to ObjectNode.
-   *
-   * @param userProvidedConfig user provided key value pairs in a Map
-   * @param dataObjectNode Object node in which specific properties to add
+   * Adds all user-provided connector config to the telemetry payload, excluding sensitive keys
+   * (credentials, passwords). Future config additions are automatically included.
    */
   private void addUserConnectorPropertiesToDataNode(
       final Map<String, String> userProvidedConfig, final ObjectNode dataObjectNode) {
-    addKafkaConnectBuiltInParameters(userProvidedConfig, dataObjectNode);
-    addConnectorSpecificParameters(userProvidedConfig, dataObjectNode);
-  }
-
-  private void addKafkaConnectBuiltInParameters(
-      final Map<String, String> userProvidedConfig, final ObjectNode dataObjectNode) {
-    // maxTasks value isn't visible if the user leaves it at default. So, null means not set
-    dataObjectNode.put(MAX_TASKS, userProvidedConfig.get("tasks.max"));
-
-    // Topics configuration
-    dataObjectNode.put(TOPICS, userProvidedConfig.get(KafkaConnectorConfigParams.TOPICS));
-
-    // Key and value converters to gauge if Snowflake Native converters are used.
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.KEY_CONVERTER,
-        userProvidedConfig.get(KafkaConnectorConfigParams.KEY_CONVERTER));
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.VALUE_CONVERTER,
-        userProvidedConfig.get(KafkaConnectorConfigParams.VALUE_CONVERTER));
-
-    // Value converter schema configuration
-    addConfigIfPresent(
-        userProvidedConfig,
-        dataObjectNode,
-        KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE);
-
-    // Error handling configuration
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
-            KafkaConnectorConfigParams.ERRORS_TOLERANCE_DEFAULT));
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG,
-            String.valueOf(KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_DEFAULT)));
-    addConfigIfPresent(
-        userProvidedConfig,
-        dataObjectNode,
-        KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG);
-  }
-
-  private void addConnectorSpecificParameters(
-      final Map<String, String> userProvidedConfig, final ObjectNode dataObjectNode) {
-    // Streaming configuration
-    addConfigIfPresent(
-        userProvidedConfig,
-        dataObjectNode,
-        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
-
-    // Behavior on null values
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
-            ConnectorConfigTools.BehaviorOnNullValues.DEFAULT.toString()));
-
-    // Topic to table mapping
-    addConfigIfPresent(
-        userProvidedConfig, dataObjectNode, KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP);
-
-    // Metadata configuration
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,
-            KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL_DEFAULT));
-
-    // JMX metrics
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.JMX_OPT,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.JMX_OPT,
-            String.valueOf(KafkaConnectorConfigParams.JMX_OPT_DEFAULT)));
-
-    // MDC logging
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
-            KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_DEFAULT));
-
-    // Authorization error handling
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
-            String.valueOf(
-                KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT)));
-
-    // Client-side validation mode
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED,
-            String.valueOf(
-                KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT)));
-
-    // Caching configuration
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
-            String.valueOf(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_DEFAULT)));
-    dataObjectNode.put(
-        KafkaConnectorConfigParams.CACHE_PIPE_EXISTS,
-        userProvidedConfig.getOrDefault(
-            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS,
-            String.valueOf(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_DEFAULT)));
-  }
-
-  private void addConfigIfPresent(
-      final Map<String, String> userProvidedConfig,
-      final ObjectNode dataObjectNode,
-      final String configKey) {
-    if (userProvidedConfig.containsKey(configKey)) {
-      dataObjectNode.put(configKey, userProvidedConfig.get(configKey));
+    for (Map.Entry<String, String> entry : userProvidedConfig.entrySet()) {
+      if (!SENSITIVE_KEYS.contains(entry.getKey())) {
+        dataObjectNode.put(entry.getKey(), entry.getValue());
+      }
     }
   }
 
