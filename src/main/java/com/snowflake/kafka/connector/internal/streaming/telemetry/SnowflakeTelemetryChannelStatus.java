@@ -85,6 +85,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private volatile String lastErrorTimestamp;
   private volatile String lastErrorOffsetTokenUpperBound;
 
+  // Counts of SDK backpressure retries and channel-reopen fallbacks during appendRow.
+  private final AtomicLong backpressureRetryCount = new AtomicLong(0);
+  private final AtomicLong appendRowFallbackCount = new AtomicLong(0);
+
   /**
    * Creates a new object tracking {@link
    * com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel} metrics with
@@ -156,6 +160,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
         msg,
         TelemetryConstants.LAST_ERROR_OFFSET_TOKEN_UPPER_BOUND,
         this.lastErrorOffsetTokenUpperBound);
+    msg.put(TelemetryConstants.BACKPRESSURE_RETRY_COUNT, this.backpressureRetryCount.get());
+    msg.put(TelemetryConstants.APPEND_ROW_FALLBACK_COUNT, this.appendRowFallbackCount.get());
   }
 
   private void registerChannelJMXMetrics(MetricsJmxReporter reporter) {
@@ -226,6 +232,16 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Marks that client-side validation was silently disabled due to initialization failure. */
   public void setValidationDisabled() {
     this.validationDisabled = true;
+  }
+
+  /** Increments the backpressure retry counter. Thread-safe. */
+  public void incBackpressureRetryCount() {
+    this.backpressureRetryCount.incrementAndGet();
+  }
+
+  /** Increments the append-row fallback counter. Thread-safe. */
+  public void incAppendRowFallbackCount() {
+    this.appendRowFallbackCount.incrementAndGet();
   }
 
   /** Updates SDK-reported metrics from a ChannelStatus response. */

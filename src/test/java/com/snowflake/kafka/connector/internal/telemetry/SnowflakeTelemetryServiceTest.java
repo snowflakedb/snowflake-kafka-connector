@@ -301,6 +301,10 @@ public class SnowflakeTelemetryServiceTest {
         "2026-03-24T00:00:00Z", dataNode.get(TelemetryConstants.LAST_ERROR_TIMESTAMP).asText());
     assertEquals(
         "42", dataNode.get(TelemetryConstants.LAST_ERROR_OFFSET_TOKEN_UPPER_BOUND).asText());
+
+    // Backpressure/fallback counts (0 since not incremented in this test)
+    assertEquals(0, dataNode.get(TelemetryConstants.BACKPRESSURE_RETRY_COUNT).asLong());
+    assertEquals(0, dataNode.get(TelemetryConstants.APPEND_ROW_FALLBACK_COUNT).asLong());
   }
 
   @ParameterizedTest

@@ -38,5 +38,7 @@ public final class TelemetryConstants {
   public static final String LAST_ERROR_TIMESTAMP = "last_error_timestamp";
   public static final String LAST_ERROR_OFFSET_TOKEN_UPPER_BOUND =
       "last_error_offset_token_upper_bound";
+  public static final String BACKPRESSURE_RETRY_COUNT = "backpressure_retry_count";
+  public static final String APPEND_ROW_FALLBACK_COUNT = "append_row_fallback_count";
   // ********** ^ Streaming Constants ^ **********//
 }
