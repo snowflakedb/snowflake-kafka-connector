@@ -140,9 +140,25 @@ public class EmbeddedProxyServer extends ExternalResource {
       throws IOException {
     // Parse "CONNECT host:port HTTP/1.1"
     String[] parts = requestLine.split(" ");
+    if (parts.length < 2) {
+      String response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n";
+      clientOut.write(response.getBytes(StandardCharsets.US_ASCII));
+      clientOut.flush();
+      client.close();
+      return;
+    }
     String[] hostPort = parts[1].split(":");
     String host = hostPort[0];
-    int port = hostPort.length > 1 ? Integer.parseInt(hostPort[1]) : 443;
+    int port;
+    try {
+      port = hostPort.length > 1 ? Integer.parseInt(hostPort[1]) : 443;
+    } catch (NumberFormatException e) {
+      String response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n";
+      clientOut.write(response.getBytes(StandardCharsets.US_ASCII));
+      clientOut.flush();
+      client.close();
+      return;
+    }
 
     try {
       Socket remote = new Socket(host, port);

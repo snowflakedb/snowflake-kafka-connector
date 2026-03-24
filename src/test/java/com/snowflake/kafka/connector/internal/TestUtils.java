@@ -201,21 +201,19 @@ public class TestUtils {
         String fqn = database + "." + salted;
 
         log.info("Creating ephemeral test schema: {}", fqn);
-        Connection conn = NonEncryptedKeyTestSnowflakeConnection.getConnection();
-        Statement stmt = conn.createStatement();
-        stmt.execute("CREATE SCHEMA IF NOT EXISTS " + fqn);
-        stmt.close();
+        try (Connection conn = NonEncryptedKeyTestSnowflakeConnection.getConnection();
+            Statement stmt = conn.createStatement()) {
+          stmt.execute("CREATE SCHEMA IF NOT EXISTS " + fqn);
+        }
 
         Runtime.getRuntime()
             .addShutdownHook(
                 new Thread(
                     () -> {
-                      try {
+                      try (Connection c = NonEncryptedKeyTestSnowflakeConnection.getConnection();
+                          Statement s = c.createStatement()) {
                         log.info("Dropping ephemeral test schema: {}", fqn);
-                        Connection c = NonEncryptedKeyTestSnowflakeConnection.getConnection();
-                        Statement s = c.createStatement();
                         s.execute("DROP SCHEMA IF EXISTS " + fqn + " CASCADE");
-                        s.close();
                       } catch (Exception e) {
                         log.error(
                             "Failed to drop ephemeral test schema {}: {}", fqn, e.getMessage());
