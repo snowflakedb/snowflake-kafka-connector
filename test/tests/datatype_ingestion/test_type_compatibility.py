@@ -40,6 +40,7 @@ def test_dt_number(ingest):
     result = ingest(
         "dt_number",
         [42, 0, -100, 2147483647, -2147483648, "not_a_number", "abc", {"obj": 1}],
+        expected=5,
     )
     assert result.values == [42, 0, -100, 2147483647, -2147483648]
     assert result.dlq_count == 3
@@ -47,7 +48,7 @@ def test_dt_number(ingest):
 
 def test_dt_number_with_scale(ingest):
     """NUMBER(10,2): decimal values + non-numeric string to DLQ."""
-    result = ingest("dt_numscale", [123.45, -0.01, 0.0, 99999.99, "text"])
+    result = ingest("dt_numscale", [123.45, -0.01, 0.0, 99999.99, "text"], expected=4)
     for a, e in zip(result.values, [123.45, -0.01, 0.0, 99999.99]):
         assert float(a) == pytest.approx(e, abs=0.01)
     assert result.dlq_count == 1
@@ -55,7 +56,7 @@ def test_dt_number_with_scale(ingest):
 
 def test_dt_float(ingest):
     """FLOAT: floating-point values + non-numeric values to DLQ."""
-    result = ingest("dt_float", [3.14, -1.5, 0.0, 1.0e10, "text", [1, 2]])
+    result = ingest("dt_float", [3.14, -1.5, 0.0, 1.0e10, "text", [1, 2]], expected=4)
     for a, e in zip(result.values, [3.14, -1.5, 0.0, 1.0e10]):
         assert a == pytest.approx(e, rel=1e-6)
     assert result.dlq_count == 2
@@ -135,7 +136,9 @@ def test_dt_binary(ingest):
 
 def test_dt_boolean(ingest):
     """BOOLEAN: true/false + non-coercible objects/arrays to DLQ."""
-    result = ingest("dt_boolean", [True, False, True, {"key": "value"}, [1, 2, 3]])
+    result = ingest(
+        "dt_boolean", [True, False, True, {"key": "value"}, [1, 2, 3]], expected=3
+    )
     assert result.values == [True, False, True]
     assert result.dlq_count == 2
 
@@ -165,7 +168,9 @@ def test_dt_boolean_coercion(ingest):
 
 def test_dt_date(ingest):
     """DATE: ISO date strings + invalid string to DLQ."""
-    result = ingest("dt_date", ["2024-01-15", "1970-01-01", "2099-12-31", "not_a_date"])
+    result = ingest(
+        "dt_date", ["2024-01-15", "1970-01-01", "2099-12-31", "not_a_date"], expected=3
+    )
     assert result.values == [
         datetime.date(2024, 1, 15),
         datetime.date(1970, 1, 1),
@@ -176,7 +181,9 @@ def test_dt_date(ingest):
 
 def test_dt_time(ingest):
     """TIME: time-of-day strings + invalid string to DLQ."""
-    result = ingest("dt_time", ["13:45:30", "00:00:00", "23:59:59", "not_a_time"])
+    result = ingest(
+        "dt_time", ["13:45:30", "00:00:00", "23:59:59", "not_a_time"], expected=3
+    )
     assert result.values == [
         datetime.time(13, 45, 30),
         datetime.time(0, 0, 0),
@@ -195,6 +202,7 @@ def test_dt_timestamp_ntz(ingest):
             "2099-12-31T23:59:59",
             "not_a_timestamp",
         ],
+        expected=3,
     )
     assert result.values == [
         datetime.datetime(2024, 1, 15, 13, 45, 30),
@@ -235,6 +243,7 @@ def test_dt_timestamp_ltz(ingest):
             "1970-01-01T00:00:00+00:00",
             "not_a_timestamp",
         ],
+        expected=2,
     )
     expected_ntz = [
         datetime.datetime(2024, 1, 15, 13, 45, 30),
@@ -256,6 +265,7 @@ def test_dt_timestamp_tz(ingest):
             "1970-01-01T00:00:00+00:00",
             "not_a_timestamp",
         ],
+        expected=2,
     )
     assert len(result.values) == 2
     for a in result.values:
@@ -377,7 +387,7 @@ def test_dt_null(ingest, type_name, col_ddl):
 
 def test_dt_xtype_string_to_number(ingest):
     """Send a non-numeric string to a NUMBER column — must go to DLQ."""
-    result = ingest("dt_xtype_str_num", ["hello", "world"])
+    result = ingest("dt_xtype_str_num", ["hello", "world"], expected=0, timeout=20)
     assert result.values == [], f"Expected no rows (all DLQ), got {result.values}"
     assert result.dlq_count == 2
     for err in result.dlq_errors:
@@ -386,7 +396,7 @@ def test_dt_xtype_string_to_number(ingest):
 
 def test_dt_xtype_number_to_boolean(ingest):
     """Send a large number (not 0/1) to a BOOLEAN column — probes coercion boundary."""
-    result = ingest("dt_xtype_num_bool", [42, -1, 999])
+    result = ingest("dt_xtype_num_bool", [42, -1, 999], expected=0, timeout=20)
     # v3 reference: numbers other than 0/1 may be rejected or coerced.
     # The key signal is whether the behavior matches across modes.
     total = len(result.values) + result.dlq_count
@@ -398,7 +408,7 @@ def test_dt_xtype_number_to_boolean(ingest):
 def test_dt_xtype_object_to_varchar(ingest):
     """Send a JSON object to a VARCHAR column — probes stringification behavior."""
     obj = {"key": "value"}
-    result = ingest("dt_xtype_obj_str", [obj])
+    result = ingest("dt_xtype_obj_str", [obj], expected=0, timeout=20)
     # Both modes should either stringify or DLQ — the key is parity.
     total = len(result.values) + result.dlq_count
     assert total == 1, (
@@ -408,6 +418,6 @@ def test_dt_xtype_object_to_varchar(ingest):
 
 def test_dt_xtype_array_to_number(ingest):
     """Send a JSON array to a NUMBER column — must go to DLQ."""
-    result = ingest("dt_xtype_arr_num", [[1, 2, 3]])
+    result = ingest("dt_xtype_arr_num", [[1, 2, 3]], expected=0, timeout=20)
     assert result.values == [], f"Expected no rows (all DLQ), got {result.values}"
     assert result.dlq_count == 1

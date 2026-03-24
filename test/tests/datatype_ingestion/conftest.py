@@ -105,6 +105,7 @@ class DlqReader:
     """Reads from a shared DLQ topic and indexes messages by source topic."""
 
     def __init__(self, bootstrap_servers, dlq_topic):
+        self._dlq_topic = dlq_topic
         self._consumer = KafkaConsumer(
             {
                 "bootstrap.servers": bootstrap_servers,
@@ -115,11 +116,15 @@ class DlqReader:
         )
         self._consumer.subscribe([dlq_topic])
         self._by_topic: dict[str, list] = {}
+        # Warm up: trigger partition assignment (first poll after subscribe)
+        self._consumer.poll(5.0)
 
     def drain(self, timeout=2.0):
         """Read all currently available messages from the DLQ topic."""
-        while True:
-            msg = self._consumer.poll(timeout)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            remaining = max(0.1, deadline - time.monotonic())
+            msg = self._consumer.poll(remaining)
             if msg is None:
                 break
             if msg.error():
@@ -128,6 +133,11 @@ class DlqReader:
                 continue
             source = self._header(msg, "__connect.errors.topic") or "unknown"
             self._by_topic.setdefault(source, []).append(msg)
+            logger.debug(
+                "DLQ message from topic=%s, headers=%s",
+                source,
+                [k for k, _ in (msg.headers() or [])],
+            )
 
     def count(self, topic):
         return len(self._by_topic.get(topic, []))
@@ -291,23 +301,38 @@ def ingest(driver, mode_salt, ingestion_mode):
 
     dlq = DlqReader(bootstrap, dlq_topic)
 
-    def _ingest(test_id, values, *, timeout=60):
+    def _ingest(test_id, values, *, expected=None, timeout=60):
+        """Send values and wait for rows to land.
+
+        Args:
+            expected: Number of *table rows* to wait for. Defaults to
+                ``len(values)`` (use when all values are good). Set to a
+                lower number when some values are expected to go to DLQ or
+                be dropped.
+        """
         topic = f"{test_id}{mode_salt}"
-        total = len(values)
+        wait_for = expected if expected is not None else len(values)
 
         records = [json.dumps({"VALUE_COL": v}).encode() for v in values]
-        keys = [json.dumps({"number": str(i)}).encode() for i in range(total)]
+        keys = [json.dumps({"number": str(i)}).encode() for i in range(len(values))]
         driver.sendBytesData(topic, records, keys)
 
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            tbl = driver.select_number_of_records(topic)
-            dlq.drain(timeout=1)
-            if tbl + dlq.count(topic) >= total:
-                break
-            if driver.get_failed_tasks(connector_name):
-                break
-            time.sleep(2)
+        if wait_for > 0:
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                tbl = driver.select_number_of_records(topic)
+                if tbl >= wait_for:
+                    break
+                if driver.get_failed_tasks(connector_name):
+                    break
+                time.sleep(2)
+        else:
+            # All records expected to be rejected — wait briefly for
+            # the connector to process them, then check DLQ.
+            time.sleep(min(timeout, 10))
+
+        # Drain any DLQ messages that arrived during processing
+        dlq.drain(timeout=3)
 
         error = None
         if failed := driver.get_failed_tasks(connector_name):
