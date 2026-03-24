@@ -96,6 +96,15 @@ _REQUIRED_OPTIONS = {
 
 
 def pytest_configure(config):
+    # An empty salt silently resolves to the unsalted schema name, which is
+    # shared with Java integration tests.  Dropping it would break those runs.
+    name_salt_value = config.getoption("--name-salt")
+    if name_salt_value is not None and name_salt_value == "":
+        raise pytest.UsageError(
+            "--name-salt / TEST_NAME_SALT must not be empty "
+            "(omit it entirely to auto-generate, or provide a non-empty value)"
+        )
+
     # Validate required options (set via CLI or env var)
     missing = []
     for opt, env in _REQUIRED_OPTIONS.items():
