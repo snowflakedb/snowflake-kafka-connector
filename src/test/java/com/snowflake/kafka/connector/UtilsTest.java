@@ -23,24 +23,13 @@ public class UtilsTest {
 
   @Test
   public void testGetTopicToTableMap() {
-    // no map
-    Map<String, String> config = new HashMap<>();
-    Map<String, String> result = SnowflakeSinkTask.getTopicToTableMap(config);
-    assert result.isEmpty();
-
-    // has map
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, "aaa:bbb," + "ccc:ddd");
-    result = SnowflakeSinkTask.getTopicToTableMap(config);
+    // valid map
+    Map<String, String> result = Utils.parseTopicToTableMap("aaa:bbb," + "ccc:ddd");
     assert result.size() == 2;
     assert result.containsKey("aaa");
     assert result.get("aaa").equals("bbb");
     assert result.containsKey("ccc");
     assert result.get("ccc").equals("ddd");
-
-    // has map, but invalid data
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, "12321");
-    result = SnowflakeSinkTask.getTopicToTableMap(config);
-    assert result.isEmpty();
   }
 
   @Test
@@ -121,37 +110,6 @@ public class UtilsTest {
     topic = "12345";
     assert Utils.getTableName(topic, topic2table, true)
         .equals("_12345_" + Math.abs(topic.hashCode()));
-  }
-
-  @Test
-  public void testGenerateTableName() {
-    Map<String, String> topic2table = Utils.parseTopicToTableMap("ab@cd:abcd, 1234:_1234");
-
-    String topic0 = "ab@cd";
-    Utils.GeneratedName generatedTableName1 = Utils.generateTableName(topic0, topic2table, true);
-    assertEquals("abcd", generatedTableName1.getName());
-    assertTrue(generatedTableName1.isNameFromMap());
-
-    String topic1 = "1234";
-    Utils.GeneratedName generatedTableName2 = Utils.generateTableName(topic1, topic2table, true);
-    assertEquals("_1234", generatedTableName2.getName());
-    assertTrue(generatedTableName2.isNameFromMap());
-
-    String topic2 = "bc*def";
-    Utils.GeneratedName generatedTableName3 = Utils.generateTableName(topic2, topic2table, true);
-    assertEquals("BC_DEF_" + Math.abs(topic2.hashCode()), generatedTableName3.getName());
-    assertFalse(generatedTableName3.isNameFromMap());
-
-    String topic3 = "12345";
-    Utils.GeneratedName generatedTableName4 = Utils.generateTableName(topic3, topic2table, true);
-    assertEquals("_12345_" + Math.abs(topic3.hashCode()), generatedTableName4.getName());
-    assertFalse(generatedTableName4.isNameFromMap());
-
-    TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName("", topic2table, true));
-    //noinspection DataFlowIssue
-    TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.generateTableName(null, topic2table, true));
   }
 
   @Test

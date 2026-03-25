@@ -45,9 +45,6 @@ public class Utils {
   // Connector version, change every release
   public static final String VERSION = "4.0.0-rc8";
 
-  // constants strings
-  private static final String KAFKA_OBJECT_PREFIX = "SNOWFLAKE_KAFKA_CONNECTOR";
-
   // task id
   public static final String TASK_ID = "task_id";
 
@@ -370,37 +367,6 @@ public class Utils {
   }
 
   /**
-   * Class for returned GeneratedName. isNameFromMap equal to True indicates that the name was
-   * resolved by using the map passed to appropriate function. {@link
-   * Utils#generateTableName(String, Map)}
-   */
-  public static class GeneratedName {
-    private final String name;
-    private final boolean isNameFromMap;
-
-    private GeneratedName(String name, boolean isNameFromMap) {
-      this.name = name;
-      this.isNameFromMap = isNameFromMap;
-    }
-
-    private static GeneratedName fromMap(String name) {
-      return new GeneratedName(name, true);
-    }
-
-    public static GeneratedName generated(String name) {
-      return new GeneratedName(name, false);
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    public boolean isNameFromMap() {
-      return isNameFromMap;
-    }
-  }
-
-  /**
    * modify invalid application name in config and return the generated application name
    *
    * @param config input config object
@@ -439,34 +405,6 @@ public class Utils {
   }
 
   /**
-   * Verify topic name and generate a valid table name. The returned GeneratedName has a flag
-   * isNameFromMap that indicates if the name was retrieved from the passed topic2table map which
-   * has particular outcomes for the SnowflakeSinkServiceV1
-   *
-   * @param topic input topic name
-   * @param topic2table topic to table map
-   * @return return GeneratedName with valid table name and a flag whether the name was taken from
-   *     the topic2table
-   */
-  public static GeneratedName generateTableName(String topic, Map<String, String> topic2table) {
-    return generateValidNameFromMap(topic, topic2table);
-  }
-
-  /**
-   * Verify topic name and generate a valid table name with optional sanitization
-   *
-   * @param topic input topic name
-   * @param topic2table topic to table map
-   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
-   * @return return GeneratedName with valid table name and a flag whether the name was taken from
-   *     the topic2table
-   */
-  public static GeneratedName generateTableName(
-      String topic, Map<String, String> topic2table, boolean enableSanitization) {
-    return generateValidNameFromMap(topic, topic2table, enableSanitization);
-  }
-
-  /**
    * verify topic name, and generate valid table/application name
    *
    * @param topic input topic name
@@ -474,7 +412,7 @@ public class Utils {
    * @return valid table/application name
    */
   public static String generateValidName(String topic, Map<String, String> topic2table) {
-    return generateValidNameFromMap(topic, topic2table).name;
+    return generateValidNameFromMap(topic, topic2table);
   }
 
   /**
@@ -487,7 +425,7 @@ public class Utils {
    */
   public static String generateValidName(
       String topic, Map<String, String> topic2table, boolean enableSanitization) {
-    return generateValidNameFromMap(topic, topic2table, enableSanitization).name;
+    return generateValidNameFromMap(topic, topic2table, enableSanitization);
   }
 
   /**
@@ -497,8 +435,7 @@ public class Utils {
    * @param topic2table topic to table map
    * @return valid generated table/application name
    */
-  private static GeneratedName generateValidNameFromMap(
-      String topic, Map<String, String> topic2table) {
+  private static String generateValidNameFromMap(String topic, Map<String, String> topic2table) {
     // Default to v3 behavior (sanitization enabled)
     return generateValidNameFromMap(topic, topic2table, true);
   }
@@ -511,7 +448,7 @@ public class Utils {
    * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
    * @return valid generated table/application name
    */
-  private static GeneratedName generateValidNameFromMap(
+  private static String generateValidNameFromMap(
       String topic, Map<String, String> topic2table, boolean enableSanitization) {
     final String PLACE_HOLDER = "_";
     if (topic == null || topic.isEmpty()) {
@@ -520,25 +457,25 @@ public class Utils {
 
     // Map entries always bypass sanitization
     if (topic2table.containsKey(topic)) {
-      return GeneratedName.fromMap(topic2table.get(topic));
+      return topic2table.get(topic);
     }
 
     // try matching regex tables
     for (String regexTopic : topic2table.keySet()) {
       if (topic.matches(regexTopic)) {
-        return GeneratedName.fromMap(topic2table.get(regexTopic));
+        return topic2table.get(regexTopic);
       }
     }
 
     // If sanitization is disabled, pass through the topic name as is
     if (!enableSanitization) {
-      return GeneratedName.generated(topic);
+      return topic;
     }
 
     // When sanitization is enabled, check if the topic is a valid identifier
     if (Utils.isValidSnowflakeObjectIdentifier(topic)) {
       // Valid identifiers are uppercased when sanitization is enabled
-      return GeneratedName.generated(topic.toUpperCase(Locale.ROOT));
+      return topic.toUpperCase(Locale.ROOT);
     }
 
     // Invalid identifiers are sanitized and uppercased when sanitization is enabled
@@ -570,7 +507,7 @@ public class Utils {
     result.append(hash);
 
     // Uppercase the sanitized result when sanitization is enabled
-    return GeneratedName.generated(result.toString().toUpperCase(Locale.ROOT));
+    return result.toString().toUpperCase(Locale.ROOT);
   }
 
   public static Map<String, String> parseTopicToTableMap(String input) {
