@@ -54,8 +54,8 @@ def test_auto_table_creation(
     based on the registered Avro schema.  Verifies column types match
     the expected schema.
     """
-    table = Table(driver, f"{FILE_NAME}{name_salt}")
-    topic = table.name
+    table = Table(driver, f"{FILE_NAME}{name_salt}".upper())
+    topic = f"{FILE_NAME}{name_salt}"
 
     # Register schema with Schema Registry
     sr_client = SchemaRegistryClient({"url": driver.schemaRegistryAddress})

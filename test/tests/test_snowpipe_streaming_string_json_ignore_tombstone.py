@@ -14,6 +14,7 @@ LONG_FIELD = "NUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBERNUMBER
 
 def test_snowpipe_streaming_string_json_ignore_tombstone(
     driver,
+    name_salt,
     create_connector_from_file,
     create_table,
     wait_for_rows,
@@ -27,10 +28,10 @@ def test_snowpipe_streaming_string_json_ignore_tombstone(
     Verifies: no duplicates, unique offsets per partition.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns=f'(record_metadata variant, "{LONG_FIELD}" varchar)',
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
 

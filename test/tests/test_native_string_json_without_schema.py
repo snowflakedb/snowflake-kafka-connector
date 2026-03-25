@@ -8,7 +8,7 @@ RECORD_COUNT = 100
 
 
 def test_native_string_json_without_schema(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify that an SMT (ReplaceField$Value blacklisting 'c2') drops the c2
     field before ingestion, leaving only the 'val' field.
@@ -17,10 +17,10 @@ def test_native_string_json_without_schema(
     ReplaceField transform that removes 'c2'.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, val varchar)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

@@ -44,7 +44,7 @@ GOLD_VALUES = {
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_schema_mapping(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify that each data type maps to the correct Snowflake column type
     and that RECORD_METADATA is automatically added.
@@ -53,7 +53,7 @@ def test_schema_mapping(
     ARRAY, VARIANT, and OBJECT columns.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="("
         "PERFORMANCE_STRING STRING, "
         '"case_sensitive_PERFORMANCE_CHAR" CHAR, '
@@ -69,7 +69,7 @@ def test_schema_mapping(
         "RECORD_METADATA VARIANT"
         ")",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     # TODO: SNOW-3236195: RowValidator uppercases unquoted column names via
     # LiteralQuoteUtils.unquoteColumnName(), but DESCRIBE TABLE preserves case for

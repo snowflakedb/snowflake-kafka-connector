@@ -8,13 +8,13 @@ RECORDS_PER_PARTITION = 1000
 
 
 def test_snowpipe_streaming_string_json(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, fieldName varchar)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
 

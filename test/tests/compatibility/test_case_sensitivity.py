@@ -233,7 +233,7 @@ def test_compatibility_case_sensitivity_ingestion_columns(
     )
     tables = [
         create_table(
-            test_case.case_name,
+            test_case.case_name.upper(),
             columns=(
                 "("
                 + ", ".join(

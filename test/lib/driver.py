@@ -20,6 +20,10 @@ from confluent_kafka.avro import AvroProducer
 from lib.config import Profile, SnowflakeConnectorConfig
 
 
+def quote_name(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
 class Error(Exception):
     """Base class for test exceptions"""
 
@@ -330,14 +334,14 @@ class KafkaDriver:
     def cleanTableStagePipe(self, topic: str):
         logger.info(f"=== Drop table {topic} ===")
         self.snowflake_conn.cursor().execute(
-            "DROP TABLE IF EXISTS identifier(%s)", (topic,)
+            f"DROP TABLE IF EXISTS {quote_name(topic)}"
         )
 
         # Drop SSv2 streaming pipe (current naming convention: tableName-STREAMING)
         ssv2PipeName = f"{topic}-STREAMING"
         logger.info(f"=== Drop SSv2 pipe {ssv2PipeName} ===")
         self.snowflake_conn.cursor().execute(
-            "DROP PIPE IF EXISTS identifier(%s)", (ssv2PipeName,)
+            f"DROP PIPE IF EXISTS {quote_name(ssv2PipeName)}"
         )
 
         logger.info("=== Done ===")
@@ -345,21 +349,20 @@ class KafkaDriver:
     def create_table(self, table_name: str):
         logger.info(f"=== Creating table {table_name} ===")
         self.snowflake_conn.cursor().execute(
-            "CREATE TABLE IF NOT EXISTS identifier(%s) (RECORD_METADATA VARIANT)",
-            (table_name,),
+            f"CREATE TABLE IF NOT EXISTS {quote_name(table_name)} (RECORD_METADATA VARIANT)"
         )
 
     def drop_table(self, table_name: str):
         logger.info(f"=== Dropping table {table_name} ===")
         self.snowflake_conn.cursor().execute(
-            "DROP TABLE IF EXISTS identifier(%s)", (table_name,)
+            f"DROP TABLE IF EXISTS {quote_name(table_name)}"
         )
 
     def select_number_of_records(self, table_name: str) -> str | None:
         try:
             return (
                 self.snowflake_conn.cursor()
-                .execute("SELECT count(*) FROM identifier(%s)", (table_name,))
+                .execute(f"SELECT count(*) FROM {quote_name(table_name)}")
                 .fetchone()[0]
             )
         except snowflake.connector.errors.ProgrammingError as e:

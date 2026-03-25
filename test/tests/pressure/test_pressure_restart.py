@@ -65,7 +65,8 @@ def test_pressure_restart(driver: KafkaDriver, create_topics, create_custom_conn
 
     phase = 0
     for i, topic in enumerate(topics):
-        logger.info(f"Verifying topic {i + 1}/{TOPIC_COUNT}: {topic}")
+        table_name = topic.upper()
+        logger.info(f"Verifying topic {i + 1}/{TOPIC_COUNT}: {table_name}")
         deadline = time.monotonic() + 600
         while True:
             phase = (phase + 1) % 7
@@ -81,15 +82,15 @@ def test_pressure_restart(driver: KafkaDriver, create_topics, create_custom_conn
                 case 0:
                     connector = create_custom_connector(test_name, config)
 
-            count = driver.select_number_of_records(topic)
+            count = driver.select_number_of_records(table_name)
             if count == EXPECTED_PER_TOPIC:
                 break
             if time.monotonic() >= deadline:
                 raise AssertionError(
-                    f"Timed out waiting for {EXPECTED_PER_TOPIC} rows in {topic} "
+                    f"Timed out waiting for {EXPECTED_PER_TOPIC} rows in {table_name} "
                     f"(got {count} after 600s)"
                 )
             logger.info(
-                f"Topic {topic}: {count}/{EXPECTED_PER_TOPIC} rows, retrying in {driver.VERIFY_INTERVAL}s..."
+                f"Topic {table_name}: {count}/{EXPECTED_PER_TOPIC} rows, retrying in {driver.VERIFY_INTERVAL}s..."
             )
             time.sleep(driver.VERIFY_INTERVAL)

@@ -46,10 +46,10 @@ def test_confluent_protobuf_protobuf(
     if platform_version.startswith("8."):
         pytest.skip("BlueApron protobuf converter incompatible with Confluent 8.x")
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, record_content variant)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

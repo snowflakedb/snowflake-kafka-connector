@@ -36,6 +36,7 @@ from lib.utils import RecordProducer, wait_for
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_migration_without_duplicates(
     driver: KafkaDriver,
+    name_salt,
     create_custom_connector,
     create_table,
     wait_for_rows,
@@ -44,8 +45,10 @@ def test_migration_without_duplicates(
 
     test_name = "test_migration_without_duplicates"
 
-    table = create_table(columns='(record_metadata variant, "NUMBER" varchar)')
-    topic = table.name
+    table = create_table(
+        test_name.upper(), columns='(record_metadata variant, "NUMBER" varchar)'
+    )
+    topic = f"{test_name}{name_salt}"
 
     producer = RecordProducer(driver, topic)
 
@@ -109,6 +112,7 @@ def test_migration_without_duplicates(
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_migration_with_possible_duplicates(
     driver: KafkaDriver,
+    name_salt,
     create_custom_connector,
     create_table,
     wait_for_rows,
@@ -119,10 +123,10 @@ def test_migration_with_possible_duplicates(
     warmup_records = 10
 
     table = create_table(
-        test_name,
+        test_name.upper(),
         columns='(record_metadata variant, "NUMBER" varchar)',
     )
-    topic = table.name
+    topic = f"{test_name}{name_salt}"
 
     producer = RecordProducer(driver, topic)
 

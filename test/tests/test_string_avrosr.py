@@ -24,6 +24,7 @@ VALUE_SCHEMA = avro.loads("""
 @pytest.mark.confluent_only
 def test_string_avrosr(
     driver,
+    name_salt,
     connector_version,
     create_connector_from_file,
     create_table,
@@ -32,10 +33,10 @@ def test_string_avrosr(
     if connector_version == "v3":
         pytest.skip("v3 plugin conflicts with Schema Registry classloading")
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, id number, firstName varchar, time number)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

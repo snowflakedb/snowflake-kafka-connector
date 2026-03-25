@@ -51,19 +51,18 @@ def _assert_dlq(driver, config, table, record_count):
 
 
 def test_schema_evolution_add_columns(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, create_connector_from_file, create_table, create_topics, wait_for_rows
 ):
     """ENABLE_SCHEMA_EVOLUTION=TRUE, schematization=on, send records with extra fields.
 
     Runs for both v3 and v4. Flat columns CITY, AGE are added via schema evolution.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+        cleanup_topic=False,
     )
-    topic = table.name
-
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+    topic = create_topics([FILE_NAME], with_tables=False)[0]
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -81,7 +80,7 @@ def test_schema_evolution_add_columns(
 
 
 def test_schema_evolution_multi_wave(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, create_connector_from_file, create_table, create_topics, wait_for_rows
 ):
     """Send two waves of records with different schemas.
 
@@ -90,12 +89,11 @@ def test_schema_evolution_multi_wave(
     Verifies that wave-1 rows have NULL for COUNTRY.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+        cleanup_topic=False,
     )
-    topic = table.name
-
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+    topic = create_topics([FILE_NAME], with_tables=False)[0]
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -149,16 +147,15 @@ def test_schema_evolution_multi_wave(
 
 
 def test_schema_evolution_disabled_mid_stream(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, create_connector_from_file, create_table, create_topics, wait_for_rows
 ):
     """ENABLE_SCHEMA_EVOLUTION toggled off after initial evolution."""
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE",
+        cleanup_topic=False,
     )
-    topic = table.name
-
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+    topic = create_topics([FILE_NAME], with_tables=False)[0]
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -201,7 +198,7 @@ def test_schema_evolution_disabled_mid_stream(
 
 
 def test_schema_evolution_happy_path(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, create_connector_from_file, create_table, create_topics, wait_for_rows
 ):
     """Send records that match the existing table schema exactly.
 
@@ -209,13 +206,12 @@ def test_schema_evolution_happy_path(
     client-side validation does not interfere with normal ingestion.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(RECORD_METADATA VARIANT, CITY VARCHAR, AGE NUMBER) "
         "ENABLE_SCHEMA_EVOLUTION = TRUE",
+        cleanup_topic=False,
     )
-    topic = table.name
-
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+    topic = create_topics([FILE_NAME], with_tables=False)[0]
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -239,7 +235,7 @@ def test_schema_evolution_happy_path(
 
 
 def test_schema_evolution_drop_not_null(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, create_connector_from_file, create_table, create_topics, wait_for_rows
 ):
     """Table has a NOT NULL column, but records omit it.
 
@@ -247,13 +243,12 @@ def test_schema_evolution_drop_not_null(
     column, allowing records to be ingested with NULL for the original column.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(RECORD_METADATA VARIANT, STATUS VARCHAR NOT NULL) "
         "ENABLE_SCHEMA_EVOLUTION = TRUE",
+        cleanup_topic=False,
     )
-    topic = table.name
-
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+    topic = create_topics([FILE_NAME], with_tables=False)[0]
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
@@ -289,6 +284,7 @@ def test_schema_evolution_config_variants(
     connector_version,
     create_connector_from_file,
     create_table,
+    create_topics,
     wait_for_rows,
     schema_evo,
     schematization,
@@ -345,12 +341,11 @@ def test_schema_evolution_config_variants(
 
     evo_clause = "TRUE" if schema_evo else "FALSE"
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns=f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = {evo_clause}",
+        cleanup_topic=False,
     )
-    topic = table.name
-
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+    topic = create_topics([FILE_NAME], with_tables=False)[0]
 
     evo_tag = "evo" if schema_evo else "noevo"
     sch_tag = "sch" if schematization else "nosch"

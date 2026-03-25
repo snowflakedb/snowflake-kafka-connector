@@ -31,10 +31,10 @@ def test_kc_delete_resume(
     Only batch 1 should appear in the table (RECORD_COUNT rows).
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, column1 varchar)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     connector_name = f"{FILE_NAME}{name_salt}"
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
