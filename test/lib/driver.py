@@ -388,6 +388,37 @@ class KafkaDriver:
             logger.debug(f"Failed to query connector status: {e}")
         return None
 
+    def wait_for_connector_running(
+        self, connector_name: str, timeout: int = 60, interval: int = 3
+    ):
+        """Poll until the connector and all its tasks report RUNNING state.
+
+        Raises TimeoutError if the connector does not reach RUNNING within
+        *timeout* seconds.
+        """
+        deadline = time.monotonic() + timeout
+        while True:
+            status = self.get_connector_status(connector_name)
+            if status is not None:
+                connector_state = status.get("connector", {}).get("state")
+                tasks = status.get("tasks", [])
+                if (
+                    connector_state == "RUNNING"
+                    and tasks
+                    and all(t.get("state") == "RUNNING" for t in tasks)
+                ):
+                    logger.info(
+                        f"Connector {connector_name} is RUNNING with "
+                        f"{len(tasks)} task(s)"
+                    )
+                    return
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Connector {connector_name} did not reach RUNNING state "
+                    f"within {timeout}s (last status: {status})"
+                )
+            time.sleep(interval)
+
     def get_failed_tasks(self, connector_name: str) -> list:
         """Return list of FAILED tasks with their traces, or empty list."""
         status = self.get_connector_status(connector_name)

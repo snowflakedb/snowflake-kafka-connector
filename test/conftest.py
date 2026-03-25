@@ -196,10 +196,12 @@ def wait_for_rows(driver: KafkaDriver):  # noqa: F811 — pytest fixture injecti
         interval: int | None = None,
         at_least: bool = False,
         connector_name: str | None = None,
+        max_consecutive_failures: int = 6,
     ):
         timeout = timeout or default_timeout
         interval = interval or default_interval
         deadline = time.monotonic() + timeout
+        consecutive_failures = 0
         while True:
             count = driver.select_number_of_records(table_name)
             if count is not None:
@@ -218,15 +220,24 @@ def wait_for_rows(driver: KafkaDriver):  # noqa: F811 — pytest fixture injecti
                 )
             if connector_name is not None:
                 if failed := driver.get_failed_tasks(connector_name):
-                    traces = "\n".join(
-                        f"  task {t['id']}: {t.get('trace', 'no trace')}"
-                        for t in failed
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_consecutive_failures:
+                        traces = "\n".join(
+                            f"  task {t['id']}: {t.get('trace', 'no trace')}"
+                            for t in failed
+                        )
+                        raise AssertionError(
+                            f"Connector {connector_name} has FAILED tasks while "
+                            f"waiting for {expected} rows in {table_name} "
+                            f"(got {count}):\n{traces}"
+                        )
+                    logger.warning(
+                        f"Connector {connector_name} has failed tasks "
+                        f"({consecutive_failures}/{max_consecutive_failures}), "
+                        f"waiting for recovery..."
                     )
-                    raise AssertionError(
-                        f"Connector {connector_name} has FAILED tasks while "
-                        f"waiting for {expected} rows in {table_name} "
-                        f"(got {count}):\n{traces}"
-                    )
+                else:
+                    consecutive_failures = 0
             logger.info(
                 f"Waiting for {'at least ' if at_least else ''}{expected} rows "
                 f"in {table_name} (currently {count}), retrying in {interval}s..."

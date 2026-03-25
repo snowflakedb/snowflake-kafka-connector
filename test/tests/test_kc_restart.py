@@ -37,12 +37,12 @@ def test_kc_restart(
     _send_batch(driver, topic, RECORD_COUNT)
 
     driver.restartConnector(connector_name)
-    sleep(SLEEP_TIME)
+    driver.wait_for_connector_running(connector_name)
 
     _send_batch(driver, topic, RECORD_COUNT)
 
     driver.restartConnectorAndTasks(connector_name)
-    sleep(SLEEP_TIME)
+    driver.wait_for_connector_running(connector_name)
 
     _send_batch(driver, topic, RECORD_COUNT)
 

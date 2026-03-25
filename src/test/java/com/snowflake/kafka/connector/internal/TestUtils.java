@@ -101,6 +101,10 @@ public class TestUtils {
 
   private static JsonNode profileForStreaming = null;
 
+  // Ephemeral schema: each test run creates its own schema to avoid collisions.
+  private static volatile String ephemeralSchema = null;
+  private static volatile boolean creatingEphemeralSchema = false;
+
   public static final String JSON_WITH_SCHEMA =
       "{\n"
           + "  \"schema\": {\n"
@@ -162,6 +166,83 @@ public class TestUtils {
     return keyPair.getPrivate();
   }
 
+  /**
+   * Returns the ephemeral schema name for this test run, creating it on first access.
+   *
+   * <p>The name is {@code <original_schema>_<7-char random salt>}. A JVM shutdown hook drops the
+   * schema with CASCADE so all tables/pipes/channels are cleaned up automatically.
+   *
+   * <p>A re-entrancy guard ({@code creatingEphemeralSchema}) handles the circular call path: {@code
+   * getOrCreateEphemeralSchema → getConnection → transformProfileFileToConnectorConfiguration →
+   * getOrCreateEphemeralSchema}. During bootstrap the original schema is returned so the JDBC
+   * connection can be established.
+   */
+  private static String getOrCreateEphemeralSchema() {
+    if (ephemeralSchema != null) {
+      return ephemeralSchema;
+    }
+    synchronized (TestUtils.class) {
+      if (ephemeralSchema != null) {
+        return ephemeralSchema;
+      }
+      // Re-entrancy guard: while we are creating the schema, the JDBC connection we open will
+      // call back into transformProfileFileToConnectorConfiguration → here. Return the original
+      // schema so that bootstrap connection can be established.
+      if (creatingEphemeralSchema) {
+        return getProfile(PROFILE_PATH).get(SCHEMA).asText();
+      }
+      creatingEphemeralSchema = true;
+      try {
+        String originalSchema = getProfile(PROFILE_PATH).get(SCHEMA).asText();
+        String database = getProfile(PROFILE_PATH).get(DATABASE).asText();
+
+        String salt = randomAlphanumeric(7);
+        String salted = originalSchema + "_" + salt;
+        String fqn = database + "." + salted;
+
+        log.info("Creating ephemeral test schema: {}", fqn);
+        try (Connection conn = NonEncryptedKeyTestSnowflakeConnection.getConnection();
+            Statement stmt = conn.createStatement()) {
+          stmt.execute("CREATE SCHEMA IF NOT EXISTS " + fqn);
+        }
+
+        Runtime.getRuntime()
+            .addShutdownHook(
+                new Thread(
+                    () -> {
+                      try (Connection c = NonEncryptedKeyTestSnowflakeConnection.getConnection();
+                          Statement s = c.createStatement()) {
+                        log.info("Dropping ephemeral test schema: {}", fqn);
+                        s.execute("DROP SCHEMA IF EXISTS " + fqn + " CASCADE");
+                      } catch (Exception e) {
+                        log.error(
+                            "Failed to drop ephemeral test schema {}: {}", fqn, e.getMessage());
+                      }
+                    }));
+
+        ephemeralSchema = salted;
+        return salted;
+      } catch (Exception e) {
+        // Snowflake is unreachable (e.g. unit tests without a live connection).
+        // Fall back to the original schema so unit tests behave exactly as before.
+        log.warn("Could not create ephemeral test schema, using original: {}", e.getMessage());
+        ephemeralSchema = getProfile(PROFILE_PATH).get(SCHEMA).asText();
+        return ephemeralSchema;
+      } finally {
+        creatingEphemeralSchema = false;
+      }
+    }
+  }
+
+  private static String randomAlphanumeric(int length) {
+    String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    StringBuilder sb = new StringBuilder(length);
+    for (int i = 0; i < length; i++) {
+      sb.append(chars.charAt(random.nextInt(chars.length())));
+    }
+    return sb.toString();
+  }
+
   public static Map<String, String> transformProfileFileToConnectorConfiguration(
       boolean takeEncryptedKeyAndPassword) {
     Map<String, String> configuration = new HashMap<>();
@@ -174,7 +255,7 @@ public class TestUtils {
     configuration.put(
         KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, profileJson.get(DATABASE).asText());
     configuration.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, profileJson.get(SCHEMA).asText());
+        KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, getOrCreateEphemeralSchema());
     configuration.put(
         KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, profileJson.get(HOST).asText());
     configuration.put(SnowflakeDataSourceFactory.SF_WAREHOUSE, profileJson.get(WAREHOUSE).asText());
