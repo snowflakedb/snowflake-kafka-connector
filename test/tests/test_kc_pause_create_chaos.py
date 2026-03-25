@@ -43,7 +43,7 @@ def test_kc_pause_create_chaos(
     driver.createConnector(
         name_salt=name_salt, rest_request_template_filename=CONFIG_FILE
     )
-    sleep(SLEEP_TIME)
+    driver.wait_for_connector_running(connector_name)
 
     _send_batch(driver, topic, RECORD_COUNT)
 
