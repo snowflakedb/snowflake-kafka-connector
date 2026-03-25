@@ -117,7 +117,10 @@ public abstract class ConnectClusterBaseIT {
   private FakeSnowflakeStreamingIngestClient getFakeSnowflakeStreamingIngestClient(
       String connectorName) {
     // Connector names are sanitized/uppercased by Utils.convertAppName() in the connector
-    String sanitizedConnectorName = Utils.generateValidName(connectorName, new HashMap<>(), true);
+    Map<String, String> config = new HashMap<>();
+    config.put(KafkaConnectorConfigParams.NAME, connectorName);
+    Utils.convertAppName(config);
+    String sanitizedConnectorName = config.get(KafkaConnectorConfigParams.NAME);
     return fakeClientSupplier.getFakeIngestClients().stream()
         .filter((client) -> client.getConnectorName().equals(sanitizedConnectorName))
         .findFirst()
