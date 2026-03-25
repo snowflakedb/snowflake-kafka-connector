@@ -195,19 +195,19 @@ def test_compatibility_case_sensitivity_ingestion_columns(
                     # KC v3 requires quotes to not uppercase the key.
                     payload={'"c"': "lower c into lower c"},
                     expected_values=["lower c into lower c"],
-                )
+                ),
+                # NB this only works in KC v4 because the schema validator checks the wrong column.
+                # If we tried to ingest into columns "D" and "e", it would fail client-side validation.
+                # TODO(skurella/alhuang): rename to `pair_D_e`
+                ColumnIngestionCase(
+                    case_name="pair_D_d",
+                    column_names=["D", "d"],
+                    column_types=["VARCHAR", "VARCHAR"],
+                    payload={"D": "upper D", case(v3='"d"', v4="d"): "lower d"},
+                    expected_values=["upper D", "lower d"],
+                ),
             ],
             v4=[],
-        ),
-        # NB this only works in KC v4 because the schema validator checks the wrong column.
-        # If we tried to ingest into columns "D" and "e", it would fail client-side validation.
-        # TODO(skurella/alhuang): rename to `pair_D_e`
-        ColumnIngestionCase(
-            case_name="pair_D_d",
-            column_names=["D", "d"],
-            column_types=["VARCHAR", "VARCHAR"],
-            payload={"D": "upper D", case(v3='"d"', v4="d"): "lower d"},
-            expected_values=["upper D", "lower d"],
         ),
         ColumnIngestionCase(
             case_name="unicode",
