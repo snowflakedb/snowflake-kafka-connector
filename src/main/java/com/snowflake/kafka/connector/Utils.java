@@ -28,7 +28,6 @@ import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -56,10 +55,6 @@ public class Utils {
 
   public static final String TABLE_COLUMN_CONTENT = "RECORD_CONTENT";
   public static final String TABLE_COLUMN_METADATA = "RECORD_METADATA";
-
-  public static final String GET_EXCEPTION_FORMAT = "{}, Exception message: {}, cause: {}";
-  public static final String GET_EXCEPTION_MISSING_MESSAGE = "missing exception message";
-  public static final String GET_EXCEPTION_MISSING_CAUSE = "missing exception cause";
 
   private static final KCLogger LOGGER = new KCLogger(Utils.class.getName());
 
@@ -322,51 +317,6 @@ public class Utils {
   }
 
   /**
-   * @param config config with applied default values
-   * @return role specified in rhe config
-   */
-  public static String getRole(Map<String, String> config) {
-    return config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
-  }
-
-  public static String getDatabase(Map<String, String> config) {
-    return config.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
-  }
-
-  public static String getSchema(Map<String, String> config) {
-    return config.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
-  }
-
-  public static String getUser(Map<String, String> config) {
-    return config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
-  }
-
-  /** Asserts that the provided value is not {@code null}. */
-  public static void assertNotNull(String name, Object value) {
-    if (value == null) {
-      throw new IllegalArgumentException(name + " cannot be null");
-    }
-  }
-
-  /**
-   * Concatenates the provided path segments into a dot-delimited string while escaping any literal
-   * dots.
-   */
-  public static String concatDotPath(String... path) {
-    StringBuilder sb = new StringBuilder();
-    for (String segment : path) {
-      if (segment == null) {
-        throw new IllegalArgumentException("Path cannot be null");
-      }
-      if (sb.length() > 0) {
-        sb.append('.');
-      }
-      sb.append(segment.replace("\\", "\\\\").replace(".", "\\."));
-    }
-    return sb.toString();
-  }
-
-  /**
    * modify invalid application name in config and return the generated application name
    *
    * @param config input config object
@@ -375,20 +325,9 @@ public class Utils {
     String appName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     // If appName is empty the following call will throw error
     // Application names are always sanitized for backward compatibility
-    String validAppName = generateValidName(appName, new HashMap<>(), true);
+    String validAppName = generateValidNameFromMap(appName, new HashMap<>(), true);
 
     config.put(KafkaConnectorConfigParams.NAME, validAppName);
-  }
-
-  /**
-   * verify topic name, and generate valid table name
-   *
-   * @param topic input topic name
-   * @param topic2table topic to table map
-   * @return valid table name
-   */
-  public static String getTableName(String topic, Map<String, String> topic2table) {
-    return generateValidName(topic, topic2table);
   }
 
   /**
@@ -401,43 +340,7 @@ public class Utils {
    */
   public static String getTableName(
       String topic, Map<String, String> topic2table, boolean enableSanitization) {
-    return generateValidName(topic, topic2table, enableSanitization);
-  }
-
-  /**
-   * verify topic name, and generate valid table/application name
-   *
-   * @param topic input topic name
-   * @param topic2table topic to table map
-   * @return valid table/application name
-   */
-  public static String generateValidName(String topic, Map<String, String> topic2table) {
-    return generateValidNameFromMap(topic, topic2table);
-  }
-
-  /**
-   * verify topic name, and generate valid table/application name with optional sanitization
-   *
-   * @param topic input topic name
-   * @param topic2table topic to table map
-   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
-   * @return valid table/application name
-   */
-  public static String generateValidName(
-      String topic, Map<String, String> topic2table, boolean enableSanitization) {
     return generateValidNameFromMap(topic, topic2table, enableSanitization);
-  }
-
-  /**
-   * verify topic name, and generate valid table/application name
-   *
-   * @param topic input topic name
-   * @param topic2table topic to table map
-   * @return valid generated table/application name
-   */
-  private static String generateValidNameFromMap(String topic, Map<String, String> topic2table) {
-    // Default to v3 behavior (sanitization enabled)
-    return generateValidNameFromMap(topic, topic2table, true);
   }
 
   /**
@@ -677,25 +580,5 @@ public class Utils {
       format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
     }
     return format;
-  }
-
-  /**
-   * Get the message and cause of a missing exception, handling the null or empty cases of each
-   *
-   * @param customMessage A custom message to prepend to the exception
-   * @param ex The message to parse through
-   * @return A string with the custom message and the exceptions message or cause, if exists
-   */
-  public static String getExceptionMessage(String customMessage, Exception ex) {
-    String message =
-        ex.getMessage() == null || ex.getMessage().isEmpty()
-            ? GET_EXCEPTION_MISSING_MESSAGE
-            : ex.getMessage();
-    String cause =
-        ex.getCause() == null || ex.getCause().getStackTrace() == null
-            ? GET_EXCEPTION_MISSING_CAUSE
-            : Arrays.toString(ex.getCause().getStackTrace());
-
-    return formatString(GET_EXCEPTION_FORMAT, customMessage, message, cause);
   }
 }
