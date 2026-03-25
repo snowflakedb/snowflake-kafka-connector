@@ -91,7 +91,7 @@ public class EmbeddedProxyServer extends ExternalResource {
 
   private void handleClient(Socket client) {
     try {
-      client.setSoTimeout(30_000);
+      client.setSoTimeout(300_000);
       InputStream in = client.getInputStream();
       OutputStream out = client.getOutputStream();
 
@@ -179,7 +179,8 @@ public class EmbeddedProxyServer extends ExternalResource {
       toRemote.start();
       relay(remote, client);
 
-      toRemote.join(1000);
+      toRemote.join(5000);
+      toRemote.interrupt();
       remote.close();
     } catch (Exception e) {
       String response = "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n";
