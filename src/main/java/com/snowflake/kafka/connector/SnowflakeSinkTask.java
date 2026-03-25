@@ -17,7 +17,6 @@
 package com.snowflake.kafka.connector;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -397,25 +396,6 @@ public class SnowflakeSinkTask extends SinkTask {
   @Override
   public String version() {
     return Utils.VERSION;
-  }
-
-  /**
-   * parse topic to table map
-   *
-   * @param config connector config file
-   * @return result map
-   */
-  public static Map<String, String> getTopicToTableMap(Map<String, String> config) {
-    if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)) {
-      Map<String, String> result =
-          Utils.parseTopicToTableMap(
-              config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
-      if (result != null) {
-        return result;
-      }
-      STATIC_LOGGER.error("Invalid Input, Topic2Table Map disabled");
-    }
-    return new HashMap<>();
   }
 
   /**
