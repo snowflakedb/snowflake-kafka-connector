@@ -4,6 +4,22 @@ from lib.driver import KafkaDriver, quote_name
 from snowflake.connector import DictCursor
 
 
+@pytest.fixture()
+def snowflake_table(
+    driver: KafkaDriver, name_salt: str, request: pytest.FixtureRequest
+):
+    """Tears down the Snowflake table named after the current test at teardown.
+
+    Table name: ``{test_function_name_without_test_prefix}{name_salt}``
+
+    Tests that manually create a table (or rely on auto-table-creation) declare
+    this fixture to ensure the table is dropped after the test completes.
+    """
+    table_name = request.node.originalname.removeprefix("test_") + name_salt
+    yield table_name
+    driver.drop_table(table_name)
+
+
 class Table:
     """Class with helper functions for working with a Snowflake table.
     Doesn't create the table unless you call `create`."""
