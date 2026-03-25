@@ -107,6 +107,9 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
   void test_legacyMode_defaultSchematization_doesNotWrap() throws Exception {
     final Map<String, String> config = defaultProperties(topicName, connectorName);
     config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    config.put(
+        Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
+        "false");
 
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);

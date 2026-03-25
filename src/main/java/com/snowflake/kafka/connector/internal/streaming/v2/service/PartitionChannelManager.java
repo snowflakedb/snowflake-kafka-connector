@@ -211,6 +211,7 @@ public class PartitionChannelManager {
         offsetTracker,
         taskConfig.getMetadataConfig(),
         enableSchematization,
+        taskConfig.isEnableColumnIdentifierNormalization(),
         streamingErrorHandler,
         this.taskMetrics,
         clientValidationEnabled,

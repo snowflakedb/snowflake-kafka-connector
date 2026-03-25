@@ -50,7 +50,7 @@ class SnowflakeSinkRecordTest {
             .withSchemaAndValue(schemaAndValue)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, false);
 
     assertTrue(record.isValid());
     assertFalse(record.isBroken());
@@ -101,7 +101,7 @@ class SnowflakeSinkRecordTest {
             .withValue(struct)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, false);
 
     assertTrue(record.isValid());
     assertFalse(record.isBroken());
@@ -129,7 +129,7 @@ class SnowflakeSinkRecordTest {
             .withValue(null)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, false);
 
     assertFalse(record.isValid());
     assertFalse(record.isBroken());
@@ -150,7 +150,7 @@ class SnowflakeSinkRecordTest {
             .withValue("{}")
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, false);
 
     assertFalse(record.isValid());
     assertTrue(record.isBroken());
@@ -169,7 +169,7 @@ class SnowflakeSinkRecordTest {
             .withValue("just a plain string")
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, false);
 
     // Record should be broken because convertToMap cannot handle plain String
     assertTrue(record.isBroken());
@@ -215,7 +215,7 @@ class SnowflakeSinkRecordTest {
             .build();
 
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true);
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
 
     Map<String, Object> metadata = record.getMetadata();
     assertEquals("myKey", metadata.get("key"));
@@ -248,7 +248,7 @@ class SnowflakeSinkRecordTest {
 
     Instant connectorPushTime = Instant.ofEpochMilli(9876543210L);
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, fullMetadataConfig, connectorPushTime, true);
+        SnowflakeSinkRecord.from(kafkaRecord, fullMetadataConfig, connectorPushTime, true, false);
 
     Map<String, Object> metadata = record.getMetadata();
 
@@ -277,7 +277,8 @@ class SnowflakeSinkRecordTest {
             .withTimestamp(timestamp, timestampType)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, timestampConfig, true);
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, timestampConfig, true, false);
 
     Map<String, Object> metadata = record.getMetadata();
     assertEquals(timestamp, metadata.get(expectedMetadataKey));
@@ -295,7 +296,7 @@ class SnowflakeSinkRecordTest {
 
     SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true);
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
 
     Map<String, Object> metadata = record.getMetadata();
     assertNotNull(metadata.get("headers"));
@@ -318,7 +319,7 @@ class SnowflakeSinkRecordTest {
 
     SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true);
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
 
     Map<String, Object> metadata = record.getMetadata();
 
@@ -416,7 +417,8 @@ class SnowflakeSinkRecordTest {
             .withTimestamp(createTime, TimestampType.CREATE_TIME)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, noCreateTimeConfig, true);
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, noCreateTimeConfig, true, false);
 
     Map<String, Object> metadata = record.getMetadata();
     assertFalse(metadata.containsKey("CreateTime"));
@@ -442,7 +444,7 @@ class SnowflakeSinkRecordTest {
             .withTimestamp(System.currentTimeMillis(), TimestampType.CREATE_TIME)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, noTopicConfig, true);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, noTopicConfig, true, false);
 
     Map<String, Object> metadata = record.getMetadata();
     assertFalse(metadata.containsKey("topic"));
@@ -469,7 +471,7 @@ class SnowflakeSinkRecordTest {
             .build();
 
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, noOffsetPartitionConfig, true);
+        SnowflakeSinkRecord.from(kafkaRecord, noOffsetPartitionConfig, true, false);
 
     Map<String, Object> metadata = record.getMetadata();
     assertFalse(metadata.containsKey("offset"));
@@ -503,7 +505,8 @@ class SnowflakeSinkRecordTest {
             System.currentTimeMillis(),
             TimestampType.CREATE_TIME);
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, allDisabledConfig, true);
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, allDisabledConfig, true, false);
 
     Map<String, Object> metadata = record.getMetadata();
     assertFalse(metadata.containsKey("offset"));
@@ -541,7 +544,8 @@ class SnowflakeSinkRecordTest {
             null, // no timestamp
             TimestampType.NO_TIMESTAMP_TYPE);
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, allDisabledConfig, true);
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, allDisabledConfig, true, false);
 
     // When ALL individual metadata fields are disabled and no key present, metadata should be empty
     assertTrue(record.getMetadata().isEmpty());
@@ -576,7 +580,7 @@ class SnowflakeSinkRecordTest {
             .withSchemaAndValue(schemaAndValue)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false, true);
 
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
@@ -595,7 +599,7 @@ class SnowflakeSinkRecordTest {
             .withValue("just a plain string")
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false, true);
 
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
@@ -612,7 +616,7 @@ class SnowflakeSinkRecordTest {
             .withValue(bytes)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false, true);
 
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
@@ -629,7 +633,7 @@ class SnowflakeSinkRecordTest {
             .withValue(null)
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false, true);
 
     assertTrue(record.isTombstone());
   }
@@ -642,9 +646,81 @@ class SnowflakeSinkRecordTest {
             .withValue("just a plain string")
             .build();
 
-    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true);
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, false);
 
     assertTrue(record.isBroken());
+  }
+
+  @Test
+  void testNormalizationEnabled_UppercasesColumnNames() {
+    SchemaAndValue schemaAndValue = toConnectData("{\"city\": \"Hsinchu\", \"Country\": \"TW\"}");
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withSchemaAndValue(schemaAndValue)
+            .build();
+
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, true);
+
+    assertTrue(record.isValid());
+    Map<String, Object> content = record.getContent();
+    // Unquoted identifiers are uppercased
+    assertTrue(content.containsKey("CITY"));
+    assertTrue(content.containsKey("COUNTRY"));
+    assertFalse(content.containsKey("city"));
+    assertFalse(content.containsKey("Country"));
+  }
+
+  @Test
+  void testNormalizationDisabled_PreservesColumnNames() {
+    SchemaAndValue schemaAndValue = toConnectData("{\"city\": \"Hsinchu\", \"Country\": \"TW\"}");
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withSchemaAndValue(schemaAndValue)
+            .build();
+
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, false);
+
+    assertTrue(record.isValid());
+    Map<String, Object> content = record.getContent();
+    // Column names preserved as-is
+    assertTrue(content.containsKey("city"));
+    assertTrue(content.containsKey("Country"));
+    assertFalse(content.containsKey("CITY"));
+    assertFalse(content.containsKey("COUNTRY"));
+  }
+
+  @Test
+  void testNormalizationEnabled_QuotedIdentifierPreservesCase() {
+    // Quoted SQL identifiers strip quotes and preserve case
+    Schema schema =
+        SchemaBuilder.struct()
+            .field("\"MyCol\"", Schema.STRING_SCHEMA)
+            .field("simple", Schema.STRING_SCHEMA)
+            .build();
+    Struct struct = new Struct(schema).put("\"MyCol\"", "value1").put("simple", "value2");
+
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(schema)
+            .withValue(struct)
+            .build();
+
+    SnowflakeSinkRecord record = SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, true, true);
+
+    assertTrue(record.isValid());
+    Map<String, Object> content = record.getContent();
+    // Quoted "MyCol" → strips quotes → MyCol (case preserved)
+    assertTrue(content.containsKey("MyCol"));
+    // Unquoted simple → SIMPLE (uppercased)
+    assertTrue(content.containsKey("SIMPLE"));
+
+    // Schema field names should also be normalized
+    Schema normalizedSchema = record.getSchema();
+    assertNotNull(normalizedSchema);
+    assertNotNull(normalizedSchema.field("MyCol"));
+    assertNotNull(normalizedSchema.field("SIMPLE"));
+    assertNull(normalizedSchema.field("\"MyCol\""));
+    assertNull(normalizedSchema.field("simple"));
   }
 
   private static JsonConverter createJsonConverter() {
@@ -675,7 +751,7 @@ class SnowflakeSinkRecordTest {
         SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
             .withSchemaAndValue(schemaAndValue)
             .build();
-    return SnowflakeSinkRecord.from(kafkaRecord, config, true);
+    return SnowflakeSinkRecord.from(kafkaRecord, config, true, false);
   }
 
   private SinkRecord createSinkRecordWithHeaders(

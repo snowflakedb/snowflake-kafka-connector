@@ -308,6 +308,7 @@ class StreamingErrorHandlerIT {
         offsetTracker,
         new SnowflakeMetadataConfig(),
         enableSchematization,
+        true,
         errorHandler,
         TaskMetrics.noop(),
         false,

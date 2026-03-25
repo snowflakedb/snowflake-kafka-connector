@@ -260,7 +260,9 @@ public class RowValidatorTest {
   }
 
   @Test
-  public void testValidateRowQuotedColumnName() {
+  public void testValidateRowMatchingColumnName() {
+    // Column names are expected to be already normalized by the caller (SnowflakeSinkRecord).
+    // RowValidator just does direct comparison against raw column names.
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put(
         "COL NAME", createColumnSchema("COL NAME", ColumnLogicalType.TEXT, true, null, null, 100));
@@ -268,7 +270,7 @@ public class RowValidatorTest {
     RowValidator validator = new RowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
-    row.put("\"COL NAME\"", "test value"); // Quoted column name
+    row.put("COL NAME", "test value"); // Raw column name (already normalized)
 
     ValidationResult result = validator.validateRow(row);
     assertTrue(result.isValid());

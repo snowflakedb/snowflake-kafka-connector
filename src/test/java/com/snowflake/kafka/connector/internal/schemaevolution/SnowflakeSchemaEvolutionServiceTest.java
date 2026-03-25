@@ -38,7 +38,7 @@ public class SnowflakeSchemaEvolutionServiceTest {
   }
 
   private static SnowflakeSinkRecord toSinkRecord(SinkRecord kafkaRecord) {
-    return SnowflakeSinkRecord.from(kafkaRecord, METADATA_CONFIG, true);
+    return SnowflakeSinkRecord.from(kafkaRecord, METADATA_CONFIG, true, false);
   }
 
   @Test
@@ -58,7 +58,7 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
-            "test_table", Collections.emptySet(), new HashSet<>(Arrays.asList("\"NEW_COL\"")));
+            "test_table", Collections.emptySet(), new HashSet<>(Arrays.asList("NEW_COL")));
 
     service.evolveSchemaIfNeeded(items, record);
 
@@ -119,7 +119,7 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
-            "test_table", Collections.emptySet(), new HashSet<>(Arrays.asList("\"COL1\"")));
+            "test_table", Collections.emptySet(), new HashSet<>(Arrays.asList("COL1")));
 
     assertDoesNotThrow(() -> service.evolveSchemaIfNeeded(items, record));
   }
@@ -161,7 +161,7 @@ public class SnowflakeSchemaEvolutionServiceTest {
         new SchemaEvolutionTargetItems(
             "test_table",
             new HashSet<>(Arrays.asList("EXISTING_COL")),
-            new HashSet<>(Arrays.asList("\"NEW_COL\"")));
+            new HashSet<>(Arrays.asList("NEW_COL")));
 
     service.evolveSchemaIfNeeded(items, record);
 

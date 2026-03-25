@@ -62,9 +62,12 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
     String sql = sqlCaptor.getValue();
 
+    // Table name uses identifier(?), column name is quoted inline
     assertTrue(sql.startsWith("alter table identifier(?) add column if not exists "));
-    assertTrue(sql.contains("\"NEW_COL\" VARCHAR"));
+    assertTrue(sql.contains("\"new_col\" VARCHAR"));
     assertTrue(sql.contains("comment 'column created by schema evolution"));
+
+    // Only the table name is a binding
     verify(mockStmt).setString(1, "test_table");
     verify(mockStmt).execute();
   }
@@ -81,8 +84,11 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
     String sql = sqlCaptor.getValue();
 
-    assertTrue(sql.contains("if not exists \"COL_A\" VARCHAR"));
-    assertTrue(sql.contains(", if not exists \"COL_B\" NUMBER"));
+    assertTrue(sql.contains("\"col_a\" VARCHAR"));
+    assertTrue(sql.contains(", if not exists \"col_b\" NUMBER"));
+
+    verify(mockStmt).setString(1, "test_table");
+    verify(mockStmt).execute();
   }
 
   @Test
@@ -133,12 +139,14 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
     String sql = sqlCaptor.getValue();
 
+    // Table name uses identifier(?), column names are quoted inline
     assertTrue(sql.startsWith("alter table identifier(?) alter "));
     assertTrue(sql.contains("\"COL1\" drop not null"));
     assertTrue(
         sql.contains(
             "\"COL1\" comment 'column altered to be nullable by schema evolution"
                 + " from Snowflake Kafka Connector'"));
+
     verify(mockStmt).setString(1, "test_table");
     verify(mockStmt).execute();
   }
@@ -153,11 +161,52 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     String sql = sqlCaptor.getValue();
 
     assertTrue(sql.contains("\"COL_A\" drop not null"));
-    assertTrue(
-        sql.contains("\"COL_A\" comment 'column altered to be nullable by schema evolution"));
     assertTrue(sql.contains("\"COL_B\" drop not null"));
-    assertTrue(
-        sql.contains("\"COL_B\" comment 'column altered to be nullable by schema evolution"));
+
+    verify(mockStmt).setString(1, "test_table");
+    verify(mockStmt).execute();
+  }
+
+  @Test
+  public void testAppendColumnsToTable_caseSensitiveColumnsQuotedInline() throws SQLException {
+    Map<String, ColumnInfos> columns = new LinkedHashMap<>();
+    columns.put("city", new ColumnInfos("VARCHAR", null));
+
+    service.appendColumnsToTable("test_table", columns);
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue();
+
+    // Lowercase "city" is quoted inline to preserve case
+    assertTrue(sql.contains("\"city\" VARCHAR"));
+  }
+
+  @Test
+  public void testAlterNonNullableColumns_caseSensitiveColumnsQuotedInline() throws SQLException {
+    service.alterNonNullableColumns("test_table", Arrays.asList("city"));
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue();
+
+    assertTrue(sql.contains("\"city\" drop not null"));
+    assertTrue(sql.contains("\"city\" comment"));
+  }
+
+  @Test
+  public void testAppendColumnsToTable_embeddedQuotesEscaped() throws SQLException {
+    Map<String, ColumnInfos> columns = new LinkedHashMap<>();
+    columns.put("col\"name", new ColumnInfos("VARCHAR", null));
+
+    service.appendColumnsToTable("test_table", columns);
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue();
+
+    // Embedded double quotes are escaped per SQL standard
+    assertTrue(sql.contains("\"col\"\"name\" VARCHAR"));
   }
 
   @Test

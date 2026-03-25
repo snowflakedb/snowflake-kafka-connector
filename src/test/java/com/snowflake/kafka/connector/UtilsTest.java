@@ -230,14 +230,6 @@ public class UtilsTest {
   }
 
   @Test
-  public void testQuoteNameIfNeeded() {
-    assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("abc"));
-    assertEquals("\"abc\"", Utils.quoteNameIfNeeded("\"abc\""));
-    assertEquals("\"ABC\"", Utils.quoteNameIfNeeded("ABC"));
-    assertEquals("\"AL%$\"", Utils.quoteNameIfNeeded("al%$"));
-  }
-
-  @Test
   public void testSemanticVersionParsing() {
     // Test standard version parsing
     SemanticVersion version311 = new SemanticVersion("3.1.1");

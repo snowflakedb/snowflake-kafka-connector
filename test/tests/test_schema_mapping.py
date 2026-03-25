@@ -16,7 +16,7 @@ RECORD = {
     # TODO: SNOW-3256183 Fix client-side validation on binary column
     # BINARY column removed: Snowflake deployments differ on whether the Ingest SDK
     # expects hex or base64 encoding, causing ingestion failures on some clouds.
-    # "PERFORMANCE_BINARY": "/////w==",
+    # "PERFORMANCE_BINARY": "FFFFFFFF",
     "RATING_INT": 100,
     "RATING_DOUBLE": 0.99,
     "APPROVAL": True,

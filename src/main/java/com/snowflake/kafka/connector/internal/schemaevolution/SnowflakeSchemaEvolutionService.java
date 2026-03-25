@@ -24,8 +24,7 @@ public class SnowflakeSchemaEvolutionService {
   private final TableSchemaResolver tableSchemaResolver;
 
   public SnowflakeSchemaEvolutionService(SnowflakeConnectionService conn) {
-    this.conn = conn;
-    this.tableSchemaResolver = new TableSchemaResolver();
+    this(conn, new TableSchemaResolver());
   }
 
   SnowflakeSchemaEvolutionService(

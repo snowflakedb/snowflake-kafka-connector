@@ -66,6 +66,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final SnowflakeMetadataConfig metadataConfig;
   private final boolean enableSchematization;
+  private final boolean enableColumnIdentifierNormalization;
 
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
@@ -102,6 +103,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       PartitionOffsetTracker offsetTracker,
       SnowflakeMetadataConfig metadataConfig,
       boolean enableSchematization,
+      boolean enableColumnIdentifierNormalization,
       StreamingErrorHandler streamingErrorHandler,
       TaskMetrics taskMetrics,
       boolean clientValidationEnabled,
@@ -113,6 +115,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.openChannelIoExecutor = openChannelIoExecutor;
     this.metadataConfig = metadataConfig;
     this.enableSchematization = enableSchematization;
+    this.enableColumnIdentifierNormalization = enableColumnIdentifierNormalization;
     this.streamingErrorHandler = streamingErrorHandler;
     this.taskMetrics = taskMetrics;
     this.telemetryService = telemetryService;
@@ -164,7 +167,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     try {
       final long kafkaOffset = kafkaSinkRecord.kafkaOffset();
       final SnowflakeSinkRecord record =
-          SnowflakeSinkRecord.from(kafkaSinkRecord, metadataConfig, enableSchematization);
+          SnowflakeSinkRecord.from(
+              kafkaSinkRecord,
+              metadataConfig,
+              enableSchematization,
+              enableColumnIdentifierNormalization);
 
       if (record.isBroken()) {
         LOGGER.debug("Broken record offset:{}, topic:{}", kafkaOffset, kafkaSinkRecord.topic());

@@ -300,6 +300,7 @@ class SnowpipeStreamingPartitionChannelTest {
         offsetTracker,
         new SnowflakeMetadataConfig(),
         false,
+        true,
         mockErrorHandler,
         TaskMetrics.noop(),
         false,
@@ -373,6 +374,7 @@ class SnowpipeStreamingPartitionChannelTest {
         offsetTracker,
         new SnowflakeMetadataConfig(),
         enableSchematization,
+        true,
         mockErrorHandler,
         TaskMetrics.noop(),
         true,
@@ -459,6 +461,7 @@ class SnowpipeStreamingPartitionChannelTest {
             offsetTracker,
             new SnowflakeMetadataConfig(),
             true,
+            true,
             mockErrorHandler,
             TaskMetrics.noop(),
             true,
@@ -492,7 +495,7 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void validationEnabled_multipleExtraColumns_passesCorrectlyQuotedNames() {
+  void validationEnabled_multipleExtraColumns_passesRawColumnNames() {
     List<DescribeTableRow> schema =
         Arrays.asList(new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
 
@@ -517,9 +520,9 @@ class SnowpipeStreamingPartitionChannelTest {
             argThat(
                 columnInfos -> {
                   if (columnInfos == null) return false;
-                  boolean hasCity = columnInfos.containsKey("\"CITY\"");
-                  boolean hasAge = columnInfos.containsKey("\"AGE\"");
-                  boolean hasCountry = columnInfos.containsKey("\"COUNTRY\"");
+                  boolean hasCity = columnInfos.containsKey("CITY");
+                  boolean hasAge = columnInfos.containsKey("AGE");
+                  boolean hasCountry = columnInfos.containsKey("COUNTRY");
                   return hasCity && hasAge && hasCountry;
                 }));
   }
