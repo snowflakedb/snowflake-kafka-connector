@@ -3,8 +3,6 @@ name: Kafka Connector stress test
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: '**'
   workflow_dispatch:
 
 jobs:
