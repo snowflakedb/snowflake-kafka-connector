@@ -40,15 +40,15 @@ public class StreamingClientManagerIT {
     connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
     sinkTaskConfig = SinkTaskConfig.from(connectorConfig);
     streamingClientProperties = StreamingClientProperties.from(sinkTaskConfig);
-    table1 = "table1" + salt;
-    table2 = "table2" + salt;
+    table1 = "TABLE1" + salt;
+    table2 = "TABLE2" + salt;
     task1 = "task1" + salt;
     task2 = "task2" + salt;
     testConnectorName = "TEST_CONNECTOR_" + salt;
     pipe1 = table1 + DEFAULT_PIPE_NAME_SUFFIX;
     pipe2 = table2 + DEFAULT_PIPE_NAME_SUFFIX;
-    connectionService.createTableWithMetadataColumn(table1);
-    connectionService.createTableWithMetadataColumn(table2);
+    TestUtils.createTableWithMetadataColumn(table1);
+    TestUtils.createTableWithMetadataColumn(table2);
     ThreadPools.registerTask(testConnectorName, sinkTaskConfig);
     ThreadPools.registerTask(testConnectorName, sinkTaskConfig);
   }

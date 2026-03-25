@@ -291,20 +291,6 @@ public class Utils {
   }
 
   /**
-   * Validates if the given value is acceptable for the topic2table map. This is NOT the exact table
-   * name sent to Snowflake (e.g., both "asdf" and asdf map to table asdf). Accepts: - Quoted
-   * identifiers: "MyTable", "table-with-dashes", "123table" - Unquoted identifiers: MyTable,
-   * _underscore, schema.table
-   *
-   * @param value the topic2table map value to validate
-   * @return true if valid, false otherwise
-   */
-  static boolean isValidTopic2TableValue(String value) {
-    return value.matches(
-        "^(\"[^\"]+\"|([_a-zA-Z]{1}[_$a-zA-Z0-9]+\\.){0,2}[_a-zA-Z]{1}[_$a-zA-Z0-9]+)$");
-  }
-
-  /**
    * modify invalid application name in config and return the generated application name
    *
    * @param config input config object
@@ -399,77 +385,6 @@ public class Utils {
 
     // Uppercase the sanitized result when sanitization is enabled
     return result.toString().toUpperCase(Locale.ROOT);
-  }
-
-  public static Map<String, String> parseTopicToTableMap(String input) {
-    Map<String, String> topic2Table = new HashMap<>();
-    boolean isInvalid = false;
-
-    // Pattern matches: topic:table pairs where topic and table can be quoted or unquoted
-    // Quoted: anything inside double quotes (handles commas and colons inside)
-    // Unquoted: any non-empty string without quotes, commas, or colons
-    // Pattern: whitespace* (quoted|unquoted) whitespace* : whitespace* (quoted|unquoted)
-    // whitespace* (comma|end)
-    Pattern pattern =
-        Pattern.compile("\\s*(\"[^\"]+\"|[^:,\\s\"]+)\\s*:\\s*(\"[^\"]+\"|[^:,\\s\"]+)\\s*(?:,|$)");
-    Matcher matcher = pattern.matcher(input);
-
-    int lastMatchEnd = 0;
-    while (matcher.find()) {
-      // Verify we're matching contiguously (no unmatched characters between pairs)
-      if (matcher.start() != lastMatchEnd) {
-        LOGGER.error(
-            "Invalid {} config format at position {}: {}",
-            KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
-            lastMatchEnd,
-            input);
-        return null;
-      }
-      lastMatchEnd = matcher.end();
-
-      String topic = matcher.group(1).trim();
-      String table = matcher.group(2).trim();
-
-      if (!isValidTopic2TableValue(table)) {
-        LOGGER.error(
-            "table name {} should be either a valid unquoted identifier "
-                + "(starts with _a-zA-Z, contains _$a-zA-z0-9) or a quoted identifier "
-                + "(e.g., \"MyTable\")",
-            table);
-        isInvalid = true;
-      }
-
-      if (topic2Table.containsKey(topic)) {
-        LOGGER.error("topic name {} is duplicated", topic);
-        isInvalid = true;
-      }
-
-      // check that regexes don't overlap
-      for (String parsedTopic : topic2Table.keySet()) {
-        if (parsedTopic.matches(topic) || topic.matches(parsedTopic)) {
-          LOGGER.error(
-              "topic regexes cannot overlap. overlapping regexes: {}, {}", parsedTopic, topic);
-          isInvalid = true;
-        }
-      }
-
-      topic2Table.put(topic, table);
-    }
-
-    // Verify we consumed the entire input
-    if (lastMatchEnd != input.length()) {
-      LOGGER.error(
-          "Invalid {} config format: unmatched content at position {}: {}",
-          KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
-          lastMatchEnd,
-          input);
-      return null;
-    }
-
-    if (isInvalid) {
-      throw SnowflakeErrors.ERROR_0021.getException();
-    }
-    return topic2Table;
   }
 
   /**

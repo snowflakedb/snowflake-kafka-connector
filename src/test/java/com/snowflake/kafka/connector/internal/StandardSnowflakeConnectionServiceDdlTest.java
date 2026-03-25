@@ -68,7 +68,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     assertTrue(sql.contains("comment 'column created by schema evolution"));
 
     // Only the table name is a binding
-    verify(mockStmt).setString(1, "test_table");
+    verify(mockStmt).setString(1, "\"test_table\"");
     verify(mockStmt).execute();
   }
 
@@ -87,7 +87,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     assertTrue(sql.contains("\"col_a\" VARCHAR"));
     assertTrue(sql.contains(", if not exists \"col_b\" NUMBER"));
 
-    verify(mockStmt).setString(1, "test_table");
+    verify(mockStmt).setString(1, "\"test_table\"");
     verify(mockStmt).execute();
   }
 
@@ -147,7 +147,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
             "\"COL1\" comment 'column altered to be nullable by schema evolution"
                 + " from Snowflake Kafka Connector'"));
 
-    verify(mockStmt).setString(1, "test_table");
+    verify(mockStmt).setString(1, "\"test_table\"");
     verify(mockStmt).execute();
   }
 
@@ -163,7 +163,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     assertTrue(sql.contains("\"COL_A\" drop not null"));
     assertTrue(sql.contains("\"COL_B\" drop not null"));
 
-    verify(mockStmt).setString(1, "test_table");
+    verify(mockStmt).setString(1, "\"test_table\"");
     verify(mockStmt).execute();
   }
 

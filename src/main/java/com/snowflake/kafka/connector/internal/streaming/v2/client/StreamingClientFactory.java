@@ -3,7 +3,6 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClientFactory;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
-import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
@@ -14,8 +13,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Factory for creating Snowpipe Streaming clients. Shared by all connectors. */
 public class StreamingClientFactory {
-  private static final KCLogger LOGGER = new KCLogger(StreamingClientFactory.class.getName());
-
   private static final String STREAMING_CLIENT_V2_PREFIX_NAME = "KC_CLIENT_V2_";
   private static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
 
@@ -84,7 +81,9 @@ public class StreamingClientFactory {
         final SinkTaskConfig config,
         final StreamingClientProperties streamingClientProperties) {
 
-      return SnowflakeStreamingIngestClientFactory.builder(clientName, dbName, schemaName, pipeName)
+      // Quote the pipe name to handle lowercase / special characters in the name.
+      return SnowflakeStreamingIngestClientFactory.builder(
+              clientName, dbName, schemaName, '"' + pipeName + '"')
           .setProperties(getClientProperties(config))
           .setParameterOverrides(streamingClientProperties.parameterOverrides)
           .build();

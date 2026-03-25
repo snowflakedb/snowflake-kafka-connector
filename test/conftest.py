@@ -270,7 +270,13 @@ def _python_error_annotation(report: TestReport) -> None:
     if line is not None:
         parts.append(f"line={line + 1}")
     opts = ",".join(parts)
-    message = report.longrepr.reprcrash.message
+    # longrepr can be a ReprExceptionInfo (has .reprcrash.message) or a plain
+    # string (e.g. for xpass-strict failures).
+    longrepr = report.longrepr
+    if hasattr(longrepr, "reprcrash") and longrepr.reprcrash is not None:
+        message = longrepr.reprcrash.message
+    else:
+        message = str(longrepr).split("\n", 1)[0]
     print(f"::error {opts}::{message}", file=sys.stderr)
 
 

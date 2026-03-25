@@ -100,8 +100,8 @@ public class SinkTaskConfigTest {
     SinkTaskConfig parsed = SinkTaskConfig.from(config);
 
     assertEquals(2, parsed.getTopicToTableMap().size());
-    assertEquals("table1", parsed.getTopicToTableMap().get("t1"));
-    assertEquals("table2", parsed.getTopicToTableMap().get("t2"));
+    assertEquals("TABLE1", parsed.getTopicToTableMap().get("t1"));
+    assertEquals("TABLE2", parsed.getTopicToTableMap().get("t2"));
   }
 
   @Test

@@ -26,20 +26,6 @@ def case(connector_version: str):
     return _case
 
 
-@pytest.mark.parametrize(
-    "connector_version",
-    [
-        "v3",
-        pytest.param(
-            "v4",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="quoted/unicode topic2table cases are currently broken in compatibility mode",
-            ),
-        ),
-    ],
-    indirect=True,
-)
 def test_compatibility_case_sensitivity_table_name(
     driver: KafkaDriver,
     case,
@@ -74,10 +60,6 @@ def test_compatibility_case_sensitivity_table_name(
             # - arbitrary unicode characters in topic2table.map
             v3=[],
             v4=[
-                # TODO(skurella/alhuang): quoted table names and unicode characters fail in KC v4
-                # - schema evolution looks up the table with "show tables like ? limit 1"
-                # - I think it's passing the topic2table *before* quotes are removed?
-                # - it doesn't find anything, or fails
                 TableNameCase(
                     "lower_e_mapped_quoted",
                     "e_topic",

@@ -26,7 +26,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import java.util.ArrayList;
@@ -177,14 +176,10 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testIllegalTableName() {
     Map<String, String> config = getConfig();
-    config.put(SNOWFLAKE_TOPICS2TABLE_MAP, "topic1:!@#@!#!@");
+    config.put(SNOWFLAKE_TOPICS2TABLE_MAP, "topic1:\"unterminated");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .matches(
-            ex ->
-                ((SnowflakeKafkaConnectorException) ex)
-                    .getCode()
-                    .equals(SnowflakeErrors.ERROR_0021.getCode()));
+        .hasMessageContaining("Unterminated quoted token");
   }
 
   @Test
@@ -193,11 +188,7 @@ public class ConnectorConfigValidatorTest {
     config.put(SNOWFLAKE_TOPICS2TABLE_MAP, "topic1:table1,topic1:table2");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .matches(
-            ex ->
-                ((SnowflakeKafkaConnectorException) ex)
-                    .getCode()
-                    .equals(SnowflakeErrors.ERROR_0021.getCode()));
+        .hasMessageContaining("Duplicate topic: topic1");
   }
 
   @Test

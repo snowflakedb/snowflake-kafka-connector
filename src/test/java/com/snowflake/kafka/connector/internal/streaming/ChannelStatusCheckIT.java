@@ -70,7 +70,7 @@ class ChannelStatusCheckIT {
     topicName = TestUtils.randomTableName();
     connectorName = topicName + "_connector";
     connectCluster.kafka().createTopic(topicName, PARTITIONS_NUMBER);
-    TestUtils.getConnectionService().createTableWithMetadataColumn(topicName);
+    TestUtils.createTableWithMetadataColumn(topicName);
     StreamingClientFactory.setStreamingClientSupplier(fakeClientSupplier);
   }
 

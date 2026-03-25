@@ -9,7 +9,6 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JMX_OPT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Utils.isValidSnowflakeApplicationName;
-import static com.snowflake.kafka.connector.Utils.parseTopicToTableMap;
 import static com.snowflake.kafka.connector.Utils.validateProxySettings;
 
 import com.google.common.collect.ImmutableMap;
@@ -51,15 +50,13 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               KafkaConnectorConfigParams.NAME));
     }
 
-    if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)
-        && parseTopicToTableMap(config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP))
-            == null) {
-      invalidConfigParams.put(
-          KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
-          Utils.formatString(
-              "Invalid {} config format: {}",
-              KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
-              config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)));
+    if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)) {
+      try {
+        TopicToTableParser.parse(config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
+      } catch (IllegalArgumentException e) {
+        invalidConfigParams.put(
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, e.getMessage());
+      }
     }
 
     // sanity check
