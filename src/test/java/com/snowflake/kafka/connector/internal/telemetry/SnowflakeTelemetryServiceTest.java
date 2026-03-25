@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
 import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.INGESTION_METHOD;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -81,11 +82,15 @@ public class SnowflakeTelemetryServiceTest {
 
     validateKeyAndValueConverter(dataNode);
 
-    // FR10: client.validation.enabled should be present
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED));
-    assertEquals(
-        String.valueOf(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT),
-        dataNode.get(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED).asText());
+    // All non-sensitive config keys from the map should be present
+    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME));
+    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
+    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
+    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
+
+    // Sensitive keys must NOT be present
+    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
+    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE));
   }
 
   @Test
