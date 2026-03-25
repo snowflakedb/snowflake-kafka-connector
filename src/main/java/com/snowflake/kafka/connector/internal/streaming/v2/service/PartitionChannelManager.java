@@ -196,8 +196,9 @@ public class PartitionChannelManager {
         ThreadPools.getOpenChannelIoExecutor(connectorName);
 
     final boolean shouldEvolveSchema =
-        shouldEvolveSchemaCache.computeIfAbsent(
-            tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
+        taskConfig.isClientValidationEnabled()
+            && shouldEvolveSchemaCache.computeIfAbsent(
+                tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
 
     return new SnowpipeStreamingPartitionChannel(
         tableName,
