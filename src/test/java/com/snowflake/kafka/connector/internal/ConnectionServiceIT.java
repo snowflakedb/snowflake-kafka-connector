@@ -14,7 +14,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class ConnectionServiceIT {
-  private final SnowflakeConnectionService conn = TestUtils.getConnectionService();
+  private final SnowflakeConnectionService conn =
+      SnowflakeConnectionServiceFactory.builder()
+          .setProperties(TestUtils.transformProfileFileToConnectorConfiguration(false))
+          .noCaching()
+          .build();
 
   private final String tableName = TestUtils.randomTableName();
   private final String tableName1 = TestUtils.randomTableName();
@@ -78,21 +82,21 @@ class ConnectionServiceIT {
     // table doesn't exist
     assert !conn.tableExist(tableName);
     // create table
-    conn.createTableWithMetadataColumn(tableName);
+    TestUtils.createTableWithMetadataColumn(tableName);
     // table exists
     assert conn.tableExist(tableName);
     // insert some value
-    TestUtils.executeQuery("insert into " + tableName + " values(123)");
+    TestUtils.executeQuery("insert into \"" + tableName + "\" values(123)");
     ResultSet resultSet = TestUtils.showTable(tableName);
     // value inserted
     assert InternalUtils.resultSize(resultSet) == 1;
     // create table if not exists
-    conn.createTableWithMetadataColumn(tableName);
+    TestUtils.createTableWithMetadataColumn(tableName);
     resultSet = TestUtils.showTable(tableName);
     // table hasn't been overwritten
     assert InternalUtils.resultSize(resultSet) == 1;
     // overwrite table
-    conn.createTableWithMetadataColumn(tableName, true);
+    TestUtils.createTableWithMetadataColumn(tableName, true);
     resultSet = TestUtils.showTable(tableName);
     // new table
     assert InternalUtils.resultSize(resultSet) == 0;
@@ -102,7 +106,7 @@ class ConnectionServiceIT {
     // dropped table
     assert !conn.tableExist(tableName);
     // create incompatible table
-    TestUtils.executeQuery("create table " + tableName + " (num int)");
+    TestUtils.executeQuery("create table \"" + tableName + "\" (num int)");
     assert !conn.isTableCompatible(tableName);
     TestUtils.dropTable(tableName);
   }
@@ -144,7 +148,7 @@ class ConnectionServiceIT {
 
     // and - DDL operations (table creation) should work with this role
     String testTable = TestUtils.randomTableName();
-    service.createTableWithMetadataColumn(testTable);
+    TestUtils.createTableWithMetadataColumn(testTable);
     assertThat(service.tableExist(testTable))
         .as("Table creation should succeed with the configured role")
         .isTrue();

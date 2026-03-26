@@ -5,8 +5,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.TopicToTableParser;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.CachingConfig;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.HashMap;
 import java.util.Map;
@@ -113,11 +115,15 @@ public abstract class SinkTaskConfig {
 
     ImmutableMap<String, String> topicToTableMap = ImmutableMap.of();
     if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)) {
-      Map<String, String> parsed =
-          Utils.parseTopicToTableMap(
-              config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
-      if (parsed != null) {
-        topicToTableMap = ImmutableMap.copyOf(parsed);
+      try {
+        Map<String, String> parsed =
+            TopicToTableParser.parse(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
+        if (parsed != null) {
+          topicToTableMap = ImmutableMap.copyOf(parsed);
+        }
+      } catch (IllegalArgumentException e) {
+        throw SnowflakeErrors.ERROR_0021.getException(e.getMessage());
       }
     }
 

@@ -421,12 +421,32 @@ public class TestUtils {
   }
 
   /**
+   * Create a table with a single variant column: record_metadata.
+   *
+   * @param tableName table name
+   * @param overwrite if true, execute "create or replace table"; otherwise "create table if not
+   *     exists"
+   */
+  public static void createTableWithMetadataColumn(String tableName, boolean overwrite) {
+    String ddl =
+        overwrite
+            ? "create or replace table \"" + tableName + "\" (record_metadata variant)"
+            : "create table if not exists \"" + tableName + "\" (record_metadata variant)";
+    executeQuery(ddl);
+  }
+
+  /** Shorthand for {@link #createTableWithMetadataColumn(String, boolean)} with overwrite=false. */
+  public static void createTableWithMetadataColumn(String tableName) {
+    createTableWithMetadataColumn(tableName, false);
+  }
+
+  /**
    * drop a table
    *
    * @param tableName table name
    */
   public static void dropTable(String tableName) {
-    String query = "drop table if exists " + tableName;
+    String query = "drop table if exists \"" + tableName + "\"";
 
     executeQuery(query);
   }
@@ -440,7 +460,7 @@ public class TestUtils {
 
   /** Select * from table */
   public static ResultSet showTable(String tableName) {
-    String query = "select * from " + tableName;
+    String query = "select * from \"" + tableName + "\"";
 
     return executeQuery(query);
   }
@@ -461,7 +481,7 @@ public class TestUtils {
    * @return a random table name
    */
   public static String randomTableName() {
-    return randomName("table");
+    return randomName("table").toUpperCase(java.util.Locale.ROOT);
   }
 
   public static String randomTopicName() {

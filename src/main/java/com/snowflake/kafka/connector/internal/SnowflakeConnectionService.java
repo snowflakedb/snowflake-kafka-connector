@@ -9,22 +9,6 @@ import java.util.Optional;
 
 public interface SnowflakeConnectionService {
   /**
-   * Create a table with one variant columns: RECORD_METADATA
-   *
-   * @param tableName a string represents table name
-   * @param overwrite if true, execute "create or replace table" query; otherwise, run "create table
-   *     if not exists"
-   */
-  void createTableWithMetadataColumn(String tableName, boolean overwrite);
-
-  /**
-   * create table is not exists
-   *
-   * @param tableName table name
-   */
-  void createTableWithMetadataColumn(String tableName);
-
-  /**
    * check table existence
    *
    * @param tableName table name

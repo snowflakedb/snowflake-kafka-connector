@@ -56,33 +56,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
-  public void createTableWithMetadataColumn(final String tableName, final boolean overwrite) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    String query;
-    if (overwrite) {
-      query = "create or replace table identifier(?) (record_metadata variant)";
-    } else {
-      query = "create table if not exists identifier(?) (record_metadata variant)";
-    }
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2007.getException(e);
-    }
-
-    LOGGER.info("create table {}", tableName);
-  }
-
-  @Override
-  public void createTableWithMetadataColumn(final String tableName) {
-    createTableWithMetadataColumn(tableName, false);
-  }
-
-  @Override
   public void createTableWithOnlyMetadataColumn(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -93,7 +66,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
 
     try {
       PreparedStatement stmt = conn.prepareStatement(createTableQuery);
-      stmt.setString(1, tableName);
+      stmt.setString(1, quoteIdentifier(tableName));
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
@@ -147,7 +120,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     boolean compatible;
     try {
       stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
+      stmt.setString(1, quoteIdentifier(tableName));
       result = stmt.executeQuery();
       boolean hasMeta = false;
       boolean allNullable = true;
@@ -294,7 +267,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
 
     try {
       stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
+      stmt.setString(1, quoteIdentifier(tableName));
       ResultSet result = stmt.executeQuery();
 
       while (result.next()) {
@@ -336,7 +309,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
             : role.toUpperCase();
     try {
       PreparedStatement stmt = conn.prepareStatement(query);
-      stmt.setString(1, tableName);
+      stmt.setString(1, quoteIdentifier(tableName));
       ResultSet result = stmt.executeQuery();
       while (result.next()) {
         if (!result.getString("grantee_name").equals(myRole)) {
@@ -428,7 +401,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
 
     try (PreparedStatement stmt = conn.prepareStatement(query.toString())) {
-      stmt.setString(1, tableName);
+      stmt.setString(1, quoteIdentifier(tableName));
       stmt.execute();
       LOGGER.info("Added columns to table {}: {}", tableName, columnInfosMap.keySet());
     } catch (SQLException e) {
@@ -468,7 +441,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
 
     try (PreparedStatement stmt = conn.prepareStatement(query.toString())) {
-      stmt.setString(1, tableName);
+      stmt.setString(1, quoteIdentifier(tableName));
       stmt.execute();
       LOGGER.info("Dropped NOT NULL constraints on table {}: {}", tableName, columnNames);
     } catch (SQLException e) {
