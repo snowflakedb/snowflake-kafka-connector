@@ -6,16 +6,16 @@ RECORD_COUNT = 100
 
 
 def test_snowpipe_streaming_legacy_string_converter(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify that StringConverter is accepted when enable.schematization=false
     and that raw string payloads land in the legacy RECORD_CONTENT column.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(RECORD_METADATA variant, RECORD_CONTENT variant)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 

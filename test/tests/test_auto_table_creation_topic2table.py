@@ -67,8 +67,8 @@ def test_auto_table_creation_topic2table(
     the same Snowflake table via topic2table.map.  The connector should
     auto-create the table with the union of all fields.
     """
-    table = Table(driver, f"{FILE_NAME}{name_salt}")
-    topics = [f"{table.name}{i}" for i in range(TOPIC_COUNT)]
+    table = Table(driver, f"{FILE_NAME}{name_salt}".upper())
+    topics = [f"{FILE_NAME}{name_salt}{i}" for i in range(TOPIC_COUNT)]
 
     # Register schemas and create Kafka topics
     sr_client = SchemaRegistryClient({"url": driver.schemaRegistryAddress})

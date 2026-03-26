@@ -63,12 +63,12 @@ def test_schema(credentials_unsalted, session_name_salt):
     try:
         logger.info(f"Creating test schema: {fqn}")
         conn = snowflake.connector.connect(**conn_config.to_dict())
-        conn.cursor().execute("CREATE SCHEMA IF NOT EXISTS identifier(%s)", (fqn,))
+        conn.cursor().execute(f"CREATE SCHEMA IF NOT EXISTS {fqn}")
         yield salted_schema
     finally:
         logger.info(f"Dropping test schema: {fqn}")
         conn = snowflake.connector.connect(**conn_config.to_dict())
-        conn.cursor().execute("DROP SCHEMA IF EXISTS identifier(%s) CASCADE", (fqn,))
+        conn.cursor().execute(f"DROP SCHEMA IF EXISTS {fqn} CASCADE")
         conn.close()
 
 

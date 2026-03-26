@@ -6,17 +6,17 @@ RECORD_COUNT = 100
 
 
 def test_snowpipe_streaming_legacy_string_json(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify that enable.schematization=false wraps JSON records into the
     legacy RECORD_CONTENT / RECORD_METADATA VARIANT columns — the same
     table layout that KC v3 used by default.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(RECORD_METADATA variant, RECORD_CONTENT variant)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 

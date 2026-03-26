@@ -13,7 +13,7 @@ EXPECTED_IN_DLQ = 2 * RECORDS_PER_TYPE  # two types of incorrect records
 
 @pytest.mark.skip(reason="Requires client-side validation")
 def test_snowpipe_streaming_schema_mapping_dlq(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
 ):
     """Verify that schema mapping errors route failing records to the DLQ
     while correct records are ingested normally.
@@ -26,10 +26,10 @@ def test_snowpipe_streaming_schema_mapping_dlq(
     Only type (3) should land in the table. Types (1) and (2) go to DLQ.
     """
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(PERFORMANCE_STRING STRING, RATING_INT NUMBER, RECORD_METADATA VARIANT)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     config = create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

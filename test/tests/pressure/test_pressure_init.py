@@ -69,9 +69,10 @@ def test_pressure_init(driver, create_topics, create_custom_connector, wait_for_
                 logger.info(f"Sent {i}/{total} partitions")
 
     for i, topic in enumerate(topics):
-        logger.info("Verifying topic %d/%d: %s", i + 1, TOPIC_COUNT, topic)
+        table_name = topic.upper()
+        logger.info("Verifying topic %d/%d: %s", i + 1, TOPIC_COUNT, table_name)
         wait_for_rows(
-            topic,
+            table_name,
             PARTITION_COUNT * RECORD_COUNT,
             interval=10,
             timeout=1800,

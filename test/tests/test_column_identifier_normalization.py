@@ -29,10 +29,10 @@ def test_with_validation(
 
     tag = f"val_n{'1' if normalization else '0'}"
     table = create_table(
-        f"column_identifier_normalization_{tag}",
+        f"column_identifier_normalization_{tag}".upper(),
         columns=TWO_CITY_DDL,
     )
-    topic = table.name
+    topic = f"column_identifier_normalization_{tag}{name_salt}"
     dlq = f"DLQ_NORM_{name_salt}_{tag}"
 
     connector = create_connector(
@@ -67,7 +67,7 @@ def test_with_validation(
     driver.sendBytesData(
         topic, [json.dumps(r).encode("utf-8") for r in rows], partition=0
     )
-    wait_for_rows(topic, 4, connector_name=connector.name)
+    wait_for_rows(table.name, 4, connector_name=connector.name)
 
     row0 = table.select("*", 'WHERE "ID" = 0')[0]
     assert row0["city"] == "lower_0"
@@ -107,10 +107,10 @@ def test_without_validation(
     """
     tag = f"noval_n{'1' if normalization else '0'}"
     table = create_table(
-        f"column_identifier_normalization_{tag}",
+        f"column_identifier_normalization_{tag}".upper(),
         columns=TWO_CITY_DDL,
     )
-    topic = table.name
+    topic = f"column_identifier_normalization_{tag}{name_salt}"
     dlq = f"DLQ_NORM_{name_salt}_{tag}"
 
     connector = create_connector(
@@ -145,7 +145,7 @@ def test_without_validation(
     driver.sendBytesData(
         topic, [json.dumps(r).encode("utf-8") for r in rows], partition=0
     )
-    wait_for_rows(topic, 4, connector_name=connector.name)
+    wait_for_rows(table.name, 4, connector_name=connector.name)
 
     row0 = table.select("*", 'WHERE "ID" = 0')[0]
     assert row0["city"] == "lower_0"

@@ -1,6 +1,6 @@
 from typing import List
 import pytest
-from lib.driver import KafkaDriver
+from lib.driver import KafkaDriver, quote_name
 from snowflake.connector import DictCursor
 
 
@@ -14,16 +14,14 @@ class Table:
 
     def create(self, columns: str):
         self.driver.snowflake_conn.cursor().execute(
-            f"CREATE OR REPLACE TABLE identifier(%s) {columns}",
-            (self.name,),
+            f"CREATE OR REPLACE TABLE {quote_name(self.name)} {columns}"
         )
 
     def select(self, projections: str, extra_clauses: str = ""):
         return (
             self.driver.snowflake_conn.cursor(DictCursor)
             .execute(
-                f"SELECT {projections} FROM identifier(%s) {extra_clauses}",
-                (self.name,),
+                f"SELECT {projections} FROM {quote_name(self.name)} {extra_clauses}"
             )
             .fetchall()
         )
@@ -31,14 +29,14 @@ class Table:
     def select_scalar(self, projection: str):
         return (
             self.driver.snowflake_conn.cursor()
-            .execute(f"SELECT {projection} FROM identifier(%s)", (self.name,))
+            .execute(f"SELECT {projection} FROM {quote_name(self.name)}")
             .fetchone()[0]
         )
 
     def schema(self):
         return (
             self.driver.snowflake_conn.cursor()
-            .execute("DESC TABLE identifier(%s)", (self.name,))
+            .execute(f"DESC TABLE {quote_name(self.name)}")
             .fetchall()
         )
 

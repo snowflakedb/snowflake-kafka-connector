@@ -7,12 +7,14 @@ CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100
 
 
-def test_json_json(driver, create_connector_from_file, create_table, wait_for_rows):
+def test_json_json(
+    driver, name_salt, create_connector_from_file, create_table, wait_for_rows
+):
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns='(record_metadata variant, "NUMBER" varchar)',
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

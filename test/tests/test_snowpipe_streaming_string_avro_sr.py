@@ -26,6 +26,7 @@ VALUE_SCHEMA = avro.loads("""
 @pytest.mark.confluent_only
 def test_snowpipe_streaming_string_avro_sr(
     driver,
+    name_salt,
     connector_version,
     create_connector_from_file,
     create_table,
@@ -34,11 +35,11 @@ def test_snowpipe_streaming_string_avro_sr(
     if connector_version == "v3":
         pytest.skip("v3 plugin conflicts with Schema Registry classloading")
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, id number, firstName string, "
         "time number, someFloat number, someFloatNaN string)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     driver.createTopics(topic, partitionNum=PARTITION_COUNT, replicationNum=1)
 

@@ -7,13 +7,17 @@ EXPECTED_ROWS = 100  # only every-other event has optionalField
 
 
 def test_nullable_values_after_smt(
-    driver, create_connector_from_file, create_table, wait_for_rows
+    driver,
+    name_salt,
+    create_connector_from_file,
+    create_table,
+    wait_for_rows,
 ):
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(index number, from_optional_field boolean, record_metadata variant)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

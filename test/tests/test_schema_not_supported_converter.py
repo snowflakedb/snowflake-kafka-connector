@@ -20,16 +20,16 @@ RECORD = {
 
 
 def test_schema_not_supported_converter(
-    driver, create_connector_from_file, create_table
+    driver, name_salt, create_connector_from_file, create_table
 ):
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns='(PERFORMANCE_STRING STRING, "case_sensitive_PERFORMANCE_CHAR" CHAR, '
         "PERFORMANCE_HEX BINARY, RATING_INT NUMBER, RATING_DOUBLE DOUBLE, "
         "APPROVAL BOOLEAN, APPROVAL_DATE DATE, APPROVAL_TIME TIME, "
         "INFO_ARRAY ARRAY, INFO VARIANT, INFO_OBJECT OBJECT)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

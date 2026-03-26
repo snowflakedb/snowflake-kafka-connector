@@ -16,7 +16,7 @@ def test_multiple_topic_to_one_table_snowpipe_streaming(
     wait_for_rows,
 ):
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, field1 varchar)",
     )
 

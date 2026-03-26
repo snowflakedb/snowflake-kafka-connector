@@ -8,13 +8,13 @@ EXPECTED_IN_DLQ = 5
 
 
 def test_snowpipe_streaming_string_json_dlq(
-    driver, create_connector_from_file, create_table
+    driver, name_salt, create_connector_from_file, create_table
 ):
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, record_content variant)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 

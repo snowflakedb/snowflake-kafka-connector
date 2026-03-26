@@ -51,14 +51,14 @@ def test_avrosr_avrosr(
     if connector_version == "v3":
         pytest.skip("v3 plugin conflicts with Schema Registry classloading")
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, id number, firstName varchar, time number, "
         "someFloat number, someFloatNaN varchar, "
         "someFloatPositiveInfinity varchar, someFloatNegativeInfinity varchar, "
         "someDouble number, someDoubleNaN varchar, "
         "someDoublePositiveInfinity varchar, someDoubleNegativeInfinity varchar)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

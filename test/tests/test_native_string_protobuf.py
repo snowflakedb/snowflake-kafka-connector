@@ -27,15 +27,16 @@ def _build_sensor(sensor_pb2):
 def test_native_string_protobuf(
     sensor_pb2,
     driver,
+    name_salt,
     create_connector_from_file,
     create_table,
     wait_for_rows,
 ):
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns="(record_metadata variant, record_content variant)",
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()

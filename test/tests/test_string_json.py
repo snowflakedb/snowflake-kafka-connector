@@ -23,16 +23,17 @@ def _build_records() -> list[bytes | None]:
 
 def test_string_json(
     driver,
+    name_salt,
     connector_version,
     create_connector_from_file,
     create_table,
     wait_for_rows,
 ):
     table = create_table(
-        FILE_NAME,
+        FILE_NAME.upper(),
         columns='(record_metadata variant, "NUMBER" varchar)',
     )
-    topic = table.name
+    topic = f"{FILE_NAME}{name_salt}"
 
     create_connector_from_file(CONFIG_FILE)
     driver.startConnectorWaitTime()
