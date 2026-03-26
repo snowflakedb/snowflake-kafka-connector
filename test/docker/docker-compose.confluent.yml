@@ -39,6 +39,8 @@ services:
   kafka-connect:
     image: confluentinc/cp-kafka-connect:${CONFLUENT_VERSION:-7.8.0}
     hostname: kafka-connect
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       kafka:
         condition: service_healthy
