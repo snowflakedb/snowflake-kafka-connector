@@ -27,7 +27,7 @@ public class ClientValidationConfigTest {
 
     Object defaultValue = configDef.configKeys().get(SNOWFLAKE_VALIDATION).defaultValue;
 
-    assertEquals(SNOWFLAKE_VALIDATION_DEFAULT, defaultValue, "Default value should be client_side");
+    assertEquals(SNOWFLAKE_VALIDATION_DEFAULT, defaultValue, "Default value should be server_side");
   }
 
   @Test
@@ -61,7 +61,7 @@ public class ClientValidationConfigTest {
   }
 
   @Test
-  public void testValidationDefaultsToClientSide() {
+  public void testValidationDefaultsToServerSide() {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
 
     Map<String, String> props = new HashMap<>();
@@ -69,8 +69,8 @@ public class ClientValidationConfigTest {
     Map<String, Object> parsed = configDef.parse(props);
 
     assertEquals(
-        "client_side",
+        "server_side",
         parsed.get(SNOWFLAKE_VALIDATION),
-        "Should default to client_side when not specified");
+        "Should default to server_side when not specified");
   }
 }

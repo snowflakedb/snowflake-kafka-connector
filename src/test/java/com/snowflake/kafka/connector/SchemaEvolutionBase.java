@@ -68,6 +68,8 @@ abstract class SchemaEvolutionBase extends ConnectClusterBaseIT {
     config.put("errors.deadletterqueue.topic.name", "DLQ_TOPIC");
     config.put("errors.deadletterqueue.topic.replication.factor", "1");
     config.put("jmx", "true");
+    // Schema evolution type inference tests depend on client-side validation behavior
+    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "client_side");
     return config;
   }
 

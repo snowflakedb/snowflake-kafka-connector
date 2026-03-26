@@ -184,6 +184,8 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     config.put(
         KafkaConnectorConfigParams.VALUE_CONVERTER, "io.confluent.connect.avro.AvroConverter");
     config.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMA_REGISTRY_URL, "http://fake-url");
+    // Schema type inference assertions depend on client-side validation behavior
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "client_side");
     ConnectorConfigTools.setDefaultValues(config);
     return config;
   }
