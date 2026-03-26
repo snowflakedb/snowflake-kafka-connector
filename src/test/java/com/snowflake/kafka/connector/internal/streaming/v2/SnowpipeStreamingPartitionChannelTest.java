@@ -225,17 +225,24 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void insertRecordRetriesOnBackpressureWithoutReopeningChannel() {
+  void insertRecordThrowsBackpressureExceptionOnRetryableError() {
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
     partitionChannel.getChannel();
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
 
-    // appendRow will throw MemoryThresholdExceeded once, then succeed on retry
-    trackingClientSupplier.setRetryableAppendRowFailures(3);
+    // appendRow will throw MemoryThresholdExceeded (retryable error)
+    trackingClientSupplier.setRetryableAppendRowFailures(1);
 
-    partitionChannel.insertRecord(buildValidRecord(0), true);
+    // BackpressureException should propagate up (not caught in this layer)
+    // Task 4 will handle it at the batch-level insert() loop
+    BackpressureException exception =
+        assertThrows(
+            BackpressureException.class,
+            () -> partitionChannel.insertRecord(buildValidRecord(0), true));
 
-    // No channel reopening should have happened — only a retry of the same appendRow
+    assertEquals("SDK backpressure: MemoryThresholdExceeded", exception.getMessage());
+
+    // No channel reopening should have happened - the exception signals backpressure, not channel invalidation
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
   }

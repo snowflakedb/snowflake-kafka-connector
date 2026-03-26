@@ -26,28 +26,68 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
     CheckedRunnable supplier = () -> {};
 
     // When
-    AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
+    AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
         supplier, failingFallback(), channelName);
   }
 
   @Test
-  void shouldRetryOnRetryableException() {
+  void shouldThrowBackpressureExceptionOnRetryableException() {
     // Given
     AtomicInteger attemptCounter = new AtomicInteger(0);
+    SFException retryableException =
+        new SFException("MemoryThresholdExceeded", "Some Message", 429, "Some Stacktrace");
     CheckedRunnable supplier =
         () -> {
-          if (attemptCounter.getAndIncrement() < 2) {
-            throw new SFException(
-                "MemoryThresholdExceeded", "Some Message", 420, "Some Stacktrace");
-          }
+          attemptCounter.getAndIncrement();
+          throw retryableException;
         };
 
-    // When
-    AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
-        supplier, failingFallback(), channelName);
+    // When/Then
+    BackpressureException thrownException =
+        assertThrows(
+            BackpressureException.class,
+            () ->
+                AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
+                    supplier, failingFallback(), channelName));
 
     // Then
-    assertEquals(3, attemptCounter.get()); // Should retry thrice (1 initial + 2 retries)
+    assertEquals(1, attemptCounter.get()); // Should only attempt once (no retry)
+    assertSame(retryableException, thrownException.getCause());
+    assertEquals("SDK backpressure: MemoryThresholdExceeded", thrownException.getMessage());
+  }
+
+  @Test
+  void shouldThrowBackpressureExceptionForAllRetryableErrorCodes() {
+    // Test ReceiverSaturated
+    assertThrowsBackpressureException("ReceiverSaturated");
+
+    // Test MemoryThresholdExceeded
+    assertThrowsBackpressureException("MemoryThresholdExceeded");
+
+    // Test MemoryThresholdExceededInContainer
+    assertThrowsBackpressureException("MemoryThresholdExceededInContainer");
+
+    // Test HttpRetryableClientError
+    assertThrowsBackpressureException("HttpRetryableClientError");
+  }
+
+  private void assertThrowsBackpressureException(String errorCode) {
+    // Given
+    SFException sfException = new SFException(errorCode, "message", 429, "stack");
+    CheckedRunnable supplier = () -> {
+      throw sfException;
+    };
+
+    // When/Then
+    BackpressureException exception =
+        assertThrows(
+            BackpressureException.class,
+            () ->
+                AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
+                    supplier, failingFallback(), channelName));
+
+    assertSame(sfException, exception.getCause());
+    assertEquals("SDK backpressure: " + errorCode, exception.getMessage());
   }
 
   @Test
@@ -65,7 +105,7 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
     AtomicInteger fallbackCallCounter = new AtomicInteger(0);
 
     // When/Then
-    AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
+    AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
         supplier, countingFallbackSupplier(fallbackCallCounter), channelName);
 
     // Then
@@ -89,7 +129,7 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
+                AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
                     supplier, failingFallback(), channelName));
 
     assertSame(nonRetryableException, thrownException);
