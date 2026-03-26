@@ -18,6 +18,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
@@ -333,12 +334,48 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         continue;
       }
 
-      insert(record);
+      try {
+        insert(record);
+      } catch (BackpressureException e) {
+        LOGGER.warn(
+            "Backpressure detected during batch insert. Rewinding all partition offsets. Exception: {}",
+            e.getMessage());
+        rewindPartitions(partitions);
+        break;
+      }
     }
 
     if (!offsetsOfFirstSkippedRecord.isEmpty()) {
       LOGGER.info("Rewinding offsets for initializing partitions: {}", offsetsOfFirstSkippedRecord);
       offsetsOfFirstSkippedRecord.forEach(sinkTaskContext::offset);
+    }
+  }
+
+  /**
+   * Rewinds Kafka offsets for all partitions in the given set after a backpressure event.
+   *
+   * <p>For each partition:
+   *
+   * <ul>
+   *   <li>Skip initializing partitions (they are handled separately via
+   *       offsetsOfFirstSkippedRecord)
+   *   <li>Get the safe rewind offset from the channel (processedOffset + 1)
+   *   <li>If the offset is valid (not -1), call sinkTaskContext.offset() to rewind Kafka
+   * </ul>
+   *
+   * @param partitions set of partitions to rewind
+   */
+  private void rewindPartitions(Set<TopicPartition> partitions) {
+    for (TopicPartition tp : partitions) {
+      channelManager.getChannel(tp).ifPresent(channel -> {
+        if (channel.isInitializing()) {
+          return;
+        }
+        long offsetToRewind = channel.getOffsetSafeToRewindTo();
+        if (offsetToRewind != TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+          sinkTaskContext.offset(tp, offsetToRewind);
+        }
+      });
     }
   }
 
