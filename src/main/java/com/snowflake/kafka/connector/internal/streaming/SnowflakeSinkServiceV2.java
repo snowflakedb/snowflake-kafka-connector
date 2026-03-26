@@ -77,6 +77,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final boolean enableSanitization;
 
   private final PartitionChannelManager channelManager;
+  private final TaskMetrics taskMetrics;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -107,7 +108,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                 taskConfig.getConnectorName(),
                 taskConfig.getTaskId(),
                 taskMetrics,
-                conn));
+                conn),
+        taskMetrics);
   }
 
   SnowflakeSinkServiceV2(
@@ -116,7 +118,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SinkTaskContext sinkTaskContext,
       Optional<MetricsJmxReporter> metricsJmxReporter,
       Supplier<BatchOffsetFetcher> batchOffsetFetcherFactory,
-      Supplier<PartitionChannelManager> channelManagerFactory) {
+      Supplier<PartitionChannelManager> channelManagerFactory,
+      TaskMetrics taskMetrics) {
     if (conn == null || conn.isClosed()) {
       throw SnowflakeErrors.ERROR_5010.getException();
     }
@@ -135,6 +138,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     ThreadPools.registerTask(this.connectorName, taskConfig);
 
+    this.taskMetrics = taskMetrics;
     this.batchOffsetFetcher = batchOffsetFetcherFactory.get();
     this.channelManager = channelManagerFactory.get();
 
@@ -322,6 +326,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
+    Map<TopicPartition, Long> firstOffsetPerPartition = new HashMap<>();
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
@@ -329,6 +334,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
 
       TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
+      firstOffsetPerPartition.putIfAbsent(tp, record.kafkaOffset());
       if (initializingPartitions.contains(tp)) {
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
         continue;
@@ -340,7 +346,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         LOGGER.warn(
             "Backpressure detected during batch insert. Rewinding all partition offsets. Exception: {}",
             e.getMessage());
-        rewindPartitions(partitions);
+        taskMetrics.incBackpressureRewindCount();
+        rewindPartitions(partitions, firstOffsetPerPartition);
         break;
       }
     }
@@ -360,18 +367,28 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    *   <li>Skip initializing partitions (they are handled separately via
    *       offsetsOfFirstSkippedRecord)
    *   <li>Get the safe rewind offset from the channel (processedOffset + 1)
-   *   <li>If the offset is valid (not -1), call sinkTaskContext.offset() to rewind Kafka
+   *   <li>If the channel has no processed offset yet, fall back to the first offset seen for that
+   *       partition in the current batch
+   *   <li>Call sinkTaskContext.offset() to rewind Kafka
    * </ul>
    *
    * @param partitions set of partitions to rewind
+   * @param fallbackOffsets first offset per partition from the current batch, used when the channel
+   *     has no processed offset yet
    */
-  private void rewindPartitions(Set<TopicPartition> partitions) {
+  private void rewindPartitions(
+      Set<TopicPartition> partitions, Map<TopicPartition, Long> fallbackOffsets) {
     for (TopicPartition tp : partitions) {
       channelManager.getChannel(tp).ifPresent(channel -> {
         if (channel.isInitializing()) {
           return;
         }
         long offsetToRewind = channel.getOffsetSafeToRewindTo();
+        if (offsetToRewind == TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+          offsetToRewind =
+              fallbackOffsets.getOrDefault(
+                  tp, TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+        }
         if (offsetToRewind != TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
           sinkTaskContext.offset(tp, offsetToRewind);
         }

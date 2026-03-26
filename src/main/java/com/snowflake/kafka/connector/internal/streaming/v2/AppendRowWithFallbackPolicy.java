@@ -16,10 +16,10 @@ import java.time.Duration;
  * {@link BackpressureException} to signal the batch-level insert loop to abandon the batch and
  * rewind offsets.
  */
-class AppendRowWithRetryAndFallbackPolicy {
+class AppendRowWithFallbackPolicy {
 
   private static final KCLogger LOGGER =
-      new KCLogger(AppendRowWithRetryAndFallbackPolicy.class.getName());
+      new KCLogger(AppendRowWithFallbackPolicy.class.getName());
 
   /** Delay before fallback attempt (channel reopening). */
   private static final Duration FALLBACK_DELAY = Duration.ofMillis(500);

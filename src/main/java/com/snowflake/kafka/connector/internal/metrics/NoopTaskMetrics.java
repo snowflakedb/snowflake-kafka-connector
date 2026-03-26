@@ -55,6 +55,9 @@ enum NoopTaskMetrics implements TaskMetrics {
   public void incPreCommitPartitionsSkipped() {}
 
   @Override
+  public void incBackpressureRewindCount() {}
+
+  @Override
   public void markPutRecords(long count) {}
 
   @Override

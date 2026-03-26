@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.ingest.streaming.SFException;
@@ -84,5 +85,14 @@ public class BackpressureExceptionTest {
   void shouldRejectNullException() {
     // When/Then
     assertFalse(BackpressureException.isRetryableError(null));
+  }
+
+  @Test
+  void shouldRejectConstructionWithNonRetryableSFException() {
+    // Given
+    SFException nonRetryable = new SFException("SomeOtherError", "message", 500, "stack");
+
+    // When/Then
+    assertThrows(IllegalArgumentException.class, () -> new BackpressureException(nonRetryable));
   }
 }

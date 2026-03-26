@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
+import com.google.common.base.Preconditions;
 import com.snowflake.ingest.streaming.SFException;
 import java.util.Set;
 
@@ -39,6 +40,10 @@ public class BackpressureException extends RuntimeException {
    */
   public BackpressureException(SFException cause) {
     super("SDK backpressure: " + cause.getErrorCodeName(), cause);
+    Preconditions.checkArgument(
+        isRetryableError(cause),
+        "BackpressureException requires a retryable SFException, got: %s",
+        cause.getErrorCodeName());
   }
 
   /**

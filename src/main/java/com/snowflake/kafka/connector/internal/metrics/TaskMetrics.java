@@ -37,6 +37,8 @@ public interface TaskMetrics {
 
   void incPreCommitPartitionsSkipped();
 
+  void incBackpressureRewindCount();
+
   // ---- throughput ----
 
   void markPutRecords(long count);

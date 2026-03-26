@@ -19,6 +19,7 @@ import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
@@ -66,7 +67,8 @@ class SnowflakeSinkServiceV2Test {
             mockSinkTaskContext,
             Optional.empty(),
             () -> mockBatchOffsetFetcher,
-            () -> mockChannelManager);
+            () -> mockChannelManager,
+            TaskMetrics.noop());
   }
 
   @AfterEach
@@ -369,7 +371,7 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
-  void insertSkipsRewindForPartitionsWithNoOffset() {
+  void insertUsesRecordOffsetAsFallbackWhenChannelHasNoProcessedOffset() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
 
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
@@ -379,14 +381,14 @@ class SnowflakeSinkServiceV2Test {
     doThrow(new BackpressureException(new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
         .when(channel0).insertRecord(any(), anyBoolean());
 
-    // Channel returns -1 (no offset to rewind to)
+    // Channel returns -1 (no processed offset yet)
     when(channel0.getOffsetSafeToRewindTo())
         .thenReturn(TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
     service.insert(Collections.singletonList(recordFor(TOPIC, 0, 100)));
 
-    // No offset() call for this partition
-    verify(mockSinkTaskContext, never()).offset(any(TopicPartition.class), any(Long.class));
+    // Falls back to the record's offset from the batch
+    verify(mockSinkTaskContext).offset(tp0, 100L);
   }
 
   // --- helpers ---
@@ -416,7 +418,8 @@ class SnowflakeSinkServiceV2Test {
         mockSinkTaskContext,
         Optional.empty(),
         () -> mock(BatchOffsetFetcher.class),
-        () -> channelManager);
+        () -> channelManager,
+        TaskMetrics.noop());
   }
 
   private static TopicPartitionChannel mockChannel(String channelName, boolean initializing) {

@@ -238,7 +238,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   /**
-   * Uses {@link AppendRowWithRetryAndFallbackPolicy} to reopen the channel if insertRows throws
+   * Uses {@link AppendRowWithFallbackPolicy} to reopen the channel if insertRows throws
    * {@link SFException}.
    *
    * <p>We have deliberately not performed retries on insertRows because it might slow down overall
@@ -248,7 +248,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * channel is invalidated.
    */
   private void insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
-    AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
+    AppendRowWithFallbackPolicy.executeWithFallback(
         () -> {
           LOGGER.trace("Inserting transformed record: {}, offset: {}", transformedRecord, offset);
           getChannel().appendRow(transformedRecord, Long.toString(offset));

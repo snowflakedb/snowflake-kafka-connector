@@ -11,7 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
 
-public class AppendRowWithRetryAndFallbackPolicyTest {
+public class AppendRowWithFallbackPolicyTest {
 
   private final String channelName = "test_channel";
 
@@ -26,7 +26,7 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
     CheckedRunnable supplier = () -> {};
 
     // When
-    AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
+    AppendRowWithFallbackPolicy.executeWithFallback(
         supplier, failingFallback(), channelName);
   }
 
@@ -47,7 +47,7 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
         assertThrows(
             BackpressureException.class,
             () ->
-                AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
+                AppendRowWithFallbackPolicy.executeWithFallback(
                     supplier, failingFallback(), channelName));
 
     // Then
@@ -83,7 +83,7 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
         assertThrows(
             BackpressureException.class,
             () ->
-                AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
+                AppendRowWithFallbackPolicy.executeWithFallback(
                     supplier, failingFallback(), channelName));
 
     assertSame(sfException, exception.getCause());
@@ -105,7 +105,7 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
     AtomicInteger fallbackCallCounter = new AtomicInteger(0);
 
     // When/Then
-    AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
+    AppendRowWithFallbackPolicy.executeWithFallback(
         supplier, countingFallbackSupplier(fallbackCallCounter), channelName);
 
     // Then
@@ -129,20 +129,20 @@ public class AppendRowWithRetryAndFallbackPolicyTest {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                AppendRowWithRetryAndFallbackPolicy.executeWithFallback(
+                AppendRowWithFallbackPolicy.executeWithFallback(
                     supplier, failingFallback(), channelName));
 
     assertSame(nonRetryableException, thrownException);
     assertEquals(1, attemptCounter.get()); // Should only attempt once
   }
 
-  private AppendRowWithRetryAndFallbackPolicy.FallbackSupplierWithException failingFallback() {
+  private AppendRowWithFallbackPolicy.FallbackSupplierWithException failingFallback() {
     return exception -> {
       throw new RuntimeException("Test Scenario Failure");
     };
   }
 
-  private AppendRowWithRetryAndFallbackPolicy.FallbackSupplierWithException
+  private AppendRowWithFallbackPolicy.FallbackSupplierWithException
       countingFallbackSupplier(AtomicInteger callCounter) {
     return exception -> callCounter.getAndIncrement();
   }
