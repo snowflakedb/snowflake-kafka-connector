@@ -210,6 +210,10 @@ public class SnowflakeTelemetryServiceTest {
     channelStatus.incErrorToleratedCount();
     channelStatus.incErrorToleratedCount();
 
+    // Recovery count works without JMX
+    channelStatus.incRecoveryCount();
+    channelStatus.incRecoveryCount();
+
     partitionUsage = channelStatus;
 
     // when
@@ -255,6 +259,12 @@ public class SnowflakeTelemetryServiceTest {
 
     // Error-tolerated count
     assertEquals(3, dataNode.get(TelemetryConstants.ERROR_TOLERATED_COUNT).asLong());
+
+    // Channel recovery count (works without JMX)
+    assertEquals(2, dataNode.get(TelemetryConstants.CHANNEL_RECOVERY_COUNT).asLong());
+
+    // Validation disabled flag
+    assertFalse(dataNode.get(TelemetryConstants.VALIDATION_DISABLED).asBoolean());
   }
 
   @ParameterizedTest

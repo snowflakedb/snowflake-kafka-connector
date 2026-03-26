@@ -21,7 +21,6 @@ import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.channel
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.channelMetricPrefix;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
-import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -56,8 +55,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private final AtomicLong processedOffset;
   private final AtomicLong latestConsumerOffset;
 
-  // channel recovery counter (registered if JMX enabled)
-  private Counter recoveryCount;
+  // channel recovery counter (always tracked; also registered as JMX gauge if enabled)
+  private final AtomicLong recoveryCount = new AtomicLong(0);
 
   // Aggregated count of client-side validation failures for this channel.
   // Reported in channel status telemetry on close, avoiding per-record telemetry overhead.
@@ -66,6 +65,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   // Count of records where errors were tolerated (errors.tolerance=all) instead of failing the
   // task.
   private final AtomicLong errorToleratedCount = new AtomicLong(0);
+
+  // Whether client-side validation was silently disabled due to initialization failure.
+  private volatile boolean validationDisabled = false;
 
   /**
    * Creates a new object tracking {@link
@@ -122,6 +124,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME, System.currentTimeMillis());
     msg.put(TelemetryConstants.VALIDATION_FAILURE_COUNT, this.validationFailureCount.get());
     msg.put(TelemetryConstants.ERROR_TOLERATED_COUNT, this.errorToleratedCount.get());
+    msg.put(TelemetryConstants.CHANNEL_RECOVERY_COUNT, this.recoveryCount.get());
+    msg.put(TelemetryConstants.VALIDATION_DISABLED, this.validationDisabled);
   }
 
   private void registerChannelJMXMetrics(MetricsJmxReporter reporter) {
@@ -151,10 +155,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
           (Gauge<Long>) this.latestConsumerOffset::get);
 
-      this.recoveryCount =
-          currentMetricRegistry.counter(
-              channelMetricName(
-                  this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, CHANNEL_RECOVERY_COUNT));
+      currentMetricRegistry.register(
+          channelMetricName(
+              this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, CHANNEL_RECOVERY_COUNT),
+          (Gauge<Long>) this.recoveryCount::get);
     } catch (IllegalArgumentException ex) {
       LOGGER.warn("Metrics already present:{}", ex.getMessage());
     }
@@ -174,9 +178,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
         });
   }
 
-  /** Returns the channel recovery counter, or null if JMX is not enabled. */
-  public Counter getRecoveryCount() {
-    return this.recoveryCount;
+  /** Increments the channel recovery counter. Thread-safe. */
+  public void incRecoveryCount() {
+    this.recoveryCount.incrementAndGet();
   }
 
   /** Increments the validation failure counter. Thread-safe. */
@@ -187,6 +191,11 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Increments the error-tolerated counter. Thread-safe. */
   public void incErrorToleratedCount() {
     this.errorToleratedCount.incrementAndGet();
+  }
+
+  /** Marks that client-side validation was silently disabled due to initialization failure. */
+  public void setValidationDisabled() {
+    this.validationDisabled = true;
   }
 
   @VisibleForTesting
