@@ -716,6 +716,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     return pipeName;
   }
 
+  @Override
+  public long getOffsetSafeToRewindTo() {
+    long processed = offsetTracker.getProcessedOffset();
+    if (processed == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    }
+    return processed + 1;
+  }
+
   private void logChannelStatus(final ChannelStatus status) {
     LOGGER.info(
         "Channel status for channel=[{}]: databaseName=[{}], schemaName=[{}], pipeName=[{}],"

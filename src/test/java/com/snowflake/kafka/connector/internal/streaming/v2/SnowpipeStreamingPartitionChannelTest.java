@@ -269,6 +269,29 @@ class SnowpipeStreamingPartitionChannelTest {
         partitionChannel.isInitializing(), "Should not be initializing after future completes");
   }
 
+  @Test
+  void getOffsetSafeToRewindTo_returnsProcessedOffsetPlusOne() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+
+    // Insert a record at offset 5
+    SinkRecord record = buildValidRecord(5);
+    partitionChannel.insertRecord(record, true);
+
+    // Should return processedOffset + 1 = 5 + 1 = 6
+    assertEquals(6L, partitionChannel.getOffsetSafeToRewindTo());
+  }
+
+  @Test
+  void getOffsetSafeToRewindTo_returnsNoOffsetWhenNothingProcessed() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+
+    // No records inserted, processedOffset is still -1
+    assertEquals(
+        NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, partitionChannel.getOffsetSafeToRewindTo());
+  }
+
   private SinkRecord buildValidRecord(long offset) {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);

@@ -74,6 +74,19 @@ public interface TopicPartitionChannel {
     return CompletableFuture.completedFuture(null);
   }
 
+  /**
+   * Returns the offset safe to rewind to after a backpressure event.
+   *
+   * <p>The returned offset is (processedOffset + 1), which tells Kafka to resume from the next
+   * record after the last successfully processed record.
+   *
+   * @return the offset to rewind to, or {@link #NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE} if no
+   *     records have been processed yet
+   */
+  default long getOffsetSafeToRewindTo() {
+    return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+  }
+
   @VisibleForTesting
   SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus();
 }
