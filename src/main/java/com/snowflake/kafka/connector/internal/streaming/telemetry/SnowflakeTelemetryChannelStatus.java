@@ -63,6 +63,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   // Reported in channel status telemetry on close, avoiding per-record telemetry overhead.
   private final AtomicLong validationFailureCount = new AtomicLong(0);
 
+  // Count of records where errors were tolerated (errors.tolerance=all) instead of failing the
+  // task.
+  private final AtomicLong errorToleratedCount = new AtomicLong(0);
+
   /**
    * Creates a new object tracking {@link
    * com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel} metrics with
@@ -117,6 +121,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CREATION_TIME, this.channelCreationTime);
     msg.put(TelemetryConstants.TOPIC_PARTITION_CHANNEL_CLOSE_TIME, System.currentTimeMillis());
     msg.put(TelemetryConstants.VALIDATION_FAILURE_COUNT, this.validationFailureCount.get());
+    msg.put(TelemetryConstants.ERROR_TOLERATED_COUNT, this.errorToleratedCount.get());
   }
 
   private void registerChannelJMXMetrics(MetricsJmxReporter reporter) {
@@ -177,6 +182,11 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Increments the validation failure counter. Thread-safe. */
   public void incValidationFailureCount() {
     this.validationFailureCount.incrementAndGet();
+  }
+
+  /** Increments the error-tolerated counter. Thread-safe. */
+  public void incErrorToleratedCount() {
+    this.errorToleratedCount.incrementAndGet();
   }
 
   @VisibleForTesting

@@ -206,6 +206,10 @@ public class SnowflakeTelemetryServiceTest {
             new AtomicLong(expectedProcessedOffset),
             new AtomicLong(expectedLatestConsumerOffset));
 
+    channelStatus.incErrorToleratedCount();
+    channelStatus.incErrorToleratedCount();
+    channelStatus.incErrorToleratedCount();
+
     partitionUsage = channelStatus;
 
     // when
@@ -248,6 +252,9 @@ public class SnowflakeTelemetryServiceTest {
         expectedTpChannelName,
         dataNode.get(TelemetryConstants.TOPIC_PARTITION_CHANNEL_NAME).asText());
     assertEquals(expectedConnectorName, dataNode.get(TelemetryConstants.CONNECTOR_NAME).asText());
+
+    // Error-tolerated count
+    assertEquals(3, dataNode.get(TelemetryConstants.ERROR_TOLERATED_COUNT).asLong());
   }
 
   @ParameterizedTest

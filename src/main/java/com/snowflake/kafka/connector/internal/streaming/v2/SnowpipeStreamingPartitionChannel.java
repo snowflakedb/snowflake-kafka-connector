@@ -176,6 +176,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       if (record.isBroken()) {
         LOGGER.debug("Broken record offset:{}, topic:{}", kafkaOffset, kafkaSinkRecord.topic());
         streamingErrorHandler.handleError(record.getBrokenReason(), kafkaSinkRecord);
+        // If we reach here, the error was tolerated (errors.tolerance=all)
+        snowflakeTelemetryChannelStatus.incErrorToleratedCount();
       } else {
         // If we reach here, it means we should ingest a record (possibly empty for tombstones)
         final Map<String, Object> transformedRecord =
@@ -451,6 +453,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         String.format(
             "Validation failed for column %s: %s", result.getColumnName(), result.getValueError());
     streamingErrorHandler.handleError(new DataException(errorMsg), record);
+    snowflakeTelemetryChannelStatus.incErrorToleratedCount();
   }
 
   private void handleStructuralError(
@@ -482,6 +485,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               result.getExtraColNames(), result.getMissingNotNullColNames());
       LOGGER.info("Routing to DLQ for channel {}: {}", channelName, errorMsg);
       streamingErrorHandler.handleError(new DataException(errorMsg), kafkaRecord);
+      snowflakeTelemetryChannelStatus.incErrorToleratedCount();
       return;
     }
 
@@ -509,6 +513,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               "Schema mismatch after evolution attempt: extraCols=%s, missingNotNull=%s",
               retryResult.getExtraColNames(), retryResult.getMissingNotNullColNames());
       streamingErrorHandler.handleError(new DataException(errorMsg), kafkaRecord);
+      snowflakeTelemetryChannelStatus.incErrorToleratedCount();
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Schema evolution failed for table {}", tableName, e);
       throw e;
