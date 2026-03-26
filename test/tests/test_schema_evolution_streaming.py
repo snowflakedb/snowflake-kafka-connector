@@ -301,7 +301,7 @@ def test_schema_evolution_config_variants(
       - schematization=on: validates individual columns (CITY, AGE, etc.)
       - schematization=off: validates RECORD_CONTENT/RECORD_METADATA VARIANT
         columns against the table schema.
-      - validation can be toggled via snowflake.client.validation.enabled.
+      - validation can be toggled via snowflake.validation.
 
     v3 (KC v3):
       - V1 Ingest SDK always performs client-side validation; it cannot be
@@ -354,7 +354,7 @@ def test_schema_evolution_config_variants(
 
     overrides = {
         "snowflake.enable.schematization": str(schematization).lower(),
-        "snowflake.client.validation.enabled": str(validation).lower(),
+        "snowflake.validation": "client_side" if validation else "server_side",
         "errors.deadletterqueue.topic.name": dlq_topic,
     }
 

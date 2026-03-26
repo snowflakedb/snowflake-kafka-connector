@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import java.util.ArrayList;
@@ -51,7 +52,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
         SinkTaskConfigTestBuilder.builder()
             .connectorName("test-connector")
             .taskId("0")
-            .clientValidationEnabled(true)
+            .validation(SnowflakeValidation.CLIENT_SIDE)
             .tolerateErrors(false)
             .build();
 
@@ -78,7 +79,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
         SinkTaskConfigTestBuilder.builder()
             .connectorName("test-connector")
             .taskId("0")
-            .clientValidationEnabled(true)
+            .validation(SnowflakeValidation.CLIENT_SIDE)
             .tolerateErrors(true)
             .dlqTopicName("my-dlq-topic")
             .build();
@@ -108,7 +109,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
         SinkTaskConfigTestBuilder.builder()
             .connectorName("test-connector")
             .taskId("0")
-            .clientValidationEnabled(true)
+            .validation(SnowflakeValidation.CLIENT_SIDE)
             .tolerateErrors(true)
             .dlqTopicName("")
             .build();
@@ -140,7 +141,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
         SinkTaskConfigTestBuilder.builder()
             .connectorName("test-connector")
             .taskId("0")
-            .clientValidationEnabled(false)
+            .validation(SnowflakeValidation.SERVER_SIDE)
             .build();
 
     SnowflakeSinkServiceV2 service = createServiceWithConfig(config);

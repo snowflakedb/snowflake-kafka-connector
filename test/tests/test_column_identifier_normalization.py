@@ -43,10 +43,10 @@ def test_with_validation(
             "value.converter": "org.apache.kafka.connect.json.JsonConverter",
             "value.converter.schemas.enable": "false",
             "snowflake.enable.schematization": "true",
-            "snowflake.enable.column.identifier.normalization": str(
+            "snowflake.compatibility.enable.column.identifier.normalization": str(
                 normalization
             ).lower(),
-            "snowflake.client.validation.enabled": "true",
+            "snowflake.validation": "client_side",
             "errors.tolerance": "all",
             "errors.log.enable": "true",
             "errors.deadletterqueue.topic.name": dlq,
@@ -121,10 +121,10 @@ def test_without_validation(
             "value.converter": "org.apache.kafka.connect.json.JsonConverter",
             "value.converter.schemas.enable": "false",
             "snowflake.enable.schematization": "true",
-            "snowflake.enable.column.identifier.normalization": str(
+            "snowflake.compatibility.enable.column.identifier.normalization": str(
                 normalization
             ).lower(),
-            "snowflake.client.validation.enabled": "false",
+            "snowflake.validation": "server_side",
             "errors.tolerance": "all",
             "errors.log.enable": "true",
             "errors.deadletterqueue.topic.name": dlq,

@@ -605,7 +605,7 @@ class KafkaDriver:
         # Template files were written for v3 which always normalized identifiers.
         # Default normalization to true so existing tests keep working with v4.
         rest_request["config"].setdefault(
-            "snowflake.enable.column.identifier.normalization", "true"
+            "snowflake.compatibility.enable.column.identifier.normalization", "true"
         )
 
         MAX_RETRY = 9

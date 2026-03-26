@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
@@ -287,7 +288,10 @@ class SnowflakeSinkServiceV2Test {
         SinkTaskConfigTestBuilder.builder()
             .connectorName(CONNECTOR_NAME)
             .taskId("0")
-            .clientValidationEnabled(clientValidationEnabled)
+            .validation(
+                clientValidationEnabled
+                    ? SnowflakeValidation.CLIENT_SIDE
+                    : SnowflakeValidation.SERVER_SIDE)
             .enableSanitization(false)
             .build();
     return new SnowflakeSinkServiceV2(

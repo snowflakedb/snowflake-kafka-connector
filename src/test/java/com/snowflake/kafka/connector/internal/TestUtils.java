@@ -294,7 +294,7 @@ public class TestUtils {
     // to match Snowflake's default uppercase column names).
     configuration.put(
         com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
-            .SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
+            .SNOWFLAKE_COMPATIBILITY_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
         "true");
 
     return configuration;

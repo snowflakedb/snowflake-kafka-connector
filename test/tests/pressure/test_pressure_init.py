@@ -46,7 +46,7 @@ def test_pressure_init(driver, create_topics, create_custom_connector, wait_for_
             "key.converter": "org.apache.kafka.connect.storage.StringConverter",
             "value.converter": "org.apache.kafka.connect.json.JsonConverter",
             "value.converter.schemas.enable": "false",
-            "snowflake.client.validation.enabled": "false",
+            "snowflake.validation": "server_side",
             # Increase max poll interval from 5 to 10 minutes to avoid constant rebalancing.
             # This is required when we have a large number of topics across tasks.
             # We might be able to remove this once we parallelize table and pipe metadata lookups.

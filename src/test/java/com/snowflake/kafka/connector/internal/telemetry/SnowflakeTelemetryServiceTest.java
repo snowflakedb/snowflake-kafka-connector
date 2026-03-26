@@ -96,7 +96,7 @@ public class SnowflakeTelemetryServiceTest {
   @Test
   public void testReportKafkaConnectStart_clientValidationExplicitlySet() {
     Map<String, String> connectorConfig = createConnectorConfig();
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
     SnowflakeTelemetryService snowflakeTelemetryService =
         createSnowflakeTelemetryService(connectorConfig);
 
@@ -107,8 +107,7 @@ public class SnowflakeTelemetryServiceTest {
 
     JsonNode dataNode = sentData.get(0).getMessage().get("data");
     assertEquals(
-        "false",
-        dataNode.get(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED).asText());
+        "server_side", dataNode.get(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION).asText());
   }
 
   @ParameterizedTest

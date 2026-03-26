@@ -77,7 +77,7 @@ def test_schema_mapping(
     # structural error. Fix by normalizing both sides in RowValidator.
     create_connector_from_file(
         CONFIG_FILE,
-        config_overrides={"snowflake.client.validation.enabled": "false"},
+        config_overrides={"snowflake.validation": "server_side"},
     )
     driver.startConnectorWaitTime()
 

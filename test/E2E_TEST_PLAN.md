@@ -38,8 +38,8 @@ Kafka Connector v4 replaces v3's dual ingestion engines (file-based Snowpipe + S
 
 | Mode | Config | Validation | Schema Evolution | Error Handling | Target Use Case |
 |------|--------|-----------|-----------------|----------------|-----------------|
-| **Compatibility** | `snowflake.client.validation.enabled=true` (default) | Client-side | Client-side `ALTER TABLE` | Sync DLQ / Sync Abort | v3 migration, parity |
-| **High-Throughput** | `snowflake.client.validation.enabled=false` | None (server) | Server-side (table `ENABLE_SCHEMA_EVOLUTION`) | Async Error Tables | Max throughput (10 GB/s target) |
+| **Compatibility** | `snowflake.validation=client_side` (default) | Client-side | Client-side `ALTER TABLE` | Sync DLQ / Sync Abort | v3 migration, parity |
+| **High-Throughput** | `snowflake.validation=server_side` | None (server) | Server-side (table `ENABLE_SCHEMA_EVOLUTION`) | Async Error Tables | Max throughput (10 GB/s target) |
 
 ### PRD Functional Requirements
 
@@ -47,7 +47,7 @@ Kafka Connector v4 replaces v3's dual ingestion engines (file-based Snowpipe + S
 |----|------|-------|
 | FR1 | Client-Side DLQ (`errors.tolerance=all`) -- includes data type validation parity | Compatibility mode |
 | FR2 | Client-Side Abort (`errors.tolerance=none`) -- includes data type validation parity | Compatibility mode |
-| FR3 | Validation Toggle (`snowflake.client.validation.enabled`) | Mode switch |
+| FR3 | Validation Toggle (`snowflake.validation`) | Mode switch |
 | FR4 | Legacy Schema Toggle (`snowflake.enable.schematization`) | Both modes |
 | FR5 | Default Pipes Only (`MATCH_BY_COLUMN_NAME`) | Both modes |
 | FR6 | Schema Evolution | Both modes (different paths) |
@@ -107,12 +107,12 @@ Only formats used in the **Snowpipe Streaming** ingestion path are in scope. Leg
 | `dual (v3 blocked)` | Should be dual but v3 cannot run due to SR classloader conflict. **This is a parity gap.** | SR-based tests -- must be resolved or explicitly accepted as risk |
 | `v4` | v4 only | Feature has no v3 equivalent, or test only checks row counts / KC framework behavior |
 
-### Validation Mode
+### Architecture
 
 | Value | Config | Behavior |
 |-------|--------|----------|
-| `enabled` (default) | `snowflake.client.validation.enabled=true` | Client-side validation, DLQ, abort |
-| `disabled` | `snowflake.client.validation.enabled=false` | Server-side only, Error Tables |
+| `client_side` (default) | `snowflake.validation=client_side` | Client-side validation, DLQ, abort |
+| `server_side` | `snowflake.validation=server_side` | Server-side only, Error Tables |
 
 ### Schematization Mode
 
@@ -188,7 +188,7 @@ Auto table creation requires the connector to infer column types from the incomi
 
 #### 3.1.6 High-Throughput Mode Ingestion
 
-v4-only: no v3 equivalent. `snowflake.client.validation.enabled=false`.
+v4-only: no v3 equivalent. `snowflake.validation=server_side`.
 
 | Status | Test | Version | Format | Notes |
 |:------:|------|---------|--------|-------|
@@ -262,7 +262,7 @@ Schema evolution has two code paths:
 #### 3.3.1 Client-Side Schema Evolution (Compatibility Mode)
 
 **Analysis notes:**
-- All `se_*.json` config templates set `snowflake.client.validation.enabled=true` but do NOT explicitly set `snowflake.enable.schematization`. The v4 default is `true`, so schematization is implicitly on.
+- All `se_*.json` config templates set `snowflake.validation=client_side` but do NOT explicitly set `snowflake.enable.schematization`. The v4 default is `true`, so schematization is implicitly on.
 - `test_schema_evolution_streaming.py` uses `snowpipe_streaming_schema_evolution.json` which also does not set validation or schematization explicitly (relying on defaults).
 - **Overlap detected**: `test_se_nonnullable_json` and `test_schema_evolution_drop_not_null` test the same scenario (NOT NULL column dropped by SE). `test_se_auto_table_creation_json` and `test_schema_evolution_add_columns` partially overlap (new columns added via SE). These should be deduplicated when the SE test branches are merged.
 - **Config_variants gap**: `evo=True, schema=False` combos are all skipped with a TODO. `evo=False, schema=True, valid=False` returns early with no assertions.
@@ -291,7 +291,7 @@ Tests are dual when they exercise the client-side validation path (structural er
 
 #### 3.3.2 Server-Side Schema Evolution (High-Throughput Mode)
 
-When `snowflake.client.validation.enabled=false`, the connector does not perform client-side validation or DDL. Records go directly to the SSv2 SDK's `channel.appendRow()`. Schema evolution depends entirely on the Snowflake table property `ENABLE_SCHEMA_EVOLUTION = TRUE`.
+When `snowflake.validation=server_side`, the connector does not perform client-side validation or DDL. Records go directly to the SSv2 SDK's `channel.appendRow()`. Schema evolution depends entirely on the Snowflake table property `ENABLE_SCHEMA_EVOLUTION = TRUE`.
 
 Note: The connector source has no `MATCH_BY_COLUMN_NAME` or FDN-specific logic. "Server-side SE" means the Snowflake service handles schema mismatches for tables with `ENABLE_SCHEMA_EVOLUTION = TRUE`.
 

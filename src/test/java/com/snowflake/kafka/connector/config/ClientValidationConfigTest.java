@@ -1,10 +1,9 @@
 package com.snowflake.kafka.connector.config;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,76 +13,64 @@ import org.junit.jupiter.api.Test;
 public class ClientValidationConfigTest {
 
   @Test
-  public void testClientValidationConfigExists() {
+  public void testValidationConfigExists() {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
 
-    // Verify the config key exists in the definition
     assertNotNull(
-        configDef.configKeys().get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
-        "snowflake.client.validation.enabled should be defined in config");
+        configDef.configKeys().get(SNOWFLAKE_VALIDATION),
+        "snowflake.validation should be defined in config");
   }
 
   @Test
-  public void testClientValidationDefaultValue() {
+  public void testValidationDefaultValue() {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
 
-    // Verify default value is true
-    Object defaultValue =
-        configDef.configKeys().get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED).defaultValue;
+    Object defaultValue = configDef.configKeys().get(SNOWFLAKE_VALIDATION).defaultValue;
 
-    assertEquals(
-        SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT, defaultValue, "Default value should be true");
-    assertTrue((Boolean) defaultValue, "Default value should be true");
+    assertEquals(SNOWFLAKE_VALIDATION_DEFAULT, defaultValue, "Default value should be client_side");
   }
 
   @Test
-  public void testClientValidationConfigCanBeSetToFalse() {
+  public void testValidationCanBeSetToServerSide() {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
 
     Map<String, String> props = new HashMap<>();
-    props.put(SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    props.put(SNOWFLAKE_VALIDATION, "server_side");
 
-    // Parse the config with validation disabled
     Map<String, Object> parsed = configDef.parse(props);
 
-    // Verify it can be set to false
     assertEquals(
-        false,
-        parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
-        "Should be able to set validation to false");
+        "server_side",
+        parsed.get(SNOWFLAKE_VALIDATION),
+        "Should be able to set validation to server_side");
   }
 
   @Test
-  public void testClientValidationConfigCanBeSetToTrue() {
+  public void testValidationCanBeSetToClientSide() {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
 
     Map<String, String> props = new HashMap<>();
-    props.put(SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "true");
+    props.put(SNOWFLAKE_VALIDATION, "client_side");
 
-    // Parse the config with validation enabled
     Map<String, Object> parsed = configDef.parse(props);
 
-    // Verify it can be explicitly set to true
     assertEquals(
-        true,
-        parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
-        "Should be able to set validation to true");
+        "client_side",
+        parsed.get(SNOWFLAKE_VALIDATION),
+        "Should be able to set validation to client_side");
   }
 
   @Test
-  public void testClientValidationConfigDefaultsToTrue() {
+  public void testValidationDefaultsToClientSide() {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
 
     Map<String, String> props = new HashMap<>();
-    // Don't set the parameter - should use default
 
-    // Parse the config without specifying the validation parameter
     Map<String, Object> parsed = configDef.parse(props);
 
-    // Verify default is true
     assertEquals(
-        true,
-        parsed.get(SNOWFLAKE_CLIENT_VALIDATION_ENABLED),
-        "Should default to true when not specified");
+        "client_side",
+        parsed.get(SNOWFLAKE_VALIDATION),
+        "Should default to client_side when not specified");
   }
 }

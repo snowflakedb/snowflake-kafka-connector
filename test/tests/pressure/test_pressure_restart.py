@@ -47,7 +47,7 @@ def test_pressure_restart(driver: KafkaDriver, create_topics, create_custom_conn
         "key.converter": "org.apache.kafka.connect.storage.StringConverter",
         "value.converter": "org.apache.kafka.connect.json.JsonConverter",
         "value.converter.schemas.enable": "false",
-        "snowflake.client.validation.enabled": "false",
+        "snowflake.validation": "server_side",
     }
     connector = create_custom_connector(test_name, config)
 

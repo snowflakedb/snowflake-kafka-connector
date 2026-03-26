@@ -169,7 +169,7 @@ public enum SnowflakeErrors {
       "0032",
       "Non-default pipe not supported with client-side validation",
       "Client-side validation only supports default pipes ({table}-STREAMING). Either disable"
-          + " client-side validation (snowflake.client.validation.enabled=false) or drop the"
+          + " client-side validation (snowflake.validation=server_side) or drop the"
           + " existing pipe so the connector uses the default pipe.");
 
   // properties
