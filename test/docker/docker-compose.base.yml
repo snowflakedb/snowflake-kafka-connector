@@ -14,6 +14,7 @@ services:
       TEST_NAME_SALT:
       SF_CLOUD_PLATFORM:
       ENABLE_SSL: ${ENABLE_SSL:-false}
+      SNOWPIPE_STREAMING_URL: ${SNOWPIPE_STREAMING_URL:-}
     volumes:
       - ${SNOWFLAKE_CREDENTIAL_FILE:?SNOWFLAKE_CREDENTIAL_FILE is required}:/credentials/profile.json:ro
       - ../test_suit:/app/test_suit:ro
