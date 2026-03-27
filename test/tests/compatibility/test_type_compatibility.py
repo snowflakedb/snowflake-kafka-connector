@@ -11,8 +11,8 @@ that prefix to find all behavioral differences across modes.
 Parameterized across three ingestion modes via the ``ingestion_mode`` fixture
 (module-scoped):
   - v3:        SnowflakeSinkConnector with SNOWPIPE_STREAMING
-  - v4-compat: SnowflakeStreamingSinkConnector with client.validation.enabled=true
-  - v4-ht:     SnowflakeStreamingSinkConnector with client.validation.enabled=false
+  - v4-compat: SnowflakeStreamingSinkConnector with snowflake.validation=client_side
+  - v4-ht:     SnowflakeStreamingSinkConnector with snowflake.validation=server_side
                (server-side validation only, no DLQ — errors silently drop records)
 
 Type aliases (INT, STRING, DOUBLE, DECIMAL, CHAR, etc.) are not tested

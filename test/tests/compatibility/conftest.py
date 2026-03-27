@@ -270,9 +270,9 @@ def _build_mode_config(ingestion_mode, *, dlq_topic=None):
         case "v3":
             config = v4_config_to_v3(config)
         case "v4-compat":
-            config["snowflake.client.validation.enabled"] = "true"
+            config["snowflake.validation"] = "client_side"
         case "v4-ht":
-            config["snowflake.client.validation.enabled"] = "false"
+            config["snowflake.validation"] = "server_side"
 
     return config
 
