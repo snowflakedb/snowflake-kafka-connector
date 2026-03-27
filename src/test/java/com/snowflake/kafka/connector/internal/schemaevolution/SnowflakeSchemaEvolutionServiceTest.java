@@ -184,9 +184,7 @@ public class SnowflakeSchemaEvolutionServiceTest {
 
     SchemaEvolutionTargetItems items =
         new SchemaEvolutionTargetItems(
-            "test_table",
-            Collections.emptySet(),
-            new HashSet<>(Arrays.asList("RECORD_CONTENT")));
+            "test_table", Collections.emptySet(), new HashSet<>(Arrays.asList("RECORD_CONTENT")));
 
     service.evolveSchemaIfNeeded(items, syntheticRecord);
 

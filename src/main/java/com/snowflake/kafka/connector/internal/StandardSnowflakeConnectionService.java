@@ -24,6 +24,9 @@ import net.snowflake.client.api.driver.SnowflakeDriver;
  */
 public class StandardSnowflakeConnectionService implements SnowflakeConnectionService {
 
+  private static final String COLUMN_COMMENT =
+      "created by automatic table creation from Snowflake Kafka Connector High Performance";
+
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String SHOW_ICEBERG_TABLES_QUERY = "show iceberg tables like ? limit 1";
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
@@ -57,13 +60,36 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
+  public void createTableWithMetadataAndContentColumns(final String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String createTableQuery =
+        "create table if not exists identifier(?) (record_metadata variant comment '"
+            + COLUMN_COMMENT
+            + "', record_content variant comment '"
+            + COLUMN_COMMENT
+            + "')";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(createTableQuery);
+      stmt.setString(1, quoteIdentifier(tableName));
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+
+    LOGGER.info("Created table {} with RECORD_METADATA and RECORD_CONTENT columns", tableName);
+  }
+
+  @Override
   public void createTableWithOnlyMetadataColumn(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String createTableQuery =
-        "create table if not exists identifier(?) (record_metadata variant comment 'created by"
-            + " automatic table creation from Snowflake Kafka Connector High Performance')"
-            + " enable_schema_evolution = true";
+        "create table if not exists identifier(?) (record_metadata variant comment '"
+            + COLUMN_COMMENT
+            + "') enable_schema_evolution = true";
 
     try {
       PreparedStatement stmt = conn.prepareStatement(createTableQuery);

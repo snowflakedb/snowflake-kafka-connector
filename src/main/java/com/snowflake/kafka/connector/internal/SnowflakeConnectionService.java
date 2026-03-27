@@ -75,7 +75,7 @@ public interface SnowflakeConnectionService {
    *
    * @param tableName table name
    */
-  void createTable(String tableName);
+  void createTableWithMetadataAndContentColumns(String tableName);
 
   /**
    * Create a table with only the RECORD_METADATA column. The rest of the columns might be added

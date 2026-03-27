@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from lib.fixtures.table import Table
 
 pytestmark = pytest.mark.schema_evolution
 
@@ -298,11 +299,6 @@ def test_schema_evolution_config_variants(
     connector version are skipped with a reason (serving as documentation of
     the known v3/v4 differences).
 
-    Schema evolution is gated behind schematization in both v3 and v4, so
-    schematization=off combos are always skipped. When schematization is off,
-    RECORD_CONTENT is created as VARIANT at table creation time and schema
-    evolution is never attempted.
-
     v4 (KC v4):
       - Client-side validation works for both schematization=on and off.
       - schematization=on: validates individual columns (CITY, AGE, etc.)
@@ -320,14 +316,6 @@ def test_schema_evolution_config_variants(
       schema_evo=False + validation=False (v4 only): server Error Table
         handles errors; test returns early (no client-side assertion).
     """
-    if not schematization:
-        pytest.skip(
-            "Schema evolution is gated behind schematization "
-            "(enableSchemaEvolution = enableSchematization && "
-            "hasSchemaEvolutionPermission). When schematization is off, "
-            "RECORD_CONTENT is created as VARIANT at table creation time "
-            "and schema evolution is never attempted."
-        )
 
     if connector_version == "v3":
         if not validation:
@@ -336,20 +324,30 @@ def test_schema_evolution_config_variants(
                 "validation; validation cannot be disabled"
             )
 
-    evo_clause = "TRUE" if schema_evo else "FALSE"
-    table = create_table(
-        FILE_NAME.upper(),
-        columns=f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = {evo_clause}",
-        cleanup_topic=False,
-    )
-    topic = create_topics([FILE_NAME], with_tables=False)[0]
+        if schema_evo and not schematization:
+            pytest.skip(
+                "KC v3 does not support schema evolution when schematization is off"
+            )
 
     evo_tag = "evo" if schema_evo else "noevo"
     sch_tag = "sch" if schematization else "nosch"
     val_tag = "val" if validation else "noval"
-    dlq_topic = f"DLQ_MATRIX_{FILE_NAME}_{name_salt}_{evo_tag}_{sch_tag}_{val_tag}"
+    variant_name = f"{FILE_NAME}_{evo_tag}_{sch_tag}_{val_tag}"
+    topic = create_topics([variant_name], with_tables=False)[0]
+    dlq_topic = f"DLQ_MATRIX_{variant_name}_{name_salt}"
+
+    if not schema_evo and schematization:
+        # Pre-create with schema evo disabled so extra columns are rejected.
+        table = create_table(
+            variant_name.upper(),
+            columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = FALSE",
+            cleanup_topic=False,
+        )
+    else:
+        table = Table(driver, topic.upper())
 
     overrides = {
+        "topics": topic,
         "snowflake.enable.schematization": str(schematization).lower(),
         "snowflake.validation": "client_side" if validation else "server_side",
         "errors.deadletterqueue.topic.name": dlq_topic,
@@ -358,8 +356,21 @@ def test_schema_evolution_config_variants(
     config = create_connector_from_file(CONFIG_FILE, config_overrides=overrides)
     driver.startConnectorWaitTime()
 
-    if schema_evo:
-        record_count = 100
+    record_count = 100
+
+    if not schematization:
+        # When schematization is off, data is ingested into RECORD_CONTENT as
+        # VARIANT regardless of schema_evo or validation settings.
+        values = [
+            json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+            for i in range(record_count)
+        ]
+        driver.sendBytesData(topic, values, [], partition=0)
+
+        wait_for_rows(table.name, record_count)
+
+        _assert_success_rows(table, schematization, record_count)
+    elif schema_evo:
         values = [
             json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
             for i in range(record_count)
@@ -382,4 +393,4 @@ def test_schema_evolution_config_variants(
         ]
         driver.sendBytesData(topic, values, [], partition=0)
 
-        _assert_dlq(driver, config, topic, record_count)
+        _assert_dlq(driver, config, table, record_count)

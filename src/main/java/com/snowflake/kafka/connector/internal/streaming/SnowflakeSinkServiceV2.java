@@ -296,7 +296,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       if (taskConfig.isEnableSchematization()) {
         this.conn.createTableWithOnlyMetadataColumn(tableName);
       } else {
-        this.conn.createTable(tableName);
+        this.conn.createTableWithMetadataAndContentColumns(tableName);
       }
     }
   }

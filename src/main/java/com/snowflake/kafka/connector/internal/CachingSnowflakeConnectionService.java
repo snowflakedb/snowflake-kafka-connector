@@ -138,6 +138,12 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   // All other methods delegate directly without caching
 
   @Override
+  public void createTableWithMetadataAndContentColumns(String tableName) {
+    delegate.createTableWithMetadataAndContentColumns(tableName);
+    tableExistsCache.invalidate(tableName);
+  }
+
+  @Override
   public void createTableWithOnlyMetadataColumn(String tableName) {
     delegate.createTableWithOnlyMetadataColumn(tableName);
     tableExistsCache.invalidate(tableName);
