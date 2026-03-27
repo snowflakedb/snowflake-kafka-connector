@@ -49,7 +49,7 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
   void test_legacyMode_jsonConverter_wrapsInRecordContent() throws Exception {
     final Map<String, String> config = defaultProperties(topicName, connectorName);
     config.put("snowflake.enable.schematization", "false");
-    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
 
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);
@@ -80,7 +80,7 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
   void test_legacyMode_stringConverter_wrapsInRecordContent() {
     final Map<String, String> config = defaultProperties(topicName, connectorName);
     config.put("snowflake.enable.schematization", "false");
-    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
     config.put("value.converter", "org.apache.kafka.connect.storage.StringConverter");
 
     connectCluster.configureConnector(connectorName, config);
@@ -106,9 +106,10 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
   @Test
   void test_legacyMode_defaultSchematization_doesNotWrap() throws Exception {
     final Map<String, String> config = defaultProperties(topicName, connectorName);
-    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
     config.put(
-        Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
+        Constants.KafkaConnectorConfigParams
+            .SNOWFLAKE_COMPATIBILITY_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
         "false");
 
     connectCluster.configureConnector(connectorName, config);

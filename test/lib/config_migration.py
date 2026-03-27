@@ -56,5 +56,7 @@ def v3_config_to_v4(config: Dict[str, str]) -> Dict[str, str]:
     v4.setdefault("snowflake.enable.schematization", "false")
     # v3 always normalizes column identifiers (hardcoded behavior).
     # Preserve that by defaulting normalization to true for v4.
-    v4.setdefault("snowflake.enable.column.identifier.normalization", "true")
+    v4.setdefault(
+        "snowflake.compatibility.enable.column.identifier.normalization", "true"
+    )
     return v4

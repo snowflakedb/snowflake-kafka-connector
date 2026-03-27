@@ -6,6 +6,7 @@ import static com.snowflake.kafka.connector.internal.streaming.v2.service.Partit
 
 import com.codahale.metrics.Gauge;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -48,7 +49,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
   @BeforeEach
   public void setup() {
     Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(true);
-    configBuilder = SinkTaskConfig.builderFrom(config).clientValidationEnabled(false);
+    configBuilder = SinkTaskConfig.builderFrom(config).validation(SnowflakeValidation.SERVER_SIDE);
     pipe = table;
   }
 

@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -180,7 +181,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               + " RECORD_CONTENT/RECORD_METADATA.");
     }
 
-    if (!taskConfig.isClientValidationEnabled()) {
+    if (taskConfig.getValidation() != SnowflakeValidation.CLIENT_SIDE) {
       // VALIDATION DISABLED (High-Performance Mode)
       // Must verify SSv2 Error Table is configured to prevent records from being silently dropped
       // TODO: Check Error Table configuration when SSv2 API exposes this information
@@ -256,7 +257,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // When validation is enabled, reject non-default pipes (pipes whose name equals the table
       // name) because validation assumptions may not hold for user-created pipes.
       final String targetPipeName;
-      if (taskConfig.isClientValidationEnabled()) {
+      if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
         if (this.conn.pipeExist(tableName)) {
           throw SnowflakeErrors.ERROR_0032.getException("table: " + tableName);
         }

@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -176,7 +177,8 @@ public class PartitionChannelManager {
     final SnowflakeStreamingIngestClient streamingClient =
         StreamingClientPools.getClient(
             connectorName, taskId, pipeName, taskConfig, streamingClientProperties, taskMetrics);
-    final boolean clientValidationEnabled = taskConfig.isClientValidationEnabled();
+    final boolean clientValidationEnabled =
+        taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE;
 
     final PartitionOffsetTracker offsetTracker =
         new PartitionOffsetTracker(topicPartition, this.sinkTaskContext, channelName);
@@ -196,7 +198,7 @@ public class PartitionChannelManager {
         ThreadPools.getOpenChannelIoExecutor(connectorName);
 
     final boolean shouldEvolveSchema =
-        taskConfig.isClientValidationEnabled()
+        (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE)
             && shouldEvolveSchemaCache.computeIfAbsent(
                 tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
 

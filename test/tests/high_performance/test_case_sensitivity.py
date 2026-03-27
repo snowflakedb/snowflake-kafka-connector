@@ -65,7 +65,7 @@ def test_high_performance_case_sensitivity_table_name(
                 "key.converter": "org.apache.kafka.connect.storage.StringConverter",
                 "value.converter": "org.apache.kafka.connect.json.JsonConverter",
                 "value.converter.schemas.enable": "false",
-                "snowflake.client.validation.enabled": "false",
+                "snowflake.validation": "server_side",
             }.items()
             if value is not None
         }

@@ -57,9 +57,10 @@ class StreamingManualModeIT {
   @BeforeEach
   void beforeEach() throws SQLException {
     final Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(true);
-    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
     config.put(
-        Constants.KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
+        Constants.KafkaConnectorConfigParams
+            .SNOWFLAKE_COMPATIBILITY_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
         "false");
     SinkTaskConfig sinkTaskConfig = SinkTaskConfig.from(config);
     tableName = TestUtils.randomTableName();

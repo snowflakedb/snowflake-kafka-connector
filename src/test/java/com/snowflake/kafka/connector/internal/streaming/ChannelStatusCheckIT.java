@@ -285,7 +285,7 @@ class ChannelStatusCheckIT {
     config.put(ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
     config.put(KafkaConnectorConfigParams.NAME, connectorName);
     config.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE, "false");
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED, "false");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
     return config;
   }
 
