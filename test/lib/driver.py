@@ -604,12 +604,6 @@ class KafkaDriver:
         if config_transform is not None:
             rest_request["config"] = config_transform(rest_request["config"])
 
-        # Template files were written for v3 which always normalized identifiers.
-        # Default normalization to true so existing tests keep working with v4.
-        rest_request["config"].setdefault(
-            "snowflake.compatibility.enable.column.identifier.normalization", "true"
-        )
-
         # Allow the Snowpipe Streaming SDK's URL to be overridden for testing
         # against a local Snowflake deployment.
         if snowpipe_streaming_url := os.environ.get("SNOWPIPE_STREAMING_URL"):

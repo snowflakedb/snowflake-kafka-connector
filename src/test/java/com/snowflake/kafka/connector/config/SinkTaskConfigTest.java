@@ -35,9 +35,9 @@ public class SinkTaskConfigTest {
     assertTrue(config.isJmxEnabled());
     assertFalse(config.isTolerateErrors());
     assertNull(config.getDlqTopicName());
-    assertTrue(config.isEnableSanitization());
+    assertFalse(config.isEnableSanitization());
     assertTrue(config.isEnableSchematization());
-    assertEquals(SnowflakeValidation.CLIENT_SIDE, config.getValidation());
+    assertEquals(SnowflakeValidation.SERVER_SIDE, config.getValidation());
     assertEquals(50, config.getOpenChannelIoThreads());
     assertNotNull(config.getCachingConfig());
     assertNotNull(config.getMetadataConfig());
