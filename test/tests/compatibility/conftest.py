@@ -340,7 +340,7 @@ def results(driver, mode_salt, ingestion_mode):
     stable_since = None
 
     while time.monotonic() < deadline:
-        count = driver.select_number_of_records(table_name)
+        count = driver.select_number_of_records(table_name) or 0
         if count != last_count:
             last_count = count
             stable_since = time.monotonic()
@@ -511,7 +511,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
                 error = failed[0].get("trace", "no trace")
                 logger.info("Connector error for %s: %.500s", test_id, error)
                 break
-            tbl = driver.select_number_of_records(topic)
+            tbl = driver.select_number_of_records(topic) or 0
             if tbl >= len(values):
                 break
             time.sleep(2)
