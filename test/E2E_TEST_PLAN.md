@@ -277,9 +277,9 @@ Tests are dual when they exercise the client-side validation path (structural er
 | 🟢 | Drop NOT NULL constraint | dual | SE triggers via RowValidator null-in-NOT-NULL detection | JSON | `test_schema_evolution_streaming.py::test_schema_evolution_drop_not_null` |
 | 🟢 | Disabled mid-stream (toggle SE off) | v4 | Tests DDL privilege, not validation path | JSON | `test_schema_evolution_streaming.py::test_schema_evolution_disabled_mid_stream` |
 | 🟢 | Config matrix (8 combos: `evo x schematization x validation`) | dual | Core validation/SE interaction test | JSON | `test_schema_evolution_streaming.py::test_schema_evolution_config_variants` |
-| ⚫ | Avro SR with 2 topics, different schemas | dual (v3 blocked) | Parity gap: SE structural error path for Avro not verified against v3 | Avro SR | `schema_evolution/test_se_avro_sr.py` |
+| 🟢 | Avro SR with 2 topics, different schemas | v4 | v3 can't auto-create tables for Avro SR with topic2table.map; pre-created tables cause pipe invalidation on ALTER TABLE | Avro SR | `schema_evolution/test_se_avro_sr.py` |
 | 🟢 | Auto table creation + SE (JSON, 2 topics) | dual | SE + auto-create triggers via structural error | JSON | `schema_evolution/test_se_auto_table_creation_json.py` |
-| ⚫ | Auto table creation + SE (Avro SR, 2 topics) | dual (v3 blocked) | Parity gap: classloader | Avro SR | `schema_evolution/test_se_auto_table_creation_avro_sr.py` |
+| 🟢 | Auto table creation + SE (Avro SR, 2 topics) | v4 | Auto table creation is v4-only; v3 requires pre-existing tables | Avro SR | `schema_evolution/test_se_auto_table_creation_avro_sr.py` |
 | 🟢 | Non-nullable columns + SE | dual | SE triggers via null-in-NOT-NULL path | JSON | `schema_evolution/test_se_nonnullable_json.py` |
 | 🟢 | Tombstone handling during SE | dual | Asserts data values with SE | JSON | `schema_evolution/test_se_json_ignore_tombstone.py` |
 | 🟢 | Random batch sizes (flush timing) | dual | Tests timing-sensitive SE path | JSON | `schema_evolution/test_se_random_row_count.py` |
@@ -473,7 +473,7 @@ The E2E tests do not need to duplicate every SDK test case. They should focus on
 |----------|:---:|:---:|:---:|:---:|:---:|:---:|
 | Basic Ingestion | 🟢 | ⚫ | ⚫ | 🟢 | 🟢 (legacy) | 🟢 (legacy) |
 | Type Compatibility | 🔴 | 🔴 | -- | -- | -- | -- |
-| Schema Evolution (client) | 🟢 | ⚫ | 🔴 | -- | -- | -- |
+| Schema Evolution (client) | 🟢 | 🟢 | 🔴 | -- | -- | -- |
 | Schema Evolution (server) | 🔴 | 🔴 | -- | -- | -- | -- |
 | DLQ (compat) | 🟡 | 🔴 | 🔴 | -- | -- | -- |
 | Abort (compat) | 🔴 | -- | -- | -- | -- | -- |
@@ -490,7 +490,7 @@ The E2E tests do not need to duplicate every SDK test case. They should focus on
 |----------|:---:|:---:|
 | Basic Ingestion | 🟢 (2 dual, rest v4-only -- justified) | 🔴 (2 tests) |
 | Type Compatibility | 🔴 (new test file needed) | ⚪ |
-| Schema Evolution (client) | 🟡 (7 🟢, 2 ⚫, 2 🟡 xfail) | -- |
+| Schema Evolution (client) | 🟢 (9 🟢, 2 🟡 xfail) | -- |
 | Schema Evolution (server) | -- | 🔴 (6 tests) |
 | DLQ | 🟡 (1 needs dual, 5 missing) | ⚪ |
 | Abort | 🔴 (3 tests) | ⚪ |
@@ -511,7 +511,7 @@ The E2E tests do not need to duplicate every SDK test case. They should focus on
 | Type Compatibility | 0 | 4 | 1 | ~20 |
 | Error Handling (DLQ) | 0 | 2 | 1 | 3 + type DLQ |
 | Error Handling (Abort) | 0 | 0 | 0 | 3 |
-| Schema Evolution | 7 | 2 | 2 | 0 |
+| Schema Evolution | 9 | 0 | 2 | 0 |
 | RECORD_CONTENT Mode | 0 | 1 | 3 | 1 |
 | Table Creation | 0 | 2 | 0 | 1 |
 | Resilience (fault injection) | 0 | 0 | 0 | 4 |
@@ -598,9 +598,8 @@ These tests need dual verification but v3 is currently blocked by the SR classlo
 |-----------|:-----:|------|
 | Avro SR ingestion (data type handling) | 3 | SSv1/SSv2 may serialize Avro types differently |
 | Protobuf SR ingestion | 1 | Same risk for Protobuf types |
-| Avro SE (client-side) | 2 | SE structural error detection for Avro not verified |
 | Avro table creation | 2 | Type inference from Avro schema not verified against v3 |
 | Avro type compatibility | 4 | Full Avro type system not verified |
 | DLQ with Avro/Protobuf | 2 | Error handling for SR formats not verified |
 | RECORD_CONTENT + Avro SR | 1 | VARIANT content with Avro not verified |
-| **Total blocked** | **15** | |
+| **Total blocked** | **13** | |
