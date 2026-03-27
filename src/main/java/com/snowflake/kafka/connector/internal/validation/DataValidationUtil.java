@@ -131,8 +131,9 @@ class DataValidationUtil {
       try {
         return objectMapper.readTree(stringInput);
       } catch (JsonProcessingException e) {
-        throw valueFormatNotAllowedException(
-            columnName, snowflakeType, "Not a valid JSON", insertRowIndex);
+        // Plain strings that aren't valid JSON are acceptable as VARIANT values.
+        // The SSv2 SDK will store them as string-typed VARIANT.
+        return objectMapper.getNodeFactory().textNode(stringInput);
       }
     } else if (isAllowedSemiStructuredType(input)) {
       return objectMapper.valueToTree(input);

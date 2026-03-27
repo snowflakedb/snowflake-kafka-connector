@@ -622,11 +622,11 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_VALUE_ROW,
         () -> validateAndParseVariantNew("COL", "\"foo\uD800bar\"", 0));
 
-    // Test forbidden values
-    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseVariant("COL", "{null}", 0));
+    // Plain strings that aren't valid JSON are accepted as string-typed VARIANT values
+    assertEquals("\"{null}\"", validateAndParseVariant("COL", "{null}", 0));
     expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseVariantNew("COL", "{null}", 0));
 
-    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseVariant("COL", "}{", 0));
+    assertEquals("\"}{\"", validateAndParseVariant("COL", "}{", 0));
     expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseVariantNew("COL", "}{", 0));
 
     expectError(
@@ -639,7 +639,7 @@ public class DataValidationUtilTest {
     expectError(
         ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseVariantNew("COL", new Object(), 0));
 
-    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseVariant("COL", "foo", 0));
+    assertEquals("\"foo\"", validateAndParseVariant("COL", "foo", 0));
     expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseVariantNew("COL", "foo", 0));
 
     expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseVariant("COL", new Date(), 0));
@@ -818,8 +818,8 @@ public class DataValidationUtilTest {
     expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseArray("COL", new Object(), 0));
     expectError(
         ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseArrayNew("COL", new Object(), 0));
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseArray("COL", "foo", 0)); // invalid JSON
+    // Plain strings that aren't valid JSON are accepted as string-typed elements
+    assertEquals("[\"foo\"]", validateAndParseArray("COL", "foo", 0));
     expectError(
         ErrorCode.INVALID_VALUE_ROW,
         () -> validateAndParseArrayNew("COL", "foo", 0)); // invalid JSON
@@ -1513,12 +1513,8 @@ public class DataValidationUtilTest {
             + " Java types: String, Primitive data types and their arrays, java.time.*, List<T>,"
             + " Map<String, T>, T[]",
         () -> validateAndParseVariant("COL", new Object(), 0));
-    expectErrorCodeAndMessage(
-        ErrorCode.INVALID_VALUE_ROW,
-        "The given row cannot be converted to the internal format due to invalid value: Value"
-            + " cannot be ingested into Snowflake column COL of type VARIANT, rowIndex:0, reason:"
-            + " Not a valid JSON",
-        () -> validateAndParseVariant("COL", "][", 0));
+    // Plain strings that aren't valid JSON are accepted as string-typed VARIANT values
+    assertEquals("\"][\"", validateAndParseVariant("COL", "][", 0));
 
     // ARRAY
     expectErrorCodeAndMessage(
@@ -1528,12 +1524,8 @@ public class DataValidationUtilTest {
             + " Java types: String, Primitive data types and their arrays, java.time.*, List<T>,"
             + " Map<String, T>, T[]",
         () -> validateAndParseArray("COL", new Object(), 0));
-    expectErrorCodeAndMessage(
-        ErrorCode.INVALID_VALUE_ROW,
-        "The given row cannot be converted to the internal format due to invalid value: Value"
-            + " cannot be ingested into Snowflake column COL of type ARRAY, rowIndex:0, reason:"
-            + " Not a valid JSON",
-        () -> validateAndParseArray("COL", "][", 0));
+    // Plain strings that aren't valid JSON are accepted as string-typed array elements
+    assertEquals("[\"][\"]", validateAndParseArray("COL", "][", 0));
 
     // OBJECT
     expectErrorCodeAndMessage(
@@ -1547,7 +1539,7 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type OBJECT, rowIndex:0, reason:"
-            + " Not a valid JSON",
+            + " Not an object",
         () -> validateAndParseObject("COL", "}{", 0));
   }
 
