@@ -15,7 +15,7 @@ def snowflake_table(
     Tests that manually create a table (or rely on auto-table-creation) declare
     this fixture to ensure the table is dropped after the test completes.
     """
-    table_name = request.node.originalname.removeprefix("test_") + name_salt
+    table_name = (request.node.originalname.removeprefix("test_") + name_salt).upper()
     yield table_name
     driver.drop_table(table_name)
 

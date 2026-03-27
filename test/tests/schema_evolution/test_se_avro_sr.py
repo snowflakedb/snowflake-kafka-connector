@@ -80,9 +80,10 @@ def test_se_avro_sr(
     data with topic2table.map, and pre-created tables trigger pipe
     invalidation on ALTER TABLE.  Restricted to v4 (auto-creation works).
     """
-    table_name = f"se_avro_sr{name_salt}"
+    base = f"se_avro_sr{name_salt}"
+    table_name = base.upper()
 
-    topics = [f"{table_name}{i}" for i in range(2)]
+    topics = [f"{base}{i}" for i in range(2)]
     for t in topics:
         driver.createTopics(t, partitionNum=1, replicationNum=1)
 

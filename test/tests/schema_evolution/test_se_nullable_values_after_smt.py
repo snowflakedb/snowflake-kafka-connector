@@ -33,19 +33,20 @@ def test_se_nullable_values_after_smt(
     snowflake_table,
     wait_for_rows,
 ):
-    table_name = f"se_nullable_values_after_smt{name_salt}"
+    topic = f"se_nullable_values_after_smt{name_salt}"
+    table_name = topic.upper()
 
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {table_name} "
         f"(RECORD_METADATA VARIANT, INDEX NUMBER NOT NULL) "
         f"ENABLE_SCHEMA_EVOLUTION = TRUE"
     )
-    driver.createTopics(table_name, partitionNum=1, replicationNum=1)
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
     connector = create_connector(
         v4_config={
             **V4_CONFIG_TEMPLATE,
-            "topics": table_name,
+            "topics": topic,
             "tasks.max": "1",
             "key.converter": "org.apache.kafka.connect.storage.StringConverter",
             "value.converter": "org.apache.kafka.connect.json.JsonConverter",
@@ -68,7 +69,7 @@ def test_se_nullable_values_after_smt(
         if idx % 2 == 0:
             event["optionalField"] = {"index": idx, "from_optional_field": True}
         values.append(json.dumps(event).encode("utf-8"))
-    driver.sendBytesData(table_name, values)
+    driver.sendBytesData(topic, values)
 
     wait_for_rows(table_name, EXPECTED_ROWS, connector_name=connector_name)
 

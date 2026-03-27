@@ -66,8 +66,9 @@ def test_se_auto_table_creation_avro_sr(
     wait_for_rows,
 ):
     """Auto table creation is a v4-only feature; v3 requires pre-existing tables."""
-    table_name = f"se_auto_table_creation_avro_sr{name_salt}"
-    topics = [f"{table_name}{i}" for i in range(2)]
+    base = f"se_auto_table_creation_avro_sr{name_salt}"
+    table_name = base.upper()
+    topics = [f"{base}{i}" for i in range(2)]
 
     for t in topics:
         driver.createTopics(t, partitionNum=1, replicationNum=1)

@@ -39,8 +39,8 @@ def test_se_nonnullable_json(
     snowflake_table,
     wait_for_rows,
 ):
-    table_name = f"se_nonnullable_json{name_salt}"
-    topic = table_name
+    topic = f"se_nonnullable_json{name_salt}"
+    table_name = topic.upper()
 
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {table_name} "

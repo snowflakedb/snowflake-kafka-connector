@@ -50,8 +50,9 @@ def test_se_json_ignore_tombstone(
     snowflake_table,
     wait_for_rows,
 ):
-    table_name = f"se_json_ignore_tombstone{name_salt}"
-    topics = [f"{table_name}{i}" for i in range(2)]
+    base = f"se_json_ignore_tombstone{name_salt}"
+    table_name = base.upper()
+    topics = [f"{base}{i}" for i in range(2)]
 
     for t in topics:
         driver.createTopics(t, partitionNum=1, replicationNum=1)

@@ -63,8 +63,8 @@ def test_se_drop_table(
     """DROP TABLE mid-stream invalidates v4 streaming pipes even with
     snowflake.validation=client_side.  Restricted to v3.
     """
-    table_name = f"se_drop_table{name_salt}"
-    topic = table_name
+    topic = f"se_drop_table{name_salt}"
+    table_name = topic.upper()
 
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {table_name} "

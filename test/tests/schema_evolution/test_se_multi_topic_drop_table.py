@@ -73,8 +73,9 @@ def test_se_multi_topic_drop_table(
     """DROP TABLE mid-stream invalidates v4 streaming pipes even with
     snowflake.validation=client_side.  Restricted to v3.
     """
-    table_name = f"se_multi_topic_drop_table{name_salt}"
-    topics = [f"{table_name}{i}" for i in range(2)]
+    base = f"se_multi_topic_drop_table{name_salt}"
+    table_name = base.upper()
+    topics = [f"{base}{i}" for i in range(2)]
 
     for t in topics:
         driver.createTopics(t, partitionNum=1, replicationNum=1)

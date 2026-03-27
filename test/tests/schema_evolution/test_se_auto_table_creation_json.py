@@ -42,8 +42,9 @@ def test_se_auto_table_creation_json(
     create_connector,
     wait_for_rows,
 ):
-    table_name = f"se_auto_table_creation_json{name_salt}"
-    topics = [f"{table_name}{i}" for i in range(2)]
+    base = f"se_auto_table_creation_json{name_salt}"
+    table_name = base.upper()
+    topics = [f"{base}{i}" for i in range(2)]
 
     for t in topics:
         driver.createTopics(t, partitionNum=1, replicationNum=1)

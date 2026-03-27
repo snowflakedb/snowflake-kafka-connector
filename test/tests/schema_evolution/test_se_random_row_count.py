@@ -45,8 +45,9 @@ def test_se_random_row_count(
     initial_batch = random.randrange(1, 300)
     record_count = initial_batch + FLUSH_BATCH
 
-    table_name = f"se_random_row_count{name_salt}"
-    topics = [f"{table_name}{i}" for i in range(2)]
+    base = f"se_random_row_count{name_salt}"
+    table_name = base.upper()
+    topics = [f"{base}{i}" for i in range(2)]
 
     for t in topics:
         driver.createTopics(t, partitionNum=1, replicationNum=1)
