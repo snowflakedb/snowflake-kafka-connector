@@ -59,7 +59,7 @@ def test_se_nonnullable_json(
             "value.converter.schemas.enable": "false",
             "errors.tolerance": "none",
             "errors.log.enable": "true",
-            "snowflake.client.validation.enabled": "true",
+            "snowflake.validation": "client_side",
         }
     )
     connector_name = connector.name

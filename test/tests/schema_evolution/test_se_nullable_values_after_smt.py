@@ -56,7 +56,7 @@ def test_se_nullable_values_after_smt(
             "transforms": "extractField",
             "transforms.extractField.type": "org.apache.kafka.connect.transforms.ExtractField$Value",
             "transforms.extractField.field": "optionalField",
-            "snowflake.client.validation.enabled": "true",
+            "snowflake.validation": "client_side",
         }
     )
     connector_name = connector.name

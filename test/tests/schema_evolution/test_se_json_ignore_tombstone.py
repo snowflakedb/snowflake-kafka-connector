@@ -68,7 +68,7 @@ def test_se_json_ignore_tombstone(
             "errors.tolerance": "none",
             "errors.log.enable": "true",
             "behavior.on.null.values": "IGNORE",
-            "snowflake.client.validation.enabled": "true",
+            "snowflake.validation": "client_side",
         }
     )
     connector_name = connector.name

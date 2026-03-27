@@ -71,7 +71,7 @@ def test_se_multi_topic_drop_table(
     wait_for_rows,
 ):
     """DROP TABLE mid-stream invalidates v4 streaming pipes even with
-    client.validation.enabled=true.  Restricted to v3.
+    snowflake.validation=client_side.  Restricted to v3.
     """
     table_name = f"se_multi_topic_drop_table{name_salt}"
     topics = [f"{table_name}{i}" for i in range(2)]
@@ -90,7 +90,7 @@ def test_se_multi_topic_drop_table(
             "value.converter.schemas.enable": "false",
             "errors.tolerance": "all",
             "errors.log.enable": "true",
-            "snowflake.client.validation.enabled": "true",
+            "snowflake.validation": "client_side",
         }
     )
     driver.startConnectorWaitTime()
