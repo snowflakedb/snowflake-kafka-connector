@@ -294,16 +294,20 @@ def results(driver, mode_salt, ingestion_mode):
     from .test_type_compatibility import COLUMNS, CASES
 
     bootstrap = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-    # Uppercase topic/table names so v3 (which uppercases internally) and v4
-    # (which preserves case) both resolve to the same Snowflake table.
-    table_name = f"DT_COMPAT{mode_salt}".upper()
-    dlq_topic = f"DLQ_DT_COMPAT{mode_salt}".upper()
+    table_name = f"dt_compat{mode_salt}"
+    dlq_topic = f"dlq_dt_compat{mode_salt}"
+
+    # v3 (SnowflakeSinkConnector) uppercases topic→table internally.
+    # v4 (SnowflakeStreamingSinkConnector) preserves topic case for the table.
+    # We must create and query the Snowflake table with the case the connector
+    # will actually use, otherwise we get a case-sensitive table mismatch.
+    sf_table = table_name.upper() if ingestion_mode == "v3" else table_name
+    quoted_table = quote_name(sf_table)
 
     # Consistent timezone for timestamp tests
     driver.snowflake_conn.cursor().execute("ALTER SESSION SET TIMEZONE = 'UTC'")
 
     # Create single table from COLUMNS spec.
-    quoted_table = quote_name(table_name)
     col_defs = ", ".join(f"{name} {ddl}" for name, ddl in COLUMNS.items())
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {quoted_table} ({col_defs})"
@@ -349,7 +353,7 @@ def results(driver, mode_salt, ingestion_mode):
     stable_since = None
 
     while time.monotonic() < deadline:
-        count = driver.select_number_of_records(table_name) or 0
+        count = driver.select_number_of_records(sf_table) or 0
         if count != last_count:
             last_count = count
             stable_since = time.monotonic()
@@ -466,7 +470,7 @@ def typed_table(driver, mode_salt):
     created = []
 
     def _create(test_id, col_ddl):
-        topic = f"{test_id}{mode_salt}".upper()
+        topic = f"{test_id}{mode_salt}"
         quoted = quote_name(topic)
         driver.snowflake_conn.cursor().execute(
             f"CREATE OR REPLACE TABLE {quoted} "
