@@ -294,18 +294,16 @@ def results(driver, mode_salt, ingestion_mode):
     from .test_type_compatibility import COLUMNS, CASES
 
     bootstrap = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-    table_name = f"dt_compat{mode_salt}"
-    dlq_topic = f"dlq_dt_compat{mode_salt}"
+    # Uppercase topic/table names so v3 (which uppercases internally) and v4
+    # (which preserves case) both resolve to the same Snowflake table.
+    table_name = f"DT_COMPAT{mode_salt}".upper()
+    dlq_topic = f"DLQ_DT_COMPAT{mode_salt}".upper()
 
     # Consistent timezone for timestamp tests
     driver.snowflake_conn.cursor().execute("ALTER SESSION SET TIMEZONE = 'UTC'")
 
     # Create single table from COLUMNS spec.
-    # The connector uppercases the topic name to derive the Snowflake table
-    # name (Snowflake uppercases unquoted identifiers).  We must use the
-    # same uppercased name in DDL and queries so both sides reference the
-    # same table.
-    quoted_table = quote_name(table_name.upper())
+    quoted_table = quote_name(table_name)
     col_defs = ", ".join(f"{name} {ddl}" for name, ddl in COLUMNS.items())
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {quoted_table} ({col_defs})"
@@ -468,8 +466,8 @@ def typed_table(driver, mode_salt):
     created = []
 
     def _create(test_id, col_ddl):
-        topic = f"{test_id}{mode_salt}"
-        quoted = quote_name(topic.upper())
+        topic = f"{test_id}{mode_salt}".upper()
+        quoted = quote_name(topic)
         driver.snowflake_conn.cursor().execute(
             f"CREATE OR REPLACE TABLE {quoted} "
             f"(VALUE_COL {col_ddl}, RECORD_METADATA VARIANT)"
@@ -536,7 +534,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
         rows = (
             driver.snowflake_conn.cursor()
             .execute(
-                f'SELECT VALUE_COL FROM {quote_name(topic.upper())} ORDER BY RECORD_METADATA:"offset"::int'
+                f'SELECT VALUE_COL FROM {quote_name(topic)} ORDER BY RECORD_METADATA:"offset"::int'
             )
             .fetchall()
         )
