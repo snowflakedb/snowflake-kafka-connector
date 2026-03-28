@@ -25,6 +25,7 @@ import pytest
 from confluent_kafka import Consumer as KafkaConsumer, KafkaError
 
 from lib.config_migration import v4_config_to_v3
+from lib.driver import quote_name
 
 logger = logging.getLogger(__name__)
 
@@ -299,10 +300,18 @@ def results(driver, mode_salt, ingestion_mode):
     # Consistent timezone for timestamp tests
     driver.snowflake_conn.cursor().execute("ALTER SESSION SET TIMEZONE = 'UTC'")
 
-    # Create single table from COLUMNS spec
+    # Create single table from COLUMNS spec.
+    # Use quoted table name so it matches the case-sensitive name the v4
+    # connector will use (the connector quotes identifiers internally).
+    quoted_table = quote_name(table_name)
     col_defs = ", ".join(f"{name} {ddl}" for name, ddl in COLUMNS.items())
     driver.snowflake_conn.cursor().execute(
-        f"CREATE OR REPLACE TABLE {table_name} ({col_defs})"
+        f"CREATE OR REPLACE TABLE {quoted_table} ({col_defs})"
+    )
+    # v4 connector requires the table property for schema evolution (not the
+    # connector config).  Without this, any structural mismatch routes to DLQ.
+    driver.snowflake_conn.cursor().execute(
+        f"ALTER TABLE {quoted_table} SET ENABLE_SCHEMA_EVOLUTION = TRUE"
     )
 
     # Create topics
@@ -361,7 +370,7 @@ def results(driver, mode_salt, ingestion_mode):
 
     # Query all rows
     cursor = driver.snowflake_conn.cursor()
-    cursor.execute(f'SELECT * FROM {table_name} ORDER BY RECORD_METADATA:"offset"::int')
+    cursor.execute(f'SELECT * FROM {quoted_table} ORDER BY RECORD_METADATA:"offset"::int')
     col_names = [desc[0] for desc in cursor.description]
     raw_rows = cursor.fetchall()
 
@@ -456,9 +465,13 @@ def typed_table(driver, mode_salt):
 
     def _create(test_id, col_ddl):
         topic = f"{test_id}{mode_salt}"
+        quoted = quote_name(topic)
         driver.snowflake_conn.cursor().execute(
-            f"CREATE OR REPLACE TABLE {topic} "
+            f"CREATE OR REPLACE TABLE {quoted} "
             f"(VALUE_COL {col_ddl}, RECORD_METADATA VARIANT)"
+        )
+        driver.snowflake_conn.cursor().execute(
+            f"ALTER TABLE {quoted} SET ENABLE_SCHEMA_EVOLUTION = TRUE"
         )
         driver.createTopics(topic, partitionNum=1, replicationNum=1)
         created.append(topic)
@@ -519,7 +532,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
         rows = (
             driver.snowflake_conn.cursor()
             .execute(
-                f'SELECT VALUE_COL FROM {topic} ORDER BY RECORD_METADATA:"offset"::int'
+                f'SELECT VALUE_COL FROM {quote_name(topic)} ORDER BY RECORD_METADATA:"offset"::int'
             )
             .fetchall()
         )
