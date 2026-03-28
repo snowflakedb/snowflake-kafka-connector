@@ -372,7 +372,9 @@ def results(driver, mode_salt, ingestion_mode):
 
     # Query all rows
     cursor = driver.snowflake_conn.cursor()
-    cursor.execute(f'SELECT * FROM {quoted_table} ORDER BY RECORD_METADATA:"offset"::int')
+    cursor.execute(
+        f'SELECT * FROM {quoted_table} ORDER BY RECORD_METADATA:"offset"::int'
+    )
     col_names = [desc[0] for desc in cursor.description]
     raw_rows = cursor.fetchall()
 
