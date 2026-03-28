@@ -429,7 +429,14 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       if (!first) {
         query.append(", ");
       }
-      query.append(quoteIdentifier(colName)).append(" drop not null");
+      String quoted = quoteIdentifier(colName);
+      query
+          .append(quoted)
+          .append(" drop not null, ")
+          .append(quoted)
+          .append(
+              " comment 'column altered to be nullable by schema evolution from"
+                  + " Snowflake Kafka Connector'");
       first = false;
     }
 
