@@ -301,9 +301,11 @@ def results(driver, mode_salt, ingestion_mode):
     driver.snowflake_conn.cursor().execute("ALTER SESSION SET TIMEZONE = 'UTC'")
 
     # Create single table from COLUMNS spec.
-    # Use quoted table name so it matches the case-sensitive name the v4
-    # connector will use (the connector quotes identifiers internally).
-    quoted_table = quote_name(table_name)
+    # The connector uppercases the topic name to derive the Snowflake table
+    # name (Snowflake uppercases unquoted identifiers).  We must use the
+    # same uppercased name in DDL and queries so both sides reference the
+    # same table.
+    quoted_table = quote_name(table_name.upper())
     col_defs = ", ".join(f"{name} {ddl}" for name, ddl in COLUMNS.items())
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {quoted_table} ({col_defs})"
@@ -465,7 +467,7 @@ def typed_table(driver, mode_salt):
 
     def _create(test_id, col_ddl):
         topic = f"{test_id}{mode_salt}"
-        quoted = quote_name(topic)
+        quoted = quote_name(topic.upper())
         driver.snowflake_conn.cursor().execute(
             f"CREATE OR REPLACE TABLE {quoted} "
             f"(VALUE_COL {col_ddl}, RECORD_METADATA VARIANT)"
@@ -532,7 +534,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
         rows = (
             driver.snowflake_conn.cursor()
             .execute(
-                f'SELECT VALUE_COL FROM {quote_name(topic)} ORDER BY RECORD_METADATA:"offset"::int'
+                f'SELECT VALUE_COL FROM {quote_name(topic.upper())} ORDER BY RECORD_METADATA:"offset"::int'
             )
             .fetchall()
         )
