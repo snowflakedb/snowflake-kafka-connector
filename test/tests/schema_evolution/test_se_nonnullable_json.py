@@ -53,6 +53,7 @@ def test_se_nonnullable_json(
         v4_config={
             **V4_CONFIG_TEMPLATE,
             "topics": topic,
+            "snowflake.topic2table.map": f"{topic}:{table_name}",
             "tasks.max": "1",
             "key.converter": "org.apache.kafka.connect.storage.StringConverter",
             "value.converter": "org.apache.kafka.connect.json.JsonConverter",
