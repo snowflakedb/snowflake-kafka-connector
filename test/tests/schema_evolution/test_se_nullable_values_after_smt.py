@@ -68,7 +68,7 @@ def test_se_nullable_values_after_smt(
     for idx in range(TOTAL_EVENTS):
         event = {"index": idx, "someKey": "someValue"}
         if idx % 2 == 0:
-            event["optionalField"] = {"index": idx, "from_optional_field": True}
+            event["optionalField"] = {"INDEX": idx, "FROM_OPTIONAL_FIELD": True}
         values.append(json.dumps(event).encode("utf-8"))
     driver.sendBytesData(topic, values)
 
