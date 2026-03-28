@@ -142,10 +142,8 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     // Table name uses identifier(?), column names are quoted inline
     assertTrue(sql.startsWith("alter table identifier(?) alter "));
     assertTrue(sql.contains("\"COL1\" drop not null"));
-    assertTrue(
-        sql.contains(
-            "\"COL1\" comment 'column altered to be nullable by schema evolution"
-                + " from Snowflake Kafka Connector'"));
+    // Each column must appear exactly once — no duplicate column references
+    assertEquals(1, countOccurrences(sql, "\"COL1\""));
 
     verify(mockStmt).setString(1, "\"test_table\"");
     verify(mockStmt).execute();
@@ -191,7 +189,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     String sql = sqlCaptor.getValue();
 
     assertTrue(sql.contains("\"city\" drop not null"));
-    assertTrue(sql.contains("\"city\" comment"));
+    assertEquals(1, countOccurrences(sql, "\"city\""));
   }
 
   @Test
@@ -219,6 +217,16 @@ public class StandardSnowflakeConnectionServiceDdlTest {
   public void testAlterNonNullableColumns_emptyList_doesNothing() throws SQLException {
     service.alterNonNullableColumns("test_table", Collections.emptyList());
     verify(mockJdbcConn, never()).prepareStatement(anyString());
+  }
+
+  private static int countOccurrences(String haystack, String needle) {
+    int count = 0;
+    int idx = 0;
+    while ((idx = haystack.indexOf(needle, idx)) != -1) {
+      count++;
+      idx += needle.length();
+    }
+    return count;
   }
 
   @Test
