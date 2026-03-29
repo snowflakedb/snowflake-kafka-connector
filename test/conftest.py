@@ -22,7 +22,7 @@ from lib.fixtures.connector import (  # noqa: F401
     create_connector,
     create_custom_connector,
 )
-from lib.fixtures.table import create_table  # noqa: F401
+from lib.fixtures.table import create_table, snowflake_table  # noqa: F401
 from lib.fixtures.function import connector_version, name_salt  # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -104,6 +104,17 @@ def pytest_configure(config):
             "--name-salt / TEST_NAME_SALT must not be empty "
             "(omit it entirely to auto-generate, or provide a non-empty value)"
         )
+
+    config.addinivalue_line(
+        "markers", "schema_evolution: schema evolution e2e tests (FR6)"
+    )
+    config.addinivalue_line(
+        "markers", "compatibility: v3/v4 dual-version compatibility tests"
+    )
+    config.addinivalue_line(
+        "markers", "confluent_only: requires Confluent platform (schema registry)"
+    )
+    config.addinivalue_line("markers", "pressure: load / stress tests")
 
     # Validate required options (set via CLI or env var)
     missing = []
