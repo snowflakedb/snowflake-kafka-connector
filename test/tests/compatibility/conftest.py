@@ -465,13 +465,14 @@ def results(driver, mode_salt, ingestion_mode):
 
 
 @pytest.fixture
-def typed_table(driver, mode_salt):
+def typed_table(driver, mode_salt, ingestion_mode):
     """Factory: create a Snowflake table + Kafka topic for a single test."""
     created = []
 
     def _create(test_id, col_ddl):
         topic = f"{test_id}{mode_salt}"
-        quoted = quote_name(topic)
+        sf_table = topic.upper() if ingestion_mode == "v3" else topic
+        quoted = quote_name(sf_table)
         driver.snowflake_conn.cursor().execute(
             f"CREATE OR REPLACE TABLE {quoted} "
             f"(VALUE_COL {col_ddl}, RECORD_METADATA VARIANT)"
@@ -506,6 +507,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
 
     def _run(test_id, col_ddl, values, *, timeout=60):
         topic = typed_table(test_id, col_ddl)
+        sf_table = topic.upper() if ingestion_mode == "v3" else topic
 
         # Abort mode (errors.tolerance=none) — connector task fails immediately
         # on validation errors, giving fast feedback for unsupported types.
@@ -530,7 +532,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
                 error = failed[0].get("trace", "no trace")
                 logger.info("Connector error for %s: %.500s", test_id, error)
                 break
-            tbl = driver.select_number_of_records(topic) or 0
+            tbl = driver.select_number_of_records(sf_table) or 0
             if tbl >= len(values):
                 break
             time.sleep(2)
@@ -538,7 +540,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
         rows = (
             driver.snowflake_conn.cursor()
             .execute(
-                f'SELECT VALUE_COL FROM {quote_name(topic)} ORDER BY RECORD_METADATA:"offset"::int'
+                f'SELECT VALUE_COL FROM {quote_name(sf_table)} ORDER BY RECORD_METADATA:"offset"::int'
             )
             .fetchall()
         )
