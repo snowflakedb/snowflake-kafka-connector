@@ -100,3 +100,4 @@ jobs:
         snowflake-cloud: ${{ matrix.snowflake_cloud }}
         java-version: ${{ matrix.java_test_version || '11' }}
         marker-filter: ${{ matrix.marker_filter }}
+        test-group: ${{ matrix.test_group }}
