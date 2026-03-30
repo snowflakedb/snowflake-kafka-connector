@@ -294,8 +294,8 @@ public final class KafkaRecordConverter {
 
   private static Object convertInt64(Schema schema, Object value) {
     if (schema != null && Timestamp.LOGICAL_NAME.equals(schema.name())) {
-      LOGGER.trace("Converting INT64 Timestamp logical type to string");
-      return String.valueOf(Timestamp.fromLogical(schema, (java.util.Date) value));
+      LOGGER.trace("Converting INT64 Timestamp logical type to Instant");
+      return ((java.util.Date) value).toInstant();
     }
     LOGGER.trace("Passthrough for INT64 value");
     return value;

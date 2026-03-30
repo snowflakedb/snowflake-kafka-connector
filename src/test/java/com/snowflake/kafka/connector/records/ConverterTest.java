@@ -13,6 +13,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
@@ -169,8 +170,8 @@ class ConverterTest {
 
     Map<String, String> result = KafkaRecordConverter.convertHeaders(headers);
 
-    // Timestamp should be converted to epoch millis string
-    String expectedTimestamp = String.valueOf(timestampValue.getTime());
+    // Timestamp is converted via Instant, so String.valueOf gives the ISO-8601 representation
+    String expectedTimestamp = String.valueOf(timestampValue.toInstant());
     assertEquals(expectedTimestamp, result.get("timestampHeader"));
     assertEquals("true", result.get("boolHeader"));
   }
@@ -385,6 +386,39 @@ class ConverterTest {
     assertEquals("NaN", result.get("nan"));
     assertEquals("Inf", result.get("posInf"));
     assertEquals("-Inf", result.get("negInf"));
+  }
+
+  /**
+   * Regression test for issue #1334.
+   *
+   * <p>Timestamps whose epoch-millisecond value has fewer than 13 digits (i.e. dates roughly
+   * within ±1 year of 1970-01-01) were corrupted when ingested into Snowflake. The old code
+   * serialised them as an epoch-millisecond string (e.g. "-23068800000"). Snowflake's
+   * integer-stored date auto-detection mistook that 11-digit value for epoch <em>seconds</em>,
+   * shifting the stored timestamp by three orders of magnitude (~1236 AD instead of 1969).
+   *
+   * <p>The fix converts the {@code java.util.Date} to an {@link Instant} instead, so the ingest
+   * SDK receives an unambiguous typed value and never triggers Snowflake's heuristic.
+   */
+  @Test
+  void testConvertToMap_TimestampNearEpoch_ReturnsInstant() {
+    // 1969-04-08 is ~267 days before the Unix epoch; its epoch-ms value is -23068800000,
+    // an 11-digit number that Snowflake's auto-detection misreads as epoch seconds.
+    java.util.Date nearEpochDate =
+        new java.util.Date(Instant.parse("1969-04-08T00:00:00Z").toEpochMilli());
+
+    Schema schema = SchemaBuilder.struct().field("ts", Timestamp.SCHEMA).build();
+    Struct struct = new Struct(schema).put("ts", nearEpochDate);
+
+    Map<String, Object> result = KafkaRecordConverter.convertToMap(schema, struct);
+
+    // Must be an Instant — not the epoch-ms string that triggers Snowflake's auto-detection bug.
+    assertInstanceOf(
+        Instant.class,
+        result.get("ts"),
+        "Timestamp near epoch must be an Instant, not an epoch-ms string. Got: "
+            + result.get("ts"));
+    assertEquals(Instant.parse("1969-04-08T00:00:00Z"), result.get("ts"));
   }
 
   @Test
