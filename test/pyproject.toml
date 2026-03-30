@@ -6,6 +6,7 @@ log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 log_cli_date_format = "%Y-%m-%dT%H:%M:%S%z"
 markers = [
+    "compatibility: data-type and version compatibility tests across ingestion modes",
     "confluent_only: test requires Confluent platform (schema registry)",
     "pressure: long-running stress/pressure test",
 ]
