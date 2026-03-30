@@ -21,28 +21,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # ── Old platforms: smoke only (catch-all group) ──────────────────
+          # ── Old platforms: core (catch-all) group only ───────────────────
           - platform: apache
             platform_version: '2.8.2'
             snowflake_cloud: 'AWS'
             java_test_version: '11'
-            test_group: smoke
+            test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
           - platform: apache
             platform_version: '3.9.2'
             snowflake_cloud: 'GCP'
             java_test_version: '17'
-            test_group: smoke
+            test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
           - platform: confluent
             platform_version: '6.2.15'
             snowflake_cloud: 'AZURE'
-            test_group: smoke
+            test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
           - platform: confluent
             platform_version: '7.9.3'
             snowflake_cloud: 'AWS'
-            test_group: smoke
+            test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
 
           # ── New platforms: full suite split into 3 parallel groups ───────
@@ -62,7 +62,7 @@ jobs:
             platform_version: '4.1.1'
             snowflake_cloud: 'AWS'
             java_test_version: '17'
-            test_group: ingestion_and_lifecycle
+            test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
 
           - platform: confluent
@@ -78,7 +78,7 @@ jobs:
           - platform: confluent
             platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
-            test_group: ingestion_and_lifecycle
+            test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
 
     steps:

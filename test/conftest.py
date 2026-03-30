@@ -112,7 +112,8 @@ def pytest_configure(config):
         "markers", "compatibility: v3/v4 dual-version compatibility tests"
     )
     config.addinivalue_line(
-        "markers", "correctness: connector correctness tests (schema mapping, DLQ, multi-topic)"
+        "markers",
+        "correctness: connector correctness tests (schema mapping, DLQ, multi-topic)",
     )
     config.addinivalue_line(
         "markers", "confluent_only: requires Confluent platform (schema registry)"
