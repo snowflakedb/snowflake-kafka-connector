@@ -326,7 +326,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
-    Map<TopicPartition, Long> firstOffsetPerPartition = new HashMap<>();
+    boolean backpressure = false;
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
@@ -334,8 +334,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
 
       TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
-      firstOffsetPerPartition.putIfAbsent(tp, record.kafkaOffset());
-      if (initializingPartitions.contains(tp)) {
+      if (initializingPartitions.contains(tp) || backpressure) {
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
         continue;
       }
@@ -344,55 +343,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         insert(record);
       } catch (BackpressureException e) {
         LOGGER.warn(
-            "Backpressure detected during batch insert. Rewinding all partition offsets. Exception: {}",
+            "Backpressure detected during batch insert. Rewinding partition offsets. Exception: {}",
             e.getMessage());
         taskMetrics.incBackpressureRewindCount();
-        rewindPartitions(partitions, firstOffsetPerPartition);
-        break;
+        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+        backpressure = true;
       }
     }
 
     if (!offsetsOfFirstSkippedRecord.isEmpty()) {
-      LOGGER.info("Rewinding offsets for initializing partitions: {}", offsetsOfFirstSkippedRecord);
+      LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsOfFirstSkippedRecord);
       offsetsOfFirstSkippedRecord.forEach(sinkTaskContext::offset);
-    }
-  }
-
-  /**
-   * Rewinds Kafka offsets for all partitions in the given set after a backpressure event.
-   *
-   * <p>For each partition:
-   *
-   * <ul>
-   *   <li>Skip initializing partitions (they are handled separately via
-   *       offsetsOfFirstSkippedRecord)
-   *   <li>Get the safe rewind offset from the channel (processedOffset + 1)
-   *   <li>If the channel has no processed offset yet, fall back to the first offset seen for that
-   *       partition in the current batch
-   *   <li>Call sinkTaskContext.offset() to rewind Kafka
-   * </ul>
-   *
-   * @param partitions set of partitions to rewind
-   * @param fallbackOffsets first offset per partition from the current batch, used when the channel
-   *     has no processed offset yet
-   */
-  private void rewindPartitions(
-      Set<TopicPartition> partitions, Map<TopicPartition, Long> fallbackOffsets) {
-    for (TopicPartition tp : partitions) {
-      channelManager.getChannel(tp).ifPresent(channel -> {
-        if (channel.isInitializing()) {
-          return;
-        }
-        long offsetToRewind = channel.getOffsetSafeToRewindTo();
-        if (offsetToRewind == TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-          offsetToRewind =
-              fallbackOffsets.getOrDefault(
-                  tp, TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
-        }
-        if (offsetToRewind != TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-          sinkTaskContext.offset(tp, offsetToRewind);
-        }
-      });
     }
   }
 

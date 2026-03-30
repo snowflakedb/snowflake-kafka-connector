@@ -295,24 +295,20 @@ class SnowflakeSinkServiceV2Test {
     doThrow(new BackpressureException(new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
         .when(channel0).insertRecord(any(), anyBoolean());
 
-    // Configure rewind offsets
-    when(channel0.getOffsetSafeToRewindTo()).thenReturn(10L);
-    when(channel1.getOffsetSafeToRewindTo()).thenReturn(20L);
-
     List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
     service.insert(records);
 
-    // channel0 attempted, threw exception, channel1 never attempted (break after backpressure)
+    // channel0 attempted and threw, channel1 skipped (backpressure flag)
     verify(channel0).insertRecord(records.get(0), true);
     verify(channel1, never()).insertRecord(any(), anyBoolean());
 
-    // Both partitions should be rewound
-    verify(mockSinkTaskContext).offset(tp0, 10L);
-    verify(mockSinkTaskContext).offset(tp1, 20L);
+    // Both partitions rewound using batch record offsets
+    verify(mockSinkTaskContext).offset(tp0, 100L);
+    verify(mockSinkTaskContext).offset(tp1, 200L);
   }
 
   @Test
-  void insertRewindsOnBackpressureMidBatch() {
+  void insertRewindsOnBackpressureMidBatchWithInterleavedRecords() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);
 
@@ -326,19 +322,18 @@ class SnowflakeSinkServiceV2Test {
     doThrow(new BackpressureException(new SFException("ReceiverSaturated", "backpressure", 0, "")))
         .when(channel1).insertRecord(any(), anyBoolean());
 
-    when(channel0.getOffsetSafeToRewindTo()).thenReturn(15L);
-    when(channel1.getOffsetSafeToRewindTo()).thenReturn(25L);
-
-    List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
+    // Interleaved: p0 record after p1's backpressure must still be rewound
+    List<SinkRecord> records =
+        Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200), recordFor(TOPIC, 0, 101));
     service.insert(records);
 
-    // channel0 succeeded, channel1 threw exception
+    // channel0 first record succeeded, channel1 threw, channel0 second record skipped
     verify(channel0).insertRecord(records.get(0), true);
     verify(channel1).insertRecord(records.get(1), true);
 
-    // Both partitions rewound
-    verify(mockSinkTaskContext).offset(tp0, 15L);
-    verify(mockSinkTaskContext).offset(tp1, 25L);
+    // p0 rewound to 101 (first unprocessed), p1 rewound to 200 (failed record)
+    verify(mockSinkTaskContext).offset(tp0, 101L);
+    verify(mockSinkTaskContext).offset(tp1, 200L);
   }
 
   @Test
@@ -356,8 +351,6 @@ class SnowflakeSinkServiceV2Test {
     doThrow(new BackpressureException(new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
         .when(readyChannel).insertRecord(any(), anyBoolean());
 
-    when(readyChannel.getOffsetSafeToRewindTo()).thenReturn(30L);
-
     List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
     service.insert(records);
 
@@ -365,30 +358,34 @@ class SnowflakeSinkServiceV2Test {
     verify(initChannel, never()).insertRecord(any(), anyBoolean());
     verify(readyChannel).insertRecord(records.get(1), true);
 
-    // Both partitions rewound: init via existing logic (first skipped offset), ready via backpressure
+    // Both partitions rewound via offsetsOfFirstSkippedRecord
     verify(mockSinkTaskContext).offset(tpInit, 100L);
-    verify(mockSinkTaskContext).offset(tpReady, 30L);
+    verify(mockSinkTaskContext).offset(tpReady, 200L);
   }
 
   @Test
-  void insertUsesRecordOffsetAsFallbackWhenChannelHasNoProcessedOffset() {
+  void insertDoesNotRewindFullyProcessedPartitionsOnBackpressure() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
 
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    TopicPartitionChannel channel1 = mockChannel("ch_1", false);
+
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
 
-    // Throw backpressure
-    doThrow(new BackpressureException(new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
-        .when(channel0).insertRecord(any(), anyBoolean());
+    // channel1 throws BackpressureException
+    doThrow(new BackpressureException(new SFException("ReceiverSaturated", "backpressure", 0, "")))
+        .when(channel1).insertRecord(any(), anyBoolean());
 
-    // Channel returns -1 (no processed offset yet)
-    when(channel0.getOffsetSafeToRewindTo())
-        .thenReturn(TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+    // No interleaved records: p0 fully processed before p1 fails
+    List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
+    service.insert(records);
 
-    service.insert(Collections.singletonList(recordFor(TOPIC, 0, 100)));
-
-    // Falls back to the record's offset from the batch
-    verify(mockSinkTaskContext).offset(tp0, 100L);
+    // p0 fully processed — no rewind needed
+    verify(mockSinkTaskContext, never()).offset(tp0, 100L);
+    // p1 rewound to the failed record's offset
+    verify(mockSinkTaskContext).offset(tp1, 200L);
   }
 
   // --- helpers ---
