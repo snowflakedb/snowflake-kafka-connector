@@ -36,8 +36,7 @@ public class BackpressureExceptionTest {
   @Test
   void shouldRecognizeMemoryThresholdExceededAsRetryable() {
     // Given
-    SFException sfException =
-        new SFException("MemoryThresholdExceeded", "message", 429, "stack");
+    SFException sfException = new SFException("MemoryThresholdExceeded", "message", 429, "stack");
 
     // When/Then
     assertTrue(BackpressureException.isRetryableError(sfException));
@@ -56,8 +55,7 @@ public class BackpressureExceptionTest {
   @Test
   void shouldRecognizeHttpRetryableClientErrorAsRetryable() {
     // Given
-    SFException sfException =
-        new SFException("HttpRetryableClientError", "message", 503, "stack");
+    SFException sfException = new SFException("HttpRetryableClientError", "message", 503, "stack");
 
     // When/Then
     assertTrue(BackpressureException.isRetryableError(sfException));

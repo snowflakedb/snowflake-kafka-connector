@@ -26,8 +26,7 @@ public class AppendRowWithFallbackPolicyTest {
     CheckedRunnable supplier = () -> {};
 
     // When
-    AppendRowWithFallbackPolicy.executeWithFallback(
-        supplier, failingFallback(), channelName);
+    AppendRowWithFallbackPolicy.executeWithFallback(supplier, failingFallback(), channelName);
   }
 
   @Test
@@ -74,9 +73,10 @@ public class AppendRowWithFallbackPolicyTest {
   private void assertThrowsBackpressureException(String errorCode) {
     // Given
     SFException sfException = new SFException(errorCode, "message", 429, "stack");
-    CheckedRunnable supplier = () -> {
-      throw sfException;
-    };
+    CheckedRunnable supplier =
+        () -> {
+          throw sfException;
+        };
 
     // When/Then
     BackpressureException exception =
@@ -142,8 +142,8 @@ public class AppendRowWithFallbackPolicyTest {
     };
   }
 
-  private AppendRowWithFallbackPolicy.FallbackSupplierWithException
-      countingFallbackSupplier(AtomicInteger callCounter) {
+  private AppendRowWithFallbackPolicy.FallbackSupplierWithException countingFallbackSupplier(
+      AtomicInteger callCounter) {
     return exception -> callCounter.getAndIncrement();
   }
 }

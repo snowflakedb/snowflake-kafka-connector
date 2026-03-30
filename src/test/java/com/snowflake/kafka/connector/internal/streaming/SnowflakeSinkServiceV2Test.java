@@ -18,12 +18,13 @@ import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -278,10 +279,10 @@ class SnowflakeSinkServiceV2Test {
     assertEquals(TOPIC, captor.getValue().get(TOPIC));
   }
 
-  // --- backpressure handling (Task 4) ---
+  // --- backpressure handling ---
 
   @Test
-  void insertRewindsAllPartitionsOnBackpressure() {
+  void insertRewindsOnlyBackpressuredPartition() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);
 
@@ -291,24 +292,27 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
     when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
 
-    // channel0 throws BackpressureException on first record
-    doThrow(new BackpressureException(new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
-        .when(channel0).insertRecord(any(), anyBoolean());
+    // channel0 throws BackpressureException
+    doThrow(
+            new BackpressureException(
+                new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
+        .when(channel0)
+        .insertRecord(any(), anyBoolean());
 
     List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
     service.insert(records);
 
-    // channel0 attempted and threw, channel1 skipped (backpressure flag)
+    // channel0 threw, but channel1 is still attempted (per-partition backpressure)
     verify(channel0).insertRecord(records.get(0), true);
-    verify(channel1, never()).insertRecord(any(), anyBoolean());
+    verify(channel1).insertRecord(records.get(1), true);
 
-    // Both partitions rewound using batch record offsets
+    // Only the backpressured partition is rewound; channel1 succeeded
     verify(mockSinkTaskContext).offset(tp0, 100L);
-    verify(mockSinkTaskContext).offset(tp1, 200L);
+    verify(mockSinkTaskContext, never()).offset(tp1, 200L);
   }
 
   @Test
-  void insertRewindsOnBackpressureMidBatchWithInterleavedRecords() {
+  void insertSkipsRemainingRecordsForBackpressuredPartitionOnly() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);
 
@@ -320,20 +324,23 @@ class SnowflakeSinkServiceV2Test {
 
     // channel1 throws BackpressureException
     doThrow(new BackpressureException(new SFException("ReceiverSaturated", "backpressure", 0, "")))
-        .when(channel1).insertRecord(any(), anyBoolean());
+        .when(channel1)
+        .insertRecord(any(), anyBoolean());
 
-    // Interleaved: p0 record after p1's backpressure must still be rewound
+    // Interleaved: p0 records after p1's backpressure are still processed
     List<SinkRecord> records =
         Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200), recordFor(TOPIC, 0, 101));
     service.insert(records);
 
-    // channel0 first record succeeded, channel1 threw, channel0 second record skipped
+    // channel0 both records processed, channel1 threw on first
     verify(channel0).insertRecord(records.get(0), true);
     verify(channel1).insertRecord(records.get(1), true);
+    verify(channel0).insertRecord(records.get(2), false);
 
-    // p0 rewound to 101 (first unprocessed), p1 rewound to 200 (failed record)
-    verify(mockSinkTaskContext).offset(tp0, 101L);
+    // Only p1 rewound; p0 fully processed
     verify(mockSinkTaskContext).offset(tp1, 200L);
+    verify(mockSinkTaskContext, never()).offset(tp0, 100L);
+    verify(mockSinkTaskContext, never()).offset(tp0, 101L);
   }
 
   @Test
@@ -348,8 +355,11 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tpReady)).thenReturn(Optional.of(readyChannel));
 
     // Ready channel hits backpressure
-    doThrow(new BackpressureException(new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
-        .when(readyChannel).insertRecord(any(), anyBoolean());
+    doThrow(
+            new BackpressureException(
+                new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
+        .when(readyChannel)
+        .insertRecord(any(), anyBoolean());
 
     List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
     service.insert(records);
@@ -364,7 +374,27 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
-  void insertDoesNotRewindFullyProcessedPartitionsOnBackpressure() {
+  void insertSetsCooldownAfterBackpressure() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+
+    doThrow(
+            new BackpressureException(
+                new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
+        .when(channel0)
+        .insertRecord(any(), anyBoolean());
+
+    service.insert(Collections.singletonList(recordFor(TOPIC, 0, 100)));
+
+    // Cooldown should be set to a future time
+    assertTrue(
+        service.backpressureUntil.isAfter(
+            Instant.now().minus(SnowflakeSinkServiceV2.BACKPRESSURE_COOLDOWN)));
+  }
+
+  @Test
+  void insertSkipsEntireBatchDuringCooldown() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);
 
@@ -374,18 +404,35 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
     when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
 
-    // channel1 throws BackpressureException
-    doThrow(new BackpressureException(new SFException("ReceiverSaturated", "backpressure", 0, "")))
-        .when(channel1).insertRecord(any(), anyBoolean());
+    // Set cooldown to a future time
+    service.backpressureUntil = Instant.now().plusSeconds(30);
 
-    // No interleaved records: p0 fully processed before p1 fails
     List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
     service.insert(records);
 
-    // p0 fully processed — no rewind needed
-    verify(mockSinkTaskContext, never()).offset(tp0, 100L);
-    // p1 rewound to the failed record's offset
+    // No inserts attempted during cooldown
+    verify(channel0, never()).insertRecord(any(), anyBoolean());
+    verify(channel1, never()).insertRecord(any(), anyBoolean());
+
+    // All partitions rewound
+    verify(mockSinkTaskContext).offset(tp0, 100L);
     verify(mockSinkTaskContext).offset(tp1, 200L);
+  }
+
+  @Test
+  void insertResumesNormallyAfterCooldownExpires() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+
+    // Set cooldown to the past (expired)
+    service.backpressureUntil = Instant.now().minusSeconds(1);
+
+    service.insert(Collections.singletonList(recordFor(TOPIC, 0, 100)));
+
+    // Normal processing resumes
+    verify(channel0).insertRecord(any(), anyBoolean());
+    verify(mockSinkTaskContext, never()).offset(any(TopicPartition.class), any(Long.class));
   }
 
   // --- helpers ---

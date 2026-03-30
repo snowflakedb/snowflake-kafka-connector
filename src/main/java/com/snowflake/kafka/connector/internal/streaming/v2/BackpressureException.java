@@ -39,7 +39,9 @@ public class BackpressureException extends RuntimeException {
    * @param cause the SDK exception indicating backpressure
    */
   public BackpressureException(SFException cause) {
-    super("SDK backpressure: " + cause.getErrorCodeName(), cause);
+    super(
+        "SDK backpressure: " + Preconditions.checkNotNull(cause, "cause").getErrorCodeName(),
+        cause);
     Preconditions.checkArgument(
         isRetryableError(cause),
         "BackpressureException requires a retryable SFException, got: %s",

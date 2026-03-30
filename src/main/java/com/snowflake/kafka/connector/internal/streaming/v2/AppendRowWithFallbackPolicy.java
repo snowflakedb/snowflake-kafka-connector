@@ -18,8 +18,7 @@ import java.time.Duration;
  */
 class AppendRowWithFallbackPolicy {
 
-  private static final KCLogger LOGGER =
-      new KCLogger(AppendRowWithFallbackPolicy.class.getName());
+  private static final KCLogger LOGGER = new KCLogger(AppendRowWithFallbackPolicy.class.getName());
 
   /** Delay before fallback attempt (channel reopening). */
   private static final Duration FALLBACK_DELAY = Duration.ofMillis(500);
@@ -56,9 +55,9 @@ class AppendRowWithFallbackPolicy {
   /**
    * Executes the provided append row action with fallback handling.
    *
-   * <p>On retryable {@link SFException} (backpressure errors), throws {@link
-   * BackpressureException} to signal the batch-level insert loop that the batch should be abandoned
-   * and offsets should be rewound. The channel remains valid.
+   * <p>On retryable {@link SFException} (backpressure errors), throws {@link BackpressureException}
+   * to signal the batch-level insert loop that the batch should be abandoned and offsets should be
+   * rewound. The channel remains valid.
    *
    * <p>On non-retryable {@link SFException}, it will execute the fallback supplier to reopen the
    * channel and reset offsets after a simple blocking delay with jitter to prevent retry storms.
@@ -96,13 +95,21 @@ class AppendRowWithFallbackPolicy {
                         channelName,
                         event.getLastException()))
             .onFailure(
-                event ->
+                event -> {
+                  if (event.getException() instanceof BackpressureException) {
+                    LOGGER.warn(
+                        "Backpressure on channel {}: {}",
+                        channelName,
+                        event.getException().getMessage());
+                  } else {
                     LOGGER.error(
                         "{} Failed to open Channel or fetching offsetToken for channel:{}."
                             + " Exception: {}",
                         "APPEND_ROW_FALLBACK",
                         channelName,
-                        event.getException()))
+                        event.getException());
+                  }
+                })
             .build();
 
     Failsafe.with(reopenChannelFallbackExecutor).run(appendRowAction);

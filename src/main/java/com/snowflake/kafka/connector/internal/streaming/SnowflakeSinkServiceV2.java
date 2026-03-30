@@ -23,6 +23,8 @@ import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClien
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -78,6 +80,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final PartitionChannelManager channelManager;
   private final TaskMetrics taskMetrics;
+
+  /** Cooldown duration after a backpressure event before retrying inserts. */
+  static final Duration BACKPRESSURE_COOLDOWN = Duration.ofSeconds(1);
+
+  /** Timestamp until which all inserts are skipped due to backpressure. */
+  @VisibleForTesting Instant backpressureUntil = Instant.MIN;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -325,8 +333,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           initializingPartitions);
     }
 
+    // If still in cooldown from a recent backpressure event, treat all partitions as
+    // backpressured so we skip the entire batch and give the SDK time to drain.
+    Set<TopicPartition> backpressuredPartitions = new HashSet<>();
+    if (Instant.now().isBefore(backpressureUntil)) {
+      LOGGER.debug(
+          "Backpressure cooldown active until {}. Skipping entire batch.", backpressureUntil);
+      backpressuredPartitions.addAll(partitions);
+    }
+
     Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
-    boolean backpressure = false;
+    boolean newBackpressure = false;
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
@@ -334,7 +351,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
 
       TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
-      if (initializingPartitions.contains(tp) || backpressure) {
+      if (initializingPartitions.contains(tp) || backpressuredPartitions.contains(tp)) {
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
         continue;
       }
@@ -343,12 +360,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         insert(record);
       } catch (BackpressureException e) {
         LOGGER.warn(
-            "Backpressure detected during batch insert. Rewinding partition offsets. Exception: {}",
+            "Backpressure on partition {}. Skipping remaining records for this partition."
+                + " Exception: {}",
+            tp,
             e.getMessage());
         taskMetrics.incBackpressureRewindCount();
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
-        backpressure = true;
+        backpressuredPartitions.add(tp);
+        newBackpressure = true;
       }
+    }
+
+    if (newBackpressure) {
+      backpressureUntil = Instant.now().plus(BACKPRESSURE_COOLDOWN);
+      LOGGER.info("Backpressure cooldown set until {}", backpressureUntil);
     }
 
     if (!offsetsOfFirstSkippedRecord.isEmpty()) {
