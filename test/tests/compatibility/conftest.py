@@ -14,7 +14,6 @@ import datetime
 import json
 import logging
 import math
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -290,10 +289,22 @@ def results(driver, mode_salt, ingestion_mode):
     Creates one table with all typed columns, sends every CASES entry in a
     single batch, waits for ingested rows, queries them, reads the DLQ, and
     yields a frozen Results object for assertion.
+
+    Why this doesn't reuse wait_for_rows / create_table / create_custom_connector:
+      - wait_for_rows waits for an exact row count, but v4 modes reject varying
+        subsets of test cases so the final count is unknown.  We use a
+        stabilization loop (count stops changing for N seconds) instead.
+      - create_table is function-scoped; this fixture is module-scoped (one
+        connector per mode, shared across all test functions).  The mode-aware
+        table name casing (v3 uppercases, v4 preserves case) also isn't handled
+        by the existing fixture.
+      - create_custom_connector has the same scope mismatch and provides no
+        benefit over calling driver.createConnector directly (we already handle
+        cleanup in the finally block).
     """
     from .test_type_compatibility import COLUMNS, CASES
 
-    bootstrap = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    bootstrap = driver.kafkaAddress
     table_name = f"dt_compat{mode_salt}"
     dlq_topic = f"dlq_dt_compat{mode_salt}"
 
@@ -371,6 +382,11 @@ def results(driver, mode_salt, ingestion_mode):
             )
             break
         time.sleep(5)
+    else:
+        if last_count == 0:
+            logger.warning(
+                "Stabilization timed out with 0 rows — connector may not be ingesting"
+            )
 
     # Query all rows
     cursor = driver.snowflake_conn.cursor()

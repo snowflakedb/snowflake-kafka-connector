@@ -54,10 +54,11 @@ _GEO_ERROR_FRAGMENTS = [
     "Failed to insert rows",
 ]
 
-# v3 structured types: same channel open rejection as geo types
+# v3 structured types / unsupported column types: channel open or schema setup failure
 _CHANNEL_OPEN_ERROR_FRAGMENTS = [
     "does not support columns of type",
     "Open channel request failed",
+    "Unknown data type for column",
 ]
 
 
@@ -96,18 +97,20 @@ def test_dt_geometry(ingest_one_type_abort, ingestion_mode):
 
 def test_dt_vector(ingest_one_type_abort, ingestion_mode):
     """VECTOR(FLOAT, 3): vector embeddings — not supported by v3 classic SDK."""
-    if ingestion_mode == "v3":
-        # claude: should we expect the error here instead?
-        pytest.skip("VECTOR not supported by v3 classic Streaming SDK")
     result = ingest_one_type_abort(
         "dt_vector",
         "VECTOR(FLOAT, 3)",
         [[1.0, 2.0, 3.0], [0.0, 0.0, 0.0], [-1.5, 2.5, -3.5]],
     )
-    assert len(result.values) == 3, (
-        f"Expected 3 VECTOR rows, got {len(result.values)}; "
-        f"error={result.connector_error}"
-    )
+    if ingestion_mode == "v3":
+        _assert_connector_error(
+            result, ingestion_mode, "VECTOR", _CHANNEL_OPEN_ERROR_FRAGMENTS
+        )
+    else:
+        assert len(result.values) == 3, (
+            f"Expected 3 VECTOR rows, got {len(result.values)}; "
+            f"error={result.connector_error}"
+        )
 
 
 # ---------------------------------------------------------------------------

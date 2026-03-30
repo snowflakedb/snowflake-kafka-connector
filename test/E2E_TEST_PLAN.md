@@ -438,7 +438,7 @@ All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, du
 | 🟡 | Cross-type mismatch | `test_cross_type_mismatch` | Pass | **Diverges** | **Diverges** | **D8**: object→VARCHAR coerced on v3/v4-ht, DLQ'd on v4-compat. **D9**: numeric→BOOLEAN DLQ'd on v3, silently dropped on v4-compat (no DLQ). v4-ht drops without DLQ (structural). |
 | 🟢 | GEOGRAPHY | `test_dt_geography` | Pass | Pass | Pass | Rejected in all modes (Snowpipe Streaming limitation). Correct error message confirmed. |
 | 🟢 | GEOMETRY | `test_dt_geometry` | Pass | Pass | Pass | Rejected in all modes. Correct error message confirmed. |
-| 🟡 | VECTOR | `test_dt_vector` | Skip | Pass | Pass | v3 SDK lacks VECTOR support (skipped). v4 ingests VECTOR(FLOAT,3) correctly. |
+| 🟢 | VECTOR | `test_dt_vector` | Error asserted | Pass | Pass | v3 rejects VECTOR (channel open error, asserted). v4 ingests VECTOR(FLOAT,3) correctly. |
 | 🟡 | Structured OBJECT | `test_dt_structured_object` | Pass | **Diverges** | **Diverges** | **D10**: v3 rejects (channel open error). v4 accepts and ingests structured OBJECT(name VARCHAR, age NUMBER). |
 | 🟡 | Structured ARRAY | `test_dt_structured_array` | Pass | **Diverges** | **Diverges** | **D11**: v3 rejects (channel open error). v4 accepts and ingests structured ARRAY(NUMBER). |
 | 🔴 | Collated VARCHAR | -- | -- | -- | -- | Not yet tested. `RowValidatorTest.java` covers unit level. |
@@ -448,14 +448,14 @@ All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, du
 
 **115 passed, 1 skipped, 0 failed.** Run time: ~8 min. Platform: Apache Kafka 3.7.0. Connector: v4 RC8 + v3 3.5.3.
 
-Tests run across 3 ingestion modes (v3, v4-compat, v4-ht) × all type/unsupported tests. Divergences are captured inline via `DIVERGENCE` log warnings — grep test output to find them all.
+Tests run across 3 ingestion modes (v3, v4-compat, v4-ht) × all type/unsupported tests. Divergences are captured via `pytest.xfail` (visible in pytest report) and `DIVERGENCE` log warnings (grep test output to find them all).
 
 | Group | Tests | Status |
 |-------|-------|--------|
 | v3 (type compat) | 34 | 34 pass |
 | v4-compat (type compat) | 34 | 34 pass (13 divergences logged) |
 | v4-ht (type compat) | 34 | 34 pass (15 divergences logged) |
-| v3 (unsupported) | 5 | 4 pass, 1 skip (VECTOR) |
+| v3 (unsupported) | 5 | 5 pass |
 | v4-compat (unsupported) | 5 | 5 pass |
 | v4-ht (unsupported) | 5 | 5 pass |
 | migration | 2 | 2 pass |
@@ -478,7 +478,7 @@ Tests run across 3 ingestion modes (v3, v4-compat, v4-ht) × all type/unsupporte
 
 **D1/D2 detail**: SSv2 does not recognize hex-encoded binary strings the way SSv1 does. Some values (bin_hello `48656C6C6F`, bin_zero `00`) are outright rejected. Others (bin_dead `DEADBEEF`, bin_long `FF*100`) are ingested but with garbled bytes — SSv2 appears to base64-decode instead of hex-decode.
 
-**D3 detail**: v4 RowValidator rejects numeric 0/1 for BOOLEAN columns. v4-compat silently drops them (not routed to DLQ). v4-ht also drops them server-side. String tokens "true"/"false" work on all modes. "yes"/"no" tokens not currently tested.
+**D3 detail**: v4 RowValidator rejects numeric 0/1 for BOOLEAN columns. v4-compat silently drops them (not routed to DLQ). v4-ht also drops them server-side. String tokens "true"/"false"/"yes"/"no" work on all modes.
 
 **D4 detail**: v4-compat rejects `java.lang.Long` for TIMESTAMP_NTZ and routes to DLQ. v4-ht ingests it but interprets the epoch in the session timezone (America/Los_Angeles = UTC-8) instead of UTC, resulting in an 8-hour shift.
 

@@ -152,7 +152,8 @@ CASES = [
     Case("bool_bad_obj", "COL_BOOLEAN", {"key": "value"}, ERR),
     Case("bool_bad_arr", "COL_BOOLEAN", [1, 2, 3], ERR),
     # Boolean coercion: numeric 0/1 and string tokens
-    # KNOWN DIVERGENCE: v4-compat RowValidator rejects "yes"/"no" while v3 accepts them.
+    # KNOWN DIVERGENCE: v4 rejects numeric 0/1 as boolean. String tokens
+    # ("true", "false", "yes", "no") work on all modes.
     Case(
         "bool_zero", "COL_BOOLEAN", 0, OK, expected_value=False, group="bool_coercion"
     ),
@@ -451,9 +452,9 @@ def test_binary(results):
         _assert_all(results, cases)
         return
 
+    # Log detailed per-case divergence status for diagnostics.
     for c in cases:
         if c.name in results.rows:
-            # Ingested — but value may be garbled on v4
             actual = results.rows[c.name].get(c.col)
             if c.expected_value is not UNSET and actual != c.expected_value:
                 _log_divergence(
@@ -468,13 +469,18 @@ def test_binary(results):
                     f"ingested (v3 also ingests, value={actual!r})",
                 )
         else:
-            # Rejected — v3 expects ingested
             in_dlq = c.name in results.dlq_ids
             _log_divergence(
                 results.mode,
                 c.name,
                 f"rejected (v3 ingests); in_dlq={in_dlq}",
             )
+
+    # Assert v3 reference behavior — xfail if v4 diverges (SNOW-3256183).
+    try:
+        _assert_all(results, cases)
+    except AssertionError as e:
+        pytest.xfail(f"SNOW-3256183: v4 SSv2 binary handling diverges from v3: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -497,11 +503,25 @@ def test_boolean_coercion(results):
     cases = cases_where(group="bool_coercion")
     numeric_cases = {c.name for c in cases if isinstance(c.value, int)}
 
+    # String boolean tokens work identically on all modes — always hard assert.
     for c in cases:
-        if results.mode != "v3" and c.name in numeric_cases:
-            # v4 rejects numeric 0/1 for BOOLEAN — check and log
+        if c.name not in numeric_cases:
+            if c.expect == "ingested":
+                results.assert_ingested(c)
+            else:
+                results.assert_error(c)
+
+    if results.mode == "v3":
+        # v3 reference: numeric 0/1 coerced to False/True
+        for c in cases:
+            if c.name in numeric_cases:
+                results.assert_ingested(c)
+        return
+
+    # KNOWN DIVERGENCE: v4 rejects numeric 0/1 for BOOLEAN.
+    for c in cases:
+        if c.name in numeric_cases:
             if c.name in results.rows:
-                # Unexpectedly ingested — still log it
                 _log_divergence(
                     results.mode, c.name, "v4 accepted numeric boolean (unexpected)"
                 )
@@ -512,10 +532,14 @@ def test_boolean_coercion(results):
                     c.name,
                     f"v4 rejects numeric {c.value} as boolean; in_dlq={in_dlq}",
                 )
-        elif c.expect == "ingested":
-            results.assert_ingested(c)
-        else:
-            results.assert_error(c)
+
+    # Assert v3 reference behavior — xfail if v4 diverges.
+    try:
+        for c in cases:
+            if c.name in numeric_cases:
+                results.assert_ingested(c)
+    except AssertionError as e:
+        pytest.xfail(f"v4 rejects numeric booleans (v3 coerces 0/1): {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -550,6 +574,7 @@ def test_timestamp_ntz_epoch(results):
         results.assert_ingested(case)
         return
 
+    # Log detailed v4 divergence status.
     if case.name in results.rows:
         actual = results.rows[case.name].get(case.col)
         expected = (
@@ -574,6 +599,12 @@ def test_timestamp_ntz_epoch(results):
             case.name,
             f"v4 rejects Long for TIMESTAMP_NTZ; in_dlq={in_dlq}",
         )
+
+    # Assert v3 reference behavior — xfail if v4 diverges.
+    try:
+        results.assert_ingested(case)
+    except AssertionError as e:
+        pytest.xfail(f"v4 diverges on integer epoch for TIMESTAMP_NTZ: {e}")
 
 
 def test_timestamp_ltz(results):
@@ -697,15 +728,15 @@ def test_null(results, col):
         f"[{c.name}] expected in table but not found (mode={results.mode})"
     )
     actual = results.rows[c.name].get(c.col)
-    if actual is not None:
-        _log_divergence(
-            results.mode,
-            c.name,
-            f"expected SQL NULL, got {actual!r}",
-        )
-    # v3 reference: all NULLs stored as SQL NULL
-    if results.mode == "v3":
-        assert actual is None, f"[{c.name}] expected NULL on v3, got {actual!r}"
+
+    # KNOWN DIVERGENCE: v4 stores VARIANT null as string 'null'
+    if actual is not None and results.mode != "v3" and col == "COL_VARIANT":
+        _log_divergence(results.mode, c.name, f"expected SQL NULL, got {actual!r}")
+        pytest.xfail(f"v4 stores VARIANT null as {actual!r} instead of SQL NULL")
+
+    assert actual is None, (
+        f"[{c.name}] expected NULL, got {actual!r} (mode={results.mode})"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -720,6 +751,12 @@ def test_cross_type_mismatch(results):
     - v4-compat silently drops numeric→BOOLEAN (no DLQ, no table row)
     - v4-compat DLQ's object→VARCHAR (v3/v4-ht coerce to JSON string)
     """
+    if results.mode == "v3":
+        _assert_all(results, cases_where(group="xtype"))
+        return
+
+    # v4: track divergences from v3 reference behavior.
+    divergences = []
     for c in cases_where(group="xtype"):
         in_table = c.name in results.rows
         in_dlq = c.name in results.dlq_ids
@@ -728,14 +765,13 @@ def test_cross_type_mismatch(results):
             if in_table:
                 results.assert_ingested(c)
             else:
-                # v3 expects ingested but this mode rejected it
                 _log_divergence(
                     results.mode,
                     c.name,
                     f"rejected (v3 ingests via coercion); in_dlq={in_dlq}",
                 )
+                divergences.append(c.name)
         else:
-            # v3 expects error
             if in_table:
                 actual = results.rows[c.name].get(c.col)
                 _log_divergence(
@@ -743,12 +779,16 @@ def test_cross_type_mismatch(results):
                     c.name,
                     f"ingested (v3 rejects): value={actual!r}",
                 )
+                divergences.append(c.name)
+            elif results.mode != "v4-ht" and not in_dlq:
+                _log_divergence(
+                    results.mode,
+                    c.name,
+                    "rejected without DLQ (silently dropped)",
+                )
+                divergences.append(c.name)
             else:
-                if results.mode != "v3" and not in_dlq:
-                    _log_divergence(
-                        results.mode,
-                        c.name,
-                        "rejected without DLQ (silently dropped)",
-                    )
-                elif results.mode == "v3":
-                    results.assert_error(c)
+                results.assert_error(c)
+
+    if divergences:
+        pytest.xfail(f"v4 cross-type handling diverges from v3 on: {divergences}")
