@@ -27,5 +27,16 @@ public final class TelemetryConstants {
   public static final String ERROR_TOLERATED_COUNT = "error_tolerated_count";
   public static final String CHANNEL_RECOVERY_COUNT = "channel_recovery_count";
   public static final String VALIDATION_DISABLED = "validation_disabled";
+  public static final String ROWS_INSERTED_COUNT = "rows_inserted_count";
+  public static final String ROWS_PARSED_COUNT = "rows_parsed_count";
+  public static final String ROWS_ERROR_COUNT = "rows_error_count";
+  public static final String SERVER_AVG_PROCESSING_LATENCY_MS = "server_avg_processing_latency_ms";
+  public static final String DATABASE_NAME = "database_name";
+  public static final String SCHEMA_NAME = "schema_name";
+  public static final String PIPE_NAME = "pipe_name";
+  public static final String STATUS_CODE = "status_code";
+  public static final String LAST_ERROR_TIMESTAMP = "last_error_timestamp";
+  public static final String LAST_ERROR_OFFSET_TOKEN_UPPER_BOUND =
+      "last_error_offset_token_upper_bound";
   // ********** ^ Streaming Constants ^ **********//
 }

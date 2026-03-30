@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
@@ -16,6 +17,8 @@ import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
@@ -208,6 +211,23 @@ public class SnowflakeTelemetryServiceTest {
     channelStatus.incErrorToleratedCount();
     channelStatus.incErrorToleratedCount();
     channelStatus.incErrorToleratedCount();
+    channelStatus.updateFromChannelStatus(
+        new ChannelStatus(
+            "testDb",
+            "testSchema",
+            "testPipe",
+            expectedTpChannelName,
+            "SUCCESS",
+            "0",
+            Instant.now(),
+            100,
+            105,
+            2,
+            "42",
+            "some error",
+            Instant.parse("2026-03-24T00:00:00Z"),
+            Duration.ofMillis(45),
+            Instant.now()));
 
     // Recovery count works without JMX
     channelStatus.incRecoveryCount();
@@ -264,6 +284,23 @@ public class SnowflakeTelemetryServiceTest {
 
     // Validation disabled flag
     assertFalse(dataNode.get(TelemetryConstants.VALIDATION_DISABLED).asBoolean());
+
+    // SDK ChannelStatus fields
+    assertEquals(100, dataNode.get(TelemetryConstants.ROWS_INSERTED_COUNT).asLong());
+    assertEquals(105, dataNode.get(TelemetryConstants.ROWS_PARSED_COUNT).asLong());
+    assertEquals(2, dataNode.get(TelemetryConstants.ROWS_ERROR_COUNT).asLong());
+    assertEquals(45, dataNode.get(TelemetryConstants.SERVER_AVG_PROCESSING_LATENCY_MS).asLong());
+
+    // SDK ChannelStatus identity and error fields
+    assertEquals("testDb", dataNode.get(TelemetryConstants.DATABASE_NAME).asText());
+    assertEquals("testSchema", dataNode.get(TelemetryConstants.SCHEMA_NAME).asText());
+    assertEquals("testPipe", dataNode.get(TelemetryConstants.PIPE_NAME).asText());
+    assertEquals("SUCCESS", dataNode.get(TelemetryConstants.STATUS_CODE).asText());
+    assertFalse(dataNode.has("last_error_message")); // omitted for privacy
+    assertEquals(
+        "2026-03-24T00:00:00Z", dataNode.get(TelemetryConstants.LAST_ERROR_TIMESTAMP).asText());
+    assertEquals(
+        "42", dataNode.get(TelemetryConstants.LAST_ERROR_OFFSET_TOKEN_UPPER_BOUND).asText());
   }
 
   @ParameterizedTest

@@ -24,6 +24,7 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.MetricsUtil;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryBasicInfo;
@@ -68,6 +69,21 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
 
   // Whether client-side validation was silently disabled due to initialization failure.
   private volatile boolean validationDisabled = false;
+
+  // Latest SDK-reported metrics, updated on each processChannelStatus call.
+  // Using volatile (not AtomicLong) since these are set, never atomically incremented.
+  private volatile long rowsInsertedCount;
+  private volatile long rowsParsedCount;
+  private volatile long rowsErrorCount;
+  private volatile long serverAvgProcessingLatencyMs = -1;
+
+  // SDK ChannelStatus identity and error fields, updated on each processChannelStatus call.
+  private volatile String databaseName;
+  private volatile String schemaName;
+  private volatile String pipeName;
+  private volatile String statusCode;
+  private volatile String lastErrorTimestamp;
+  private volatile String lastErrorOffsetTokenUpperBound;
 
   /**
    * Creates a new object tracking {@link
@@ -126,6 +142,20 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.ERROR_TOLERATED_COUNT, this.errorToleratedCount.get());
     msg.put(TelemetryConstants.CHANNEL_RECOVERY_COUNT, this.recoveryCount.get());
     msg.put(TelemetryConstants.VALIDATION_DISABLED, this.validationDisabled);
+    msg.put(TelemetryConstants.ROWS_INSERTED_COUNT, this.rowsInsertedCount);
+    msg.put(TelemetryConstants.ROWS_PARSED_COUNT, this.rowsParsedCount);
+    msg.put(TelemetryConstants.ROWS_ERROR_COUNT, this.rowsErrorCount);
+    msg.put(TelemetryConstants.SERVER_AVG_PROCESSING_LATENCY_MS, this.serverAvgProcessingLatencyMs);
+
+    putIfNotNull(msg, TelemetryConstants.DATABASE_NAME, this.databaseName);
+    putIfNotNull(msg, TelemetryConstants.SCHEMA_NAME, this.schemaName);
+    putIfNotNull(msg, TelemetryConstants.PIPE_NAME, this.pipeName);
+    putIfNotNull(msg, TelemetryConstants.STATUS_CODE, this.statusCode);
+    putIfNotNull(msg, TelemetryConstants.LAST_ERROR_TIMESTAMP, this.lastErrorTimestamp);
+    putIfNotNull(
+        msg,
+        TelemetryConstants.LAST_ERROR_OFFSET_TOKEN_UPPER_BOUND,
+        this.lastErrorOffsetTokenUpperBound);
   }
 
   private void registerChannelJMXMetrics(MetricsJmxReporter reporter) {
@@ -196,6 +226,30 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Marks that client-side validation was silently disabled due to initialization failure. */
   public void setValidationDisabled() {
     this.validationDisabled = true;
+  }
+
+  /** Updates SDK-reported metrics from a ChannelStatus response. */
+  public void updateFromChannelStatus(ChannelStatus status) {
+    this.rowsInsertedCount = status.getRowsInsertedCount();
+    this.rowsParsedCount = status.getRowsParsedCount();
+    this.rowsErrorCount = status.getRowsErrorCount();
+    this.serverAvgProcessingLatencyMs =
+        status.getServerAvgProcessingLatency() != null
+            ? status.getServerAvgProcessingLatency().toMillis()
+            : -1;
+    this.databaseName = status.getDatabaseName();
+    this.schemaName = status.getSchemaName();
+    this.pipeName = status.getPipeName();
+    this.statusCode = status.getStatusCode() != null ? status.getStatusCode().toString() : null;
+    this.lastErrorTimestamp =
+        status.getLastErrorTimestamp() != null ? status.getLastErrorTimestamp().toString() : null;
+    this.lastErrorOffsetTokenUpperBound = status.getLastErrorOffsetTokenUpperBound();
+  }
+
+  private static void putIfNotNull(ObjectNode msg, String key, String value) {
+    if (value != null) {
+      msg.put(key, value);
+    }
   }
 
   @VisibleForTesting
