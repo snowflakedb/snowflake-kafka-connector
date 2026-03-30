@@ -73,7 +73,7 @@ public class LegacySchemaToggleIT extends ConnectClusterBaseIT {
               @SuppressWarnings("unchecked")
               Map<String, Object> contentMap = (Map<String, Object>) row.get(RECORD_CONTENT);
               assertThat(contentMap).containsEntry("city", "Portland");
-              assertThat(contentMap).containsEntry("age", 25);
+              assertThat(contentMap).containsEntry("age", 25L);
             });
   }
 
