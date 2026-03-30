@@ -5,6 +5,8 @@ import threading
 import time
 from typing import Callable
 
+import requests
+
 from lib.driver import KafkaDriver
 
 
@@ -60,3 +62,36 @@ class RecordProducer:
             logging.info(
                 f"Stopped continuous producer (total: {self.records_produced})"
             )
+
+
+def steal_channel(
+    host: str,
+    database: str,
+    schema: str,
+    pipe_name: str,
+    channel_name: str,
+    jwt_token: str,
+) -> dict:
+    """Open an SSV2 streaming channel via HTTP, stealing it from KC.
+
+    Calling this endpoint with a different logical client invalidates the
+    existing channel owner (KC). KC's next appendRow will get
+    InvalidChannelError.
+
+    Returns the parsed JSON response from the server.
+    """
+    url = (
+        f"https://{host}/v2/streaming/databases/{database}"
+        f"/schemas/{schema}/pipes/{pipe_name}/channels/{channel_name}"
+    )
+    headers = {
+        "Authorization": f"Bearer {jwt_token}",
+        "X-Snowflake-Authorization-Token-Type": "KEYPAIR_JWT",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    logging.info(f"Stealing channel via PUT {url}")
+    resp = requests.put(url, headers=headers, json={}, timeout=30)
+    logging.info(f"Channel steal response: {resp.status_code} {resp.text[:500]}")
+    resp.raise_for_status()
+    return resp.json()
