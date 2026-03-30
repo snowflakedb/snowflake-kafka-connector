@@ -31,7 +31,7 @@ jobs:
           - platform: apache
             platform_version: '3.9.2'
             snowflake_cloud: 'GCP'
-            java_test_version: '17'
+            java_test_version: '11'
             test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
           - platform: confluent
