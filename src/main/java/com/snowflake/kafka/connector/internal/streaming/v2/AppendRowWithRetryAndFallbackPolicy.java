@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import dev.failsafe.Failsafe;
@@ -57,25 +58,25 @@ class AppendRowWithRetryAndFallbackPolicy {
     }
   }
 
-  /**
-   * Executes the provided append row action with fallback handling.
-   *
-   * <p>On {@link SFException}, it will execute the fallback supplier to reopen the channel and
-   * reset offsets after a simple blocking delay with jitter to prevent retry storms.
-   *
-   * @param appendRowAction the action to execute (typically channel.appendRow call)
-   * @param fallbackSupplier the fallback action to execute on failure (channel reopening logic)
-   * @param channelName the channel name for logging purposes
-   * @return the result of the append row operation
-   */
+  @VisibleForTesting
   static void executeWithRetryAndFallback(
       CheckedRunnable appendRowAction,
       FallbackSupplierWithException fallbackSupplier,
       String channelName) {
+    executeWithRetryAndFallback(appendRowAction, fallbackSupplier, channelName, null, null);
+  }
+
+  static void executeWithRetryAndFallback(
+      CheckedRunnable appendRowAction,
+      FallbackSupplierWithException fallbackSupplier,
+      String channelName,
+      Runnable onRetry,
+      Runnable onFallback) {
 
     Fallback<Void> reopenChannelFallbackExecutor =
         Fallback.<Void>builder(
                 executionAttemptedEvent -> {
+                  if (onFallback != null) onFallback.run();
                   withDelay(
                       () -> fallbackSupplier.execute(executionAttemptedEvent.getLastException()),
                       channelName);
@@ -104,12 +105,14 @@ class AppendRowWithRetryAndFallbackPolicy {
             .withJitter(JITTER_DURATION)
             .withMaxAttempts(-1)
             .onRetry(
-                event ->
-                    LOGGER.warn(
-                        "Failed attempt #{} to invoke appendRow API for channel: {}. Exception: {}",
-                        event.getAttemptCount(),
-                        channelName,
-                        event.getLastException().getMessage()))
+                event -> {
+                  LOGGER.warn(
+                      "Failed attempt #{} to invoke appendRow API for channel: {}. Exception: {}",
+                      event.getAttemptCount(),
+                      channelName,
+                      event.getLastException().getMessage());
+                  if (onRetry != null) onRetry.run();
+                })
             .build();
 
     Failsafe.with(reopenChannelFallbackExecutor)

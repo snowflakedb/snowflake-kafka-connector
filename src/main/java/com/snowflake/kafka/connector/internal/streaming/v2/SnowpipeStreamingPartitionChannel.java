@@ -259,7 +259,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           throw new TopicPartitionChannelInsertionException(
               String.format("Failed to insert rows into channel %s.", this.channelName), ex);
         },
-        this.channelName);
+        this.channelName,
+        snowflakeTelemetryChannelStatus::incBackpressureRetryCount,
+        snowflakeTelemetryChannelStatus::incAppendRowFallbackCount);
   }
 
   private static void closeChannelWithoutFlushing(SnowflakeStreamingIngestChannel channel) {
