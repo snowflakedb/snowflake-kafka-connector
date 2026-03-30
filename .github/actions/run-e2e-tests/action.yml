@@ -27,6 +27,14 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Log in to GHCR (for prebuilt Apache Kafka image)
+      if: inputs.platform == 'apache'
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
     - name: Run end-to-end tests
       shell: bash
       working-directory: test
