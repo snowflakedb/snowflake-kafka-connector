@@ -565,9 +565,9 @@ def test_timestamp_ntz(results):
 def test_timestamp_ntz_epoch(results):
     """TIMESTAMP_NTZ with integer epoch.
 
-    KNOWN DIVERGENCE: v4-compat rejects java.lang.Long for TIMESTAMP_NTZ
-    (DLQ'd). v4-ht ingests it but interprets epoch in session TZ instead of
-    UTC, producing a shifted timestamp.
+    v4-compat: Fixed in PR #1393 — now accepts Integer/Long epochs (same as v3).
+    KNOWN DIVERGENCE: v4-ht ingests epoch but interprets in session TZ instead
+    of UTC, producing a shifted timestamp.
     """
     [case] = cases_where(group="ts_epoch")
     if results.mode == "v3":
