@@ -1,6 +1,10 @@
 import json
 import time
 
+import pytest
+
+pytestmark = pytest.mark.correctness
+
 FILE_NAME = "travis_correct_schema_not_supported_converter"
 CONFIG_FILE = f"{FILE_NAME}.json"
 

@@ -15,6 +15,10 @@ inputs:
     description: "Java version for Apache Kafka (e.g. '11', '17'). Ignored for Confluent."
     required: false
     default: '11'
+  marker-filter:
+    description: "pytest -m expression controlling which tests run (e.g. 'compatibility' or 'not compatibility and not schema_evolution and not correctness and not pressure')"
+    required: false
+    default: 'not pressure'
   pressure:
     description: "Run pressure/stress tests instead of regular tests"
     required: false
@@ -33,6 +37,7 @@ runs:
         SNOWFLAKE_CLOUD: ${{ inputs['snowflake-cloud'] }}
         JAVA_VERSION: ${{ inputs['java-version'] }}
         LOGS_DIR: "${{ github.workspace }}/test-logs"
+        MARKER_FILTER: ${{ inputs.pressure == 'true' && 'pressure' || inputs['marker-filter'] }}
       run: |
         ./run_tests.sh \
           --platform="$PLATFORM" \
@@ -40,13 +45,13 @@ runs:
           --cloud="$SNOWFLAKE_CLOUD" \
           --java-version="$JAVA_VERSION" \
           --logs-dir="$LOGS_DIR" \
-          -- ${{ inputs.pressure == 'true' && '-m pressure' || '-m "not pressure"' }}
+          -- -m "$MARKER_FILTER"
 
     - name: Upload service logs on failure
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: logs-${{ inputs.platform }}-${{ inputs['platform-version'] }}-${{ inputs['snowflake-cloud'] }}
+        name: logs-${{ inputs.platform }}-${{ inputs['platform-version'] }}-${{ inputs['snowflake-cloud'] }}-${{ inputs['marker-filter'] }}
         path: ${{ github.workspace }}/test-logs/
         retention-days: 14
         if-no-files-found: ignore

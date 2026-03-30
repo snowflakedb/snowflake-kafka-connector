@@ -1,6 +1,10 @@
 import json
 from time import sleep
 
+import pytest
+
+pytestmark = pytest.mark.correctness
+
 FILE_NAME = "travis_correct_multiple_topic_to_one_table_snowpipe_streaming"
 CONFIG_FILE = f"{FILE_NAME}.json"
 TOPIC_COUNT = 3

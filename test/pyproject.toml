@@ -8,4 +8,7 @@ log_cli_date_format = "%Y-%m-%dT%H:%M:%S%z"
 markers = [
     "confluent_only: test requires Confluent platform (schema registry)",
     "pressure: long-running stress/pressure test",
+    "compatibility: v3/v4 dual-version compatibility tests",
+    "schema_evolution: schema evolution e2e tests",
+    "correctness: connector correctness tests (schema mapping, DLQ, multi-topic)",
 ]

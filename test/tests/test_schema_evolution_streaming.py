@@ -2,6 +2,8 @@ import json
 
 import pytest
 
+pytestmark = pytest.mark.schema_evolution
+
 FILE_NAME = "snowpipe_streaming_schema_evolution"
 CONFIG_FILE = f"{FILE_NAME}.json"
 

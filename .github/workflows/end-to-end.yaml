@@ -14,31 +14,71 @@ jobs:
       ${{ matrix.platform }} ${{ matrix.platform_version }},
       ${{ matrix.java_test_version && format('Java {0},', matrix.java_test_version) || '' }}
       ${{ matrix.snowflake_cloud }}
+      [${{ matrix.test_group }}]
     strategy:
       fail-fast: false
       matrix:
         include:
+          # ── Old platforms: smoke only (catch-all group) ──────────────────
           - platform: apache
             platform_version: '2.8.2'
             snowflake_cloud: 'AWS'
             java_test_version: '11'
+            test_group: smoke
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
           - platform: apache
             platform_version: '3.9.2'
             snowflake_cloud: 'GCP'
             java_test_version: '17'
+            test_group: smoke
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+          - platform: confluent
+            platform_version: '6.2.15'
+            snowflake_cloud: 'AZURE'
+            test_group: smoke
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+          - platform: confluent
+            platform_version: '7.9.3'
+            snowflake_cloud: 'AWS'
+            test_group: smoke
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+
+          # ── New platforms: full suite split into 3 parallel groups ───────
           - platform: apache
             platform_version: '4.1.1'
             snowflake_cloud: 'AWS'
             java_test_version: '17'
-          - platform: confluent
-            platform_version: '6.2.15'
-            snowflake_cloud: 'AZURE'
-          - platform: confluent
-            platform_version: '7.9.3'
+            test_group: compatibility
+            marker_filter: 'compatibility and not schema_evolution'
+          - platform: apache
+            platform_version: '4.1.1'
             snowflake_cloud: 'AWS'
+            java_test_version: '17'
+            test_group: schema_and_correctness
+            marker_filter: 'schema_evolution or correctness'
+          - platform: apache
+            platform_version: '4.1.1'
+            snowflake_cloud: 'AWS'
+            java_test_version: '17'
+            test_group: ingestion_and_lifecycle
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+
           - platform: confluent
             platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
+            test_group: compatibility
+            marker_filter: 'compatibility and not schema_evolution'
+          - platform: confluent
+            platform_version: '8.2.0'
+            snowflake_cloud: 'AWS'
+            test_group: schema_and_correctness
+            marker_filter: 'schema_evolution or correctness'
+          - platform: confluent
+            platform_version: '8.2.0'
+            snowflake_cloud: 'AWS'
+            test_group: ingestion_and_lifecycle
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+
     steps:
     - uses: actions/checkout@v4
 
@@ -57,3 +97,4 @@ jobs:
         platform-version: ${{ matrix.platform_version }}
         snowflake-cloud: ${{ matrix.snowflake_cloud }}
         java-version: ${{ matrix.java_test_version || '11' }}
+        marker-filter: ${{ matrix.marker_filter }}

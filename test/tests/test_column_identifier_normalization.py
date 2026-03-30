@@ -4,6 +4,8 @@ import json
 
 import pytest
 
+pytestmark = pytest.mark.correctness
+
 from lib.config_migration import V4_CONFIG_TEMPLATE
 
 TWO_CITY_DDL = '(ID NUMBER, "city" VARCHAR, CITY VARCHAR, RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE'
