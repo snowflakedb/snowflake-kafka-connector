@@ -1,0 +1,139 @@
+"""E2E test: KC task should recover after a channel invalidation, not die.
+
+Reproduces the bug where AppendRowWithRetryAndFallbackPolicy successfully
+recovers a channel after InvalidChannelError but re-throws the exception,
+causing the KC framework to kill the task as "unrecoverable".
+
+On current (buggy) code: test FAILS — task dies instead of recovering.
+After fix: test PASSES — task recovers, stays RUNNING, rows continue arriving.
+"""
+
+import logging
+import time
+
+import pytest
+
+from lib.crypto import make_snowflake_jwt
+from lib.utils import RecordProducer, steal_channel, wait_for
+
+logger = logging.getLogger(__name__)
+
+RECORD_BATCH = 100
+CONNECTOR_CONFIG = {
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector",
+    "topics": "SNOWFLAKE_TEST_TOPIC",
+    "tasks.max": "1",
+    "snowflake.url.name": "SNOWFLAKE_HOST",
+    "snowflake.user.name": "SNOWFLAKE_USER",
+    "snowflake.private.key": "SNOWFLAKE_PRIVATE_KEY",
+    "snowflake.database.name": "SNOWFLAKE_DATABASE",
+    "snowflake.schema.name": "SNOWFLAKE_SCHEMA",
+    "snowflake.role.name": "SNOWFLAKE_ROLE",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+}
+
+
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
+def test_task_recovers_after_channel_invalidation(
+    driver,
+    credentials,
+    name_salt,
+    create_connector,
+    create_table,
+    wait_for_rows,
+):
+    """A single channel invalidation should not kill the KC task.
+
+    Steps:
+    1. Start connector, produce records, verify ingestion is working.
+    2. Steal the channel via the SSV2 HTTP API (simulates ROW_SEQ_GAP).
+    3. Continue producing records.
+    4. Assert the task stays RUNNING and new rows arrive in Snowflake.
+    """
+    test_name = "test_channel_invalidation_recovery"
+
+    # -- Setup --
+    table = create_table(test_name.upper(), columns="(record_metadata variant)")
+    topic = f"{test_name}{name_salt}"
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+
+    connector = create_connector(v4_config=CONNECTOR_CONFIG)
+    connector_name = connector.name
+    driver.wait_for_connector_running(connector_name)
+
+    # -- Phase 1: Produce records and verify ingestion --
+    producer = RecordProducer(driver, topic)
+    producer.send(RECORD_BATCH)
+    wait_for_rows(table.name, RECORD_BATCH, connector_name=connector_name)
+    rows_before = RECORD_BATCH
+    logger.info(f"Phase 1 complete: {rows_before} rows ingested")
+
+    # -- Discover channel and pipe names from ingested data --
+    cursor = driver.snowflake_conn.cursor()
+    cursor.execute(
+        f"SELECT DISTINCT "
+        f"  RECORD_METADATA:channelName::string, "
+        f"  RECORD_METADATA:pipeName::string "
+        f"FROM {credentials.database}.{credentials.schema}.{table.name} "
+        f"LIMIT 1"
+    )
+    row = cursor.fetchone()
+    assert row is not None, "No rows found in target table after initial ingestion"
+    channel_name, pipe_name = row[0], row[1]
+    logger.info(f"Discovered channel={channel_name}, pipe={pipe_name}")
+
+    # -- Phase 2: Steal the channel to trigger InvalidChannelError --
+    host = credentials.host.split(":")[0]
+    account = credentials.get_or_infer_account()
+    jwt_token = make_snowflake_jwt(account, credentials.user, credentials.private_key)
+
+    steal_channel(
+        host=host,
+        database=credentials.database,
+        schema=credentials.schema,
+        pipe_name=pipe_name,
+        channel_name=channel_name,
+        jwt_token=jwt_token,
+    )
+    logger.info("Channel stolen — KC will hit InvalidChannelError on next appendRow")
+
+    # -- Phase 3: Produce more records and verify recovery --
+    # Send records to force KC to attempt appendRow on the stolen channel.
+    producer.send(RECORD_BATCH)
+    time.sleep(10)
+
+    # Check that the task is still running after the invalidation.
+    # On buggy code, the task dies with "unrecoverable exception".
+    task_survived = wait_for(
+        lambda: _all_tasks_running(driver, connector_name),
+        timeout=30,
+        interval=3,
+    )
+
+    if not task_survived:
+        failed = driver.get_failed_tasks(connector_name)
+        traces = [t.get("trace", "")[:500] for t in failed]
+        pytest.fail(
+            f"Task died after channel invalidation instead of recovering.\n"
+            f"Failed tasks: {len(failed)}\n"
+            f"Traces: {traces}"
+        )
+
+    # Task survived — verify it can still ingest new records.
+    producer.send(RECORD_BATCH)
+    # Don't use wait_for_rows with connector_name here since it would
+    # raise on any transient FAILED state during recovery.
+    wait_for_rows(table.name, rows_before + RECORD_BATCH * 2, at_least=True, timeout=60)
+    logger.info("Phase 3 complete: task recovered and continued ingesting")
+
+
+def _all_tasks_running(driver, connector_name: str) -> bool:
+    status = driver.get_connector_status(connector_name)
+    if status is None:
+        return False
+    tasks = status.get("tasks", [])
+    return bool(tasks) and all(t.get("state") == "RUNNING" for t in tasks)

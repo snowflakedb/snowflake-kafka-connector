@@ -1,5 +1,10 @@
+import base64
+import hashlib
 import re
 import textwrap
+import time
+
+import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
@@ -38,3 +43,39 @@ def parse_private_key(private_key_str: str, password_str: str | None = None) -> 
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     )
+
+
+def make_snowflake_jwt(account: str, user: str, private_key_str: str) -> str:
+    """Build a Snowflake-compatible JWT for the streaming ingest API.
+
+    Args:
+        account: Snowflake account identifier (e.g. "myaccount").
+        user: Snowflake user name.
+        private_key_str: Raw private key string (PEM content without headers).
+
+    Returns:
+        Signed JWT string suitable for Authorization: Bearer header.
+    """
+    pem_bytes = normalize_private_key(private_key_str, is_encrypted=False)
+    private_key = serialization.load_pem_private_key(
+        pem_bytes, password=None, backend=default_backend()
+    )
+
+    # Snowflake JWT issuer requires SHA256 fingerprint of the public key DER
+    public_key_der = private_key.public_key().public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    fp = base64.standard_b64encode(hashlib.sha256(public_key_der).digest()).decode()
+
+    account_upper = account.upper()
+    user_upper = user.upper()
+    now = int(time.time())
+
+    payload = {
+        "iss": f"{account_upper}.{user_upper}.SHA256:{fp}",
+        "sub": f"{account_upper}.{user_upper}",
+        "iat": now,
+        "exp": now + 3600,
+    }
+    return jwt.encode(payload, private_key, algorithm="RS256")

@@ -34,6 +34,7 @@ RUN pip install --no-cache-dir \
     avro-python3 \
     kafka-python-ng \
     "snowflake-connector-python==4.2.0" \
+    "PyJWT[crypto]>=2.0" \
     pytest
 
 # Create app directory
