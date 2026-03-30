@@ -2,11 +2,12 @@ name: Build Apache Kafka Docker images
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, ppopov_snow/split-e2e-test-suite ]
     paths:
       - 'test/docker/Dockerfile.apache-kafka'
       - 'test/apache_properties/**'
       - 'test/connect-log4j.properties'
+      - '.github/workflows/build-apache-kafka-images.yml'
   workflow_dispatch:
 
 jobs:
