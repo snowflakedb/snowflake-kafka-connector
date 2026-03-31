@@ -22,12 +22,12 @@ from lib.fixtures.connector import (  # noqa: F401
     create_connector,
     create_custom_connector,
 )
-from lib.fixtures.table import (
+from lib.fixtures.table import (  # noqa: F401
     create_table,
     snowflake_table,
     create_iceberg_table,
     iceberg_external_volume,
-)  # noqa: F401
+)
 from lib.fixtures.function import connector_version, name_salt  # noqa: F401
 
 logger = logging.getLogger(__name__)
