@@ -30,18 +30,19 @@ def _build_sensor(sensor_pb2):
 
 
 @pytest.mark.confluent_only
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_confluent_protobuf_protobuf(
     sensor_pb2,
     driver,
-    connector_version,
     name_salt,
+    connector_version,
     create_connector_from_file,
     create_table,
     wait_for_rows,
     request,
 ):
-    if connector_version == "v3":
-        pytest.skip("v3 plugin conflicts with Schema Registry classloading")
+    # Assertions below capture v3 reference behavior (test ported from v3).
+    # v4 parity confirmed 2026-03-31. v3 cannot run due to SR classloader conflict.
     platform_version = request.config.getoption("--platform-version") or ""
     if platform_version.startswith("8."):
         pytest.skip("BlueApron protobuf converter incompatible with Confluent 8.x")
