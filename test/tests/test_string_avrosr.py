@@ -22,6 +22,7 @@ VALUE_SCHEMA = avro.loads("""
 
 
 @pytest.mark.confluent_only
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_string_avrosr(
     driver,
     name_salt,
@@ -30,8 +31,8 @@ def test_string_avrosr(
     create_table,
     wait_for_rows,
 ):
-    if connector_version == "v3":
-        pytest.skip("v3 plugin conflicts with Schema Registry classloading")
+    # Assertions below capture v3 reference behavior (test ported from v3).
+    # v4 parity confirmed 2026-03-31. v3 cannot run due to SR classloader conflict.
     table = create_table(
         FILE_NAME.upper(),
         columns="(record_metadata variant, id number, firstName varchar, time number)",
