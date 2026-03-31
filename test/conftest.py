@@ -22,7 +22,12 @@ from lib.fixtures.connector import (  # noqa: F401
     create_connector,
     create_custom_connector,
 )
-from lib.fixtures.table import create_table, snowflake_table  # noqa: F401
+from lib.fixtures.table import (
+    create_table,
+    snowflake_table,
+    create_iceberg_table,
+    iceberg_external_volume,
+)  # noqa: F401
 from lib.fixtures.function import connector_version, name_salt  # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -119,6 +124,10 @@ def pytest_configure(config):
         "markers", "confluent_only: requires Confluent platform (schema registry)"
     )
     config.addinivalue_line("markers", "pressure: load / stress tests")
+    config.addinivalue_line(
+        "markers",
+        "iceberg: iceberg table tests (requires ICEBERG_EXTERNAL_VOLUME)",
+    )
 
     # Validate required options (set via CLI or env var)
     missing = []

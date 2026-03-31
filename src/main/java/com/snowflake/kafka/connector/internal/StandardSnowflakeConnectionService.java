@@ -326,30 +326,33 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
 
     boolean hasTableOptionEnabled = false;
-    query = "show tables like ? limit 1";
-    try {
-      PreparedStatement stmt = conn.prepareStatement(query);
-      String escapedTableName =
-          tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
-      stmt.setString(1, escapedTableName);
-      ResultSet result = stmt.executeQuery();
-      while (result.next()) {
-        String enableSchemaEvolution = "N";
-        try {
-          enableSchemaEvolution = result.getString("enable_schema_evolution");
-        } catch (SQLException e) {
-          LOGGER.warn(
-              "enable_schema_evolution column not found in SHOW TABLES output for table {}: {}",
-              tableName,
-              e.getMessage());
+    String escapedTableName =
+        tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
+    for (String showQuery :
+        new String[] {"show tables like ? limit 1", "show iceberg tables like ? limit 1"}) {
+      if (hasTableOptionEnabled) break;
+      try {
+        PreparedStatement stmt = conn.prepareStatement(showQuery);
+        stmt.setString(1, escapedTableName);
+        ResultSet result = stmt.executeQuery();
+        while (result.next()) {
+          String enableSchemaEvolution = "N";
+          try {
+            enableSchemaEvolution = result.getString("enable_schema_evolution");
+          } catch (SQLException e) {
+            LOGGER.warn(
+                "enable_schema_evolution column not found in SHOW output for table {}: {}",
+                tableName,
+                e.getMessage());
+          }
+          if (enableSchemaEvolution.equals("Y")) {
+            hasTableOptionEnabled = true;
+          }
         }
-        if (enableSchemaEvolution.equals("Y")) {
-          hasTableOptionEnabled = true;
-        }
+        stmt.close();
+      } catch (SQLException e) {
+        throw SnowflakeErrors.ERROR_2001.getException(e);
       }
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2001.getException(e);
     }
 
     boolean hasPermission = hasRolePrivilege && hasTableOptionEnabled;
@@ -361,6 +364,27 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
         hasRolePrivilege,
         hasTableOptionEnabled);
     return hasPermission;
+  }
+
+  @Override
+  public boolean isIcebergTable(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    String query = "show iceberg tables like ? limit 1";
+    try (PreparedStatement stmt = conn.prepareStatement(query)) {
+      String escapedName = tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
+      stmt.setString(1, escapedName);
+      ResultSet result = stmt.executeQuery();
+      boolean iceberg = result.next();
+      LOGGER.info("Table {} isIcebergTable={}", tableName, iceberg);
+      return iceberg;
+    } catch (SQLException e) {
+      LOGGER.warn(
+          "Failed to check if table {} is an iceberg table: {}. Defaulting to false.",
+          tableName,
+          e.getMessage());
+      return false;
+    }
   }
 
   @Override
@@ -387,7 +411,10 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
 
     // identifier(?) works for the table name but NOT for column names in ADD COLUMN.
     // Column names are quoted inline to preserve case (e.g. "age" vs "AGE").
-    StringBuilder query = new StringBuilder("alter table identifier(?) add column if not exists ");
+    // Iceberg tables require ALTER ICEBERG TABLE instead of ALTER TABLE.
+    String alterKeyword = isIcebergTable(tableName) ? "alter iceberg table" : "alter table";
+    StringBuilder query =
+        new StringBuilder(alterKeyword + " identifier(?) add column if not exists ");
     boolean first = true;
     for (Map.Entry<String, ColumnInfos> entry : columnInfosMap.entrySet()) {
       if (!first) {
@@ -406,7 +433,8 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       LOGGER.info("Added columns to table {}: {}", tableName, columnInfosMap.keySet());
     } catch (SQLException e) {
       LOGGER.warn(
-          "ALTER TABLE ADD COLUMN failed for table {} (may be concurrent race condition): {}",
+          "ALTER TABLE/ICEBERG TABLE ADD COLUMN failed for table {} (may be concurrent race"
+              + " condition): {}",
           tableName,
           e.getMessage());
       throw SnowflakeErrors.ERROR_2015.getException(e);
@@ -423,7 +451,9 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
 
     // identifier(?) works for the table name but NOT for column names in ALTER ... DROP NOT NULL.
     // Column names are quoted inline to preserve case.
-    StringBuilder query = new StringBuilder("alter table identifier(?) alter ");
+    // Iceberg tables require ALTER ICEBERG TABLE instead of ALTER TABLE.
+    String alterKeyword = isIcebergTable(tableName) ? "alter iceberg table" : "alter table";
+    StringBuilder query = new StringBuilder(alterKeyword + " identifier(?) alter ");
     boolean first = true;
     for (String colName : columnNames) {
       if (!first) {
@@ -446,7 +476,8 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       LOGGER.info("Dropped NOT NULL constraints on table {}: {}", tableName, columnNames);
     } catch (SQLException e) {
       LOGGER.warn(
-          "ALTER TABLE DROP NOT NULL failed for table {} (may be concurrent race condition): {}",
+          "ALTER TABLE/ICEBERG TABLE DROP NOT NULL failed for table {} (may be concurrent race"
+              + " condition): {}",
           tableName,
           e.getMessage());
       throw SnowflakeErrors.ERROR_2016.getException(e);
