@@ -7,6 +7,7 @@ services:
   # ZooKeeper mode: also runs ZK inside the container
   # KRaft mode (KRAFT_MODE=true): combined broker+controller, no ZK
   kafka:
+    image: ghcr.io/snowflakedb/snowflake-kafka-connector/apache-kafka:${KAFKA_VERSION:-2.8.2}-java${JAVA_VERSION:-11}
     build:
       context: ..
       dockerfile: docker/Dockerfile.apache-kafka

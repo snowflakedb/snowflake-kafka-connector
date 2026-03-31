@@ -3,6 +3,8 @@ import json
 
 import pytest
 
+pytestmark = pytest.mark.correctness
+
 FILE_NAME = "travis_correct_schema_mapping"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 100

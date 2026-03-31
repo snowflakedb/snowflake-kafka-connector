@@ -1,5 +1,9 @@
 import time
 
+import pytest
+
+pytestmark = pytest.mark.correctness
+
 FILE_NAME = "snowpipe_streaming_string_json_dlq"
 CONFIG_FILE = f"{FILE_NAME}.json"
 RECORD_COUNT = 5

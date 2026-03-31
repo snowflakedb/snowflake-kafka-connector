@@ -31,6 +31,8 @@ from lib.config_migration import V3_CONFIG_TEMPLATE, v3_config_to_v4
 from lib.driver import KafkaDriver
 from lib.utils import RecordProducer, wait_for
 
+pytestmark = pytest.mark.compatibility
+
 
 # Don't parameterize on v3, we create both connector versions explicitly here.
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)

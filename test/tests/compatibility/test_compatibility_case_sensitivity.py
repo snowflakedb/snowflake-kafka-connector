@@ -9,6 +9,8 @@ from lib.config_migration import V3_CONFIG_TEMPLATE
 from lib.driver import KafkaDriver
 from lib.fixtures.table import Table
 
+pytestmark = pytest.mark.compatibility
+
 
 @pytest.fixture
 def case(connector_version: str):

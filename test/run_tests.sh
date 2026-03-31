@@ -359,8 +359,13 @@ info "Building test runner image..."
 docker compose $COMPOSE_FILES build $BUILD_ARGS test-runner
 
 if [ "$PLATFORM" = "apache" ]; then
-    info "Building Apache Kafka image..."
-    docker compose $COMPOSE_FILES build $BUILD_ARGS kafka
+    APACHE_IMAGE="ghcr.io/snowflakedb/snowflake-kafka-connector/apache-kafka:${KAFKA_VERSION}-java${JAVA_VERSION}"
+    if [ "$FORCE_REBUILD" != "true" ] && docker pull "$APACHE_IMAGE" 2>/dev/null; then
+        info "Using prebuilt Apache Kafka image: $APACHE_IMAGE"
+    else
+        info "Building Apache Kafka image..."
+        docker compose $COMPOSE_FILES build $BUILD_ARGS kafka
+    fi
 fi
 
 # Start services
