@@ -60,6 +60,10 @@ def _avro_connector_config(topic: str, schematization: bool, validation: bool) -
         "topics": topic,
         "jmx": "true",
     }
+    if schematization:
+        config["snowflake.compatibility.enable.column.identifier.normalization"] = (
+            "true"
+        )
     return config
 
 

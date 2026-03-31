@@ -20,7 +20,7 @@ WAVE1_SCHEMA = avro.loads(
     """
 {
     "type": "record",
-    "name": "wave1",
+    "name": "iceberg_se_avro_record",
     "fields": [
         {"name": "CITY", "type": "string"},
         {"name": "AGE", "type": "int"}
@@ -33,11 +33,11 @@ WAVE2_SCHEMA = avro.loads(
     """
 {
     "type": "record",
-    "name": "wave2",
+    "name": "iceberg_se_avro_record",
     "fields": [
         {"name": "CITY", "type": "string"},
         {"name": "AGE", "type": "int"},
-        {"name": "COUNTRY", "type": "string"}
+        {"name": "COUNTRY", "type": ["null", "string"], "default": null}
     ]
 }
 """
