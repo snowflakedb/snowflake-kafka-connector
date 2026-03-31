@@ -331,25 +331,24 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     for (String showQuery :
         new String[] {"show tables like ? limit 1", "show iceberg tables like ? limit 1"}) {
       if (hasTableOptionEnabled) break;
-      try {
-        PreparedStatement stmt = conn.prepareStatement(showQuery);
+      try (PreparedStatement stmt = conn.prepareStatement(showQuery)) {
         stmt.setString(1, escapedTableName);
-        ResultSet result = stmt.executeQuery();
-        while (result.next()) {
-          String enableSchemaEvolution = "N";
-          try {
-            enableSchemaEvolution = result.getString("enable_schema_evolution");
-          } catch (SQLException e) {
-            LOGGER.warn(
-                "enable_schema_evolution column not found in SHOW output for table {}: {}",
-                tableName,
-                e.getMessage());
-          }
-          if (enableSchemaEvolution.equals("Y")) {
-            hasTableOptionEnabled = true;
+        try (ResultSet result = stmt.executeQuery()) {
+          while (result.next()) {
+            String enableSchemaEvolution = "N";
+            try {
+              enableSchemaEvolution = result.getString("enable_schema_evolution");
+            } catch (SQLException e) {
+              LOGGER.warn(
+                  "enable_schema_evolution column not found in SHOW output for table {}: {}",
+                  tableName,
+                  e.getMessage());
+            }
+            if (enableSchemaEvolution.equals("Y")) {
+              hasTableOptionEnabled = true;
+            }
           }
         }
-        stmt.close();
       } catch (SQLException e) {
         throw SnowflakeErrors.ERROR_2001.getException(e);
       }
