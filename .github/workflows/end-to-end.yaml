@@ -22,6 +22,8 @@ jobs:
       matrix:
         include:
           # ── Old platforms: core (catch-all) group only ───────────────────
+          # Compatibility, schema_evolution and correctness groups are intentionally
+          # skipped here — full coverage runs on the new platforms below.
           - platform: apache
             platform_version: '2.8.2'
             snowflake_cloud: 'AWS'

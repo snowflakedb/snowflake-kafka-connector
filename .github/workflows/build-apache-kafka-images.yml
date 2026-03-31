@@ -2,7 +2,7 @@ name: Build Apache Kafka Docker images
 
 on:
   push:
-    branches: [ master, ppopov_snow/split-e2e-test-suite ]
+    branches: [ master ]
     paths:
       - 'test/docker/Dockerfile.apache-kafka'
       - 'test/apache_properties/**'
@@ -50,5 +50,6 @@ jobs:
             JAVA_VERSION=${{ matrix.java_version }}
           push: true
           tags: ghcr.io/snowflakedb/snowflake-kafka-connector/apache-kafka:${{ matrix.kafka_version }}-java${{ matrix.java_version }}
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha,scope=apache-kafka-${{ matrix.kafka_version }}-java${{ matrix.java_version }}
           cache-to: type=gha,mode=max,scope=apache-kafka-${{ matrix.kafka_version }}-java${{ matrix.java_version }}
