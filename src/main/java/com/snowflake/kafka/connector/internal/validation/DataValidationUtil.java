@@ -659,6 +659,14 @@ class DataValidationUtil {
       ZoneId defaultTimezone,
       boolean trimTimezone,
       long insertRowIndex) {
+    // Integer/Long epoch values from Kafka JsonConverter — delegate to the same
+    // scale-guessing logic used for string-encoded epochs.  Only whole numbers
+    // (Integer, Long) are accepted; fractional types (float, double, BigDecimal)
+    // and BigInteger remain rejected to match SSv1 behavior.
+    if (input instanceof Integer || input instanceof Long) {
+      input = input.toString();
+    }
+
     OffsetDateTime offsetDateTime =
         inputToOffsetDateTime(columnName, "TIMESTAMP", input, defaultTimezone, insertRowIndex);
 

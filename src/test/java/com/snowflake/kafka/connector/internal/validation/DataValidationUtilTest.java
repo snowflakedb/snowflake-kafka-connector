@@ -394,6 +394,33 @@ public class DataValidationUtilTest {
   }
 
   @Test
+  public void testValidateAndParseTimestamp_integerEpoch() {
+    // Integer epoch (seconds) — same as string "1709712000"
+    TimestampWrapper fromInt = validateAndParseTimestamp("COL", 1709712000, 9, UTC, true, 0);
+    TimestampWrapper fromStr = validateAndParseTimestamp("COL", "1709712000", 9, UTC, true, 0);
+    assertEquals(fromStr.toBinary(false), fromInt.toBinary(false));
+
+    // Long epoch (milliseconds) — same as string "1709712000000"
+    TimestampWrapper fromLong = validateAndParseTimestamp("COL", 1709712000000L, 9, UTC, true, 0);
+    TimestampWrapper fromStrMs = validateAndParseTimestamp("COL", "1709712000000", 9, UTC, true, 0);
+    assertEquals(fromStrMs.toBinary(false), fromLong.toBinary(false));
+
+    // Zero epoch
+    TimestampWrapper fromZeroInt = validateAndParseTimestamp("COL", 0, 9, UTC, true, 0);
+    TimestampWrapper fromZeroStr = validateAndParseTimestamp("COL", "0", 9, UTC, true, 0);
+    assertEquals(fromZeroStr.toBinary(false), fromZeroInt.toBinary(false));
+
+    // Negative epoch (before 1970)
+    TimestampWrapper fromNeg = validateAndParseTimestamp("COL", -86400, 9, UTC, true, 0);
+    TimestampWrapper fromNegStr = validateAndParseTimestamp("COL", "-86400", 9, UTC, true, 0);
+    assertEquals(fromNegStr.toBinary(false), fromNeg.toBinary(false));
+
+    // TIMESTAMP_LTZ with integer epoch
+    TimestampWrapper ltzFromLong = validateAndParseTimestamp("COL", 1709712000L, 9, UTC, false, 0);
+    assertEquals(fromStr.getEpochSecond(), ltzFromLong.getEpochSecond());
+  }
+
+  @Test
   public void testValidateAndParseBigDecimal() {
     assertEquals(new BigDecimal("1"), validateAndParseBigDecimal("COL", "1", 0));
     assertEquals(new BigDecimal("1"), validateAndParseBigDecimal("COL", "  1 \t\n ", 0));

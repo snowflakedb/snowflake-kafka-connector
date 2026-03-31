@@ -425,7 +425,7 @@ All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, du
 | 🟢 | DATE | `test_date` | Pass | Pass | Pass | ISO dates, epoch, future. Invalid string → DLQ. All modes identical. |
 | 🟢 | TIME | `test_time` | Pass | Pass | Pass | Normal, midnight, end-of-day. Invalid string → DLQ. All modes identical. |
 | 🟢 | TIMESTAMP_NTZ | `test_timestamp_ntz` | Pass | Pass | Pass | ISO timestamps. Invalid string → DLQ. All modes identical. |
-| 🟡 | TIMESTAMP_NTZ (epoch) | `test_timestamp_ntz_epoch` | Pass | **Diverges** | **Diverges** | **D4**: v3 ingests integer epoch correctly. v4-compat rejects (DLQ'd). v4-ht ingests but timestamp shifted by session TZ (UTC-8 → 8h off). |
+| 🟡 | TIMESTAMP_NTZ (epoch) | `test_timestamp_ntz_epoch` | Pass | **Fixed** (PR #1393) | **Diverges** | **D4**: v3 ingests integer epoch correctly. v4-compat now accepts Integer/Long epochs (fixed). v4-ht still shifts by session TZ. |
 | 🟢 | TIMESTAMP_LTZ | `test_timestamp_ltz` | Pass | Pass | Pass | TZ-aware timestamps, epoch. Invalid → DLQ. All modes identical. |
 | 🟢 | TIMESTAMP_TZ | `test_timestamp_tz` | Pass | Pass | Pass | Timestamps with offset. Invalid → DLQ. All modes identical. |
 | 🟢 | VARIANT | `test_variant` | Pass | Pass | Pass | Objects, arrays, nested, integers, floats, booleans, JSON strings. All modes identical. |
@@ -467,7 +467,7 @@ Tests run across 3 ingestion modes (v3, v4-compat, v4-ht) × all type/unsupporte
 | D1 | BINARY | bin_hello, bin_zero | Ingested (correct hex decode) | Rejected, no DLQ (silently dropped) | Rejected, no DLQ | High | SNOW-3256183 |
 | D2 | BINARY | bin_dead, bin_long | Ingested (correct hex decode) | Ingested with garbled bytes (base64-decoded instead of hex) | Ingested with garbled bytes | High | SNOW-3256183 |
 | D3 | BOOLEAN | bool_zero, bool_one | Ingested (0→False, 1→True) | Rejected, no DLQ (silently dropped) | Rejected, no DLQ | High | -- |
-| D4 | TIMESTAMP_NTZ | tsntz_int_epoch | Ingested (epoch → 2024-01-15T10:00:00) | Rejected, DLQ'd | Ingested with wrong value (2024-01-15T02:00 — session TZ shift) | High | -- |
+| D4 | TIMESTAMP_NTZ | tsntz_int_epoch | Ingested (epoch → 2024-01-15T10:00:00) | **Fixed** (was: Rejected, DLQ'd) | Ingested with wrong value (2024-01-15T02:00 — session TZ shift) | High | PR #1393 (v4-compat fix) |
 | D5 | VARIANT (NULL) | null_variant | SQL NULL | String `'null'` | String `'null'` | Medium | -- |
 | D6 | VARIANT (bare str) | var_str | Rejected, DLQ'd | Rejected, DLQ'd | Ingested as JSON-quoted string | Low | -- |
 | D7 | ARRAY (JSON str) | arr_str_json | Parsed: `[1,2,3]` | Literal: `["[1,2,3]"]` | Literal: `["[1,2,3]"]` | Medium | -- |
@@ -480,7 +480,7 @@ Tests run across 3 ingestion modes (v3, v4-compat, v4-ht) × all type/unsupporte
 
 **D3 detail**: v4 RowValidator rejects numeric 0/1 for BOOLEAN columns. v4-compat silently drops them (not routed to DLQ). v4-ht also drops them server-side. String tokens "true"/"false"/"yes"/"no" work on all modes.
 
-**D4 detail**: v4-compat rejects `java.lang.Long` for TIMESTAMP_NTZ and routes to DLQ. v4-ht ingests it but interprets the epoch in the session timezone (America/Los_Angeles = UTC-8) instead of UTC, resulting in an 8-hour shift.
+**D4 detail**: v4-compat previously rejected `java.lang.Long` for TIMESTAMP_NTZ and routed to DLQ. **Fixed in PR #1393** by accepting `Integer`/`Long` inputs in `DataValidationUtil.validateAndParseTimestamp()` — converts to String and delegates to the existing epoch scale-guessing logic. v4-ht still has the session TZ shift issue (server-side, not fixable in client validator).
 
 **D10/D11 detail**: Contradicts ColumnSchema.java analysis. SSv2 SDK accepts structured OBJECT/ARRAY columns for non-Iceberg tables, while v3 (SSv1) rejects them at channel open.
 
