@@ -394,10 +394,7 @@ public class DataValidationUtilTest {
   }
 
   @Test
-  public void testValidateAndParseTimestamp_integerEpoch() throws ParseException {
-    SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    df.setTimeZone(TimeZone.getTimeZone("UTC"));
-
+  public void testValidateAndParseTimestamp_integerEpoch() {
     // Integer epoch (seconds) — same as string "1709712000"
     TimestampWrapper fromInt = validateAndParseTimestamp("COL", 1709712000, 9, UTC, true, 0);
     TimestampWrapper fromStr = validateAndParseTimestamp("COL", "1709712000", 9, UTC, true, 0);
