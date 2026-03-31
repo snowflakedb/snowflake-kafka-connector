@@ -26,7 +26,8 @@ docker-setup
 profile*.json
 
 licenses/
-
 ai-docs/
+docs/
+
 CLAUDE.md
 .mcp.json

@@ -1,35 +1,29 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
-import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedRunnable;
 import java.time.Duration;
-import java.util.Set;
 
 /**
  * Policy class that encapsulates Failsafe logic for insert row operations with channel reopening
  * fallback functionality.
  *
  * <p>This class provides a clean interface to execute append row operations with automatic channel
- * recovery on {@link SFException}.
+ * recovery on non-retryable {@link SFException}. For retryable backpressure errors, it throws
+ * {@link BackpressureException} to signal the batch-level insert loop to abandon the batch and
+ * rewind offsets.
  */
-class AppendRowWithRetryAndFallbackPolicy {
+class AppendRowWithFallbackPolicy {
 
-  private static final KCLogger LOGGER =
-      new KCLogger(AppendRowWithRetryAndFallbackPolicy.class.getName());
-
-  // Retry policy constants
-  /** Delay before next retry attempt. */
-  private static final Duration RETRY_DELAY = Duration.ofSeconds(5);
+  private static final KCLogger LOGGER = new KCLogger(AppendRowWithFallbackPolicy.class.getName());
 
   /** Delay before fallback attempt (channel reopening). */
   private static final Duration FALLBACK_DELAY = Duration.ofMillis(500);
 
-  /** Random jitter added to retry delays to prevent potential partition starving. */
+  /** Random jitter added to fallback delays to prevent retry storms. */
   private static final Duration JITTER_DURATION = Duration.ofMillis(200);
 
   /**
@@ -58,28 +52,40 @@ class AppendRowWithRetryAndFallbackPolicy {
     }
   }
 
-  @VisibleForTesting
-  static void executeWithRetryAndFallback(
+  /**
+   * Executes the provided append row action with fallback handling.
+   *
+   * <p>On retryable {@link SFException} (backpressure errors), throws {@link BackpressureException}
+   * to signal the batch-level insert loop that the batch should be abandoned and offsets should be
+   * rewound. The channel remains valid.
+   *
+   * <p>On non-retryable {@link SFException}, it will execute the fallback supplier to reopen the
+   * channel and reset offsets after a simple blocking delay with jitter to prevent retry storms.
+   *
+   * @param appendRowAction the action to execute (typically channel.appendRow call)
+   * @param fallbackSupplier the fallback action to execute on non-retryable failure (channel
+   *     reopening logic)
+   * @param channelName the channel name for logging purposes
+   */
+  static void executeWithFallback(
       CheckedRunnable appendRowAction,
       FallbackSupplierWithException fallbackSupplier,
       String channelName) {
-    executeWithRetryAndFallback(appendRowAction, fallbackSupplier, channelName, null, null);
-  }
-
-  static void executeWithRetryAndFallback(
-      CheckedRunnable appendRowAction,
-      FallbackSupplierWithException fallbackSupplier,
-      String channelName,
-      Runnable onRetry,
-      Runnable onFallback) {
 
     Fallback<Void> reopenChannelFallbackExecutor =
         Fallback.<Void>builder(
                 executionAttemptedEvent -> {
-                  if (onFallback != null) onFallback.run();
-                  withDelay(
-                      () -> fallbackSupplier.execute(executionAttemptedEvent.getLastException()),
-                      channelName);
+                  Throwable lastException = executionAttemptedEvent.getLastException();
+
+                  // Check if this is a retryable backpressure error
+                  if (BackpressureException.isRetryableError(lastException)) {
+                    // The channel is still valid; throw BackpressureException to signal
+                    // the batch-level insert loop to abandon the batch and rewind offsets
+                    throw new BackpressureException((SFException) lastException);
+                  }
+
+                  // Non-retryable error: proceed with channel reopening
+                  withDelay(() -> fallbackSupplier.execute(lastException), channelName);
                 })
             .handle(SFException.class)
             .onFailedAttempt(
@@ -89,51 +95,24 @@ class AppendRowWithRetryAndFallbackPolicy {
                         channelName,
                         event.getLastException()))
             .onFailure(
-                event ->
+                event -> {
+                  if (event.getException() instanceof BackpressureException) {
+                    LOGGER.warn(
+                        "Backpressure on channel {}: {}",
+                        channelName,
+                        event.getException().getMessage());
+                  } else {
                     LOGGER.error(
                         "{} Failed to open Channel or fetching offsetToken for channel:{}."
                             + " Exception: {}",
                         "APPEND_ROW_FALLBACK",
                         channelName,
-                        event.getException()))
-            .build();
-
-    RetryPolicy<Void> memoryBackpressureRetryPolicy =
-        RetryPolicy.<Void>builder()
-            .handleIf(AppendRowWithRetryAndFallbackPolicy::isRetryableError)
-            .withDelay(RETRY_DELAY)
-            .withJitter(JITTER_DURATION)
-            .withMaxAttempts(-1)
-            .onRetry(
-                event -> {
-                  LOGGER.warn(
-                      "Failed attempt #{} to invoke appendRow API for channel: {}. Exception: {}",
-                      event.getAttemptCount(),
-                      channelName,
-                      event.getLastException().getMessage());
-                  if (onRetry != null) onRetry.run();
+                        event.getException());
+                  }
                 })
             .build();
 
-    Failsafe.with(reopenChannelFallbackExecutor)
-        .compose(memoryBackpressureRetryPolicy)
-        .run(appendRowAction);
-  }
-
-  private static final Set<String> RETRYABLE_ERROR_CODE_NAMES =
-      Set.of(
-          // 429 Too Many Requests
-          "ReceiverSaturated",
-          "MemoryThresholdExceeded",
-          "MemoryThresholdExceededInContainer",
-          // 503 Service Unavailable
-          "HttpRetryableClientError");
-
-  private static boolean isRetryableError(Throwable e) {
-    if (!(e instanceof SFException)) {
-      return false;
-    }
-    return RETRYABLE_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
+    Failsafe.with(reopenChannelFallbackExecutor).run(appendRowAction);
   }
 
   /**

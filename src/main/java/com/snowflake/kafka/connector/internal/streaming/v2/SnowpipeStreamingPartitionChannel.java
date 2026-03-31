@@ -238,8 +238,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   /**
-   * Uses {@link AppendRowWithRetryAndFallbackPolicy} to reopen the channel if insertRows throws
-   * {@link SFException}.
+   * Uses {@link AppendRowWithFallbackPolicy} to reopen the channel if insertRows throws {@link
+   * SFException}.
    *
    * <p>We have deliberately not performed retries on insertRows because it might slow down overall
    * ingestion and introduce lags in committing offsets to Kafka.
@@ -248,7 +248,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * channel is invalidated.
    */
   private void insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
-    AppendRowWithRetryAndFallbackPolicy.executeWithRetryAndFallback(
+    AppendRowWithFallbackPolicy.executeWithFallback(
         () -> {
           LOGGER.trace("Inserting transformed record: {}, offset: {}", transformedRecord, offset);
           getChannel().appendRow(transformedRecord, Long.toString(offset));
@@ -259,9 +259,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           throw new TopicPartitionChannelInsertionException(
               String.format("Failed to insert rows into channel %s.", this.channelName), ex);
         },
-        this.channelName,
-        snowflakeTelemetryChannelStatus::incBackpressureRetryCount,
-        snowflakeTelemetryChannelStatus::incAppendRowFallbackCount);
+        this.channelName);
   }
 
   private static void closeChannelWithoutFlushing(SnowflakeStreamingIngestChannel channel) {
