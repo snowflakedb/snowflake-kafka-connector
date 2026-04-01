@@ -276,7 +276,9 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
         String type = result.getString("type");
         String comment = result.getString("comment");
         String nullable = result.getString("null?");
-        rows.add(new DescribeTableRow(columnName, type, comment, nullable));
+        String defaultValue = result.getString("default");
+        String autoincrement = result.getString("autoincrement");
+        rows.add(new DescribeTableRow(columnName, type, comment, nullable, defaultValue, autoincrement));
       }
       return Optional.of(rows);
     } catch (Exception e) {

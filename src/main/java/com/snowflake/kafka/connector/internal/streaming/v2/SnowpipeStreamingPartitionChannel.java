@@ -406,7 +406,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       this.tableSchema = new HashMap<>();
       for (DescribeTableRow row : describeResult.get()) {
         ColumnSchema colSchema =
-            ColumnSchema.fromDescribeTableFields(row.getColumn(), row.getType(), row.getNullable());
+            ColumnSchema.fromDescribeTableFields(
+                row.getColumn(),
+                row.getType(),
+                row.getNullable(),
+                row.hasDefault(),
+                row.isAutoincrement());
         this.tableSchema.put(row.getColumn(), colSchema);
       }
 

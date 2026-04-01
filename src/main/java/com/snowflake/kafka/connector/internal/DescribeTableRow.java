@@ -6,15 +6,30 @@ import java.util.Objects;
 public class DescribeTableRow {
   private final String column;
   private final String type;
-
   private final String comment;
   private final String nullable;
+  private final String defaultValue;
+  private final String autoincrement;
 
-  public DescribeTableRow(String column, String type, String comment, String nullable) {
+  /** Full constructor with default and autoincrement metadata. */
+  public DescribeTableRow(
+      String column,
+      String type,
+      String comment,
+      String nullable,
+      String defaultValue,
+      String autoincrement) {
     this.column = column;
     this.type = type;
     this.comment = comment;
     this.nullable = nullable;
+    this.defaultValue = defaultValue;
+    this.autoincrement = autoincrement;
+  }
+
+  /** Backward-compatible constructor (no default/autoincrement metadata). */
+  public DescribeTableRow(String column, String type, String comment, String nullable) {
+    this(column, type, comment, nullable, null, null);
   }
 
   public String getColumn() {
@@ -31,6 +46,24 @@ public class DescribeTableRow {
 
   public String getNullable() {
     return nullable;
+  }
+
+  public String getDefaultValue() {
+    return defaultValue;
+  }
+
+  public String getAutoincrement() {
+    return autoincrement;
+  }
+
+  /** True when the column has a server-assigned default value. */
+  public boolean hasDefault() {
+    return defaultValue != null && !defaultValue.isEmpty();
+  }
+
+  /** True when the column is an autoincrement/identity column. */
+  public boolean isAutoincrement() {
+    return autoincrement != null && !autoincrement.isEmpty();
   }
 
   @Override
