@@ -190,15 +190,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         snowflakeTelemetryChannelStatus.incErrorToleratedCount();
       } else {
         // If we reach here, it means we should ingest a record (possibly empty for tombstones)
-        final Map<String, Object> transformedRecord =
+        final Map<String, Object> row =
             record.getContentWithMetadata(metadataConfig.shouldIncludeAllMetadata());
-        if (!transformedRecord.isEmpty()) {
+        if (!row.isEmpty()) {
           if (clientValidationEnabled && rowValidator != null) {
-            ValidationResult validationResult = rowValidator.validateRow(transformedRecord);
+            ValidationResult validationResult = rowValidator.validateRow(row);
 
             if (!validationResult.isValid()) {
               if (validationResult.hasStructuralError()) {
-                handleStructuralError(validationResult, kafkaSinkRecord, record, transformedRecord);
+                handleStructuralError(validationResult, kafkaSinkRecord, record, row);
               } else {
                 handleValidationError(validationResult, kafkaSinkRecord);
               }
@@ -207,7 +207,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             }
           }
 
-          if (!insertRowWithFallback(transformedRecord, kafkaOffset)) {
+          if (!insertRowWithFallback(row, kafkaOffset)) {
             // Fallback fired: the record was NOT inserted, and the fallback's recovery
             // logic already reset processedOffset + rewound Kafka. Do NOT call
             // recordProcessed() here — that would advance processedOffset past the
@@ -267,11 +267,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * @return true if the record was inserted successfully, false if the fallback fired (record was
    *     NOT inserted)
    */
-  private boolean insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
+  private boolean insertRowWithFallback(Map<String, Object> row, long offset) {
     return AppendRowWithFallbackPolicy.executeWithFallback(
         () -> {
-          LOGGER.trace("Inserting transformed record: {}, offset: {}", transformedRecord, offset);
-          getChannel().appendRow(transformedRecord, Long.toString(offset));
+          LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
+          getChannel().appendRow(row, Long.toString(offset));
           offsetTracker.recordAppended(offset);
           consecutiveRecoveryCount = 0;
         },
@@ -478,7 +478,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     initializeValidation();
   }
 
-  private void handleValidationError(ValidationResult result, SinkRecord record) {
+  private void handleValidationError(
+      ValidationResult result, SinkRecord originalRecordForReporting) {
     if (streamingErrorHandler.isLogErrors()) {
       LOGGER.warn(
           "Client-side validation failure [{}] channel={}, column={}, error={}, offset={}",
@@ -486,7 +487,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           channelName,
           result.getColumnName(),
           result.getValueError(),
-          record.kafkaOffset());
+          originalRecordForReporting.kafkaOffset());
     }
 
     snowflakeTelemetryChannelStatus.incValidationFailureCount();
@@ -494,15 +495,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     String errorMsg =
         String.format(
             "Validation failed for column %s: %s", result.getColumnName(), result.getValueError());
-    streamingErrorHandler.handleError(new DataException(errorMsg), record);
+    streamingErrorHandler.handleError(new DataException(errorMsg), originalRecordForReporting);
     snowflakeTelemetryChannelStatus.incErrorToleratedCount();
   }
 
   private void handleStructuralError(
       ValidationResult result,
-      SinkRecord kafkaRecord,
+      SinkRecord originalRecordForReporting,
       SnowflakeSinkRecord snowflakeRecord,
-      Map<String, Object> transformedRecord) {
+      Map<String, Object> row) {
     if (streamingErrorHandler.isLogErrors()) {
       LOGGER.warn(
           "Client-side structural validation failure [{}] channel={}, "
@@ -514,7 +515,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           result.getExtraColNames(),
           result.getMissingNotNullColNames(),
           result.getNullValueForNotNullColNames(),
-          kafkaRecord.kafkaOffset());
+          originalRecordForReporting.kafkaOffset());
     }
 
     if (!shouldEvolveSchema) {
@@ -526,7 +527,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                   + " missingNotNull=%s",
               result.getExtraColNames(), result.getMissingNotNullColNames());
       LOGGER.info("Routing to DLQ for channel {}: {}", channelName, errorMsg);
-      streamingErrorHandler.handleError(new DataException(errorMsg), kafkaRecord);
+      streamingErrorHandler.handleError(new DataException(errorMsg), originalRecordForReporting);
       snowflakeTelemetryChannelStatus.incErrorToleratedCount();
       return;
     }
@@ -535,35 +536,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       LOGGER.info("Attempting schema evolution for channel {}, table {}", channelName, tableName);
       SchemaEvolutionTargetItems items =
           ValidationResultMapper.mapToSchemaEvolutionItems(result, tableName);
-      // When schematization is off, the transformed record has different columns
-      // (RECORD_CONTENT, RECORD_METADATA) than the original SinkRecord. Use a
-      // synthetic record so the resolver infers VARIANT for those columns.
-      SnowflakeSinkRecord recordForEvolution;
-      if (enableSchematization) {
-        recordForEvolution = snowflakeRecord;
-      } else {
-        SinkRecord syntheticKafkaRecord =
-            new SinkRecord(
-                kafkaRecord.topic(),
-                kafkaRecord.kafkaPartition(),
-                null,
-                null,
-                null,
-                transformedRecord,
-                kafkaRecord.kafkaOffset());
-        recordForEvolution =
-            SnowflakeSinkRecord.from(
-                syntheticKafkaRecord, metadataConfig, true, enableColumnIdentifierNormalization);
-      }
-      schemaEvolutionService.evolveSchemaIfNeeded(items, recordForEvolution);
+      schemaEvolutionService.evolveSchemaIfNeeded(items, snowflakeRecord);
 
       refreshTableSchema();
 
       ValidationResult retryResult = result;
       if (rowValidator != null) {
-        retryResult = rowValidator.validateRow(transformedRecord);
+        retryResult = rowValidator.validateRow(row);
         if (retryResult.isValid()) {
-          insertRowWithFallback(transformedRecord, kafkaRecord.kafkaOffset());
+          insertRowWithFallback(row, originalRecordForReporting.kafkaOffset());
           return;
         }
       }
@@ -575,7 +556,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           String.format(
               "Schema mismatch after evolution attempt: extraCols=%s, missingNotNull=%s",
               retryResult.getExtraColNames(), retryResult.getMissingNotNullColNames());
-      streamingErrorHandler.handleError(new DataException(errorMsg), kafkaRecord);
+      streamingErrorHandler.handleError(new DataException(errorMsg), originalRecordForReporting);
       snowflakeTelemetryChannelStatus.incErrorToleratedCount();
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Schema evolution failed for table {}", tableName, e);
