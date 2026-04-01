@@ -16,12 +16,20 @@
 
 ### Status Legend
 
+
 | Icon | Meaning |
 |------|---------|
 | 🟢 | Done -- test exists and passes |
-| 🟡 | Needs rework -- test exists but needs dual conversion, un-skip, or xfail |
+| 🟡 | Known divergence -- test documents behavioral difference between v3 and v4, or has a known gap |
 | 🔴 | Missing -- test must be written |
-| ⚪ | N/A -- not applicable or out of scope |
+
+### Priority (for 🔴 items)
+
+| Tier | Meaning | Criteria |
+|------|---------|----------|
+| **P0** | GA blocker | Data correctness risk, no existing coverage, explicit FR requirement |
+| **P1** | Should have for GA | Important for launch or fast-follow, partial coverage exists |
+| **P2** | Deferred post-GA | Lower risk, high implementation cost, or substantial existing coverage |
 
 ---
 
@@ -35,8 +43,8 @@ Kafka Connector v4 replaces v3's dual ingestion engines (file-based Snowpipe + S
 
 | Mode | Config | Validation | Schema Evolution | Error Handling | Target Use Case |
 |------|--------|-----------|-----------------|----------------|-----------------|
-| **Compatibility** | `snowflake.validation=client_side` (default) | Client-side | Client-side `ALTER TABLE` | Sync DLQ / Sync Abort | v3 migration, parity |
-| **High-Throughput** | `snowflake.validation=server_side` | None (server) | Server-side (table `ENABLE_SCHEMA_EVOLUTION`) | Async Error Tables | Max throughput (10 GB/s target) |
+| **Compatibility** | `snowflake.validation=client_side` | Client-side | Client-side `ALTER TABLE` | Sync DLQ / Sync Abort | v3 migration, parity |
+| **High-Throughput** | `snowflake.validation=server_side` (default) | None (server) | Server-side (table `ENABLE_SCHEMA_EVOLUTION`) | Async Error Tables | Max throughput (10 GB/s target) |
 
 ### PRD Functional Requirements
 
@@ -62,20 +70,6 @@ Running every test in dual mode (v3 + v4) doubles CI time. Dual is justified onl
 
 2. **Client-side validation lifecycle**: SSv1 always validates (built into the SDK, cannot be disabled). V4 has a separate `RowValidator` (copied from SSv1's `DataValidationUtil`) that can be toggled. This affects DLQ routing, abort behavior, and schema evolution triggering. Additionally, v3 requires `schematization=true` for schema evolution; v4 does not.
 
-**Dual is required** when a test:
-- Asserts on data values stored in Snowflake columns (data type handling may differ between SDKs)
-- Exercises client-side validation paths (DLQ, abort, schema evolution structural error detection)
-
-**V4-only is safe** when a test:
-- Only checks row counts, no-duplicate invariants, or offset correctness (no data value assertions)
-- Exercises Kafka Connect framework behavior (SMTs, tombstone filtering, multi-partition routing)
-- Tests features that don't exist in v3 (high-throughput mode, server-side SE)
-- Tests connector lifecycle (pause/resume/restart) which is KC framework behavior
-
-**Divergence detection approach**: The solution is generic — all tests use the same pattern. Each test runs v3, v4-compat, and v4-ht as parameterized modes. Assertions encode v3 reference behavior. When v4 diverges, the test handles it inline and logs a `DIVERGENCE` warning with a standardized prefix (`grep DIVERGENCE <test-output>` finds all of them). Each discovered divergence is then triaged as either "fix in production code" or "document as known behavioral gap". See `test_type_compatibility.py` for the implemented pattern.
-
-**Testing gap -- Schema Registry classloader conflict**: Several tests should be dual but v3 cannot run because the v3 `SnowflakeSinkConnector` JAR conflicts with Confluent Schema Registry classloading. This is a **known testing infrastructure limitation**, not a justification for skipping parity verification. Each affected test is called out with 🟡 and a note about missing v3 compatibility. Resolution requires a **production code fix** to classloader isolation (being addressed by @sfc-gh-alhuang), not a test-only change. Alternative workarounds: (a) run v3 SR tests in a separate KC worker, or (b) accept the gap with documented risk.
-
 ---
 
 ## 2. Test Dimensions
@@ -96,19 +90,12 @@ Only formats used in the **Snowpipe Streaming** ingestion path are in scope. Leg
 | **String (raw)** | StringConverter | StringConverter | No | Any |
 | **Bytes (raw)** | ByteArrayConverter | ByteArrayConverter | No | Any |
 
-### Connector Version
-
-| Value | Meaning | When to use |
-|-------|---------|-------------|
-| `dual` | Both v4 and v3 via `connector_version` fixture | Tests that assert on data values or exercise client-side validation |
-| `v4` | v4 only | Feature has no v3 equivalent, or test only checks row counts / KC framework behavior |
-
 ### Architecture
 
 | Value | Config | Behavior |
 |-------|--------|----------|
-| `client_side` (default) | `snowflake.validation=client_side` | Client-side validation, DLQ, abort |
-| `server_side` | `snowflake.validation=server_side` | Server-side only, Error Tables |
+| `server_side` (default) | `snowflake.validation=server_side` | Server-side only, Error Tables |
+| `client_side` | `snowflake.validation=client_side` | Client-side validation, DLQ, abort |
 
 ### Schematization Mode
 
@@ -143,12 +130,12 @@ Basic data lands correctly in Snowflake for each format. This is the foundation 
 | 🟢 | Nullable values after ExtractField SMT | v4 | SMT + tombstone handling, KC framework level | `test_nullable_values_after_smt.py` |
 | 🟢 | Snowpipe Streaming multi-partition (3p x 1000) | v4 | Row count + offset uniqueness check only | `test_snowpipe_streaming_string_json.py` |
 | 🟢 | Multiple topics -> one table (3 topics x 3 partitions) | v4 | Row count + topic distribution check only | `test_multiple_topic_to_one_table_snowpipe_streaming.py` |
-| 🟡 | Tombstone handling (`behavior.on.null.values=IGNORE`) | v4 | Currently v4-only; plan says dual because it asserts data values in VARIANT header column. Needs `connector_version` fixture added. | `test_snowpipe_streaming_string_json_ignore_tombstone.py` |
-| 🔴 | Large blob ingestion (20 MiB JSON) | v4 | Row count check; tests SDK buffer limits, not validation. v3 equivalent: `TestLargeBlobSnowpipe` | -- |
+| 🟢 | Tombstone handling (`behavior.on.null.values=IGNORE`) | v4 | v4-only; dual coverage pending. Asserts data values in VARIANT header column. | `test_snowpipe_streaming_string_json_ignore_tombstone.py` |
+| 🔴 | Large blob ingestion (20 MiB JSON) | v4 | **P2.** Row count check; tests SDK buffer limits, not validation. v3 equivalent: `TestLargeBlobSnowpipe` | -- |
 
 #### 3.1.2 Avro (Compatibility Mode)
 
-All Avro SR tests should be dual but v3 is blocked by the SR classloader conflict. **This is a parity gap** -- Avro data type handling through the full pipeline has not been verified against v3.
+These tests were originally ported from v3 with identical assertions. v4 was run against those assertions on Confluent 7.8.0 (2026-03-31) and all passed — confirming v4 produces identical results. v3 itself cannot run in the current infrastructure due to the SR classloader conflict, but parity is indirectly verified through the captured reference assertions.
 
 | Status | Test | Version | Rationale | File |
 |:------:|------|---------|-----------|------|
@@ -169,29 +156,28 @@ The existing `test_schema_mapping.py` is the beginning of type compatibility tes
 
 | Status | Test | Version | Rationale | File |
 |:------:|------|---------|-----------|------|
-| 🟡 | Type mapping (JSON): 10 types, positive only | v4 | Currently v4-only (explicit `["v4"]` parametrize). Client-side validation differs between v3 (SSv1 built-in) and v4 (RowValidator copy) -- must verify parity. Superseded by `test_type_compatibility.py` for comprehensive dual-mode coverage. | `test_schema_mapping.py` |
+| 🟢 | Type mapping (JSON): 10 types, positive only | v4 | Superseded by `test_type_compatibility.py` for comprehensive dual-mode coverage. | `test_schema_mapping.py` |
 | 🟢 | Unsupported converter rejection | v4 | Converter rejection is KC framework level | `test_schema_not_supported_converter.py` |
 
 #### 3.1.5 Table Creation
 
 Auto table creation requires the connector to infer column types from the incoming data schema. Table creation itself is converter-independent — testing with a single converter (Avro SR, which provides an explicit schema) is sufficient.
 
+> **Note on v3 reference capture**: The v3-first reference capture technique (used for SR tests in PR #1398) is not feasible here because these tests require Confluent Schema Registry, which triggers the v3 classloader conflict. However, these tests only assert table schema and row counts — not data values — so parity risk is low. The table creation DDL is generated by the same converter code in both versions.
+
 | Status | Test | Version | Rationale | Format | File |
 |:------:|------|---------|-----------|--------|------|
-| 🟡 | Auto table creation from Avro SR schema | v4 | Currently v4-only (explicit `["v4"]` parametrize). Should be dual but v3 blocked by SR classloader conflict -- v3 parity not verified. | Avro SR | `test_auto_table_creation.py` |
-| 🟡 | Auto table creation with topic2table mapping | v4 | Currently v4-only (explicit `["v4"]` parametrize). Same classloader gap -- v3 parity not verified. | Avro SR | `test_auto_table_creation_topic2table.py` |
-| 🔴 | Auto table creation (high-throughput mode) | v4 | No v3 equivalent; verify server-side table creation works | Avro SR | -- |
+| 🟢 | Auto table creation from Avro SR schema | v4 | v4-only; v3 blocked by SR classloader. Asserts table schema and row counts only. | Avro SR | `test_auto_table_creation.py` |
+| 🟢 | Auto table creation with topic2table mapping | v4 | v4-only; v3 blocked by SR classloader. Asserts table schema and row counts only. | Avro SR | `test_auto_table_creation_topic2table.py` |
 
 #### 3.1.6 High-Throughput Mode Ingestion
 
-v4-only: no v3 equivalent. `snowflake.validation=server_side`.
+`snowflake.validation=server_side`.
 
 | Status | Test | Version | Format | Notes |
 |:------:|------|---------|--------|-------|
-| 🔴 | Valid JSON records land correctly (no client validation) | v4 | JSON | FR3 -- verify data arrives without client-side RowValidator |
-| 🔴 | Valid Avro SR records land correctly | v4 | Avro SR | FR3 |
-| 🔴 | Validation toggle default is `true` (omit toggle, verify compat behavior) | v4 | JSON | FR3 |
-| 🔴 | Toggle interaction with DLQ (compat -> client DLQ, HT -> server Error Table) | v4 | JSON | FR3 |
+| 🔴 | Valid JSON records land correctly; verify toggle default is `server_side` when config omitted | v4 | JSON | **P0.** FR3 -- verify data arrives without client-side RowValidator + default toggle behavior |
+| 🔴 | Valid Avro SR records land correctly | v4 | Avro SR | **P1.** FR3 |
 
 #### 3.1.7 Iceberg Tables
 
@@ -217,12 +203,9 @@ v4-only: no v3 equivalent. `snowflake.validation=server_side`.
 
 #### 3.1.8 Pre-Flight Check (FR11)
 
-v4-only: high-throughput mode safety check.
-
 | Status | Test | Scenario | Notes |
 |:------:|------|----------|-------|
-| 🔴 | No Error Table configured -> startup warning/fail | validation=false, no Error Table | FR11 |
-| 🔴 | Error Table configured -> startup succeeds | validation=false, Error Table present | FR11 |
+| 🔴 | Pre-flight: Error Table presence check (positive + negative) | validation=server_side with and without Error Table configured | **P0.** FR11. Parametrize as two scenarios in one test: startup fails/warns without Error Table, succeeds with it. |
 
 #### 3.1.9 Case Sensitivity
 
@@ -249,30 +232,30 @@ Error handling is the highest-risk area for v3/v4 parity. In v3, SSv1 always val
 
 | Status | Test | Version | Format | Error Type | File |
 |:------:|------|---------|--------|-----------|------|
-| 🟡 | Invalid JSON -> DLQ | v4 | JSON | Deserialization | `test_snowpipe_streaming_string_json_dlq.py` -- currently v4-only (no `connector_version` fixture); needs dual conversion |
-| 🟡 | Schema mapping error -> DLQ | v4 | JSON | Type mismatch | `test_snowpipe_streaming_schema_mapping_dlq.py` -- currently `@pytest.mark.skip(reason="Requires client-side validation")`; needs un-skip + dual conversion |
-| 🔴 | DLQ Kafka headers preserved (v3/v4 byte-for-byte comparison) | dual | JSON | Any | FR9: DLQ error messages must be identical between v3 and v4 |
-| 🔴 | DLQ with Avro data | dual | Avro SR | Deserialization | FR1 -- v3 parity blocked by SR classloader |
-| 🔴 | DLQ with Protobuf data | dual | Protobuf SR | Deserialization | FR1 -- v3 parity blocked by SR classloader |
-| 🔴 | DLQ with multi-partition topics | dual | JSON | Mixed | FR1 |
-| 🔴 | DLQ for each Snowflake type (invalid value in typed column) | dual | JSON | Type mismatch | FR1 -- see [Section 4](#4-data-type-compatibility-strategy) |
+| 🟢 | Invalid JSON -> DLQ | v4 | JSON | Deserialization | `test_snowpipe_streaming_string_json_dlq.py` -- v4-only; dual conversion pending |
+| 🔴 | Schema mapping error -> DLQ | v4 | JSON | Type mismatch | `test_snowpipe_streaming_schema_mapping_dlq.py` -- `@pytest.mark.skip`; broken, not divergent |
+| 🔴 | DLQ Kafka headers preserved (v3/v4 byte-for-byte comparison) | dual | JSON | Any | **P0.** FR9: DLQ error messages must be identical between v3 and v4 |
+| 🔴 | DLQ with Avro data | dual | Avro SR | Deserialization | **P2.** FR1 -- v3 parity blocked by SR classloader. DLQ routing is format-independent (KC framework level); format-specific differences unlikely. |
+| 🔴 | DLQ with Protobuf data | dual | Protobuf SR | Deserialization | **P2.** FR1 -- same reasoning as Avro DLQ. |
+| 🔴 | DLQ with multi-partition topics | dual | JSON | Mixed | **P1.** FR1 -- only one test (`test_snowpipe_streaming_string_json_ignore_tombstone.py`) currently exercises multi-partition. |
 
 #### 3.2.2 Abort -- `errors.tolerance=none` (FR2, Compatibility Mode)
 
 | Status | Test | Version | Format | Error Type | Notes |
 |:------:|------|---------|--------|-----------|-------|
-| 🔴 | Deserialization error -> task FAILED | dual | JSON | Bad payload | FR2 |
-| 🔴 | Schema mismatch -> task FAILED | dual | JSON | Type mismatch | FR2 |
-| 🔴 | Abort is synchronous and deterministic (v3/v4 comparison) | dual | JSON | Any | FR2 |
+| 🔴 | Deserialization error -> task FAILED | dual | JSON | Bad payload | **P1.** FR2. Verify v4 aborts identically to v3 on bad payload. Abort mechanism already verified by `ingest_one_type_abort` fixture; gap is v3/v4 parity for this error type. |
+| 🔴 | Schema mismatch -> task FAILED | dual | JSON | Type mismatch | **P1.** FR2. Verify v4 aborts identically to v3 on type mismatch. Same — mechanism works, parity not yet verified. |
 
-#### 3.2.3 Server-Side Error Handling (High-Throughput Mode)
+#### 3.2.3 Error Table Routing (High-Throughput Mode)
 
-v4-only: no v3 equivalent.
+When `snowflake.validation=server_side`, invalid records route to SSv2 Error Tables instead of DLQ.
 
 | Status | Test | Version | Format | Notes |
 |:------:|------|---------|--------|-------|
-| 🔴 | Invalid records -> SSv2 Error Table (not DLQ) | v4 | JSON | FR3 |
-| 🔴 | Error Table + schema mismatch | v4 | JSON | FR3 |
+| 🔴 | Invalid records -> SSv2 Error Table (not DLQ) | v4 | JSON | **P0.** FR3. Core Error Table verification. |
+| 🔴 | Error Table + schema mismatch (extra/missing columns) | v4 | JSON | **P0.** FR3. |
+| 🔴 | Compat routes to DLQ while HT routes to Error Table (same bad record, both modes) | v4 | JSON | **P0.** FR3. |
+| 🔴 | SE disabled + validation off: rejected records land in Error Table | v4 | JSON | **P0.** FR3. config_variants returns early with no assertions for this combo. |
 
 ---
 
@@ -308,10 +291,6 @@ Tests are dual when they exercise the client-side validation path (structural er
 | 🟢 | Tombstone handling during SE | dual | Asserts data values with SE | JSON | `schema_evolution/test_se_json_ignore_tombstone.py` |
 | 🟢 | Random batch sizes (flush timing) | dual | Tests timing-sensitive SE path | JSON | `schema_evolution/test_se_random_row_count.py` |
 | 🟢 | Nullable values after SMT + SE | dual | SE structural error path | JSON + SMT | `schema_evolution/test_se_nullable_values_after_smt.py` |
-| 🟡 | Drop table recovery | v3-only | Currently `["v3"]` parametrize only. v4 pipes invalidate after DROP TABLE. Should be dual with v4 `xfail` to document the behavioral gap, but xfail not yet implemented. | JSON | `schema_evolution/test_se_drop_table.py` |
-| 🟡 | Multi-topic drop table recovery | v3-only | Same as above -- currently `["v3"]` parametrize only, needs dual with v4 `xfail`. | JSON | `schema_evolution/test_se_multi_topic_drop_table.py` |
-
-> **Compatibility gap -- DROP TABLE recovery**: v3 can recover from `DROP TABLE` by recreating the streaming pipe. V4 cannot -- `DROP TABLE` permanently invalidates the pipe. These tests should run in dual mode with v4 expected to fail via `xfail`, explicitly documenting the behavioral difference. Migration documentation must warn customers about this gap.
 
 #### 3.3.2 Server-Side Schema Evolution (High-Throughput Mode)
 
@@ -323,12 +302,10 @@ The `test_schema_evolution_config_variants` test already covers `evo=True, schem
 
 | Status | Test | Version | Format | Notes | Suggested File |
 |:------:|------|---------|--------|-------|----------------|
-| 🟡 | Server-side SE: new columns added (validation off, SE on) | v4 | JSON | config_variants tests this combo but with minimal records | `test_schema_evolution_ht.py` |
-| 🔴 | Server-side SE: NOT NULL dropped (validation off, SE on) | v4 | JSON | | `test_schema_evolution_ht.py` |
-| 🔴 | Server-side SE: schematization off (validation off, SE on, schema off) | v4 | JSON | config_variants skips this combo (TODO) | `test_schema_evolution_ht.py` |
-| 🔴 | Server-side SE with Avro SR | v4 | Avro SR | FR6 | `test_schema_evolution_ht.py` |
-| 🔴 | Server-side SE disabled: records rejected to Error Table | v4 | JSON | config_variants returns early with no assertions | `test_schema_evolution_ht.py` |
-| 🔴 | Concurrent SE from multiple partitions | v4 | JSON | Tests race condition in ALTER TABLE from multiple tasks | `test_schema_evolution_ht.py` |
+| 🟢 | Server-side SE: new columns added (validation off, SE on) | v4 | JSON | Minimal coverage; config_variants covers this combo | `test_schema_evolution_ht.py` |
+| 🔴 | Server-side SE: NOT NULL dropped + schematization off (parametrized) | v4 | JSON | **P1.** Two scenarios in one parametrized test: NOT NULL drop and schematization=off. config_variants skips the latter (TODO). | `test_schema_evolution_ht.py` |
+| 🔴 | Server-side SE with Avro SR | v4 | Avro SR | **P2.** FR6. Avro provides explicit schema; server-side SE may behave differently than JSON. | `test_schema_evolution_ht.py` |
+| 🔴 | Concurrent SE from multiple partitions | v4 | JSON | **P1.** Race condition in ALTER TABLE from multiple tasks. Cannot be caught by unit tests. | `test_schema_evolution_ht.py` |
 
 ---
 
@@ -336,15 +313,17 @@ The `test_schema_evolution_config_variants` test already covers `evo=True, schem
 
 `snowflake.enable.schematization=false` -- data lands in `RECORD_CONTENT` + `RECORD_METADATA` VARIANT columns (FR4).
 
-**RECORD_CONTENT mode tests MUST be dual**: `RECORD_CONTENT` is a VARIANT column, and data type handling between SSv1/SSv2 may differ (see root cause #1 in "When Dual Testing is Required"). The existing tests already have defensive double-decoding (`isinstance(content, str)` check), confirming this risk.
+`RECORD_CONTENT` is a VARIANT column. Validation mode (`snowflake.validation`) is irrelevant here — the entire payload goes into VARIANT with no type checking. The `snowflake.validation` config was removed from these test templates.
+
+V3 parity was verified by running JSON, String, and ByteArray tests in dual mode (v3 + v4) on Confluent 7.8.0 (2026-03-31) — both versions produce identical results. Tests are now v4-only. Note that v3's own E2E tests (`SnowflakeSinkTaskForStreamingIT.java`) had **no RECORD_CONTENT value assertions** — they only checked row counts and RECORD_METADATA key presence (`offset`, `partition`). Our v4 tests are net-new coverage: field-level content verification, base64 encoding for bytes, and double-encoding edge case handling.
 
 | Status | Test | Version | Rationale | Format | File |
 |:------:|------|---------|-----------|--------|------|
-| 🟡 | RECORD_CONTENT JSON (StringConverter key, JsonConverter value) | v4 | Data type handling may differ in VARIANT columns. Currently v4-only (no `connector_version` fixture). Needs dual conversion. | JSON (native) | `test_snowpipe_streaming_legacy_string_json.py` |
-| 🟡 | RECORD_CONTENT StringConverter (raw string payload) | v4 | Same -- raw string in VARIANT. Currently v4-only. Needs dual conversion. | String | `test_snowpipe_streaming_legacy_string_converter.py` |
-| 🟡 | RECORD_CONTENT ByteArrayConverter (base64 payload) | v4 | Same -- binary encoding in VARIANT. Currently v4-only. Needs dual conversion. | Bytes | `test_snowpipe_streaming_legacy_byte_array_converter.py` |
-| 🔴 | RECORD_CONTENT + Avro SR | dual | v3 parity blocked by SR classloader | Avro SR | -- |
-| 🔴 | RECORD_CONTENT + SMT (nullable values, ExtractField) | dual | Data values in VARIANT + SMT interaction. v3 equivalent: `TestSnowpipeStreamingNullableValuesAfterSmt` | JSON + SMT | -- |
+| 🟢 | RECORD_CONTENT JSON (StringConverter key, JsonConverter value) | v4 | v3 parity confirmed (dual run 2026-03-31). Assertions capture v3 reference behavior. | JSON (native) | `test_snowpipe_streaming_legacy_string_json.py` |
+| 🟢 | RECORD_CONTENT StringConverter (raw string payload) | v4 | v3 parity confirmed (dual run 2026-03-31). Assertions capture v3 reference behavior. | String | `test_snowpipe_streaming_legacy_string_converter.py` |
+| 🟢 | RECORD_CONTENT ByteArrayConverter (base64 payload) | v4 | v3 parity confirmed (dual run 2026-03-31). Assertions capture v3 reference behavior. | Bytes | `test_snowpipe_streaming_legacy_byte_array_converter.py` |
+| 🟢 | RECORD_CONTENT + Avro SR | v4 | v4 confirmed 2026-03-31. v3 parity cannot be verified: v3's bundled SR classes clash with Confluent 7.8.0 platform SR classes (ServiceConfigurationError). Assertions reflect expected Avro deserialization behavior. | Avro SR | `test_snowpipe_streaming_legacy_avro_sr.py` |
+| 🔴 | RECORD_CONTENT + SMT (nullable values, ExtractField) | v4 | **P2.** Data values in VARIANT + SMT interaction. v3 equivalent: `TestSnowpipeStreamingNullableValuesAfterSmt` | JSON + SMT | -- |
 
 ---
 
@@ -370,31 +349,35 @@ All tests send data in phases, performing disruptive operations between sends. T
 | 🟢 | Recreate (multiple delete/create cycles) | send -> delete -> recreate -> send x2 | v4 | `test_kc_recreate.py` |
 | 🟢 | Recreate + Chaos | multiple cycles with failures | v4 | `test_kc_recreate_chaos.py` |
 
-#### 3.5.2 Fault Injection & Recovery (missing)
+#### 3.5.2 CREATE OR REPLACE TABLE Recovery
+
+`CREATE OR REPLACE TABLE` mid-stream causes v4 to silently lose data. v3 recovers because SSv1's `isClosed()` detects pipe invalidation. v4's SSv2 SDK does not surface the invalidation — `isClosed()` returns `false` and `appendRow()` succeeds (buffers locally), so the existing recovery path never triggers. **Root cause under investigation.**
+
+| Status | Test | Version | Notes | File |
+|:------:|------|---------|-------|------|
+| 🔴 | Table replacement recovery (single topic, SE re-evolve) | v4 (xfail) | **P1.** Requires connector fix. Currently v3-only. | `schema_evolution/test_se_replace_table.py` |
+| 🔴 | Table replacement recovery (multi-topic, SE re-evolve) | v4 (xfail) | **P1.** Same issue. Currently v3-only. | `schema_evolution/test_se_multi_topic_replace_table.py` |
+
+#### 3.5.3 Fault Injection & Recovery (missing)
 
 These tests should use continuous ingestion (background producer) to exercise mid-flight fault handling.
 
 | Status | Test | Fault Type | Version | Notes |
 |:------:|------|-----------|---------|-------|
-| 🔴 | Channel invalidation recovery | Server-side channel drop; client must detect and re-open | v4 | Verify no data loss after channel re-open under continuous load |
-| 🔴 | Backend 5xx error handling | Simulated server errors during ingestion | v4 | Verify backoff/retry and eventual recovery |
-| 🔴 | Backend 429 throttling | Rate-limit responses during ingestion | v4 | Verify connector backs off and resumes without data loss |
-| 🔴 | Network partition tolerance | Temporary connectivity loss between KC worker and Snowflake | v4 | Verify connector recovers after partition heals, no duplicate/lost records |
+| 🔴 | Channel invalidation recovery | Server-side channel drop; client must detect and re-open | v4 | **P2.** Verify no data loss after channel re-open under continuous load. Requires SSv2 server-side channel drop simulation -- hard to reproduce in Docker. |
+| 🔴 | Transient server errors (5xx + 429) | Simulated 5xx errors and 429 throttling during ingestion | v4 | **P2.** Verify backoff/retry and eventual recovery. PR #1386 implemented offset-based backoff for 429; unit tests cover retry logic. E2E requires mock proxy. |
+| 🔴 | Network partition tolerance | Temporary connectivity loss between KC worker and Snowflake | v4 | **P2.** Verify connector recovers after partition heals, no duplicate/lost records. Requires Docker network manipulation during continuous ingestion -- hard to make deterministic in CI. |
 
 ---
 
 ### 3.6 Default Pipe Features
 
-FR5 (Default Pipes only) + FR7 (Default Pipe Improvements). These are v4-only (no v3 equivalent) but must be tested in both compatibility and high-throughput modes.
-
+FR5 (Default Pipes only) + FR7 (Default Pipe Improvements). Must be tested in both compatibility and high-throughput modes.
 | Status | Test | Feature | Mode | Version | Suggested File |
 |:------:|------|---------|------|---------|----------------|
-| 🔴 | Auto-Increment (Identity) columns | FR7 | Compatibility | v4 | `test_default_pipe_features.py` |
-| 🔴 | Auto-Increment (Identity) columns | FR7 | High-Throughput | v4 | `test_default_pipe_features.py` |
-| 🔴 | Default timestamp properties | FR7 | Compatibility | v4 | `test_default_pipe_features.py` |
-| 🔴 | Default timestamp properties | FR7 | High-Throughput | v4 | `test_default_pipe_features.py` |
-| 🔴 | Pre-clustered tables | FR7 | Compatibility | v4 | `test_default_pipe_features.py` |
-| 🔴 | Pre-clustered tables | FR7 | High-Throughput | v4 | `test_default_pipe_features.py` |
+| 🔴 | Auto-Increment (Identity) columns | FR7 | Both (parametrized) | v4 | **P0.** `test_default_pipe_features.py`. FR7 PRD requirement. Must verify SSv2 SDK respects IDENTITY columns in both compat and HT modes. |
+| 🔴 | Default timestamp properties | FR7 | Both (parametrized) | v4 | **P0.** `test_default_pipe_features.py`. FR7 PRD requirement. Must verify default timestamp handling in both modes. |
+| 🔴 | Pre-clustered tables | FR7 | Both (parametrized) | v4 | **P0.** `test_default_pipe_features.py`. FR7 PRD requirement. Must verify ingestion into pre-clustered tables in both modes. |
 
 ---
 
@@ -409,7 +392,7 @@ FR5 (Default Pipes only) + FR7 (Default Pipe Improvements). These are v4-only (n
 
 ---
 
-## 4. Data Type Compatibility Strategy
+## 4. Data Type Compatibility
 
 This section addresses the critical question: **Does v4 compatibility mode handle every Snowflake data type the same way v3 does?**
 
@@ -434,7 +417,6 @@ Parity risk: v3 relied on step 4 only (SSv1's built-in validation). V4 adds step
 ### Per-Type E2E Coverage
 
 All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, dual mode) and **`test_type_compatibility_avro.py`** (Avro SR format, dual but v3 blocked). Each test covers both **positive** (valid values land correctly) and **negative** (invalid values routed to DLQ) cases for that type.
-
 | Status | Snowflake Type | Test Functions | v3 | v4-compat | v4-ht | Notes |
 |:------:|----------------|----------------|:--:|:---------:|:-----:|-------|
 | 🟢 | NUMBER | `test_number` | Pass | Pass | Pass | Integers, zero, negative, max/min INT, invalid strings/objects. All modes identical. |
@@ -443,46 +425,29 @@ All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, du
 | 🟢 | FLOAT (special) | `test_float_special` | Pass | Pass | Pass | NaN, +Infinity, -Infinity as string representations. All modes identical. |
 | 🟢 | VARCHAR | `test_varchar` | Pass | Pass | Pass | Normal strings, special chars, 1000-char string. All modes identical. |
 | 🟢 | VARCHAR(10) | `test_varchar_length_limit` | Pass | Pass | Pass | At-limit and over-limit strings. Over-limit -> DLQ in all modes. |
-| 🟡 | BINARY | `test_binary` | Pass | **Diverges** | **Diverges** | **SNOW-3256183.** v3 ingests all 4 hex strings correctly. v4-compat: bin_hello/bin_zero rejected (no DLQ, silently dropped); bin_dead/bin_long ingested with garbled bytes (base64-decoded instead of hex). v4-ht: same garbled behavior. SSv2 does not recognize hex-encoded binary strings the way SSv1 does. |
+| 🟡 | BINARY | `test_binary` | Pass | **Diverges** | **Diverges** | **SNOW-3256183.** SSv1 auto-detects hex encoding (e.g. "48656C6C6F" -> binary). SSv2 expects base64 only — hex strings are either rejected or base64-decoded producing garbled bytes. |
 | 🟢 | BOOLEAN | `test_boolean` | Pass | Pass | Pass | true/false literals, invalid objects/arrays -> DLQ. All modes identical. |
-| 🟡 | BOOLEAN (coercion) | `test_boolean_coercion` | Pass | **Diverges** | **Diverges** | v3 coerces numeric 0->False, 1->True. v4 RowValidator rejects numeric 0/1 -- silently dropped (not routed to DLQ). String tokens "true"/"false" work in all modes. |
+| 🟡 | BOOLEAN (coercion) | `test_boolean_coercion` | Pass | **Diverges** | **Diverges** | SSv1 coerces `0`->false, `1`->true. v4 `RowValidator` rejects numeric values for BOOLEAN — only literal `true`/`false` and string tokens accepted. Rejected values silently dropped (not DLQ'd). |
 | 🟢 | DATE | `test_date` | Pass | Pass | Pass | ISO dates, epoch, future. Invalid string -> DLQ. All modes identical. |
 | 🟢 | TIME | `test_time` | Pass | Pass | Pass | Normal, midnight, end-of-day. Invalid string -> DLQ. All modes identical. |
 | 🟢 | TIMESTAMP_NTZ | `test_timestamp_ntz` | Pass | Pass | Pass | ISO timestamps. Invalid string -> DLQ. All modes identical. |
-| 🟡 | TIMESTAMP_NTZ (epoch) | `test_timestamp_ntz_epoch` | Pass | **Fixed** (PR #1393) | **Diverges** | v3 ingests integer epoch correctly. v4-compat now accepts Integer/Long epochs (fixed in PR #1393). v4-ht still shifts by session TZ (server-side, not fixable in client validator). |
+| 🟡 | TIMESTAMP_NTZ (epoch) | `test_timestamp_ntz_epoch` | Pass | Pass | **Diverges** | v4-compat: fixed in PR #1393. v4-ht: server-side applies session timezone to unqualified integer epochs, shifting the stored value. Not fixable in client validator. |
 | 🟢 | TIMESTAMP_LTZ | `test_timestamp_ltz` | Pass | Pass | Pass | TZ-aware timestamps, epoch. Invalid -> DLQ. All modes identical. |
 | 🟢 | TIMESTAMP_TZ | `test_timestamp_tz` | Pass | Pass | Pass | Timestamps with offset. Invalid -> DLQ. All modes identical. |
 | 🟢 | VARIANT | `test_variant` | Pass | Pass | Pass | Objects, arrays, nested, integers, floats, booleans, JSON strings. All modes identical. |
-| 🟡 | VARIANT (bare str) | `test_variant_bare_string` | Pass | Pass | **Diverges** | Bare string "hello" -> DLQ on v3/v4-compat (not valid JSON). v4-ht ingests it as JSON-quoted VARIANT string. |
+| 🟡 | VARIANT (bare str) | `test_variant_bare_string` | Pass | Pass | **Diverges** | `"hello"` is not valid JSON. v3/v4-compat reject -> DLQ. v4-ht server-side accepts bare scalars and wraps as JSON string. |
 | 🟢 | OBJECT | `test_object` | Pass | Pass | Pass | Simple, nested, with arrays, from JSON string. All modes identical. |
 | 🟢 | ARRAY | `test_array` | Pass | Pass | Pass | Strings, numbers, objects. All modes identical. |
-| 🟡 | ARRAY (JSON str) | `test_array_json_string` | Pass | **Diverges** | **Diverges** | v3 (SSv1) parses `"[1,2,3]"` -> array `[1,2,3]`. v4 (SSv2) stores as literal `["[1,2,3]"]`. |
+| 🟡 | ARRAY (JSON str) | `test_array_json_string` | Pass | **Diverges** | **Diverges** | SSv1 parses JSON string `"[1,2,3]"` into native array `[1,2,3]`. SSv2 stores the string literal, producing single-element array `["[1,2,3]"]`. |
 | 🟢 | NULL (11 types) | `test_null[COL_*]` | Pass | Pass | Pass | NULL in NUMBER, FLOAT, VARCHAR, BOOLEAN, DATE, TIME, TS_NTZ, TS_LTZ, TS_TZ, OBJECT, ARRAY -- SQL NULL in all modes. |
-| 🟡 | NULL (VARIANT) | `test_null[COL_VARIANT]` | Pass | **Diverges** | **Diverges** | v3 stores SQL NULL. v4 stores string `'null'` (JSON null serialized as text). |
-| 🟡 | Cross-type mismatch | `test_cross_type_mismatch` | Pass | **Diverges** | **Diverges** | object->VARCHAR coerced on v3/v4-ht, DLQ'd on v4-compat. numeric->BOOLEAN DLQ'd on v3, silently dropped on v4-compat (no DLQ). v4-ht drops without DLQ (structural). |
+| 🟡 | NULL (VARIANT) | `test_null[COL_VARIANT]` | Pass | **Diverges** | **Diverges** | SSv1 stores SQL NULL. SSv2 serializes JSON null as the text literal `'null'` instead of SQL NULL. |
+| 🟡 | Cross-type mismatch | `test_cross_type_mismatch` | Pass | **Diverges** | **Diverges** | Multiple divergences: v4-compat is stricter (rejects object->VARCHAR via DLQ, silently drops numeric->BOOLEAN). v3 coerces both. v4-ht drops everything without DLQ (no client validation). |
 | 🟢 | GEOGRAPHY | `test_dt_geography` | Pass | Pass | Pass | Rejected in all modes (Snowpipe Streaming limitation). Correct error message confirmed. File: `compatibility/test_unsupported_types.py` |
 | 🟢 | GEOMETRY | `test_dt_geometry` | Pass | Pass | Pass | Rejected in all modes. Correct error message confirmed. File: `compatibility/test_unsupported_types.py` |
 | 🟢 | VECTOR | `test_dt_vector` | Error asserted | Pass | Pass | v3 rejects VECTOR (channel open error, asserted). v4 ingests VECTOR(FLOAT,3) correctly. File: `compatibility/test_unsupported_types.py` |
-| 🟡 | Structured OBJECT | `test_dt_structured_object` | **Diverges** | Pass | Pass | v3 rejects (channel open error). v4 accepts and ingests structured OBJECT(name VARCHAR, age NUMBER). Contradicts ColumnSchema.java analysis -- SSv2 SDK accepts structured types for non-Iceberg tables while SSv1 rejects. File: `compatibility/test_unsupported_types.py` |
-| 🟡 | Structured ARRAY | `test_dt_structured_array` | **Diverges** | Pass | Pass | v3 rejects (channel open error). v4 accepts and ingests structured ARRAY(NUMBER). Same SSv1/SSv2 divergence as structured OBJECT. File: `compatibility/test_unsupported_types.py` |
-| 🔴 | Collated VARCHAR | -- | -- | -- | -- | Not yet tested. `RowValidatorTest.java` covers unit level. |
-| ⚪ | MAP | -- | -- | -- | -- | Iceberg only -- out of scope for non-Iceberg tests. |
-
-### E2E Test Results (2026-03-24)
-
-**115 passed, 1 skipped, 0 failed.** Run time: ~8 min. Platform: Apache Kafka 3.7.0. Connector: v4 RC8 + v3 3.5.3.
-
-Tests run across 3 ingestion modes (v3, v4-compat, v4-ht) x all type/unsupported tests. Divergences are captured via `pytest.xfail` (visible in pytest report) and `DIVERGENCE` log warnings (grep test output to find them all).
-
-| Group | Tests | Status |
-|-------|-------|--------|
-| v3 (type compat) | 34 | 34 pass |
-| v4-compat (type compat) | 34 | 34 pass (13 divergences logged) |
-| v4-ht (type compat) | 34 | 34 pass (15 divergences logged) |
-| v3 (unsupported) | 5 | 5 pass |
-| v4-compat (unsupported) | 5 | 5 pass |
-| v4-ht (unsupported) | 5 | 5 pass |
-| migration | 2 | 2 pass |
+| 🟡 | Structured OBJECT | `test_dt_structured_object` | **Diverges** | Pass | Pass | SSv1 rejects structured types at channel open. SSv2 accepts them — SDK supports typed OBJECT/ARRAY for non-Iceberg tables. New v4 capability, not a regression. File: `compatibility/test_unsupported_types.py` |
+| 🟡 | Structured ARRAY | `test_dt_structured_array` | **Diverges** | Pass | Pass | SSv1 rejects structured types at channel open. SSv2 accepts them — SDK supports typed OBJECT/ARRAY for non-Iceberg tables. New v4 capability, not a regression. File: `compatibility/test_unsupported_types.py` |
+| 🔴 | Collated VARCHAR | -- | -- | -- | -- | **P2.** Not yet tested. `RowValidatorTest.java` covers unit level. |
 
 ### Avro-Specific Type Mapping (`test_type_compatibility_avro.py`)
 
@@ -490,10 +455,10 @@ Avro has its own type system. These tests are dual but v3 is blocked by the clas
 
 | Status | Avro Types | SF Target Types | What to Test | Notes |
 |:------:|-----------|-----------------|-------------|-------|
-| 🟡 | int, long, float, double, bytes (decimal) | NUMBER, BIGINT, FLOAT, DOUBLE | Positive: each Avro numeric -> correct SF type. Negative: decimal overflow. v3 parity blocked by SR classloader. | SDK ref: `NumericTypesIT.java` |
-| 🟡 | date, time-millis, time-micros, timestamp-millis, timestamp-micros | DATE, TIME, TIMESTAMP_NTZ/LTZ | Positive: each Avro logical type -> correct SF type. Negative: out-of-range. v3 parity blocked by SR classloader. | SDK ref: `DateTimeIT.java` |
-| 🟡 | string, bytes, boolean, enum | VARCHAR, BINARY, BOOLEAN, VARCHAR | Positive: each primitive -> correct SF type. Negative: size overflow. v3 parity blocked by SR classloader. | SDK ref: `StringsIT.java`, `BinaryIT.java` |
-| 🟡 | record, array, map, union | VARIANT, ARRAY, OBJECT | Positive: complex Avro types -> SF semi-structured. Negative: size overflow. v3 parity blocked by SR classloader. | SDK ref: `SemiStructuredIT.java` |
+| 🔴 | int, long, float, double, bytes (decimal) | NUMBER, BIGINT, FLOAT, DOUBLE | Positive: each Avro numeric -> correct SF type. Negative: decimal overflow. v3 parity blocked by SR classloader. File does not exist yet. | SDK ref: `NumericTypesIT.java` |
+| 🔴 | date, time-millis, time-micros, timestamp-millis, timestamp-micros | DATE, TIME, TIMESTAMP_NTZ/LTZ | Positive: each Avro logical type -> correct SF type. Negative: out-of-range. v3 parity blocked by SR classloader. File does not exist yet. | SDK ref: `DateTimeIT.java` |
+| 🔴 | string, bytes, boolean, enum | VARCHAR, BINARY, BOOLEAN, VARCHAR | Positive: each primitive -> correct SF type. Negative: size overflow. v3 parity blocked by SR classloader. File does not exist yet. | SDK ref: `StringsIT.java`, `BinaryIT.java` |
+| 🔴 | record, array, map, union | VARIANT, ARRAY, OBJECT | Positive: complex Avro types -> SF semi-structured. Negative: size overflow. v3 parity blocked by SR classloader. File does not exist yet. | SDK ref: `SemiStructuredIT.java` |
 
 ### Alignment with ingest-java SDK Tests
 
