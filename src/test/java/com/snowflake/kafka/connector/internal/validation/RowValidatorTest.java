@@ -634,6 +634,27 @@ public class RowValidatorTest {
   }
 
   @Test
+  public void testValidateRow_explicitValueForIdentityColumn_passes() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "ID",
+        new ColumnSchema(
+            "ID", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null, null,
+            false, true)); // autoincrement
+    schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
+
+    RowValidator validator = new RowValidator(schema);
+
+    // User explicitly provides a value for the identity column — should still be accepted
+    Map<String, Object> row = new HashMap<>();
+    row.put("ID", 42);
+    row.put("DATA", "hello");
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid(), "Record should be valid when identity column is explicitly provided");
+  }
+
+  @Test
   public void testColumnSchema_isServerFilled() {
     ColumnSchema autoincCol =
         new ColumnSchema(

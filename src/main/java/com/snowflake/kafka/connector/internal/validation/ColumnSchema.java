@@ -99,7 +99,19 @@ public class ColumnSchema {
     String name = rs.getString("name");
     String typeStr = rs.getString("type");
     String nullStr = rs.getString("null?");
-    return fromDescribeTableFields(name, typeStr, nullStr);
+
+    boolean hasDefault = false;
+    boolean isAutoincrement = false;
+    try {
+      String defaultVal = rs.getString("default");
+      hasDefault = defaultVal != null && !defaultVal.isEmpty();
+      String autoinc = rs.getString("autoincrement");
+      isAutoincrement = autoinc != null && !autoinc.isEmpty();
+    } catch (SQLException e) {
+      // default/autoincrement columns not available (e.g., in test mocks)
+    }
+
+    return fromDescribeTableFields(name, typeStr, nullStr, hasDefault, isAutoincrement);
   }
 
   /**

@@ -81,6 +81,13 @@ public class DescribeTableRow {
 
   @Override
   public String toString() {
-    return " " + column + " " + type;
+    StringBuilder sb = new StringBuilder(" " + column + " " + type);
+    if (hasDefault()) {
+      sb.append(" DEFAULT=").append(defaultValue);
+    }
+    if (isAutoincrement()) {
+      sb.append(" ").append(autoincrement);
+    }
+    return sb.toString();
   }
 }
