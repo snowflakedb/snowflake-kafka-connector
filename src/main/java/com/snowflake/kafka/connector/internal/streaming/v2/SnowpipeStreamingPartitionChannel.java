@@ -256,8 +256,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         },
         (Throwable ex) -> {
           reopenChannel("APPEND_ROW_FALLBACK");
-          throw new TopicPartitionChannelInsertionException(
-              String.format("Failed to insert rows into channel %s.", this.channelName), ex);
         },
         this.channelName);
   }

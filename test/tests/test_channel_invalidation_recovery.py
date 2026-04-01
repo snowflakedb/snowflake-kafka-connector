@@ -13,8 +13,7 @@ import time
 
 import pytest
 
-from lib.crypto import make_snowflake_jwt
-from lib.utils import RecordProducer, steal_channel, wait_for
+from lib.utils import RecordProducer, wait_for
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ def test_task_recovers_after_channel_invalidation(
 
     Steps:
     1. Start connector, produce records, verify ingestion is working.
-    2. Steal the channel via the SSV2 HTTP API (simulates ROW_SEQ_GAP).
+    2. Invalidate the channel via SYSTEM$STREAMING_CHANNEL_INVALIDATE.
     3. Continue producing records.
     4. Assert the task stays RUNNING and new rows arrive in Snowflake.
     """
@@ -71,30 +70,18 @@ def test_task_recovers_after_channel_invalidation(
     rows_before = RECORD_BATCH
     logger.info(f"Phase 1 complete: {rows_before} rows ingested")
 
-    # -- Discover channel and pipe names via SHOW CHANNELS --
-    cursor = driver.snowflake_conn.cursor()
-    pipe_name = f"{table_name}-STREAMING"
-    cursor.execute(f"SHOW CHANNELS IN PIPE {credentials.database}.{credentials.schema}.\"{pipe_name}\"")
-    channels = cursor.fetchall()
-    assert channels, f"No channels found in pipe {pipe_name}"
-    # SHOW CHANNELS columns: created_on, name, database_name, schema_name, table_name, ...
-    channel_name = channels[0][1]
-    logger.info(f"Discovered channel={channel_name}, pipe={pipe_name}")
+    # -- Phase 2: Invalidate the channel via system function --
+    pipe_name = f"{credentials.database}.{credentials.schema}.\"{table_name}-STREAMING\""
+    channel_name = f"{connector_name}_{topic}_0"
+    logger.info(f"Invalidating channel={channel_name}, pipe={pipe_name}")
 
-    # -- Phase 2: Steal the channel to trigger InvalidChannelError --
-    host = credentials.host.split(":")[0]
-    account = credentials.get_or_infer_account()
-    jwt_token = make_snowflake_jwt(account, credentials.user, credentials.private_key)
-
-    steal_channel(
-        host=host,
-        database=credentials.database,
-        schema=credentials.schema,
-        pipe_name=pipe_name,
-        channel_name=channel_name,
-        jwt_token=jwt_token,
+    result = driver.snowflake_conn.cursor().execute(
+        f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_name}', '{channel_name}')"
+    ).fetchone()[0]
+    logger.info(f"Channel invalidation result: {result}")
+    assert "ERR_CHANNEL_MUST_BE_REOPENED" in result, (
+        f"Expected ERR_CHANNEL_MUST_BE_REOPENED but got: {result}"
     )
-    logger.info("Channel stolen — KC will hit InvalidChannelError on next appendRow")
 
     # -- Phase 3: Produce more records and verify recovery --
     # Send records to force KC to attempt appendRow on the stolen channel.
