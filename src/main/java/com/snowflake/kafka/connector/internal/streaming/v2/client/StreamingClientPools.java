@@ -105,6 +105,18 @@ public class StreamingClientPools {
   }
 
   /**
+   * Forcibly evicts and closes the client for the given pipe. Called when the server-side pipe has
+   * been invalidated (e.g. after CREATE OR REPLACE TABLE destroys the pipe). All tasks using this
+   * pipe will get a new client on their next {@code getClient} call.
+   */
+  public static void invalidateClient(final String connectorName, final String pipeName) {
+    StreamingClientPool pool = connectors.get(connectorName);
+    if (pool != null) {
+      pool.invalidateClient(pipeName);
+    }
+  }
+
+  /**
    * Releases all clients used by a specific task. Clients that are still used by other tasks remain
    * open. Only closes clients when the last task using them stops. When the pool becomes empty (no
    * remaining clients or tasks), the pool is removed from the registry.

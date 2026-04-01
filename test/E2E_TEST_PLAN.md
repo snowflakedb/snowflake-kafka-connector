@@ -351,12 +351,12 @@ All tests send data in phases, performing disruptive operations between sends. T
 
 #### 3.5.2 CREATE OR REPLACE TABLE Recovery
 
-`CREATE OR REPLACE TABLE` mid-stream causes v4 to silently lose data. v3 recovers because SSv1's `isClosed()` detects pipe invalidation. v4's SSv2 SDK does not surface the invalidation — `isClosed()` returns `false` and `appendRow()` succeeds (buffers locally), so the existing recovery path never triggers. **Root cause under investigation.**
+`CREATE OR REPLACE TABLE` mid-stream was causing v4 to silently lose data. The fix adds a per-channel validity probe in `processChannelStatus()` that detects SDK-level invalidation and triggers channel recovery. Both v3 and v4 now pass.
 
 | Status | Test | Version | Notes | File |
 |:------:|------|---------|-------|------|
-| 🔴 | Table replacement recovery (single topic, SE re-evolve) | v4 (xfail) | **P1.** Requires connector fix. Currently v3-only. | `schema_evolution/test_se_replace_table.py` |
-| 🔴 | Table replacement recovery (multi-topic, SE re-evolve) | v4 (xfail) | **P1.** Same issue. Currently v3-only. | `schema_evolution/test_se_multi_topic_replace_table.py` |
+| :white_check_mark: | Table replacement recovery (single topic, SE re-evolve) | v3, v4 | Fixed via preCommit invalidation detection. | `schema_evolution/test_se_replace_table.py` |
+| :white_check_mark: | Table replacement recovery (multi-topic, SE re-evolve) | v3, v4 | Same fix. | `schema_evolution/test_se_multi_topic_replace_table.py` |
 
 #### 3.5.3 Fault Injection & Recovery (missing)
 

@@ -355,6 +355,41 @@ class StreamingClientPoolTest {
     }
 
     @Test
+    void invalidateClient_closes_and_removes_entry() {
+      SnowflakeStreamingIngestClient mockClient = mock(SnowflakeStreamingIngestClient.class);
+      setSupplierReturning(mockClient);
+
+      getClient("task-0", "pipe-A");
+      pool.invalidateClient("pipe-A");
+
+      verify(mockClient).close();
+      assertThat(pool.isEmpty()).isTrue();
+    }
+
+    @Test
+    void invalidateClient_then_getClient_creates_new_client() {
+      AtomicInteger callCount = new AtomicInteger();
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, config, props) -> {
+            callCount.incrementAndGet();
+            return mock(SnowflakeStreamingIngestClient.class);
+          });
+
+      SnowflakeStreamingIngestClient first = getClient("task-0", "pipe-A");
+      pool.invalidateClient("pipe-A");
+
+      SnowflakeStreamingIngestClient second = getClient("task-0", "pipe-A");
+
+      assertThat(second).isNotSameAs(first);
+      assertThat(callCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    void invalidateClient_for_unknown_pipe_does_not_throw() {
+      pool.invalidateClient("nonexistent-pipe");
+    }
+
+    @Test
     void getClient_parallel_for_different_pipes_creates_concurrently() throws Exception {
       CountDownLatch bothStarted = new CountDownLatch(2);
       CountDownLatch proceed = new CountDownLatch(1);

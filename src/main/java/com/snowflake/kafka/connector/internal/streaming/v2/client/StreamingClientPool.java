@@ -161,6 +161,29 @@ public class StreamingClientPool {
     }
   }
 
+  /**
+   * Forcibly evicts and closes the client for the given pipe. All tasks using this pipe will get a
+   * new client on their next {@link #getClientAsync} call.
+   *
+   * <p>Called when the server-side pipe has been invalidated (e.g. after CREATE OR REPLACE TABLE).
+   */
+  void invalidateClient(String pipeName) {
+    pipes.compute(
+        pipeName,
+        (key, entry) -> {
+          if (entry != null) {
+            LOGGER.warn("Invalidating client for pipe {} in connector {}", pipeName, connectorName);
+            try {
+              entry.clientFuture.join().close();
+            } catch (Exception e) {
+              LOGGER.warn(
+                  "Error closing invalidated client for pipe {}: {}", pipeName, e.getMessage());
+            }
+          }
+          return null;
+        });
+  }
+
   /** Returns true if there are no remaining clients or task registrations. */
   boolean isEmpty() {
     return pipes.isEmpty();
