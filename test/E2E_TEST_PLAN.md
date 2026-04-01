@@ -351,33 +351,12 @@ All tests send data in phases, performing disruptive operations between sends. T
 
 #### 3.5.2 CREATE OR REPLACE TABLE Recovery
 
-`CREATE OR REPLACE TABLE` mid-stream permanently invalidates v4's streaming channels. In v3, the connector detects the channel invalidation and re-opens a new channel against the recreated table (which already exists from the DDL — the connector does not need to create it).
-
-**v3 recovery flow** (branch `3.2.x`):
-
-1. **Detection**: `SnowflakeSinkServiceV2.insert()` checks `isChannelClosed()` on every record ([`SnowflakeSinkServiceV2.java:349`](src/main/java/com/snowflake/kafka/connector/internal/streaming/SnowflakeSinkServiceV2.java)). `DirectTopicPartitionChannel.isChannelClosed()` delegates to the SSv1 SDK's `channel.isClosed()` ([`DirectTopicPartitionChannel.java:951`](src/main/java/com/snowflake/kafka/connector/internal/streaming/DirectTopicPartitionChannel.java)). SSv1 detects the pipe invalidation caused by the table replacement and returns `true`.
-2. **Table check**: `insert()` calls `startPartition()` → `tableActionsOnStartPartition()` → `createTableIfNotExists()` ([`SnowflakeSinkServiceV2.java:676`](src/main/java/com/snowflake/kafka/connector/internal/streaming/SnowflakeSinkServiceV2.java)). Since the table already exists (it was recreated by the DDL), `conn.tableExist()` returns `true` and the method just verifies the RECORD_METADATA column is present (`conn.appendMetaColIfNotExist()`). No table creation happens.
-3. **Channel re-open**: `createStreamingChannelForTopicPartition()` opens a **new** SDK channel against the recreated table ([`DirectTopicPartitionChannel.java:842`](src/main/java/com/snowflake/kafka/connector/internal/streaming/DirectTopicPartitionChannel.java)). The new channel has the recreated table's 1-column schema (only RECORD_METADATA). When records arrive, they trigger client-side SE again — columns are re-added, and ingestion resumes from the last committed offset.
-
-**v4 failure mode** (confirmed via log analysis of `test_se_replace_table[v4]` on 2026-03-31):
-
-Wave 1 succeeds normally — client-side SE adds columns, SDK `appendRow()` buffers 100 records, server commits them after ~20s flush latency. After the test verifies 100 rows and runs `CREATE OR REPLACE TABLE`, Wave 2 records are silently lost. The root cause is a **silent channel invalidation**:
-
-1. `CREATE OR REPLACE TABLE` destroys the streaming pipe on the server. The SDK channel object is not notified.
-2. Wave 2 records pass client-side validation (the `RowValidator` still has the 4-column schema from Wave 1 SE). `appendRow()` succeeds locally — it only buffers data.
-3. When the SDK attempts to flush the buffer, the server-side pipe no longer exists. **The flush silently fails** — no `SFException` is thrown to the connector, no error is logged.
-4. `getChannelStatus()` continues returning stale `statusCode=[SUCCESS]` with `rowsInsertedCount=[100]` (from Wave 1). The status never changes.
-5. `isChannelClosed()` returns `false` — the SDK channel was never explicitly closed.
-6. The v4 recovery trigger (`isChannelClosed() → startPartition() → createTableIfNotExists()`) never fires. The connector sits in PRECOMMIT loops with committed offset stuck at 100 until the test times out (~5 minutes).
-
-The v4 connector has the same `isChannelClosed() → startPartition()` code path as v3 ([`SnowflakeSinkServiceV2.java:396-401`](src/main/java/com/snowflake/kafka/connector/internal/streaming/SnowflakeSinkServiceV2.java)), but it never triggers because the SSv2 SDK does not surface pipe invalidation through `isClosed()` or `appendRow()`. This is a gap in the SDK's error surfacing, not in the connector's recovery logic.
-
-These tests currently exist as v3-only (`@pytest.mark.parametrize("connector_version", ["v3"])`). They must be converted to v4 with `xfail` to document the behavioral gap. The v3 parametrization should be removed — there is no reason to run v3-only tests inside the v4 connector repo.
+`CREATE OR REPLACE TABLE` mid-stream causes v4 to silently lose data. v3 recovers because SSv1's `isClosed()` detects pipe invalidation. v4's SSv2 SDK does not surface the invalidation — `isClosed()` returns `false` and `appendRow()` succeeds (buffers locally), so the existing recovery path never triggers. **Root cause under investigation.**
 
 | Status | Test | Version | Notes | File |
 |:------:|------|---------|-------|------|
-| 🔴 | Table replacement recovery (single topic, SE re-evolve) | v4 (xfail) | **P1.** Convert from v3-only to v4 + `pytest.mark.xfail(reason="SSv2 SDK silent channel invalidation after CREATE OR REPLACE TABLE")`. Sends records -> evolves schema -> CREATE OR REPLACE TABLE -> sends again. V4 expected to fail at wave 2. | `schema_evolution/test_se_replace_table.py` |
-| 🔴 | Table replacement recovery (multi-topic, SE re-evolve) | v4 (xfail) | **P1.** Same conversion. Two topics with different schemas feed one table; CREATE OR REPLACE TABLE should not permanently break ingestion. | `schema_evolution/test_se_multi_topic_replace_table.py` |
+| 🔴 | Table replacement recovery (single topic, SE re-evolve) | v4 (xfail) | **P1.** Requires connector fix. Currently v3-only. | `schema_evolution/test_se_replace_table.py` |
+| 🔴 | Table replacement recovery (multi-topic, SE re-evolve) | v4 (xfail) | **P1.** Same issue. Currently v3-only. | `schema_evolution/test_se_multi_topic_replace_table.py` |
 
 #### 3.5.3 Fault Injection & Recovery (missing)
 
