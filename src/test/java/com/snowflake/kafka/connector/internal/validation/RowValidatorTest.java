@@ -544,6 +544,119 @@ public class RowValidatorTest {
     assertEquals(largeLength, schema.getLength()); // Original length preserved
   }
 
+  // ================ Server-Filled Column Tests (FR7) ================
+
+  @Test
+  public void testValidateRow_missingIdentityColumn_passes() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "ID",
+        new ColumnSchema(
+            "ID", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null, null,
+            false, true)); // NOT NULL, autoincrement=true
+    schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("DATA", "hello"); // ID is missing — server fills it
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid(), "Record should be valid when identity column is omitted");
+  }
+
+  @Test
+  public void testValidateRow_missingDefaultNotNullColumn_passes() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
+    schema.put(
+        "CREATED_AT",
+        new ColumnSchema(
+            "CREATED_AT", ColumnLogicalType.TIMESTAMP_NTZ, ColumnPhysicalType.SB8, false, null, 9,
+            null, null, null, true, false)); // NOT NULL, hasDefault=true
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("DATA", "hello"); // CREATED_AT is missing — server fills it
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid(), "Record should be valid when default NOT NULL column is omitted");
+  }
+
+  @Test
+  public void testValidateRow_missingRegularNotNullColumn_stillFails() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "REQUIRED",
+        new ColumnSchema(
+            "REQUIRED", ColumnLogicalType.TEXT, ColumnPhysicalType.LOB, false, null, null, 100,
+            400, null, false, false)); // NOT NULL, no default, no autoincrement
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    // REQUIRED is missing — no server default, should fail
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid(), "Record should be invalid when regular NOT NULL column is missing");
+    assertTrue(result.getMissingNotNullColNames().contains("REQUIRED"));
+  }
+
+  @Test
+  public void testValidateRow_mixedServerFilledAndRegularColumns() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "ID",
+        new ColumnSchema(
+            "ID", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null, null,
+            false, true)); // autoincrement
+    schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
+    schema.put(
+        "CREATED_AT",
+        new ColumnSchema(
+            "CREATED_AT", ColumnLogicalType.TIMESTAMP_NTZ, ColumnPhysicalType.SB8, false, null, 9,
+            null, null, null, true, false)); // default
+    schema.put(
+        "STATUS",
+        new ColumnSchema(
+            "STATUS", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null,
+            null, true, false)); // default
+
+    RowValidator validator = new RowValidator(schema);
+
+    // Only DATA provided — ID, CREATED_AT, STATUS are server-filled
+    Map<String, Object> row = new HashMap<>();
+    row.put("DATA", "hello");
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid(), "Record should be valid when only server-filled NOT NULL columns are missing");
+  }
+
+  @Test
+  public void testColumnSchema_isServerFilled() {
+    ColumnSchema autoincCol =
+        new ColumnSchema(
+            "ID", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null, null,
+            false, true);
+    assertTrue(autoincCol.isServerFilled());
+    assertTrue(autoincCol.isAutoincrement());
+    assertFalse(autoincCol.hasDefault());
+
+    ColumnSchema defaultCol =
+        new ColumnSchema(
+            "TS", ColumnLogicalType.TIMESTAMP_NTZ, ColumnPhysicalType.SB8, false, null, 9, null,
+            null, null, true, false);
+    assertTrue(defaultCol.isServerFilled());
+    assertFalse(defaultCol.isAutoincrement());
+    assertTrue(defaultCol.hasDefault());
+
+    ColumnSchema regularCol = createColumnSchema("REG", ColumnLogicalType.TEXT, false, null, null, 100);
+    assertFalse(regularCol.isServerFilled());
+    assertFalse(regularCol.isAutoincrement());
+    assertFalse(regularCol.hasDefault());
+  }
+
   // ================ Helper Methods ================
 
   private ResultSet mockDescribeTableRow(String name, String type, String nullable)
