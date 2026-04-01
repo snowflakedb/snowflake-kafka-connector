@@ -286,6 +286,34 @@ class SnowpipeStreamingPartitionChannelTest {
     assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
   }
 
+  @Test
+  void channelInvalidation_stopsReopeningAfterMaxConsecutiveRecoveries() {
+    // If the channel is permanently broken (every appendRow fails), we should not
+    // loop forever reopening channels. After MAX_CONSECUTIVE_RECOVERIES (5) the
+    // fallback stops reopening — no more channel churn.
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+
+    // Every appendRow throws — channel is permanently invalid
+    trackingClientSupplier.setThrowOnAppendRow(true);
+
+    // Send many records. Each triggers the fallback, but only the first
+    // MAX_CONSECUTIVE_RECOVERIES (5) actually reopen the channel. After that
+    // the circuit breaker trips and no more channels are created.
+    for (int i = 0; i < 20; i++) {
+      partitionChannel.insertRecord(buildValidRecord(i), i == 0);
+    }
+
+    // Verify we didn't create an unbounded number of channels.
+    // 1 initial + at most 5 recoveries = at most 6 channels.
+    assertTrue(
+        trackingClientSupplier.getTotalChannelsCreated() <= 6,
+        "Expected at most 6 channels (1 initial + 5 recoveries), got: "
+            + trackingClientSupplier.getTotalChannelsCreated());
+  }
+
   private SinkRecord buildValidRecord(long offset) {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
