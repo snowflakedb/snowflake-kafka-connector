@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -27,7 +26,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   private static final String COLUMN_COMMENT =
       "created by automatic table creation from Snowflake Kafka Connector High Performance";
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String SHOW_ICEBERG_TABLES_QUERY = "show iceberg tables like ? limit 1";
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
   private final Connection conn;
@@ -57,29 +55,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
             .setTaskID(this.taskID)
             .build();
     LOGGER.info("initialized the snowflake connection");
-  }
-
-  @Override
-  public void createTableWithMetadataAndContentColumns(final String tableName) {
-    checkConnection();
-    InternalUtils.assertNotEmpty("tableName", tableName);
-    String createTableQuery =
-        "create table if not exists identifier(?) (record_metadata variant comment '"
-            + COLUMN_COMMENT
-            + "', record_content variant comment '"
-            + COLUMN_COMMENT
-            + "')";
-
-    try {
-      PreparedStatement stmt = conn.prepareStatement(createTableQuery);
-      stmt.setString(1, quoteIdentifier(tableName));
-      stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2007.getException(e);
-    }
-
-    LOGGER.info("Created table {} with RECORD_METADATA and RECORD_CONTENT columns", tableName);
   }
 
   @Override

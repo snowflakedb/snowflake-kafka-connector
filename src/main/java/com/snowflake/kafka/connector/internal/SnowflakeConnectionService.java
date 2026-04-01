@@ -70,14 +70,6 @@ public interface SnowflakeConnectionService {
   Connection getConnection();
 
   /**
-   * Create a table with two variant columns: RECORD_METADATA and RECORD_CONTENT. Used when
-   * schematization is off — all record data is stored in RECORD_CONTENT as VARIANT.
-   *
-   * @param tableName table name
-   */
-  void createTableWithMetadataAndContentColumns(String tableName);
-
-  /**
    * Create a table with only the RECORD_METADATA column. The rest of the columns might be added
    * through schema evolution
    *

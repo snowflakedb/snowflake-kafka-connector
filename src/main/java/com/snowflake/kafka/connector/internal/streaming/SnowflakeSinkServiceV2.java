@@ -293,11 +293,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Using existing table {}.", tableName);
     } else {
       LOGGER.info("Creating new table {}.", tableName);
-      if (taskConfig.isEnableSchematization()) {
-        this.conn.createTableWithOnlyMetadataColumn(tableName);
-      } else {
-        this.conn.createTableWithMetadataAndContentColumns(tableName);
-      }
+      this.conn.createTableWithOnlyMetadataColumn(tableName);
     }
   }
 
