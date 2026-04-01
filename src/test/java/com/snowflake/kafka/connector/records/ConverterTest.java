@@ -391,14 +391,14 @@ class ConverterTest {
   /**
    * Regression test for issue #1334.
    *
-   * <p>Timestamps whose epoch-millisecond value has fewer than 13 digits (i.e. dates roughly
-   * within ±1 year of 1970-01-01) were corrupted when ingested into Snowflake. The old code
-   * serialised them as an epoch-millisecond string (e.g. "-23068800000"). Snowflake's
-   * integer-stored date auto-detection mistook that 11-digit value for epoch <em>seconds</em>,
-   * shifting the stored timestamp by three orders of magnitude (~1236 AD instead of 1969).
+   * <p>Timestamps whose epoch-millisecond value has fewer than 13 digits (i.e. dates roughly within
+   * ±1 year of 1970-01-01) were corrupted when ingested into Snowflake. The old code serialised
+   * them as an epoch-millisecond string (e.g. "-23068800000"). Snowflake's integer-stored date
+   * auto-detection mistook that 11-digit value for epoch <em>seconds</em>, shifting the stored
+   * timestamp by three orders of magnitude (~1236 AD instead of 1969).
    *
-   * <p>The fix converts the {@code java.util.Date} to an {@link Instant} instead, so the ingest
-   * SDK receives an unambiguous typed value and never triggers Snowflake's heuristic.
+   * <p>The fix converts the {@code java.util.Date} to an {@link Instant} instead, so the ingest SDK
+   * receives an unambiguous typed value and never triggers Snowflake's heuristic.
    */
   @Test
   void testConvertToMap_TimestampNearEpoch_ReturnsInstant() {
