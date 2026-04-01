@@ -28,6 +28,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
@@ -243,23 +246,39 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void startPartitions(Collection<TopicPartition> partitions) {
-    final Map<String, String> tableToPipeMapping = new HashMap<>();
+    final Map<String, String> tableToPipeMapping = new ConcurrentHashMap<>();
+    final ExecutorService ioExecutor = ThreadPools.getIoExecutor(this.connectorName);
 
     final Collection<String> uniqueTopics =
         partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
 
-    for (String topic : uniqueTopics) {
-      final String tableName = getTableName(topic, this.topicToTableMap, this.enableSanitization);
-      createTableIfNotExists(tableName);
+    CompletableFuture<?>[] futures =
+        uniqueTopics.stream()
+            .map(
+                topic ->
+                    CompletableFuture.runAsync(
+                        () -> {
+                          final String tableName =
+                              getTableName(topic, this.topicToTableMap, this.enableSanitization);
 
-      // Look for a pipe with the same name as the table. Otherwise, use the default pipe.
-      final boolean pipeExists = this.conn.pipeExist(tableName);
-      final String targetPipeName = pipeExists ? tableName : buildDefaultPipeName(tableName);
+                          createTableIfNotExists(tableName);
 
-      tableToPipeMapping.put(tableName, targetPipeName);
-      LOGGER.info(
-          "Table: {}, pipe exists: {}, using pipe: {}", tableName, pipeExists, targetPipeName);
-    }
+                          // Look for a pipe with the same name as the table. Otherwise, use the
+                          // default pipe.
+                          final boolean pipeExists = conn.pipeExist(tableName);
+                          final String targetPipeName =
+                              pipeExists ? tableName : buildDefaultPipeName(tableName);
+
+                          tableToPipeMapping.put(tableName, targetPipeName);
+                          LOGGER.info(
+                              "Table: {}, pipe exists: {}, using pipe: {}",
+                              tableName,
+                              pipeExists,
+                              targetPipeName);
+                        },
+                        ioExecutor))
+            .toArray(CompletableFuture[]::new);
+    CompletableFuture.allOf(futures).join();
 
     channelManager.startPartitions(partitions, tableToPipeMapping);
   }
@@ -445,6 +464,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // Release all streaming clients used by this service.
     // Clients will only be closed if no other tasks are using them.
     StreamingClientPools.closeTaskClients(connectorName, taskId);
+
+    // Close the connection (CachingSnowflakeConnectionService closes both pool and delegate).
+    conn.close();
 
     // Release this task's claim on the shared thread pool.
     // The pool is shut down when the last task for this connector unregisters.

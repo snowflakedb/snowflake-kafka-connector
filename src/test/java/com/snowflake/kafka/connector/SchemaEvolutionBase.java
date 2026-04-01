@@ -40,7 +40,6 @@ abstract class SchemaEvolutionBase extends ConnectClusterBaseIT {
     snowflake =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(TestUtils.transformProfileFileToConnectorConfiguration(false))
-            .noCaching()
             .build();
 
     StreamingClientFactory.resetStreamingClientSupplier();

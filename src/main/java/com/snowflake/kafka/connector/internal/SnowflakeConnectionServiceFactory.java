@@ -16,7 +16,7 @@ public class SnowflakeConnectionServiceFactory {
     private String connectorName;
     private String taskID = "-1";
 
-    // Store the full config map to pass to connection service for caching configuration
+    // Store the full config map for downstream consumers
     private Map<String, String> config;
 
     // For testing only
@@ -35,7 +35,7 @@ public class SnowflakeConnectionServiceFactory {
       }
       this.url = new SnowflakeURL(conf.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
       this.connectorName = conf.get(KafkaConnectorConfigParams.NAME);
-      this.config = conf; // Store the config for caching configuration
+      this.config = conf;
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =
@@ -46,22 +46,26 @@ public class SnowflakeConnectionServiceFactory {
       return this;
     }
 
+    /**
+     * Builds a raw {@link SnowflakeConnectionService} without caching or pooling. Used as the
+     * delegate inside {@link CachingSnowflakeConnectionService} and as the pool factory.
+     */
     public SnowflakeConnectionService build() {
       InternalUtils.assertNotEmpty("jdbcProperties", jdbcProperties);
       InternalUtils.assertNotEmpty("url", url);
       InternalUtils.assertNotEmpty("connectorName", connectorName);
 
-      SnowflakeConnectionService baseService =
-          new StandardSnowflakeConnectionService(jdbcProperties, url, connectorName, taskID);
-
-      CachingConfig cachingConfig = CachingConfig.fromConfig(config);
-      return new CachingSnowflakeConnectionService(baseService, cachingConfig);
+      return new StandardSnowflakeConnectionService(jdbcProperties, url, connectorName, taskID);
     }
 
-    public SnowflakeConnectionServiceBuilder noCaching() {
-      config.put(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS, "false");
-      config.put(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS, "false");
-      return this;
+    /**
+     * Builds a {@link CachingSnowflakeConnectionService} that wraps a raw delegate and a connection
+     * pool. This is the standard entry point for production code that needs JDBC access.
+     */
+    public SnowflakeConnectionService build(
+        SnowflakeConnectionPool pool, CachingConfig cachingConfig) {
+      SnowflakeConnectionService delegate = build();
+      return new CachingSnowflakeConnectionService(delegate, pool, cachingConfig);
     }
   }
 }

@@ -37,6 +37,13 @@ public final class SinkTaskConfigTestBuilder {
         .clientValidationEnabled(
             KafkaConnectorConfigParams.SNOWFLAKE_CLIENT_VALIDATION_ENABLED_DEFAULT)
         .openChannelIoThreads(KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT)
+        .jdbcPoolMaxSize(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_MAX_SIZE_DEFAULT)
+        .jdbcPoolIdleTimeoutMs(
+            KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_IDLE_TIMEOUT_MS_DEFAULT)
+        .jdbcPoolMaxLifetimeMs(
+            KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_MAX_LIFETIME_MS_DEFAULT)
+        .jdbcPoolAcquireTimeoutMs(
+            KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_ACQUIRE_TIMEOUT_MS_DEFAULT)
         .streamingClientProviderOverrideMap("")
         .cachingConfig(CachingConfig.fromConfig(Collections.emptyMap()))
         .metadataConfig(new SnowflakeMetadataConfig())

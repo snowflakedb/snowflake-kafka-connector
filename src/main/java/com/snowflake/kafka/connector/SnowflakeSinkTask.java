@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionPool;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -169,11 +170,20 @@ public class SnowflakeSinkTask extends SinkTask {
 
     KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 
-    conn =
+    SnowflakeConnectionServiceFactory.SnowflakeConnectionServiceBuilder connBuilder =
         SnowflakeConnectionServiceFactory.builder()
             .setProperties(parsedConfig)
-            .setTaskID(this.taskConfigId)
-            .build();
+            .setTaskID(this.taskConfigId);
+
+    SnowflakeConnectionPool jdbcConnectionPool =
+        new SnowflakeConnectionPool(
+            connBuilder::build,
+            config.getJdbcPoolMaxSize(),
+            config.getJdbcPoolIdleTimeoutMs(),
+            config.getJdbcPoolMaxLifetimeMs(),
+            config.getJdbcPoolAcquireTimeoutMs());
+
+    conn = connBuilder.build(jdbcConnectionPool, config.getCachingConfig());
 
     if (this.sink != null) {
       this.sink.closeAll();

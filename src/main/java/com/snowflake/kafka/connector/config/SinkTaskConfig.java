@@ -47,6 +47,14 @@ public abstract class SinkTaskConfig {
 
   public abstract int getOpenChannelIoThreads();
 
+  public abstract int getJdbcPoolMaxSize();
+
+  public abstract long getJdbcPoolIdleTimeoutMs();
+
+  public abstract long getJdbcPoolMaxLifetimeMs();
+
+  public abstract long getJdbcPoolAcquireTimeoutMs();
+
   @Nullable
   public abstract String getStreamingClientProviderOverrideMap();
 
@@ -180,6 +188,29 @@ public abstract class SinkTaskConfig {
             .map(Integer::parseInt)
             .orElse(KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT);
 
+    int jdbcPoolMaxSize =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_MAX_SIZE))
+            .map(Integer::parseInt)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_MAX_SIZE_DEFAULT);
+
+    long jdbcPoolIdleTimeoutMs =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_IDLE_TIMEOUT_MS))
+            .map(Long::parseLong)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_IDLE_TIMEOUT_MS_DEFAULT);
+
+    long jdbcPoolMaxLifetimeMs =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_MAX_LIFETIME_MS))
+            .map(Long::parseLong)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_MAX_LIFETIME_MS_DEFAULT);
+
+    long jdbcPoolAcquireTimeoutMs =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_ACQUIRE_TIMEOUT_MS))
+            .map(Long::parseLong)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_POOL_ACQUIRE_TIMEOUT_MS_DEFAULT);
+
     String streamingClientProviderOverrideMap =
         config.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
 
@@ -208,6 +239,10 @@ public abstract class SinkTaskConfig {
         .enableSchematization(enableSchematization)
         .clientValidationEnabled(clientValidationEnabled)
         .openChannelIoThreads(openChannelIoThreads)
+        .jdbcPoolMaxSize(jdbcPoolMaxSize)
+        .jdbcPoolIdleTimeoutMs(jdbcPoolIdleTimeoutMs)
+        .jdbcPoolMaxLifetimeMs(jdbcPoolMaxLifetimeMs)
+        .jdbcPoolAcquireTimeoutMs(jdbcPoolAcquireTimeoutMs)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
         .cachingConfig(cachingConfig)
         .metadataConfig(metadataConfig)
@@ -254,6 +289,14 @@ public abstract class SinkTaskConfig {
     public abstract Builder clientValidationEnabled(boolean clientValidationEnabled);
 
     public abstract Builder openChannelIoThreads(int openChannelIoThreads);
+
+    public abstract Builder jdbcPoolMaxSize(int jdbcPoolMaxSize);
+
+    public abstract Builder jdbcPoolIdleTimeoutMs(long jdbcPoolIdleTimeoutMs);
+
+    public abstract Builder jdbcPoolMaxLifetimeMs(long jdbcPoolMaxLifetimeMs);
+
+    public abstract Builder jdbcPoolAcquireTimeoutMs(long jdbcPoolAcquireTimeoutMs);
 
     public abstract Builder streamingClientProviderOverrideMap(
         String streamingClientProviderOverrideMap);

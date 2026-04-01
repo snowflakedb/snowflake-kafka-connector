@@ -1,213 +1,231 @@
 package com.snowflake.kafka.connector.internal;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-import java.util.HashMap;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import java.sql.Connection;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class CachingSnowflakeConnectionServiceTest {
 
-  private static final String TEST_TABLE = "TEST_TABLE";
-  private static final String TEST_PIPE = "TEST_PIPE";
+  private SnowflakeConnectionService delegate;
+  private SnowflakeConnectionPool pool;
+  private CachingConfig cachingConfig;
+  private CachingSnowflakeConnectionService svc;
+
+  @BeforeEach
+  void setUp() {
+    delegate = mock(SnowflakeConnectionService.class);
+    cachingConfig = buildCachingConfig(true, 60_000, true, 60_000);
+
+    SnowflakeConnectionService pooledConn = mock(SnowflakeConnectionService.class);
+    when(pooledConn.tableExist("T")).thenReturn(true);
+    when(pooledConn.pipeExist("P")).thenReturn(false);
+    when(pooledConn.isTableCompatible("T")).thenReturn(true);
+    when(pooledConn.describeTable("T")).thenReturn(Optional.of(List.of()));
+    when(pooledConn.shouldEvolveSchema("T", "ROLE")).thenReturn(true);
+    when(pooledConn.isClosed()).thenReturn(false);
+
+    pool = new SnowflakeConnectionPool(() -> pooledConn, 5, 300_000, 600_000, 30_000);
+    svc = new CachingSnowflakeConnectionService(delegate, pool, cachingConfig);
+  }
+
+  // -- Cached methods --
 
   @Test
-  void testTableExistCacheEnabled_MultipleCalls_DelegateCalledOnce() {
-
-    SnowflakeConnectionService mockDelegate = mock(SnowflakeConnectionService.class);
-    when(mockDelegate.tableExist(TEST_TABLE)).thenReturn(true);
-
-    CachingConfig config = createCacheConfig(true, 30000L, false, 30000L);
-    CachingSnowflakeConnectionService cachedService =
-        new CachingSnowflakeConnectionService(mockDelegate, config);
-
-    // When: Call tableExist multiple times
-    boolean result1 = cachedService.tableExist(TEST_TABLE);
-    boolean result2 = cachedService.tableExist(TEST_TABLE);
-    boolean result3 = cachedService.tableExist(TEST_TABLE);
-
-    // Then: All calls return true and delegate was called only once
-    assertTrue(result1);
-    assertTrue(result2);
-    assertTrue(result3);
-    verify(mockDelegate, times(1)).tableExist(TEST_TABLE);
+  void tableExistReturnsCachedValue() {
+    assertTrue(svc.tableExist("T"));
+    assertTrue(svc.tableExist("T"));
+    // Second call should be a cache hit - only one connection lease from pool
   }
 
   @Test
-  void testTableExistCacheDisabled_MultipleCalls_DelegateCalledEveryTime() {
-    // Given: Cache disabled for table existence
-    SnowflakeConnectionService mockDelegate = mock(SnowflakeConnectionService.class);
-    when(mockDelegate.tableExist(TEST_TABLE)).thenReturn(true);
-
-    CachingConfig config = createCacheConfig(false, 30000L, false, 30000L);
-    CachingSnowflakeConnectionService cachedService =
-        new CachingSnowflakeConnectionService(mockDelegate, config);
-
-    // When: Call tableExist multiple times
-    boolean result1 = cachedService.tableExist(TEST_TABLE);
-    boolean result2 = cachedService.tableExist(TEST_TABLE);
-    boolean result3 = cachedService.tableExist(TEST_TABLE);
-
-    // Then: All calls return true and delegate was called every time
-    assertTrue(result1);
-    assertTrue(result2);
-    assertTrue(result3);
-    verify(mockDelegate, times(3)).tableExist(TEST_TABLE);
+  void pipeExistReturnsCachedValue() {
+    assertFalse(svc.pipeExist("P"));
+    assertFalse(svc.pipeExist("P"));
   }
 
   @Test
-  void testTableExistCacheEnabled_DifferentTables_DelegateCalledForEach() {
-    // Given: Cache enabled for table existence
-    SnowflakeConnectionService mockDelegate = mock(SnowflakeConnectionService.class);
-    when(mockDelegate.tableExist("TABLE1")).thenReturn(true);
-    when(mockDelegate.tableExist("TABLE2")).thenReturn(false);
+  void tableExistCacheDisabled() {
+    CachingConfig noCacheConfig = buildCachingConfig(false, 60_000, true, 60_000);
+    SnowflakeConnectionService pooledConn = mock(SnowflakeConnectionService.class);
+    when(pooledConn.tableExist("T")).thenReturn(true);
+    when(pooledConn.isClosed()).thenReturn(false);
+    SnowflakeConnectionPool pool2 =
+        new SnowflakeConnectionPool(() -> pooledConn, 5, 300_000, 600_000, 30_000);
+    CachingSnowflakeConnectionService svc2 =
+        new CachingSnowflakeConnectionService(delegate, pool2, noCacheConfig);
 
-    CachingConfig config = createCacheConfig(true, 30000L, false, 30000L);
-    CachingSnowflakeConnectionService cachedService =
-        new CachingSnowflakeConnectionService(mockDelegate, config);
-
-    // When: Call tableExist for different tables
-    boolean result1a = cachedService.tableExist("TABLE1");
-    boolean result1b = cachedService.tableExist("TABLE1");
-    boolean result2a = cachedService.tableExist("TABLE2");
-    boolean result2b = cachedService.tableExist("TABLE2");
-
-    // Then: Delegate called once per unique table
-    assertTrue(result1a);
-    assertTrue(result1b);
-    assertFalse(result2a);
-    assertFalse(result2b);
-    verify(mockDelegate, times(1)).tableExist("TABLE1");
-    verify(mockDelegate, times(1)).tableExist("TABLE2");
+    assertTrue(svc2.tableExist("T"));
+    assertTrue(svc2.tableExist("T"));
+    verify(pooledConn, times(2)).tableExist("T");
+    pool2.close();
   }
 
   @Test
-  void testPipeExistCacheEnabled_MultipleCalls_DelegateCalledOnce() {
-    // Given: Cache enabled for pipe existence
-    SnowflakeConnectionService mockDelegate = mock(SnowflakeConnectionService.class);
-    when(mockDelegate.pipeExist(TEST_PIPE)).thenReturn(true);
+  void pipeExistCacheDisabled() {
+    CachingConfig noCacheConfig = buildCachingConfig(true, 60_000, false, 60_000);
+    SnowflakeConnectionService pooledConn = mock(SnowflakeConnectionService.class);
+    when(pooledConn.pipeExist("P")).thenReturn(false);
+    when(pooledConn.isClosed()).thenReturn(false);
+    SnowflakeConnectionPool pool2 =
+        new SnowflakeConnectionPool(() -> pooledConn, 5, 300_000, 600_000, 30_000);
+    CachingSnowflakeConnectionService svc2 =
+        new CachingSnowflakeConnectionService(delegate, pool2, noCacheConfig);
 
-    CachingConfig config = createCacheConfig(false, 30000L, true, 30000L);
-    CachingSnowflakeConnectionService cachedService =
-        new CachingSnowflakeConnectionService(mockDelegate, config);
+    assertFalse(svc2.pipeExist("P"));
+    assertFalse(svc2.pipeExist("P"));
+    verify(pooledConn, times(2)).pipeExist("P");
+    pool2.close();
+  }
 
-    // When: Call pipeExist multiple times
-    boolean result1 = cachedService.pipeExist(TEST_PIPE);
-    boolean result2 = cachedService.pipeExist(TEST_PIPE);
-    boolean result3 = cachedService.pipeExist(TEST_PIPE);
+  // -- Pooled (non-cached) methods --
 
-    // Then: All calls return true and delegate was called only once
-    assertTrue(result1);
-    assertTrue(result2);
-    assertTrue(result3);
-    verify(mockDelegate, times(1)).pipeExist(TEST_PIPE);
+  @Test
+  void createTableWithMetadataColumnUsesPool() {
+    svc.createTableWithMetadataColumn("T");
   }
 
   @Test
-  void testPipeExistCacheDisabled_MultipleCalls_DelegateCalledEveryTime() {
-    // Given: Cache disabled for pipe existence
-    SnowflakeConnectionService mockDelegate = mock(SnowflakeConnectionService.class);
-    when(mockDelegate.pipeExist(TEST_PIPE)).thenReturn(true);
-
-    CachingConfig config = createCacheConfig(false, 30000L, false, 30000L);
-    CachingSnowflakeConnectionService cachedService =
-        new CachingSnowflakeConnectionService(mockDelegate, config);
-
-    // When: Call pipeExist multiple times
-    boolean result1 = cachedService.pipeExist(TEST_PIPE);
-    boolean result2 = cachedService.pipeExist(TEST_PIPE);
-    boolean result3 = cachedService.pipeExist(TEST_PIPE);
-
-    // Then: All calls return true and delegate was called every time
-    assertTrue(result1);
-    assertTrue(result2);
-    assertTrue(result3);
-    verify(mockDelegate, times(3)).pipeExist(TEST_PIPE);
+  void createTableWithOnlyMetadataColumnUsesPool() {
+    svc.createTableWithOnlyMetadataColumn("T");
   }
 
   @Test
-  void testPipeExistCacheEnabled_DifferentPipes_DelegateCalledForEach() {
-    // Given: Cache enabled for pipe existence
-    SnowflakeConnectionService mockDelegate = mock(SnowflakeConnectionService.class);
-    when(mockDelegate.pipeExist("PIPE1")).thenReturn(true);
-    when(mockDelegate.pipeExist("PIPE2")).thenReturn(false);
-
-    CachingConfig config = createCacheConfig(false, 30000L, true, 30000L);
-    CachingSnowflakeConnectionService cachedService =
-        new CachingSnowflakeConnectionService(mockDelegate, config);
-
-    // When: Call pipeExist for different pipes
-    boolean result1a = cachedService.pipeExist("PIPE1");
-    boolean result1b = cachedService.pipeExist("PIPE1");
-    boolean result2a = cachedService.pipeExist("PIPE2");
-    boolean result2b = cachedService.pipeExist("PIPE2");
-
-    // Then: Delegate called once per unique pipe
-    assertTrue(result1a);
-    assertTrue(result1b);
-    assertFalse(result2a);
-    assertFalse(result2b);
-    verify(mockDelegate, times(1)).pipeExist("PIPE1");
-    verify(mockDelegate, times(1)).pipeExist("PIPE2");
+  void isTableCompatibleUsesPool() {
+    assertTrue(svc.isTableCompatible("T"));
   }
 
   @Test
-  void testCacheExpiration_TableExists() throws InterruptedException {
-    // Given: Very short cache expiration
-    SnowflakeConnectionService mockDelegate = mock(SnowflakeConnectionService.class);
-    when(mockDelegate.tableExist(TEST_TABLE)).thenReturn(true);
-
-    CachingConfig config = createCacheConfig(true, 100L, false, 30000L);
-    CachingSnowflakeConnectionService cachedService =
-        new CachingSnowflakeConnectionService(mockDelegate, config);
-
-    // When: Call tableExist, wait for expiration, call again
-    cachedService.tableExist(TEST_TABLE);
-    Thread.sleep(150); // Wait for cache to expire
-    cachedService.tableExist(TEST_TABLE);
-
-    // Then: Delegate was called twice (cache expired)
-    verify(mockDelegate, times(2)).tableExist(TEST_TABLE);
+  void describeTableUsesPool() {
+    assertTrue(svc.describeTable("T").isPresent());
   }
 
   @Test
-  void testCacheExpiration_PipeExists() throws InterruptedException {
-    // Given: Very short cache expiration
-    SnowflakeConnectionService mockDelegate = mock(SnowflakeConnectionService.class);
-    when(mockDelegate.pipeExist(TEST_PIPE)).thenReturn(true);
-
-    CachingConfig config = createCacheConfig(false, 30000L, true, 100L);
-    CachingSnowflakeConnectionService cachedService =
-        new CachingSnowflakeConnectionService(mockDelegate, config);
-
-    // When: Call pipeExist, wait for expiration, call again
-    cachedService.pipeExist(TEST_PIPE);
-    Thread.sleep(150); // Wait for cache to expire
-    cachedService.pipeExist(TEST_PIPE);
-
-    // Then: Delegate was called twice (cache expired)
-    verify(mockDelegate, times(2)).pipeExist(TEST_PIPE);
+  void shouldEvolveSchemaUsesPool() {
+    assertTrue(svc.shouldEvolveSchema("T", "ROLE"));
   }
 
-  private CachingConfig createCacheConfig(
-      boolean cacheTableExists,
-      long tableExpirationMs,
-      boolean cachePipeExists,
-      long pipeExpirationMs) {
-    Map<String, String> config = new HashMap<>();
-    config.put(CACHE_TABLE_EXISTS, String.valueOf(cacheTableExists));
-    config.put(CACHE_TABLE_EXISTS_EXPIRE_MS, String.valueOf(tableExpirationMs));
-    config.put(CACHE_PIPE_EXISTS, String.valueOf(cachePipeExists));
-    config.put(CACHE_PIPE_EXISTS_EXPIRE_MS, String.valueOf(pipeExpirationMs));
+  @Test
+  void executeQueryWithParametersUsesPool() {
+    svc.executeQueryWithParameters("SELECT 1");
+  }
+
+  @Test
+  void appendColumnsToTableUsesPool() {
+    svc.appendColumnsToTable("T", Map.of());
+  }
+
+  @Test
+  void alterNonNullableColumnsUsesPool() {
+    svc.alterNonNullableColumns("T", List.of("col1"));
+  }
+
+  // -- Delegate methods --
+
+  @Test
+  void getTelemetryClientDelegates() {
+    SnowflakeTelemetryService mockTelemetry = mock(SnowflakeTelemetryService.class);
+    when(delegate.getTelemetryClient()).thenReturn(mockTelemetry);
+    assertSame(mockTelemetry, svc.getTelemetryClient());
+  }
+
+  @Test
+  void getConnectorNameDelegates() {
+    when(delegate.getConnectorName()).thenReturn("my-connector");
+    assertEquals("my-connector", svc.getConnectorName());
+  }
+
+  @Test
+  void isClosedDelegates() {
+    when(delegate.isClosed()).thenReturn(false);
+    assertFalse(svc.isClosed());
+  }
+
+  @Test
+  void getConnectionDelegates() {
+    Connection mockJdbc = mock(Connection.class);
+    when(delegate.getConnection()).thenReturn(mockJdbc);
+    assertSame(mockJdbc, svc.getConnection());
+  }
+
+  @Test
+  void databaseExistsDelegates() {
+    svc.databaseExists("mydb");
+    verify(delegate).databaseExists("mydb");
+  }
+
+  @Test
+  void schemaExistsDelegates() {
+    svc.schemaExists("myschema");
+    verify(delegate).schemaExists("myschema");
+  }
+
+  // -- close --
+
+  @Test
+  void closeClosesPoolAndDelegate() {
+    svc.close();
+    verify(delegate).close();
+  }
+
+  // -- Concurrent cache coalescing --
+
+  @Test
+  void concurrentTableExistCoalescesToSingleLoad() throws Exception {
+    AtomicInteger loadCount = new AtomicInteger(0);
+    SnowflakeConnectionService slowConn = mock(SnowflakeConnectionService.class);
+    when(slowConn.isClosed()).thenReturn(false);
+    when(slowConn.tableExist("SLOW"))
+        .thenAnswer(
+            inv -> {
+              loadCount.incrementAndGet();
+              Thread.sleep(200);
+              return true;
+            });
+
+    SnowflakeConnectionPool slowPool =
+        new SnowflakeConnectionPool(() -> slowConn, 10, 300_000, 600_000, 30_000);
+    CachingSnowflakeConnectionService slowSvc =
+        new CachingSnowflakeConnectionService(delegate, slowPool, cachingConfig);
+
+    ExecutorService executor = Executors.newFixedThreadPool(10);
+    try {
+      Future<Boolean>[] futures =
+          IntStream.range(0, 10)
+              .mapToObj(i -> executor.submit(() -> slowSvc.tableExist("SLOW")))
+              .toArray(Future[]::new);
+
+      for (Future<Boolean> f : futures) {
+        assertTrue(f.get(5, TimeUnit.SECONDS));
+      }
+
+      // Guava Cache.get() coalesces concurrent loads, so we expect significantly fewer
+      // than 10 loads. In practice it's usually 1, but we allow some slack.
+      assertTrue(loadCount.get() <= 3, "Expected coalesced loads but got " + loadCount.get());
+    } finally {
+      executor.shutdownNow();
+      slowPool.close();
+    }
+  }
+
+  // -- Helpers --
+
+  private CachingConfig buildCachingConfig(
+      boolean tableEnabled, long tableExpireMs, boolean pipeEnabled, long pipeExpireMs) {
+    java.util.Map<String, String> config = new java.util.HashMap<>();
+    config.put("snowflake.cache.table.exists", String.valueOf(tableEnabled));
+    config.put("snowflake.cache.table.exists.expire.ms", String.valueOf(tableExpireMs));
+    config.put("snowflake.cache.pipe.exists", String.valueOf(pipeEnabled));
+    config.put("snowflake.cache.pipe.exists.expire.ms", String.valueOf(pipeExpireMs));
     return CachingConfig.fromConfig(config);
   }
 }

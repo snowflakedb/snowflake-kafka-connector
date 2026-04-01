@@ -33,6 +33,19 @@ public final class Constants {
         "snowflake.open.channel.io.threads";
     public static final int SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT = 50;
 
+    // JDBC connection pool
+    public static final String SNOWFLAKE_JDBC_POOL_MAX_SIZE = "snowflake.jdbc.pool.max.size";
+    public static final int SNOWFLAKE_JDBC_POOL_MAX_SIZE_DEFAULT = 50;
+    public static final String SNOWFLAKE_JDBC_POOL_IDLE_TIMEOUT_MS =
+        "snowflake.jdbc.pool.idle.timeout.ms";
+    public static final long SNOWFLAKE_JDBC_POOL_IDLE_TIMEOUT_MS_DEFAULT = 5 * 60 * 1000L;
+    public static final String SNOWFLAKE_JDBC_POOL_MAX_LIFETIME_MS =
+        "snowflake.jdbc.pool.max.lifetime.ms";
+    public static final long SNOWFLAKE_JDBC_POOL_MAX_LIFETIME_MS_DEFAULT = 30 * 60 * 1000L;
+    public static final String SNOWFLAKE_JDBC_POOL_ACQUIRE_TIMEOUT_MS =
+        "snowflake.jdbc.pool.acquire.timeout.ms";
+    public static final long SNOWFLAKE_JDBC_POOL_ACQUIRE_TIMEOUT_MS_DEFAULT = 60 * 1000L;
+
     // Client-side validation
     public static final String SNOWFLAKE_CLIENT_VALIDATION_ENABLED =
         "snowflake.client.validation.enabled";
