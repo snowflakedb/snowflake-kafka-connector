@@ -573,6 +573,36 @@ class SnowflakeSinkRecordTest {
   }
 
   @Test
+  void testLegacyMode_WithTimestampStruct_JacksonCanSerialize() {
+    // Reproducer for PR review comment: when enableSchematization=false,
+    // wrapAsRecordContent() serializes via plain ObjectMapper (no JavaTimeModule).
+    // If convertToMap returns a raw Instant, MAPPER.writeValueAsString() will throw
+    // InvalidDefinitionException.
+    java.util.Date nearEpochDate =
+        new java.util.Date(java.time.Instant.parse("1969-04-08T00:00:00Z").toEpochMilli());
+
+    Schema schema =
+        SchemaBuilder.struct().field("ts", org.apache.kafka.connect.data.Timestamp.SCHEMA).build();
+    Struct struct = new Struct(schema).put("ts", nearEpochDate);
+
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withValueSchema(schema)
+            .withValue(struct)
+            .build();
+
+    // enableSchematization=false triggers wrapAsRecordContent → Jackson serialization
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, metadataConfig, false, false);
+
+    // Must not be broken — Jackson must be able to serialize the converted value
+    assertFalse(
+        record.isBroken(), "Record should not be broken but was: " + record.getBrokenReason());
+    assertTrue(record.isValid());
+    assertTrue(record.getContent().containsKey("RECORD_CONTENT"));
+  }
+
+  @Test
   void testLegacyMode_WithJsonMap_WrapsInRecordContent() {
     SchemaAndValue schemaAndValue = toConnectData("{\"name\": \"test\", \"value\": 123}");
     SinkRecord kafkaRecord =

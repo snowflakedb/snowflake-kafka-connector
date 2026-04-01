@@ -31,6 +31,45 @@ public class TableSchemaResolverTest {
   }
 
   @Test
+  public void testGetColumnTypesWithSchema_TimestampField_JacksonCanSerialize() {
+    // Reproducer for PR review comment: when schematization IS enabled,
+    // content map holds the raw output of convertToMap(). During schema evolution,
+    // OBJECT_MAPPER.valueToTree(record.getContent()) runs on this map.
+    // If the map contains a raw Instant, plain ObjectMapper (no JavaTimeModule) throws
+    // InvalidDefinitionException.
+    java.util.Date nearEpochDate =
+        new java.util.Date(java.time.Instant.parse("1969-04-08T00:00:00Z").toEpochMilli());
+
+    org.apache.kafka.connect.data.Schema schema =
+        org.apache.kafka.connect.data.SchemaBuilder.struct()
+            .field("ts", org.apache.kafka.connect.data.Timestamp.SCHEMA)
+            .build();
+    org.apache.kafka.connect.data.Struct struct =
+        new org.apache.kafka.connect.data.Struct(schema).put("ts", nearEpochDate);
+
+    SinkRecord kafkaRecord =
+        new SinkRecord(
+            "topic",
+            0,
+            null,
+            null,
+            schema,
+            struct,
+            0,
+            System.currentTimeMillis(),
+            TimestampType.CREATE_TIME);
+
+    // enableSchematization=true so content = convertToMap() result (may contain Instant)
+    SnowflakeSinkRecord record = toSinkRecord(kafkaRecord, false);
+
+    // This is the call that fails: OBJECT_MAPPER.valueToTree(record.getContent())
+    // triggers Jackson serialization of the Instant without JavaTimeModule
+    assertThatCode(
+            () -> schemaResolver.resolveTableSchemaFromSnowflakeRecord(record, Arrays.asList("ts")))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
   public void testGetColumnTypesWithoutSchema_NormalizationEnabled()
       throws JsonProcessingException {
     String columnName = "test";
