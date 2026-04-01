@@ -117,7 +117,11 @@ def iceberg_external_volume(driver: KafkaDriver):
             )
             return ICEBERG_EXTERNAL_VOLUME
     except Exception:
-        pass
+        logger.debug(
+            "Failed to describe external volume %s",
+            ICEBERG_EXTERNAL_VOLUME,
+            exc_info=True,
+        )
     pytest.skip(
         f"Iceberg external volume '{ICEBERG_EXTERNAL_VOLUME}' not found — "
         f"skipping iceberg tests (set ICEBERG_EXTERNAL_VOLUME env var to override)"

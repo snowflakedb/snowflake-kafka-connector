@@ -25,6 +25,7 @@ import net.snowflake.client.api.driver.SnowflakeDriver;
 public class StandardSnowflakeConnectionService implements SnowflakeConnectionService {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final String SHOW_ICEBERG_TABLES_QUERY = "show iceberg tables like ? limit 1";
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
@@ -329,7 +330,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     String escapedTableName =
         tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
     for (String showQuery :
-        new String[] {"show tables like ? limit 1", "show iceberg tables like ? limit 1"}) {
+        new String[] {"show tables like ? limit 1", SHOW_ICEBERG_TABLES_QUERY}) {
       if (hasTableOptionEnabled) break;
       try (PreparedStatement stmt = conn.prepareStatement(showQuery)) {
         stmt.setString(1, escapedTableName);
@@ -369,20 +370,17 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   public boolean isIcebergTable(String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-    String query = "show iceberg tables like ? limit 1";
-    try (PreparedStatement stmt = conn.prepareStatement(query)) {
-      String escapedName = tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
-      stmt.setString(1, escapedName);
-      ResultSet result = stmt.executeQuery();
-      boolean iceberg = result.next();
-      LOGGER.info("Table {} isIcebergTable={}", tableName, iceberg);
-      return iceberg;
+    try (PreparedStatement stmt = conn.prepareStatement(SHOW_ICEBERG_TABLES_QUERY)) {
+      String escapedTableName =
+          tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
+      stmt.setString(1, escapedTableName);
+      try (ResultSet result = stmt.executeQuery()) {
+        boolean iceberg = result.next();
+        LOGGER.info("Table {} isIcebergTable={}", tableName, iceberg);
+        return iceberg;
+      }
     } catch (SQLException e) {
-      LOGGER.warn(
-          "Failed to check if table {} is an iceberg table: {}. Defaulting to false.",
-          tableName,
-          e.getMessage());
-      return false;
+      throw SnowflakeErrors.ERROR_2001.getException(e);
     }
   }
 
