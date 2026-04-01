@@ -264,7 +264,6 @@ def test_compatibility_case_sensitivity_ingestion_columns(
 
 def test_case_sensitivity_schema_evolution(
     driver: KafkaDriver,
-    connector_version: str,
     create_connector,
     create_topics,
     create_table,
@@ -350,30 +349,10 @@ def test_case_sensitivity_schema_evolution(
         expected_column_names = set(test_case.expected_values.keys()) | {
             "RECORD_METADATA"
         }
-        match connector_version:
-            case "v3":
-                assert actual_column_names == expected_column_names, (
-                    f"{test_case.case_name}: "
-                    f"expected {expected_column_names}, got {actual_column_names}"
-                )
-            case "v4":
-                # Until SNOW-3291723 is rolled out, server-side schema evolution might
-                # race with client-side schema evolution and also create uppercase columns.
-                assert expected_column_names <= actual_column_names, (
-                    f"{test_case.case_name}: "
-                    f"expected at least {expected_column_names}, got {actual_column_names}"
-                )
-                actual_phantom_column_names = (
-                    actual_column_names - expected_column_names
-                )
-                allowed_phantom_column_names = {
-                    c.upper() for c in test_case.expected_values.keys()
-                }
-                assert actual_phantom_column_names <= allowed_phantom_column_names, (
-                    f"{test_case.case_name}: "
-                    f"expected at least {expected_column_names}, got {actual_column_names}"
-                    f"allowed phantom column names: {allowed_phantom_column_names}"
-                )
+        assert actual_column_names == expected_column_names, (
+            f"{test_case.case_name}: "
+            f"expected {expected_column_names}, got {actual_column_names}"
+        )
 
         actual_row = table.select("*")[0]
         for column_name, expected_value in test_case.expected_values.items():
