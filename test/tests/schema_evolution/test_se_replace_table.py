@@ -1,10 +1,11 @@
-"""Schema evolution with multiple topics and a mid-stream table drop.
+"""Schema evolution recovery after CREATE OR REPLACE TABLE.
 
-Migrated from v3 ``TestSchemaEvolutionMultiTopicDropTable``.
+Migrated from v3 ``TestSchemaEvolutionDropTable``.
 
-Two topics with different schemas feed into one table.  After the
-first wave is ingested the table is dropped and recreated.  The
-connector must recover and re-evolve columns from both topics.
+Sends records so the table evolves new columns, then replaces the
+table with CREATE OR REPLACE TABLE.  The connector should detect the
+channel invalidation, re-open the channel, and re-evolve the schema
+from scratch.
 """
 
 import json
@@ -15,25 +16,16 @@ from lib.config_migration import V4_CONFIG_TEMPLATE
 
 RECORD_COUNT = 100
 
-RECORDS = [
-    {
-        "PERFORMANCE_STRING": "Excellent",
-        "PERFORMANCE_CHAR": "A",
-        "RATING_INT": 100,
-    },
-    {
-        "PERFORMANCE_STRING": "Excellent",
-        "RATING_DOUBLE": 0.99,
-        "APPROVAL": True,
-    },
-]
+RECORD = {
+    "PERFORMANCE_STRING": "Excellent",
+    "PERFORMANCE_CHAR": "A",
+    "RATING_INT": 100,
+}
 
 GOLD_TYPES = {
     "PERFORMANCE_STRING": "VARCHAR",
     "PERFORMANCE_CHAR": "VARCHAR",
     "RATING_INT": "NUMBER",
-    "RATING_DOUBLE": "FLOAT",
-    "APPROVAL": "BOOLEAN",
     "RECORD_METADATA": "VARIANT",
 }
 
@@ -52,17 +44,16 @@ def _assert_schema(driver, table_name):
         )
 
 
-def _send_all(driver, topics, count):
-    for i, topic in enumerate(topics):
-        keys = [json.dumps({"number": str(e)}).encode("utf-8") for e in range(count)]
-        values = [json.dumps(RECORDS[i]).encode("utf-8") for _ in range(count)]
-        driver.sendBytesData(topic, values, keys)
+def _send_records(driver, topic, count):
+    keys = [json.dumps({"number": str(i)}).encode("utf-8") for i in range(count)]
+    values = [json.dumps(RECORD).encode("utf-8") for _ in range(count)]
+    driver.sendBytesData(topic, values, keys)
 
 
 @pytest.mark.schema_evolution
 @pytest.mark.compatibility
 @pytest.mark.parametrize("connector_version", ["v3"], indirect=True)
-def test_se_multi_topic_drop_table(
+def test_se_replace_table(
     driver,
     connector_version,
     name_salt,
@@ -70,21 +61,24 @@ def test_se_multi_topic_drop_table(
     snowflake_table,
     wait_for_rows,
 ):
-    """DROP TABLE mid-stream invalidates v4 streaming pipes even with
-    snowflake.validation=client_side.  Restricted to v3.
+    """CREATE OR REPLACE TABLE mid-stream invalidates v4 streaming channels.
+    SSv2 SDK does not surface pipe invalidation through isClosed().
+    Restricted to v3.
     """
-    base = f"se_multi_topic_drop_table{name_salt}"
-    table_name = base.upper()
-    topics = [f"{base}{i}" for i in range(2)]
+    topic = f"se_replace_table{name_salt}"
+    table_name = topic.upper()
 
-    for t in topics:
-        driver.createTopics(t, partitionNum=1, replicationNum=1)
+    driver.snowflake_conn.cursor().execute(
+        f"CREATE OR REPLACE TABLE {table_name} "
+        f"(RECORD_METADATA VARIANT) "
+        f"ENABLE_SCHEMA_EVOLUTION = TRUE"
+    )
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
     create_connector(
         v4_config={
             **V4_CONFIG_TEMPLATE,
-            "topics": ",".join(topics),
-            "snowflake.topic2table.map": ",".join(f"{t}:{table_name}" for t in topics),
+            "topics": topic,
             "tasks.max": "1",
             "key.converter": "org.apache.kafka.connect.storage.StringConverter",
             "value.converter": "org.apache.kafka.connect.json.JsonConverter",
@@ -96,19 +90,19 @@ def test_se_multi_topic_drop_table(
     )
     driver.startConnectorWaitTime()
 
-    # Wave 1
-    _send_all(driver, topics, RECORD_COUNT)
-    wait_for_rows(table_name, RECORD_COUNT * len(topics))
+    # Wave 1: ingest and verify schema evolution
+    _send_records(driver, topic, RECORD_COUNT)
+    wait_for_rows(table_name, RECORD_COUNT)
     _assert_schema(driver, table_name)
 
-    # Drop and recreate
+    # Replace the table (simulating an ops incident)
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {table_name} "
         f"(RECORD_METADATA VARIANT) "
         f"ENABLE_SCHEMA_EVOLUTION = TRUE"
     )
 
-    # Wave 2
-    _send_all(driver, topics, RECORD_COUNT)
-    wait_for_rows(table_name, RECORD_COUNT * len(topics))
+    # Wave 2: connector should re-evolve the missing columns
+    _send_records(driver, topic, RECORD_COUNT)
+    wait_for_rows(table_name, RECORD_COUNT)
     _assert_schema(driver, table_name)
