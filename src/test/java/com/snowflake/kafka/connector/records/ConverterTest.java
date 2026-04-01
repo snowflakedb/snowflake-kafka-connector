@@ -397,11 +397,12 @@ class ConverterTest {
    * auto-detection mistook that 11-digit value for epoch <em>seconds</em>, shifting the stored
    * timestamp by three orders of magnitude (~1236 AD instead of 1969).
    *
-   * <p>The fix converts the {@code java.util.Date} to an {@link Instant} instead, so the ingest SDK
-   * receives an unambiguous typed value and never triggers Snowflake's heuristic.
+   * <p>The fix formats the {@code java.util.Date} as an ISO-8601 string, so Snowflake never
+   * triggers its numeric epoch-length heuristic, and the value is safe for Jackson serialization in
+   * all downstream paths (including legacy mode and schema evolution).
    */
   @Test
-  void testConvertToMap_TimestampNearEpoch_ReturnsInstant() {
+  void testConvertToMap_TimestampNearEpoch_ReturnsIsoString() {
     // 1969-04-08 is ~267 days before the Unix epoch; its epoch-ms value is -23068800000,
     // an 11-digit number that Snowflake's auto-detection misreads as epoch seconds.
     java.util.Date nearEpochDate =
@@ -412,13 +413,13 @@ class ConverterTest {
 
     Map<String, Object> result = KafkaRecordConverter.convertToMap(schema, struct);
 
-    // Must be an Instant — not the epoch-ms string that triggers Snowflake's auto-detection bug.
+    // Must be an ISO-8601 string — not the epoch-ms string that triggers Snowflake's
+    // auto-detection bug, and not a raw Instant that breaks plain Jackson ObjectMapper.
     assertInstanceOf(
-        Instant.class,
+        String.class,
         result.get("ts"),
-        "Timestamp near epoch must be an Instant, not an epoch-ms string. Got: "
-            + result.get("ts"));
-    assertEquals(Instant.parse("1969-04-08T00:00:00Z"), result.get("ts"));
+        "Timestamp near epoch must be an ISO-8601 string. Got: " + result.get("ts"));
+    assertEquals("1969-04-08T00:00:00.000Z", result.get("ts"));
   }
 
   @Test
