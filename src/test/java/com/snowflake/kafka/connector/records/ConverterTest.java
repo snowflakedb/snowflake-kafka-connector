@@ -170,9 +170,8 @@ class ConverterTest {
 
     Map<String, String> result = KafkaRecordConverter.convertHeaders(headers);
 
-    // Timestamp is converted via Instant, so String.valueOf gives the ISO-8601 representation
-    String expectedTimestamp = String.valueOf(timestampValue.toInstant());
-    assertEquals(expectedTimestamp, result.get("timestampHeader"));
+    // Timestamp is formatted as ISO-8601 with millisecond precision via ISO_DATE_TIME_FORMAT
+    assertEquals("1970-03-22T00:00:00.000Z", result.get("timestampHeader"));
     assertEquals("true", result.get("boolHeader"));
   }
 
