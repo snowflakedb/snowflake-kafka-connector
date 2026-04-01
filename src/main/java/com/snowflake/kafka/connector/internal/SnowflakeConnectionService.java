@@ -122,4 +122,12 @@ public interface SnowflakeConnectionService {
    * @return whether schema evolution has the required permission to be performed
    */
   boolean shouldEvolveSchema(String tableName, String role);
+
+  /**
+   * Check whether the given table is an iceberg table.
+   *
+   * @param tableName table name
+   * @return true if the table is an iceberg table, false otherwise
+   */
+  boolean isIcebergTable(String tableName);
 }

@@ -8,6 +8,7 @@ log_cli_date_format = "%Y-%m-%dT%H:%M:%S%z"
 markers = [
     "compatibility: data-type and version compatibility tests across ingestion modes",
     "confluent_only: test requires Confluent platform (schema registry)",
+    "iceberg: iceberg table tests (requires ICEBERG_EXTERNAL_VOLUME)",
     "pressure: long-running stress/pressure test",
     "compatibility: v3/v4 dual-version compatibility tests",
     "schema_evolution: schema evolution e2e tests",
