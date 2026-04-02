@@ -313,6 +313,43 @@ class SnowpipeStreamingPartitionChannelTest {
             + trackingClientSupplier.getTotalChannelsCreated());
   }
 
+  @Test
+  void processChannelStatus_triggersRecoveryOnNonSuccessStatus() {
+    // When SYSTEM$STREAMING_CHANNEL_INVALIDATE sets ERR_CHANNEL_MUST_BE_REOPENED,
+    // the channel status polling (processChannelStatus) should detect the non-SUCCESS
+    // status and trigger reopenChannel. Without this fix, the connector would log the
+    // error status every second but never recover — data silently stops flowing.
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+
+    // Simulate channel status with ERR_CHANNEL_MUST_BE_REOPENED (as set by the system function)
+    ChannelStatus invalidStatus =
+        new ChannelStatus(
+            "db",
+            "schema",
+            "pipe",
+            partitionChannel.getChannelName(),
+            "ERR_CHANNEL_MUST_BE_REOPENED",
+            "99",
+            Instant.now(),
+            100,
+            100,
+            0,
+            null,
+            null,
+            null,
+            null,
+            Instant.now());
+
+    partitionChannel.processChannelStatus(invalidStatus, /* tolerateErrors= */ true);
+
+    // Recovery should have been triggered — old channel closed, new one opened
+    assertEquals(1, trackingClientSupplier.getCloseCallCount());
+    assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
   private SinkRecord buildValidRecord(long offset) {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
