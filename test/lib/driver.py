@@ -13,6 +13,7 @@ from confluent_kafka import (
     Consumer,
     ConsumerGroupTopicPartitions,
     KafkaError,
+    OFFSET_BEGINNING,
     Producer,
     TopicPartition,
 )
@@ -283,24 +284,52 @@ class KafkaDriver:
             dlq_topic_name, partition_no, target_dlq_offset_number
         )
 
+    def _wait_for_topic(self, topic_name: str, timeout: float = 120) -> None:
+        """Poll broker metadata until topic_name appears.
+
+        DLQ topics are auto-created by Kafka Connect on the first error
+        record, so they may not exist when consume_messages is called.
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            metadata = self.adminClient.list_topics(timeout=5)
+            if topic_name in metadata.topics:
+                return
+            logger.debug(
+                f"Topic {topic_name!r} not yet visible in broker metadata, waiting..."
+            )
+            time.sleep(2)
+        raise TimeoutError(
+            f"Topic {topic_name!r} did not appear in broker metadata within {timeout}s"
+        )
+
     def consume_messages(self, topic_name, partition_no, target_offset):
         """
         Consumes messages from a topic and returns how many consumed.
-        This function stops when target_offset number is reached
+        This function stops when target_offset number is reached.
+
+        Uses assign() instead of subscribe() to bypass the async consumer-group
+        rebalance.  With subscribe(), if the topic doesn't exist at the time of
+        the call (e.g. a DLQ topic auto-created by Kafka Connect), the broker
+        returns an empty partition assignment and the 60-second timeout expires
+        before any messages are consumed.  assign() with OFFSET_BEGINNING is
+        synchronous and works even for newly-created topics.
+
         :param topic_name: name of topic
         :param target_offset: Stops function when this offset is reached for partition 0
         :return: Count of messages consumed
         """
-
-        self.consumer.subscribe([topic_name])
+        self._wait_for_topic(topic_name)
+        tp = TopicPartition(topic_name, partition_no, OFFSET_BEGINNING)
+        self.consumer.assign([tp])
 
         messages_consumed_count = 0
         start_time = time.time()
         try:
             while True:
-                if time.time() - start_time >= 60:
+                if time.time() - start_time >= 120:
                     logger.warning(
-                        f"Couldn't find target_offset:{target_offset} in topic:{topic_name} in 60 Seconds"
+                        f"Couldn't find target_offset:{target_offset} in topic:{topic_name} in 120 Seconds"
                     )
                     break
                 msg = self.consumer.poll(10.0)  # Time out in seconds
