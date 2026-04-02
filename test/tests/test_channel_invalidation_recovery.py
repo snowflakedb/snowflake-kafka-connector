@@ -55,6 +55,20 @@ def _invalidate_channel(driver, credentials, table_name, topic):
     cur.execute(f"USE ROLE {credentials.role}")
 
 
+def _assert_task_running(driver, connector_name):
+    """Assert the connector task is RUNNING (not FAILED/UNASSIGNED)."""
+    status = driver.get_connector_status(connector_name)
+    assert status is not None, f"Connector {connector_name} not found"
+    tasks = status.get("tasks", [])
+    assert tasks, f"Connector {connector_name} has no tasks"
+    for task in tasks:
+        state = task.get("state")
+        assert state == "RUNNING", (
+            f"Task {task.get('id')} is {state}, not RUNNING. "
+            f"Trace: {task.get('trace', '')[:500]}"
+        )
+
+
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_channel_invalidation_recovery_async(
     driver, credentials, name_salt, create_connector, wait_for_rows,
@@ -63,6 +77,7 @@ def test_channel_invalidation_recovery_async(
 
     After invalidation, appendRow buffers locally (SDK doesn't know yet).
     processChannelStatus sees non-SUCCESS status and triggers reopenChannel.
+    Recovery happens before any appendRow throws.
     """
     topic = f"test_channel_invalidation_recovery_async{name_salt}"
     table_name = topic.upper()
@@ -78,9 +93,14 @@ def test_channel_invalidation_recovery_async(
 
     _invalidate_channel(driver, credentials, table_name, topic)
 
+    # Send records immediately — no delay. Recovery must happen via
+    # processChannelStatus detecting ERR_CHANNEL_MUST_BE_REOPENED,
+    # NOT via appendRow throwing (SDK hasn't detected the flush failure yet).
     producer.send(RECORD_BATCH)
     wait_for_rows(table_name, RECORD_BATCH * 2, at_least=True, timeout=120)
-    logger.info("Async recovery: task recovered via processChannelStatus")
+
+    _assert_task_running(driver, connector.name)
+    logger.info("Async recovery: task RUNNING, rows recovered via processChannelStatus")
 
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
@@ -93,6 +113,8 @@ def test_channel_invalidation_recovery_sync(
     background flush to fail with STALE_CONTINUATION_TOKEN_SEQUENCER. This marks
     the channel as locally invalid. The next appendRow throws SFException
     synchronously, triggering the Failsafe fallback → reopenChannel.
+
+    Without the fix, the fallback re-throws and the task dies.
     """
     topic = f"test_channel_invalidation_recovery_sync{name_salt}"
     table_name = topic.upper()
@@ -109,11 +131,16 @@ def test_channel_invalidation_recovery_sync(
     _invalidate_channel(driver, credentials, table_name, topic)
 
     # Send records to trigger async flush failure, then wait for SDK to detect.
+    # After ~25-30s the SDK background flush fails and marks the channel invalid.
     producer.send(RECORD_BATCH)
     logger.info("Waiting 40s for SDK background flush to fail...")
     time.sleep(40)
 
-    # Now appendRow will throw SFException synchronously.
+    # Now appendRow will throw SFException synchronously, triggering the
+    # Failsafe fallback. With the fix, the fallback reopens the channel
+    # without re-throwing.
     producer.send(RECORD_BATCH)
     wait_for_rows(table_name, RECORD_BATCH * 2, at_least=True, timeout=120)
-    logger.info("Sync recovery: task recovered via Failsafe fallback")
+
+    _assert_task_running(driver, connector.name)
+    logger.info("Sync recovery: task RUNNING, recovered via Failsafe fallback")
