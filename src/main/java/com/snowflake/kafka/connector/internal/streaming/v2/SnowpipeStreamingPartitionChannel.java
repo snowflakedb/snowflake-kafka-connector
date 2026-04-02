@@ -325,7 +325,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             .thenAccept(
                 oldChannel -> {
                   if (!oldChannel.isClosed()) {
-                    LOGGER.error(
+                    LOGGER.info(
                         "{} Channel {} is not closed before reopening", reason, this.channelName);
                     closeChannelWithoutFlushing(oldChannel);
                   }
