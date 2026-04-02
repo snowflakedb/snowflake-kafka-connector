@@ -9,6 +9,7 @@ import logging
 import time
 
 import pytest
+import snowflake.connector
 
 from lib.utils import RecordProducer
 
@@ -91,11 +92,26 @@ def test_channel_invalidation_recovery(
     logger.info(f"Invalidating channel={channel_name}")
 
     cur = driver.snowflake_conn.cursor()
-    cur.execute("USE ROLE ACCOUNTADMIN")
-    result = cur.execute(
-        f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_fqn}', '{channel_name}')"
-    ).fetchone()[0]
-    cur.execute(f"USE ROLE {credentials.role}")
+    # USE ROLE mutates the session-scoped connection shared by all fixtures.
+    # The finally block restores the original role even if the system function
+    # throws (e.g. it is unavailable on this Snowflake account).
+    try:
+        cur.execute("USE ROLE ACCOUNTADMIN")
+        try:
+            result = cur.execute(
+                f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_fqn}', '{channel_name}')"
+            ).fetchone()[0]
+        except snowflake.connector.errors.ProgrammingError as e:
+            # errno 2140 = "Unknown function": the system function is only
+            # available on specific Snowflake accounts (e.g. QA3, not sfctest0).
+            if e.errno == 2140 or "Unknown function" in str(e):
+                pytest.skip(
+                    f"SYSTEM$STREAMING_CHANNEL_INVALIDATE is not available on this "
+                    f"Snowflake account — skipping channel invalidation test ({e})"
+                )
+            raise
+    finally:
+        cur.execute(f"USE ROLE {credentials.role}")
     logger.info(f"Invalidation result: {result}")
     assert "ERR_CHANNEL_MUST_BE_REOPENED" in result
 
