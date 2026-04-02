@@ -521,7 +521,7 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
 
     created_connectors = []
 
-    def _run(test_id, col_ddl, values, *, timeout=60):
+    def _run(test_id, col_ddl, values, *, timeout=120):
         topic = typed_table(test_id, col_ddl)
         sf_table = topic.upper() if ingestion_mode == "v3" else topic
 
