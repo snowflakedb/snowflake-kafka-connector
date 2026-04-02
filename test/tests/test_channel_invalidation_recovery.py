@@ -52,7 +52,11 @@ def _assert_task_running(driver, connector_name):
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_channel_invalidation_recovery(
-    driver, credentials, name_salt, create_connector, wait_for_rows,
+    driver,
+    credentials,
+    name_salt,
+    create_connector,
+    wait_for_rows,
 ):
     """Channel invalidation should not kill the KC task.
 
@@ -98,15 +102,34 @@ def test_channel_invalidation_recovery(
     # -- Phase 3: Trigger first flush failure --
     # Send a small batch to trigger a flush on the invalidated channel.
     # The SDK buffers locally (appendRow succeeds) and the background flush
-    # will fail with STALE_CONTINUATION_TOKEN_SEQUENCER ~25s later.
+    # will fail with STALE_CONTINUATION_TOKEN_SEQUENCER.
     producer.send(RECORD_BATCH)
-    logger.info("Waiting 60s for SDK flush to fail and mark channel invalid...")
-    time.sleep(60)
 
-    # Verify ingestion stalled — proves the invalidation had a real effect.
-    rows_during = driver.select_number_of_records(table_name)
-    rows_during = int(rows_during) if rows_during is not None else 0
-    logger.info(f"Rows during invalidation: {rows_during} (was {rows_before})")
+    # Wait until the row count stops advancing — this proves the SDK flush
+    # failed and no more data is landing. More deterministic than a fixed sleep.
+    logger.info("Waiting for ingestion to stall (flush failure)...")
+    stable_count = 0
+    last_rows = rows_before
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        time.sleep(5)
+        current = driver.select_number_of_records(table_name)
+        current = int(current) if current is not None else 0
+        if current == last_rows:
+            stable_count += 1
+        else:
+            stable_count = 0
+            last_rows = current
+        # Row count unchanged for 3 consecutive checks (15s) = stalled
+        if stable_count >= 3:
+            break
+    rows_during = last_rows
+    logger.info(f"Ingestion stalled at {rows_during} rows (was {rows_before})")
+    assert rows_during == rows_before, (
+        f"Expected ingestion to stall at {rows_before} rows after invalidation, "
+        f"but rows advanced to {rows_during}. "
+        f"SYSTEM$STREAMING_CHANNEL_INVALIDATE may not have taken effect."
+    )
 
     # -- Phase 4: Trigger second appendRow on locally-invalid channel --
     # By now the SDK error_receiver_task has called invalidate_channel_internal(),
