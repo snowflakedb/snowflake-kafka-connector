@@ -60,6 +60,16 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   // are cumulative and don't reset when a channel is reopened.
   private long initialErrorCount = 0;
 
+  /** Max consecutive channel recoveries before giving up and letting the task fail. */
+  private static final int MAX_CONSECUTIVE_RECOVERIES = 5;
+
+  /**
+   * Consecutive recovery counter. Incremented each time the fallback reopens the channel, reset to
+   * zero on every successful appendRow. If this reaches {@link #MAX_CONSECUTIVE_RECOVERIES} the
+   * fallback re-throws to let the KC framework kill the task.
+   */
+  private int consecutiveRecoveryCount = 0;
+
   private final String channelName;
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
@@ -253,11 +263,27 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           LOGGER.trace("Inserting transformed record: {}, offset: {}", transformedRecord, offset);
           getChannel().appendRow(transformedRecord, Long.toString(offset));
           offsetTracker.recordAppended(offset);
+          consecutiveRecoveryCount = 0;
         },
         (Throwable ex) -> {
+          consecutiveRecoveryCount++;
+          if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
+            LOGGER.error(
+                "Channel {} exceeded max consecutive recoveries ({}), giving up",
+                this.channelName,
+                MAX_CONSECUTIVE_RECOVERIES);
+            throw new TopicPartitionChannelInsertionException(
+                String.format(
+                    "Channel %s failed after %d consecutive recovery attempts",
+                    this.channelName, MAX_CONSECUTIVE_RECOVERIES),
+                ex);
+          }
+          LOGGER.warn(
+              "Channel {} recovery attempt {}/{}",
+              this.channelName,
+              consecutiveRecoveryCount,
+              MAX_CONSECUTIVE_RECOVERIES);
           reopenChannel("APPEND_ROW_FALLBACK");
-          throw new TopicPartitionChannelInsertionException(
-              String.format("Failed to insert rows into channel %s.", this.channelName), ex);
         },
         this.channelName);
   }
@@ -299,7 +325,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             .thenAccept(
                 oldChannel -> {
                   if (!oldChannel.isClosed()) {
-                    LOGGER.error(
+                    LOGGER.info(
                         "{} Channel {} is not closed before reopening", reason, this.channelName);
                     closeChannelWithoutFlushing(oldChannel);
                   }
@@ -698,6 +724,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   @Override
   public long processChannelStatus(final ChannelStatus status, final boolean tolerateErrors) {
     logChannelStatus(status);
+
     handleChannelErrors(status, tolerateErrors);
 
     this.snowflakeTelemetryChannelStatus.updateFromChannelStatus(status);
