@@ -1,10 +1,13 @@
-name: Kafka Connector end-to-end tests
+name: Kafka Connector end-to-end tests (legacy platforms)
 
+# Runs the core e2e suite on older Kafka platform versions.
+# Intentionally limited to master push and workflow_dispatch — these jobs are
+# skipped on pull_requests to reduce concurrent load on the shared Snowflake
+# test account. Full PR coverage is provided by end-to-end.yaml on the new
+# platforms (apache 4.1.1 / confluent 8.2.0).
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: ['**']
   workflow_dispatch:
 
 jobs:
@@ -21,38 +24,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # ── New platforms: full suite split into 3 parallel groups ───────
+          # Compatibility, schema_evolution and correctness groups are intentionally
+          # skipped here — full coverage runs on the new platforms in end-to-end.yaml.
           - platform: apache
-            platform_version: '4.1.1'
+            platform_version: '2.8.2'
             snowflake_cloud: 'AWS'
-            java_test_version: '17'
-            test_group: compatibility
-            marker_filter: 'compatibility and not schema_evolution'
-          - platform: apache
-            platform_version: '4.1.1'
-            snowflake_cloud: 'AWS'
-            java_test_version: '17'
-            test_group: schema_and_correctness
-            marker_filter: 'schema_evolution or correctness'
-          - platform: apache
-            platform_version: '4.1.1'
-            snowflake_cloud: 'AWS'
-            java_test_version: '17'
+            java_test_version: '11'
             test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
-
+          - platform: apache
+            platform_version: '3.9.2'
+            snowflake_cloud: 'GCP'
+            java_test_version: '11'
+            test_group: core
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
           - platform: confluent
-            platform_version: '8.2.0'
-            snowflake_cloud: 'AWS'
-            test_group: compatibility
-            marker_filter: 'compatibility and not schema_evolution'
+            platform_version: '6.2.15'
+            snowflake_cloud: 'AZURE'
+            test_group: core
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
           - platform: confluent
-            platform_version: '8.2.0'
-            snowflake_cloud: 'AWS'
-            test_group: schema_and_correctness
-            marker_filter: 'schema_evolution or correctness'
-          - platform: confluent
-            platform_version: '8.2.0'
+            platform_version: '7.9.3'
             snowflake_cloud: 'AWS'
             test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
