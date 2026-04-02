@@ -535,6 +535,42 @@ class SnowpipeStreamingPartitionChannelTest {
                 }));
   }
 
+  @Test
+  void validationEnabled_identityColumnMissing_insertsSuccessfully() {
+    List<DescribeTableRow> schema =
+        Arrays.asList(
+            new DescribeTableRow(
+                "ID", "NUMBER(38,0)", null, "N", null, "IDENTITY START 1 INCREMENT 1"),
+            new DescribeTableRow("RECORD_CONTENT", "VARIANT", null, "Y"),
+            new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
+
+    // enableSchematization=false so the record populates RECORD_CONTENT/RECORD_METADATA only
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false, true);
+    SinkRecord record = buildValidRecord(0);
+
+    channel.insertRecord(record, true);
+
+    // Identity column is missing from the row but should not trigger an error
+    verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
+  }
+
+  @Test
+  void validationEnabled_defaultNotNullColumnMissing_insertsSuccessfully() {
+    List<DescribeTableRow> schema =
+        Arrays.asList(
+            new DescribeTableRow("RECORD_CONTENT", "VARIANT", null, "Y"),
+            new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"),
+            new DescribeTableRow(
+                "CREATED_AT", "TIMESTAMP_NTZ(9)", null, "N", "CURRENT_TIMESTAMP()", null));
+
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false, true);
+    SinkRecord record = buildValidRecord(0);
+
+    channel.insertRecord(record, true);
+
+    verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
+  }
+
   /** Shared state holder that tracks channel operations for verification in tests. */
   static class TrackingIngestClientSupplier {
 

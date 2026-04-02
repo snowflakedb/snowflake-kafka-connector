@@ -276,7 +276,17 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
         String type = result.getString("type");
         String comment = result.getString("comment");
         String nullable = result.getString("null?");
-        rows.add(new DescribeTableRow(columnName, type, comment, nullable));
+        String defaultValue = null;
+        String autoincrement = null;
+        try {
+          defaultValue = result.getString("default");
+          autoincrement = result.getString("autoincrement");
+        } catch (SQLException e) {
+          LOGGER.debug(
+              "default/autoincrement columns not available in DESCRIBE TABLE for {}", tableName);
+        }
+        rows.add(
+            new DescribeTableRow(columnName, type, comment, nullable, defaultValue, autoincrement));
       }
       return Optional.of(rows);
     } catch (Exception e) {

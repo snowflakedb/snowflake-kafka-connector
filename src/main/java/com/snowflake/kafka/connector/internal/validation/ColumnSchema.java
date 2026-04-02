@@ -33,7 +33,36 @@ public class ColumnSchema {
   private final Integer length;
   private final Integer byteLength;
   private final String collation;
+  private final boolean hasDefault;
+  private final boolean isAutoincrement;
 
+  /** Full constructor with default and autoincrement metadata. */
+  public ColumnSchema(
+      String name,
+      ColumnLogicalType logicalType,
+      ColumnPhysicalType physicalType,
+      boolean nullable,
+      Integer precision,
+      Integer scale,
+      Integer length,
+      Integer byteLength,
+      String collation,
+      boolean hasDefault,
+      boolean isAutoincrement) {
+    this.name = name;
+    this.logicalType = logicalType;
+    this.physicalType = physicalType;
+    this.nullable = nullable;
+    this.precision = precision;
+    this.scale = scale;
+    this.length = length;
+    this.byteLength = byteLength;
+    this.collation = collation;
+    this.hasDefault = hasDefault;
+    this.isAutoincrement = isAutoincrement;
+  }
+
+  /** Backward-compatible constructor (no default/autoincrement metadata). */
   public ColumnSchema(
       String name,
       ColumnLogicalType logicalType,
@@ -44,15 +73,18 @@ public class ColumnSchema {
       Integer length,
       Integer byteLength,
       String collation) {
-    this.name = name;
-    this.logicalType = logicalType;
-    this.physicalType = physicalType;
-    this.nullable = nullable;
-    this.precision = precision;
-    this.scale = scale;
-    this.length = length;
-    this.byteLength = byteLength;
-    this.collation = collation;
+    this(
+        name,
+        logicalType,
+        physicalType,
+        nullable,
+        precision,
+        scale,
+        length,
+        byteLength,
+        collation,
+        false,
+        false);
   }
 
   /**
@@ -77,7 +109,19 @@ public class ColumnSchema {
     String name = rs.getString("name");
     String typeStr = rs.getString("type");
     String nullStr = rs.getString("null?");
-    return fromDescribeTableFields(name, typeStr, nullStr);
+
+    boolean hasDefault = false;
+    boolean isAutoincrement = false;
+    try {
+      String defaultVal = rs.getString("default");
+      hasDefault = defaultVal != null && !defaultVal.isEmpty();
+      String autoinc = rs.getString("autoincrement");
+      isAutoincrement = autoinc != null && !autoinc.isEmpty();
+    } catch (SQLException e) {
+      // default/autoincrement columns not available (e.g., in test mocks)
+    }
+
+    return fromDescribeTableFields(name, typeStr, nullStr, hasDefault, isAutoincrement);
   }
 
   /**
@@ -104,6 +148,26 @@ public class ColumnSchema {
         typeInfo.length,
         typeInfo.byteLength,
         null); // DESCRIBE TABLE doesn't return collation
+  }
+
+  /** Construct ColumnSchema from DESCRIBE TABLE fields including default/autoincrement metadata. */
+  public static ColumnSchema fromDescribeTableFields(
+      String name, String typeStr, String nullStr, boolean hasDefault, boolean isAutoincrement) {
+    boolean nullable = "Y".equals(nullStr);
+    TypeInfo typeInfo = parseTypeString(typeStr);
+
+    return new ColumnSchema(
+        name,
+        typeInfo.logicalType,
+        typeInfo.physicalType,
+        nullable,
+        typeInfo.precision,
+        typeInfo.scale,
+        typeInfo.length,
+        typeInfo.byteLength,
+        null,
+        hasDefault,
+        isAutoincrement);
   }
 
   private static class TypeInfo {
@@ -391,5 +455,18 @@ public class ColumnSchema {
 
   public String getCollation() {
     return collation;
+  }
+
+  public boolean hasDefault() {
+    return hasDefault;
+  }
+
+  public boolean isAutoincrement() {
+    return isAutoincrement;
+  }
+
+  /** True when the column value is filled by the server (has DEFAULT or is AUTOINCREMENT). */
+  public boolean isServerFilled() {
+    return hasDefault || isAutoincrement;
   }
 }

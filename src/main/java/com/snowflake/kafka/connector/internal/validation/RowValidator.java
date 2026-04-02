@@ -216,14 +216,14 @@ public class RowValidator {
     return extraCols;
   }
 
-  /** Detect NOT NULL columns that are missing from the row. */
+  /** Detect NOT NULL columns that are missing from the row, excluding server-filled columns. */
   private Set<String> detectMissingNotNullColumns(Set<String> unquotedRowCols) {
     Set<String> missingNotNullCols = new HashSet<>();
     for (Map.Entry<String, ColumnSchema> entry : columnSchemaMap.entrySet()) {
       String colName = entry.getKey();
       ColumnSchema col = entry.getValue();
 
-      if (!col.isNullable() && !unquotedRowCols.contains(colName)) {
+      if (!col.isNullable() && !col.isServerFilled() && !unquotedRowCols.contains(colName)) {
         missingNotNullCols.add(colName);
       }
     }
