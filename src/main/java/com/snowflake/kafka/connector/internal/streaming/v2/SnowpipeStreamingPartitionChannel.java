@@ -720,14 +720,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   public long processChannelStatus(final ChannelStatus status, final boolean tolerateErrors) {
     logChannelStatus(status);
 
-    if (!"SUCCESS".equals(status.getStatusCode())) {
-      LOGGER.warn(
-          "Channel {} has non-SUCCESS status [{}], triggering recovery",
-          this.channelName,
-          status.getStatusCode());
-      reopenChannel("CHANNEL_STATUS_" + status.getStatusCode());
-    }
-
     handleChannelErrors(status, tolerateErrors);
 
     this.snowflakeTelemetryChannelStatus.updateFromChannelStatus(status);

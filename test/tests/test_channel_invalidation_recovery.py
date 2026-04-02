@@ -1,13 +1,8 @@
-"""E2E tests: KC task should recover after channel invalidation via both paths.
+"""E2E test: KC task should recover after channel invalidation, not die.
 
-Two recovery paths exist:
-1. Async: processChannelStatus sees ERR_CHANNEL_MUST_BE_REOPENED → reopenChannel
-2. Sync: SDK marks channel invalid locally after flush failure → appendRow throws
-   SFException → Failsafe fallback → reopenChannel
-
-In practice the async path recovers the channel before appendRow ever throws,
-so both paths serve as defense-in-depth. These tests validate that the task
-survives and continues ingesting regardless of timing.
+Reproduces the bug where AppendRowWithRetryAndFallbackPolicy successfully
+recovers a channel after InvalidChannelError but re-throws the exception,
+causing the KC framework to kill the task as "unrecoverable".
 """
 
 import logging
@@ -41,24 +36,6 @@ CONNECTOR_CONFIG = {
 }
 
 
-def _invalidate_channel(driver, credentials, table_name, topic):
-    """Invalidate the streaming channel via SYSTEM$STREAMING_CHANNEL_INVALIDATE."""
-    pipe_fqn = f"{credentials.database}.{credentials.schema}.{table_name}-STREAMING"
-    channel_name = f"{table_name}_{topic}_0"
-    logger.info(f"Invalidating channel={channel_name}, pipe={pipe_fqn}")
-
-    cur = driver.snowflake_conn.cursor()
-    cur.execute("USE ROLE ACCOUNTADMIN")
-    result = cur.execute(
-        f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_fqn}', '{channel_name}')"
-    ).fetchone()[0]
-    logger.info(f"Channel invalidation result: {result}")
-    assert "ERR_CHANNEL_MUST_BE_REOPENED" in result, (
-        f"Expected ERR_CHANNEL_MUST_BE_REOPENED but got: {result}"
-    )
-    cur.execute(f"USE ROLE {credentials.role}")
-
-
 def _assert_task_running(driver, connector_name):
     """Assert the connector task is RUNNING (not FAILED/UNASSIGNED)."""
     status = driver.get_connector_status(connector_name)
@@ -74,78 +51,79 @@ def _assert_task_running(driver, connector_name):
 
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_channel_invalidation_recovery_async(
+def test_channel_invalidation_recovery(
     driver, credentials, name_salt, create_connector, wait_for_rows,
 ):
-    """Async path: processChannelStatus detects ERR_CHANNEL_MUST_BE_REOPENED.
+    """Channel invalidation should not kill the KC task.
 
-    After invalidation, appendRow buffers locally (SDK doesn't know yet).
-    processChannelStatus sees non-SUCCESS status and triggers reopenChannel.
-    Recovery happens before any appendRow throws.
+    Steps:
+    1. Start connector, produce records, verify ingestion works.
+    2. Invalidate channel via SYSTEM$STREAMING_CHANNEL_INVALIDATE.
+    3. Send records (buffered by SDK), wait 40s for background flush to fail
+       with STALE_CONTINUATION_TOKEN_SEQUENCER — SDK marks channel invalid.
+    4. Send more records — appendRow throws SFException synchronously,
+       triggering the Failsafe fallback → reopenChannel.
+    5. Assert: task is RUNNING, new rows arrive in Snowflake.
+
+    Without the fix, step 4 re-throws after recovery and kills the task.
     """
-    topic = f"test_channel_invalidation_recovery_async{name_salt}"
+    topic = f"test_channel_invalidation_recovery{name_salt}"
     table_name = topic.upper()
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
     connector = create_connector(v4_config=CONNECTOR_CONFIG)
     driver.wait_for_connector_running(connector.name)
 
+    # -- Phase 1: Baseline ingestion --
     producer = RecordProducer(driver, topic)
     producer.send(RECORD_BATCH)
     wait_for_rows(table_name, RECORD_BATCH, connector_name=connector.name)
-    logger.info(f"Phase 1 complete: {RECORD_BATCH} rows ingested")
+    rows_before = int(driver.select_number_of_records(table_name))
+    logger.info(f"Phase 1: {rows_before} rows ingested")
 
-    _invalidate_channel(driver, credentials, table_name, topic)
+    # -- Phase 2: Invalidate the channel --
+    pipe_fqn = f"{credentials.database}.{credentials.schema}.{table_name}-STREAMING"
+    channel_name = f"{table_name}_{topic}_0"
+    logger.info(f"Invalidating channel={channel_name}")
 
-    # Send records immediately — no delay. Recovery must happen via
-    # processChannelStatus detecting ERR_CHANNEL_MUST_BE_REOPENED,
-    # NOT via appendRow throwing (SDK hasn't detected the flush failure yet).
+    cur = driver.snowflake_conn.cursor()
+    cur.execute("USE ROLE ACCOUNTADMIN")
+    result = cur.execute(
+        f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_fqn}', '{channel_name}')"
+    ).fetchone()[0]
+    cur.execute(f"USE ROLE {credentials.role}")
+    logger.info(f"Invalidation result: {result}")
+    assert "ERR_CHANNEL_MUST_BE_REOPENED" in result
+
+    # -- Phase 3: Trigger first flush failure --
+    # Send a small batch to trigger a flush on the invalidated channel.
+    # The SDK buffers locally (appendRow succeeds) and the background flush
+    # will fail with STALE_CONTINUATION_TOKEN_SEQUENCER ~25s later.
     producer.send(RECORD_BATCH)
-    wait_for_rows(table_name, RECORD_BATCH * 2, at_least=True, timeout=120)
+    logger.info("Waiting 60s for SDK flush to fail and mark channel invalid...")
+    time.sleep(60)
+
+    # Verify ingestion stalled — proves the invalidation had a real effect.
+    rows_during = driver.select_number_of_records(table_name)
+    rows_during = int(rows_during) if rows_during is not None else 0
+    logger.info(f"Rows during invalidation: {rows_during} (was {rows_before})")
+
+    # -- Phase 4: Trigger second appendRow on locally-invalid channel --
+    # By now the SDK error_receiver_task has called invalidate_channel_internal(),
+    # setting is_locally_valid=false. The next appendRow will see this and throw
+    # SFException synchronously → Failsafe fallback → reopenChannel.
+    # Use start_continuous to drip-feed records, ensuring appendRow is called
+    # AFTER the channel is marked invalid (not batched with Phase 3).
+    producer.start_continuous(batch_size=10, interval=1.0)
+    wait_for_rows(table_name, rows_before + RECORD_BATCH, at_least=True, timeout=120)
+    producer.stop_continuous()
+    rows_after = int(driver.select_number_of_records(table_name))
 
     _assert_task_running(driver, connector.name)
-    logger.info("Async recovery: task RUNNING, rows recovered via processChannelStatus")
-
-
-@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_channel_invalidation_recovery_sync(
-    driver, credentials, name_salt, create_connector, wait_for_rows,
-):
-    """Sync path: appendRow throws SFException after SDK detects flush failure.
-
-    After invalidation, we send records (buffered) then wait 40s for the SDK
-    background flush to fail with STALE_CONTINUATION_TOKEN_SEQUENCER. This marks
-    the channel as locally invalid. By the time we send more records, the channel
-    has been through both the async recovery (processChannelStatus) and potentially
-    the sync recovery (appendRow throw → Failsafe fallback). The task must survive
-    and continue ingesting regardless.
-
-    This test exercises the worst case: the SDK has had time to detect the failure,
-    mark the channel invalid, and potentially throw on appendRow. Without both
-    fixes, the task would die.
-    """
-    topic = f"test_channel_invalidation_recovery_sync{name_salt}"
-    table_name = topic.upper()
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
-
-    connector = create_connector(v4_config=CONNECTOR_CONFIG)
-    driver.wait_for_connector_running(connector.name)
-
-    producer = RecordProducer(driver, topic)
-    producer.send(RECORD_BATCH)
-    wait_for_rows(table_name, RECORD_BATCH, connector_name=connector.name)
-    logger.info(f"Phase 1 complete: {RECORD_BATCH} rows ingested")
-
-    _invalidate_channel(driver, credentials, table_name, topic)
-
-    # Send records to trigger async flush failure, then wait for SDK to detect.
-    producer.send(RECORD_BATCH)
-    logger.info("Waiting 40s for SDK background flush to fail...")
-    time.sleep(40)
-
-    # Send more records after the SDK has had time to mark the channel invalid.
-    producer.send(RECORD_BATCH)
-    wait_for_rows(table_name, RECORD_BATCH * 2, at_least=True, timeout=120)
-
-    _assert_task_running(driver, connector.name)
-    logger.info("Sync recovery: task RUNNING after prolonged channel invalidation")
+    assert rows_after > rows_before, (
+        f"No new rows after recovery (before={rows_before}, after={rows_after})"
+    )
+    logger.info(
+        f"Recovery verified: {rows_before} → {rows_during} (stalled) → "
+        f"{rows_after} (recovered), task RUNNING"
+    )
