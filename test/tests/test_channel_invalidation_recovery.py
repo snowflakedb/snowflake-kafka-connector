@@ -6,12 +6,15 @@ causing the KC framework to kill the task as "unrecoverable".
 """
 
 import logging
-import time
 
 import pytest
-import snowflake.connector
 
 from lib.utils import RecordProducer
+from tests.test_channel_invalidation import (
+    _assert_task_running,
+    _wait_for_stall,
+    invalidate_channel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,20 +40,6 @@ CONNECTOR_CONFIG = {
 }
 
 
-def _assert_task_running(driver, connector_name):
-    """Assert the connector task is RUNNING (not FAILED/UNASSIGNED)."""
-    status = driver.get_connector_status(connector_name)
-    assert status is not None, f"Connector {connector_name} not found"
-    tasks = status.get("tasks", [])
-    assert tasks, f"Connector {connector_name} has no tasks"
-    for task in tasks:
-        state = task.get("state")
-        assert state == "RUNNING", (
-            f"Task {task.get('id')} is {state}, not RUNNING. "
-            f"Trace: {task.get('trace', '')[:500]}"
-        )
-
-
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_channel_invalidation_recovery(
     driver,
@@ -64,13 +53,13 @@ def test_channel_invalidation_recovery(
     Steps:
     1. Start connector, produce records, verify ingestion works.
     2. Invalidate channel via SYSTEM$STREAMING_CHANNEL_INVALIDATE.
-    3. Send records (buffered by SDK), wait 40s for background flush to fail
-       with STALE_CONTINUATION_TOKEN_SEQUENCER — SDK marks channel invalid.
-    4. Send more records — appendRow throws SFException synchronously,
+    3. Send records (buffered by SDK), wait for ingestion to stall — proves
+       the SDK flush failed.
+    4. Drip-feed new records — appendRow throws SFException synchronously,
        triggering the Failsafe fallback → reopenChannel.
     5. Assert: task is RUNNING, new rows arrive in Snowflake.
 
-    Without the fix, step 4 re-throws after recovery and kills the task.
+    Without the fix (PR #1401), step 4 re-throws after recovery and kills the task.
     """
     topic = f"test_channel_invalidation_recovery{name_salt}"
     table_name = topic.upper()
@@ -87,72 +76,18 @@ def test_channel_invalidation_recovery(
     logger.info(f"Phase 1: {rows_before} rows ingested")
 
     # -- Phase 2: Invalidate the channel --
-    pipe_fqn = f"{credentials.database}.{credentials.schema}.{table_name}-STREAMING"
-    channel_name = f"{table_name}_{topic}_0"
-    logger.info(f"Invalidating channel={channel_name}")
+    invalidate_channel(driver, credentials, table_name, topic, partition=0)
 
-    cur = driver.snowflake_conn.cursor()
-    # USE ROLE mutates the session-scoped connection shared by all fixtures.
-    # The finally block restores the original role even if the system function
-    # throws (e.g. it is unavailable on this Snowflake account).
-    try:
-        cur.execute("USE ROLE ACCOUNTADMIN")
-        try:
-            result = cur.execute(
-                f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_fqn}', '{channel_name}')"
-            ).fetchone()[0]
-        except snowflake.connector.errors.ProgrammingError as e:
-            # errno 2140 = "Unknown function": the system function is only
-            # available on specific Snowflake accounts (e.g. QA3, not sfctest0).
-            if e.errno == 2140 or "Unknown function" in str(e):
-                pytest.skip(
-                    f"SYSTEM$STREAMING_CHANNEL_INVALIDATE is not available on this "
-                    f"Snowflake account — skipping channel invalidation test ({e})"
-                )
-            raise
-    finally:
-        cur.execute(f"USE ROLE {credentials.role}")
-    logger.info(f"Invalidation result: {result}")
-    assert "ERR_CHANNEL_MUST_BE_REOPENED" in result
-
-    # -- Phase 3: Trigger first flush failure --
-    # Send a small batch to trigger a flush on the invalidated channel.
-    # The SDK buffers locally (appendRow succeeds) and the background flush
-    # will fail with STALE_CONTINUATION_TOKEN_SEQUENCER.
+    # -- Phase 3: Trigger flush failure and verify stall --
     producer.send(RECORD_BATCH)
-
-    # Wait until the row count stops advancing — this proves the SDK flush
-    # failed and no more data is landing. More deterministic than a fixed sleep.
-    logger.info("Waiting for ingestion to stall (flush failure)...")
-    stable_count = 0
-    last_rows = rows_before
-    deadline = time.monotonic() + 90
-    while time.monotonic() < deadline:
-        time.sleep(5)
-        current = driver.select_number_of_records(table_name)
-        current = int(current) if current is not None else 0
-        if current == last_rows:
-            stable_count += 1
-        else:
-            stable_count = 0
-            last_rows = current
-        # Row count unchanged for 3 consecutive checks (15s) = stalled
-        if stable_count >= 3:
-            break
-    rows_during = last_rows
-    logger.info(f"Ingestion stalled at {rows_during} rows (was {rows_before})")
-    assert rows_during == rows_before, (
+    stalled_rows = _wait_for_stall(driver, table_name, rows_before)
+    assert stalled_rows == rows_before, (
         f"Expected ingestion to stall at {rows_before} rows after invalidation, "
-        f"but rows advanced to {rows_during}. "
+        f"but rows advanced to {stalled_rows}. "
         f"SYSTEM$STREAMING_CHANNEL_INVALIDATE may not have taken effect."
     )
 
-    # -- Phase 4: Trigger second appendRow on locally-invalid channel --
-    # By now the SDK error_receiver_task has called invalidate_channel_internal(),
-    # setting is_locally_valid=false. The next appendRow will see this and throw
-    # SFException synchronously → Failsafe fallback → reopenChannel.
-    # Use start_continuous to drip-feed records, ensuring appendRow is called
-    # AFTER the channel is marked invalid (not batched with Phase 3).
+    # -- Phase 4: Trigger synchronous recovery via drip-feed --
     producer.start_continuous(batch_size=10, interval=1.0)
     wait_for_rows(table_name, rows_before + RECORD_BATCH, at_least=True, timeout=120)
     producer.stop_continuous()
@@ -163,6 +98,6 @@ def test_channel_invalidation_recovery(
         f"No new rows after recovery (before={rows_before}, after={rows_after})"
     )
     logger.info(
-        f"Recovery verified: {rows_before} → {rows_during} (stalled) → "
+        f"Recovery verified: {rows_before} → {stalled_rows} (stalled) → "
         f"{rows_after} (recovered), task RUNNING"
     )
