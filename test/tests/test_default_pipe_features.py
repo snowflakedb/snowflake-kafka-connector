@@ -65,9 +65,7 @@ def test_identity_column(
     )
     topic = create_topics([base_name], with_tables=False)[0]
 
-    create_connector(
-        v4_config=_connector_config(topic, validation=validation)
-    )
+    create_connector(v4_config=_connector_config(topic, validation=validation))
     driver.startConnectorWaitTime()
 
     records = [
@@ -77,10 +75,12 @@ def test_identity_column(
 
     wait_for_rows(table.name, RECORD_COUNT)
 
-    rows = table.select('"ID", "DATA"', "ORDER BY \"ID\"")
+    rows = table.select('"ID", "DATA"', 'ORDER BY "ID"')
     assert len(rows) == RECORD_COUNT
     ids = [row["ID"] for row in rows]
-    assert ids == list(range(1, RECORD_COUNT + 1)), f"Expected sequential IDs, got {ids}"
+    assert ids == list(range(1, RECORD_COUNT + 1)), (
+        f"Expected sequential IDs, got {ids}"
+    )
     assert rows[0]["DATA"] == "row_0"
 
 
@@ -113,9 +113,7 @@ def test_default_timestamp_column(
     )
     topic = create_topics([base_name], with_tables=False)[0]
 
-    create_connector(
-        v4_config=_connector_config(topic, validation=validation)
-    )
+    create_connector(v4_config=_connector_config(topic, validation=validation))
     driver.startConnectorWaitTime()
 
     records = [
@@ -127,7 +125,9 @@ def test_default_timestamp_column(
 
     rows = table.select('"DATA", "CREATED_AT"', "LIMIT 1")
     assert rows, "Expected at least one row"
-    assert rows[0]["CREATED_AT"] is not None, "CREATED_AT should be filled by server default"
+    assert rows[0]["CREATED_AT"] is not None, (
+        "CREATED_AT should be filled by server default"
+    )
     assert rows[0]["DATA"] == "row_0"
 
 
@@ -152,17 +152,13 @@ def test_default_numeric_column(
     table = create_table(
         base_name,
         columns=(
-            "(RECORD_METADATA VARIANT, "
-            "DATA VARCHAR, "
-            "STATUS NUMBER DEFAULT 0 NOT NULL)"
+            "(RECORD_METADATA VARIANT, DATA VARCHAR, STATUS NUMBER DEFAULT 0 NOT NULL)"
         ),
         cleanup_topic=False,
     )
     topic = create_topics([base_name], with_tables=False)[0]
 
-    create_connector(
-        v4_config=_connector_config(topic, validation=validation)
-    )
+    create_connector(v4_config=_connector_config(topic, validation=validation))
     driver.startConnectorWaitTime()
 
     records = [
@@ -174,7 +170,9 @@ def test_default_numeric_column(
 
     rows = table.select('"DATA", "STATUS"', "LIMIT 1")
     assert rows, "Expected at least one row"
-    assert rows[0]["STATUS"] == 0, f"STATUS should be 0 (server default), got {rows[0]['STATUS']}"
+    assert rows[0]["STATUS"] == 0, (
+        f"STATUS should be 0 (server default), got {rows[0]['STATUS']}"
+    )
     assert rows[0]["DATA"] == "row_0"
 
 
@@ -211,9 +209,7 @@ def test_mixed_identity_and_defaults(
     )
     topic = create_topics([base_name], with_tables=False)[0]
 
-    create_connector(
-        v4_config=_connector_config(topic, validation=validation)
-    )
+    create_connector(v4_config=_connector_config(topic, validation=validation))
     driver.startConnectorWaitTime()
 
     records = [
@@ -223,9 +219,7 @@ def test_mixed_identity_and_defaults(
 
     wait_for_rows(table.name, RECORD_COUNT)
 
-    rows = table.select(
-        '"ID", "DATA", "CREATED_AT", "STATUS"', "ORDER BY \"ID\" LIMIT 5"
-    )
+    rows = table.select('"ID", "DATA", "CREATED_AT", "STATUS"', 'ORDER BY "ID" LIMIT 5')
     assert len(rows) >= 1
     row = rows[0]
     assert row["ID"] == 1, f"Expected ID=1, got {row['ID']}"

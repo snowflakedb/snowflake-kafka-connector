@@ -73,8 +73,18 @@ public class ColumnSchema {
       Integer length,
       Integer byteLength,
       String collation) {
-    this(name, logicalType, physicalType, nullable, precision, scale, length, byteLength, collation,
-        false, false);
+    this(
+        name,
+        logicalType,
+        physicalType,
+        nullable,
+        precision,
+        scale,
+        length,
+        byteLength,
+        collation,
+        false,
+        false);
   }
 
   /**
@@ -140,9 +150,7 @@ public class ColumnSchema {
         null); // DESCRIBE TABLE doesn't return collation
   }
 
-  /**
-   * Construct ColumnSchema from DESCRIBE TABLE fields including default/autoincrement metadata.
-   */
+  /** Construct ColumnSchema from DESCRIBE TABLE fields including default/autoincrement metadata. */
   public static ColumnSchema fromDescribeTableFields(
       String name, String typeStr, String nullStr, boolean hasDefault, boolean isAutoincrement) {
     boolean nullable = "Y".equals(nullStr);

@@ -282,9 +282,11 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
           defaultValue = result.getString("default");
           autoincrement = result.getString("autoincrement");
         } catch (SQLException e) {
-          LOGGER.debug("default/autoincrement columns not available in DESCRIBE TABLE for {}", tableName);
+          LOGGER.debug(
+              "default/autoincrement columns not available in DESCRIBE TABLE for {}", tableName);
         }
-        rows.add(new DescribeTableRow(columnName, type, comment, nullable, defaultValue, autoincrement));
+        rows.add(
+            new DescribeTableRow(columnName, type, comment, nullable, defaultValue, autoincrement));
       }
       return Optional.of(rows);
     } catch (Exception e) {

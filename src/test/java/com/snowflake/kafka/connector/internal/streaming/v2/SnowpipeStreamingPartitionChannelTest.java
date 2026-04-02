@@ -545,8 +545,7 @@ class SnowpipeStreamingPartitionChannelTest {
             new DescribeTableRow("RECORD_METADATA", "VARIANT", null, "Y"));
 
     // enableSchematization=false so the record populates RECORD_CONTENT/RECORD_METADATA only
-    SnowpipeStreamingPartitionChannel channel =
-        createValidationEnabledChannel(schema, false, true);
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false, true);
     SinkRecord record = buildValidRecord(0);
 
     channel.insertRecord(record, true);
@@ -564,8 +563,7 @@ class SnowpipeStreamingPartitionChannelTest {
             new DescribeTableRow(
                 "CREATED_AT", "TIMESTAMP_NTZ(9)", null, "N", "CURRENT_TIMESTAMP()", null));
 
-    SnowpipeStreamingPartitionChannel channel =
-        createValidationEnabledChannel(schema, false, true);
+    SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false, true);
     SinkRecord record = buildValidRecord(0);
 
     channel.insertRecord(record, true);

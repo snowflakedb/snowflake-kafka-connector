@@ -552,8 +552,17 @@ public class RowValidatorTest {
     schema.put(
         "ID",
         new ColumnSchema(
-            "ID", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null, null,
-            false, true)); // NOT NULL, autoincrement=true
+            "ID",
+            ColumnLogicalType.FIXED,
+            ColumnPhysicalType.SB16,
+            false,
+            38,
+            0,
+            null,
+            null,
+            null,
+            false,
+            true)); // NOT NULL, autoincrement=true
     schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
 
     RowValidator validator = new RowValidator(schema);
@@ -572,8 +581,17 @@ public class RowValidatorTest {
     schema.put(
         "CREATED_AT",
         new ColumnSchema(
-            "CREATED_AT", ColumnLogicalType.TIMESTAMP_NTZ, ColumnPhysicalType.SB8, false, null, 9,
-            null, null, null, true, false)); // NOT NULL, hasDefault=true
+            "CREATED_AT",
+            ColumnLogicalType.TIMESTAMP_NTZ,
+            ColumnPhysicalType.SB8,
+            false,
+            null,
+            9,
+            null,
+            null,
+            null,
+            true,
+            false)); // NOT NULL, hasDefault=true
 
     RowValidator validator = new RowValidator(schema);
 
@@ -590,8 +608,17 @@ public class RowValidatorTest {
     schema.put(
         "REQUIRED",
         new ColumnSchema(
-            "REQUIRED", ColumnLogicalType.TEXT, ColumnPhysicalType.LOB, false, null, null, 100,
-            400, null, false, false)); // NOT NULL, no default, no autoincrement
+            "REQUIRED",
+            ColumnLogicalType.TEXT,
+            ColumnPhysicalType.LOB,
+            false,
+            null,
+            null,
+            100,
+            400,
+            null,
+            false,
+            false)); // NOT NULL, no default, no autoincrement
 
     RowValidator validator = new RowValidator(schema);
 
@@ -599,7 +626,8 @@ public class RowValidatorTest {
     // REQUIRED is missing — no server default, should fail
 
     ValidationResult result = validator.validateRow(row);
-    assertFalse(result.isValid(), "Record should be invalid when regular NOT NULL column is missing");
+    assertFalse(
+        result.isValid(), "Record should be invalid when regular NOT NULL column is missing");
     assertTrue(result.getMissingNotNullColNames().contains("REQUIRED"));
   }
 
@@ -609,19 +637,46 @@ public class RowValidatorTest {
     schema.put(
         "ID",
         new ColumnSchema(
-            "ID", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null, null,
-            false, true)); // autoincrement
+            "ID",
+            ColumnLogicalType.FIXED,
+            ColumnPhysicalType.SB16,
+            false,
+            38,
+            0,
+            null,
+            null,
+            null,
+            false,
+            true)); // autoincrement
     schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
     schema.put(
         "CREATED_AT",
         new ColumnSchema(
-            "CREATED_AT", ColumnLogicalType.TIMESTAMP_NTZ, ColumnPhysicalType.SB8, false, null, 9,
-            null, null, null, true, false)); // default
+            "CREATED_AT",
+            ColumnLogicalType.TIMESTAMP_NTZ,
+            ColumnPhysicalType.SB8,
+            false,
+            null,
+            9,
+            null,
+            null,
+            null,
+            true,
+            false)); // default
     schema.put(
         "STATUS",
         new ColumnSchema(
-            "STATUS", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null,
-            null, true, false)); // default
+            "STATUS",
+            ColumnLogicalType.FIXED,
+            ColumnPhysicalType.SB16,
+            false,
+            38,
+            0,
+            null,
+            null,
+            null,
+            true,
+            false)); // default
 
     RowValidator validator = new RowValidator(schema);
 
@@ -630,7 +685,9 @@ public class RowValidatorTest {
     row.put("DATA", "hello");
 
     ValidationResult result = validator.validateRow(row);
-    assertTrue(result.isValid(), "Record should be valid when only server-filled NOT NULL columns are missing");
+    assertTrue(
+        result.isValid(),
+        "Record should be valid when only server-filled NOT NULL columns are missing");
   }
 
   @Test
@@ -639,8 +696,17 @@ public class RowValidatorTest {
     schema.put(
         "ID",
         new ColumnSchema(
-            "ID", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null, null,
-            false, true)); // autoincrement
+            "ID",
+            ColumnLogicalType.FIXED,
+            ColumnPhysicalType.SB16,
+            false,
+            38,
+            0,
+            null,
+            null,
+            null,
+            false,
+            true)); // autoincrement
     schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
 
     RowValidator validator = new RowValidator(schema);
@@ -651,28 +717,48 @@ public class RowValidatorTest {
     row.put("DATA", "hello");
 
     ValidationResult result = validator.validateRow(row);
-    assertTrue(result.isValid(), "Record should be valid when identity column is explicitly provided");
+    assertTrue(
+        result.isValid(), "Record should be valid when identity column is explicitly provided");
   }
 
   @Test
   public void testColumnSchema_isServerFilled() {
     ColumnSchema autoincCol =
         new ColumnSchema(
-            "ID", ColumnLogicalType.FIXED, ColumnPhysicalType.SB16, false, 38, 0, null, null, null,
-            false, true);
+            "ID",
+            ColumnLogicalType.FIXED,
+            ColumnPhysicalType.SB16,
+            false,
+            38,
+            0,
+            null,
+            null,
+            null,
+            false,
+            true);
     assertTrue(autoincCol.isServerFilled());
     assertTrue(autoincCol.isAutoincrement());
     assertFalse(autoincCol.hasDefault());
 
     ColumnSchema defaultCol =
         new ColumnSchema(
-            "TS", ColumnLogicalType.TIMESTAMP_NTZ, ColumnPhysicalType.SB8, false, null, 9, null,
-            null, null, true, false);
+            "TS",
+            ColumnLogicalType.TIMESTAMP_NTZ,
+            ColumnPhysicalType.SB8,
+            false,
+            null,
+            9,
+            null,
+            null,
+            null,
+            true,
+            false);
     assertTrue(defaultCol.isServerFilled());
     assertFalse(defaultCol.isAutoincrement());
     assertTrue(defaultCol.hasDefault());
 
-    ColumnSchema regularCol = createColumnSchema("REG", ColumnLogicalType.TEXT, false, null, null, 100);
+    ColumnSchema regularCol =
+        createColumnSchema("REG", ColumnLogicalType.TEXT, false, null, null, 100);
     assertFalse(regularCol.isServerFilled());
     assertFalse(regularCol.isAutoincrement());
     assertFalse(regularCol.hasDefault());
