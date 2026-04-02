@@ -764,6 +764,94 @@ public class RowValidatorTest {
     assertFalse(regularCol.hasDefault());
   }
 
+  /** Hex string for a BINARY column is converted to byte[] in-place during validation. */
+  @Test
+  public void testValidateRowBinaryHexStringConvertedToByteArray() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BIN_COL",
+        new ColumnSchema(
+            "BIN_COL",
+            ColumnLogicalType.BINARY,
+            ColumnPhysicalType.BINARY,
+            true,
+            null,
+            null,
+            null,
+            8388608,
+            null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("BIN_COL", "FFFFFFFF");
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    // Row map must now contain byte[] instead of the original hex string
+    assertInstanceOf(byte[].class, row.get("BIN_COL"));
+    assertArrayEquals(
+        new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF},
+        (byte[]) row.get("BIN_COL"));
+  }
+
+  /** byte[] input for a BINARY column is preserved as-is. */
+  @Test
+  public void testValidateRowBinaryByteArrayPassthrough() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BIN_COL",
+        new ColumnSchema(
+            "BIN_COL",
+            ColumnLogicalType.BINARY,
+            ColumnPhysicalType.BINARY,
+            true,
+            null,
+            null,
+            null,
+            8388608,
+            null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    byte[] input = new byte[] {0x01, 0x02, 0x03};
+    Map<String, Object> row = new HashMap<>();
+    row.put("BIN_COL", input);
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    assertInstanceOf(byte[].class, row.get("BIN_COL"));
+    assertArrayEquals(input, (byte[]) row.get("BIN_COL"));
+  }
+
+  /** Invalid hex string for a BINARY column produces a type error. */
+  @Test
+  public void testValidateRowBinaryInvalidHexStringFails() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BIN_COL",
+        new ColumnSchema(
+            "BIN_COL",
+            ColumnLogicalType.BINARY,
+            ColumnPhysicalType.BINARY,
+            true,
+            null,
+            null,
+            null,
+            8388608,
+            null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("BIN_COL", "not-valid-hex!");
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+    assertEquals("BIN_COL", result.getColumnName());
+  }
+
   // ================ Helper Methods ================
 
   private ResultSet mockDescribeTableRow(String name, String type, String nullable)

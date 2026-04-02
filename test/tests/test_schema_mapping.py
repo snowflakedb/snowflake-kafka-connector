@@ -15,10 +15,9 @@ RECORD = {
     # SnowflakeJsonConverter stripped them.  The standard JsonConverter
     # preserves the key as-is, so we omit the embedded quotes.
     "case_sensitive_PERFORMANCE_CHAR": "A",
-    # TODO: SNOW-3256183 Fix client-side validation on binary column
-    # BINARY column removed: Snowflake deployments differ on whether the Ingest SDK
-    # expects hex or base64 encoding, causing ingestion failures on some clouds.
-    # "PERFORMANCE_BINARY": "FFFFFFFF",
+    # Base64-encoded binary — server_side validation passes the string directly to the
+    # Ingest SDK, which decodes it as base64 (ENABLE_SSV2_DEFAULT_BINARY_FORMAT_BASE64).
+    "PERFORMANCE_BINARY": "/////w==",
     "RATING_INT": 100,
     "RATING_DOUBLE": 0.99,
     "APPROVAL": True,
@@ -32,7 +31,7 @@ RECORD = {
 GOLD_VALUES = {
     "PERFORMANCE_STRING": "Excellent",
     "case_sensitive_PERFORMANCE_CHAR": "A",
-    # "PERFORMANCE_BINARY": b"\xff\xff\xff\xff",  # see TODO above
+    "PERFORMANCE_BINARY": b"\xff\xff\xff\xff",
     "RATING_INT": 100,
     "RATING_DOUBLE": 0.99,
     "APPROVAL": True,
@@ -59,7 +58,7 @@ def test_schema_mapping(
         columns="("
         "PERFORMANCE_STRING STRING, "
         '"case_sensitive_PERFORMANCE_CHAR" CHAR, '
-        # "PERFORMANCE_BINARY BINARY, "  # see TODO: SNOW-3256183
+        "PERFORMANCE_BINARY BINARY, "
         "RATING_INT NUMBER, "
         "RATING_DOUBLE DOUBLE, "
         "APPROVAL BOOLEAN, "

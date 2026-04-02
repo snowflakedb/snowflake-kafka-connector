@@ -443,16 +443,20 @@ def test_varchar_length_limit(results):
 def test_binary(results):
     """BINARY: hex-encoded binary data.
 
-    KNOWN DIVERGENCE (SNOW-3256183): v4 SSv2 does not decode hex strings the
-    same way as v3 SSv1.  Some values are rejected outright, others are
-    ingested with garbled bytes.
+    v3 and v4-compat both correctly decode hex strings to bytes.  v4-compat
+    is fixed by SNOW-3256183: client-side RowValidator converts hex → byte[]
+    before handing the row to the Ingest SDK, matching SSv1 behavior.
+
+    KNOWN DIVERGENCE for v4-ht : server-side validation passes hex strings
+    directly to the SSv2 SDK, which interprets them as base64 when
+    ENABLE_SSV2_DEFAULT_BINARY_FORMAT_BASE64 is set, producing garbled bytes.
     """
     cases = cases_where(col="COL_BINARY", exclude_groups=_SPECIAL_GROUPS)
-    if results.mode == "v3":
+    if results.mode in ("v3", "v4-compat"):
         _assert_all(results, cases)
         return
 
-    # Log detailed per-case divergence status for diagnostics.
+    # v4-ht: log divergence details for diagnostics, then xfail.
     for c in cases:
         if c.name in results.rows:
             actual = results.rows[c.name].get(c.col)
@@ -476,11 +480,10 @@ def test_binary(results):
                 f"rejected (v3 ingests); in_dlq={in_dlq}",
             )
 
-    # Assert v3 reference behavior — xfail if v4 diverges (SNOW-3256183).
     try:
         _assert_all(results, cases)
     except AssertionError as e:
-        pytest.xfail(f"SNOW-3256183: v4 SSv2 binary handling diverges from v3: {e}")
+        pytest.xfail(f"v4-ht SSv2 binary handling diverges from v3: {e}")
 
 
 # ---------------------------------------------------------------------------
