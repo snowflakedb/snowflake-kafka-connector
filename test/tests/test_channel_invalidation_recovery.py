@@ -13,8 +13,7 @@ import time
 
 import pytest
 
-from lib.crypto import make_snowflake_jwt
-from lib.utils import RecordProducer, steal_channel, wait_for
+from lib.utils import RecordProducer, wait_for
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +51,11 @@ def test_task_recovers_after_channel_invalidation(
 
     Steps:
     1. Start connector, produce records, verify ingestion is working.
-    2. Steal the channel via the SSV2 HTTP API (simulates ROW_SEQ_GAP).
-    3. Continue producing records.
-    4. Assert the task stays RUNNING and new rows arrive in Snowflake.
+    2. Invalidate the channel via SYSTEM$STREAMING_CHANNEL_INVALIDATE.
+    3. Send records immediately (buffered by SDK, flush will fail async).
+    4. Wait ~40s for the SDK background flush to fail and mark channel invalid locally.
+    5. Send more records — now appendRow throws SFException synchronously.
+    6. Assert the task stays RUNNING and new rows arrive in Snowflake.
     """
     topic = f"test_task_recovers_after_channel_invalidation{name_salt}"
     table_name = topic.upper()
@@ -71,34 +72,37 @@ def test_task_recovers_after_channel_invalidation(
     rows_before = RECORD_BATCH
     logger.info(f"Phase 1 complete: {rows_before} rows ingested")
 
-    # -- Discover channel and pipe names via SHOW CHANNELS --
-    cursor = driver.snowflake_conn.cursor()
-    pipe_name = f"{table_name}-STREAMING"
-    cursor.execute(f"SHOW CHANNELS IN PIPE {credentials.database}.{credentials.schema}.\"{pipe_name}\"")
-    channels = cursor.fetchall()
-    assert channels, f"No channels found in pipe {pipe_name}"
-    # SHOW CHANNELS columns: created_on, name, database_name, schema_name, table_name, ...
-    channel_name = channels[0][1]
-    logger.info(f"Discovered channel={channel_name}, pipe={pipe_name}")
+    # -- Phase 2: Invalidate the channel --
+    pipe_fqn = f"{credentials.database}.{credentials.schema}.{table_name}-STREAMING"
+    channel_name = f"{table_name}_{topic}_0"
+    logger.info(f"Invalidating channel={channel_name}, pipe={pipe_fqn}")
 
-    # -- Phase 2: Steal the channel to trigger InvalidChannelError --
-    host = credentials.host.split(":")[0]
-    account = credentials.get_or_infer_account()
-    jwt_token = make_snowflake_jwt(account, credentials.user, credentials.private_key)
-
-    steal_channel(
-        host=host,
-        database=credentials.database,
-        schema=credentials.schema,
-        pipe_name=pipe_name,
-        channel_name=channel_name,
-        jwt_token=jwt_token,
+    cur = driver.snowflake_conn.cursor()
+    cur.execute("USE ROLE ACCOUNTADMIN")
+    result = cur.execute(
+        f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_fqn}', '{channel_name}')"
+    ).fetchone()[0]
+    logger.info(f"Channel invalidation result: {result}")
+    assert "ERR_CHANNEL_MUST_BE_REOPENED" in result, (
+        f"Expected ERR_CHANNEL_MUST_BE_REOPENED but got: {result}"
     )
-    logger.info("Channel stolen — KC will hit InvalidChannelError on next appendRow")
+    cur.execute(f"USE ROLE {credentials.role}")
 
-    # -- Phase 3: Produce more records and verify recovery --
-    # Send records to force KC to attempt appendRow on the stolen channel.
+    # -- Phase 3: Trigger the async flush failure --
+    # Send records immediately. The SDK buffers them locally (appendRow returns
+    # successfully because the SDK doesn't know the channel is invalid yet).
+    # The background flush will fail with STALE_CONTINUATION_TOKEN_SEQUENCER,
+    # which marks the channel as locally invalid.
     producer.send(RECORD_BATCH)
+    logger.info("Sent records to trigger async flush failure, waiting 40s for SDK to detect...")
+    time.sleep(40)
+
+    # -- Phase 4: Trigger synchronous appendRow failure --
+    # Now the SDK knows the channel is invalid (from the failed flush).
+    # The next appendRow should throw SFException synchronously, which
+    # triggers the Failsafe fallback → reopenChannel → (buggy: re-throw → task dies).
+    producer.send(RECORD_BATCH)
+    logger.info("Sent records after flush failure — appendRow should throw synchronously now")
     time.sleep(10)
 
     # Check that the task is still running after the invalidation.
@@ -120,10 +124,8 @@ def test_task_recovers_after_channel_invalidation(
 
     # Task survived — verify it can still ingest new records.
     producer.send(RECORD_BATCH)
-    # Don't use wait_for_rows with connector_name here since it would
-    # raise on any transient FAILED state during recovery.
-    wait_for_rows(table_name, rows_before + RECORD_BATCH * 2, at_least=True, timeout=60)
-    logger.info("Phase 3 complete: task recovered and continued ingesting")
+    wait_for_rows(table_name, rows_before + RECORD_BATCH * 3, at_least=True, timeout=120)
+    logger.info("Phase 4 complete: task recovered and continued ingesting")
 
 
 def _all_tasks_running(driver, connector_name: str) -> bool:
