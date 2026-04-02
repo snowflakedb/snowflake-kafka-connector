@@ -4,6 +4,10 @@ Two recovery paths exist:
 1. Async: processChannelStatus sees ERR_CHANNEL_MUST_BE_REOPENED → reopenChannel
 2. Sync: SDK marks channel invalid locally after flush failure → appendRow throws
    SFException → Failsafe fallback → reopenChannel
+
+In practice the async path recovers the channel before appendRow ever throws,
+so both paths serve as defense-in-depth. These tests validate that the task
+survives and continues ingesting regardless of timing.
 """
 
 import logging
@@ -111,10 +115,14 @@ def test_channel_invalidation_recovery_sync(
 
     After invalidation, we send records (buffered) then wait 40s for the SDK
     background flush to fail with STALE_CONTINUATION_TOKEN_SEQUENCER. This marks
-    the channel as locally invalid. The next appendRow throws SFException
-    synchronously, triggering the Failsafe fallback → reopenChannel.
+    the channel as locally invalid. By the time we send more records, the channel
+    has been through both the async recovery (processChannelStatus) and potentially
+    the sync recovery (appendRow throw → Failsafe fallback). The task must survive
+    and continue ingesting regardless.
 
-    Without the fix, the fallback re-throws and the task dies.
+    This test exercises the worst case: the SDK has had time to detect the failure,
+    mark the channel invalid, and potentially throw on appendRow. Without both
+    fixes, the task would die.
     """
     topic = f"test_channel_invalidation_recovery_sync{name_salt}"
     table_name = topic.upper()
@@ -131,16 +139,13 @@ def test_channel_invalidation_recovery_sync(
     _invalidate_channel(driver, credentials, table_name, topic)
 
     # Send records to trigger async flush failure, then wait for SDK to detect.
-    # After ~25-30s the SDK background flush fails and marks the channel invalid.
     producer.send(RECORD_BATCH)
     logger.info("Waiting 40s for SDK background flush to fail...")
     time.sleep(40)
 
-    # Now appendRow will throw SFException synchronously, triggering the
-    # Failsafe fallback. With the fix, the fallback reopens the channel
-    # without re-throwing.
+    # Send more records after the SDK has had time to mark the channel invalid.
     producer.send(RECORD_BATCH)
     wait_for_rows(table_name, RECORD_BATCH * 2, at_least=True, timeout=120)
 
     _assert_task_running(driver, connector.name)
-    logger.info("Sync recovery: task RUNNING, recovered via Failsafe fallback")
+    logger.info("Sync recovery: task RUNNING after prolonged channel invalidation")
