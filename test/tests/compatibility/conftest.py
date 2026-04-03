@@ -521,20 +521,13 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
 
     created_connectors = []
 
-    def _run(test_id, col_ddl, values, *, timeout=120):
+    def _run(test_id, col_ddl, values, *, timeout=60):
         topic = typed_table(test_id, col_ddl)
         sf_table = topic.upper() if ingestion_mode == "v3" else topic
 
         # Abort mode (errors.tolerance=none) — connector task fails immediately
         # on validation errors, giving fast feedback for unsupported types.
         config = _build_mode_config(ingestion_mode)
-        # Force aggressive flushing so the SDK pushes buffered rows to Snowflake
-        # within seconds.  Without this, v4-compat connectors buffer GEOGRAPHY /
-        # GEOMETRY rows and only discover the server-side rejection after the
-        # default flush interval (potentially minutes), causing the polling loop
-        # to time out before the task reaches FAILED state.
-        config["buffer.flush.time"] = "1"
-        config["snowflake.streaming.max.client.lag"] = "1"
         rest_request = driver.createConnector(
             name_salt=mode_salt,
             unsalted_name=test_id,

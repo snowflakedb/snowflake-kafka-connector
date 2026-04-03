@@ -4,9 +4,9 @@ These types crash streaming channels or fail in ways that can't share a batch
 connector with well-behaved types. Each test gets its own connector via the
 ``ingest_one_type_abort`` fixture (abort mode — errors.tolerance=none).
 
-The connector task fails immediately on unsupported types for v3 and v4-compat.
-For v4-ht (server-side validation only), errors are silent — we check that
-no rows landed.
+The connector task fails immediately on unsupported types for v3.
+For v4 modes (v4-compat and v4-ht), the async SDK flush failure does not
+propagate back to the KC task — the task stays RUNNING and 0 rows land.
 
 Types tested:
   - GEOGRAPHY: GeoJSON data — not supported by Snowpipe Streaming
@@ -24,12 +24,13 @@ pytestmark = pytest.mark.compatibility
 def _assert_connector_error(result, ingestion_mode, type_name, expected_fragments):
     """Assert the connector failed with an error matching at least one expected fragment.
 
-    For v4-ht (server-side only), connector errors are silent — we verify
-    that no rows were ingested instead.
+    For v4 modes (v4-compat and v4-ht), the SDK async flush failure does not
+    propagate back to the KC task — the task stays RUNNING and 0 rows land.
+    For v3, the channel open is rejected synchronously and the task fails.
     """
-    if ingestion_mode == "v4-ht":
+    if ingestion_mode in ("v4-ht", "v4-compat"):
         assert len(result.values) == 0, (
-            f"Expected no rows for {type_name} on v4-ht, got {len(result.values)}"
+            f"Expected no rows for {type_name} on {ingestion_mode}, got {len(result.values)}"
         )
         return
 
@@ -45,9 +46,9 @@ def _assert_connector_error(result, ingestion_mode, type_name, expected_fragment
     )
 
 
-# Error patterns observed in connector traces:
-#   v3: SFException "does not support columns of type" (channel open rejected by server)
-#   v4-compat: TopicPartitionChannelInsertionException "Failed to insert rows"
+# Error patterns observed in connector traces for v3:
+#   SFException "does not support columns of type" (channel open rejected by server)
+# v4 modes never reach this assertion — they exit early with 0 rows.
 _GEO_ERROR_FRAGMENTS = [
     "does not support columns of type",
     "TopicPartitionChannelInsertionException",
