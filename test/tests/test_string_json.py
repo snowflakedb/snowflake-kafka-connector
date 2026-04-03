@@ -47,7 +47,10 @@ def test_string_json(
     wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row content --
-    record_metadata = json.loads(table.select_scalar("record_metadata"))
+    # Snowflake does not guarantee row ordering without ORDER BY, so we must
+    # select the specific record at offset 0 rather than relying on insertion order.
+    rows = table.select("record_metadata", "WHERE record_metadata:offset::int = 0")
+    record_metadata = json.loads(rows[0]["RECORD_METADATA"])
 
     match connector_version:
         case "v3":
