@@ -19,6 +19,7 @@ public class StreamingSinkServiceBuilder {
   private SinkTaskContext sinkTaskContext = new InMemorySinkTaskContext(Collections.emptySet());
   private boolean enableCustomJMXMonitoring = false;
   private Map<String, String> topicToTableMap = new HashMap<>();
+  private Map<String, String> prefixTopicToSchemaMap;
   private SchemaEvolutionService schemaEvolutionService;
 
   public static StreamingSinkServiceBuilder builder(
@@ -34,6 +35,7 @@ public class StreamingSinkServiceBuilder {
         sinkTaskContext,
         enableCustomJMXMonitoring,
         topicToTableMap,
+        prefixTopicToSchemaMap,
         schemaEvolutionService == null
             ? new SnowflakeSchemaEvolutionService(conn)
             : schemaEvolutionService);
@@ -63,6 +65,11 @@ public class StreamingSinkServiceBuilder {
 
   public StreamingSinkServiceBuilder withTopicToTableMap(Map<String, String> topic2TableMap) {
     topicToTableMap = topic2TableMap;
+    return this;
+  }
+
+  public StreamingSinkServiceBuilder withPrefixTopicToTableMap(Map<String,String> prefixTopicToSchemaMap) {
+    this.prefixTopicToSchemaMap = prefixTopicToSchemaMap;
     return this;
   }
 

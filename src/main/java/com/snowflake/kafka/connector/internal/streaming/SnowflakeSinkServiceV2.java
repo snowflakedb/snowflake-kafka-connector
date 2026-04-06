@@ -72,6 +72,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private Map<String, String> topicToTableMap;
 
+  /**
+   * If this map is null then we use the value of {@link Utils#SF_SCHEMA}
+   */
+  private Map<String, String> topicPrefixToSchemaMap;
+
   // Behavior to be set at the start of connector start. (For tombstone records)
   private SnowflakeSinkConnectorConfig.BehaviorOnNullValues behaviorOnNullValues;
 
@@ -120,6 +125,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       SinkTaskContext sinkTaskContext,
       boolean enableCustomJMXMonitoring,
       Map<String, String> topicToTableMap,
+      Map<String, String> topicPrefixToSchemaMap,
       SchemaEvolutionService schemaEvolutionService) {
     this(conn, connectorConfig);
     this.kafkaRecordErrorReporter = recordErrorReporter;
@@ -127,6 +133,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.enableCustomJMXMonitoring = enableCustomJMXMonitoring;
     this.topicToTableMap = topicToTableMap;
     this.schemaEvolutionService = schemaEvolutionService;
+    this.topicPrefixToSchemaMap = topicPrefixToSchemaMap;
   }
 
   @Deprecated
@@ -194,9 +201,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // the table should be present before opening a channel so let's do a table existence check here
     tableActionsOnStartPartition(tableName);
 
+    String schemaName = getSchemaName(topicPartition);
+
     // Create channel for the given partition
     createStreamingChannelForTopicPartition(
-        tableName, topicPartition, tableName2SchemaEvolutionPermission.get(tableName));
+        tableName, schemaName, topicPartition, tableName2SchemaEvolutionPermission.get(tableName));
+  }
+
+  private String getSchemaName(TopicPartition topicPartition){
+    return Utils.getSchemaName(topicPartition, topicPrefixToSchemaMap, connectorConfig);
   }
 
   /**
@@ -216,8 +229,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitions.forEach(
         tp -> {
           String tableName = Utils.tableName(tp.topic(), topic2Table);
+          String schemaName = getSchemaName(tp);
           createStreamingChannelForTopicPartition(
-              tableName, tp, tableName2SchemaEvolutionPermission.get(tableName));
+              tableName, schemaName, tp, tableName2SchemaEvolutionPermission.get(tableName));
         });
   }
 
@@ -245,6 +259,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   private void createStreamingChannelForTopicPartition(
       final String tableName,
+      final String schemaName,
       final TopicPartition topicPartition,
       boolean hasSchemaEvolutionPermission) {
     final String partitionChannelKey =
@@ -253,11 +268,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     partitionsToChannel.put(
         partitionChannelKey,
         createTopicPartitionChannel(
-            tableName, topicPartition, hasSchemaEvolutionPermission, partitionChannelKey));
+            tableName, schemaName, topicPartition, hasSchemaEvolutionPermission, partitionChannelKey));
   }
 
   private TopicPartitionChannel createTopicPartitionChannel(
       String tableName,
+      String schemaName,
       TopicPartition topicPartition,
       boolean hasSchemaEvolutionPermission,
       String partitionChannelKey) {
@@ -267,6 +283,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         topicPartition,
         partitionChannelKey, // Streaming channel name
         tableName,
+        schemaName,
         hasSchemaEvolutionPermission,
         this.connectorConfig,
         this.kafkaRecordErrorReporter,
@@ -521,6 +538,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   @Override
   public void setTopic2TableMap(Map<String, String> topicToTableMap) {
     this.topicToTableMap = topicToTableMap;
+  }
+
+  public void setTopicPrefixToSchemaMap(Map<String, String> topicPrefixToSchemaMap) {
+    this.topicPrefixToSchemaMap = topicPrefixToSchemaMap;
   }
 
   @Override

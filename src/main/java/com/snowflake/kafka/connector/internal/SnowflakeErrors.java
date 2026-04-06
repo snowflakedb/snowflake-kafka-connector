@@ -144,6 +144,7 @@ public enum SnowflakeErrors {
       "0032",
       "Iceberg table does not exist or is in invalid format",
       "Check Snowflake Kafka Connector docs for details"),
+  ERROR_0033("0033", "Invalid topicPrefix2schema map", "Failed to parse topicPrefix2schema map"),
   // Snowflake connection issues 1---
   ERROR_1001(
       "1001",

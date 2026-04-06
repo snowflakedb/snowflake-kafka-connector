@@ -38,12 +38,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -58,8 +53,11 @@ import net.snowflake.client.jdbc.internal.apache.http.impl.client.HttpClientBuil
 import net.snowflake.client.jdbc.internal.apache.http.util.EntityUtils;
 import net.snowflake.client.jdbc.internal.google.gson.JsonObject;
 import net.snowflake.client.jdbc.internal.google.gson.JsonParser;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigValue;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TOPIC_PREFIX_TO_SCHEMA_MAP;
 
 /** Various arbitrary helper functions */
 public class Utils {
@@ -565,6 +563,92 @@ public class Utils {
     result.append(hash);
 
     return GeneratedName.generated(result.toString());
+  }
+
+  /**
+   * @return null when {@link SnowflakeSinkConnectorConfig#TOPIC_PREFIX_TO_SCHEMA_MAP} is not defined. This is not
+   * considered an error. In that case we default to using {@link SnowflakeSinkConnectorConfig#SNOWFLAKE_SCHEMA} for
+   * all topics.
+   */
+  public static Map<String,String> getTopicPrefixToSchemaMap(Map<String, String> config, Map<String, String> topic2Table) {
+    if (config.containsKey(TOPIC_PREFIX_TO_SCHEMA_MAP)){
+      return parseTopicPrefixToSchemaMap(config.get(TOPIC_PREFIX_TO_SCHEMA_MAP), topic2Table);
+    }
+    return null;
+  }
+
+  public static Map<String, String> parseTopicPrefixToSchemaMap(String input, Map<String, String> topic2Table){
+    if (input == null || input.trim().isEmpty()) {
+      throw SnowflakeErrors.ERROR_0033.getException();
+    }
+    Map<String, String> topicPrefixToSchemaMap = new HashMap<>();
+    boolean isInvalid = false;
+    for (String str : input.split(",")) {
+      String[] parts = str.split(":");
+
+      if (parts.length != 2 || parts[0].trim().isEmpty() || parts[1].trim().isEmpty()) {
+        LOGGER.error("Invalid {} config format: {}", TOPIC_PREFIX_TO_SCHEMA_MAP, input);
+        return null;
+      }
+
+      String topicPrefix = parts[0].trim();
+      String schema = parts[1].trim();
+      // TODO validate more - what is are the schema name constraints?
+
+      if (topicPrefixToSchemaMap.containsKey(topicPrefix)) {
+        LOGGER.error("topic prefix {} is duplicated in {}", topicPrefix, TOPIC_PREFIX_TO_SCHEMA_MAP);
+        isInvalid = true;
+      }
+
+      // check that prefixes don't overlap
+      for (String parsedSchemaPrefix : topicPrefixToSchemaMap.keySet()) {
+        if (parsedSchemaPrefix.startsWith(topicPrefix) || topicPrefix.startsWith(parsedSchemaPrefix)) {
+          LOGGER.error("topic prefix cannot overlap: {}, {} in {}", parsedSchemaPrefix, topicPrefix, TOPIC_PREFIX_TO_SCHEMA_MAP);
+          isInvalid = true;
+        }
+      }
+      topicPrefixToSchemaMap.put(topicPrefix.toLowerCase(), schema);
+    }
+    // validate that there is an entry matching for every topic in the topic2Table map
+    for (String topic : topic2Table.keySet()) {
+        String schema = getSchemaForTopicFromSchemaMap(topic, topicPrefixToSchemaMap);
+        if (schema == null) {
+            isInvalid = true;
+            LOGGER.error("missing schema for topic: {} in {}", topic, TOPIC_PREFIX_TO_SCHEMA_MAP);
+        }
+    }
+    if (isInvalid) {
+      throw SnowflakeErrors.ERROR_0033.getException();
+    }
+    return topicPrefixToSchemaMap;
+  }
+
+  /**
+   * If topicPrefixToSchemap is non-null then use that, otherwise use the default configuration.
+   * @param topicPartition
+   * @param topicPrefixToSchemaMap - this can be null.
+   * @param connectorConfig - global configuration of the connector
+   * @return the schema to sue for this topic
+   */
+  public static String getSchemaName(TopicPartition topicPartition,  Map<String, String> topicPrefixToSchemaMap, Map<String, String> connectorConfig) {
+    return topicPrefixToSchemaMap == null ? connectorConfig.get(Utils.SF_SCHEMA) : getSchemaForTopicFromSchemaMap(topicPartition.topic(), topicPrefixToSchemaMap);
+  }
+
+  /**
+   * @param topic
+   * @param topicPrefixToSchemaMap pre: must not be null
+   * @return schema for this topic
+   */
+  private static String getSchemaForTopicFromSchemaMap(String topic, Map<String, String> topicPrefixToSchemaMap){
+    topic = topic.toLowerCase();
+    // first look for an exact match
+    String schema = topicPrefixToSchemaMap.get(topic);
+    if (schema == null) {
+        // look for a prefix match
+        // TODO reconsider - maybe we should be using regex match 'matches' here instead of 'startsWith'
+        schema = topicPrefixToSchemaMap.keySet().stream().filter(topic::startsWith).findFirst().map(topicPrefixToSchemaMap::get).orElse(null);
+    }
+    return schema;
   }
 
   public static Map<String, String> parseTopicToTableMap(String input) {

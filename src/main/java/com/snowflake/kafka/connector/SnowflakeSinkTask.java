@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
+import static com.snowflake.kafka.connector.Utils.getTopicPrefixToSchemaMap;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -72,6 +73,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
   private SnowflakeSinkService sink = null;
   private Map<String, String> topic2table = null;
+  private Map<String, String> topicPrefix2SchemaMap = null;
 
   // snowflake JDBC connection provides methods to interact with user's
   // snowflake
@@ -159,6 +161,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
     // generate topic to table map
     this.topic2table = getTopicToTableMap(parsedConfig);
+    this.topicPrefix2SchemaMap = getTopicPrefixToSchemaMap(parsedConfig, topic2table);
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 
@@ -226,6 +229,7 @@ public class SnowflakeSinkTask extends SinkTask {
             .setRecordNumber(bufferCountRecords)
             .setFlushTime(bufferFlushTime)
             .setTopic2TableMap(topic2table)
+            .setTopicPrefix2SchemaMap(topicPrefix2SchemaMap)
             .setMetadataConfig(metadataConfig)
             .setBehaviorOnNullValuesConfig(behavior)
             .setCustomJMXMetrics(enableCustomJMXMonitoring)

@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.eq;
 
 import com.codahale.metrics.MetricRegistry;
 import com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -1029,6 +1030,7 @@ public class TopicPartitionChannelTest {
         topicPartition,
         channelNameFormatV1,
         tableName,
+        sfConnectorConfig.get(Utils.SF_SCHEMA),
         hasSchemaEvolutionPermission,
         sfConnectorConfig,
         kafkaRecordErrorReporter,

@@ -5,11 +5,19 @@ import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
+
+import org.apache.kafka.common.TopicPartition;
+import org.junit.*;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
+import org.junit.jupiter.api.BeforeEach;
+
+import static com.snowflake.kafka.connector.Utils.SF_SCHEMA;
+import static com.snowflake.kafka.connector.Utils.getSchemaName;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
+
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP;
+import static com.snowflake.kafka.connector.SnowflakeSinkConnectorConfig.TOPIC_PREFIX_TO_SCHEMA_MAP;
 
 public class UtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
@@ -22,7 +30,7 @@ public class UtilsTest {
     assert result.isEmpty();
 
     // has map
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "aaa:bbb," + "ccc:ddd");
+    config.put(TOPICS_TABLES_MAP, "aaa:bbb," + "ccc:ddd");
     result = SnowflakeSinkTask.getTopicToTableMap(config);
     assert result.size() == 2;
     assert result.containsKey("aaa");
@@ -31,7 +39,7 @@ public class UtilsTest {
     assert result.get("ccc").equals("ddd");
 
     // has map, but invalid data
-    config.put(SnowflakeSinkConnectorConfig.TOPICS_TABLES_MAP, "12321");
+    config.put(TOPICS_TABLES_MAP, "12321");
     result = SnowflakeSinkTask.getTopicToTableMap(config);
     assert result.isEmpty();
   }
@@ -44,17 +52,69 @@ public class UtilsTest {
     assert !Utils.isValidSnowflakeObjectIdentifier(name1);
   }
 
-  @Test
+  @Test @Ignore("The maven url is often blocked")
   public void testVersionChecker() {
     assert Utils.checkConnectorVersion();
   }
 
   @Test
   public void testParseTopicToTable() {
-    TestUtils.assertError(SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("adsadas"));
+    TestUtils.assertError(SnowflakeErrors.ERROR_0021, () ->   Utils.parseTopicToTableMap("adsadas"));
 
     TestUtils.assertError(
         SnowflakeErrors.ERROR_0021, () -> Utils.parseTopicToTableMap("abc:@123,bvd:adsa"));
+  }
+
+  private Map<String, String> topic2table;
+  private Map<String,String> config;
+  @Before
+  public void setupPerSchemMap(){
+    config = new HashMap<>();
+    config.put(TOPICS_TABLES_MAP, "sdx.sei.hcd_test_stg.test_schema.kafka_events:KAFKA_EVENTS,sdx.sei.hcd_test_stg.test_schema2.kafka_events:KAFKA_EVENTS");
+    config.put(TOPIC_PREFIX_TO_SCHEMA_MAP, "sdx.sei.hcd_test_stg.test_schema.kafka_events:TEST_SCHEMA,sdx.sei.hcd_test_stg.test_schema2.kafka_events:TEST_SCHEMA2");
+    config.put(SF_SCHEMA, "NORMAL_SCHEMA");
+    topic2table = Utils.parseTopicToTableMap(config.get(TOPICS_TABLES_MAP));
+  }
+
+  @Test
+  public void testParseTopicPrefixToSchemaMap(){
+    Map<String, String> topic2Schema = Utils.parseTopicPrefixToSchemaMap(config.get(TOPIC_PREFIX_TO_SCHEMA_MAP), topic2table);
+    assertThat(topic2Schema).hasSize(2).containsOnly(
+            entry("sdx.sei.hcd_test_stg.test_schema.kafka_events", "TEST_SCHEMA"),
+            entry("sdx.sei.hcd_test_stg.test_schema2.kafka_events", "TEST_SCHEMA2")
+    );
+    // TODO test for the validation errors returned by parseTopicPrefixToSchemaMap
+  }
+
+  @Test
+  public void testGetTopicPrefixToSchemaMap(){
+    Map<String,String> topic2Schema = Utils.getTopicPrefixToSchemaMap(config, topic2table);
+    assertThat(topic2Schema).hasSize(2).containsOnly(
+            entry("sdx.sei.hcd_test_stg.test_schema.kafka_events", "TEST_SCHEMA"),
+            entry("sdx.sei.hcd_test_stg.test_schema2.kafka_events", "TEST_SCHEMA2")
+    );
+    config.remove(TOPIC_PREFIX_TO_SCHEMA_MAP);
+    topic2Schema = Utils.getTopicPrefixToSchemaMap(config, topic2table);
+    assertThat(topic2Schema).isNull();
+  }
+
+  @Test
+  public void testGetSchemaName(){
+    Map<String,String> topic2Schema = Utils.getTopicPrefixToSchemaMap(config, topic2table);
+    TopicPartition topicPartition = new TopicPartition("sdx.sei.hcd_test_stg.test_schema.kafka_events", 0);
+    TopicPartition topicPartition2 = new TopicPartition("sdx.sei.hcd_test_stg.test_schema2.kafka_events", 0);
+
+    assertThat( getSchemaName(topicPartition, topic2Schema, config) ).isEqualTo("TEST_SCHEMA");
+    assertThat( getSchemaName(topicPartition2, topic2Schema, config) ).isEqualTo("TEST_SCHEMA2");
+
+    // no it doesn't default to the global schema if topic2Schema is non-null - TODO reconsider?
+    TopicPartition noMappingTopic = new TopicPartition("none", 0);
+    assertThat( getSchemaName(noMappingTopic, topic2Schema, config) ).isNull();
+
+    // default to global schema when there is no topic 2 schema mapping configured - this is just like original connector.
+    topic2Schema = null;
+    assertThat( getSchemaName(topicPartition, topic2Schema, config) ).isEqualTo("NORMAL_SCHEMA");
+    assertThat( getSchemaName(topicPartition2, topic2Schema, config) ).isEqualTo("NORMAL_SCHEMA");
   }
 
   @Test

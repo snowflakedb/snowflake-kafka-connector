@@ -1,3 +1,42 @@
+# This is a fork of [snowflake-kakfa-connector v3.3.0](https://github.com/snowflakedb/snowflake-kafka-connector/tree/v3.3.0)
+The original snowflake-kafka-connector requires all destination tables for one connector to be a part of the same snowflake schema.
+i.e. there is a statically configured database, a statically configured schema, then the connector maps from 
+topicName --> tableName dynamically.
+
+A statically defined schema seems like an unnecessary limitation. It forces us to use separate connectors for every tenant, 
+which in turn makes it too easy to hit the 'Up to 60 Connect Workers' AWS MSK Connector quota as we must have separate workers 
+per connector.
+
+In this fork we allow a single connector to support sending messages to different schemas for different topics.
+i.e. to have a dynamic topicName - -> schema mapping.
+
+To make it work, add this new configuration parameter to the connector configuration:
+```properties
+snowflake.topicPrefix2schema.map: "<topicPrefixName>:<schemaName>"
+
+# Full Example
+"connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+"snowflake.schema.name": "MARTIN",
+"snowflake.database.name": "EMR_DATA_RAW_DEV",
+"snowflake.topic2table.map": "sdx.sei.hcd_test_stg.test_schema.kafka_events:KAFKA_EVENTS,sdx.sei.hcd_test_stg.test_schema2.kafka_events:KAFKA_EVENTS",
+"snowflake.topicPrefix2schema.map": "sdx.sei.hcd_test_stg.test_schema.:MARTIN,sdx.sei.hcd_test_stg.test_schema2.:MARTIN2",
+"snowflake.ingestion.method": "SNOWPIPE_STREAMING",
+"tasks.max": "8",
+"snowflake.private.key": "${secretsmanager:infra/msk/hcd/fhir-connector/msk_connect_secrets:private_key}",
+"snowflake.user.name": "JOSH_DBT_AIRFLOW",
+"snowflake.role.name": "AIRFLOW_DATA_LOAD",
+"topics.regex": "sdx.sei.hcd_test_stg.*",
+"snowflake.url.name": "EEXPJWQ-UCB21633.snowflakecomputing.com:443"
+```
+Note that the key values in topicPrefix2schema are prefixes not regexes. These prefixes must not overlap (this is why 
+there is a trailing period in the example above as the schema names are very similar). 
+
+Known limitations of this POC: 
+* upon startup the connector normally can automatically create a destination table if it doesn't already exist. That doesn't work reliably for tables in different schemas.
+* the global 'snowflake.schema.name' config parameter is still needed. 
+  * This is confusing because it isn't really used once topicPrefix2schema gets picked up.
+  * Its still needed because the code validation logic when starting up still complains if it isn't there.
+
 # Snowflake-kafka-connector
 [![License](http://img.shields.io/:license-Apache%202-brightgreen.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 

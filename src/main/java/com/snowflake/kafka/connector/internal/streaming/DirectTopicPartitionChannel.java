@@ -101,6 +101,8 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
   /* table is required for opening the channel */
   private final String tableName;
 
+  private final String schemaName;
+
   /* Error handling, DB, schema, Snowflake URL and other snowflake specific connector properties are defined here. */
   private final Map<String, String> sfConnectorConfig;
 
@@ -169,6 +171,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
         topicPartition,
         channelNameFormatV1,
         tableName,
+        sfConnectorConfig.get(Utils.SF_SCHEMA),
         false, /* No schema evolution permission */
         sfConnectorConfig,
         kafkaRecordErrorReporter,
@@ -189,6 +192,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
    *     (TopicPartitionChannel)
    * @param channelNameFormatV1 channel Name which is deterministic for topic and partition
    * @param tableName table to ingest in snowflake
+   * @param schemaName the snowflake schema for the given 'tableName'
    * @param hasSchemaEvolutionPermission if the role has permission to perform schema evolution on
    *     the table
    * @param sfConnectorConfig configuration set for snowflake connector
@@ -205,6 +209,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
       TopicPartition topicPartition,
       final String channelNameFormatV1,
       final String tableName,
+      final String schemaName,
       boolean hasSchemaEvolutionPermission,
       final Map<String, String> sfConnectorConfig,
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
@@ -223,6 +228,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     this.topicPartition = Preconditions.checkNotNull(topicPartition);
     this.channelNameFormatV1 = Preconditions.checkNotNull(channelNameFormatV1);
     this.tableName = Preconditions.checkNotNull(tableName);
+    this.schemaName = Preconditions.checkNotNull(schemaName);
     this.sfConnectorConfig = Preconditions.checkNotNull(sfConnectorConfig);
     this.kafkaRecordErrorReporter = Preconditions.checkNotNull(kafkaRecordErrorReporter);
     this.sinkTaskContext = Preconditions.checkNotNull(sinkTaskContext);
@@ -818,7 +824,7 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     OpenChannelRequest channelRequest =
         OpenChannelRequest.builder(this.channelNameFormatV1)
             .setDBName(this.sfConnectorConfig.get(Utils.SF_DATABASE))
-            .setSchemaName(this.sfConnectorConfig.get(Utils.SF_SCHEMA))
+            .setSchemaName(this.schemaName)
             .setTableName(this.tableName)
             .setOnErrorOption(onErrorOption)
             .setOffsetTokenVerificationFunction(StreamingUtils.offsetTokenVerificationFunction)

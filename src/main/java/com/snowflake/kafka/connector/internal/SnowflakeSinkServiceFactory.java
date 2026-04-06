@@ -165,6 +165,19 @@ public class SnowflakeSinkServiceFactory {
       return this;
     }
 
+    public SnowflakeSinkServiceBuilder setTopicPrefix2SchemaMap(Map<String, String> topic2SchemaMap){
+      if (topic2SchemaMap != null) {
+        // topic2Schema map is supported only for snowpipe streaming - not snowpipe classic
+        if (this.service instanceof SnowflakeSinkServiceV2) {
+          ((SnowflakeSinkServiceV2) this.service).setTopicPrefixToSchemaMap(topic2SchemaMap);
+        } else {
+          // TODO should move this config validation logic to com.snowflake.kafka.connector.SnowflakeSinkConnector.validate
+          throw new RuntimeException(SnowflakeSinkConnectorConfig.TOPIC_PREFIX_TO_SCHEMA_MAP + " is only supported when ingestion method is " + IngestionMethodConfig.SNOWPIPE_STREAMING);
+        }
+      }
+      return this;
+    }
+
     public SnowflakeSinkServiceBuilder setMetadataConfig(SnowflakeMetadataConfig configMap) {
       this.service.setMetadataConfig(configMap);
       LOGGER.info("metadata config map is {}", configMap.toString());
