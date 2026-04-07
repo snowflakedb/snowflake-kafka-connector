@@ -15,7 +15,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -56,7 +55,7 @@ public class IcebergIngestionNoSchemaEvolutionIT extends IcebergIngestionIT {
           + PRIMITIVE_JSON_RECORD_CONTENT_OBJECT_SCHEMA
           + ")";
 
-  @BeforeEach
+  @Override
   protected void createIcebergTable() {
     createIcebergTableWithColumnClause(
         tableName,

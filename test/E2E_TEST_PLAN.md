@@ -205,7 +205,8 @@ Auto table creation requires the connector to infer column types from the incomi
 
 | Status | Test | Scenario | Notes |
 |:------:|------|----------|-------|
-| 🔴 | Pre-flight: Error Table presence check (positive + negative) | validation=server_side with and without Error Table configured | **P0.** FR11. Parametrize as two scenarios in one test: startup fails/warns without Error Table, succeeds with it. |
+| 🟢 | No Error Table configured -> startup warning logged, connector runs | validation=false, no Error Table | `test_error_table_without_error_logging` |
+| 🟢 | Error Table configured -> startup succeeds, errors captured | validation=false, Error Table present | `test_error_table_with_error_logging` |
 
 #### 3.1.9 Case Sensitivity
 
@@ -252,10 +253,9 @@ When `snowflake.validation=server_side`, invalid records route to SSv2 Error Tab
 
 | Status | Test | Version | Format | Notes |
 |:------:|------|---------|--------|-------|
-| 🔴 | Invalid records -> SSv2 Error Table (not DLQ) | v4 | JSON | **P0.** FR3. Core Error Table verification. |
-| 🔴 | Error Table + schema mismatch (extra/missing columns) | v4 | JSON | **P0.** FR3. |
-| 🔴 | Compat routes to DLQ while HT routes to Error Table (same bad record, both modes) | v4 | JSON | **P0.** FR3. |
-| 🔴 | SE disabled + validation off: rejected records land in Error Table | v4 | JSON | **P0.** FR3. config_variants returns early with no assertions for this combo. |
+| 🟢 | Invalid records -> SSv2 Error Table (not DLQ) | v4 | JSON | `test_error_table_with_error_logging`, `test_error_table_accounting[v4-ht]` |
+| 🟢 | Error Table + value validation (VARCHAR overflow) and schema mismatch (missing NOT NULL column) | v4 | JSON | `test_error_table_schema_mismatch` |
+| 🟢 | Compat routes to DLQ while HT routes to Error Table (same bad record, both modes) | v4 | JSON | `test_error_table_vs_dlq_routing` |
 
 ---
 
@@ -462,163 +462,3 @@ Avro has its own type system. These tests are dual but v3 is blocked by the clas
 | 🟡 | date, time-millis, time-micros, timestamp-millis, timestamp-micros | DATE, TIME, TIMESTAMP_NTZ/LTZ | Positive: each Avro logical type -> correct SF type. Negative: out-of-range. v3 parity blocked by SR classloader. | SDK ref: `DateTimeIT.java` |
 | 🟡 | string, bytes, boolean, enum | VARCHAR, BINARY, BOOLEAN, VARCHAR | Positive: each primitive -> correct SF type. Negative: size overflow. v3 parity blocked by SR classloader. | SDK ref: `StringsIT.java`, `BinaryIT.java` |
 | 🟡 | record, array, map, union | VARIANT, ARRAY, OBJECT | Positive: complex Avro types -> SF semi-structured. Negative: size overflow. v3 parity blocked by SR classloader. | SDK ref: `SemiStructuredIT.java` |
-
-### Alignment with ingest-java SDK Tests
-
-| SDK Test | Covers | KC E2E Equivalent |
-|----------|--------|-------------------|
-| `NumericTypesIT.java` | INT, NUMBER(p,s), REAL with all Java input types + out-of-range errors | `test_type_compatibility.py` numeric tests |
-| `LogicalTypesIT.java` | BOOLEAN with various input types | `test_type_compatibility.py` boolean tests |
-| `DateTimeIT.java` | DATE, TIME(n), TIMESTAMP_NTZ/LTZ/TZ with all Java date/time types | `test_type_compatibility.py` date/time/timestamp tests |
-| `StringsIT.java` | VARCHAR, VARCHAR(n), CHAR(n) with length limits, multi-byte chars | `test_type_compatibility.py` string tests |
-| `BinaryIT.java` | BINARY with byte arrays and hex strings | `test_type_compatibility.py` binary tests |
-| `SemiStructuredIT.java` | VARIANT, OBJECT, ARRAY with all sub-types + size limits | `test_type_compatibility.py` semi-structured tests |
-| `NullIT.java` | NULL for every supported type | `test_type_compatibility.py` null test |
-
-The E2E tests do not need to duplicate every SDK test case. They should focus on:
-1. **End-to-end pipeline fidelity**: Does the value survive Kafka -> converter -> KC -> SDK -> Snowflake without corruption?
-2. **v3/v4 parity**: Do v3 and v4 produce the same Snowflake column values for the same Kafka input?
-3. **Boundary behavior**: Do out-of-range/invalid values get routed to DLQ identically in v3 and v4? (FR1)
-
----
-
-## 5. Coverage Matrix
-
-### By Data Format x Test Category
-
-| Category | JSON (native) | Avro SR | Protobuf SR | Protobuf (native) | String | Bytes |
-|----------|:---:|:---:|:---:|:---:|:---:|:---:|
-| Basic Ingestion | 🟢 | ⚫ | ⚫ | 🟢 | 🟢 (legacy) | 🟢 (legacy) |
-| Type Compatibility | 🟡 | 🔴 | -- | -- | -- | -- |
-| Schema Evolution (client) | 🟢 | ⚫ | 🔴 | -- | -- | -- |
-| Schema Evolution (server) | 🔴 | 🔴 | -- | -- | -- | -- |
-| DLQ (compat) | 🟡 | 🔴 | 🔴 | -- | -- | -- |
-| Abort (compat) | 🔴 | -- | -- | -- | -- | -- |
-| Error Tables (HT) | 🔴 | -- | -- | -- | -- | -- |
-| RECORD_CONTENT Mode | 🟡 | 🔴 | -- | -- | 🟡 | 🟡 |
-| Table Creation | -- | ⚫ | -- | -- | -- | -- |
-| Resilience (lifecycle) | 🟢 | -- | -- | -- | -- | -- |
-| Resilience (fault injection) | 🔴 | -- | -- | -- | -- | -- |
-| Load/Stress | 🟢 | -- | -- | -- | -- | -- |
-
-### By Connector Mode x Test Category
-
-| Category | Compatibility (dual where needed) | High-Throughput (v4-only) |
-|----------|:---:|:---:|
-| Basic Ingestion | 🟢 (2 dual, rest v4-only -- justified) | 🔴 (2 tests) |
-| Type Compatibility | 🟡 (tests written, DLQ infra fix needed) | ⚪ |
-| Schema Evolution (client) | 🟡 (7 🟢, 2 ⚫, 2 🟡 xfail) | -- |
-| Schema Evolution (server) | -- | 🔴 (6 tests) |
-| DLQ | 🟡 (1 needs dual, 5 missing) | ⚪ |
-| Abort | 🔴 (3 tests) | ⚪ |
-| Error Tables | ⚪ | 🔴 (2 tests) |
-| Pre-flight Check | ⚪ | 🔴 (2 tests) |
-| RECORD_CONTENT Mode | 🟡 (3 need dual, 2 missing) | -- |
-| Table Creation | ⚫ (v3 blocked) | 🔴 (1 test) |
-| Default Pipe Features | 🟢 (4 tests) | 🔴 (preclustering) |
-| Resilience (lifecycle) | 🟢 (v4-only) | -- |
-| Resilience (fault injection) | 🔴 (4 tests) | -- |
-| Load/Stress | 🟢 (v4-only) | -- |
-
-### Parity Status Summary
-
-| Category | 🟢 Confirmed | ⚫ v3 Blocked | 🟡 Needs Rework | 🔴 New Needed |
-|----------|:-:|:-:|:-:|:-:|
-| Data Ingestion | 2 | 4 | 0 | 0 |
-| Type Compatibility | 10 | 4 | 7 | 1 (collated) |
-| Error Handling (DLQ) | 0 | 2 | 1 | 3 + type DLQ |
-| Error Handling (Abort) | 0 | 0 | 0 | 3 |
-| Schema Evolution | 9 | 0 | 2 | 0 |
-| RECORD_CONTENT Mode | 0 | 1 | 3 | 1 |
-| Table Creation | 0 | 2 | 0 | 1 |
-| Resilience (fault injection) | 0 | 0 | 0 | 4 |
-
----
-
-## 6. Priority & Sequencing
-
-### P0 -- GA Blockers
-
-Must be complete before GA. Focus on type compatibility and error handling parity.
-
-| # | Status | Test | FR | Category | Work Type |
-|---|:------:|------|----|---------|----|
-| 1 | 🟡 | `test_type_compatibility.py`: positive type tests for all Snowflake types (dual) | FR1 | Type parity | Written -- 22 tests, 5 divergences found. DLQ assertions blocked by infra bug. |
-| 2 | 🟡 | `test_type_compatibility.py`: negative type tests -- DLQ routing for invalid values (dual) | FR1 | Type parity | Written -- 4 cross-type + 6 per-type DLQ tests. DLQ reader infra needs fix. |
-| 3 | 🟡 | Convert DLQ test to dual + un-skip schema mapping DLQ | FR1 | DLQ parity | Convert |
-| 4 | 🔴 | DLQ Kafka headers preserved (v3/v4 byte-for-byte comparison) | FR9 | DLQ parity | New |
-| 5 | 🔴 | Abort: deserialization error -> task FAILED (dual) | FR2 | Abort | New |
-| 6 | 🔴 | Abort: schema mismatch -> task FAILED (dual) | FR2 | Abort | New |
-| 7 | 🟡 | Convert `test_schema_mapping.py` to dual | FR1 | Type parity | Convert |
-| 8 | 🟡 | Convert 3 RECORD_CONTENT mode tests to dual | FR4 | RECORD_CONTENT parity | Convert |
-| 9 | 🟡 | Rework DROP TABLE tests: dual with v4 xfail | FR1 | Compat gap | Rework |
-| 10 | 🔴 | Validation toggle default = `true` | FR3 | Config | New |
-| 11 | 🔴 | Pre-flight check: no Error Table -> startup fail | FR11 | Pre-flight | New |
-| 12 | 🔴 | Pre-flight check: Error Table present -> startup OK | FR11 | Pre-flight | New |
-
-### P1 -- GA Completeness
-
-| # | Status | Test | FR | Category | Work Type |
-|---|:------:|------|----|---------|----|
-| 13 | 🔴 | High-throughput basic ingestion (JSON) | FR3 | HT Mode | New |
-| 14 | 🔴 | High-throughput basic ingestion (Avro SR) | FR3 | HT Mode | New |
-| 15 | 🔴 | Server-side SE: add columns (validation off, SE on) | FR6 | HT Mode | New |
-| 16 | 🔴 | Server-side SE: NOT NULL dropped | FR6 | HT Mode | New |
-| 17 | 🔴 | Server-side SE: schematization off (currently skipped combo) | FR6 | HT Mode | New |
-| 18 | 🔴 | Server-side SE with Avro SR | FR6 | HT Mode | New |
-| 19 | 🔴 | Server-side SE disabled -> Error Table | FR6 | HT Mode | New |
-| 20 | 🔴 | Invalid records -> Error Table (high-throughput) | FR3 | HT Mode | New |
-| 21 | 🔴 | DLQ with Avro data (dual, v3 blocked) | FR1 | DLQ | New |
-| 22 | 🔴 | DLQ with multi-partition topics (dual) | FR1 | DLQ | New |
-| 23 | 🔴 | RECORD_CONTENT + Avro SR (dual, v3 blocked) | FR4 | RECORD_CONTENT | New |
-| 24 | 🔴 | RECORD_CONTENT + SMT (nullable values) | FR4 | RECORD_CONTENT | New |
-| 25 | 🔴 | Auto table creation (high-throughput mode) | FR3 | Table Creation | New |
-| 26 | 🟢 | Default Pipe: Identity column (both modes) | FR7 | Default Pipe | Done |
-| 27 | 🟢 | Default Pipe: Default timestamp (both modes) | FR7 | Default Pipe | Done |
-| 28 | 🟢 | Iceberg JSON (AWS) -- 2x2 matrix; schema=on uses pre-declared mixed VARIANT+typed table | General | Iceberg | Done |
-| 29 | 🟢 | Iceberg Avro (AWS) -- 2x2 matrix with Avro SR + AvroConverter | General | Iceberg | Done |
-| 30 | 🟢 | Iceberg SE JSON add-column (AWS) -- client-side SE via `ALTER ICEBERG TABLE ADD COLUMN` | FR6 | Iceberg | Done |
-| 30b | 🟢 | Iceberg SE JSON multi-wave (AWS) -- three-wave client-side SE | FR6 | Iceberg | Done |
-| 30c | 🟡 | Iceberg SE JSON server-side (AWS) -- xfail; server-side SE on iceberg silently drops typed columns | FR6 | Iceberg | Done |
-| 31 | 🟢 | Iceberg SE Avro add-column (AWS) -- client-side SE with evolving Avro schemas | FR6 | Iceberg | Done |
-| 32 | 🔴 | Streaming client parameter override | General | Config | New |
-| 33 | ⚫ | `test_type_compatibility_avro.py`: Avro type mapping (dual, v3 blocked) | FR1 | Type parity | New |
-| 34 | 🔴 | Resolve SR classloader conflict (unblocks ~15 parity gaps) | FR1 | Infra | Infra |
-| 35 | 🔴 | Channel invalidation recovery (continuous ingestion) | FR8 | Resilience | New |
-| 36 | 🔴 | Backend 5xx / 429 error handling | FR8 | Resilience | New |
-| 37 | 🔴 | Network partition tolerance | FR8 | Resilience | New |
-
-### P2 -- Post-GA Polish
-
-| # | Status | Test | FR | Category | Work Type |
-|---|:------:|------|----|---------|----|
-| 38 | 🔴 | DLQ with Protobuf data (dual, v3 blocked) | FR1 | DLQ | New |
-| 39 | 🔴 | Large blob ingestion (20 MiB JSON) | General | Ingestion | New |
-| 40 | 🔴 | Default Pipe: Pre-clustered tables (both modes) | FR7 | Default Pipe | New |
-| 41 | 🔴 | Concurrent SE from multiple partitions | FR6 | SE | New |
-| 42 | 🔴 | Telemetry: validation toggle usage emitted | FR10 | Telemetry | New |
-| 43 | 🔴 | Validation toggle interaction with SE (client vs server) | FR3 | Config | New |
-
-### Summary
-
-| Priority | 🔴 New | 🟡 Rework | ⚫ Blocked | Total |
-|----------|:------:|:---------:|:---------:|:-----:|
-| P0 (GA Blockers) | 7 | 5 | 0 | **12** |
-| P1 (GA Completeness) | 23 | 0 | 1 | **24** |
-| P2 (Post-GA) | 6 | 0 | 0 | **6** |
-| Already covered | -- | -- | -- | **~50 🟢** |
-| **Total** | **36** | **5** | **1** | **42** |
-
-### Known Parity Gaps (Classloader Blocked)
-
-These tests need dual verification but v3 is currently blocked by the SR classloader conflict. They are tracked as a single infrastructure item (P1 #34). The fix requires a **production code change** (being addressed by @sfc-gh-alhuang). Until resolved, these represent **unverified parity assumptions**:
-
-| Test Area | Count | Risk |
-|-----------|:-----:|------|
-| Avro SR ingestion (data type handling) | 3 | SSv1/SSv2 may serialize Avro types differently |
-| Protobuf SR ingestion | 1 | Same risk for Protobuf types |
-| Avro table creation | 2 | Type inference from Avro schema not verified against v3 |
-| Avro type compatibility | 4 | Full Avro type system not verified |
-| DLQ with Avro/Protobuf | 2 | Error handling for SR formats not verified |
-| RECORD_CONTENT + Avro SR | 1 | VARIANT content with Avro not verified |
-| **Total blocked** | **13** | |

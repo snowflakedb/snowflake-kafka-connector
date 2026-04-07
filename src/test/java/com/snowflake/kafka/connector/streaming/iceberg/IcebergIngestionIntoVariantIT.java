@@ -16,11 +16,14 @@ import org.junit.jupiter.api.Test;
 
 public class IcebergIngestionIntoVariantIT extends IcebergIngestionIT {
 
-  @Test
-  void shouldInsertRecordsLegacyBagOfBits() throws Exception {
-
+  @Override
+  protected void createIcebergTable() {
     createIcebergTableWithColumnClause(
         tableName, "RECORD_METADATA VARIANT, RECORD_CONTENT VARIANT", V3);
+  }
+
+  @Test
+  void shouldInsertRecordsLegacyBagOfBits() throws Exception {
     final long overMaxIntOffset = (long) Integer.MAX_VALUE + 1;
     final boolean withSchema = false;
     final String message = complexJsonPayload;

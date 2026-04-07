@@ -10,6 +10,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -130,36 +132,129 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   }
 
   /**
-   * Test: Validation disabled (High-Performance Mode)
+   * Test: Validation disabled with ERROR_LOGGING enabled on existing table.
    *
-   * <p>Must warn that SSv2 Error Table is required. Currently logs WARN because Error Table check
-   * API is not yet available.
+   * <p>Should NOT warn about missing error logging when ERROR_LOGGING is present.
    */
   @Test
-  public void testValidationDisabledWarnsAboutErrorTables() {
+  public void testValidationDisabledWithErrorLoggingEnabled() {
     SinkTaskConfig config =
         SinkTaskConfigTestBuilder.builder()
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableMap(Map.of("topic1", "table1"))
             .build();
 
-    SnowflakeSinkServiceV2 service = createServiceWithConfig(config);
+    SnowflakeSinkServiceV2 service =
+        createServiceWithConfig(
+            config,
+            mockConn -> {
+              when(mockConn.tableExist("table1")).thenReturn(true);
+              when(mockConn.hasErrorLoggingEnabled("table1")).thenReturn(true);
+            });
     assertNotNull(service);
 
-    // Verify WARN log about High-Performance Mode
+    assertFalse(
+        testAppender.containsMessage(Level.WARN, "does not have ERROR_LOGGING"),
+        "Should NOT warn about missing error logging when it is enabled");
+  }
+
+  /**
+   * Test: Validation disabled WITHOUT ERROR_LOGGING on existing table.
+   *
+   * <p>Should warn about the specific table and suggest ALTER TABLE.
+   */
+  @Test
+  public void testValidationDisabledWithoutErrorLogging() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableMap(Map.of("topic1", "table1"))
+            .build();
+
+    SnowflakeSinkServiceV2 service =
+        createServiceWithConfig(
+            config,
+            mockConn -> {
+              when(mockConn.tableExist("table1")).thenReturn(true);
+              when(mockConn.hasErrorLoggingEnabled("table1")).thenReturn(false);
+            });
+    assertNotNull(service);
+
+    assertTrue(testAppender.containsMessage(Level.WARN, "table1"), "Should mention the table name");
     assertTrue(
-        testAppender.containsMessage(Level.WARN, "CLIENT-SIDE VALIDATION DISABLED"),
-        "Should log WARN about validation disabled");
+        testAppender.containsMessage(Level.WARN, "does not have ERROR_LOGGING"),
+        "Should warn about missing error logging");
     assertTrue(
-        testAppender.containsMessage(Level.WARN, "High-Performance Mode"),
-        "Should mention High-Performance Mode");
+        testAppender.containsMessage(Level.WARN, "ALTER TABLE"),
+        "Should suggest ALTER TABLE command");
+  }
+
+  /**
+   * Test: Validation disabled, table does not exist yet.
+   *
+   * <p>Should NOT warn about error logging — table will be auto-created with ERROR_LOGGING = TRUE.
+   */
+  @Test
+  public void testValidationDisabledTableNotExists() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableMap(Map.of("topic1", "table1"))
+            .build();
+
+    SnowflakeSinkServiceV2 service =
+        createServiceWithConfig(
+            config,
+            mockConn -> {
+              when(mockConn.tableExist("table1")).thenReturn(false);
+            });
+    assertNotNull(service);
+
+    assertFalse(
+        testAppender.containsMessage(Level.WARN, "does not have ERROR_LOGGING"),
+        "Should NOT warn about error logging for non-existent table");
+  }
+
+  /**
+   * Test: Validation disabled, table is Iceberg.
+   *
+   * <p>Should warn that Iceberg tables do not support ERROR_LOGGING and not check
+   * hasErrorLoggingEnabled.
+   */
+  @Test
+  public void testValidationDisabledIcebergTableWarning() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableMap(Map.of("topic1", "iceberg_table"))
+            .build();
+
+    SnowflakeSinkServiceV2 service =
+        createServiceWithConfig(
+            config,
+            mockConn -> {
+              when(mockConn.tableExist("iceberg_table")).thenReturn(true);
+              when(mockConn.isIcebergTable("iceberg_table")).thenReturn(true);
+            });
+    assertNotNull(service);
+
     assertTrue(
-        testAppender.containsMessage(Level.WARN, "SSv2 Error Table"),
-        "Should mention SSv2 Error Table requirement");
+        testAppender.containsMessage(Level.WARN, "Iceberg table"),
+        "Should warn that the table is Iceberg");
     assertTrue(
-        testAppender.containsMessage(Level.WARN, "silently dropped"),
-        "Should warn about silent data loss risk");
+        testAppender.containsMessage(Level.WARN, "do not support ERROR_LOGGING"),
+        "Should warn that Iceberg does not support ERROR_LOGGING");
+    assertFalse(
+        testAppender.containsMessage(Level.WARN, "does not have ERROR_LOGGING"),
+        "Should NOT emit the generic missing-ERROR_LOGGING warning for Iceberg tables");
   }
 
   /**
@@ -193,14 +288,19 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
 
   /** Helper to create SnowflakeSinkServiceV2 with minimal mocked dependencies. */
   private SnowflakeSinkServiceV2 createServiceWithConfig(SinkTaskConfig config) {
-    // Mock dependencies
+    return createServiceWithConfig(config, mockConn -> {});
+  }
+
+  /** Helper with optional mock setup for connection service. */
+  private SnowflakeSinkServiceV2 createServiceWithConfig(
+      SinkTaskConfig config, Consumer<SnowflakeConnectionService> mockSetup) {
     SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
     when(mockConn.isClosed()).thenReturn(false);
     when(mockConn.getTelemetryClient()).thenReturn(null);
+    mockSetup.accept(mockConn);
 
     TaskMetrics mockMetrics = mock(TaskMetrics.class);
 
-    // Create service - constructor will call logValidationConfiguration()
     try {
       return new SnowflakeSinkServiceV2(
           mockConn,
@@ -210,7 +310,6 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
           java.util.Optional.empty(), // metricsJmxReporter
           mockMetrics);
     } catch (Exception e) {
-      // Constructor may throw due to missing configs - print and return null
       System.err.println("Failed to create service: " + e.getMessage());
       e.printStackTrace();
       return null;

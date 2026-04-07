@@ -792,3 +792,28 @@ def test_cross_type_mismatch(results):
 
     if divergences:
         pytest.xfail(f"v4 cross-type handling diverges from v3 on: {divergences}")
+
+
+# ---------------------------------------------------------------------------
+# Error table accounting (v4-ht only)
+# ---------------------------------------------------------------------------
+
+
+def test_error_table_accounting(results):
+    """v4-ht: verify error table captured rejected records."""
+    if results.mode != "v4-ht":
+        pytest.skip("Error table only applicable to v4-ht mode")
+
+    expected_errors = sum(
+        1 for c in CASES if c.expect == "error" and c.name not in results.rows
+    )
+
+    assert len(results.error_table_rows) > 0, (
+        f"Expected error table rows for v4-ht but found none — "
+        f"errors may be silently dropped (expected ~{expected_errors})"
+    )
+
+    for row in results.error_table_rows:
+        assert row.get("ERROR_CODE") is not None, (
+            f"Error table row missing ERROR_CODE: {row}"
+        )

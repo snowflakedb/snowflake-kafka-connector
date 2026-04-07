@@ -36,11 +36,19 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
   protected SnowflakeSinkService service;
   protected InMemoryKafkaRecordErrorReporter kafkaRecordErrorReporter;
 
+  /**
+   * Override in subclasses to create the target Iceberg table before the service starts. KCv4
+   * requires pre-created Iceberg tables; auto-creation is not supported for them.
+   */
+  protected void createIcebergTable() {}
+
   @BeforeEach
   public void setUp() {
     tableName = TestUtils.randomTableName();
     topic = tableName;
     topicPartition = new TopicPartition(topic, PARTITION);
+
+    createIcebergTable();
 
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
     ConnectorConfigTools.setDefaultValues(config);
