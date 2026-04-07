@@ -5,7 +5,7 @@ from lib.fixtures.table import Table
 from lib.driver import KafkaDriver
 
 
-def test_compatibility_schematization_disabled(
+def test_compatibility_schematization_disabled_complex(
     driver: KafkaDriver, create_connector, create_topics, wait_for_rows
 ):
     """Nested JSON data lands as queryable VARIANT in RECORD_CONTENT.
@@ -16,7 +16,7 @@ def test_compatibility_schematization_disabled(
 
     Runs for both v3 and v4 to verify compatibility.
     """
-    topic = create_topics(["schematization_disabled"], with_tables=False)[0]
+    topic = create_topics(["schematization_disabled_complex"], with_tables=False)[0]
 
     connector = create_connector(
         v3_config={
@@ -100,3 +100,52 @@ def test_compatibility_schematization_disabled(
     ]
 
     assert table.select_scalar("count(*)") == record_count
+
+
+def test_compatibility_schematization_disabled_primitive(
+    driver: KafkaDriver, create_connector, create_topics, wait_for_rows
+):
+    """Bare strings via StringConverter land as VARIANT in RECORD_CONTENT.
+
+    Table is NOT pre-created — the connector auto-creates it.
+    Verifies that primitive (non-JSON) payloads are stored as VARIANT,
+    not inferred as VARCHAR by schema evolution.
+
+    Runs for both v3 and v4 to verify compatibility.
+    """
+    topic = create_topics(["schematization_disabled_primitive"], with_tables=False)[0]
+
+    connector = create_connector(
+        v3_config={
+            **V3_CONFIG_TEMPLATE,
+            "topics": topic,
+            "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+            "value.converter": "org.apache.kafka.connect.storage.StringConverter",
+            "snowflake.enable.schematization": "false",
+        }
+    )
+    driver.startConnectorWaitTime()
+
+    values = [
+        b"hello world",
+        b"42",
+        b"true",
+    ]
+    driver.sendBytesData(topic, values, [], partition=0)
+
+    table = Table(driver, topic.upper())
+    wait_for_rows(table.name, len(values), connector_name=connector.name)
+
+    schema = table.schema(as_dict=True)
+    col_schema = next(c for c in schema if c["name"] == "RECORD_CONTENT")
+    assert col_schema["type"] == "VARIANT"
+
+    rows = table.select(
+        "RECORD_CONTENT::string AS content",
+        'ORDER BY RECORD_METADATA:"offset"::number',
+    )
+    assert rows[0]["CONTENT"] == "hello world"
+    assert rows[1]["CONTENT"] == "42"
+    assert rows[2]["CONTENT"] == "true"
+
+    assert table.select_scalar("count(*)") == len(values)

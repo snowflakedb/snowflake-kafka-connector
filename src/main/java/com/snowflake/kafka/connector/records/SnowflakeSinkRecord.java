@@ -96,7 +96,8 @@ public final class SnowflakeSinkRecord {
           schema = normalizeSchemaFieldNames(schema);
         }
       } else {
-        content = wrapAsRecordContent(schema, record.value());
+        content = wrapValueAsRecordContent(schema, record.value());
+        schema = RECORD_CONTENT_WRAPPER_SCHEMA;
       }
       Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
       return new SnowflakeSinkRecord(content, metadata, schema, RecordState.VALID, null);
@@ -116,7 +117,7 @@ public final class SnowflakeSinkRecord {
    * strings because SSv1 re-parsed them via {@code readTree}), SSv2 passes NDJSON straight to the
    * server — so JSON-serializing here would produce double-quoted strings.
    */
-  private static Map<String, Object> wrapAsRecordContent(Schema schema, Object value) {
+  private static Map<String, Object> wrapValueAsRecordContent(Schema schema, Object value) {
     Map<String, Object> content = new HashMap<>();
     Object convertedValue;
     if (value instanceof Map || value instanceof Struct) {
@@ -127,6 +128,26 @@ public final class SnowflakeSinkRecord {
     content.put(Utils.TABLE_COLUMN_CONTENT, convertedValue);
     return content;
   }
+
+  /**
+   * Builds a synthetic Struct schema declaring {@code RECORD_CONTENT} as STRUCT (→ VARIANT).
+   *
+   * <p>Assumptions:
+   *
+   * <ul>
+   *   <li>RECORD_CONTENT is always a VARIANT column in Snowflake, regardless of the Kafka value
+   *       type. Even bare strings (from StringConverter) must land as VARIANT, not VARCHAR.
+   *   <li>STRUCT is used because {@link
+   *       com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeColumnTypeMapper} maps
+   *       STRUCT to "VARIANT". If schema evolution needs to ADD this column, it must infer VARIANT.
+   *   <li>This only applies to standard Snowflake tables. Iceberg tables with typed RECORD_CONTENT
+   *       columns would need a different schema strategy.
+   * </ul>
+   */
+  private static final Schema RECORD_CONTENT_WRAPPER_SCHEMA =
+      SchemaBuilder.struct()
+          .field(Utils.TABLE_COLUMN_CONTENT, SchemaBuilder.struct().optional().build())
+          .build();
 
   private static SnowflakeSinkRecord createTombstoneRecord(
       SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {
