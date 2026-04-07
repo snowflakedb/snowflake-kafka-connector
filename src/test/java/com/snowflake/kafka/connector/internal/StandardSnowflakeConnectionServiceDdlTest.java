@@ -379,7 +379,8 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     // Snowflake rejects CREATE TABLE IF NOT EXISTS when the name belongs to an ICEBERG TABLE.
     // The method should swallow the error and return normally rather than propagating it.
     SQLException icebergConflict =
-        new SQLException("SQL compilation error:\nObject 'MY_TABLE' already exists as ICEBERG_TABLE");
+        new SQLException(
+            "SQL compilation error:\nObject 'MY_TABLE' already exists as ICEBERG_TABLE");
     when(mockAlterStmt.execute()).thenThrow(icebergConflict);
 
     assertDoesNotThrow(() -> service.createTableWithOnlyMetadataColumn("MY_TABLE"));
