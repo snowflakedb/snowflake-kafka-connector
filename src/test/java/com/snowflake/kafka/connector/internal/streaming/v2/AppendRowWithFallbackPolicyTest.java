@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.ingest.streaming.SFException;
 import dev.failsafe.function.CheckedRunnable;
@@ -26,7 +28,11 @@ public class AppendRowWithFallbackPolicyTest {
     CheckedRunnable supplier = () -> {};
 
     // When
-    AppendRowWithFallbackPolicy.executeWithFallback(supplier, failingFallback(), channelName);
+    boolean succeeded =
+        AppendRowWithFallbackPolicy.executeWithFallback(supplier, failingFallback(), channelName);
+
+    // Then
+    assertTrue(succeeded, "Should return true on successful append");
   }
 
   @Test
@@ -104,13 +110,15 @@ public class AppendRowWithFallbackPolicyTest {
         };
     AtomicInteger fallbackCallCounter = new AtomicInteger(0);
 
-    // When/Then
-    AppendRowWithFallbackPolicy.executeWithFallback(
-        supplier, countingFallbackSupplier(fallbackCallCounter), channelName);
+    // When
+    boolean succeeded =
+        AppendRowWithFallbackPolicy.executeWithFallback(
+            supplier, countingFallbackSupplier(fallbackCallCounter), channelName);
 
     // Then
     assertEquals(1, attemptCounter.get()); // Should not retry
     assertEquals(1, fallbackCallCounter.get()); // Fallback should be called once
+    assertFalse(succeeded, "Should return false when fallback fired");
   }
 
   @Test
