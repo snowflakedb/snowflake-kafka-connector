@@ -55,7 +55,10 @@ public class RowValidator {
    * Validate a row against the table schema. Performs both structural validation (column presence,
    * NOT NULL checks) and type/value validation.
    *
-   * @param row Map of column name to value
+   * <p><b>Side effect:</b> For BINARY columns, hex string values in the row are replaced in-place
+   * with their {@code byte[]} equivalents so the Ingest SDK receives an unambiguous type.
+   *
+   * @param row Map of column name to value (may be mutated for BINARY normalization)
    * @return ValidationResult indicating success or failure with error details
    */
   public ValidationResult validateRow(Map<String, Object> row) {
@@ -111,7 +114,11 @@ public class RowValidator {
       }
 
       try {
-        validateColumnValue(col, value);
+        Object normalized = validateAndNormalizeColumnValue(col, value);
+        // Reference equality: same object returned for types that don't need normalization
+        if (normalized != value) {
+          entry.setValue(normalized);
+        }
       } catch (SFExceptionValidation e) {
         return ValidationResult.typeError(colName, e.getMessage());
       }
@@ -120,8 +127,12 @@ public class RowValidator {
     return ValidationResult.valid();
   }
 
-  /** Validate a single column value using DataValidationUtil. */
-  private void validateColumnValue(ColumnSchema col, Object value) throws SFExceptionValidation {
+  /**
+   * Validate a single column value using DataValidationUtil, and return the canonical form to
+   * ingest.
+   */
+  private Object validateAndNormalizeColumnValue(ColumnSchema col, Object value)
+      throws SFExceptionValidation {
     // insertRowIndex parameter is used for error messages - use 0 for now
     final long insertRowIndex = 0;
 
@@ -148,12 +159,15 @@ public class RowValidator {
         break;
 
       case BINARY:
-        DataValidationUtil.validateAndParseBinary(
+        // The SSv2 interprets String values for BINARY columns as either hex or base64
+        // depending on the server-side parameter ENABLE_SSV2_DEFAULT_BINARY_FORMAT_BASE64.
+        // Returning byte[] sidesteps this ambiguity: byte[] is accepted uniformly regardless of
+        // how that parameter is set.
+        return DataValidationUtil.validateAndParseBinary(
             col.getName(),
             value,
             java.util.Optional.ofNullable(col.getByteLength()),
             insertRowIndex);
-        break;
 
       case DATE:
         DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
@@ -192,6 +206,7 @@ public class RowValidator {
         throw new SFExceptionValidation(
             ErrorCode.UNKNOWN_DATA_TYPE, col.getName(), col.getLogicalType());
     }
+    return value;
   }
 
   /**
