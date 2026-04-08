@@ -195,14 +195,35 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     if (taskConfig.getValidation() != SnowflakeValidation.CLIENT_SIDE) {
-      // VALIDATION DISABLED (High-Performance Mode)
-      // Must verify SSv2 Error Table is configured to prevent records from being silently dropped
-      // TODO: Check Error Table configuration when SSv2 API exposes this information
-      // For now, log warning as API is not yet available
-      LOGGER.warn(
-          "CLIENT-SIDE VALIDATION DISABLED (High-Performance Mode). Running without client-side"
-              + " validation requires a configured SSv2 Error Table to prevent records from being"
-              + " silently dropped.");
+      // Check each target table for ERROR_LOGGING.
+      // Note: makes up to 3 network calls per table (tableExist + isIcebergTable +
+      // hasErrorLoggingEnabled). Acceptable at startup; only runs once per task constructor.
+      Set<String> uniqueTables = new HashSet<>(topicToTableMap.values());
+      for (String tableName : uniqueTables) {
+        if (!conn.tableExist(tableName)) {
+          // Table doesn't exist yet — will be auto-created with ERROR_LOGGING = TRUE
+          continue;
+        }
+        if (conn.isIcebergTable(tableName)) {
+          LOGGER.warn(
+              "Table '{}' is an Iceberg table. Iceberg tables do not support ERROR_LOGGING."
+                  + " In v4 high-throughput mode, invalid records targeting this table will be"
+                  + " silently dropped. Error table functionality is not available for Iceberg"
+                  + " tables.",
+              tableName);
+          continue;
+        }
+        if (!conn.hasErrorLoggingEnabled(tableName)) {
+          LOGGER.warn(
+              "Table '{}' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
+                  + " invalid records will be silently dropped. Run: ALTER TABLE \"{}\" SET"
+                  + " ERROR_LOGGING = TRUE",
+              tableName,
+              tableName);
+        } else {
+          LOGGER.info("Table '{}' has ERROR_LOGGING enabled — error table is active.", tableName);
+        }
+      }
       return;
     }
 

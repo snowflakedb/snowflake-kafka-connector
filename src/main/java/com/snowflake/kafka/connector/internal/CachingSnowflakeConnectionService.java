@@ -29,6 +29,7 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   private final SnowflakeConnectionService delegate;
   private final Cache<String, Boolean> tableExistsCache;
   private final Cache<String, Boolean> pipeExistsCache;
+  private final Cache<String, Boolean> errorLoggingCache;
   private final boolean tableExistsCacheEnabled;
   private final boolean pipeExistsCacheEnabled;
 
@@ -54,6 +55,13 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     this.pipeExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(cachingConfig.getPipeExistsCacheExpireMs(), TimeUnit.MILLISECONDS)
+            .maximumSize(CACHE_SIZE)
+            .recordStats()
+            .build();
+    // Reuses the table-exists TTL since error_logging is also a per-table property.
+    this.errorLoggingCache =
+        CacheBuilder.newBuilder()
+            .expireAfterWrite(cachingConfig.getTableExistsCacheExpireMs(), TimeUnit.MILLISECONDS)
             .maximumSize(CACHE_SIZE)
             .recordStats()
             .build();
@@ -133,6 +141,18 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
               pipeStats.averageLoadPenalty() / 1_000_000.0), // Convert nanoseconds to milliseconds
           pipeExistsCache.size());
     }
+
+    if (tableExistsCacheEnabled) {
+      CacheStats errorLoggingStats = errorLoggingCache.stats();
+      LOGGER.info(
+          "Error logging cache stats - Requests: {}, Hits: {}, Misses: {}, Hit Rate: {}%,"
+              + " Size: {}",
+          errorLoggingStats.requestCount(),
+          errorLoggingStats.hitCount(),
+          errorLoggingStats.missCount(),
+          String.format("%.2f", errorLoggingStats.hitRate() * 100),
+          errorLoggingCache.size());
+    }
   }
 
   // All other methods delegate directly without caching
@@ -141,6 +161,7 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   public void createTableWithOnlyMetadataColumn(String tableName) {
     delegate.createTableWithOnlyMetadataColumn(tableName);
     tableExistsCache.invalidate(tableName);
+    errorLoggingCache.invalidate(tableName);
   }
 
   @Override
@@ -195,6 +216,7 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     delegate.executeQueryWithParameters(query, parameters);
     pipeExistsCache.invalidateAll();
     tableExistsCache.invalidateAll();
+    errorLoggingCache.invalidateAll();
   }
 
   @Override
@@ -215,6 +237,21 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   @Override
   public boolean isIcebergTable(String tableName) {
     return delegate.isIcebergTable(tableName);
+  }
+
+  @Override
+  public boolean hasErrorLoggingEnabled(String tableName) {
+    if (!tableExistsCacheEnabled) {
+      return delegate.hasErrorLoggingEnabled(tableName);
+    }
+    try {
+      boolean result =
+          errorLoggingCache.get(tableName, () -> delegate.hasErrorLoggingEnabled(tableName));
+      logStatsIfNeeded();
+      return result;
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing error logging cache for table: " + tableName, e);
+    }
   }
 
   private void logStatsIfNeeded() {

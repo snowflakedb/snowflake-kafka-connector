@@ -372,4 +372,27 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     String sql = captureAlterSql();
     assertTrue(sql.startsWith("alter iceberg table identifier(?) alter "));
   }
+
+  @Test
+  public void testCreateTableWithOnlyMetadataColumn_icebergTableAlreadyExists_doesNotThrow()
+      throws SQLException {
+    // Snowflake rejects CREATE TABLE IF NOT EXISTS when the name belongs to an ICEBERG TABLE.
+    // The method should swallow the error and return normally rather than propagating it.
+    SQLException icebergConflict =
+        new SQLException(
+            "SQL compilation error:\nObject 'MY_TABLE' already exists as ICEBERG_TABLE");
+    when(mockAlterStmt.execute()).thenThrow(icebergConflict);
+
+    assertDoesNotThrow(() -> service.createTableWithOnlyMetadataColumn("MY_TABLE"));
+  }
+
+  @Test
+  public void testCreateTableWithOnlyMetadataColumn_otherSqlError_throws() throws SQLException {
+    SQLException otherError = new SQLException("Some other SQL error");
+    when(mockAlterStmt.execute()).thenThrow(otherError);
+
+    assertThrows(
+        com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException.class,
+        () -> service.createTableWithOnlyMetadataColumn("MY_TABLE"));
+  }
 }

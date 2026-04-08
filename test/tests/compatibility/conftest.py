@@ -115,6 +115,7 @@ class Results:
     mode: str
     total_sent: int
     columns: dict  # {col_name: ddl_type} — used for comparison dispatch
+    error_table_rows: tuple = ()  # populated for v4-ht only
 
     @property
     def total_ingested(self):
@@ -320,8 +321,9 @@ def results(driver, mode_salt, ingestion_mode):
 
     # Create single table from COLUMNS spec.
     col_defs = ", ".join(f"{name} {ddl}" for name, ddl in COLUMNS.items())
+    error_logging = " ERROR_LOGGING = TRUE" if ingestion_mode == "v4-ht" else ""
     driver.snowflake_conn.cursor().execute(
-        f"CREATE OR REPLACE TABLE {quoted_table} ({col_defs})"
+        f"CREATE OR REPLACE TABLE {quoted_table} ({col_defs}){error_logging}"
     )
     # v4 connector requires the table property for schema evolution (not the
     # connector config).  Without this, any structural mismatch routes to DLQ.
@@ -441,11 +443,25 @@ def results(driver, mode_salt, ingestion_mode):
             logger.warning("Could not parse DLQ message body: %s", msg.value()[:200])
     consumer.close()
 
+    # Query error table for v4-ht mode
+    error_table_rows = []
+    if ingestion_mode == "v4-ht":
+        try:
+            et_cursor = driver.snowflake_conn.cursor()
+            et_cursor.execute(f"SELECT * FROM ERROR_TABLE({quoted_table})")
+            et_col_names = [desc[0] for desc in et_cursor.description]
+            for row in et_cursor.fetchall():
+                error_table_rows.append(dict(zip(et_col_names, row)))
+            et_cursor.close()
+        except Exception as e:
+            logger.warning("Could not query error table: %s", e)
+
     logger.info(
-        "Results for mode=%s: %d rows, %d DLQ, %d sent",
+        "Results for mode=%s: %d rows, %d DLQ, %d error_table, %d sent",
         ingestion_mode,
         len(row_lookup),
         len(dlq_ids),
+        len(error_table_rows),
         len(CASES),
     )
 
@@ -455,6 +471,7 @@ def results(driver, mode_salt, ingestion_mode):
         mode=ingestion_mode,
         total_sent=len(CASES),
         columns=COLUMNS,
+        error_table_rows=tuple(error_table_rows),
     )
 
     try:

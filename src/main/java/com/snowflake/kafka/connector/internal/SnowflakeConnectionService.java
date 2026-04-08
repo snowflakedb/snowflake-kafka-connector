@@ -130,4 +130,12 @@ public interface SnowflakeConnectionService {
    * @return true if the table is an iceberg table, false otherwise
    */
   boolean isIcebergTable(String tableName);
+
+  /**
+   * Check whether the given table has ERROR_LOGGING enabled via SHOW TABLES.
+   *
+   * @param tableName table name
+   * @return true if error_logging is "Y", false otherwise or if the column is not present
+   */
+  boolean hasErrorLoggingEnabled(String tableName);
 }
