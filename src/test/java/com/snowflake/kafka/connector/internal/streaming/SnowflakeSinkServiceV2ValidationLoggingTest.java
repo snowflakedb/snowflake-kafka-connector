@@ -158,6 +158,47 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
     assertFalse(
         testAppender.containsMessage(Level.WARN, "does not have ERROR_LOGGING"),
         "Should NOT warn about missing error logging when it is enabled");
+    assertTrue(
+        testAppender.containsMessage(Level.INFO, "error table is active"),
+        "Should log INFO confirming error table is active");
+  }
+
+  /**
+   * Test: Validation disabled, multiple tables — one enabled, one disabled.
+   *
+   * <p>Verifies per-table iteration: only the disabled table gets a warning; the enabled table gets
+   * an INFO confirmation.
+   */
+  @Test
+  public void testValidationDisabledMultipleTablesPartialErrorLogging() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableMap(Map.of("topic_ok", "table_ok", "topic_bad", "table_bad"))
+            .build();
+
+    SnowflakeSinkServiceV2 service =
+        createServiceWithConfig(
+            config,
+            mockConn -> {
+              when(mockConn.tableExist("table_ok")).thenReturn(true);
+              when(mockConn.hasErrorLoggingEnabled("table_ok")).thenReturn(true);
+              when(mockConn.tableExist("table_bad")).thenReturn(true);
+              when(mockConn.hasErrorLoggingEnabled("table_bad")).thenReturn(false);
+            });
+    assertNotNull(service);
+
+    assertTrue(
+        testAppender.containsMessage(Level.WARN, "table_bad"),
+        "Should warn about the table missing ERROR_LOGGING");
+    assertFalse(
+        testAppender.containsMessage(Level.WARN, "table_ok"),
+        "Should NOT warn about the table that has ERROR_LOGGING enabled");
+    assertTrue(
+        testAppender.containsMessage(Level.INFO, "table_ok"),
+        "Should log INFO confirmation for the table with ERROR_LOGGING enabled");
   }
 
   /**

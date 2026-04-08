@@ -220,6 +220,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                   + " ERROR_LOGGING = TRUE",
               tableName,
               tableName);
+        } else {
+          LOGGER.info("Table '{}' has ERROR_LOGGING enabled — error table is active.", tableName);
         }
       }
       return;

@@ -216,6 +216,7 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     delegate.executeQueryWithParameters(query, parameters);
     pipeExistsCache.invalidateAll();
     tableExistsCache.invalidateAll();
+    errorLoggingCache.invalidateAll();
   }
 
   @Override

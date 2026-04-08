@@ -75,6 +75,8 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       // Snowflake rejects CREATE TABLE IF NOT EXISTS when the name is already taken by an
       // ICEBERG TABLE (cross-type conflict is not suppressed by IF NOT EXISTS). KCv4 only
       // supports pre-created Iceberg tables; error_logging is not available for them.
+      // We match on the error message text because Snowflake does not provide a stable SQL
+      // error code that distinguishes this cross-type conflict from other CREATE TABLE errors.
       if (e.getMessage() != null && e.getMessage().contains("already exists as ICEBERG_TABLE")) {
         LOGGER.warn(
             "Table '{}' is a pre-created Iceberg table. Skipping auto-creation."
@@ -123,7 +125,6 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
-  // TODO - use describeTable()
   public boolean isTableCompatible(final String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -411,12 +412,12 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
 
-    String escapedTableName =
-        tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
     try (PreparedStatement stmt = conn.prepareStatement("show tables like ? limit 1")) {
+      String escapedTableName =
+          tableName.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
       stmt.setString(1, escapedTableName);
       try (ResultSet result = stmt.executeQuery()) {
-        while (result.next()) {
+        if (result.next()) {
           try {
             if ("Y".equals(result.getString("error_logging"))) {
               LOGGER.debug("Table {} has ERROR_LOGGING enabled", tableName);

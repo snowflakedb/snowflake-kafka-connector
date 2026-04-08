@@ -808,9 +808,9 @@ def test_error_table_accounting(results):
         1 for c in CASES if c.expect == "error" and c.name not in results.rows
     )
 
-    assert len(results.error_table_rows) > 0, (
-        f"Expected error table rows for v4-ht but found none — "
-        f"errors may be silently dropped (expected ~{expected_errors})"
+    assert len(results.error_table_rows) >= expected_errors, (
+        f"Expected at least {expected_errors} error table rows for v4-ht but found "
+        f"{len(results.error_table_rows)} — errors may be silently dropped"
     )
 
     for row in results.error_table_rows:
