@@ -55,7 +55,10 @@ public class RowValidator {
    * Validate a row against the table schema. Performs both structural validation (column presence,
    * NOT NULL checks) and type/value validation.
    *
-   * @param row Map of column name to value
+   * <p><b>Side effect:</b> For BINARY columns, hex string values in the row are replaced in-place
+   * with their {@code byte[]} equivalents so the Ingest SDK receives an unambiguous type.
+   *
+   * @param row Map of column name to value (may be mutated for BINARY normalization)
    * @return ValidationResult indicating success or failure with error details
    */
   public ValidationResult validateRow(Map<String, Object> row) {
@@ -112,8 +115,9 @@ public class RowValidator {
 
       try {
         Object normalized = validateAndNormalizeColumnValue(col, value);
+        // Reference equality: same object returned for types that don't need normalization
         if (normalized != value) {
-          row.put(colName, normalized);
+          entry.setValue(normalized);
         }
       } catch (SFExceptionValidation e) {
         return ValidationResult.typeError(colName, e.getMessage());

@@ -15,8 +15,9 @@ RECORD = {
     # SnowflakeJsonConverter stripped them.  The standard JsonConverter
     # preserves the key as-is, so we omit the embedded quotes.
     "case_sensitive_PERFORMANCE_CHAR": "A",
-    # Base64-encoded binary — server_side validation passes the string directly to the
-    # Ingest SDK, which decodes it as base64 (ENABLE_SSV2_DEFAULT_BINARY_FORMAT_BASE64).
+    # Base64-encoded binary value for server_side validation mode, which passes strings
+    # directly to the Ingest SDK. A server-side parameter controls whether the SDK
+    # interprets binary strings as base64 or hex; base64 is the expected default.
     "PERFORMANCE_BINARY": "/////w==",
     "RATING_INT": 100,
     "RATING_DOUBLE": 0.99,
