@@ -67,7 +67,10 @@ public class TableSchemaResolver {
 
   private boolean hasSchema(SnowflakeSinkRecord record) {
     Schema schema = record.getSchema();
-    return schema != null && schema.fields() != null && !schema.fields().isEmpty();
+    return schema != null
+        && schema.type() == Schema.Type.STRUCT
+        && schema.fields() != null
+        && !schema.fields().isEmpty();
   }
 
   private TableSchema getTableSchemaFromRecordSchema(

@@ -58,9 +58,13 @@ class Table:
             .fetchone()[0]
         )
 
-    def schema(self):
+    def schema(self, *, as_dict: bool = False):
         return (
-            self.driver.snowflake_conn.cursor()
+            (
+                self.driver.snowflake_conn.cursor(DictCursor)
+                if as_dict
+                else self.driver.snowflake_conn.cursor()
+            )
             .execute(f"DESC TABLE {quote_name(self.name)}")
             .fetchall()
         )

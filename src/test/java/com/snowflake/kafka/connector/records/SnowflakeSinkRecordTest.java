@@ -616,9 +616,10 @@ class SnowflakeSinkRecordTest {
     Map<String, Object> content = record.getContent();
     assertTrue(content.containsKey("RECORD_CONTENT"));
     assertEquals(1, content.size());
-    String jsonString = (String) content.get("RECORD_CONTENT");
-    assertTrue(jsonString.contains("\"name\":\"test\""));
-    assertTrue(jsonString.contains("\"value\":123"));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> recordContent = (Map<String, Object>) content.get("RECORD_CONTENT");
+    assertEquals("test", recordContent.get("name"));
+    assertEquals(123L, recordContent.get("value"));
   }
 
   @Test
@@ -634,7 +635,7 @@ class SnowflakeSinkRecordTest {
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
     assertTrue(content.containsKey("RECORD_CONTENT"));
-    assertEquals("\"just a plain string\"", content.get("RECORD_CONTENT"));
+    assertEquals("just a plain string", content.get("RECORD_CONTENT"));
   }
 
   @Test
@@ -651,8 +652,7 @@ class SnowflakeSinkRecordTest {
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
     assertTrue(content.containsKey("RECORD_CONTENT"));
-    assertEquals(
-        "\"" + Base64.getEncoder().encodeToString(bytes) + "\"", content.get("RECORD_CONTENT"));
+    assertEquals(Base64.getEncoder().encodeToString(bytes), content.get("RECORD_CONTENT"));
   }
 
   @Test

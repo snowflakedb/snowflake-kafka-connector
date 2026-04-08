@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -24,7 +23,9 @@ import net.snowflake.client.api.driver.SnowflakeDriver;
  */
 public class StandardSnowflakeConnectionService implements SnowflakeConnectionService {
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final String COLUMN_COMMENT =
+      "created by automatic table creation from Snowflake Kafka Connector High Performance";
+
   private static final String SHOW_ICEBERG_TABLES_QUERY = "show iceberg tables like ? limit 1";
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
   private final Connection conn;
@@ -61,9 +62,9 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     String createTableQuery =
-        "create table if not exists identifier(?) (record_metadata variant comment 'created by"
-            + " automatic table creation from Snowflake Kafka Connector High Performance')"
-            + " enable_schema_evolution = true";
+        "create table if not exists identifier(?) (record_metadata variant comment '"
+            + COLUMN_COMMENT
+            + "') enable_schema_evolution = true";
 
     try {
       PreparedStatement stmt = conn.prepareStatement(createTableQuery);

@@ -6,6 +6,7 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
+import com.snowflake.kafka.connector.Utils;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
@@ -99,6 +100,14 @@ public class RowValidator {
             "Null value for NOT NULL column "
                 + colName
                 + " but was not caught by structural validation");
+      }
+
+      // Skip type validation for the legacy RECORD_CONTENT wrapper column.
+      // In non-schematized mode, this column contains the raw payload (e.g. a plain string, bytes,
+      // or object) and should accept any value the connector places there.
+      // Otherwise, VARIANT client-side validation requires that the payload is a complex object.
+      if (Utils.TABLE_COLUMN_CONTENT.equals(colName)) {
+        continue;
       }
 
       try {

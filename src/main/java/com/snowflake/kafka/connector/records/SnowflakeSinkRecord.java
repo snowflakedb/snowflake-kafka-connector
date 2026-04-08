@@ -2,8 +2,6 @@ package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.validation.SqlIdentifierNormalizer;
 import java.time.Instant;
@@ -22,8 +20,6 @@ import org.apache.kafka.connect.sink.SinkRecord;
  * Snowflake Streaming Ingest SDK ({@code Map<String, Object>}).
  */
 public final class SnowflakeSinkRecord {
-
-  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   static final String OFFSET = "offset";
 
@@ -100,7 +96,8 @@ public final class SnowflakeSinkRecord {
           schema = normalizeSchemaFieldNames(schema);
         }
       } else {
-        content = wrapAsRecordContent(schema, record.value());
+        content = wrapValueAsRecordContent(schema, record.value());
+        schema = RECORD_CONTENT_WRAPPER_SCHEMA;
       }
       Map<String, Object> metadata = buildMetadata(record, metadataConfig, connectorPushTime);
       return new SnowflakeSinkRecord(content, metadata, schema, RecordState.VALID, null);
@@ -109,22 +106,48 @@ public final class SnowflakeSinkRecord {
     }
   }
 
-  private static Map<String, Object> wrapAsRecordContent(Schema schema, Object value) {
+  /**
+   * Wraps the record value under the {@code RECORD_CONTENT} key.
+   *
+   * <p>For structured types (Map/Struct) the value is converted to a Map so the SDK infers VARIANT.
+   *
+   * <p>For primitive types the converted value is placed directly into the map. The SSv2 SDK
+   * serializes the map to NDJSON via Jackson, which handles native Java types (String, Number,
+   * Boolean) correctly for VARIANT columns. Unlike KCv3/SSv1 (which required JSON-serialized
+   * strings because SSv1 re-parsed them via {@code readTree}), SSv2 passes NDJSON straight to the
+   * server — so JSON-serializing here would produce double-quoted strings.
+   */
+  private static Map<String, Object> wrapValueAsRecordContent(Schema schema, Object value) {
     Map<String, Object> content = new HashMap<>();
-    try {
-      Object convertedValue;
-      if (value instanceof Map || value instanceof Struct) {
-        convertedValue = KafkaRecordConverter.convertToMap(schema, value);
-      } else {
-        convertedValue = KafkaRecordConverter.convertValue(schema, value);
-      }
-      String jsonString = MAPPER.writeValueAsString(convertedValue);
-      content.put(Utils.TABLE_COLUMN_CONTENT, jsonString);
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException("Failed to serialize value to JSON", e);
+    Object convertedValue;
+    if (value instanceof Map || value instanceof Struct) {
+      convertedValue = KafkaRecordConverter.convertToMap(schema, value);
+    } else {
+      convertedValue = KafkaRecordConverter.convertValue(schema, value);
     }
+    content.put(Utils.TABLE_COLUMN_CONTENT, convertedValue);
     return content;
   }
+
+  /**
+   * Builds a synthetic Struct schema declaring {@code RECORD_CONTENT} as STRUCT (→ VARIANT).
+   *
+   * <p>Assumptions:
+   *
+   * <ul>
+   *   <li>RECORD_CONTENT is always a VARIANT column in Snowflake, regardless of the Kafka value
+   *       type. Even bare strings (from StringConverter) must land as VARIANT, not VARCHAR.
+   *   <li>STRUCT is used because {@link
+   *       com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeColumnTypeMapper} maps
+   *       STRUCT to "VARIANT". If schema evolution needs to ADD this column, it must infer VARIANT.
+   *   <li>This only applies to standard Snowflake tables. Iceberg tables with typed RECORD_CONTENT
+   *       columns would need a different schema strategy.
+   * </ul>
+   */
+  private static final Schema RECORD_CONTENT_WRAPPER_SCHEMA =
+      SchemaBuilder.struct()
+          .field(Utils.TABLE_COLUMN_CONTENT, SchemaBuilder.struct().optional().build())
+          .build();
 
   private static SnowflakeSinkRecord createTombstoneRecord(
       SinkRecord record, SnowflakeMetadataConfig metadataConfig, Instant connectorPushTime) {

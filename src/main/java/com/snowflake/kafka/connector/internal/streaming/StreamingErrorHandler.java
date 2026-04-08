@@ -37,7 +37,7 @@ public class StreamingErrorHandler {
     return logErrors;
   }
 
-  public void handleError(Exception error, SinkRecord kafkaSinkRecord) {
+  public void handleError(Exception error, SinkRecord originalRecordForReporting) {
     if (logErrors) {
       LOGGER.error("Insert Row Error message:{}", error.getMessage());
     }
@@ -55,7 +55,7 @@ public class StreamingErrorHandler {
         // Wrap in DataException for KCv3 compatibility while preserving original exception
         DataException wrappedException =
             new DataException("Error converting record: " + error.getMessage(), error);
-        this.kafkaRecordErrorReporter.reportError(kafkaSinkRecord, wrappedException);
+        this.kafkaRecordErrorReporter.reportError(originalRecordForReporting, wrappedException);
       }
     } else {
       // Preserve the record in DLQ before failing the task
@@ -64,7 +64,7 @@ public class StreamingErrorHandler {
             "Routing failed record to DLQ topic before aborting task (errors.tolerance=none)");
         DataException wrappedException =
             new DataException("Error converting record: " + error.getMessage(), error);
-        this.kafkaRecordErrorReporter.reportError(kafkaSinkRecord, wrappedException);
+        this.kafkaRecordErrorReporter.reportError(originalRecordForReporting, wrappedException);
       }
       final String errMsg =
           String.format(

@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from lib.fixtures.table import Table
 
 pytestmark = pytest.mark.schema_evolution
 
@@ -308,10 +309,6 @@ def test_schema_evolution_config_variants(
     v3 (KC v3):
       - V1 Ingest SDK always performs client-side validation; it cannot be
         disabled, so all validation=False combos are skipped.
-      - Schema evolution is gated behind schematization
-        (enableSchemaEvolution = enableSchematization && hasSchemaEvolution-
-        Permission), so schematization=off combos are skipped because the
-        connector never attempts to evolve RECORD_CONTENT.
 
     Behaviour matrix (for combos that run):
       schema_evo=True:  extra columns are added and records are ingested.
@@ -319,42 +316,38 @@ def test_schema_evolution_config_variants(
       schema_evo=False + validation=False (v4 only): server Error Table
         handles errors; test returns early (no client-side assertion).
     """
+
     if connector_version == "v3":
         if not validation:
             pytest.skip(
                 "KC v3 uses V1 Ingest SDK which always performs client-side "
                 "validation; validation cannot be disabled"
             )
-        if not schematization:
+
+        if schema_evo and not schematization:
             pytest.skip(
-                "KC v3 gates schema evolution behind schematization "
-                "(enableSchemaEvolution = enableSchematization && "
-                "hasSchemaEvolutionPermission), so RECORD_CONTENT is never "
-                "evolved and the V1 SDK rejects it as an extra column"
+                "KC v3 does not support schema evolution when schematization is off"
             )
-
-    if schema_evo and not schematization:
-        pytest.skip(
-            "TODO: client-side schema evolution with schematization=off infers "
-            "column type from the original SinkRecord instead of using VARIANT "
-            "for RECORD_CONTENT. Server-side schema evolution infers the "
-            "RECORD_CONTENT column type as VARCHAR instead of VARIANT."
-        )
-
-    evo_clause = "TRUE" if schema_evo else "FALSE"
-    table = create_table(
-        FILE_NAME.upper(),
-        columns=f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = {evo_clause}",
-        cleanup_topic=False,
-    )
-    topic = create_topics([FILE_NAME], with_tables=False)[0]
 
     evo_tag = "evo" if schema_evo else "noevo"
     sch_tag = "sch" if schematization else "nosch"
     val_tag = "val" if validation else "noval"
-    dlq_topic = f"DLQ_MATRIX_{FILE_NAME}_{name_salt}_{evo_tag}_{sch_tag}_{val_tag}"
+    variant_name = f"{FILE_NAME}_{evo_tag}_{sch_tag}_{val_tag}"
+    topic = create_topics([variant_name], with_tables=False)[0]
+    dlq_topic = f"DLQ_MATRIX_{variant_name}_{name_salt}"
+
+    if not schema_evo and schematization:
+        # Pre-create with schema evo disabled so extra columns are rejected.
+        table = create_table(
+            variant_name.upper(),
+            columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = FALSE",
+            cleanup_topic=False,
+        )
+    else:
+        table = Table(driver, topic.upper())
 
     overrides = {
+        "topics": topic,
         "snowflake.enable.schematization": str(schematization).lower(),
         "snowflake.validation": "client_side" if validation else "server_side",
         "errors.deadletterqueue.topic.name": dlq_topic,
@@ -363,8 +356,21 @@ def test_schema_evolution_config_variants(
     config = create_connector_from_file(CONFIG_FILE, config_overrides=overrides)
     driver.startConnectorWaitTime()
 
-    if schema_evo:
-        record_count = 100
+    record_count = 100
+
+    if not schematization:
+        # When schematization is off, data is ingested into RECORD_CONTENT as
+        # VARIANT regardless of schema_evo or validation settings.
+        values = [
+            json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
+            for i in range(record_count)
+        ]
+        driver.sendBytesData(topic, values, [], partition=0)
+
+        wait_for_rows(table.name, record_count)
+
+        _assert_success_rows(table, schematization, record_count)
+    elif schema_evo:
         values = [
             json.dumps({"city": "Hsinchu", "age": i}).encode("utf-8")
             for i in range(record_count)
