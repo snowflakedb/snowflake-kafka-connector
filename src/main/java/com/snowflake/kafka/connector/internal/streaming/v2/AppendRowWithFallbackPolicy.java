@@ -67,10 +67,17 @@ class AppendRowWithFallbackPolicy {
    *     reopening logic)
    * @param channelName the channel name for logging purposes
    */
-  static void executeWithFallback(
+  /**
+   * @return true if the append row action succeeded normally, false if the fallback was executed
+   *     (meaning the record was NOT inserted). When this returns false, callers must NOT advance
+   *     processedOffset — the fallback's recovery logic has already reset offset state.
+   */
+  static boolean executeWithFallback(
       CheckedRunnable appendRowAction,
       FallbackSupplierWithException fallbackSupplier,
       String channelName) {
+
+    boolean[] succeeded = {true};
 
     Fallback<Void> reopenChannelFallbackExecutor =
         Fallback.<Void>builder(
@@ -85,6 +92,7 @@ class AppendRowWithFallbackPolicy {
                   }
 
                   // Non-retryable error: proceed with channel reopening
+                  succeeded[0] = false;
                   withDelay(() -> fallbackSupplier.execute(lastException), channelName);
                 })
             .handle(SFException.class)
@@ -113,6 +121,7 @@ class AppendRowWithFallbackPolicy {
             .build();
 
     Failsafe.with(reopenChannelFallbackExecutor).run(appendRowAction);
+    return succeeded[0];
   }
 
   /**

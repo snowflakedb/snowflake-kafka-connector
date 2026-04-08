@@ -207,7 +207,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             }
           }
 
-          insertRowWithFallback(transformedRecord, kafkaOffset);
+          if (!insertRowWithFallback(transformedRecord, kafkaOffset)) {
+            // Fallback fired: the record was NOT inserted, and the fallback's recovery
+            // logic already reset processedOffset + rewound Kafka. Do NOT call
+            // recordProcessed() here — that would advance processedOffset past the
+            // recovery point and cause replayed offsets to be skipped. See SNOW-3344243.
+            return;
+          }
         }
       }
       // Always update processedOffset after processing, even for broken records
@@ -257,8 +263,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * <p>Note that insertRows API does perform channel validation which might throw SFException if
    * channel is invalidated.
    */
-  private void insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
-    AppendRowWithFallbackPolicy.executeWithFallback(
+  /**
+   * @return true if the record was inserted successfully, false if the fallback fired (record was
+   *     NOT inserted)
+   */
+  private boolean insertRowWithFallback(Map<String, Object> transformedRecord, long offset) {
+    return AppendRowWithFallbackPolicy.executeWithFallback(
         () -> {
           LOGGER.trace("Inserting transformed record: {}, offset: {}", transformedRecord, offset);
           getChannel().appendRow(transformedRecord, Long.toString(offset));
