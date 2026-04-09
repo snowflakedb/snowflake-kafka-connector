@@ -1,0 +1,45 @@
+# Profiling overlay for Confluent Platform.
+# Layers JFR, GC logging, JMX, and async-profiler support onto kafka-connect.
+#
+# Usage:
+#   docker compose -f docker-compose.base.yml -f docker-compose.confluent.yml \
+#                  -f docker-compose.profile-confluent.yml up
+#
+# Or via run_tests.sh:
+#   ./run_tests.sh --platform=confluent --platform-version=7.8.0 --profile [--keep] -- ...
+#
+# Collecting results:
+#   - JFR recording:  test/scripts/profile_connect.sh jfr-dump
+#   - GC logs:        test/scripts/profile_connect.sh collect ./results
+#   - Heap dumps:     test/scripts/profile_connect.sh heap-dump
+#   - Flame graphs:   test/scripts/profile_connect.sh async-cpu 60
+#
+# Analysis:
+#   - JFR:  jfr summary kc-profile.jfr  OR  open in JDK Mission Control
+#   - GC:   https://gceasy.io
+#   - Heap: Eclipse MAT
+
+services:
+  kafka-connect:
+    cap_add:
+      - SYS_PTRACE
+    ports:
+      - "9999:9999"
+    environment:
+      KAFKA_HEAP_OPTS: >-
+        -Xms512m -Xmx6g
+        -XX:StartFlightRecording=name=profile,filename=/tmp/profile/kc-profile.jfr,settings=profile,maxsize=500m,dumponexit=true
+        -XX:FlightRecorderOptions=stackdepth=256
+        -Xlog:gc*:file=/tmp/profile/gc.log:time,uptime,level,tags:filecount=5,filesize=50m
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/tmp/profile/heapdump.hprof
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.port=9999
+        -Dcom.sun.management.jmxremote.rmi.port=9999
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Djava.rmi.server.hostname=localhost
+    tmpfs:
+      - /tmp/profile:uid=1000,gid=1000
+    volumes:
+      - ${ASYNC_PROFILER_PATH:-/dev/null}:/opt/async-profiler:ro
