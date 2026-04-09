@@ -218,6 +218,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       }
       // Always update processedOffset after processing, even for broken records
       offsetTracker.recordProcessed(kafkaOffset);
+    } catch (BackpressureException ex) {
+      snowflakeTelemetryChannelStatus.incBackpressureRetryCount();
+      throw ex;
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
@@ -294,6 +297,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               consecutiveRecoveryCount,
               MAX_CONSECUTIVE_RECOVERIES);
           reopenChannel("APPEND_ROW_FALLBACK");
+          snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
         },
         this.channelName);
   }
