@@ -397,68 +397,40 @@ FR5 (Default Pipes only) + FR7 (Default Pipe Improvements). Must be tested in bo
 
 ## 4. Data Type Compatibility
 
-This section addresses the critical question: **Does v4 compatibility mode handle every Snowflake data type the same way v3 does?**
+**Does v4 compatibility mode handle every Snowflake data type the same way v3 does?**
 
-### Background: How Type Validation Works
+V4 client-side validation (`RowValidator` + `DataValidationUtil`, code copied from SSv1 SDK) runs before the SSv2 SDK. Server-side mode bypasses client validation entirely. Divergences occur when SSv2 handles a value differently than SSv1 did, and client-side normalization doesn't compensate.
 
-V4's client-side validation (`RowValidator`) uses `DataValidationUtil` -- code **copied from the SSv1 Ingest SDK** into the KC v4 codebase. This copy can drift from the actual SDK. The validation chain is:
+Tests: `test_type_compatibility.py` (JSON, dual mode). Each test covers positive (valid values land correctly) and negative (invalid values routed to DLQ).
 
-1. **Kafka Connect converter** deserializes the message (JsonConverter, AvroConverter, etc.)
-2. **KC `KafkaRecordConverter`** transforms Kafka Connect types (Struct/Map) to `Map<String, Object>`
-3. **`RowValidator.validateRow()`** (when `validation.enabled=true`) checks each value against the target column's Snowflake type using `DataValidationUtil`
-4. **SSv2 SDK `channel.appendRow()`** performs its own validation (SSv2's validation layer)
+| Target Data Type | v3 | v4 Client | v4 Server | Notes |
+|---|:---:|:---:|:---:|---|
+| NUMBER | 🟢 | 🟢 | 🟢 | |
+| FLOAT | 🟢 | 🟢 | 🟢 | |
+| VARCHAR | 🟢 | 🟢 | 🟢 | |
+| BINARY (hex String input) | 🟢 | 🟢 | 🟡 | Server-side may interpret hex as base64, producing incorrect bytes |
+| BOOLEAN | 🟢 | 🟢 | 🟢 | |
+| BOOLEAN (Integer 0/1 input) | 🟢 | 🟢 | 🟡 | Server-side rejects Integer boolean values; rows not ingested |
+| DATE | 🟢 | 🟢 | 🟢 | |
+| TIME | 🟢 | 🟢 | 🟢 | |
+| TIMESTAMP_NTZ | 🟢 | 🟢 | 🟢 | |
+| TIMESTAMP_NTZ (Integer epoch) | 🟢 | 🟢 | 🟡 | Server-side shifts stored value by default timezone offset (~8h) |
+| TIMESTAMP_LTZ | 🟢 | 🟢 | 🟢 | |
+| TIMESTAMP_TZ | 🟢 | 🟢 | 🟢 | |
+| VARIANT | 🟢 | 🟢 | 🟢 | |
+| VARIANT (JSON String input) | 🟢 | 🟢 | 🟢 | |
+| VARIANT (bare String input) | 🟢 | 🟢 | 🟡 | Server-side accepts invalid JSON scalars; client-side correctly rejects to DLQ |
+| OBJECT | 🟢 | 🟢 | 🟢 | |
+| ARRAY | 🟢 | 🟢 | 🟢 | |
+| ARRAY (JSON String input) | 🟢 | 🟢 | 🟡 | Server-side wraps string as single-element array instead of parsing |
+| NULL | 🟢 | 🟢 | 🟢 | |
+| NULL (VARIANT column) | 🟢 | 🟡 | 🟡 | Stored as text `'null'` instead of SQL NULL |
+| Cross-type mismatch | 🟢 | 🟢 | 🟢 | |
+| GEOGRAPHY, GEOMETRY | 🟢 | 🟢 | 🟢 | Unsupported in Streaming; rejected in all modes |
+| VECTOR | 🟡 | 🟢 | 🟢 | New in v4. Not supported in v3. |
+| Structured OBJECT/ARRAY | 🟡 | 🟢 | 🟢 | New in v4. Not supported in v3. |
+| Collated VARCHAR | 🔴 | 🔴 | 🔴 | Not tested. Unit-level coverage only. |
 
-Parity risk: v3 relied on step 4 only (SSv1's built-in validation). V4 adds step 3 (copied SSv1 code) plus uses SSv2 in step 4. If the copied code drifts from SSv1, or SSv2 validates differently than SSv1, behavior diverges.
+### Avro-Specific Type Mapping
 
-### Existing Unit Test Coverage (KC Java Tests)
-
-- **`DataValidationUtilTest.java`**: Copied from SSv1 SDK. Covers DATE, TIME, all TIMESTAMP variants, BIGDECIMAL/FIXED, STRING, VARIANT, ARRAY, OBJECT, BINARY, REAL, BOOLEAN. Both positive and negative cases.
-- **`RowValidatorTest.java`**: Structural validation (extra columns, missing NOT NULL, null in NOT NULL). Type rejection for structured OBJECT/ARRAY and collated columns.
-- **`SnowflakeColumnTypeMapperTest.java`**: Kafka Connect type -> Snowflake DDL mapping.
-- **`ConverterTest.java`**: Kafka Connect record -> Map conversion. Decimal precision, Time/Date/Timestamp logical types, NaN/Infinity.
-
-### Per-Type E2E Coverage
-
-All new E2E type tests go into **`test_type_compatibility.py`** (JSON format, dual mode) and **`test_type_compatibility_avro.py`** (Avro SR format, dual but v3 blocked). Each test covers both **positive** (valid values land correctly) and **negative** (invalid values routed to DLQ) cases for that type.
-| Status | Snowflake Type | Test Functions | v3 | v4-compat | v4-ht | Notes |
-|:------:|----------------|----------------|:--:|:---------:|:-----:|-------|
-| 🟢 | NUMBER | `test_number` | Pass | Pass | Pass | Integers, zero, negative, max/min INT, invalid strings/objects. All modes identical. |
-| 🟢 | NUMBER(p,s) | `test_number_with_scale` | Pass | Pass | Pass | Decimals, negative, zero, max scale. Invalid text -> DLQ. All modes identical. |
-| 🟢 | FLOAT | `test_float` | Pass | Pass | Pass | pi, negative, zero, scientific notation. Invalid text/array -> DLQ. |
-| 🟢 | FLOAT (special) | `test_float_special` | Pass | Pass | Pass | NaN, +Infinity, -Infinity as string representations. All modes identical. |
-| 🟢 | VARCHAR | `test_varchar` | Pass | Pass | Pass | Normal strings, special chars, 1000-char string. All modes identical. |
-| 🟢 | VARCHAR(10) | `test_varchar_length_limit` | Pass | Pass | Pass | At-limit and over-limit strings. Over-limit -> DLQ in all modes. |
-| 🟡 | BINARY | `test_binary` | Pass | Pass | **Diverges** | **v4-compat**: fixed by PR #1412 (SNOW-3256183). `RowValidator` now converts hex strings to `byte[]` before passing to the Ingest SDK, matching SSv1 behavior. **v4-ht**: server-side validation passes the hex string directly to the SSv2 SDK. SSv2 treats it as base64 (when `ENABLE_SSV2_DEFAULT_BINARY_FORMAT_BASE64` is set), producing garbled bytes. Test is `xfail` for v4-ht and hard-asserts pass for v3 and v4-compat. Note: test will fail (not xfail) if the connector zip predates PR #1412. |
-| 🟢 | BOOLEAN | `test_boolean` | Pass | Pass | Pass | true/false literals, invalid objects/arrays -> DLQ. All modes identical. |
-| 🟡 | BOOLEAN (coercion) | `test_boolean_coercion` | Pass | **Diverges** | **Diverges** | SSv1 coerces `0`->false, `1`->true. v4 `RowValidator` rejects numeric values for BOOLEAN — only literal `true`/`false` and string tokens accepted. Rejected values silently dropped (not DLQ'd). |
-| 🟢 | DATE | `test_date` | Pass | Pass | Pass | ISO dates, epoch, future. Invalid string -> DLQ. All modes identical. |
-| 🟢 | TIME | `test_time` | Pass | Pass | Pass | Normal, midnight, end-of-day. Invalid string -> DLQ. All modes identical. |
-| 🟢 | TIMESTAMP_NTZ | `test_timestamp_ntz` | Pass | Pass | Pass | ISO timestamps. Invalid string -> DLQ. All modes identical. |
-| 🟡 | TIMESTAMP_NTZ (epoch) | `test_timestamp_ntz_epoch` | Pass | **Diverges** | **Diverges** | **v4-compat**: PR #1393 fixed the *rejection* (integers are no longer thrown out by `RowValidator`), but the stored value is shifted. `validateAndParseTimestamp` converts the `Integer/Long` to a string, then interprets it via `defaultTimezone = America/Los_Angeles` (hardcoded in `RowValidator` to match SSv1). `withOffsetSameLocal(UTC)` then preserves the *local* time, not UTC — e.g. epoch `1705312800` (= `2024-01-15 10:00:00 UTC`) is stored as `2024-01-15 02:00:00` (-8 h shift). SSv1 handles raw `Integer/Long` epochs directly without applying the default timezone, so v3 stores the correct UTC value. **v4-ht**: server-side applies the session timezone to unqualified integer epochs (same symptom, different cause). Test is `xfail` for both v4 modes. |
-| 🟢 | TIMESTAMP_LTZ | `test_timestamp_ltz` | Pass | Pass | Pass | TZ-aware timestamps, epoch. Invalid -> DLQ. All modes identical. |
-| 🟢 | TIMESTAMP_TZ | `test_timestamp_tz` | Pass | Pass | Pass | Timestamps with offset. Invalid -> DLQ. All modes identical. |
-| 🟢 | VARIANT | `test_variant` | Pass | Pass | Pass | Objects, arrays, nested, integers, floats, booleans, JSON strings. All modes identical. |
-| 🟡 | VARIANT (bare str) | `test_variant_bare_string` | Pass | Pass | **Diverges** | `"hello"` is not valid JSON. v3/v4-compat reject -> DLQ. v4-ht server-side accepts bare scalars and wraps as JSON string. |
-| 🟢 | OBJECT | `test_object` | Pass | Pass | Pass | Simple, nested, with arrays, from JSON string. All modes identical. |
-| 🟢 | ARRAY | `test_array` | Pass | Pass | Pass | Strings, numbers, objects. All modes identical. |
-| 🟡 | ARRAY (JSON str) | `test_array_json_string` | Pass | **Diverges** | **Diverges** | SSv1 parses JSON string `"[1,2,3]"` into native array `[1,2,3]`. SSv2 stores the string literal, producing single-element array `["[1,2,3]"]`. |
-| 🟢 | NULL (11 types) | `test_null[COL_*]` | Pass | Pass | Pass | NULL in NUMBER, FLOAT, VARCHAR, BOOLEAN, DATE, TIME, TS_NTZ, TS_LTZ, TS_TZ, OBJECT, ARRAY -- SQL NULL in all modes. |
-| 🟡 | NULL (VARIANT) | `test_null[COL_VARIANT]` | Pass | **Diverges** | **Diverges** | SSv1 stores SQL NULL. SSv2 serializes JSON null as the text literal `'null'` instead of SQL NULL. |
-| 🟡 | Cross-type mismatch | `test_cross_type_mismatch` | Pass | **Diverges** | **Diverges** | Multiple divergences: v4-compat is stricter (rejects object->VARCHAR via DLQ, silently drops numeric->BOOLEAN). v3 coerces both. v4-ht drops everything without DLQ (no client validation). |
-| 🟢 | GEOGRAPHY | `test_dt_geography` | Pass | Pass | Pass | Rejected in all modes (Snowpipe Streaming limitation). Correct error message confirmed. File: `compatibility/test_unsupported_types.py` |
-| 🟢 | GEOMETRY | `test_dt_geometry` | Pass | Pass | Pass | Rejected in all modes. Correct error message confirmed. File: `compatibility/test_unsupported_types.py` |
-| 🟢 | VECTOR | `test_dt_vector` | Error asserted | Pass | Pass | v3 rejects VECTOR (channel open error, asserted). v4 ingests VECTOR(FLOAT,3) correctly. File: `compatibility/test_unsupported_types.py` |
-| 🟡 | Structured OBJECT | `test_dt_structured_object` | **Diverges** | Pass | Pass | SSv1 rejects structured types at channel open. SSv2 accepts them — SDK supports typed OBJECT/ARRAY for non-Iceberg tables. New v4 capability, not a regression. File: `compatibility/test_unsupported_types.py` |
-| 🟡 | Structured ARRAY | `test_dt_structured_array` | **Diverges** | Pass | Pass | SSv1 rejects structured types at channel open. SSv2 accepts them — SDK supports typed OBJECT/ARRAY for non-Iceberg tables. New v4 capability, not a regression. File: `compatibility/test_unsupported_types.py` |
-| 🔴 | Collated VARCHAR | -- | -- | -- | -- | **P2.** Not yet tested. `RowValidatorTest.java` covers unit level. |
-
-### Avro-Specific Type Mapping (`test_type_compatibility_avro.py`)
-
-Avro has its own type system. These tests are dual but v3 is blocked by the classloader conflict. **File does not exist yet -- must be created.**
-
-| Status | Avro Types | SF Target Types | What to Test | Notes |
-|:------:|-----------|-----------------|-------------|-------|
-| 🟡 | int, long, float, double, bytes (decimal) | NUMBER, BIGINT, FLOAT, DOUBLE | Positive: each Avro numeric -> correct SF type. Negative: decimal overflow. v3 parity blocked by SR classloader. | SDK ref: `NumericTypesIT.java` |
-| 🟡 | date, time-millis, time-micros, timestamp-millis, timestamp-micros | DATE, TIME, TIMESTAMP_NTZ/LTZ | Positive: each Avro logical type -> correct SF type. Negative: out-of-range. v3 parity blocked by SR classloader. | SDK ref: `DateTimeIT.java` |
-| 🟡 | string, bytes, boolean, enum | VARCHAR, BINARY, BOOLEAN, VARCHAR | Positive: each primitive -> correct SF type. Negative: size overflow. v3 parity blocked by SR classloader. | SDK ref: `StringsIT.java`, `BinaryIT.java` |
-| 🟡 | record, array, map, union | VARIANT, ARRAY, OBJECT | Positive: complex Avro types -> SF semi-structured. Negative: size overflow. v3 parity blocked by SR classloader. | SDK ref: `SemiStructuredIT.java` |
+Not yet implemented. Avro has its own type system (logical types for dates, decimals, etc.). V3 parity testing is blocked by the SR classloader conflict. Planned file: `test_type_compatibility_avro.py`.

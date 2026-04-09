@@ -274,6 +274,42 @@ class DataValidationUtil {
   }
 
   /**
+   * Validates and parses input for VARIANT columns, returning a native Java object (Map, List, or
+   * primitive) instead of a JSON string. For String inputs this avoids the serialize→re-parse
+   * roundtrip of {@link #validateAndParseVariant}.
+   *
+   * @param input Object to validate
+   * @param insertRowIndex
+   * @return Native Java object (Map, List, String, Number, Boolean, or null for missing nodes)
+   */
+  static Object validateAndParseVariantAsObject(
+      String columnName, Object input, long insertRowIndex) {
+    JsonNode node =
+        validateAndParseSemiStructuredAsJsonTree(columnName, input, "VARIANT", insertRowIndex);
+
+    if (node.isMissingNode()) {
+      return null;
+    }
+
+    String output = node.toString();
+    int stringLength = output.getBytes(StandardCharsets.UTF_8).length;
+    if (stringLength > MAX_SEMI_STRUCTURED_LENGTH) {
+      throw valueFormatNotAllowedException(
+          columnName,
+          "VARIANT",
+          String.format(
+              "Variant too long: length=%d maxLength=%d", stringLength, MAX_SEMI_STRUCTURED_LENGTH),
+          insertRowIndex);
+    }
+    try {
+      return objectMapper.treeToValue(node, Object.class);
+    } catch (JsonProcessingException e) {
+      // Should never happen: node was already validated by validateAndParseSemiStructuredAsJsonTree
+      throw new IllegalStateException("Failed to convert validated JsonNode to Object", e);
+    }
+  }
+
+  /**
    * Validates and parses input as JSON. All types in the object tree must be valid variant types,
    * see {@link DataValidationUtil#isAllowedSemiStructuredType}.
    *
@@ -433,6 +469,43 @@ class DataValidationUtil {
           insertRowIndex);
     }
     return output;
+  }
+
+  /**
+   * Validates and parses input for ARRAY columns, returning a native Java List instead of a JSON
+   * string. For String inputs this avoids the serialize→re-parse roundtrip of {@link
+   * #validateAndParseArray}.
+   *
+   * @param input Object to validate
+   * @param insertRowIndex
+   * @return Native Java List
+   */
+  @SuppressWarnings("unchecked")
+  static List<Object> validateAndParseArrayAsList(
+      String columnName, Object input, long insertRowIndex) {
+    JsonNode jsonNode =
+        validateAndParseSemiStructuredAsJsonTree(columnName, input, "ARRAY", insertRowIndex);
+
+    if (!jsonNode.isArray()) {
+      jsonNode = objectMapper.createArrayNode().add(jsonNode);
+    }
+
+    String output = jsonNode.toString();
+    int stringLength = output.getBytes(StandardCharsets.UTF_8).length;
+    if (stringLength > MAX_SEMI_STRUCTURED_LENGTH) {
+      throw valueFormatNotAllowedException(
+          columnName,
+          "ARRAY",
+          String.format(
+              "Array too large. length=%d maxLength=%d", stringLength, MAX_SEMI_STRUCTURED_LENGTH),
+          insertRowIndex);
+    }
+    try {
+      return objectMapper.treeToValue(jsonNode, List.class);
+    } catch (JsonProcessingException e) {
+      // Should never happen: node was already validated by validateAndParseSemiStructuredAsJsonTree
+      throw new IllegalStateException("Failed to convert validated JsonNode to List", e);
+    }
   }
 
   /**
@@ -682,6 +755,52 @@ class DataValidationUtil {
               insertRowIndex, columnName, offsetDateTime));
     }
     return new TimestampWrapper(offsetDateTime, scale);
+  }
+
+  /**
+   * Validates a timestamp value and returns an ISO-formatted string. Unlike {@link
+   * #validateAndParseTimestamp} (which returns a {@link TimestampWrapper} for Parquet
+   * serialization), this method returns a human-readable ISO string suitable for passing to the
+   * SSv2 SDK.
+   *
+   * <p>This is used by RowValidator to normalize Integer/Long epoch values into unambiguous ISO
+   * strings, so the Snowflake backend interprets them correctly regardless of channel timezone.
+   *
+   * <p>Note: Unlike {@link #validateAndParseTimestamp}, this method omits the {@code scale}
+   * parameter because it only handles Integer/Long epoch inputs which have no fractional seconds.
+   *
+   * @param columnName Column name, used in error messages
+   * @param input Timestamp value (Integer, Long, String, or java.time.* object)
+   * @param defaultTimezone Timezone for inputs without timezone info
+   * @param trimTimezone true for TIMESTAMP_NTZ (strip timezone), false for LTZ/TZ
+   * @param insertRowIndex Row index for error messages
+   * @return ISO timestamp string (e.g., "2024-01-15T10:00" for NTZ, "2024-01-15T10:00Z" for LTZ)
+   */
+  static String validateAndFormatTimestamp(
+      String columnName,
+      Object input,
+      ZoneId defaultTimezone,
+      boolean trimTimezone,
+      long insertRowIndex) {
+    if (input instanceof Integer || input instanceof Long) {
+      input = input.toString();
+    }
+
+    OffsetDateTime offsetDateTime =
+        inputToOffsetDateTime(columnName, "TIMESTAMP", input, defaultTimezone, insertRowIndex);
+
+    if (trimTimezone) {
+      offsetDateTime = offsetDateTime.withOffsetSameLocal(ZoneOffset.UTC);
+    }
+    if (offsetDateTime.getYear() < 1 || offsetDateTime.getYear() > 9999) {
+      throw new SFExceptionValidation(
+          ErrorCode.INVALID_VALUE_ROW,
+          String.format(
+              "Timestamp out of representable inclusive range of years between 1 and 9999,"
+                  + " rowIndex:%d, column:%s, value:%s",
+              insertRowIndex, columnName, offsetDateTime));
+    }
+    return trimTimezone ? offsetDateTime.toLocalDateTime().toString() : offsetDateTime.toString();
   }
 
   /**
@@ -1120,7 +1239,8 @@ class DataValidationUtil {
    * @param rowIndex Index of the Input row primarily for debugging purposes.
    * @return SFExceptionValidation is thrown
    */
-  private static SFExceptionValidation valueFormatNotAllowedException(
+  // Package-private: used by RowValidator for consistent error formatting
+  static SFExceptionValidation valueFormatNotAllowedException(
       String columnName, String snowflakeType, String reason, final long rowIndex) {
     return new SFExceptionValidation(
         ErrorCode.INVALID_VALUE_ROW,

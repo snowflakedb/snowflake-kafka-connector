@@ -151,9 +151,10 @@ CASES = [
     Case("bool_false", "COL_BOOLEAN", False, OK),
     Case("bool_bad_obj", "COL_BOOLEAN", {"key": "value"}, ERR),
     Case("bool_bad_arr", "COL_BOOLEAN", [1, 2, 3], ERR),
-    # Boolean coercion: numeric 0/1 and string tokens
-    # KNOWN DIVERGENCE: v4 rejects numeric 0/1 as boolean. String tokens
-    # ("true", "false", "yes", "no") work on all modes.
+    Case("bool_bad_str", "COL_BOOLEAN", "random_string", ERR),
+    # Boolean coercion: numeric 0/1 and string tokens.
+    # v4-compat fix: RowValidator normalizes any valid input to Boolean.
+    # v4-ht: RowValidator bypassed; Integer 0/1 reach SSv2 SDK directly and are dropped.
     Case(
         "bool_zero", "COL_BOOLEAN", 0, OK, expected_value=False, group="bool_coercion"
     ),
@@ -186,6 +187,22 @@ CASES = [
         "bool_str_no",
         "COL_BOOLEAN",
         "no",
+        OK,
+        expected_value=False,
+        group="bool_coercion",
+    ),
+    Case(
+        "bool_str_on",
+        "COL_BOOLEAN",
+        "on",
+        OK,
+        expected_value=True,
+        group="bool_coercion",
+    ),
+    Case(
+        "bool_str_off",
+        "COL_BOOLEAN",
+        "off",
         OK,
         expected_value=False,
         group="bool_coercion",
@@ -295,22 +312,71 @@ CASES = [
     # Bare string (not valid JSON) → DLQ on v3/v4-compat; v4-ht ingests it
     # as a string VARIANT value (server-side accepts non-JSON scalars).
     Case("var_str", "COL_VARIANT", "hello", ERR, group="variant_bare_str"),
-    # String containing valid JSON — probes SSv1/SSv2 parse divergence:
-    # SSv1 parses JSON-like strings into native objects, SSv2 may keep as string.
-    Case("var_json_str", "COL_VARIANT", '{"a":1}', OK),
+    # String containing valid JSON — probes SSv1/SSv2 parse divergence.
+    # v3/v4-compat: SSv1/RowValidator parses string into native object {"a":1}.
+    # v4-ht: SSv2 SDK stores the string as a JSON-quoted literal '"{\\"a\\":1}"'.
+    Case(
+        "var_json_str",
+        "COL_VARIANT",
+        '{"a":1}',
+        OK,
+        expected_value={"a": 1},
+        group="variant_json_str",
+    ),
+    # JSON scalar strings to VARIANT — exercises the String→native re-parse path
+    # for primitives (number, boolean, null).  All are valid JSON.
+    Case(
+        "var_json_num",
+        "COL_VARIANT",
+        "42",
+        OK,
+        expected_value=42,
+        group="variant_json_str",
+    ),
+    Case(
+        "var_json_bool",
+        "COL_VARIANT",
+        "true",
+        OK,
+        expected_value=True,
+        group="variant_json_str",
+    ),
+    Case(
+        "var_json_arr",
+        "COL_VARIANT",
+        "[1,2]",
+        OK,
+        expected_value=[1, 2],
+        group="variant_json_str",
+    ),
     # ---- OBJECT ----
     Case("obj_simple", "COL_OBJECT", {"key": "value"}, OK),
     Case("obj_nested", "COL_OBJECT", {"nested": {"a": 1, "b": 2}}, OK),
     Case("obj_with_arr", "COL_OBJECT", {"array_val": [1, 2, 3]}, OK),
     # JSON string that parses to an object
     Case("obj_str_json", "COL_OBJECT", '{"key":"value"}', OK),
+    # Invalid JSON string → OBJECT: rejected in all modes
+    Case("obj_bad_str", "COL_OBJECT", "not_json", ERR),
+    # Valid JSON but not an object (array) → OBJECT: rejected in all modes
+    Case("obj_str_arr", "COL_OBJECT", "[1,2,3]", ERR),
     # ---- ARRAY ----
     Case("arr_strings", "COL_ARRAY", ["a", "b", "c"], OK),
     Case("arr_numbers", "COL_ARRAY", [1, 2, 3], OK),
     Case("arr_objects", "COL_ARRAY", [{"key": "value"}, {"key": "value2"}], OK),
+    # Invalid JSON string → ARRAY: v3/v4-compat reject (DLQ); v4-ht wraps as ["not_json"].
+    Case("arr_bad_str", "COL_ARRAY", "not_json", ERR, group="array_json_str"),
     # JSON string sent to ARRAY: v3 (SSv1) parses it into [1,2,3],
     # v4 (SSv2) stores it as literal string element ["[1,2,3]"].
     Case("arr_str_json", "COL_ARRAY", "[1,2,3]", OK, group="array_json_str"),
+    # Non-array JSON string: validateAndParseArray wraps into single-element array.
+    Case(
+        "arr_str_scalar",
+        "COL_ARRAY",
+        "42",
+        OK,
+        expected_value=[42],
+        group="array_json_str",
+    ),
     # ---- NULL handling (one per supported type) ----
     # KNOWN DIVERGENCE for VARIANT: v4-compat stores JSON null as string 'null'
     # while v3 stores SQL NULL.
@@ -341,6 +407,17 @@ CASES = [
         expected_value='{"key":"value"}',
         group="xtype",
     ),
+    # List coerced to JSON string in VARCHAR — same as Map (xtype_obj_str)
+    Case(
+        "xtype_list_str",
+        "COL_VARCHAR",
+        [1, 2, 3],
+        OK,
+        expected_value="[1,2,3]",
+        group="xtype",
+    ),
+    # Map serialized to JSON exceeds VARCHAR(10) limit → rejected
+    Case("xtype_map_vc10", "COL_VARCHAR10", {"key": "value"}, ERR, group="xtype"),
     Case("xtype_arr_num", "COL_NUMBER", [1, 2, 3], ERR, group="xtype"),
 ]
 
@@ -353,6 +430,7 @@ _SPECIAL_GROUPS = {
     "xtype",
     "null",
     "variant_bare_str",
+    "variant_json_str",
     "array_json_str",
 }
 
@@ -499,8 +577,12 @@ def test_boolean(results):
 def test_boolean_coercion(results):
     """BOOLEAN coercion: numeric 0/1 and string tokens.
 
-    KNOWN DIVERGENCE: v4 RowValidator rejects numeric 0/1 as boolean.
-    v4-compat silently drops them (no DLQ). v4-ht DLQ's them.
+    v3 and v4-compat both coerce Integer 0->False, 1->True.
+    v4-compat fix: RowValidator now normalizes any valid input to Boolean before
+    passing to the SSv2 SDK (which only accepts Boolean, not Integer/String).
+
+    KNOWN DIVERGENCE for v4-ht: server-side validation bypasses RowValidator,
+    so Integer 0/1 reach the SSv2 SDK directly and are silently dropped.
     String tokens ("true"/"false"/"yes"/"no") work on all modes.
     """
     cases = cases_where(group="bool_coercion")
@@ -514,35 +596,29 @@ def test_boolean_coercion(results):
             else:
                 results.assert_error(c)
 
-    if results.mode == "v3":
-        # v3 reference: numeric 0/1 coerced to False/True
+    if results.mode in ("v3", "v4-compat"):
+        # Both v3 (SSv1 coercion) and v4-compat (RowValidator normalization) ingest 0/1 correctly.
         for c in cases:
             if c.name in numeric_cases:
                 results.assert_ingested(c)
         return
 
-    # KNOWN DIVERGENCE: v4 rejects numeric 0/1 for BOOLEAN.
+    # v4-ht: RowValidator is bypassed; SSv2 SDK silently drops Integer inputs for BOOLEAN.
     for c in cases:
         if c.name in numeric_cases:
-            if c.name in results.rows:
-                _log_divergence(
-                    results.mode, c.name, "v4 accepted numeric boolean (unexpected)"
-                )
-            else:
-                in_dlq = c.name in results.dlq_ids
-                _log_divergence(
-                    results.mode,
-                    c.name,
-                    f"v4 rejects numeric {c.value} as boolean; in_dlq={in_dlq}",
-                )
+            in_dlq = c.name in results.dlq_ids
+            _log_divergence(
+                results.mode,
+                c.name,
+                f"v4-ht drops numeric {c.value} for BOOLEAN (SSv2 SDK rejects Integer); in_dlq={in_dlq}",
+            )
 
-    # Assert v3 reference behavior — xfail if v4 diverges.
     try:
         for c in cases:
             if c.name in numeric_cases:
                 results.assert_ingested(c)
     except AssertionError as e:
-        pytest.xfail(f"v4 rejects numeric booleans (v3 coerces 0/1): {e}")
+        pytest.xfail(f"v4-ht drops numeric booleans (SSv2 SDK rejects Integer): {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -568,16 +644,18 @@ def test_timestamp_ntz(results):
 def test_timestamp_ntz_epoch(results):
     """TIMESTAMP_NTZ with integer epoch.
 
-    v4-compat: Fixed in PR #1393 — now accepts Integer/Long epochs (same as v3).
-    KNOWN DIVERGENCE: v4-ht ingests epoch but interprets in session TZ instead
-    of UTC, producing a shifted timestamp.
+    v3: SSv1 SDK converts epoch to UTC client-side via parseInstantGuessScale.
+    v4-compat: RowValidator normalizes Integer epoch to ISO string (same as v3).
+    KNOWN DIVERGENCE: v4-ht bypasses RowValidator; SSv2 SDK passes raw Integer to
+    the Snowflake backend which interprets it using the channel's default timezone
+    (America/Los_Angeles) instead of UTC, producing a -8h shifted timestamp.
     """
     [case] = cases_where(group="ts_epoch")
-    if results.mode == "v3":
+    if results.mode in ("v3", "v4-compat"):
         results.assert_ingested(case)
         return
 
-    # Log detailed v4 divergence status.
+    # v4-ht: log and xfail on expected timezone shift.
     if case.name in results.rows:
         actual = results.rows[case.name].get(case.col)
         expected = (
@@ -591,23 +669,18 @@ def test_timestamp_ntz_epoch(results):
                 case.name,
                 f"epoch timestamp shifted: got {actual!r}, v3 expects {expected!r}",
             )
-        else:
-            _log_divergence(
-                results.mode, case.name, "ingested with correct value (same as v3)"
-            )
     else:
         in_dlq = case.name in results.dlq_ids
         _log_divergence(
             results.mode,
             case.name,
-            f"v4 rejects Long for TIMESTAMP_NTZ; in_dlq={in_dlq}",
+            f"v4-ht rejects Long for TIMESTAMP_NTZ; in_dlq={in_dlq}",
         )
 
-    # Assert v3 reference behavior — xfail if v4 diverges.
     try:
         results.assert_ingested(case)
     except AssertionError as e:
-        pytest.xfail(f"v4 diverges on integer epoch for TIMESTAMP_NTZ: {e}")
+        pytest.xfail(f"v4-ht: SSv2 backend uses channel TZ for integer epoch: {e}")
 
 
 def test_timestamp_ltz(results):
@@ -671,31 +744,106 @@ def test_variant_bare_string(results):
         results.assert_error(case)
 
 
-def test_array_json_string(results):
-    """JSON string sent to ARRAY: SSv1 parses, SSv2 stores as literal.
+def test_variant_json_string(results):
+    """JSON string sent to VARIANT: v3/v4-compat parse to native object, v4-ht stores as string.
 
-    KNOWN DIVERGENCE: v3 (SSv1) parses the JSON string '[1,2,3]' into a
-    proper array [1,2,3]. v4 (SSv2) stores it as a single-element array
-    containing the literal string: ["[1,2,3]"].
+    Covers JSON object strings ('{"a":1}'), scalar strings ('42', 'true'),
+    and JSON array strings ('[1,2]') sent as String values to a VARIANT column.
+
+    v3 and v4-compat: RowValidator normalizes the String to a native Java object
+    (Map, List, Integer, Boolean) so the SSv2 SDK stores it correctly.
+
+    KNOWN DIVERGENCE for v4-ht: server-side validation bypasses RowValidator; the SSv2 SDK
+    receives the raw String and stores it as a JSON-quoted string literal.
     """
-    [case] = cases_where(group="array_json_str")
-    if results.mode == "v3":
-        results.assert_ingested(case)
-    else:
-        # v4-compat/v4-ht: string stored as literal element
-        assert case.name in results.rows, (
-            f"[{case.name}] expected row in table on {results.mode}"
+    cases = cases_where(group="variant_json_str")
+    if results.mode in ("v3", "v4-compat"):
+        for c in cases:
+            results.assert_ingested(c)
+        return
+
+    # v4-ht: row is ingested but stored as a JSON-quoted string, not as a native object.
+    divergences = []
+    for c in cases:
+        assert c.name in results.rows, (
+            f"[{c.name}] expected row in table on {results.mode}"
         )
-        actual = results.rows[case.name].get(case.col)
-        parsed = json.loads(actual) if isinstance(actual, str) else actual
-        assert parsed == ["[1,2,3]"], (
-            f"[{case.name}] expected ['[1,2,3]'] on {results.mode}, got {parsed!r}"
+        try:
+            results.assert_ingested(c)
+        except AssertionError:
+            actual = results.rows[c.name].get(c.col)
+            _log_divergence(
+                results.mode,
+                c.name,
+                f"JSON string stored as quoted literal {actual!r} (v3 stores as {c.expected_value!r})",
+            )
+            divergences.append(c.name)
+
+    if divergences:
+        pytest.xfail(
+            f"v4-ht stores JSON strings as quoted literals in VARIANT: {divergences}"
         )
-        _log_divergence(
-            results.mode,
-            case.name,
-            "JSON string stored as literal array element (v3 parses into [1,2,3])",
-        )
+
+
+def test_array_json_string(results):
+    """String values sent to ARRAY: v3/v4-compat parse or reject, v4-ht wraps as literal element.
+
+    Covers:
+      - JSON array strings ('[1,2,3]') — v3/v4-compat parse to proper array
+      - Non-array JSON scalars ('42') — v3/v4-compat wrap as single-element array
+      - Invalid JSON strings ('not_json') — v3/v4-compat reject (DLQ)
+
+    v3 and v4-compat: RowValidator normalizes String to a List so the SSv2 SDK
+    stores it as a proper array.  Non-array scalars are wrapped into a
+    single-element array (e.g. '42' → [42]).  Invalid JSON is rejected.
+
+    KNOWN DIVERGENCE for v4-ht: server-side validation bypasses RowValidator; the SSv2 SDK
+    wraps ANY String as a single-element array, including invalid JSON and valid JSON alike.
+    """
+    cases = cases_where(group="array_json_str")
+    if results.mode in ("v3", "v4-compat"):
+        for c in cases:
+            if c.expect == "ingested":
+                results.assert_ingested(c)
+            else:
+                results.assert_error(c)
+        return
+
+    # v4-ht: SSv2 wraps all strings as single-element arrays (no rejection)
+    divergences = []
+    for c in cases:
+        if c.expect == "error":
+            # v3/v4-compat reject this, but v4-ht ingests it as ["<value>"]
+            if c.name in results.rows:
+                actual = results.rows[c.name].get(c.col)
+                parsed = json.loads(actual) if isinstance(actual, str) else actual
+                _log_divergence(
+                    results.mode,
+                    c.name,
+                    f"v4-ht ingested (v3 rejects): stored as {parsed!r}",
+                )
+                divergences.append(c.name)
+            else:
+                # Also rejected on v4-ht — no divergence
+                pass
+        else:
+            assert c.name in results.rows, (
+                f"[{c.name}] expected row in table on {results.mode}"
+            )
+            try:
+                results.assert_ingested(c)
+            except AssertionError:
+                actual = results.rows[c.name].get(c.col)
+                parsed = json.loads(actual) if isinstance(actual, str) else actual
+                _log_divergence(
+                    results.mode,
+                    c.name,
+                    f"JSON string stored as literal array element {parsed!r} (v3 stores {c.expected_value or c.value!r})",
+                )
+                divergences.append(c.name)
+
+    if divergences:
+        pytest.xfail(f"v4-ht array string handling diverges from v3: {divergences}")
 
 
 # ---------------------------------------------------------------------------
@@ -748,12 +896,7 @@ def test_null(results, col):
 
 
 def test_cross_type_mismatch(results):
-    """Values sent to incompatible column types — expected DLQ/drop.
-
-    KNOWN DIVERGENCES:
-    - v4-compat silently drops numeric→BOOLEAN (no DLQ, no table row)
-    - v4-compat DLQ's object→VARCHAR (v3/v4-ht coerce to JSON string)
-    """
+    """Values sent to incompatible column types — expected DLQ/drop."""
     if results.mode == "v3":
         _assert_all(results, cases_where(group="xtype"))
         return
