@@ -1,0 +1,40 @@
+# Profiling overlay for Apache Kafka (single-container mode).
+# Layers JFR, GC logging, JMX, and async-profiler support onto the kafka service.
+#
+# Usage:
+#   docker compose -f docker-compose.base.yml -f docker-compose.apache.yml \
+#                  -f docker-compose.profile-apache.yml up
+#
+# Or via run_tests.sh:
+#   ./run_tests.sh --platform=apache --platform-version=3.7.0 --profile [--keep] -- ...
+#
+# Note: KAFKA_HEAP_OPTS applies to all JVMs in the container (ZK, broker, Connect).
+# The 2g heap is shared across ZK + broker + Connect, which may be tight for
+# large-scale profiling workloads. Use the Confluent platform for heavy tests.
+# JFR and GC logs capture the Connect worker process specifically because
+# connect-distributed.sh is the last process started and inherits these flags.
+
+services:
+  kafka:
+    cap_add:
+      - SYS_PTRACE
+    ports:
+      - "127.0.0.1:9999:9999"
+    environment:
+      KAFKA_HEAP_OPTS: >-
+        -Xms512m -Xmx2g
+        -XX:StartFlightRecording=name=profile,filename=/tmp/profile/kc-profile.jfr,settings=profile,maxsize=500m,dumponexit=true
+        -XX:FlightRecorderOptions=stackdepth=256
+        -Xlog:gc*:file=/tmp/profile/gc.log:time,uptime,level,tags:filecount=5,filesize=50m
+        -XX:+HeapDumpOnOutOfMemoryError
+        -XX:HeapDumpPath=/tmp/profile/heapdump.hprof
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.port=9999
+        -Dcom.sun.management.jmxremote.rmi.port=9999
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Djava.rmi.server.hostname=localhost
+    tmpfs:
+      - /tmp/profile:uid=1000,gid=1000
+    volumes:
+      - ${ASYNC_PROFILER_PATH:-/dev/null}:/opt/async-profiler:ro

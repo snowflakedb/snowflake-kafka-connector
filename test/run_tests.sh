@@ -63,6 +63,7 @@ usage() {
     echo "  --cloud=CLOUD        Snowflake cloud platform: AWS, GCP, or AZURE"
     echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
     echo "  --jmx                Enable JMX metrics scraping via Jolokia"
+    echo "  --profile            Enable JVM profiling (JFR, GC logs, JMX, async-profiler)"
     echo "  --keep               Keep containers running after tests"
     echo "  -i, --interactive    Start infra, then drop into a bash shell in the test-runner"
     echo "  --rebuild            Force rebuild of images"
@@ -83,6 +84,7 @@ usage() {
     echo "  $0 --platform=confluent --platform-version=7.8.0 -- -k test_string_json"
     echo "  $0 --platform=apache --platform-version=3.7.0 --keep -- -m pressure"
     echo "  $0 --platform=confluent --platform-version=7.8.0 -i   # interactive shell"
+    echo "  $0 --platform=confluent --platform-version=7.8.0 --profile --keep -- -m pressure"
     echo "  $0 --platform=confluent --platform-version=7.8.0 --logs-dir=/tmp/test-logs"
     exit 1
 }
@@ -92,6 +94,7 @@ PLATFORM="confluent"
 PLATFORM_VERSION="7.8.0"
 JAVA_VERSION="11"
 JMX_ENABLED="false"
+PROFILE_ENABLED="false"
 KEEP_RUNNING="false"
 INTERACTIVE="false"
 FORCE_REBUILD="false"
@@ -118,6 +121,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --jmx)
             JMX_ENABLED="true"
+            shift
+            ;;
+        --profile)
+            PROFILE_ENABLED="true"
             shift
             ;;
         --keep)
@@ -218,6 +225,13 @@ case $PLATFORM in
         error_exit "Unknown platform: $PLATFORM (supported: confluent, apache)"
         ;;
 esac
+
+# Layer profiling overlay (platform-specific to avoid undefined service errors)
+if [ "$PROFILE_ENABLED" = "true" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.profile-${PLATFORM}.yml"
+    info "Profiling enabled: JFR, GC logs, JMX (port 9999), heap dump on OOM"
+    info "Use test/scripts/profile_connect.sh to interact with the profiler"
+fi
 
 # Check prerequisites
 command -v docker >/dev/null 2>&1 || error_exit "Docker is not installed"
@@ -369,6 +383,14 @@ if [ "$PLATFORM" = "apache" ]; then
     fi
 fi
 
+# When profiling, force-remove stale containers from prior --keep runs.
+# Bind mounts (plugin JARs) become stale if the host directory was recreated
+# while a kept container still held the old mount inode.
+if [ "$PROFILE_ENABLED" = "true" ]; then
+    info "Cleaning stale containers for fresh profiling..."
+    docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
+fi
+
 # Start services
 info "Starting services: $START_SERVICES"
 docker compose $COMPOSE_FILES up -d $START_SERVICES
@@ -391,6 +413,24 @@ echo ""
 
 if [ $ELAPSED -ge $TIMEOUT ]; then
     error_exit "Services failed to become healthy within ${TIMEOUT}s"
+fi
+
+# Reset profiling to a clean slate (discard startup/warmup data from prior runs)
+if [ "$PROFILE_ENABLED" = "true" ]; then
+    PROFILE_CONTAINER=$(docker compose $COMPOSE_FILES ps -q $HEALTH_CHECK_SERVICE)
+    if [ -n "$PROFILE_CONTAINER" ]; then
+        info "Resetting JFR recording to clean slate..."
+        docker exec "$PROFILE_CONTAINER" sh -c '
+            rm -f /tmp/profile/kc-profile-*.jfr /tmp/profile/flamegraph-*.html 2>/dev/null
+            PID=$(jcmd 2>/dev/null | grep -v jcmd | head -1 | awk "{print \$1}")
+            if [ -n "$PID" ]; then
+                jcmd "$PID" JFR.stop name=profile 2>/dev/null || true
+                jcmd "$PID" JFR.start name=profile filename=/tmp/profile/kc-profile.jfr \
+                    settings=profile maxsize=500m dumponexit=true 2>/dev/null || true
+            fi
+        ' 2>/dev/null || warn "JFR reset failed — profiling data may include startup noise"
+        info "JFR recording restarted — clean slate for this test run"
+    fi
 fi
 
 # Start JMX metrics scraper in the background
@@ -498,6 +538,15 @@ if [ "$JMX_ENABLED" = "true" ]; then
     if [ "$METRICS_LINES" -gt 0 ] 2>/dev/null; then
         echo -e "${GREEN}  Analyze: ${PROJECT_ROOT}/test/scripts/analyze_metrics.sh ${METRICS_FILE}${NC}"
     fi
+    echo -e "${GREEN}========================================${NC}"
+fi
+
+if [ "$PROFILE_ENABLED" = "true" ]; then
+    echo ""
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  Profiling artifacts in container${NC}"
+    echo -e "${GREEN}  Collect: $PROJECT_ROOT/test/scripts/profile_connect.sh collect [DIR]${NC}"
+    echo -e "${GREEN}  Status:  $PROJECT_ROOT/test/scripts/profile_connect.sh status${NC}"
     echo -e "${GREEN}========================================${NC}"
 fi
 
