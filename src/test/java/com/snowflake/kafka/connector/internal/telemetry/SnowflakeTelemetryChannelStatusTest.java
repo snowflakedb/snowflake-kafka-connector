@@ -27,7 +27,7 @@ public class SnowflakeTelemetryChannelStatusTest {
     MetricsJmxReporter metricsJmxReporter =
         Mockito.spy(new MetricsJmxReporter(metricRegistry, TEST_CONNECTOR_NAME));
 
-    SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus =
+    SnowflakeTelemetryChannelStatus status =
         new SnowflakeTelemetryChannelStatus(
             tableName,
             connectorName,
@@ -37,15 +37,19 @@ public class SnowflakeTelemetryChannelStatusTest {
             new AtomicLong(-1),
             new AtomicLong(-1),
             new AtomicLong(-1));
-    verify(metricsJmxReporter, times(1)).start();
+
+    // Registration: 4 metrics registered, start() NOT called (handled at task level)
+    verify(metricsJmxReporter, times(0)).start();
     verify(metricRegistry, times((int) SnowflakeTelemetryChannelStatus.NUM_METRICS))
         .register(Mockito.anyString(), Mockito.any());
-    verify(metricsJmxReporter, times(1))
-        .removeMetricsFromRegistry(channelMetricPrefix(channelName));
 
-    snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
-    verify(metricsJmxReporter, times(2))
-        .removeMetricsFromRegistry(channelMetricPrefix(channelName));
+    // No removeMatching scan should have been called during registration
+    verify(metricsJmxReporter, times(0)).removeMetricsFromRegistry(Mockito.anyString());
+
+    // Unregister: uses targeted removal (4 individual remove calls)
+    status.tryUnregisterChannelJMXMetrics();
+    verify(metricRegistry, times((int) SnowflakeTelemetryChannelStatus.NUM_METRICS))
+        .remove(Mockito.anyString());
   }
 
   @Test
