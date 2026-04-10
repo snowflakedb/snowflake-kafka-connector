@@ -59,24 +59,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   private final SnowflakeConnectionService conn;
 
-  private final Map<String, String> topicToTableMap;
-
-  // Behavior to be set at the start of connector start. (For tombstone records)
-  private final ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues;
   private final Optional<MetricsJmxReporter> metricsJmxReporter;
   private final String connectorName;
-  private final String taskId;
 
   private final SinkTaskConfig taskConfig;
   private final SinkTaskContext sinkTaskContext;
 
   // Set that keeps track of the channels that have been seen per input batch
   private final Set<String> channelsVisitedPerBatch = new HashSet<>();
-  // Whether to tolerate errors during ingestion (based on errors.tolerance config)
-  private final boolean tolerateErrors;
   private final BatchOffsetFetcher batchOffsetFetcher;
-  // Whether to enable table name sanitization
-  private final boolean enableSanitization;
 
   private final PartitionChannelManager channelManager;
   private final TaskMetrics taskMetrics;
@@ -134,13 +125,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.sinkTaskContext = sinkTaskContext;
     this.metricsJmxReporter = metricsJmxReporter;
 
-    // Connector name and task ID already validated by SinkTaskConfig.from()
     this.connectorName = taskConfig.getConnectorName();
-    this.taskId = taskConfig.getTaskId();
-    this.topicToTableMap = taskConfig.getTopicToTableMap();
-    this.behaviorOnNullValues = taskConfig.getBehaviorOnNullValues();
-    this.tolerateErrors = taskConfig.isTolerateErrors();
-    this.enableSanitization = taskConfig.isEnableSanitization();
 
     ThreadPools.registerTask(this.connectorName, taskConfig);
 
@@ -155,9 +140,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         "SnowflakeSinkServiceV2 initialized for connector: {}, task: {}, tolerateErrors: {},"
             + " enableSanitization: {}",
         this.connectorName,
-        this.taskId,
-        this.tolerateErrors,
-        this.enableSanitization);
+        taskConfig.getTaskId(),
+        taskConfig.isTolerateErrors(),
+        taskConfig.isEnableSanitization());
   }
 
   /**
@@ -196,7 +181,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // Check each target table for ERROR_LOGGING.
       // Note: makes up to 3 network calls per table (tableExist + isIcebergTable +
       // hasErrorLoggingEnabled). Acceptable at startup; only runs once per task constructor.
-      Set<String> uniqueTables = new HashSet<>(topicToTableMap.values());
+      Set<String> uniqueTables = new HashSet<>(taskConfig.getTopicToTableMap().values());
       for (String tableName : uniqueTables) {
         if (!conn.tableExist(tableName)) {
           // Table doesn't exist yet — will be auto-created with ERROR_LOGGING = TRUE
@@ -282,7 +267,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
 
     for (String topic : uniqueTopics) {
-      final String tableName = getTableName(topic, this.topicToTableMap, this.enableSanitization);
+      final String tableName =
+          getTableName(topic, taskConfig.getTopicToTableMap(), taskConfig.isEnableSanitization());
       createTableIfNotExists(tableName);
 
       // Client-side validation only supports default pipes.
@@ -433,7 +419,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   private boolean shouldSkipNullValue(SinkRecord record) {
-    if (behaviorOnNullValues == ConnectorConfigTools.BehaviorOnNullValues.DEFAULT) {
+    if (taskConfig.getBehaviorOnNullValues() == ConnectorConfigTools.BehaviorOnNullValues.DEFAULT) {
       return false;
     }
     if (record.value() == null) {
@@ -508,13 +494,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     LOGGER.info(
         "Stopping SnowflakeSinkServiceV2 for connector: {}, task: {}",
         this.connectorName,
-        this.taskId);
+        taskConfig.getTaskId());
 
     channelManager.waitForAllChannelsToCommitData();
 
     // Release all streaming clients used by this service.
     // Clients will only be closed if no other tasks are using them.
-    StreamingClientPools.closeTaskClients(connectorName, taskId);
+    StreamingClientPools.closeTaskClients(connectorName, taskConfig.getTaskId());
 
     // Release this task's claim on the shared thread pool.
     // The pool is shut down when the last task for this connector unregisters.
