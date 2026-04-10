@@ -21,6 +21,7 @@ services:
     environment:
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx2g"
       KRAFT_MODE: ${KRAFT_MODE:-false}
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: ${CONNECT_OFFSET_FLUSH_INTERVAL_MS:-1000}
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/usr/local/share/kafka/plugins/snowflake-connector
       - ${V3_PLUGIN_PATH:-/tmp/sf-kafka-connect-v3}:/usr/local/share/kafka/plugins/snowflake-connector-v3

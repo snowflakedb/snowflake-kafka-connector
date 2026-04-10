@@ -14,6 +14,14 @@ mkdir -p $LOG_DIR
 echo "Java version:"
 java -version
 
+# CONNECT_OFFSET_FLUSH_INTERVAL_MS, when set, overrides offset.flush.interval.ms in connect-distributed.properties.
+CONNECT_DISTRIBUTED_CONFIG="$KAFKA_HOME/config/connect-distributed.properties"
+if [ -n "${CONNECT_OFFSET_FLUSH_INTERVAL_MS:-}" ]; then
+  echo "Setting offset.flush.interval.ms=${CONNECT_OFFSET_FLUSH_INTERVAL_MS} in connect-distributed.properties"
+  sed -i "s/^offset\\.flush\\.interval\\.ms=.*/offset.flush.interval.ms=${CONNECT_OFFSET_FLUSH_INTERVAL_MS}/" \
+    "$CONNECT_DISTRIBUTED_CONFIG"
+fi
+
 if [ "${KRAFT_MODE:-false}" = "true" ]; then
     #######################################################################
     # KRaft mode (Kafka 4.x+)

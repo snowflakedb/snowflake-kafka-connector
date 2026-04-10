@@ -73,6 +73,7 @@ usage() {
     echo "Environment:"
     echo "  SNOWFLAKE_CREDENTIAL_FILE  Path to Snowflake credentials JSON (required unless LOCAL_PROXY_PORT is set)"
     echo "  LOCAL_PROXY_PORT           Port of the proxy for the local Snowflake deployment"
+    echo "  CONNECT_OFFSET_FLUSH_INTERVAL_MS  Passed through to the Connect worker (see docker-compose; optional)"
     echo ""
     echo "Examples:"
     echo "  $0 --platform=confluent --platform-version=7.8.0"
