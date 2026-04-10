@@ -29,6 +29,9 @@ jobs:
         platform: ${{ matrix.platform }}
 
     - uses: ./.github/actions/run-e2e-tests
+      env:
+        # Less frequent preCommit than default E2E
+        CONNECT_OFFSET_FLUSH_INTERVAL_MS: '10000'
       with:
         platform: ${{ matrix.platform }}
         platform-version: ${{ matrix.platform_version }}

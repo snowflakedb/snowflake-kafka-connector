@@ -114,6 +114,8 @@ Stress tests use the same Docker infrastructure but with `-m pressure` passed to
 ./run_tests.sh --platform=confluent --platform-version=7.6.0 -- -m pressure
 ```
 
+CI stress (`.github/workflows/end-to-end-stress.yml`) sets `CONNECT_OFFSET_FLUSH_INTERVAL_MS=10000` on the `run-e2e-tests` step so Kafka Connect uses a **10 second** `offset.flush.interval.ms` (less frequent `preCommit` than the default 1 s E2E setting). For local pressure runs, export the same variable before `./run_tests.sh` if you want that behavior.
+
 When `-m pressure` is set, pytest selects only the pressure-marked tests:
 
 1. **test_pressure_restart** (`tests/pressure/test_pressure_restart.py`) -- Creates 10 topics with 3 partitions each and sends 200,000 records per partition. During verification, the connector is periodically restarted, paused, resumed, and deleted/recreated to test resilience under load.
