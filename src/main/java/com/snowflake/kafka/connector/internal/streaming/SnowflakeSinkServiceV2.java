@@ -113,8 +113,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                 recordErrorReporter,
                 sinkTaskContext,
                 metricsJmxReporter,
-                taskConfig.getConnectorName(),
-                taskConfig.getTaskId(),
                 taskMetrics,
                 conn),
         taskMetrics);
