@@ -49,6 +49,9 @@ public final class SinkTaskConfigTestBuilder {
         .snowflakePrivateKey("")
         .snowflakePrivateKeyPassphrase("")
         .snowflakeDatabase("")
-        .snowflakeSchema("");
+        .snowflakeSchema("")
+        .authorizationTaskFailureEnabled(
+            KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT)
+        .jvmProxyConfig(JvmProxyConfig.builder().build());
   }
 }

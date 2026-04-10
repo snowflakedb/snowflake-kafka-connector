@@ -142,7 +142,7 @@ public class ConnectorConfigValidatorTest {
     config.put(JVM_PROXY_PORT, "3128");
     config.put(
         KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS, "*.snowflakecomputing.com|*.amazonaws.com");
-    Utils.enableJVMProxy(config);
+    Utils.enableJVMProxy(com.snowflake.kafka.connector.config.JvmProxyConfig.from(config));
     String mergedNonProxyHosts = System.getProperty(HTTP_NON_PROXY_HOSTS);
     Assert.assertTrue(
         mergedNonProxyHosts.equals(

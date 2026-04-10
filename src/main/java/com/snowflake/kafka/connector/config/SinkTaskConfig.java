@@ -79,6 +79,10 @@ public abstract class SinkTaskConfig {
   @Nullable
   public abstract String getSnowflakeSchema();
 
+  public abstract boolean isAuthorizationTaskFailureEnabled();
+
+  public abstract JvmProxyConfig getJvmProxyConfig();
+
   /**
    * Parses the raw connector config map into an immutable SinkTaskConfig. Applies defaults for
    * missing optional keys. Caller must ensure required fields (connector name, task id) are present
@@ -212,6 +216,15 @@ public abstract class SinkTaskConfig {
     String snowflakeDatabase = config.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
     String snowflakeSchema = config.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
 
+    boolean authorizationTaskFailureEnabled =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
+                Boolean.toString(
+                    KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT)));
+
+    JvmProxyConfig jvmProxyConfig = JvmProxyConfig.from(config);
+
     return builder()
         .connectorName(connectorName)
         .taskId(taskId)
@@ -235,7 +248,9 @@ public abstract class SinkTaskConfig {
         .snowflakePrivateKey(snowflakePrivateKey)
         .snowflakePrivateKeyPassphrase(snowflakePrivateKeyPassphrase)
         .snowflakeDatabase(snowflakeDatabase)
-        .snowflakeSchema(snowflakeSchema);
+        .snowflakeSchema(snowflakeSchema)
+        .authorizationTaskFailureEnabled(authorizationTaskFailureEnabled)
+        .jvmProxyConfig(jvmProxyConfig);
   }
 
   /** Creates a new builder. Used by {@link #from(Map)} and by tests. */
@@ -296,6 +311,11 @@ public abstract class SinkTaskConfig {
     public abstract Builder snowflakeDatabase(String snowflakeDatabase);
 
     public abstract Builder snowflakeSchema(String snowflakeSchema);
+
+    public abstract Builder authorizationTaskFailureEnabled(
+        boolean authorizationTaskFailureEnabled);
+
+    public abstract Builder jvmProxyConfig(JvmProxyConfig jvmProxyConfig);
 
     public abstract SinkTaskConfig build();
   }

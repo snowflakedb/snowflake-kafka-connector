@@ -108,7 +108,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
                 KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_DEFAULT)));
 
     // enable proxy
-    Utils.enableJVMProxy(config);
+    Utils.enableJVMProxy(com.snowflake.kafka.connector.config.JvmProxyConfig.from(config));
 
     // create a persisted connection, and validate snowflake connection
     // config as a side effect

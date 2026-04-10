@@ -1,10 +1,8 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_1005;
 
-import java.util.Map;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 
 /**
  * When the user rotates Snowflake key that is stored in an external file the Connector hangs and
@@ -26,12 +24,8 @@ public class SnowflakeSinkTaskAuthorizationExceptionTracker {
     this.authorizationErrorReported = false;
   }
 
-  public void updateStateOnTaskStart(Map<String, String> taskConfig) {
-    authorizationTaskFailureEnabled =
-        Boolean.parseBoolean(
-            taskConfig.getOrDefault(
-                ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
-                Boolean.toString(ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT)));
+  public void updateStateOnTaskStart(SinkTaskConfig taskConfig) {
+    authorizationTaskFailureEnabled = taskConfig.isAuthorizationTaskFailureEnabled();
   }
 
   /**

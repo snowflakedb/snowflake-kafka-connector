@@ -147,10 +147,10 @@ public class SnowflakeSinkTask extends SinkTask {
     this.taskStartTime = System.currentTimeMillis();
     this.taskConfigId = config.getTaskId();
 
-    this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
+    this.authorizationExceptionTracker.updateStateOnTaskStart(config);
 
     // enable jvm proxy
-    Utils.enableJVMProxy(parsedConfig);
+    Utils.enableJVMProxy(config.getJvmProxyConfig());
 
     KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 

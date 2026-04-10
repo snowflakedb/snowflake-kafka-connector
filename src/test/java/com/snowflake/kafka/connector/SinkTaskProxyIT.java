@@ -88,7 +88,7 @@ public class SinkTaskProxyIT {
     config.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, proxyServer.getPassword());
 
     // Set proxy properties (this is what the connector does internally)
-    Utils.enableJVMProxy(config);
+    Utils.enableJVMProxy(com.snowflake.kafka.connector.config.JvmProxyConfig.from(config));
 
     // Verify all JVM proxy properties are set correctly
     Assert.assertEquals("true", System.getProperty(KafkaConnectorConfigParams.HTTP_USE_PROXY));

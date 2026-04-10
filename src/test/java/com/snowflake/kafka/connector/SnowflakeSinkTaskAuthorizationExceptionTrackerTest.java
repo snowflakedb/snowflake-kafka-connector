@@ -1,10 +1,8 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS;
-
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.TestUtils;
-import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -19,8 +17,12 @@ class SnowflakeSinkTaskAuthorizationExceptionTrackerTest {
     // given
     SnowflakeSinkTaskAuthorizationExceptionTracker tracker =
         new SnowflakeSinkTaskAuthorizationExceptionTracker();
-    Map<String, String> config = TestUtils.getConfig();
-    config.put(ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS, "true");
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authorizationTaskFailureEnabled(true)
+            .build();
     tracker.updateStateOnTaskStart(config);
 
     // when
@@ -36,8 +38,12 @@ class SnowflakeSinkTaskAuthorizationExceptionTrackerTest {
     // given
     SnowflakeSinkTaskAuthorizationExceptionTracker tracker =
         new SnowflakeSinkTaskAuthorizationExceptionTracker();
-    Map<String, String> config = TestUtils.getConfig();
-    config.put(ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS, "true");
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authorizationTaskFailureEnabled(true)
+            .build();
     tracker.updateStateOnTaskStart(config);
 
     // expect
@@ -50,8 +56,12 @@ class SnowflakeSinkTaskAuthorizationExceptionTrackerTest {
     // given
     SnowflakeSinkTaskAuthorizationExceptionTracker tracker =
         new SnowflakeSinkTaskAuthorizationExceptionTracker();
-    Map<String, String> config = TestUtils.getConfig();
-    config.put(ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS, Boolean.toString(enabled));
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authorizationTaskFailureEnabled(enabled)
+            .build();
     tracker.updateStateOnTaskStart(config);
 
     // when
