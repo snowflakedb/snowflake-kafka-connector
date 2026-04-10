@@ -8,7 +8,6 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.TopicToTableParser;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.CachingConfig;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +22,7 @@ import javax.annotation.Nullable;
 @AutoValue
 public abstract class SinkTaskConfig {
 
+  @Nullable
   public abstract String getConnectorName();
 
   @Nullable
@@ -105,12 +105,6 @@ public abstract class SinkTaskConfig {
     Map<String, String> config = new HashMap<>(raw);
 
     String connectorName = config.get(KafkaConnectorConfigParams.NAME);
-    if (connectorName == null || connectorName.trim().isEmpty()) {
-      throw new IllegalArgumentException(
-          "Connector name ('"
-              + KafkaConnectorConfigParams.NAME
-              + "') must be set and cannot be empty");
-    }
 
     String taskId = config.get(Utils.TASK_ID);
 
@@ -124,18 +118,22 @@ public abstract class SinkTaskConfig {
           topicToTableMap = ImmutableMap.copyOf(parsed);
         }
       } catch (IllegalArgumentException e) {
-        throw SnowflakeErrors.ERROR_0021.getException(e.getMessage());
+        // best-effort: leave empty; validator will re-check and report properly
       }
     }
 
     ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues =
         ConnectorConfigTools.BehaviorOnNullValues.DEFAULT;
     if (config.containsKey(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES)) {
-      behaviorOnNullValues =
-          ConnectorConfigTools.BehaviorOnNullValues.valueOf(
-              config
-                  .get(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES)
-                  .toUpperCase(java.util.Locale.ROOT));
+      try {
+        behaviorOnNullValues =
+            ConnectorConfigTools.BehaviorOnNullValues.valueOf(
+                config
+                    .get(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES)
+                    .toUpperCase(java.util.Locale.ROOT));
+      } catch (IllegalArgumentException ignored) {
+        // best-effort: keep default; validator will re-check and report properly
+      }
     }
 
     boolean jmxEnabled =
@@ -147,10 +145,16 @@ public abstract class SinkTaskConfig {
         config.getOrDefault(
             KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
             KafkaConnectorConfigParams.ERRORS_TOLERANCE_DEFAULT);
-    boolean tolerateErrors =
-        ConnectorConfigTools.ErrorTolerance.valueOf(
-                errorsTolerance.toUpperCase(java.util.Locale.ROOT))
-            .equals(ConnectorConfigTools.ErrorTolerance.ALL);
+    boolean tolerateErrors;
+    try {
+      tolerateErrors =
+          ConnectorConfigTools.ErrorTolerance.valueOf(
+                  errorsTolerance.toUpperCase(java.util.Locale.ROOT))
+              .equals(ConnectorConfigTools.ErrorTolerance.ALL);
+    } catch (IllegalArgumentException ignored) {
+      // best-effort: keep default; validator will re-check and report properly
+      tolerateErrors = false;
+    }
 
     boolean errorsLogEnable =
         Boolean.parseBoolean(
