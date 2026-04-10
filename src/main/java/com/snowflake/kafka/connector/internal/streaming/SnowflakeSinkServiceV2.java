@@ -356,11 +356,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     // If still in cooldown from a recent backpressure event, treat all partitions as
     // backpressured so we skip the entire batch and give the SDK time to drain.
-    Set<TopicPartition> backpressuredPartitions = new HashSet<>();
+    boolean skipAllPartitions = false;
     if (Instant.now().isBefore(backpressureUntil)) {
       LOGGER.debug(
           "Backpressure cooldown active until {}. Skipping entire batch.", backpressureUntil);
-      backpressuredPartitions.addAll(partitions);
+      skipAllPartitions = true;
     }
 
     Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
@@ -372,7 +372,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
 
       TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
-      if (initializingPartitions.contains(tp) || backpressuredPartitions.contains(tp)) {
+
+      if (skipAllPartitions || initializingPartitions.contains(tp)) {
+        // Make sure we store the first record in each partition that we skipped so we can correctly
+        // rewind the offset.
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
         continue;
       }
@@ -387,7 +390,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             e.getMessage());
         taskMetrics.incBackpressureRewindCount();
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
-        backpressuredPartitions.add(tp);
+        skipAllPartitions = true;
         newBackpressure = true;
       }
     }
