@@ -188,7 +188,7 @@
                             <goal>kafka-connect</goal>
                         </goals>
                         <configuration>
-                            <title>Snowflake High Performance Sink Connector</title>
+                            <title>Snowflake Sink Connector</title>
                             <documentationUrl>
                                 https://docs.snowflake.com/en/connectors/kafkahp/about
                             </documentationUrl>
@@ -209,7 +209,6 @@
                                 in production, please contact Snowflake Support
                                 before doing so.
                             </supportSummary>
-                            <name>snowflake-kafka-connector-hp</name>
                             <ownerUsername>snowflakeinc</ownerUsername>
                             <ownerType>organization</ownerType>
                             <ownerName>Snowflake Inc.</ownerName>
