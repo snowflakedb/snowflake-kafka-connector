@@ -9,6 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,9 +47,7 @@ class PartitionChannelManagerTest {
           return channel;
         };
 
-    manager =
-        new PartitionChannelManager(
-            CONNECTOR_NAME, TASK_ID, Collections.emptyMap(), false, trackingBuilder);
+    manager = new PartitionChannelManager(testConfig(Collections.emptyMap()), trackingBuilder);
   }
 
   // --- makeChannelName ---
@@ -89,8 +89,7 @@ class PartitionChannelManagerTest {
         };
 
     PartitionChannelManager capturingManager =
-        new PartitionChannelManager(
-            CONNECTOR_NAME, TASK_ID, Collections.emptyMap(), false, capturingBuilder);
+        new PartitionChannelManager(testConfig(Collections.emptyMap()), capturingBuilder);
 
     TopicPartition tp = new TopicPartition(TOPIC, 7);
     Map<String, String> tableToPipe = new HashMap<>();
@@ -120,7 +119,7 @@ class PartitionChannelManagerTest {
         };
 
     PartitionChannelManager managerWithMapping =
-        new PartitionChannelManager(CONNECTOR_NAME, TASK_ID, topicToTable, false, capturingBuilder);
+        new PartitionChannelManager(testConfig(topicToTable), capturingBuilder);
 
     TopicPartition tp = new TopicPartition("raw_topic", 0);
     Map<String, String> tableToPipe = new HashMap<>();
@@ -274,5 +273,14 @@ class PartitionChannelManagerTest {
       tableToPipe.putIfAbsent(tableName, "pipe_" + tableName);
     }
     manager.startPartitions(Arrays.asList(partitions), tableToPipe);
+  }
+
+  private static SinkTaskConfig testConfig(Map<String, String> topicToTableMap) {
+    return SinkTaskConfigTestBuilder.builder()
+        .connectorName(CONNECTOR_NAME)
+        .taskId(TASK_ID)
+        .topicToTableMap(topicToTableMap)
+        .enableSanitization(false)
+        .build();
   }
 }

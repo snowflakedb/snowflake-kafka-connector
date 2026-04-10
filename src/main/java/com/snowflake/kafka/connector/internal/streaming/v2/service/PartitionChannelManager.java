@@ -46,9 +46,6 @@ public class PartitionChannelManager {
         TopicPartition topicPartition, String tableName, String channelName, String pipeName);
   }
 
-  private final String connectorName;
-  private final String taskId;
-
   private final SnowflakeTelemetryService telemetryService;
   private final KafkaRecordErrorReporter kafkaRecordErrorReporter;
   private final Optional<MetricsJmxReporter> metricsJmxReporter;
@@ -57,8 +54,6 @@ public class PartitionChannelManager {
   private final SinkTaskContext sinkTaskContext;
 
   private final SinkTaskConfig taskConfig;
-  private final Map<String, String> topicToTableMap;
-  private final boolean enableSanitization;
   private final SnowflakeConnectionService conn;
 
   private final PartitionChannelBuilder partitionChannelBuilder;
@@ -71,8 +66,6 @@ public class PartitionChannelManager {
       KafkaRecordErrorReporter kafkaRecordErrorReporter,
       SinkTaskContext sinkTaskContext,
       Optional<MetricsJmxReporter> metricsJmxReporter,
-      String connectorName,
-      String taskId,
       TaskMetrics taskMetrics,
       SnowflakeConnectionService conn) {
     this.telemetryService = telemetryService;
@@ -80,11 +73,7 @@ public class PartitionChannelManager {
     this.kafkaRecordErrorReporter = kafkaRecordErrorReporter;
     this.sinkTaskContext = sinkTaskContext;
     this.metricsJmxReporter = metricsJmxReporter;
-    this.connectorName = connectorName;
-    this.taskId = taskId;
     this.taskMetrics = taskMetrics;
-    this.topicToTableMap = taskConfig.getTopicToTableMap();
-    this.enableSanitization = taskConfig.isEnableSanitization();
     this.conn = conn;
     this.partitionChannelBuilder = this::buildChannel;
     this.partitionChannels = new ConcurrentHashMap<>();
@@ -92,19 +81,11 @@ public class PartitionChannelManager {
 
   @VisibleForTesting
   PartitionChannelManager(
-      String connectorName,
-      String taskId,
-      Map<String, String> topicToTableMap,
-      boolean enableSanitization,
-      PartitionChannelBuilder partitionChannelBuilder) {
-    this.connectorName = connectorName;
-    this.taskId = taskId;
-    this.topicToTableMap = topicToTableMap;
-    this.enableSanitization = enableSanitization;
+      SinkTaskConfig taskConfig, PartitionChannelBuilder partitionChannelBuilder) {
+    this.taskConfig = taskConfig;
     this.partitionChannelBuilder = partitionChannelBuilder;
     this.partitionChannels = new ConcurrentHashMap<>();
     this.telemetryService = null;
-    this.taskConfig = null;
     this.kafkaRecordErrorReporter = null;
     this.sinkTaskContext = null;
     this.metricsJmxReporter = Optional.empty();
@@ -121,12 +102,13 @@ public class PartitionChannelManager {
   }
 
   private String getChannelName(TopicPartition topicPartition) {
-    return makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
+    return makeChannelName(
+        taskConfig.getConnectorName(), topicPartition.topic(), topicPartition.partition());
   }
 
   private String getTableName(TopicPartition topicPartition) {
     return Utils.getTableName(
-        topicPartition.topic(), this.topicToTableMap, this.enableSanitization);
+        topicPartition.topic(), taskConfig.getTopicToTableMap(), taskConfig.isEnableSanitization());
   }
 
   /**
@@ -141,8 +123,8 @@ public class PartitionChannelManager {
     LOGGER.info(
         "Starting {} partitions for connector: {}, task: {}",
         partitions.size(),
-        this.connectorName,
-        this.taskId);
+        taskConfig.getConnectorName(),
+        taskConfig.getTaskId());
 
     warmUpStreamingClients(tableToPipeMapping);
 
@@ -176,7 +158,12 @@ public class PartitionChannelManager {
         StreamingClientProperties.from(taskConfig);
     final SnowflakeStreamingIngestClient streamingClient =
         StreamingClientPools.getClient(
-            connectorName, taskId, pipeName, taskConfig, streamingClientProperties, taskMetrics);
+            taskConfig.getConnectorName(),
+            taskConfig.getTaskId(),
+            pipeName,
+            taskConfig,
+            streamingClientProperties,
+            taskMetrics);
     final boolean clientValidationEnabled =
         taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE;
 
@@ -186,7 +173,7 @@ public class PartitionChannelManager {
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             tableName,
-            this.connectorName,
+            taskConfig.getConnectorName(),
             channelName,
             System.currentTimeMillis(),
             this.metricsJmxReporter,
@@ -195,7 +182,7 @@ public class PartitionChannelManager {
             offsetTracker.consumerGroupOffsetRef());
 
     final ExecutorService openChannelIoExecutor =
-        ThreadPools.getOpenChannelIoExecutor(connectorName);
+        ThreadPools.getOpenChannelIoExecutor(taskConfig.getConnectorName());
 
     final boolean shouldEvolveSchema =
         (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE)
@@ -226,10 +213,10 @@ public class PartitionChannelManager {
    * parallel. Subsequent per-partition calls to {@link StreamingClientPools#getClient} in {@link
    * #buildChannel} will return the cached clients immediately.
    *
-   * <p>Skipped when using the test constructor (connectorConfig is null).
+   * <p>Skipped when using the test constructor (conn is null).
    */
   private void warmUpStreamingClients(Map<String, String> tableToPipeMapping) {
-    if (taskConfig == null) {
+    if (conn == null) {
       return;
     }
 
@@ -242,8 +229,8 @@ public class PartitionChannelManager {
             .map(
                 pipeName ->
                     StreamingClientPools.getClientAsync(
-                        connectorName,
-                        taskId,
+                        taskConfig.getConnectorName(),
+                        taskConfig.getTaskId(),
                         pipeName,
                         taskConfig,
                         streamingClientProperties,
@@ -281,8 +268,8 @@ public class PartitionChannelManager {
     LOGGER.info(
         "Closing all {} partition channels for connector: {}, task: {}",
         partitionChannels.size(),
-        this.connectorName,
-        this.taskId);
+        taskConfig.getConnectorName(),
+        taskConfig.getTaskId());
 
     CompletableFuture<?>[] futures =
         partitionChannels.values().stream()
@@ -293,8 +280,8 @@ public class PartitionChannelManager {
     partitionChannels.clear();
     LOGGER.info(
         "Completed closing all partition channels for connector: {}, task: {}",
-        this.connectorName,
-        this.taskId);
+        taskConfig.getConnectorName(),
+        taskConfig.getTaskId());
   }
 
   /**
@@ -313,8 +300,8 @@ public class PartitionChannelManager {
     LOGGER.info(
         "Closing {} partitions for connector: {}, task: {}",
         partitions.size(),
-        this.connectorName,
-        this.taskId);
+        taskConfig.getConnectorName(),
+        taskConfig.getTaskId());
 
     CompletableFuture<?>[] futures =
         partitions.stream()
@@ -344,7 +331,8 @@ public class PartitionChannelManager {
   /** Returns the channel for the given TopicPartition, or empty if not found. */
   public Optional<TopicPartitionChannel> getChannel(TopicPartition topicPartition) {
     String channelName =
-        makeChannelName(this.connectorName, topicPartition.topic(), topicPartition.partition());
+        makeChannelName(
+            taskConfig.getConnectorName(), topicPartition.topic(), topicPartition.partition());
     return getChannel(channelName);
   }
 
