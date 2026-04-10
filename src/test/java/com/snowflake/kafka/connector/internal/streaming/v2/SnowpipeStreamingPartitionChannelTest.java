@@ -21,6 +21,9 @@ import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
@@ -31,7 +34,6 @@ import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffs
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -344,6 +346,15 @@ class SnowpipeStreamingPartitionChannelTest {
             offsetTracker.processedOffsetRef(),
             offsetTracker.consumerGroupOffsetRef());
 
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .enableSchematization(false)
+            .enableColumnIdentifierNormalization(true)
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .build();
+
     return new SnowpipeStreamingPartitionChannel(
         TABLE_NAME,
         channelName,
@@ -353,15 +364,11 @@ class SnowpipeStreamingPartitionChannelTest {
         mockTelemetryService,
         telemetryChannelStatus,
         offsetTracker,
-        new SnowflakeMetadataConfig(),
-        false,
-        true,
+        taskConfig,
         mockErrorHandler,
         TaskMetrics.noop(),
         false,
-        false,
         null,
-        Ssv1MigrationMode.SKIP,
         Optional.empty());
   }
 
@@ -420,6 +427,15 @@ class SnowpipeStreamingPartitionChannelTest {
             offsetTracker.processedOffsetRef(),
             offsetTracker.consumerGroupOffsetRef());
 
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .enableSchematization(enableSchematization)
+            .enableColumnIdentifierNormalization(true)
+            .validation(SnowflakeValidation.CLIENT_SIDE)
+            .build();
+
     return new SnowpipeStreamingPartitionChannel(
         TABLE_NAME,
         channelName,
@@ -429,15 +445,11 @@ class SnowpipeStreamingPartitionChannelTest {
         mockTelemetryService,
         telemetryChannelStatus,
         offsetTracker,
-        new SnowflakeMetadataConfig(),
-        enableSchematization,
-        true,
+        taskConfig,
         mockErrorHandler,
         TaskMetrics.noop(),
-        true,
         shouldEvolveSchema,
         mockConnService,
-        Ssv1MigrationMode.SKIP,
         Optional.empty());
   }
 
@@ -508,6 +520,15 @@ class SnowpipeStreamingPartitionChannelTest {
             offsetTracker.processedOffsetRef(),
             offsetTracker.consumerGroupOffsetRef());
 
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .enableSchematization(true)
+            .enableColumnIdentifierNormalization(true)
+            .validation(SnowflakeValidation.CLIENT_SIDE)
+            .build();
+
     SnowpipeStreamingPartitionChannel channel =
         new SnowpipeStreamingPartitionChannel(
             TABLE_NAME,
@@ -518,15 +539,11 @@ class SnowpipeStreamingPartitionChannelTest {
             mockTelemetryService,
             telemetryChannelStatus,
             offsetTracker,
-            new SnowflakeMetadataConfig(),
-            true,
-            true,
+            taskConfig,
             mockErrorHandler,
             TaskMetrics.noop(),
             true,
-            true,
             mockConnService,
-            Ssv1MigrationMode.SKIP,
             Optional.empty());
 
     SinkRecord record = buildValidRecord(0);
@@ -642,6 +659,16 @@ class SnowpipeStreamingPartitionChannelTest {
             offsetTracker.processedOffsetRef(),
             offsetTracker.consumerGroupOffsetRef());
 
+    SinkTaskConfig migrationTaskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .enableSchematization(false)
+            .enableColumnIdentifierNormalization(true)
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .ssv1MigrationMode(migrationMode)
+            .build();
+
     return new SnowpipeStreamingPartitionChannel(
         TABLE_NAME,
         channelName,
@@ -651,15 +678,11 @@ class SnowpipeStreamingPartitionChannelTest {
         mockTelemetryService,
         telemetryChannelStatus,
         offsetTracker,
-        new SnowflakeMetadataConfig(),
-        false,
-        true,
+        migrationTaskConfig,
         mockErrorHandler,
         TaskMetrics.noop(),
         false,
-        false,
         mockConn,
-        migrationMode,
         migrationMode == Ssv1MigrationMode.SKIP
             ? Optional.empty()
             : Optional.of(SSV1_CHANNEL_NAME));
