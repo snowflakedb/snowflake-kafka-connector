@@ -13,11 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.Constants;
 import com.snowflake.kafka.connector.InjectQueryRunner;
 import com.snowflake.kafka.connector.InjectQueryRunnerExtension;
 import com.snowflake.kafka.connector.InjectSnowflakeDataSourceExtension;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -56,13 +57,11 @@ class StreamingManualModeIT {
 
   @BeforeEach
   void beforeEach() throws SQLException {
-    final Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(true);
-    config.put(Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
-    config.put(
-        Constants.KafkaConnectorConfigParams
-            .SNOWFLAKE_COMPATIBILITY_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION,
-        "false");
-    SinkTaskConfig sinkTaskConfig = SinkTaskConfig.from(config);
+    SinkTaskConfig sinkTaskConfig =
+        SinkTaskConfigTestBuilder.withRealCredentials(true)
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .enableColumnIdentifierNormalization(false)
+            .build();
     tableName = TestUtils.randomTableName();
     topicName = tableName;
     topicPartition = new TopicPartition(topicName, 0);

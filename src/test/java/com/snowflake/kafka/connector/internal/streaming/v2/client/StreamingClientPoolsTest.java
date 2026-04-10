@@ -3,8 +3,8 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
@@ -21,7 +21,8 @@ class StreamingClientPoolsTest {
 
   @BeforeEach
   void setUp() {
-    sinkTaskConfig = SinkTaskConfig.from(TestUtils.getConnectorConfigurationForStreaming(false));
+    sinkTaskConfig =
+        SinkTaskConfigTestBuilder.builder().connectorName("test_connector").taskId("0").build();
     streamingClientProperties = StreamingClientProperties.from(sinkTaskConfig);
     connectorName = "test-connector-pools-" + UUID.randomUUID().toString().substring(0, 8);
     ThreadPools.registerTask(connectorName, sinkTaskConfig);

@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -27,9 +28,11 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
 
   @BeforeEach
   public void setup() {
-    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
     sinkTaskConfig =
-        SinkTaskConfig.builderFrom(config).tolerateErrors(true).dlqTopicName("dlq_topic").build();
+        SinkTaskConfigTestBuilder.withRealCredentials(false)
+            .tolerateErrors(true)
+            .dlqTopicName("dlq_topic")
+            .build();
     pipe = table;
   }
 

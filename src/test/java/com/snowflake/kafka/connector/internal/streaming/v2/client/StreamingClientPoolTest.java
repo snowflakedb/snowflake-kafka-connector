@@ -9,14 +9,13 @@ import static org.mockito.Mockito.verify;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.io.IOException;
 import java.net.URLClassLoader;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -36,8 +35,8 @@ class StreamingClientPoolTest {
 
   @BeforeEach
   void setUp() {
-    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
-    connectorConfig = SinkTaskConfig.from(config);
+    connectorConfig =
+        SinkTaskConfigTestBuilder.builder().connectorName("test_connector").taskId("0").build();
     streamingClientProperties = StreamingClientProperties.from(connectorConfig);
   }
 

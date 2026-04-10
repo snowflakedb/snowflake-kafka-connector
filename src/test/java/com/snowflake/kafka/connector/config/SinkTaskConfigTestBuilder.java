@@ -3,9 +3,11 @@ package com.snowflake.kafka.connector.config;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.CachingConfig;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Test-only builder for {@link SinkTaskConfig}. Provides a builder with default values for all
@@ -53,5 +55,18 @@ public final class SinkTaskConfigTestBuilder {
         .authorizationTaskFailureEnabled(
             KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT)
         .jvmProxyConfig(JvmProxyConfig.builder().build());
+  }
+
+  /**
+   * Returns a builder pre-populated from the real credential profile (same as {@link
+   * TestUtils#getConnectorConfigurationForStreaming(boolean)}). Use for integration tests that need
+   * a live Snowflake connection. Caller can chain overrides before calling build().
+   *
+   * @param takeEncryptedKey whether to use the encrypted private key
+   */
+  public static SinkTaskConfig.Builder withRealCredentials(boolean takeEncryptedKey) {
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(takeEncryptedKey);
+    ConnectorConfigTools.setDefaultValues(config);
+    return SinkTaskConfig.builderFrom(config);
   }
 }

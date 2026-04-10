@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.*;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
@@ -38,7 +39,7 @@ public class StreamingClientManagerIT {
     final SnowflakeConnectionService connectionService =
         TestUtils.getConnectionServiceWithEncryptedKey();
     connectorConfig = TestUtils.getConnectorConfigurationForStreaming(true);
-    sinkTaskConfig = SinkTaskConfig.from(connectorConfig);
+    sinkTaskConfig = SinkTaskConfigTestBuilder.withRealCredentials(true).build();
     streamingClientProperties = StreamingClientProperties.from(sinkTaskConfig);
     table1 = "TABLE1" + salt;
     table2 = "TABLE2" + salt;

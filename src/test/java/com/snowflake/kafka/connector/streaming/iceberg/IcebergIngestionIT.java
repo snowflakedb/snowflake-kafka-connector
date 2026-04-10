@@ -1,9 +1,7 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
-import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
-
-import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -14,7 +12,6 @@ import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
@@ -50,10 +47,8 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
     createIcebergTable();
 
-    Map<String, String> config = getConnectorConfigurationForStreaming(false);
-    ConnectorConfigTools.setDefaultValues(config);
     SinkTaskConfig sinkTaskConfig =
-        SinkTaskConfig.builderFrom(config)
+        SinkTaskConfigTestBuilder.withRealCredentials(false)
             .tolerateErrors(false)
             .dlqTopicName("test_DLQ")
             .topicToTableMap(Collections.singletonMap(topic, tableName))

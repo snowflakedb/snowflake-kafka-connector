@@ -3,9 +3,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static com.snowflake.kafka.connector.internal.TestUtils.assertWithRetry;
 import static com.snowflake.kafka.connector.internal.TestUtils.getTableContentOneRow;
 
-import com.snowflake.kafka.connector.ConnectorConfigTools;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -141,8 +141,10 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
   }
 
   private SnowflakeSinkService createService() {
-    Map<String, String> config = prepareConfig();
-    SinkTaskConfig sinkTaskConfig = SinkTaskConfig.from(config);
+    SinkTaskConfig sinkTaskConfig =
+        SinkTaskConfigTestBuilder.withRealCredentials(false)
+            .validation(SnowflakeValidation.CLIENT_SIDE)
+            .build();
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, sinkTaskConfig)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
@@ -177,17 +179,6 @@ public class SnowflakeSinkServiceV2AvroSchematizationIT {
     avroConverter.configure(
         Collections.singletonMap("schema.registry.url", "http://fake-url"), false);
     return avroConverter;
-  }
-
-  private Map<String, String> prepareConfig() {
-    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
-    config.put(
-        KafkaConnectorConfigParams.VALUE_CONVERTER, "io.confluent.connect.avro.AvroConverter");
-    config.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMA_REGISTRY_URL, "http://fake-url");
-    // Schema type inference assertions depend on client-side validation behavior
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "client_side");
-    ConnectorConfigTools.setDefaultValues(config);
-    return config;
   }
 
   private Schema prepareSchema() {
