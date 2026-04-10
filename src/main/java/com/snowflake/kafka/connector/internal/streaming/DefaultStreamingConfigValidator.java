@@ -10,9 +10,9 @@ import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.kafka.common.config.ConfigException;
 
 public class DefaultStreamingConfigValidator implements StreamingConfigValidator {
@@ -21,17 +21,23 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   private static final String BYTE_ARRAY_CONVERTER_KEYWORD = "ByteArrayConverter";
 
   @Override
-  public ImmutableMap<String, String> validate(Map<String, String> inputConfig) {
+  public ImmutableMap<String, String> validate(
+      SinkTaskConfig parsedConfig, Map<String, String> rawConfig) {
     Map<String, String> invalidParams = new HashMap<>();
 
-    validateRole(inputConfig)
-        .ifPresent(errorEntry -> invalidParams.put(errorEntry.getKey(), errorEntry.getValue()));
+    if (Strings.isNullOrEmpty(parsedConfig.getSnowflakeRole())) {
+      invalidParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
+          String.format(
+              "Config: %s should be present for Snowpipe Streaming",
+              KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
+    }
 
-    // Validate error handling configs
-    if (inputConfig.containsKey(ERRORS_TOLERANCE_CONFIG)) {
+    // Validate error handling configs (format-level: use raw strings)
+    if (rawConfig.containsKey(ERRORS_TOLERANCE_CONFIG)) {
       try {
         ConnectorConfigTools.ErrorTolerance.VALIDATOR.ensureValid(
-            ERRORS_TOLERANCE_CONFIG, inputConfig.get(ERRORS_TOLERANCE_CONFIG));
+            ERRORS_TOLERANCE_CONFIG, rawConfig.get(ERRORS_TOLERANCE_CONFIG));
       } catch (ConfigException e) {
         invalidParams.put(
             ERRORS_TOLERANCE_CONFIG,
@@ -39,72 +45,28 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
                 "{} configuration error: {}", ERRORS_TOLERANCE_CONFIG, e.getMessage()));
       }
     }
-    if (inputConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
+    if (rawConfig.containsKey(ERRORS_LOG_ENABLE_CONFIG)) {
       try {
         BOOLEAN_VALIDATOR.ensureValid(
-            ERRORS_LOG_ENABLE_CONFIG, inputConfig.get(ERRORS_LOG_ENABLE_CONFIG));
+            ERRORS_LOG_ENABLE_CONFIG, rawConfig.get(ERRORS_LOG_ENABLE_CONFIG));
       } catch (ConfigException e) {
         invalidParams.put(ERRORS_LOG_ENABLE_CONFIG, e.getMessage());
       }
     }
 
-    // Validate schematization config
-    invalidParams.putAll(validateSchematizationConfig(inputConfig));
-
-    return ImmutableMap.copyOf(invalidParams);
-  }
-
-  private static Optional<Map.Entry<String, String>> validateRole(Map<String, String> inputConfig) {
-    if (!inputConfig.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)
-        || Strings.isNullOrEmpty(inputConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME))) {
-      String missingRole =
-          String.format(
-              "Config: %s should be present for Snowpipe Streaming",
-              KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
-      return Optional.of(Map.entry(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, missingRole));
-    }
-    return Optional.empty();
-  }
-
-  private static void ensureValidLong(
-      Map<String, String> inputConfig, String param, Map<String, String> invalidParams) {
-    try {
-      Long.parseLong(inputConfig.get(param));
-    } catch (NumberFormatException exception) {
+    // Validate schematization + converter compatibility
+    String valueConverter = rawConfig.get(VALUE_CONVERTER);
+    if (parsedConfig.isEnableSchematization()
+        && valueConverter != null
+        && (valueConverter.contains(STRING_CONVERTER_KEYWORD)
+            || valueConverter.contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
       invalidParams.put(
-          param,
-          Utils.formatString(
-              param + " configuration must be a parsable long. Given configuration" + " was: {}",
-              inputConfig.get(param)));
-    }
-  }
-
-  /**
-   * Validates if the configs are allowed values when schematization is enabled.
-   *
-   * <p>return a map of invalid params
-   */
-  private static Map<String, String> validateSchematizationConfig(Map<String, String> inputConfig) {
-    Map<String, String> invalidParams = new HashMap<>();
-
-    boolean schematizationEnabled =
-        Boolean.parseBoolean(
-            inputConfig.getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-                String.valueOf(
-                    KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)));
-
-    if (schematizationEnabled
-        && inputConfig.get(VALUE_CONVERTER) != null
-        && (inputConfig.get(VALUE_CONVERTER).contains(STRING_CONVERTER_KEYWORD)
-            || inputConfig.get(VALUE_CONVERTER).contains(BYTE_ARRAY_CONVERTER_KEYWORD))) {
-      invalidParams.put(
-          inputConfig.get(VALUE_CONVERTER),
+          valueConverter,
           Utils.formatString(
               "The value converter:{} is not supported when schematization is enabled.",
-              inputConfig.get(VALUE_CONVERTER)));
+              valueConverter));
     }
 
-    return invalidParams;
+    return ImmutableMap.copyOf(invalidParams);
   }
 }

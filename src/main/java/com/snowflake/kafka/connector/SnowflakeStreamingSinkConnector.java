@@ -100,6 +100,10 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
     connectorConfigValidator.validateConfig(config);
 
+    // Parse validated config into typed structure (no taskId at connector level)
+    com.snowflake.kafka.connector.config.SinkTaskConfig connectorConfig =
+        com.snowflake.kafka.connector.config.SinkTaskConfig.from(config);
+
     // enable mdc logging if needed
     KCLogger.toggleGlobalMdcLoggingContext(
         Boolean.parseBoolean(
@@ -108,7 +112,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
                 KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_DEFAULT)));
 
     // enable proxy
-    Utils.enableJVMProxy(com.snowflake.kafka.connector.config.JvmProxyConfig.from(config));
+    Utils.enableJVMProxy(connectorConfig.getJvmProxyConfig());
 
     // create a persisted connection, and validate snowflake connection
     // config as a side effect

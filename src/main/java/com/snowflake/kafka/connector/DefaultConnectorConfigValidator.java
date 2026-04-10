@@ -5,10 +5,11 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JMX_OPT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Utils.isValidSnowflakeApplicationName;
-import static com.snowflake.kafka.connector.Utils.validateProxySettings;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.internal.CachingConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
@@ -28,6 +29,9 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
   }
 
   public void validateConfig(Map<String, String> config) {
+    // Parse once into a typed config (lenient — won't throw on missing/invalid fields)
+    SinkTaskConfig parsedConfig = SinkTaskConfig.from(config);
+
     Map<String, String> invalidConfigParams = new HashMap<String, String>();
 
     // define the input parameters / keys in one place as static constants,
@@ -36,8 +40,10 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
     // instead of using the values directly
 
     // unique name of this connector instance
-    String connectorName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
-    if (connectorName.isEmpty() || !isValidSnowflakeApplicationName(connectorName)) {
+    String connectorName = parsedConfig.getConnectorName();
+    if (connectorName == null
+        || connectorName.isEmpty()
+        || !isValidSnowflakeApplicationName(connectorName)) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.NAME,
           Utils.formatString(
@@ -56,7 +62,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
     }
 
     // sanity check
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME)) {
+    if (parsedConfig.getSnowflakeDatabase() == null) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME,
           Utils.formatString(
@@ -64,40 +70,35 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
     }
 
     // sanity check
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME)) {
+    if (parsedConfig.getSnowflakeSchema() == null) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME,
           Utils.formatString(
               "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
     }
 
-    if (!config.containsKey(SNOWFLAKE_PRIVATE_KEY)) {
+    if (parsedConfig.getSnowflakePrivateKey() == null) {
       invalidConfigParams.put(
           SNOWFLAKE_PRIVATE_KEY, Utils.formatString("{} cannot be empty", SNOWFLAKE_PRIVATE_KEY));
     }
 
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME)) {
+    if (parsedConfig.getSnowflakeUser() == null) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
           Utils.formatString(
               "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME));
     }
 
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME)) {
+    if (parsedConfig.getSnowflakeUrl() == null) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
           Utils.formatString("{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
     }
 
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)) {
-      invalidConfigParams.put(
-          KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
-          Utils.formatString(
-              "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
-    }
     // jvm proxy settings
-    invalidConfigParams.putAll(validateProxySettings(config));
+    invalidConfigParams.putAll(parsedConfig.getJvmProxyConfig().validate());
 
+    // format-level validation (strict booleans, enum names) — must use raw strings
     if (config.containsKey(BEHAVIOR_ON_NULL_VALUES)) {
       try {
         // This throws an exception if config value is invalid.
@@ -119,11 +120,10 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    invalidConfigParams.putAll(
-        com.snowflake.kafka.connector.internal.CachingConfig.validate(config));
+    invalidConfigParams.putAll(CachingConfig.validate(config));
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
-    invalidConfigParams.putAll(streamingConfigValidator.validate(config));
+    invalidConfigParams.putAll(streamingConfigValidator.validate(parsedConfig, config));
 
     // logs and throws exception if there are invalid params
     handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));

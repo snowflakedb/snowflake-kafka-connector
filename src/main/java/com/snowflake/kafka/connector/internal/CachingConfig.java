@@ -96,9 +96,9 @@ public final class CachingConfig {
             .orElse(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_DEFAULT);
 
     long tableExistsCacheExpireMs =
-        Optional.ofNullable(config.get(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS))
-            .map(Long::parseLong)
-            .orElse(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS_DEFAULT);
+        parseLongOrDefault(
+            config.get(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS),
+            KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS_DEFAULT);
 
     boolean pipeExistsCacheEnabled =
         Optional.ofNullable(config.get(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS))
@@ -106,26 +106,27 @@ public final class CachingConfig {
             .orElse(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_DEFAULT);
 
     long pipeExistsCacheExpireMs =
-        Optional.ofNullable(config.get(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS))
-            .map(Long::parseLong)
-            .orElse(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT);
-
-    // Validate expiration times are positive
-    if (tableExistsCacheExpireMs <= 0) {
-      throw new IllegalArgumentException(
-          "Cache expiration for table existence must be positive, got: "
-              + tableExistsCacheExpireMs);
-    }
-    if (pipeExistsCacheExpireMs <= 0) {
-      throw new IllegalArgumentException(
-          "Cache expiration for pipe existence must be positive, got: " + pipeExistsCacheExpireMs);
-    }
+        parseLongOrDefault(
+            config.get(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS),
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS_DEFAULT);
 
     return new CachingConfig(
         tableExistsCacheEnabled,
         tableExistsCacheExpireMs,
         pipeExistsCacheEnabled,
         pipeExistsCacheExpireMs);
+  }
+
+  private static long parseLongOrDefault(String value, long defaultValue) {
+    if (value == null) {
+      return defaultValue;
+    }
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException e) {
+      // best-effort: keep default; validator will re-check and report properly
+      return defaultValue;
+    }
   }
 
   @Override
