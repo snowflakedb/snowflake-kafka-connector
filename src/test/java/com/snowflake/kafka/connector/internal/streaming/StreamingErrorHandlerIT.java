@@ -16,7 +16,6 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
-import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -295,8 +294,6 @@ class StreamingErrorHandlerIT {
             offsetTracker.processedOffsetRef(),
             offsetTracker.consumerGroupOffsetRef());
 
-    boolean enableSchematization = taskConfig.isEnableSchematization();
-
     return new SnowpipeStreamingPartitionChannel(
         "test_table",
         channelName,
@@ -306,12 +303,9 @@ class StreamingErrorHandlerIT {
         mockTelemetryService,
         telemetryChannelStatus,
         offsetTracker,
-        new SnowflakeMetadataConfig(),
-        enableSchematization,
-        true,
+        taskConfig,
         errorHandler,
         TaskMetrics.noop(),
-        false,
         false,
         null);
   }

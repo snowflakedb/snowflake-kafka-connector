@@ -10,6 +10,8 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -28,7 +30,6 @@ import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServic
 import com.snowflake.kafka.connector.internal.validation.ColumnSchema;
 import com.snowflake.kafka.connector.internal.validation.RowValidator;
 import com.snowflake.kafka.connector.internal.validation.ValidationResult;
-import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.time.Duration;
 import java.util.Arrays;
@@ -74,9 +75,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus;
 
-  private final SnowflakeMetadataConfig metadataConfig;
-  private final boolean enableSchematization;
-  private final boolean enableColumnIdentifierNormalization;
+  private final SinkTaskConfig taskConfig;
 
   /**
    * Used to send telemetry to Snowflake. Currently, TelemetryClient created from a Snowflake
@@ -94,7 +93,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private final TaskMetrics taskMetrics;
 
   // Client-side validation fields
-  private final boolean clientValidationEnabled;
   private final SnowflakeConnectionService conn;
   private final String tableName;
   private volatile RowValidator rowValidator;
@@ -111,27 +109,21 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       SnowflakeTelemetryService telemetryService,
       SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
       PartitionOffsetTracker offsetTracker,
-      SnowflakeMetadataConfig metadataConfig,
-      boolean enableSchematization,
-      boolean enableColumnIdentifierNormalization,
+      SinkTaskConfig taskConfig,
       StreamingErrorHandler streamingErrorHandler,
       TaskMetrics taskMetrics,
-      boolean clientValidationEnabled,
       boolean shouldEvolveSchema,
       SnowflakeConnectionService conn) {
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
     this.openChannelIoExecutor = openChannelIoExecutor;
-    this.metadataConfig = metadataConfig;
-    this.enableSchematization = enableSchematization;
-    this.enableColumnIdentifierNormalization = enableColumnIdentifierNormalization;
+    this.taskConfig = taskConfig;
     this.streamingErrorHandler = streamingErrorHandler;
     this.taskMetrics = taskMetrics;
     this.telemetryService = telemetryService;
     this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
     this.offsetTracker = offsetTracker;
-    this.clientValidationEnabled = clientValidationEnabled;
     this.shouldEvolveSchema = shouldEvolveSchema;
     this.conn = conn;
     this.tableName = tableName;
@@ -156,7 +148,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             },
             openChannelIoExecutor);
 
-    if (clientValidationEnabled) {
+    if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
       initializeValidation();
     } else {
       LOGGER.info("Client-side validation disabled for channel {}", channelName);
@@ -179,9 +171,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       final SnowflakeSinkRecord record =
           SnowflakeSinkRecord.from(
               kafkaSinkRecord,
-              metadataConfig,
-              enableSchematization,
-              enableColumnIdentifierNormalization);
+              taskConfig.getMetadataConfig(),
+              taskConfig.isEnableSchematization(),
+              taskConfig.isEnableColumnIdentifierNormalization());
 
       if (record.isBroken()) {
         LOGGER.debug("Broken record offset:{}, topic:{}", kafkaOffset, kafkaSinkRecord.topic());
@@ -191,9 +183,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       } else {
         // If we reach here, it means we should ingest a record (possibly empty for tombstones)
         final Map<String, Object> row =
-            record.getContentWithMetadata(metadataConfig.shouldIncludeAllMetadata());
+            record.getContentWithMetadata(
+                taskConfig.getMetadataConfig().shouldIncludeAllMetadata());
         if (!row.isEmpty()) {
-          if (clientValidationEnabled && rowValidator != null) {
+          if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE
+              && rowValidator != null) {
             ValidationResult validationResult = rowValidator.validateRow(row);
 
             if (!validationResult.isValid()) {
@@ -466,7 +460,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           channelName,
           tableName,
           this.tableSchema.size(),
-          enableSchematization);
+          taskConfig.isEnableSchematization());
     } catch (Exception e) {
       LOGGER.warn(
           "Failed to initialize client-side validation for channel {}. "

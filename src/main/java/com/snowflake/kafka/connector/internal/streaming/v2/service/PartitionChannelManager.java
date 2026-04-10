@@ -153,7 +153,6 @@ public class PartitionChannelManager {
 
     final StreamingErrorHandler streamingErrorHandler =
         new StreamingErrorHandler(taskConfig, kafkaRecordErrorReporter, telemetryService);
-    final boolean enableSchematization = taskConfig.isEnableSchematization();
     final StreamingClientProperties streamingClientProperties =
         StreamingClientProperties.from(taskConfig);
     final SnowflakeStreamingIngestClient streamingClient =
@@ -164,9 +163,6 @@ public class PartitionChannelManager {
             taskConfig,
             streamingClientProperties,
             taskMetrics);
-    final boolean clientValidationEnabled =
-        taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE;
-
     final PartitionOffsetTracker offsetTracker =
         new PartitionOffsetTracker(topicPartition, this.sinkTaskContext, channelName);
 
@@ -198,12 +194,9 @@ public class PartitionChannelManager {
         this.telemetryService,
         telemetryChannelStatus,
         offsetTracker,
-        taskConfig.getMetadataConfig(),
-        enableSchematization,
-        taskConfig.isEnableColumnIdentifierNormalization(),
+        taskConfig,
         streamingErrorHandler,
         this.taskMetrics,
-        clientValidationEnabled,
         shouldEvolveSchema,
         this.conn);
   }
