@@ -17,6 +17,7 @@ import time
 import pytest
 import snowflake.connector
 
+from lib.config_migration import V4_CONFIG_TEMPLATE
 from lib.utils import RecordProducer
 
 logger = logging.getLogger(__name__)
@@ -26,15 +27,9 @@ logger = logging.getLogger(__name__)
 # names in double-quotes (case-sensitive), so table_name must match topic exactly.
 # Do NOT use topic.upper() — that only works with sanitization enabled.
 CONNECTOR_CONFIG = {
-    "connector.class": "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector",
+    **V4_CONFIG_TEMPLATE,
     "topics": "SNOWFLAKE_TEST_TOPIC",
     "tasks.max": "1",
-    "snowflake.url.name": "SNOWFLAKE_HOST",
-    "snowflake.user.name": "SNOWFLAKE_USER",
-    "snowflake.private.key": "SNOWFLAKE_PRIVATE_KEY",
-    "snowflake.database.name": "SNOWFLAKE_DATABASE",
-    "snowflake.schema.name": "SNOWFLAKE_SCHEMA",
-    "snowflake.role.name": "SNOWFLAKE_ROLE",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",

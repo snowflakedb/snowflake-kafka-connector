@@ -39,6 +39,7 @@ def _v4_ht_config() -> dict:
     config["snowflake.enable.schematization"] = "true"
     config["snowflake.validation"] = "server_side"
     config["errors.tolerance"] = "all"
+    config["snowflake.streaming.validate.compatibility.with.classic"] = "false"
     return config
 
 
@@ -52,6 +53,7 @@ def _v4_compat_dlq_config(dlq_topic: str) -> dict:
     config["errors.deadletterqueue.topic.name"] = dlq_topic
     config["errors.deadletterqueue.topic.replication.factor"] = "1"
     config["errors.deadletterqueue.context.headers.enable"] = "true"
+    config["snowflake.streaming.validate.compatibility.with.classic"] = "false"
     return config
 
 
