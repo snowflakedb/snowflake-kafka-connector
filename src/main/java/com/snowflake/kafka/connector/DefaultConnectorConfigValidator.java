@@ -2,10 +2,6 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.ConnectorConfigTools.BehaviorOnNullValues.VALIDATOR;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JMX_OPT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Utils.isValidSnowflakeApplicationName;
@@ -123,82 +119,14 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    validateCacheConfig(config, invalidConfigParams);
+    invalidConfigParams.putAll(
+        com.snowflake.kafka.connector.internal.CachingConfig.validate(config));
 
     // Check all config values for ingestion method == IngestionMethodConfig.SNOWPIPE_STREAMING
     invalidConfigParams.putAll(streamingConfigValidator.validate(config));
 
     // logs and throws exception if there are invalid params
     handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));
-  }
-
-  private void validateCacheConfig(
-      Map<String, String> config, Map<String, String> invalidConfigParams) {
-    // Validate table exists cache boolean flag
-    if (config.containsKey(CACHE_TABLE_EXISTS)) {
-      String value = config.get(CACHE_TABLE_EXISTS);
-      if (!isValidBooleanString(value)) {
-        invalidConfigParams.put(
-            CACHE_TABLE_EXISTS,
-            Utils.formatString(
-                "{} must be either 'true' or 'false', got: {}", CACHE_TABLE_EXISTS, value));
-      }
-    }
-
-    // Validate table exists cache expiration
-    if (config.containsKey(CACHE_TABLE_EXISTS_EXPIRE_MS)) {
-      try {
-        long value = Long.parseLong(config.get(CACHE_TABLE_EXISTS_EXPIRE_MS));
-        if (value <= 0) {
-          invalidConfigParams.put(
-              CACHE_TABLE_EXISTS_EXPIRE_MS,
-              Utils.formatString(
-                  "{} must be a positive number, got: {}", CACHE_TABLE_EXISTS_EXPIRE_MS, value));
-        }
-      } catch (NumberFormatException e) {
-        invalidConfigParams.put(
-            CACHE_TABLE_EXISTS_EXPIRE_MS,
-            Utils.formatString(
-                "{} must be a valid long number, got: {}",
-                CACHE_TABLE_EXISTS_EXPIRE_MS,
-                config.get(CACHE_TABLE_EXISTS_EXPIRE_MS)));
-      }
-    }
-
-    // Validate pipe exists cache boolean flag
-    if (config.containsKey(CACHE_PIPE_EXISTS)) {
-      String value = config.get(CACHE_PIPE_EXISTS);
-      if (!isValidBooleanString(value)) {
-        invalidConfigParams.put(
-            CACHE_PIPE_EXISTS,
-            Utils.formatString(
-                "{} must be either 'true' or 'false', got: {}", CACHE_PIPE_EXISTS, value));
-      }
-    }
-
-    // Validate pipe exists cache expiration
-    if (config.containsKey(CACHE_PIPE_EXISTS_EXPIRE_MS)) {
-      try {
-        long value = Long.parseLong(config.get(CACHE_PIPE_EXISTS_EXPIRE_MS));
-        if (value <= 0) {
-          invalidConfigParams.put(
-              CACHE_PIPE_EXISTS_EXPIRE_MS,
-              Utils.formatString(
-                  "{} must be a positive number, got: {}", CACHE_PIPE_EXISTS_EXPIRE_MS, value));
-        }
-      } catch (NumberFormatException e) {
-        invalidConfigParams.put(
-            CACHE_PIPE_EXISTS_EXPIRE_MS,
-            Utils.formatString(
-                "{} must be a valid long number, got: {}",
-                CACHE_PIPE_EXISTS_EXPIRE_MS,
-                config.get(CACHE_PIPE_EXISTS_EXPIRE_MS)));
-      }
-    }
-  }
-
-  private static boolean isValidBooleanString(String value) {
-    return "true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value);
   }
 
   private void handleInvalidParameters(ImmutableMap<String, String> invalidConfigParams) {

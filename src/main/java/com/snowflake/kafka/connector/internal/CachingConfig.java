@@ -1,6 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.Utils;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -40,6 +43,49 @@ public final class CachingConfig {
 
   public long getPipeExistsCacheExpireMs() {
     return pipeExistsCacheExpireMs;
+  }
+
+  /**
+   * Validate raw cache-related config entries, returning a map of config key → error message for
+   * invalid entries. Must be called before {@link #fromConfig(Map)} since that method uses lenient
+   * parsing (e.g. {@code Boolean.parseBoolean} accepts any string).
+   */
+  public static ImmutableMap<String, String> validate(Map<String, String> config) {
+    Map<String, String> errors = new HashMap<>();
+
+    validateBoolean(config, KafkaConnectorConfigParams.CACHE_TABLE_EXISTS, errors);
+    validateBoolean(config, KafkaConnectorConfigParams.CACHE_PIPE_EXISTS, errors);
+    validatePositiveLong(config, KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_EXPIRE_MS, errors);
+    validatePositiveLong(config, KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS, errors);
+
+    return ImmutableMap.copyOf(errors);
+  }
+
+  private static void validateBoolean(
+      Map<String, String> config, String key, Map<String, String> errors) {
+    if (config.containsKey(key)) {
+      String value = config.get(key);
+      if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+        errors.put(
+            key, Utils.formatString("{} must be either 'true' or 'false', got: {}", key, value));
+      }
+    }
+  }
+
+  private static void validatePositiveLong(
+      Map<String, String> config, String key, Map<String, String> errors) {
+    if (config.containsKey(key)) {
+      try {
+        long value = Long.parseLong(config.get(key));
+        if (value <= 0) {
+          errors.put(key, Utils.formatString("{} must be a positive number, got: {}", key, value));
+        }
+      } catch (NumberFormatException e) {
+        errors.put(
+            key,
+            Utils.formatString("{} must be a valid long number, got: {}", key, config.get(key)));
+      }
+    }
   }
 
   public static CachingConfig fromConfig(final Map<String, String> config) {
