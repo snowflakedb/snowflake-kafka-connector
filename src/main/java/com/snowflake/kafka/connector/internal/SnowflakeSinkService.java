@@ -37,8 +37,10 @@ public interface SnowflakeSinkService {
    * call pipe to insert a JSON record will not trigger time based flush
    *
    * @param record record content
+   * @return true if the record was processed successfully, false if recovery was triggered and the
+   *     caller should stop feeding records to this partition for the remainder of the batch
    */
-  void insert(final SinkRecord record);
+  boolean insert(final SinkRecord record);
 
   /**
    * retrieve offset of last loaded record for given pipe name

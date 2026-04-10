@@ -167,13 +167,14 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
-  public void insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
+  public boolean insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
     if (offsetTracker.shouldProcess(kafkaSinkRecord.kafkaOffset(), isFirstRowPerPartitionInBatch)) {
-      transformAndSend(kafkaSinkRecord);
+      return transformAndSend(kafkaSinkRecord);
     }
+    return true;
   }
 
-  private void transformAndSend(SinkRecord kafkaSinkRecord) {
+  private boolean transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
       final long kafkaOffset = kafkaSinkRecord.kafkaOffset();
       final SnowflakeSinkRecord record =
@@ -203,7 +204,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                 handleValidationError(validationResult, kafkaSinkRecord);
               }
               offsetTracker.recordProcessed(kafkaOffset);
-              return;
+              return true;
             }
           }
 
@@ -212,12 +213,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             // logic already reset processedOffset + rewound Kafka. Do NOT call
             // recordProcessed() here — that would advance processedOffset past the
             // recovery point and cause replayed offsets to be skipped. See SNOW-3344243.
-            return;
+            return false;
           }
         }
       }
       // Always update processedOffset after processing, even for broken records
       offsetTracker.recordProcessed(kafkaOffset);
+      return true;
     } catch (BackpressureException ex) {
       snowflakeTelemetryChannelStatus.incBackpressureRetryCount();
       throw ex;
@@ -227,6 +229,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           "Failed to insert row for channel:{}. Will be retried by Kafka. Exception: {}",
           this.channelName,
           ex);
+      return true;
     }
   }
 
