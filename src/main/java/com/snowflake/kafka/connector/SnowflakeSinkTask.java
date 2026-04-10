@@ -200,10 +200,7 @@ public class SnowflakeSinkTask extends SinkTask {
     // Initialize and start periodic telemetry reporter for channel status
     this.telemetryReporter =
         new PeriodicTelemetryReporter(
-            conn.getTelemetryClient(),
-            sink::getPartitionChannels,
-            connectorName,
-            this.taskConfigId);
+            conn.getTelemetryClient(), sink::getPartitionChannels, config);
     this.telemetryReporter.start();
 
     DYNAMIC_LOGGER.info(
