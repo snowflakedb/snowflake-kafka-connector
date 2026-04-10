@@ -7,7 +7,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -297,9 +296,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     Map<String, String> config = new HashMap<>(connectorBaseConfig);
     config.putIfAbsent(KafkaConnectorConfigParams.NAME, "test-topic-to-table-regex");
     config.put(Utils.TASK_ID, "1");
-    Map<String, String> parsedConfig = SinkTaskConfig.from(config).getTopicToTableMap();
-
-    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy, parsedConfig);
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy);
 
     // test topics were mapped correctly
     sinkTask.open(testPartitions);
