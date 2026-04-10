@@ -479,9 +479,21 @@ public class Utils {
   }
 
   public static String formatString(String format, Object... vars) {
-    for (int i = 0; i < vars.length; i++) {
-      format = format.replaceFirst("\\{}", Objects.toString(vars[i]).replaceAll("\\$", "\\\\\\$"));
+    if (vars.length == 0) {
+      return format;
     }
-    return format;
+    StringBuilder sb = new StringBuilder(format.length() + vars.length * 16);
+    int start = 0;
+    for (int i = 0; i < vars.length; i++) {
+      int idx = format.indexOf("{}", start);
+      if (idx < 0) {
+        break;
+      }
+      sb.append(format, start, idx);
+      sb.append(Objects.toString(vars[i]));
+      start = idx + 2;
+    }
+    sb.append(format, start, format.length());
+    return sb.toString();
   }
 }

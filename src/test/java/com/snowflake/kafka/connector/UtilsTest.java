@@ -163,6 +163,28 @@ public class UtilsTest {
   }
 
   @Test
+  public void testFormatStringEdgeCases() {
+    // Dollar signs in values (old regex code needed $ escaping)
+    assertEquals("price is $100", Utils.formatString("price is {}", "$100"));
+    assertEquals("a=$1 b=$2", Utils.formatString("a={} b={}", "$1", "$2"));
+
+    // More vars than placeholders — extra vars ignored
+    assertEquals("hello world", Utils.formatString("hello {}", "world", "extra", "ignored"));
+
+    // More placeholders than vars — remaining {} left as-is
+    assertEquals("hello world {}", Utils.formatString("hello {} {}", "world"));
+
+    // No placeholders at all
+    assertEquals("no placeholders", Utils.formatString("no placeholders", "unused"));
+
+    // Empty format
+    assertEquals("", Utils.formatString(""));
+
+    // Adjacent placeholders
+    assertEquals("ab", Utils.formatString("{}{}", "a", "b"));
+  }
+
+  @Test
   public void testSemanticVersionParsing() {
     // Test standard version parsing
     SemanticVersion version311 = new SemanticVersion("3.1.1");
