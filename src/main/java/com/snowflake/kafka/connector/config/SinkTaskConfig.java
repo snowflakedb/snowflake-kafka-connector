@@ -25,6 +25,7 @@ public abstract class SinkTaskConfig {
 
   public abstract String getConnectorName();
 
+  @Nullable
   public abstract String getTaskId();
 
   /** Returns an unmodifiable view of the topic-to-table mapping. */
@@ -112,10 +113,6 @@ public abstract class SinkTaskConfig {
     }
 
     String taskId = config.get(Utils.TASK_ID);
-    if (taskId == null || taskId.trim().isEmpty()) {
-      throw new IllegalArgumentException(
-          "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
-    }
 
     ImmutableMap<String, String> topicToTableMap = ImmutableMap.of();
     if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)) {
