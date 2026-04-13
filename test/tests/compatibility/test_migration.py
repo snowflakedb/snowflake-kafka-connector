@@ -357,3 +357,129 @@ def test_migration_different_connector_name(
         f"System function migration should prevent duplicates: "
         f"expected {expected} rows, got {total_rows}"
     )
+
+
+# Don't parameterize on v3, we create both connector versions explicitly here.
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
+def test_migration_from_snowpipe(
+    driver: KafkaDriver,
+    name_salt,
+    create_custom_connector,
+    create_table,
+    wait_for_rows,
+):
+    """Test migration from KC v3 file-based Snowpipe to KC v4 (SSv2).
+
+    SNOW-3293138: Verifies that a clean switchover from file-based Snowpipe to
+    Snowpipe Streaming produces no gaps and no duplicates when the consumer group
+    offsets are inherited (same connector name).
+    """
+
+    test_name = "test_migration_from_snowpipe"
+    warmup_records = 10
+
+    table = create_table(
+        test_name.upper(),
+        columns="(record_metadata variant, record_content variant)",
+    )
+    topic = f"{test_name}{name_salt}"
+    producer = RecordProducer(driver, topic)
+
+    # File-based Snowpipe: schematization unsupported, buffer.flush.time >= 10.
+    v3_config_template = {
+        **V3_CONFIG_TEMPLATE,
+        "topics": topic,
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false",
+        "buffer.flush.time": "10",
+    }
+    v3_config_template["snowflake.ingestion.method"] = "SNOWPIPE"
+    v3_config_template.pop("snowflake.streaming.max.client.lag")
+
+    logging.info(
+        f"Creating v3 Snowpipe connector and sending {warmup_records} warmup records"
+    )
+    v3_connector = create_custom_connector(test_name, v3_config_template)
+    producer.send(warmup_records)
+    logging.info(
+        f"Produced {warmup_records} records (total: {producer.records_produced})"
+    )
+    wait_for_rows(
+        table_name=table.name,
+        expected=producer.records_produced,
+        connector_name=v3_connector.name,
+    )
+
+    logging.info("Starting continuous producer")
+    producer.start_continuous()
+
+    try:
+        logging.info("Waiting for v3 to ingest beyond the warmup batch")
+        assert wait_for(lambda: table.select_scalar("count(*)") > warmup_records), (
+            f"v3 never ingested beyond {warmup_records} warmup records"
+        )
+        logging.info(f"v3 ingested {table.select_scalar('count(*)')} rows so far")
+
+        logging.info("Closing v3 connector while data is still flowing")
+        assert v3_connector.close(wait_timeout=60)
+
+        v3_kafka_offset = driver.get_consumer_group_offset(v3_connector.name, topic)
+        logging.info(f"v3 consumer group offset after shutdown: {v3_kafka_offset}")
+
+        # File-based Snowpipe ingests staged files asynchronously. If we start
+        # v4 (SSv2) before Snowpipe finishes draining, SSv2 rows from newer
+        # offsets can land before Snowpipe finishes loading older ones,
+        # breaking end-to-end ordering.
+        logging.info("Waiting for Snowpipe to finish ingesting staged files")
+        wait_for_rows(table_name=table.name, expected=v3_kafka_offset, at_least=True)
+
+        logging.info(
+            "Creating v4 connector (same name → inherits consumer group offsets)"
+        )
+        v4_config_template = v3_config_to_v4(v3_config_template)
+        v4_connector = create_custom_connector(test_name, v4_config_template)
+
+        logging.info("Letting v4 catch up for 5s before snapshot")
+        time.sleep(5)
+        records_produced_so_far = producer.records_produced
+        logging.info(
+            f"Snapshot: {records_produced_so_far} records produced, "
+            f"{table.select_scalar('count(*)')} rows in Snowflake"
+        )
+        wait_for_rows(
+            table_name=table.name,
+            at_least=True,
+            expected=records_produced_so_far + 1,
+            connector_name=v4_connector.name,
+        )
+        logging.info(
+            f"v4 is actively ingesting ({table.select_scalar('count(*)')} rows)"
+        )
+
+    finally:
+        producer.stop_continuous()
+
+    expected = producer.records_produced
+    logging.info(
+        f"Waiting for all {expected} distinct records to land in Snowflake "
+        f"(currently {table.select_scalar('count(distinct record_content:number)')} "
+        f"distinct, {table.select_scalar('count(*)')} total)"
+    )
+    wait_for_rows(
+        table_name=table.name,
+        expected=expected,
+        connector_name=v4_connector.name,
+    )
+
+    total_rows = table.select_scalar("count(*)")
+    distinct_numbers = table.select_scalar("count(distinct record_content:number)")
+    logging.info(
+        f"Final: {expected} expected, {distinct_numbers} distinct, {total_rows} total"
+    )
+    assert distinct_numbers == expected, (
+        f"Expected {expected} distinct records, got {distinct_numbers}"
+    )
+    assert total_rows == expected, (
+        f"Expected exactly {expected} rows (no duplicates), got {total_rows}"
+    )
