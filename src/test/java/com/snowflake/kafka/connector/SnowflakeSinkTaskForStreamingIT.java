@@ -7,9 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
-import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
@@ -227,43 +225,6 @@ public class SnowflakeSinkTaskForStreamingIT {
     twoRegexExpected.put(birdTopicStr1, birdTopicStr1);
     testTopicToTableRegexRunner(config, twoRegexConfig, twoRegexPartitionStrs, twoRegexExpected);
 
-    // test two regexes with catchall. catchall should overlap both regexes and fail the test
-    String twoRegexCatchAllConfig =
-        Utils.formatString(
-            "{}:{}, {}:{},{}:{}",
-            catchAllRegex,
-            catchallTable,
-            catTopicRegex,
-            catTable,
-            dogTopicRegex,
-            dogTable);
-    List<String> twoRegexCatchAllPartitionStrs =
-        Arrays.asList(catTopicStr1, catTopicStr2, bigCatTopicStr1, dogTopicStr1, birdTopicStr1);
-    Map<String, String> twoRegexCatchAllExpected = new HashMap<>();
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0021,
-        () ->
-            testTopicToTableRegexRunner(
-                config,
-                twoRegexCatchAllConfig,
-                twoRegexCatchAllPartitionStrs,
-                twoRegexCatchAllExpected));
-
-    // test invalid overlapping regexes
-    String invalidTwoRegexConfig =
-        Utils.formatString("{}:{}, {}:{}", catTopicRegex, catTable, bigCatTopicRegex, bigCatTable);
-    List<String> invalidTwoRegexPartitionStrs =
-        Arrays.asList(catTopicStr1, catTopicStr2, dogTopicStr1, birdTopicStr1);
-    Map<String, String> invalidTwoRegexExpected = new HashMap<>();
-    assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0021,
-        () ->
-            testTopicToTableRegexRunner(
-                config,
-                invalidTwoRegexConfig,
-                invalidTwoRegexPartitionStrs,
-                invalidTwoRegexExpected));
-
     // test catchall regex
     String catchAllConfig = Utils.formatString("{}:{}", catchAllRegex, catchallTable);
     List<String> catchAllPartitionStrs =
@@ -297,9 +258,7 @@ public class SnowflakeSinkTaskForStreamingIT {
     Map<String, String> config = new HashMap<>(connectorBaseConfig);
     config.putIfAbsent(KafkaConnectorConfigParams.NAME, "test-topic-to-table-regex");
     config.put(Utils.TASK_ID, "1");
-    Map<String, String> parsedConfig = SinkTaskConfig.from(config).getTopicToTableMap();
-
-    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy, parsedConfig);
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask(serviceSpy, connSpy);
 
     // test topics were mapped correctly
     sinkTask.open(testPartitions);

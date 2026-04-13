@@ -66,7 +66,6 @@ public class SnowflakeSinkTask extends SinkTask {
   private KCLogger DYNAMIC_LOGGER;
 
   private volatile SnowflakeSinkService sink = null;
-  private Map<String, String> topic2table = null;
 
   // snowflake JDBC connection provides methods to interact with user's
   // snowflake
@@ -101,16 +100,6 @@ public class SnowflakeSinkTask extends SinkTask {
     DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
     this.sink = service;
     this.conn = connectionService;
-  }
-
-  @VisibleForTesting
-  // @codeCoverageIgnore
-  public SnowflakeSinkTask(
-      SnowflakeSinkService service,
-      SnowflakeConnectionService connectionService,
-      Map<String, String> topic2table) {
-    this(service, connectionService);
-    this.topic2table = topic2table;
   }
 
   private SnowflakeConnectionService getConnection() {
@@ -157,9 +146,6 @@ public class SnowflakeSinkTask extends SinkTask {
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
     this.taskConfigId = config.getTaskId();
-
-    // generate topic to table map
-    this.topic2table = new HashMap<>(config.getTopicToTableMap());
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 
@@ -214,10 +200,7 @@ public class SnowflakeSinkTask extends SinkTask {
     // Initialize and start periodic telemetry reporter for channel status
     this.telemetryReporter =
         new PeriodicTelemetryReporter(
-            conn.getTelemetryClient(),
-            sink::getPartitionChannels,
-            connectorName,
-            this.taskConfigId);
+            conn.getTelemetryClient(), sink::getPartitionChannels, config);
     this.telemetryReporter.start();
 
     DYNAMIC_LOGGER.info(

@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -33,9 +34,13 @@ public final class PeriodicTelemetryReporter {
   public PeriodicTelemetryReporter(
       SnowflakeTelemetryService telemetryService,
       Supplier<Map<String, TopicPartitionChannel>> channelsSupplier,
-      String connectorName,
-      String taskId) {
-    this(telemetryService, channelsSupplier, connectorName, taskId, DEFAULT_REPORT_INTERVAL_MS);
+      SinkTaskConfig taskConfig) {
+    this(
+        telemetryService,
+        channelsSupplier,
+        taskConfig.getConnectorName(),
+        taskConfig.getTaskId(),
+        DEFAULT_REPORT_INTERVAL_MS);
   }
 
   @VisibleForTesting
