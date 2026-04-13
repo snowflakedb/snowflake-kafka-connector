@@ -282,7 +282,7 @@ class SnowflakeSinkServiceV2Test {
   // --- backpressure handling ---
 
   @Test
-  void insertRewindsOnlyBackpressuredPartition() {
+  void insertSkipsAllPartitionsAfterBackpressure() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);
 
@@ -302,17 +302,17 @@ class SnowflakeSinkServiceV2Test {
     List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
     service.insert(records);
 
-    // channel0 threw, but channel1 is still attempted (per-partition backpressure)
+    // channel0 threw; channel1 is skipped because backpressure stops all partitions
     verify(channel0).insertRecord(records.get(0), true);
-    verify(channel1).insertRecord(records.get(1), true);
+    verify(channel1, never()).insertRecord(any(), anyBoolean());
 
-    // Only the backpressured partition is rewound; channel1 succeeded
+    // Both partitions rewound
     verify(mockSinkTaskContext).offset(tp0, 100L);
-    verify(mockSinkTaskContext, never()).offset(tp1, 200L);
+    verify(mockSinkTaskContext).offset(tp1, 200L);
   }
 
   @Test
-  void insertSkipsRemainingRecordsForBackpressuredPartitionOnly() {
+  void insertSkipsRemainingRecordsForAllPartitionsAfterBackpressure() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);
 
@@ -327,20 +327,19 @@ class SnowflakeSinkServiceV2Test {
         .when(channel1)
         .insertRecord(any(), anyBoolean());
 
-    // Interleaved: p0 records after p1's backpressure are still processed
+    // p0's first record succeeds, p1 throws, p0's second record is skipped
     List<SinkRecord> records =
         Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200), recordFor(TOPIC, 0, 101));
     service.insert(records);
 
-    // channel0 both records processed, channel1 threw on first
+    // channel0 first record processed, channel1 threw, channel0 second record skipped
     verify(channel0).insertRecord(records.get(0), true);
     verify(channel1).insertRecord(records.get(1), true);
-    verify(channel0).insertRecord(records.get(2), false);
+    verify(channel0, never()).insertRecord(records.get(2), false);
 
-    // Only p1 rewound; p0 fully processed
+    // p1 rewound to the backpressured record; p0 rewound to the first skipped record
     verify(mockSinkTaskContext).offset(tp1, 200L);
-    verify(mockSinkTaskContext, never()).offset(tp0, 100L);
-    verify(mockSinkTaskContext, never()).offset(tp0, 101L);
+    verify(mockSinkTaskContext).offset(tp0, 101L);
   }
 
   @Test
@@ -435,6 +434,65 @@ class SnowflakeSinkServiceV2Test {
     verify(mockSinkTaskContext, never()).offset(any(TopicPartition.class), any(Long.class));
   }
 
+  // --- recovery skip logic ---
+
+  @Test
+  void insertSkipsRemainingRecordsForPartitionAfterRecovery() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    TopicPartitionChannel channel1 = mockChannel("ch_1", false);
+
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
+
+    // channel0 signals recovery on its first record
+    when(channel0.insertRecord(any(), anyBoolean())).thenReturn(false);
+
+    List<SinkRecord> records =
+        Arrays.asList(
+            recordFor(TOPIC, 0, 100),
+            recordFor(TOPIC, 1, 200),
+            recordFor(TOPIC, 0, 101),
+            recordFor(TOPIC, 0, 102));
+    service.insert(records);
+
+    // channel0: only the first record was attempted; 101 and 102 were skipped
+    verify(channel0).insertRecord(records.get(0), true);
+    verify(channel0, never()).insertRecord(records.get(2), false);
+    verify(channel0, never()).insertRecord(records.get(3), false);
+
+    // channel1: processed normally
+    verify(channel1).insertRecord(records.get(1), true);
+
+    // Only the recovering partition is rewound, to the triggering record's offset
+    verify(mockSinkTaskContext).offset(tp0, 100L);
+    verify(mockSinkTaskContext, never()).offset(tp1, 200L);
+  }
+
+  @Test
+  void insertRewindsToFirstSkippedOffsetAfterRecoveryMidPartition() {
+    TopicPartition tp = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp)).thenReturn(Optional.of(channel));
+
+    // First record succeeds, second triggers recovery
+    when(channel.insertRecord(any(), anyBoolean())).thenReturn(true).thenReturn(false);
+
+    List<SinkRecord> records =
+        Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 0, 101), recordFor(TOPIC, 0, 102));
+    service.insert(records);
+
+    // First two records attempted, third skipped
+    verify(channel).insertRecord(records.get(0), true);
+    verify(channel).insertRecord(records.get(1), false);
+    verify(channel, never()).insertRecord(records.get(2), false);
+
+    // Rewind to the record that triggered recovery
+    verify(mockSinkTaskContext).offset(tp, 101L);
+  }
+
   // --- helpers ---
 
   private SnowflakeSinkServiceV2 buildService(
@@ -471,6 +529,7 @@ class SnowflakeSinkServiceV2Test {
     when(channel.getChannelName()).thenReturn(channelName);
     when(channel.isInitializing()).thenReturn(initializing);
     when(channel.isChannelClosed()).thenReturn(false);
+    when(channel.insertRecord(any(), anyBoolean())).thenReturn(true);
     return channel;
   }
 
