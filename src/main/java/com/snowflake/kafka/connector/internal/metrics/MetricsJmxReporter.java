@@ -103,6 +103,14 @@ public class MetricsJmxReporter {
   }
 
   /**
+   * Remove a single metric by its exact registered name. O(1) lookup vs the O(N) scan of {@link
+   * #removeMetricsFromRegistry}.
+   */
+  public boolean removeMetric(final String exactName) {
+    return metricRegistry.remove(exactName);
+  }
+
+  /**
    * Create JMXReporter Instance, which internally handles the mbean server fetching and
    * registration of Mbeans. We use codehale metrics library to achieve this. More details
    * here: @see <a href="https://metrics.dropwizard.io/4.2.0/getting-started.html">DropWizard</a>

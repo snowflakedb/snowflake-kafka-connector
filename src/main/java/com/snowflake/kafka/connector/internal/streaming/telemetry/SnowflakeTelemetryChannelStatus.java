@@ -18,7 +18,6 @@
 package com.snowflake.kafka.connector.internal.streaming.telemetry;
 
 import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.channelMetricName;
-import static com.snowflake.kafka.connector.internal.metrics.MetricsUtil.channelMetricPrefix;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
 import com.codahale.metrics.Gauge;
@@ -89,6 +88,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private final AtomicLong backpressureRetryCount = new AtomicLong(0);
   private final AtomicLong appendRowFallbackCount = new AtomicLong(0);
   private final AtomicLong schemaEvolutionFailureCount = new AtomicLong(0);
+
+  private volatile String[] registeredMetricNames;
 
   /**
    * Creates a new object tracking {@link
@@ -168,52 +169,59 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   }
 
   private void registerChannelJMXMetrics(MetricsJmxReporter reporter) {
-    LOGGER.debug(
-        "Registering new metrics for channel:{}, removing existing metrics:{}",
-        this.channelName,
-        reporter.getMetricRegistry().getMetrics().keySet().toString());
-    reporter.removeMetricsFromRegistry(channelMetricPrefix(this.channelName));
-
     MetricRegistry currentMetricRegistry = reporter.getMetricRegistry();
 
-    try {
-      currentMetricRegistry.register(
+    registeredMetricNames =
+        new String[] {
           channelMetricName(
               this.channelName,
               MetricsUtil.OFFSET_SUB_DOMAIN,
               MetricsUtil.OFFSET_PERSISTED_IN_SNOWFLAKE),
-          (Gauge<Long>) this.offsetPersistedInSnowflake::get);
-
-      currentMetricRegistry.register(
           channelMetricName(
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.PROCESSED_OFFSET),
-          (Gauge<Long>) this.processedOffset::get);
-
-      currentMetricRegistry.register(
           channelMetricName(
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
-          (Gauge<Long>) this.latestConsumerOffset::get);
-
-      currentMetricRegistry.register(
           channelMetricName(
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, CHANNEL_RECOVERY_COUNT),
-          (Gauge<Long>) this.recoveryCount::get);
-    } catch (IllegalArgumentException ex) {
-      LOGGER.warn("Metrics already present:{}", ex.getMessage());
+        };
+
+    @SuppressWarnings("unchecked")
+    Gauge<Long>[] gauges =
+        new Gauge[] {
+          (Gauge<Long>) this.offsetPersistedInSnowflake::get,
+          (Gauge<Long>) this.processedOffset::get,
+          (Gauge<Long>) this.latestConsumerOffset::get,
+          (Gauge<Long>) this.recoveryCount::get,
+        };
+
+    for (int i = 0; i < registeredMetricNames.length; i++) {
+      try {
+        currentMetricRegistry.register(registeredMetricNames[i], gauges[i]);
+      } catch (IllegalArgumentException ex) {
+        // Safe: channel registration is serialized per task within open()
+        LOGGER.warn(
+            "Metric already present for channel {}, replacing: {}",
+            this.channelName,
+            registeredMetricNames[i]);
+        reporter.removeMetric(registeredMetricNames[i]);
+        currentMetricRegistry.register(registeredMetricNames[i], gauges[i]);
+      }
     }
 
-    reporter.start();
+    // JmxReporter is started once at task level (SnowflakeSinkTaskMetrics constructor).
+    // Its MetricRegistryListener auto-registers new MBeans as metrics are added.
+    // Calling start() per-channel would re-process ALL metrics: O(N) unregister + register.
   }
 
   /** Unregisters the JMX metrics if possible */
   public void tryUnregisterChannelJMXMetrics() {
     metricsJmxReporter.ifPresent(
         reporter -> {
-          LOGGER.debug(
-              "Removing metrics for channel:{}, existing metrics:{}",
-              this.channelName,
-              reporter.getMetricRegistry().getMetrics().keySet().toString());
-          reporter.removeMetricsFromRegistry(channelMetricPrefix(this.channelName));
+          if (registeredMetricNames != null) {
+            for (String name : registeredMetricNames) {
+              reporter.removeMetric(name);
+            }
+          }
         });
   }
 
