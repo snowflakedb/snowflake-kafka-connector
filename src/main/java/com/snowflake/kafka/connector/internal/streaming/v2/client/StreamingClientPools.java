@@ -105,6 +105,31 @@ public class StreamingClientPools {
   }
 
   /**
+   * Atomically replaces the client for a pipe if the current client matches the given invalid
+   * client. Uses compare-and-swap semantics: if another caller already replaced the entry, the
+   * existing new client is returned without creating a second one.
+   *
+   * @param connectorName the connector name
+   * @param pipeName the pipe whose client should be replaced
+   * @param invalidClient the client instance the caller believes is invalid (identity check)
+   * @param config task config for creating the replacement client
+   * @param streamingClientProperties streaming client properties
+   * @param taskMetrics metrics for timing the new client creation
+   * @return the new (or already-replaced) client
+   */
+  public static SnowflakeStreamingIngestClient recreateClient(
+      final String connectorName,
+      final String pipeName,
+      final SnowflakeStreamingIngestClient invalidClient,
+      final SinkTaskConfig config,
+      final StreamingClientProperties streamingClientProperties,
+      final TaskMetrics taskMetrics) {
+
+    return getPool(connectorName)
+        .recreateClient(pipeName, invalidClient, config, streamingClientProperties, taskMetrics);
+  }
+
+  /**
    * Releases all clients used by a specific task. Clients that are still used by other tasks remain
    * open. Only closes clients when the last task using them stops. When the pool becomes empty (no
    * remaining clients or tasks), the pool is removed from the registry.
