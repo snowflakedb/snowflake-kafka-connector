@@ -19,6 +19,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
+import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
@@ -32,6 +33,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
@@ -348,6 +350,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
+    Set<String> invalidatedPipes = new HashSet<>();
     boolean newBackpressure = false;
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
@@ -362,9 +365,31 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         // records in this partition.
         continue;
       }
+
+      // Skip other partitions on a pipe that was invalidated earlier in THIS batch.
+      // Do NOT add to offsetsOfFirstSkippedRecord: the async reopen's
+      // `resetAfterRecovery` issues the authoritative Kafka seek; a batch-loop rewind would
+      // race with that and could override it, causing silent loss.
+      // Across batches, partitions on a still-recovering pipe will hit appendRow, see the
+      // invalid client, and each trigger their own recreate. The CAS in StreamingClientPool
+      // deduplicates to a single fresh client, so the redundant calls are tolerable.
+      if (isPartitionOnInvalidatedPipe(tp, invalidatedPipes)) {
+        continue;
+      }
+
       if (skipAllPartitions || initializingPartitions.contains(tp)) {
-        // Make sure we store the first record in each partition that we skipped so we can correctly
-        // rewind the offset.
+        // If the channel has an active recovery floor, the reset-after-recovery's seek to
+        // (committedOffset + 1) is the authoritative Kafka position — a batch-loop rewind
+        // to `record.kafkaOffset()` would override it and cause data loss. Skip without
+        // rewinding in that case.
+        if (channelManager
+            .getChannel(tp)
+            .map(TopicPartitionChannel::hasActiveRecoveryFloor)
+            .orElse(false)) {
+          continue;
+        }
+        // Normal initializing case (cold start). Rewinding to the record's offset is safe
+        // because no SDK buffer has seen these records.
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
         continue;
       }
@@ -383,6 +408,26 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
         skipAllPartitions = true;
         newBackpressure = true;
+      } catch (ClientRecreationException e) {
+        taskMetrics.incClientRecreationSkipCount();
+        LOGGER.warn(
+            "Client recreated for partition {}. Skipping remaining records for all partitions"
+                + " on the same pipe. Exception: {}",
+            tp,
+            e.getMessage());
+        // Track the pipe so we skip other partitions on the same pipe in THIS batch.
+        channelManager
+            .getChannel(tp)
+            .ifPresent(channel -> invalidatedPipes.add(channel.getPipeName()));
+        // Do NOT call `sinkTaskContext::offset` here. The current record's offset is
+        // unreliable as a rewind target: the SDK's appendRow is buffered, so records
+        // earlier than this one may have been batched into a flush that got the 410.
+        // Rewinding to `record.kafkaOffset()` would silently drop those earlier records.
+        // Instead, let `SnowpipeStreamingPartitionChannel.recreateClientAndReopenChannel ->
+        // reopenChannel -> PartitionOffsetTracker.resetAfterRecovery` set the correct
+        // Kafka offset (Snowflake's latest committed offset + 1) after the async reopen
+        // completes. Until then, subsequent `put()` calls on this pipe will keep hitting
+        // ClientRecreationException and skip cleanly via `isPartitionOnInvalidatedPipe`.
       }
     }
 
@@ -390,6 +435,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       backpressureUntil = Instant.now().plus(BACKPRESSURE_COOLDOWN);
       LOGGER.info("Backpressure cooldown set until {}", backpressureUntil);
     }
+
+    // Drop any pending rewinds for partitions whose channel now has an active recovery floor —
+    // the async reopen's `resetAfterRecovery` has already issued the authoritative Kafka seek,
+    // and we must not override it with a batch-loop rewind to a higher offset.
+    offsetsOfFirstSkippedRecord
+        .keySet()
+        .removeIf(
+            tp ->
+                channelManager
+                    .getChannel(tp)
+                    .map(TopicPartitionChannel::hasActiveRecoveryFloor)
+                    .orElse(false));
 
     if (!offsetsOfFirstSkippedRecord.isEmpty()) {
       LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsOfFirstSkippedRecord);
@@ -407,12 +464,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     TopicPartition topicPartition = new TopicPartition(record.topic(), record.kafkaPartition());
 
-    // Initialize a new topic partition if it's not in the cache or if the channel is closed.
-    if (channelManager
-        .getChannel(topicPartition)
-        .map(TopicPartitionChannel::isChannelClosed)
-        .orElse(true)) {
-      LOGGER.warn("Streaming channel doesn't exist or is closed for {}", topicPartition);
+    // Initialize a new topic partition if it's not in the cache, or if the channel has
+    // reached a fully-closed terminal state (not mid-recovery). During recovery the channel's
+    // future is still "initializing" — we must NOT rebuild, because a rebuild creates a fresh
+    // `PartitionOffsetTracker` that loses the in-flight recovery's offset state and can let
+    // pre-fetched records advance `processedOffset` past the rewind point, silently losing
+    // the records that Kafka is about to redeliver. The batch loop's `currentlyInitializing`
+    // check handles skipping initializing partitions cleanly at the batch level.
+    Optional<TopicPartitionChannel> existing = channelManager.getChannel(topicPartition);
+    if (existing.isEmpty()) {
+      LOGGER.warn("Streaming channel doesn't exist for {}, creating one", topicPartition);
+      startPartition(topicPartition);
+    } else if (!existing.get().isInitializing() && existing.get().isChannelClosed()) {
+      LOGGER.warn("Streaming channel is closed for {}, recreating", topicPartition);
       startPartition(topicPartition);
     }
 
@@ -426,6 +490,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channel.getChannelName());
     return channel.insertRecord(record, isFirstRowPerPartitionInBatch);
+  }
+
+  private boolean isPartitionOnInvalidatedPipe(
+      TopicPartition topicPartition, Set<String> invalidatedPipes) {
+    if (invalidatedPipes.isEmpty()) {
+      return false;
+    }
+    return channelManager
+        .getChannel(topicPartition)
+        .map(channel -> invalidatedPipes.contains(channel.getPipeName()))
+        .orElse(false);
   }
 
   private boolean shouldSkipNullValue(SinkRecord record) {

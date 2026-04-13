@@ -58,6 +58,9 @@ enum NoopTaskMetrics implements TaskMetrics {
   public void incBackpressureRewindCount() {}
 
   @Override
+  public void incClientRecreationSkipCount() {}
+
+  @Override
   public void markPutRecords(long count) {}
 
   @Override

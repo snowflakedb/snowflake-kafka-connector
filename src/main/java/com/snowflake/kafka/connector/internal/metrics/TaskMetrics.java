@@ -39,6 +39,8 @@ public interface TaskMetrics {
 
   void incBackpressureRewindCount();
 
+  void incClientRecreationSkipCount();
+
   // ---- throughput ----
 
   void markPutRecords(long count);
