@@ -85,9 +85,11 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private volatile String lastErrorTimestamp;
   private volatile String lastErrorOffsetTokenUpperBound;
 
-  // Counts of SDK backpressure retries and channel-reopen fallbacks during appendRow.
+  // Counts of SDK backpressure retries, channel-reopen fallbacks, and client recreations during
+  // appendRow.
   private final AtomicLong backpressureRetryCount = new AtomicLong(0);
   private final AtomicLong appendRowFallbackCount = new AtomicLong(0);
+  private final AtomicLong clientRecreationCount = new AtomicLong(0);
   private final AtomicLong schemaEvolutionFailureCount = new AtomicLong(0);
 
   /**
@@ -163,6 +165,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
         this.lastErrorOffsetTokenUpperBound);
     msg.put(TelemetryConstants.BACKPRESSURE_RETRY_COUNT, this.backpressureRetryCount.get());
     msg.put(TelemetryConstants.APPEND_ROW_FALLBACK_COUNT, this.appendRowFallbackCount.get());
+    msg.put(TelemetryConstants.CLIENT_RECREATION_COUNT, this.clientRecreationCount.get());
     msg.put(
         TelemetryConstants.SCHEMA_EVOLUTION_FAILURE_COUNT, this.schemaEvolutionFailureCount.get());
   }
@@ -245,6 +248,11 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Increments the append-row fallback counter. Thread-safe. */
   public void incAppendRowFallbackCount() {
     this.appendRowFallbackCount.incrementAndGet();
+  }
+
+  /** Increments the client recreation counter. Thread-safe. */
+  public void incClientRecreationCount() {
+    this.clientRecreationCount.incrementAndGet();
   }
 
   /** Increments the schema evolution failure counter. Thread-safe. */

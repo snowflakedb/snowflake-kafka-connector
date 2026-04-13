@@ -86,7 +86,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final String pipeName;
 
-  private final SnowflakeStreamingIngestClient streamingClient;
+  private volatile SnowflakeStreamingIngestClient streamingClient;
+  private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
   private final StreamingErrorHandler streamingErrorHandler;
@@ -107,6 +108,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String channelName,
       String pipeName,
       SnowflakeStreamingIngestClient streamingClient,
+      ClientRecreator clientRecreator,
       ExecutorService openChannelIoExecutor,
       SnowflakeTelemetryService telemetryService,
       SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
@@ -122,6 +124,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
+    this.clientRecreator = clientRecreator;
     this.openChannelIoExecutor = openChannelIoExecutor;
     this.metadataConfig = metadataConfig;
     this.enableSchematization = enableSchematization;
@@ -243,7 +246,21 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.channelName);
 
-          streamingClient.initiateFlush();
+          try {
+            streamingClient.initiateFlush();
+          } catch (SFException e) {
+            if (ClientRecreationException.isClientInvalidError(e)) {
+              // Client is invalid — uncommitted data is lost per SSv2 epoch semantics.
+              // Log and skip; the next put() cycle will trigger client recreation.
+              LOGGER.warn(
+                  "Skipping flush for channel {}: client is invalid ({}). "
+                      + "Uncommitted data will be replayed after client recreation.",
+                  this.channelName,
+                  e.getErrorCodeName());
+              return;
+            }
+            throw e;
+          }
 
           final long targetOffset = offsetTracker.getLastAppendRowsOffset();
           WaitForLastOffsetCommittedPolicy.getPolicy(
@@ -272,37 +289,66 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   /**
    * @return true if the record was inserted successfully, false if the fallback fired (record was
    *     NOT inserted)
+   * @throws ClientRecreationException if the SDK client is invalid and was recreated. The record
+   *     was NOT inserted; the caller must rewind offsets for all partitions on this pipe.
    */
   private boolean insertRowWithFallback(Map<String, Object> row, long offset) {
-    return AppendRowWithFallbackPolicy.executeWithFallback(
-        () -> {
-          LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
-          getChannel().appendRow(row, Long.toString(offset));
-          offsetTracker.recordAppended(offset);
-          consecutiveRecoveryCount = 0;
-        },
-        (Throwable ex) -> {
-          consecutiveRecoveryCount++;
-          if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
-            LOGGER.error(
-                "Channel {} exceeded max consecutive recoveries ({}), giving up",
+    try {
+      return AppendRowWithFallbackPolicy.executeWithFallback(
+          () -> {
+            LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
+            getChannel().appendRow(row, Long.toString(offset));
+            offsetTracker.recordAppended(offset);
+            consecutiveRecoveryCount = 0;
+          },
+          (Throwable ex) -> {
+            if (ClientRecreationException.isClientInvalidError(ex)) {
+              recreateClientAndReopenChannel((SFException) ex);
+              // Re-throw so the batch loop skips remaining partitions on this pipe.
+              throw new ClientRecreationException((SFException) ex);
+            }
+
+            consecutiveRecoveryCount++;
+            if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
+              LOGGER.error(
+                  "Channel {} exceeded max consecutive recoveries ({}), giving up",
+                  this.channelName,
+                  MAX_CONSECUTIVE_RECOVERIES);
+              throw new TopicPartitionChannelInsertionException(
+                  String.format(
+                      "Channel %s failed after %d consecutive recovery attempts",
+                      this.channelName, MAX_CONSECUTIVE_RECOVERIES),
+                  ex);
+            }
+            LOGGER.warn(
+                "Channel {} recovery attempt {}/{}",
                 this.channelName,
+                consecutiveRecoveryCount,
                 MAX_CONSECUTIVE_RECOVERIES);
-            throw new TopicPartitionChannelInsertionException(
-                String.format(
-                    "Channel %s failed after %d consecutive recovery attempts",
-                    this.channelName, MAX_CONSECUTIVE_RECOVERIES),
-                ex);
-          }
-          LOGGER.warn(
-              "Channel {} recovery attempt {}/{}",
-              this.channelName,
-              consecutiveRecoveryCount,
-              MAX_CONSECUTIVE_RECOVERIES);
-          reopenChannel("APPEND_ROW_FALLBACK");
-          snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
-        },
-        this.channelName);
+            reopenChannel("APPEND_ROW_FALLBACK");
+            snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
+          },
+          this.channelName);
+    } catch (ClientRecreationException e) {
+      snowflakeTelemetryChannelStatus.incClientRecreationCount();
+      throw e;
+    }
+  }
+
+  /**
+   * Replaces the invalid SDK client with a new one from the pool and reopens the channel. The
+   * pool's CAS ensures only one new client is created even if multiple channels call this
+   * concurrently.
+   */
+  private void recreateClientAndReopenChannel(SFException cause) {
+    LOGGER.warn(
+        "Client invalid for channel {} ({}), recreating client and reopening channel",
+        this.channelName,
+        cause.getErrorCodeName());
+
+    this.streamingClient = clientRecreator.recreate(this.streamingClient);
+    consecutiveRecoveryCount = 0;
+    reopenChannel("CLIENT_RECREATION");
   }
 
   private static void closeChannelWithoutFlushing(SnowflakeStreamingIngestChannel channel) {

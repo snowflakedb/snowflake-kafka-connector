@@ -8,8 +8,10 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingClientPropertie
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Manages clients for a single connector. Tracks which tasks use which pipes and only closes
@@ -75,6 +77,11 @@ public class StreamingClientPool {
 
     int taskCount() {
       return taskIds.size();
+    }
+
+    /** Copies all task registrations from another entry into this one. */
+    void copyTasksFrom(RefCountedClient other) {
+      taskIds.addAll(other.taskIds);
     }
 
     void close(String pipeName, String connectorName) {
@@ -158,6 +165,128 @@ public class StreamingClientPool {
             }
             return entry;
           });
+    }
+  }
+
+  /**
+   * Atomically replaces the client for a pipe if the current client matches the given invalid
+   * client. Uses compare-and-swap semantics: if another caller already replaced the entry, the
+   * existing new client is returned without creating a second one.
+   *
+   * @param pipeName the pipe whose client should be replaced
+   * @param invalidClient the client instance that the caller believes is invalid (identity check)
+   * @param config task config for creating the replacement client
+   * @param streamingClientProperties streaming client properties
+   * @param taskMetrics metrics for timing the new client creation
+   * @return the new (or already-replaced) client
+   */
+  SnowflakeStreamingIngestClient recreateClient(
+      final String pipeName,
+      final SnowflakeStreamingIngestClient invalidClient,
+      final SinkTaskConfig config,
+      final StreamingClientProperties streamingClientProperties,
+      final TaskMetrics taskMetrics) {
+
+    // AtomicReference to capture the entry chosen inside the atomic compute() block.
+    // The actual .join() happens outside the lock to avoid blocking other pipes.
+    AtomicReference<RefCountedClient> chosenEntry = new AtomicReference<>();
+
+    pipes.compute(
+        pipeName,
+        (key, current) -> {
+          if (current == null) {
+            LOGGER.warn(
+                "recreateClient called for pipe {} but no entry exists in connector {}."
+                    + " Creating a fresh entry.",
+                pipeName,
+                connectorName);
+            RefCountedClient fresh =
+                new RefCountedClient(
+                    pipeName,
+                    connectorName,
+                    config,
+                    streamingClientProperties,
+                    taskMetrics,
+                    ioExecutor);
+            chosenEntry.set(fresh);
+            return fresh;
+          }
+
+          // Check if the current entry still holds the invalid client (CAS guard).
+          // If someone already replaced it, return the current (new) entry as-is.
+          SnowflakeStreamingIngestClient currentClient;
+          try {
+            currentClient = current.clientFuture.join();
+          } catch (CompletionException e) {
+            // Current entry failed to create — replace it unconditionally.
+            LOGGER.warn(
+                "recreateClient for pipe {}: current entry has a failed client future,"
+                    + " replacing unconditionally",
+                pipeName);
+            RefCountedClient replacement =
+                new RefCountedClient(
+                    pipeName,
+                    connectorName,
+                    config,
+                    streamingClientProperties,
+                    taskMetrics,
+                    ioExecutor);
+            replacement.copyTasksFrom(current);
+            chosenEntry.set(replacement);
+            return replacement;
+          }
+
+          if (currentClient != invalidClient) {
+            LOGGER.info(
+                "recreateClient for pipe {} in connector {}: client already replaced"
+                    + " by another caller, reusing existing entry",
+                pipeName,
+                connectorName);
+            chosenEntry.set(current);
+            return current;
+          }
+
+          // CAS matches — replace with a new entry, preserving task registrations.
+          LOGGER.info(
+              "Recreating streaming client for pipe {} in connector {}."
+                  + " Old client will be closed best-effort.",
+              pipeName,
+              connectorName);
+
+          RefCountedClient replacement =
+              new RefCountedClient(
+                  pipeName,
+                  connectorName,
+                  config,
+                  streamingClientProperties,
+                  taskMetrics,
+                  ioExecutor);
+          replacement.copyTasksFrom(current);
+
+          // Best-effort close of the old (invalid) client for resource cleanup.
+          try {
+            currentClient.close();
+          } catch (Exception e) {
+            LOGGER.warn(
+                "Best-effort close of invalid client for pipe {} failed: {}",
+                pipeName,
+                e.getMessage());
+          }
+
+          chosenEntry.set(replacement);
+          return replacement;
+        });
+
+    try {
+      return chosenEntry.get().clientFuture.join();
+    } catch (CompletionException e) {
+      // If the new client also fails to create, evict the failed entry so the next caller retries.
+      RefCountedClient failedEntry = chosenEntry.get();
+      pipes.compute(pipeName, (key, current) -> current == failedEntry ? null : current);
+      if (e.getCause() instanceof RuntimeException) {
+        throw (RuntimeException) e.getCause();
+      }
+      throw e;
     }
   }
 

@@ -355,6 +355,166 @@ class StreamingClientPoolTest {
     }
 
     @Test
+    void recreateClient_replaces_entry_and_preserves_tasks() {
+      SnowflakeStreamingIngestClient oldClient = mock(SnowflakeStreamingIngestClient.class);
+      SnowflakeStreamingIngestClient newClient = mock(SnowflakeStreamingIngestClient.class);
+      AtomicInteger callCount = new AtomicInteger();
+
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, config, props) -> {
+            return callCount.incrementAndGet() == 1 ? oldClient : newClient;
+          });
+
+      // Two tasks share the same pipe
+      getClient("task-0", "pipe-A");
+      getClient("task-1", "pipe-A");
+      assertThat(pool.getClientCountForTask("task-0")).isEqualTo(1);
+      assertThat(pool.getClientCountForTask("task-1")).isEqualTo(1);
+
+      // Recreate the client
+      SnowflakeStreamingIngestClient result =
+          pool.recreateClient(
+              "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+
+      assertThat(result).isSameAs(newClient);
+      // Both tasks should still be registered
+      assertThat(pool.getClientCountForTask("task-0")).isEqualTo(1);
+      assertThat(pool.getClientCountForTask("task-1")).isEqualTo(1);
+      assertThat(callCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    void recreateClient_closes_old_client() {
+      SnowflakeStreamingIngestClient oldClient = mock(SnowflakeStreamingIngestClient.class);
+      SnowflakeStreamingIngestClient newClient = mock(SnowflakeStreamingIngestClient.class);
+      AtomicInteger callCount = new AtomicInteger();
+
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, config, props) -> {
+            return callCount.incrementAndGet() == 1 ? oldClient : newClient;
+          });
+
+      getClient("task-0", "pipe-A");
+
+      pool.recreateClient(
+          "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+
+      verify(oldClient).close();
+    }
+
+    @Test
+    void recreateClient_noop_if_client_already_replaced() {
+      SnowflakeStreamingIngestClient oldClient = mock(SnowflakeStreamingIngestClient.class);
+      SnowflakeStreamingIngestClient newClient = mock(SnowflakeStreamingIngestClient.class);
+      AtomicInteger callCount = new AtomicInteger();
+
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, config, props) -> {
+            return callCount.incrementAndGet() == 1 ? oldClient : newClient;
+          });
+
+      getClient("task-0", "pipe-A");
+
+      // First recreation succeeds
+      SnowflakeStreamingIngestClient firstResult =
+          pool.recreateClient(
+              "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+      assertThat(firstResult).isSameAs(newClient);
+
+      // Second recreation with the OLD client reference should be a no-op
+      SnowflakeStreamingIngestClient secondResult =
+          pool.recreateClient(
+              "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+      assertThat(secondResult).isSameAs(newClient);
+
+      // Supplier should only have been called twice (original + one recreation)
+      assertThat(callCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    void recreateClient_then_getClient_returns_new_client() {
+      SnowflakeStreamingIngestClient oldClient = mock(SnowflakeStreamingIngestClient.class);
+      SnowflakeStreamingIngestClient newClient = mock(SnowflakeStreamingIngestClient.class);
+      AtomicInteger callCount = new AtomicInteger();
+
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, config, props) -> {
+            return callCount.incrementAndGet() == 1 ? oldClient : newClient;
+          });
+
+      getClient("task-0", "pipe-A");
+
+      pool.recreateClient(
+          "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+
+      // A subsequent getClient should return the new client (not create a third one)
+      SnowflakeStreamingIngestClient result = getClient("task-0", "pipe-A");
+      assertThat(result).isSameAs(newClient);
+      assertThat(callCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    void recreateClient_concurrent_callers_only_creates_once() throws Exception {
+      SnowflakeStreamingIngestClient oldClient = mock(SnowflakeStreamingIngestClient.class);
+      AtomicInteger supplierCallCount = new AtomicInteger();
+      CountDownLatch supplierStarted = new CountDownLatch(1);
+      CountDownLatch supplierProceed = new CountDownLatch(1);
+
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, config, props) -> {
+            int count = supplierCallCount.incrementAndGet();
+            if (count == 1) {
+              // First call returns oldClient immediately
+              return oldClient;
+            }
+            // Second call (recreation) blocks until signaled
+            supplierStarted.countDown();
+            try {
+              supplierProceed.await();
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              throw new RuntimeException(e);
+            }
+            return mock(SnowflakeStreamingIngestClient.class);
+          });
+
+      getClient("task-0", "pipe-A");
+      getClient("task-1", "pipe-A");
+
+      // Launch two concurrent recreateClient calls
+      CompletableFuture<SnowflakeStreamingIngestClient> future1 =
+          CompletableFuture.supplyAsync(
+              () ->
+                  pool.recreateClient(
+                      "pipe-A",
+                      oldClient,
+                      connectorConfig,
+                      streamingClientProperties,
+                      TaskMetrics.noop()));
+      CompletableFuture<SnowflakeStreamingIngestClient> future2 =
+          CompletableFuture.supplyAsync(
+              () ->
+                  pool.recreateClient(
+                      "pipe-A",
+                      oldClient,
+                      connectorConfig,
+                      streamingClientProperties,
+                      TaskMetrics.noop()));
+
+      // Wait for the supplier to start (only one should start)
+      supplierStarted.await();
+      supplierProceed.countDown();
+
+      SnowflakeStreamingIngestClient result1 = future1.join();
+      SnowflakeStreamingIngestClient result2 = future2.join();
+
+      // Both callers should get the same new client
+      assertThat(result1).isSameAs(result2);
+      // Supplier should have been called exactly twice (original + one recreation)
+      assertThat(supplierCallCount.get()).isEqualTo(2);
+    }
+
+    @Test
     void getClient_parallel_for_different_pipes_creates_concurrently() throws Exception {
       CountDownLatch bothStarted = new CountDownLatch(2);
       CountDownLatch proceed = new CountDownLatch(1);

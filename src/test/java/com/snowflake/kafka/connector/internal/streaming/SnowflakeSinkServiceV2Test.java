@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
+import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationException;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
@@ -493,6 +494,81 @@ class SnowflakeSinkServiceV2Test {
     verify(mockSinkTaskContext).offset(tp, 101L);
   }
 
+  // --- client recreation handling ---
+
+  @Test
+  void insertRewindsAllPartitionsOnSamePipeAfterClientRecreation() {
+    String pipeName = "shared-pipe";
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    TopicPartition tp2 = new TopicPartition(TOPIC, 2);
+
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false, pipeName);
+    TopicPartitionChannel channel1 = mockChannel("ch_1", false, pipeName);
+    TopicPartitionChannel channel2 = mockChannel("ch_2", false, pipeName);
+
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
+    when(mockChannelManager.getChannel(tp2)).thenReturn(Optional.of(channel2));
+
+    // channel0 throws ClientRecreationException
+    doThrow(
+            new ClientRecreationException(
+                new SFException("InvalidClientError", "client invalid", 0, "")))
+        .when(channel0)
+        .insertRecord(any(), anyBoolean());
+
+    // Records: p0, p1, p2
+    List<SinkRecord> records =
+        Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200), recordFor(TOPIC, 2, 300));
+    service.insert(records);
+
+    // channel0 was attempted and threw
+    verify(channel0).insertRecord(records.get(0), true);
+    // channel1 and channel2 should be skipped (same pipe)
+    verify(channel1, never()).insertRecord(any(), anyBoolean());
+    verify(channel2, never()).insertRecord(any(), anyBoolean());
+
+    // All three partitions are rewound
+    verify(mockSinkTaskContext).offset(tp0, 100L);
+    verify(mockSinkTaskContext).offset(tp1, 200L);
+    verify(mockSinkTaskContext).offset(tp2, 300L);
+  }
+
+  @Test
+  void insertOnlyRewindsAffectedPipeAfterClientRecreation() {
+    String pipeA = "pipe-A";
+    String pipeB = "pipe-B";
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition("other_topic", 0);
+
+    TopicPartitionChannel channelOnPipeA = mockChannel("ch_0", false, pipeA);
+    TopicPartitionChannel channelOnPipeB = mockChannel("ch_1", false, pipeB);
+
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channelOnPipeA));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channelOnPipeB));
+
+    // channelOnPipeA throws ClientRecreationException
+    doThrow(
+            new ClientRecreationException(
+                new SFException("InvalidClientError", "client invalid", 0, "")))
+        .when(channelOnPipeA)
+        .insertRecord(any(), anyBoolean());
+
+    List<SinkRecord> records =
+        Arrays.asList(recordFor(TOPIC, 0, 100), recordFor("other_topic", 0, 200));
+    service.insert(records);
+
+    // channelOnPipeA was attempted and threw
+    verify(channelOnPipeA).insertRecord(records.get(0), true);
+    // channelOnPipeB should still be processed (different pipe)
+    verify(channelOnPipeB).insertRecord(records.get(1), true);
+
+    // Only pipeA partition is rewound
+    verify(mockSinkTaskContext).offset(tp0, 100L);
+    verify(mockSinkTaskContext, never()).offset(tp1, 200L);
+  }
+
   // --- helpers ---
 
   private SnowflakeSinkServiceV2 buildService(
@@ -525,8 +601,14 @@ class SnowflakeSinkServiceV2Test {
   }
 
   private static TopicPartitionChannel mockChannel(String channelName, boolean initializing) {
+    return mockChannel(channelName, initializing, "default-pipe");
+  }
+
+  private static TopicPartitionChannel mockChannel(
+      String channelName, boolean initializing, String pipeName) {
     TopicPartitionChannel channel = mock(TopicPartitionChannel.class);
     when(channel.getChannelName()).thenReturn(channelName);
+    when(channel.getPipeName()).thenReturn(pipeName);
     when(channel.isInitializing()).thenReturn(initializing);
     when(channel.isChannelClosed()).thenReturn(false);
     when(channel.insertRecord(any(), anyBoolean())).thenReturn(true);

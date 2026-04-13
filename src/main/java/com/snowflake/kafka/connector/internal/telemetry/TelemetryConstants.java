@@ -40,6 +40,7 @@ public final class TelemetryConstants {
       "last_error_offset_token_upper_bound";
   public static final String BACKPRESSURE_RETRY_COUNT = "backpressure_retry_count";
   public static final String APPEND_ROW_FALLBACK_COUNT = "append_row_fallback_count";
+  public static final String CLIENT_RECREATION_COUNT = "client_recreation_count";
   public static final String SCHEMA_EVOLUTION_FAILURE_COUNT = "schema_evolution_failure_count";
   // ********** ^ Streaming Constants ^ **********//
 }

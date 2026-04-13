@@ -19,6 +19,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
+import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
@@ -364,6 +365,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
+    Set<String> invalidatedPipes = new HashSet<>();
     boolean newBackpressure = false;
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
@@ -385,6 +387,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         continue;
       }
 
+      // Skip partitions whose pipe's client was just invalidated in this batch.
+      if (isPartitionOnInvalidatedPipe(tp, invalidatedPipes)) {
+        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+        continue;
+      }
+
       try {
         if (!insert(record)) {
           offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
@@ -399,6 +407,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
         skipAllPartitions = true;
         newBackpressure = true;
+      } catch (ClientRecreationException e) {
+        LOGGER.warn(
+            "Client recreated for partition {}. Skipping remaining records for all partitions"
+                + " on the same pipe. Exception: {}",
+            tp,
+            e.getMessage());
+        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+        // Track the pipe so we skip other partitions on the same pipe in this batch.
+        channelManager
+            .getChannel(tp)
+            .ifPresent(channel -> invalidatedPipes.add(channel.getPipeName()));
       }
     }
 
@@ -442,6 +461,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channel.getChannelName());
     return channel.insertRecord(record, isFirstRowPerPartitionInBatch);
+  }
+
+  private boolean isPartitionOnInvalidatedPipe(
+      TopicPartition topicPartition, Set<String> invalidatedPipes) {
+    if (invalidatedPipes.isEmpty()) {
+      return false;
+    }
+    return channelManager
+        .getChannel(topicPartition)
+        .map(channel -> invalidatedPipes.contains(channel.getPipeName()))
+        .orElse(false);
   }
 
   private boolean shouldSkipNullValue(SinkRecord record) {

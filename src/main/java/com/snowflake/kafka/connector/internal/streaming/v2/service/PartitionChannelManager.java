@@ -14,6 +14,7 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingClientPropertie
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreator;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
@@ -180,6 +181,16 @@ public class PartitionChannelManager {
     final boolean clientValidationEnabled =
         taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE;
 
+    final ClientRecreator clientRecreator =
+        invalidClient ->
+            StreamingClientPools.recreateClient(
+                connectorName,
+                pipeName,
+                invalidClient,
+                taskConfig,
+                streamingClientProperties,
+                taskMetrics);
+
     final PartitionOffsetTracker offsetTracker =
         new PartitionOffsetTracker(topicPartition, this.sinkTaskContext, channelName);
 
@@ -207,6 +218,7 @@ public class PartitionChannelManager {
         channelName,
         pipeName,
         streamingClient,
+        clientRecreator,
         openChannelIoExecutor,
         this.telemetryService,
         telemetryChannelStatus,

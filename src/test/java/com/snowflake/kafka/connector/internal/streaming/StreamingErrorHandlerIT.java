@@ -302,6 +302,9 @@ class StreamingErrorHandlerIT {
         channelName,
         pipeName,
         new FakeSnowflakeStreamingIngestClient(pipeName, "test_connector"),
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        },
         openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
