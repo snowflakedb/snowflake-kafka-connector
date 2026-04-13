@@ -12,9 +12,18 @@ import java.time.Duration;
  * fallback functionality.
  *
  * <p>This class provides a clean interface to execute append row operations with automatic channel
- * recovery on non-retryable {@link SFException}. For retryable backpressure errors, it throws
- * {@link BackpressureException} to signal the batch-level insert loop to abandon the batch and
- * rewind offsets.
+ * recovery on non-retryable {@link SFException}. The fallback supplier determines the recovery
+ * strategy:
+ *
+ * <ul>
+ *   <li>Retryable backpressure errors throw {@link BackpressureException}
+ *   <li>Client-invalid errors trigger client recreation via the fallback, which throws {@link
+ *       ClientRecreationException}
+ *   <li>Other errors trigger channel-level recovery (reopen channel)
+ * </ul>
+ *
+ * Both {@link BackpressureException} and {@link ClientRecreationException} propagate out of
+ * Failsafe to signal the batch-level insert loop.
  */
 class AppendRowWithFallbackPolicy {
 
@@ -46,6 +55,9 @@ class AppendRowWithFallbackPolicy {
       Thread.currentThread().interrupt();
     } catch (SFException e) {
       // Re-throw SFException unchanged so Fallback can handle it properly
+      throw e;
+    } catch (ClientRecreationException e) {
+      // Re-throw so client recreation propagates to the batch loop
       throw e;
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -107,6 +119,11 @@ class AppendRowWithFallbackPolicy {
                   if (event.getException() instanceof BackpressureException) {
                     LOGGER.warn(
                         "Backpressure on channel {}: {}",
+                        channelName,
+                        event.getException().getMessage());
+                  } else if (event.getException() instanceof ClientRecreationException) {
+                    LOGGER.warn(
+                        "Client recreation triggered on channel {}: {}",
                         channelName,
                         event.getException().getMessage());
                   } else {

@@ -319,6 +319,147 @@ class SnowpipeStreamingPartitionChannelTest {
             + trackingClientSupplier.getTotalChannelsCreated());
   }
 
+  @Test
+  void insertRecord_invalidClient_throwsClientRecreationExceptionAfterRecovery() {
+    // When the SDK client throws InvalidClientError, the partition channel should:
+    // 1. Call the ClientRecreator to get a new client
+    // 2. Reopen the channel on the new client
+    // 3. Throw ClientRecreationException so the batch loop can rewind
+
+    TrackingIngestClientSupplier newClientSupplier = new TrackingIngestClientSupplier();
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(pipeName, newClientSupplier);
+
+    AtomicInteger recreateCallCount = new AtomicInteger();
+    ClientRecreator clientRecreator =
+        invalidClient -> {
+          recreateCallCount.incrementAndGet();
+          return newClient;
+        };
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+
+    // Trigger InvalidClientError on appendRow
+    trackingClientSupplier.setClientInvalidAppendRowFailures(1);
+
+    ClientRecreationException exception =
+        assertThrows(
+            ClientRecreationException.class,
+            () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+
+    assertEquals("SDK client invalid: InvalidClientError", exception.getMessage());
+    assertEquals(1, recreateCallCount.get());
+    // The channel should have been reopened on the new client
+    assertEquals(1, newClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void insertRecord_invalidClient_subsequentInsertsSucceedOnNewClient() {
+    // After client recreation, subsequent inserts should work on the new client
+
+    TrackingIngestClientSupplier newClientSupplier = new TrackingIngestClientSupplier();
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(pipeName, newClientSupplier);
+
+    ClientRecreator clientRecreator = invalidClient -> newClient;
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+
+    // First insert triggers InvalidClientError -> recreation
+    trackingClientSupplier.setClientInvalidAppendRowFailures(1);
+    assertThrows(
+        ClientRecreationException.class,
+        () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+
+    // Subsequent inserts should succeed on the new client
+    partitionChannel.insertRecord(buildValidRecord(1), true);
+    partitionChannel.insertRecord(buildValidRecord(2), false);
+
+    assertEquals(1, newClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void insertRecord_invalidClient_doesNotCountAsConsecutiveRecovery() {
+    // Client recreation resets the consecutive recovery counter, so it should not
+    // accumulate toward MAX_CONSECUTIVE_RECOVERIES
+
+    TrackingIngestClientSupplier newClientSupplier = new TrackingIngestClientSupplier();
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(pipeName, newClientSupplier);
+
+    ClientRecreator clientRecreator = invalidClient -> newClient;
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+
+    // Trigger client-invalid error
+    trackingClientSupplier.setClientInvalidAppendRowFailures(1);
+    assertThrows(
+        ClientRecreationException.class,
+        () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+
+    // After recreation, channel-level recoveries should start from 0.
+    // Use isFirstRowPerPartitionInBatch=true each time to reset the batch-skip flag
+    // that gets set during recovery.
+    for (int i = 1; i <= 3; i++) {
+      newClientSupplier.setNonRetryableAppendRowFailures(1);
+      partitionChannel.insertRecord(buildValidRecord(i), true);
+    }
+
+    // 1 (from recreateClientAndReopenChannel) + 3 (from channel-level recoveries) = 4
+    assertEquals(4, newClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void insertRecord_channelInvalid_reopenDiscoversClientInvalid_triggersClientRecreation() {
+    // Scenario: pipe failover invalidates both the channel AND the client.
+    // 1. appendRow throws a non-retryable error (channel invalid)
+    // 2. Fallback reopens channel (async) — openChannel throws InvalidClientError
+    // 3. `openChannelWithClientRecreationRetries` (Guard 2) catches the client-invalid
+    //    error inside the reopen future's thenApply and retries with a recreated client.
+    //    The future stays in-flight until openChannel succeeds.
+    // 4. Next insertRecord: getChannel() joins the now-successful future and returns the
+    //    new channel. No CompletionException surfaces; no outer client-recreation path
+    //    needs to fire because the retry loop already handled it.
+
+    TrackingIngestClientSupplier newClientSupplier = new TrackingIngestClientSupplier();
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(pipeName, newClientSupplier);
+
+    AtomicInteger recreateCallCount = new AtomicInteger();
+    ClientRecreator clientRecreator =
+        invalidClient -> {
+          recreateCallCount.incrementAndGet();
+          return newClient;
+        };
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+
+    // First insertRecord: appendRow throws → fallback fires → reopenChannel (async).
+    // The reopened channel's first openChannel attempt throws InvalidClientError.
+    trackingClientSupplier.setNonRetryableAppendRowFailures(1);
+    trackingClientSupplier.setClientInvalidOpenChannelFailures(1);
+
+    // First call triggers the channel reopen (async). The fallback fires, reopenChannel
+    // starts asynchronously, and the retry loop inside swaps the client and retries openChannel.
+    partitionChannel.insertRecord(buildValidRecord(0), true);
+
+    // Second call: getChannel() joins the future that succeeded (after retry + client swap).
+    // No exception should surface to the caller — recovery was handled entirely inside the
+    // async future by the retry loop.
+    partitionChannel.insertRecord(buildValidRecord(1), true);
+
+    // The retry loop invoked the client recreator exactly once.
+    assertEquals(1, recreateCallCount.get());
+    // The new client opened exactly one channel (the successful retry).
+    assertEquals(1, newClientSupplier.getTotalChannelsCreated());
+  }
+
   private SinkRecord buildValidRecord(long offset) {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
@@ -332,6 +473,14 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel() {
+    return createPartitionChannel(
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        });
+  }
+
+  private SnowpipeStreamingPartitionChannel createPartitionChannel(
+      ClientRecreator clientRecreator) {
     final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
     final PartitionOffsetTracker offsetTracker =
         new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
@@ -360,6 +509,7 @@ class SnowpipeStreamingPartitionChannelTest {
         channelName,
         pipeName,
         trackingClient,
+        clientRecreator,
         openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
@@ -441,6 +591,9 @@ class SnowpipeStreamingPartitionChannelTest {
         channelName,
         pipeName,
         trackingClient,
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        },
         openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
@@ -535,6 +688,9 @@ class SnowpipeStreamingPartitionChannelTest {
             channelName,
             pipeName,
             trackingClient,
+            invalidClient -> {
+              throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+            },
             openChannelIoExecutor,
             mockTelemetryService,
             telemetryChannelStatus,
@@ -674,6 +830,9 @@ class SnowpipeStreamingPartitionChannelTest {
         channelName,
         pipeName,
         trackingClient,
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        },
         openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
@@ -907,6 +1066,8 @@ class SnowpipeStreamingPartitionChannelTest {
     private volatile boolean throwOnOpenChannel;
     private final AtomicInteger retryableAppendRowFailures = new AtomicInteger(0);
     private final AtomicInteger nonRetryableAppendRowFailures = new AtomicInteger(0);
+    private final AtomicInteger clientInvalidAppendRowFailures = new AtomicInteger(0);
+    private final AtomicInteger clientInvalidOpenChannelFailures = new AtomicInteger(0);
     private volatile CountDownLatch blockOnOpenChannel;
 
     int getCloseCallCount() {
@@ -935,6 +1096,14 @@ class SnowpipeStreamingPartitionChannelTest {
 
     void setNonRetryableAppendRowFailures(int count) {
       this.nonRetryableAppendRowFailures.set(count);
+    }
+
+    void setClientInvalidAppendRowFailures(int count) {
+      this.clientInvalidAppendRowFailures.set(count);
+    }
+
+    void setClientInvalidOpenChannelFailures(int count) {
+      this.clientInvalidOpenChannelFailures.set(count);
     }
 
     void setBlockOnOpenChannel(CountDownLatch latch) {
@@ -966,6 +1135,10 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public OpenChannelResult openChannel(final String channelName, final String offsetToken) {
+      if (supplier.clientInvalidOpenChannelFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
+        throw new SFException(
+            "InvalidClientError", "Test simulated client invalidation on openChannel", 0, "");
+      }
       if (supplier.throwOnOpenChannel) {
         throw new SFException("OpenChannelFailed", "Test simulated openChannel failure", 0, "");
       }
@@ -1137,6 +1310,9 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public void appendRow(final Map<String, Object> row, final String offsetToken) {
+      if (supplier.clientInvalidAppendRowFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
+        throw new SFException("InvalidClientError", "Test simulated client invalidation", 0, "");
+      }
       if (supplier.retryableAppendRowFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
         throw new SFException("MemoryThresholdExceeded", "Test simulated backpressure", 0, "");
       }

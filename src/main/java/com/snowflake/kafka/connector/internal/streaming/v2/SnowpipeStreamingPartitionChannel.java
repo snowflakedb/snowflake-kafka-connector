@@ -90,7 +90,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final String pipeName;
 
-  private final SnowflakeStreamingIngestClient streamingClient;
+  private volatile SnowflakeStreamingIngestClient streamingClient;
+  private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
   private final StreamingErrorHandler streamingErrorHandler;
@@ -113,6 +114,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String channelName,
       String pipeName,
       SnowflakeStreamingIngestClient streamingClient,
+      ClientRecreator clientRecreator,
       ExecutorService openChannelIoExecutor,
       SnowflakeTelemetryService telemetryService,
       SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
@@ -126,6 +128,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
+    this.clientRecreator = clientRecreator;
     this.openChannelIoExecutor = openChannelIoExecutor;
     this.taskConfig = taskConfig;
     this.streamingErrorHandler = streamingErrorHandler;
@@ -242,7 +245,23 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.channelName);
 
-          streamingClient.initiateFlush();
+          try {
+            streamingClient.initiateFlush();
+          } catch (SFException e) {
+            if (ClientRecreationException.isClientInvalidError(e)) {
+              // Called from stop() — no point propagating. The task is shutting down; the
+              // next task instance (post-restart/rebalance) will get a fresh client from
+              // the pool. Uncommitted rows weren't in processedOffset, so Kafka will
+              // redeliver them to that next instance.
+              LOGGER.warn(
+                  "Skipping flush for channel {}: client is invalid ({}). "
+                      + "Uncommitted data will be replayed on task restart.",
+                  this.channelName,
+                  e.getErrorCodeName());
+              return;
+            }
+            throw e;
+          }
 
           final long targetOffset = offsetTracker.getLastAppendRowsOffset();
           WaitForLastOffsetCommittedPolicy.getPolicy(
@@ -271,37 +290,91 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   /**
    * @return true if the record was inserted successfully, false if the fallback fired (record was
    *     NOT inserted)
+   * @throws ClientRecreationException if the SDK client is invalid and was recreated. The record
+   *     was NOT inserted; the caller must rewind offsets for all partitions on this pipe.
    */
   private boolean insertRowWithFallback(Map<String, Object> row, long offset) {
-    return AppendRowWithFallbackPolicy.executeWithFallback(
-        () -> {
-          LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
-          getChannel().appendRow(row, Long.toString(offset));
-          offsetTracker.recordAppended(offset);
-          consecutiveRecoveryCount = 0;
-        },
-        (Throwable ex) -> {
-          consecutiveRecoveryCount++;
-          if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
-            LOGGER.error(
-                "Channel {} exceeded max consecutive recoveries ({}), giving up",
+    try {
+      return AppendRowWithFallbackPolicy.executeWithFallback(
+          () -> {
+            LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
+            getChannel().appendRow(row, Long.toString(offset));
+            offsetTracker.recordAppended(offset);
+            consecutiveRecoveryCount = 0;
+          },
+          (Throwable ex) -> {
+            if (ClientRecreationException.isClientInvalidError(ex)) {
+              recreateClientAndReopenChannel((SFException) ex);
+              // Re-throw so the batch loop skips remaining partitions on this pipe.
+              throw new ClientRecreationException((SFException) ex);
+            }
+
+            consecutiveRecoveryCount++;
+            if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
+              LOGGER.error(
+                  "Channel {} exceeded max consecutive recoveries ({}), giving up",
+                  this.channelName,
+                  MAX_CONSECUTIVE_RECOVERIES);
+              throw new TopicPartitionChannelInsertionException(
+                  String.format(
+                      "Channel %s failed after %d consecutive recovery attempts",
+                      this.channelName, MAX_CONSECUTIVE_RECOVERIES),
+                  ex);
+            }
+            LOGGER.warn(
+                "Channel {} recovery attempt {}/{}",
                 this.channelName,
+                consecutiveRecoveryCount,
                 MAX_CONSECUTIVE_RECOVERIES);
-            throw new TopicPartitionChannelInsertionException(
-                String.format(
-                    "Channel %s failed after %d consecutive recovery attempts",
-                    this.channelName, MAX_CONSECUTIVE_RECOVERIES),
-                ex);
-          }
-          LOGGER.warn(
-              "Channel {} recovery attempt {}/{}",
-              this.channelName,
-              consecutiveRecoveryCount,
-              MAX_CONSECUTIVE_RECOVERIES);
-          reopenChannel("APPEND_ROW_FALLBACK");
-          snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
-        },
-        this.channelName);
+            reopenChannel("APPEND_ROW_FALLBACK");
+            snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
+          },
+          this.channelName);
+    } catch (CompletionException e) {
+      // A CompletionException surfaces when getChannel() joins a future that failed during
+      // async reopenChannel. The only reachable cause is TopicPartitionChannelInsertionException
+      // from openChannelWithClientRecreationRetries exhausting its attempts — CLIENT_INVALID
+      // is caught and retried inside that loop, so it never escapes as a future cause.
+      //
+      // On exhaustion we throw ConnectException so Kafka Connect marks the task FAILED, stops
+      // committing offsets, and pauses until an operator intervenes. Do NOT throw
+      // TopicPartitionChannelInsertionException — it's swallowed by the catch in
+      // transformAndSend (line 237) which would return `true` without calling recordProcessed,
+      // causing KC to commit the offset and silently lose the record.
+      Throwable cause = e.getCause();
+      if (cause instanceof TopicPartitionChannelInsertionException) {
+        LOGGER.error(
+            "Channel {} reopen retry loop exhausted after {} client recreations; failing"
+                + " task so offsets are not committed. An operator must intervene; the task"
+                + " will retry recovery on restart.",
+            this.channelName,
+            MAX_OPEN_CLIENT_RECREATION_RETRIES);
+        throw new ConnectException(
+            String.format(
+                "Channel %s could not be reopened after %d client recreation attempts."
+                    + " Pipe failover may be stuck; check Snowflake service health.",
+                this.channelName, MAX_OPEN_CLIENT_RECREATION_RETRIES),
+            cause);
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Replaces the invalid SDK client with a new one from the pool and reopens the channel. The
+   * pool's CAS ensures only one new client is created even if multiple channels call this
+   * concurrently.
+   */
+  private void recreateClientAndReopenChannel(SFException cause) {
+    LOGGER.warn(
+        "Client invalid for channel {} ({}), recreating client and reopening channel",
+        this.channelName,
+        cause.getErrorCodeName());
+
+    this.streamingClient = clientRecreator.recreate(this.streamingClient);
+    snowflakeTelemetryChannelStatus.incClientRecreationCount();
+    consecutiveRecoveryCount = 0;
+    reopenChannel("CLIENT_RECREATION");
   }
 
   private static void closeChannelWithoutFlushing(SnowflakeStreamingIngestChannel channel) {
@@ -356,32 +429,108 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                       initFailure.getMessage());
                   return null;
                 })
-            .thenApply(
-                ignored -> {
-                  OpenChannelResult openChannelResult = openChannelForTable(channelName);
-                  final long offsetRecoveredFromSnowflake =
-                      parseOrMigrateOffsetToken(openChannelResult);
-
-                  if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-                    LOGGER.info(
-                        "{} Channel {} has no offset token. Will use consumer group offset,"
-                            + " currently {}",
-                        reason,
-                        this.channelName,
-                        offsetTracker.consumerGroupOffsetRef().get());
-                  }
-
-                  offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
-
-                  LOGGER.info(
-                      "{} Channel {} recovery complete, offsetRecoveredFromSnowflake={}",
-                      reason,
-                      this.channelName,
-                      offsetRecoveredFromSnowflake);
-
-                  return openChannelResult.getChannel();
-                });
+            .thenApply(ignored -> openChannelWithClientRecreationRetries(reason));
   }
+
+  /**
+   * Opens the channel for this partition, retrying client recreation if the open itself throws
+   * a client-invalid error (the 410 that triggered our recovery may still be hitting other
+   * endpoints of the same client). Keeps the channel's reopen future in an "initializing" state
+   * until we get a real channel or hit a terminal failure — guaranteeing the sink service's
+   * {@code isInitializing()} gate stays on and no fresh {@code startPartition} races with us.
+   */
+  private SnowflakeStreamingIngestChannel openChannelWithClientRecreationRetries(String reason) {
+    RuntimeException lastError = null;
+    for (int attempt = 1; attempt <= MAX_OPEN_CLIENT_RECREATION_RETRIES; attempt++) {
+      try {
+        OpenChannelResult openChannelResult = openChannelForTable(channelName);
+        final long offsetRecoveredFromSnowflake =
+            parseOrMigrateOffsetToken(openChannelResult);
+
+        if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+          LOGGER.info(
+              "{} Channel {} has no offset token. Will use consumer group offset,"
+                  + " currently {}",
+              reason,
+              this.channelName,
+              offsetTracker.consumerGroupOffsetRef().get());
+        }
+
+        offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
+
+        LOGGER.info(
+            "{} Channel {} recovery complete, offsetRecoveredFromSnowflake={}",
+            reason,
+            this.channelName,
+            offsetRecoveredFromSnowflake);
+
+        return openChannelResult.getChannel();
+      } catch (RuntimeException e) {
+        // Client-invalid errors come either directly as SFException (from openChannel) or
+        // wrapped as ClientRecreationException (from `clientRecreator.recreate` when the pool
+        // exhausted its own retries). In both cases we want to recreate the client and retry
+        // the open. Any other error is terminal and propagates.
+        boolean isClientInvalid =
+            ClientRecreationException.isClientInvalidError(e) || e instanceof ClientRecreationException;
+        if (!isClientInvalid) {
+          throw e;
+        }
+        LOGGER.warn(
+            "{} Channel {} openChannel hit client-invalid error on attempt {}/{};"
+                + " recreating client and retrying: {}",
+            reason,
+            this.channelName,
+            attempt,
+            MAX_OPEN_CLIENT_RECREATION_RETRIES,
+            e.getMessage());
+        lastError = e;
+        try {
+          this.streamingClient = clientRecreator.recreate(this.streamingClient);
+        } catch (ClientRecreationException cre) {
+          // Client pool retries exhausted this round; carry on to our own retry loop.
+          LOGGER.warn(
+              "{} Channel {} client recreation itself failed on attempt {}/{}; continuing"
+                  + " with next retry: {}",
+              reason,
+              this.channelName,
+              attempt,
+              MAX_OPEN_CLIENT_RECREATION_RETRIES,
+              cre.getMessage());
+          lastError = cre;
+        }
+        // Linear backoff before the next attempt, so we don't hammer Snowflake while the
+        // pipe failover is still propagating. Matches the style of
+        // `AppendRowWithFallbackPolicy.FALLBACK_DELAY` (500ms + jitter) one layer below.
+        // No backoff after the final attempt — we're about to throw.
+        if (attempt < MAX_OPEN_CLIENT_RECREATION_RETRIES) {
+          try {
+            long delayMs =
+                OPEN_CHANNEL_RETRY_DELAY.toMillis()
+                    + (long) (Math.random() * OPEN_CHANNEL_RETRY_JITTER.toMillis());
+            Thread.sleep(delayMs);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new ConnectException(
+                "Interrupted while backing off during channel reopen retry", ie);
+          }
+        }
+      }
+    }
+    throw new TopicPartitionChannelInsertionException(
+        String.format(
+            "Channel %s failed to reopen after %d client recreations",
+            this.channelName, MAX_OPEN_CLIENT_RECREATION_RETRIES),
+        lastError);
+  }
+
+  /** Bounded retries for reopen's client-recreation-and-retry loop. */
+  private static final int MAX_OPEN_CLIENT_RECREATION_RETRIES = 5;
+
+  /** Base delay between reopen retries. Linear (not exponential) — see comment above. */
+  private static final Duration OPEN_CHANNEL_RETRY_DELAY = Duration.ofMillis(500);
+
+  /** Random jitter added to each retry delay to avoid thundering-herd when many channels retry. */
+  private static final Duration OPEN_CHANNEL_RETRY_JITTER = Duration.ofMillis(200);
 
   /**
    * Parses the SSv2 offset from the open-channel result, and if SSv2 has no committed offset yet,
@@ -829,6 +978,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   @Override
   public String getPipeName() {
     return pipeName;
+  }
+
+  @Override
+  public boolean hasActiveRecoveryFloor() {
+    return offsetTracker.hasActiveRecoveryFloor();
   }
 
   private void logChannelStatus(final ChannelStatus status) {

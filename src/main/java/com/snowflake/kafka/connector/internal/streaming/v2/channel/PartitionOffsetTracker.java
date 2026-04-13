@@ -54,6 +54,30 @@ public class PartitionOffsetTracker {
   // invalidated and offsets were reset in Kafka.
   private boolean needToSkipCurrentBatch = false;
 
+  // Recovery floor: the highest offset that `resetAfterRecovery` has rewound to. While set
+  // (not NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE), `shouldProcess` refuses to accept offsets
+  // <= this floor + 1 until Kafka delivers a record at or below (floor + 1), proving the
+  // seek has propagated. `recordProcessed` refuses to advance `processedOffset` past this
+  // floor. Cleared when a record at or below (floor + 1) is observed in `shouldProcess`.
+  //
+  // Volatile: written by the IO thread in `resetAfterRecovery` (inside the reopen future's
+  // `thenApply`), read by the task thread in `shouldProcess` and `recordProcessed`. The
+  // `getChannel().join()` happens-before provides visibility for in-flight writes, but this
+  // field is read BEFORE `join()` in `shouldProcess`, so volatile is required.
+  private volatile long recoveryFloor = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+
+  // Counter: batches (first-row observations) since the floor was set without clearing.
+  // Used to detect a stuck floor — e.g., `floor+1` was compacted away in a compacted topic
+  // and Kafka can never deliver it. Task-thread only; no synchronization needed.
+  private int recoveryFloorBatches = 0;
+
+  /**
+   * Maximum number of batch-first-row observations to skip while waiting for the floor to
+   * clear. After this many, we assume the floor is unreachable (e.g., compacted out) and
+   * clear it to avoid deadlocking the partition.
+   */
+  static final int MAX_RECOVERY_FLOOR_BATCHES = 10;
+
   public PartitionOffsetTracker(
       TopicPartition topicPartition, SinkTaskContext sinkTaskContext, String channelName) {
     this.topicPartition = topicPartition;
@@ -61,7 +85,17 @@ public class PartitionOffsetTracker {
     this.channelName = channelName;
   }
 
-  /** Sets both persisted and processed offsets, and resets the Kafka consumer position. */
+  /**
+   * Sets both persisted and processed offsets, resets the Kafka consumer position, and seeds
+   * the recovery floor.
+   *
+   * <p>Setting the floor here handles the case where the channel is being REBUILT after a
+   * failed async reopen (not a cold start): Kafka may have pre-fetched records past the
+   * committed offset before the seek takes effect, and without the floor those would advance
+   * `processedOffset` past the redelivery point. For genuine cold starts, the first record
+   * Kafka delivers will be at or below `committedOffset + 1` (because we just seeked there
+   * and the consumer hadn't pre-fetched anything else), which immediately clears the floor.
+   */
   public void initializeFromSnowflake(long committedOffset) {
     LOGGER.info(
         "Initializing offsetPersistedInSnowflake=[{}], channel=[{}]", committedOffset, channelName);
@@ -71,6 +105,11 @@ public class PartitionOffsetTracker {
     this.processedOffset.set(committedOffset);
 
     resetKafkaOffset(committedOffset);
+
+    if (committedOffset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      this.recoveryFloor = committedOffset;
+      this.recoveryFloorBatches = 0;
+    }
   }
 
   /**
@@ -87,6 +126,50 @@ public class PartitionOffsetTracker {
 
     if (isFirstRowInBatch) {
       needToSkipCurrentBatch = false;
+    }
+
+    // Recovery floor: if set, skip records > floor + 1 (Kafka hasn't caught up to the seek
+    // `resetAfterRecovery` requested). Clear once we see a record at or below floor + 1,
+    // proving the seek has propagated. This is the cross-batch guard Peter Popov described
+    // in SNOW-3248350 — `needToSkipCurrentBatch` is a within-batch guard only.
+    //
+    // Watchdog for compacted topics: if the floor persists across multiple batches without
+    // Kafka ever delivering floor+1 (because it was compacted away), the floor would
+    // deadlock the partition. After MAX_FLOOR_BATCHES first-row checks without clearing,
+    // we assume the floor is unreachable and clear it.
+    long floor = this.recoveryFloor;
+    if (floor != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      if (kafkaOffset <= floor + 1) {
+        LOGGER.info(
+            "Kafka caught up to recovery floor for channel {} at offset {} (floor={}), clearing",
+            channelName,
+            kafkaOffset,
+            floor);
+        this.recoveryFloor = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+        this.recoveryFloorBatches = 0;
+        // Fall through — this record IS at or below the floor and should be processed.
+      } else if (isFirstRowInBatch
+          && ++this.recoveryFloorBatches >= MAX_RECOVERY_FLOOR_BATCHES) {
+        LOGGER.warn(
+            "Recovery floor {} for channel {} persisted across {} batches without reaching"
+                + " floor+1 (first record in batch is {}). Assuming compacted/unavailable;"
+                + " clearing to avoid deadlock.",
+            floor,
+            channelName,
+            recoveryFloorBatches,
+            kafkaOffset);
+        this.recoveryFloor = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+        this.recoveryFloorBatches = 0;
+        // Fall through.
+      } else {
+        LOGGER.info(
+            "Skipping offset {} for channel {}: above recovery floor {} (Kafka seek not"
+                + " yet propagated)",
+            kafkaOffset,
+            channelName,
+            floor);
+        return false;
+      }
     }
 
     if (needToSkipCurrentBatch) {
@@ -117,12 +200,42 @@ public class PartitionOffsetTracker {
 
   /** Called after a record has been fully processed (inserted or reported as broken). */
   public void recordProcessed(long kafkaOffset) {
+    long floor = this.recoveryFloor;
+    if (floor != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE && kafkaOffset > floor) {
+      // A record slipped past `shouldProcess` before `resetAfterRecovery` ran (the race
+      // Peter described in SNOW-3248350). Do NOT advance `processedOffset` past the floor
+      // — that would cause the records Kafka is about to redeliver to be skipped as
+      // duplicates on redelivery, silently losing them.
+      LOGGER.info(
+          "Refusing to advance processedOffset past recovery floor {} (kafkaOffset={}) for"
+              + " channel {}",
+          floor,
+          kafkaOffset,
+          channelName);
+      return;
+    }
     this.processedOffset.set(kafkaOffset);
     LOGGER.trace("Setting processedOffset=[{}], channel=[{}]", kafkaOffset, channelName);
   }
 
   /** Called after a row has been successfully passed to appendRow. */
   public void recordAppended(long kafkaOffset) {
+    long floor = this.recoveryFloor;
+    if (floor != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE && kafkaOffset > floor) {
+      // Same race as `recordProcessed`: a record slipped past `shouldProcess` before
+      // `resetAfterRecovery` set the floor, and got `appendRow`'d on the new channel.
+      // `lastAppendRowsOffset` is used by `waitForLastProcessedRecordCommitted` as the
+      // flush target — advancing it past the floor would make us wait for a Snowflake
+      // commit that will never come (the record's data was lost in the pre-recovery
+      // flush), causing a flush timeout.
+      LOGGER.info(
+          "Refusing to advance lastAppendRowsOffset past recovery floor {} (kafkaOffset={}) for"
+              + " channel {}",
+          floor,
+          kafkaOffset,
+          channelName);
+      return;
+    }
     this.lastAppendRowsOffset = kafkaOffset;
   }
 
@@ -157,6 +270,14 @@ public class PartitionOffsetTracker {
         offsetRecoveredFromSnowflake,
         channelName);
     this.processedOffset.set(offsetRecoveredFromSnowflake);
+
+    // Cross-batch recovery guard: any record with offset > this floor is rejected by
+    // `shouldProcess` until Kafka delivers a record at/below floor+1. Prevents records
+    // that Kafka pre-fetched past the seek from advancing `processedOffset` and causing
+    // the redelivered records to be skipped as duplicates. Set AFTER processedOffset to
+    // ensure the volatile write publishes both together.
+    this.recoveryFloor = offsetRecoveredFromSnowflake;
+    this.recoveryFloorBatches = 0;
 
     needToSkipCurrentBatch = true;
   }
@@ -207,6 +328,11 @@ public class PartitionOffsetTracker {
 
   public AtomicLong consumerGroupOffsetRef() {
     return currentConsumerGroupOffset;
+  }
+
+  /** Returns true if a recovery floor is currently set (and thus gating `shouldProcess`). */
+  public boolean hasActiveRecoveryFloor() {
+    return this.recoveryFloor != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
   }
 
   private void resetKafkaOffset(long committedOffset) {

@@ -73,6 +73,17 @@ public interface TopicPartitionChannel {
   /** Returns the pipe name associated with this channel's SDK client. */
   String getPipeName();
 
+  /**
+   * Returns true if the channel has a recovery floor active — i.e., it recently went through
+   * `resetAfterRecovery` and Kafka hasn't yet delivered a record at or below the floor+1 to
+   * prove the seek propagated. The batch loop uses this to skip without rewinding, so the
+   * batch-loop's end-of-batch `sinkTaskContext::offset` calls don't override the recovery's
+   * seek to (committedOffset + 1).
+   */
+  default boolean hasActiveRecoveryFloor() {
+    return false;
+  }
+
   default CompletableFuture<Void> waitForLastProcessedRecordCommitted() {
     return CompletableFuture.completedFuture(null);
   }
