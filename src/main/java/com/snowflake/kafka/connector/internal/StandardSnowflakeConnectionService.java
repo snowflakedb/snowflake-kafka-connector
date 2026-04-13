@@ -2,7 +2,9 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
 import java.sql.Connection;
@@ -12,6 +14,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -22,6 +25,8 @@ import net.snowflake.client.api.driver.SnowflakeDriver;
  * and SF through JDBC connection.
  */
 public class StandardSnowflakeConnectionService implements SnowflakeConnectionService {
+
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private static final String COLUMN_COMMENT =
       "created by automatic table creation from Snowflake Kafka Connector High Performance";
@@ -491,6 +496,54 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
           tableName,
           e.getMessage());
       throw SnowflakeErrors.ERROR_2015.getException(e);
+    }
+  }
+
+  @Override
+  public Ssv1MigrationResponse migrateSsv1ChannelOffset(
+      String tableName, String ssv1ChannelName, String ssv2ChannelName, String pipeName) {
+    checkConnection();
+    LOGGER.info(
+        "Calling SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET for table={}, ssv1Channel={}, "
+            + "ssv2Channel={}, pipe={}",
+        tableName,
+        ssv1ChannelName,
+        ssv2ChannelName,
+        pipeName);
+
+    String query = "SELECT SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET(?, ?, ?, ?)";
+    try (PreparedStatement stmt = conn.prepareStatement(query)) {
+      stmt.setString(1, tableName);
+      // The backend should unquote/uppercase the channel name, but that fix is not yet rolled out.
+      // Uppercase here as a workaround
+      // TODO(SNOW-3360048): Remove once the backend fix is rolled out.
+      stmt.setString(2, ssv1ChannelName.toUpperCase(Locale.ROOT));
+      stmt.setString(3, ssv2ChannelName);
+      stmt.setString(4, pipeName);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (!rs.next()) {
+          throw new RuntimeException(
+              "SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET returned no result for table " + tableName);
+        }
+        String jsonResponse = rs.getString(1);
+        try {
+          return OBJECT_MAPPER.readValue(jsonResponse, Ssv1MigrationResponse.class);
+        } catch (Exception e) {
+          throw new RuntimeException(
+              "Failed to parse SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET response for channel "
+                  + ssv1ChannelName,
+              e);
+        }
+      }
+    } catch (SQLException e) {
+      throw new RuntimeException(
+          "SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET failed for ssv1Channel="
+              + ssv1ChannelName
+              + ", ssv2Channel="
+              + ssv2ChannelName
+              + ": "
+              + e.getMessage(),
+          e);
     }
   }
 

@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.config;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.CachingConfig;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collections;
 import java.util.HashMap;
@@ -49,6 +50,8 @@ public final class SinkTaskConfigTestBuilder {
         .snowflakePrivateKey("")
         .snowflakePrivateKeyPassphrase("")
         .snowflakeDatabase("")
-        .snowflakeSchema("");
+        .snowflakeSchema("")
+        .ssv1MigrationMode(Ssv1MigrationMode.SKIP)
+        .ssv1MigrationIncludeConnectorName(false);
   }
 }

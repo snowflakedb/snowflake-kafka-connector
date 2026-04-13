@@ -32,6 +32,11 @@ public class InMemorySinkTaskContext implements SinkTaskContext {
     this.offsets.put(tp, offset);
   }
 
+  /** Returns the last offset set for the given partition, or -1 if not set. */
+  public long offset(TopicPartition tp) {
+    return this.offsets.getOrDefault(tp, -1L);
+  }
+
   public void timeout(long timeoutMs) {
     this.timeoutMs = timeoutMs;
   }

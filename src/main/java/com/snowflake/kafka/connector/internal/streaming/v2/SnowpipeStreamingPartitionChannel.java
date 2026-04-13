@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5027;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5028;
 import static com.snowflake.kafka.connector.internal.SnowflakeErrors.ERROR_5030;
@@ -23,7 +25,10 @@ import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelIns
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
+import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetrySsv1Migration;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
+import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.validation.ColumnSchema;
 import com.snowflake.kafka.connector.internal.validation.RowValidator;
@@ -93,6 +98,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final TaskMetrics taskMetrics;
 
+  // SSv1 offset migration
+  private final Ssv1MigrationMode ssv1MigrationMode;
+  private final Optional<String> ssv1ChannelName;
+
   // Client-side validation fields
   private final boolean clientValidationEnabled;
   private final SnowflakeConnectionService conn;
@@ -118,7 +127,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       TaskMetrics taskMetrics,
       boolean clientValidationEnabled,
       boolean shouldEvolveSchema,
-      SnowflakeConnectionService conn) {
+      SnowflakeConnectionService conn,
+      Ssv1MigrationMode ssv1MigrationMode,
+      Optional<String> ssv1ChannelName) {
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
@@ -135,6 +146,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.shouldEvolveSchema = shouldEvolveSchema;
     this.conn = conn;
     this.tableName = tableName;
+    this.ssv1MigrationMode = ssv1MigrationMode;
+    this.ssv1ChannelName = ssv1ChannelName;
 
     LOGGER.info(
         "Initializing SnowpipeStreamingPartitionChannel channel: {}, pipe: {}",
@@ -145,13 +158,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         CompletableFuture.supplyAsync(
             () -> {
               OpenChannelResult openChannelResult = openChannelForTable(channelName);
-              final long lastCommittedOffsetToken =
-                  parseOffsetToken(
-                      openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(),
-                      channelName);
-              LOGGER.info(
-                  "New channel {} has offset token {}", channelName, lastCommittedOffsetToken);
-              offsetTracker.initializeFromSnowflake(lastCommittedOffsetToken);
+              long offsetRecoveredFromSnowflake = parseOrMigrateOffsetToken(openChannelResult);
+              offsetTracker.initializeFromSnowflake(offsetRecoveredFromSnowflake);
               return openChannelResult.getChannel();
             },
             openChannelIoExecutor);
@@ -357,11 +365,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             .thenApply(
                 ignored -> {
                   OpenChannelResult openChannelResult = openChannelForTable(channelName);
-
                   final long offsetRecoveredFromSnowflake =
-                      parseOffsetToken(
-                          openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(),
-                          channelName);
+                      parseOrMigrateOffsetToken(openChannelResult);
 
                   if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
                     LOGGER.info(
@@ -382,6 +387,76 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
                   return openChannelResult.getChannel();
                 });
+  }
+
+  /**
+   * Parses the SSv2 offset from the open-channel result, and if SSv2 has no committed offset yet,
+   * attempts SSv1 offset migration based on the configured {@link Ssv1MigrationMode}.
+   *
+   * <p>Used by both the initial channel open (constructor) and {@link #reopenChannel} so that
+   * migration behavior is consistent regardless of whether the first open succeeded or failed.
+   */
+  private long parseOrMigrateOffsetToken(OpenChannelResult openChannelResult) {
+    final long ssv2Offset =
+        parseOffsetToken(
+            openChannelResult.getChannelStatus().getLatestCommittedOffsetToken(), channelName);
+    LOGGER.info("Channel {} has SSv2 offset token {}", channelName, ssv2Offset);
+
+    long effectiveOffset = ssv2Offset;
+
+    // Only consult SSv1 when SSv2 has no committed offset yet (first-time migration).
+    // Once SSv2 has its own offset, it is authoritative.
+    if (ssv2Offset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        && ssv1MigrationMode != Ssv1MigrationMode.SKIP) {
+      // migrateSsv1ChannelOffset calls SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET which:
+      //   - returns ssv1ChannelFound=false if the SSv1 channel doesn't exist
+      //   - returns ssv1ChannelFound=true, migratedOffset=null if found but no committed offset
+      //   - returns ssv1ChannelFound=true, migratedOffset=N on success (also writes to SSv2 in FDB)
+      //   - THROWS for SQL/network errors (must not silently proceed --
+      //     falling through to consumer group offset could cause duplicates)
+      String ssv1Channel =
+          ssv1ChannelName.orElseThrow(
+              () ->
+                  new IllegalStateException(
+                      "ssv1ChannelName must be present when migration mode is "
+                          + ssv1MigrationMode));
+      Ssv1MigrationResponse response =
+          conn.migrateSsv1ChannelOffset(tableName, ssv1Channel, channelName, pipeName);
+      Long migrated = response.getMigratedOffset();
+      if (migrated != null) {
+        effectiveOffset = migrated;
+        LOGGER.info(
+            "SSv2 channel {} has no offset yet, migrating SSv1 offset for {}: {}",
+            channelName,
+            ssv1Channel,
+            effectiveOffset);
+      } else if (!response.isSsv1ChannelFound()) {
+        LOGGER.info("SSv1 channel {} not found for SSv2 channel {}", ssv1Channel, channelName);
+      } else {
+        LOGGER.info(
+            "SSv1 channel {} exists but has no committed offset for SSv2 channel {}",
+            ssv1Channel,
+            channelName);
+      }
+      telemetryService.reportSsv1Migration(
+          new SnowflakeTelemetrySsv1Migration(
+              tableName, channelName, ssv1Channel, ssv1MigrationMode, response));
+      if (!response.isSsv1ChannelFound() && ssv1MigrationMode == Ssv1MigrationMode.STRICT) {
+        throw new ConnectException(
+            "Snowpipe Streaming Classic channel "
+                + ssv1Channel
+                + " not found but the offset token migration mode is set to 'strict'. This can"
+                + " happen if new topics are added after migrating from version 3 of the"
+                + " connector or if an incorrect value is provided for "
+                + SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME
+                + " or the connector name. Validate your settings or set "
+                + SNOWFLAKE_SSV1_OFFSET_MIGRATION
+                + " to 'best_effort' or 'skip' to fall through to the Kafka consumer group"
+                + " offset.");
+      }
+    }
+
+    return effectiveOffset;
   }
 
   /**

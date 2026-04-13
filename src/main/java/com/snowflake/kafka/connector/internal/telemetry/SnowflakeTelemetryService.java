@@ -149,6 +149,13 @@ public class SnowflakeTelemetryService {
     send(partitionCreation.telemetryType, msg);
   }
 
+  /** Reports a one-shot SSv1 offset migration attempt and its outcome for a single channel. */
+  public void reportSsv1Migration(final SnowflakeTelemetryBasicInfo migration) {
+    ObjectNode msg = getObjectNode();
+    migration.dumpTo(msg);
+    send(TelemetryType.KAFKA_SSV1_MIGRATION, msg);
+  }
+
   /**
    * Creates the default ObjectNode which will be part of every telemetry being sent to Snowflake.
    *
@@ -253,7 +260,8 @@ public class SnowflakeTelemetryService {
     KAFKA_STOP("kafka_stop"),
     KAFKA_FATAL_ERROR("kafka_fatal_error"),
     KAFKA_CHANNEL_USAGE("kafka_channel_usage"),
-    KAFKA_CHANNEL_START("kafka_channel_start");
+    KAFKA_CHANNEL_START("kafka_channel_start"),
+    KAFKA_SSV1_MIGRATION("kafka_ssv1_migration");
 
     private final String name;
 
