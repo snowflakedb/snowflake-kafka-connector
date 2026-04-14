@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.records;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -15,7 +16,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -236,7 +236,7 @@ class ConverterTest {
     assertEquals(12.2, result.get("float64"));
     assertEquals(true, result.get("boolean"));
     assertEquals("foo", result.get("string"));
-    assertEquals(Base64.getEncoder().encodeToString("foo".getBytes()), result.get("bytes"));
+    assertArrayEquals("foo".getBytes(), (byte[]) result.get("bytes"));
     assertEquals(Arrays.asList("a", "b", "c"), result.get("array"));
 
     @SuppressWarnings("unchecked")
@@ -266,9 +266,8 @@ class ConverterTest {
   @Test
   void testConvertReadOnlyByteBuffer() {
     // Test conversion of read-only ByteBuffer
-    String original = "bytes";
-    String expected = Base64.getEncoder().encodeToString(original.getBytes());
-    ByteBuffer buffer = ByteBuffer.wrap(original.getBytes()).asReadOnlyBuffer();
+    byte[] original = "bytes".getBytes();
+    ByteBuffer buffer = ByteBuffer.wrap(original).asReadOnlyBuffer();
 
     Schema schema = SchemaBuilder.struct().field("bytesField", Schema.BYTES_SCHEMA).build();
 
@@ -276,7 +275,7 @@ class ConverterTest {
 
     Map<String, Object> result = KafkaRecordConverter.convertToMap(schema, struct);
 
-    assertEquals(expected, result.get("bytesField"));
+    assertArrayEquals(original, (byte[]) result.get("bytesField"));
   }
 
   @Test

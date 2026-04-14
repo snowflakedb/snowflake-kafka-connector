@@ -8,7 +8,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -316,9 +315,8 @@ public final class KafkaRecordConverter {
       return bigDecimalValue;
     }
 
-    LOGGER.trace("Converting bytes to Base64 string");
-    byte[] bytes = toByteArray(value);
-    return Base64.getEncoder().encodeToString(bytes);
+    LOGGER.trace("Converting bytes to byte[]");
+    return toByteArray(value);
   }
 
   private static byte[] toByteArray(Object value) {

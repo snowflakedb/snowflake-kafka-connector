@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.records;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -12,7 +13,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -116,7 +116,7 @@ class SnowflakeSinkRecordTest {
     assertEquals(12.2, content.get("float64"));
     assertEquals(true, content.get("boolean"));
     assertEquals("foo", content.get("string"));
-    assertEquals(Base64.getEncoder().encodeToString("foo".getBytes()), content.get("bytes"));
+    assertArrayEquals("foo".getBytes(), (byte[]) content.get("bytes"));
     assertEquals(Arrays.asList("a", "b", "c"), content.get("array"));
   }
 
@@ -652,7 +652,7 @@ class SnowflakeSinkRecordTest {
     assertTrue(record.isValid());
     Map<String, Object> content = record.getContent();
     assertTrue(content.containsKey("RECORD_CONTENT"));
-    assertEquals(Base64.getEncoder().encodeToString(bytes), content.get("RECORD_CONTENT"));
+    assertArrayEquals(bytes, (byte[]) content.get("RECORD_CONTENT"));
   }
 
   @Test
