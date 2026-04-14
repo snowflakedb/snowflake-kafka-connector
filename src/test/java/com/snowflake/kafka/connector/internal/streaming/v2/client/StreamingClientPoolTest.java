@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
+import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -318,6 +319,42 @@ class StreamingClientPoolTest {
     }
 
     @Test
+    void recreateClient_retries_on_client_invalid_error() {
+      SnowflakeStreamingIngestClient oldClient = mock(SnowflakeStreamingIngestClient.class);
+      SnowflakeStreamingIngestClient newClient = mock(SnowflakeStreamingIngestClient.class);
+      AtomicInteger callCount = new AtomicInteger();
+
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, config, props) -> {
+            int count = callCount.incrementAndGet();
+            if (count == 1) return oldClient;
+            if (count == 2) {
+              // First recreation attempt fails with pipe failover
+              throw new SFException("SfApiPipeFailedOverError", "Pipe failed over", 410, "");
+            }
+            return newClient;
+          });
+
+      // Create initial client
+      getClient("task-0", "pipe-A");
+
+      // Recreate — first attempt fails with 410, should retry
+      SnowflakeStreamingIngestClient result =
+          StreamingClientPools.recreateClient(
+              connectorName,
+              "task-0",
+              "pipe-A",
+              oldClient,
+              connectorConfig,
+              streamingClientProperties,
+              TaskMetrics.noop());
+
+      assertThat(result).isSameAs(newClient);
+      assertThat(callCount.get())
+          .isEqualTo(3); // original + failed recreation + successful recreation
+    }
+
+    @Test
     void pool_threads_inherit_context_classloader_from_pool_creator() {
       AtomicReference<ClassLoader> capturedClassLoader = new AtomicReference<>();
       StreamingClientFactory.setStreamingClientSupplier(
@@ -374,7 +411,12 @@ class StreamingClientPoolTest {
       // Recreate the client
       SnowflakeStreamingIngestClient result =
           pool.recreateClient(
-              "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+              "task-0",
+              "pipe-A",
+              oldClient,
+              connectorConfig,
+              streamingClientProperties,
+              TaskMetrics.noop());
 
       assertThat(result).isSameAs(newClient);
       // Both tasks should still be registered
@@ -397,9 +439,43 @@ class StreamingClientPoolTest {
       getClient("task-0", "pipe-A");
 
       pool.recreateClient(
-          "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+          "task-0",
+          "pipe-A",
+          oldClient,
+          connectorConfig,
+          streamingClientProperties,
+          TaskMetrics.noop());
 
       verify(oldClient).close();
+    }
+
+    @Test
+    void recreateClient_creates_fresh_entry_and_registers_task_when_no_entry_exists() {
+      // When recreateClient is called for a pipe with no existing entry (e.g. the entry was
+      // already evicted by a failed creation), the fresh entry must have the caller's task
+      // registered so closeTaskClients on a different task doesn't prematurely evict it.
+      SnowflakeStreamingIngestClient freshClient = mock(SnowflakeStreamingIngestClient.class);
+      setSupplierReturning(freshClient);
+
+      // No prior call — pool is empty for this pipe.
+      assertThat(pool.getClientCountForTask("task-0")).isEqualTo(0);
+
+      SnowflakeStreamingIngestClient result =
+          pool.recreateClient(
+              "task-0",
+              "pipe-A",
+              mock(SnowflakeStreamingIngestClient.class),
+              connectorConfig,
+              streamingClientProperties,
+              TaskMetrics.noop());
+
+      assertThat(result).isSameAs(freshClient);
+      // Task must be registered so closeTaskClients on a different task doesn't evict us.
+      assertThat(pool.getClientCountForTask("task-0")).isEqualTo(1);
+
+      // Simulate cleanup of a different task — the fresh entry must survive.
+      pool.closeTaskClients("some-other-task");
+      assertThat(pool.getClientCountForTask("task-0")).isEqualTo(1);
     }
 
     @Test
@@ -418,13 +494,23 @@ class StreamingClientPoolTest {
       // First recreation succeeds
       SnowflakeStreamingIngestClient firstResult =
           pool.recreateClient(
-              "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+              "task-0",
+              "pipe-A",
+              oldClient,
+              connectorConfig,
+              streamingClientProperties,
+              TaskMetrics.noop());
       assertThat(firstResult).isSameAs(newClient);
 
       // Second recreation with the OLD client reference should be a no-op
       SnowflakeStreamingIngestClient secondResult =
           pool.recreateClient(
-              "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+              "task-0",
+              "pipe-A",
+              oldClient,
+              connectorConfig,
+              streamingClientProperties,
+              TaskMetrics.noop());
       assertThat(secondResult).isSameAs(newClient);
 
       // Supplier should only have been called twice (original + one recreation)
@@ -445,7 +531,12 @@ class StreamingClientPoolTest {
       getClient("task-0", "pipe-A");
 
       pool.recreateClient(
-          "pipe-A", oldClient, connectorConfig, streamingClientProperties, TaskMetrics.noop());
+          "task-0",
+          "pipe-A",
+          oldClient,
+          connectorConfig,
+          streamingClientProperties,
+          TaskMetrics.noop());
 
       // A subsequent getClient should return the new client (not create a third one)
       SnowflakeStreamingIngestClient result = getClient("task-0", "pipe-A");
@@ -486,6 +577,7 @@ class StreamingClientPoolTest {
           CompletableFuture.supplyAsync(
               () ->
                   pool.recreateClient(
+                      "task-0",
                       "pipe-A",
                       oldClient,
                       connectorConfig,
@@ -495,6 +587,7 @@ class StreamingClientPoolTest {
           CompletableFuture.supplyAsync(
               () ->
                   pool.recreateClient(
+                      "task-1",
                       "pipe-A",
                       oldClient,
                       connectorConfig,
