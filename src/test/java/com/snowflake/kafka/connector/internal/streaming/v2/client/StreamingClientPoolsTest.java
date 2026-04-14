@@ -54,4 +54,5 @@ class StreamingClientPoolsTest {
                     TaskMetrics.noop()))
         .isSameAs(originalException);
   }
+
 }

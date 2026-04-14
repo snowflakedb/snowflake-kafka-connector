@@ -7,6 +7,11 @@ import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationException;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -30,6 +35,13 @@ public class StreamingClientPools {
   private StreamingClientPools() {}
 
   /**
+   * Maximum retry attempts when a replacement client also fails with a client-invalid error during
+   * {@link #recreateClient}. Three attempts provide enough headroom for transient failover windows
+   * while keeping total blocking time bounded (each attempt creates a fresh SDK client).
+   */
+  private static final int MAX_CLIENT_CREATION_RETRIES = 3;
+
+  /**
    * Gets or creates a client for the given connector, task, and pipe. Multiple tasks can share the
    * same client. Kafka Connect guarantees that no two tasks in the same connector can work on the
    * same partition. It means that two tasks will never work with given channel at the same time,
@@ -51,17 +63,17 @@ public class StreamingClientPools {
       final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties,
       final TaskMetrics taskMetrics) {
-
     try {
       return getClientAsync(
               connectorName, taskId, pipeName, config, streamingClientProperties, taskMetrics)
           .join();
     } catch (CompletionException e) {
-      if (e.getCause() instanceof RuntimeException) {
-        throw (RuntimeException) e.getCause();
+      Throwable cause = e.getCause();
+      if (cause instanceof RuntimeException) {
+        throw (RuntimeException) cause;
       }
       throw new ConnectException(
-          "Unexpected error creating streaming client for pipe: " + pipeName, e.getCause());
+          "Unexpected error creating streaming client for pipe: " + pipeName, cause);
     }
   }
 
@@ -110,6 +122,8 @@ public class StreamingClientPools {
    * existing new client is returned without creating a second one.
    *
    * @param connectorName the connector name
+   * @param taskId the ID of the task requesting recreation; registered on the replacement entry so
+   *     the pool does not prematurely evict it on task-local cleanup
    * @param pipeName the pipe whose client should be replaced
    * @param invalidClient the client instance the caller believes is invalid (identity check)
    * @param config task config for creating the replacement client
@@ -119,14 +133,69 @@ public class StreamingClientPools {
    */
   public static SnowflakeStreamingIngestClient recreateClient(
       final String connectorName,
+      final String taskId,
       final String pipeName,
       final SnowflakeStreamingIngestClient invalidClient,
       final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties,
       final TaskMetrics taskMetrics) {
+    try {
+      return Failsafe.with(recreateClientRetryPolicy(pipeName))
+          .get(
+              () ->
+                  getPool(connectorName)
+                      .recreateClient(
+                          taskId,
+                          pipeName,
+                          invalidClient,
+                          config,
+                          streamingClientProperties,
+                          taskMetrics));
+    } catch (FailsafeException e) {
+      // Retries exhausted — wrap as ClientRecreationException so the batch
+      // loop can rewind offsets instead of crashing the task.
+      Throwable cause = e.getCause() != null ? e.getCause() : e;
+      throw ClientRecreationException.wrap(cause);
+    }
+  }
 
-    return getPool(connectorName)
-        .recreateClient(pipeName, invalidClient, config, streamingClientProperties, taskMetrics);
+  /**
+   * Delay between client-creation retries. Pipe failover typically takes a few seconds to stabilize
+   * on the server side, and back-to-back retries with no delay would all hit the same in-flight
+   * failover window and fail before the server finishes.
+   */
+  private static final Duration CLIENT_CREATION_RETRY_DELAY = Duration.ofSeconds(5);
+
+  /**
+   * Retries replacement-client creation when the SDK reports a client-invalid error (e.g., pipe
+   * failover still in flight). The pool evicts the failed entry on each attempt, so the retry
+   * creates a fresh client. Non-client-invalid errors fall through immediately.
+   */
+  private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
+      String pipeName) {
+    return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
+        .handleIf(
+            e -> e instanceof RuntimeException && ClientRecreationException.isClientInvalidError(e))
+        .withMaxAttempts(MAX_CLIENT_CREATION_RETRIES)
+        .withDelay(CLIENT_CREATION_RETRY_DELAY)
+        .onRetry(
+            event ->
+                LOGGER.warn(
+                    "Replacement client for pipe {} failed with client-invalid error"
+                        + " (attempt {}/{}): {}. Retrying after {}.",
+                    pipeName,
+                    event.getAttemptCount(),
+                    MAX_CLIENT_CREATION_RETRIES,
+                    event.getLastException().getMessage(),
+                    CLIENT_CREATION_RETRY_DELAY))
+        .onRetriesExceeded(
+            event ->
+                LOGGER.error(
+                    "Replacement client for pipe {} failed after {} attempts: {}",
+                    pipeName,
+                    event.getAttemptCount(),
+                    event.getException().getMessage()))
+        .build();
   }
 
   /**
