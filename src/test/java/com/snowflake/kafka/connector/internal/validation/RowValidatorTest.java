@@ -910,6 +910,432 @@ public class RowValidatorTest {
         (byte[]) row.get("BIN_COL"));
   }
 
+  // ================ VARCHAR Map/List serialization Tests ================
+
+  /**
+   * Map sent to a VARCHAR column is serialized to JSON string, matching SSv1/SSv2 SDK behavior.
+   * Both SDKs serialize complex objects via Jackson inside appendRow(); RowValidator must
+   * replicate.
+   */
+  @Test
+  public void testValidateRowVarcharMapSerializedToJson() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "STR_COL", createColumnSchema("STR_COL", ColumnLogicalType.TEXT, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> inputMap = new LinkedHashMap<>();
+    inputMap.put("key", "value");
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("STR_COL", inputMap);
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    assertEquals("{\"key\":\"value\"}", row.get("STR_COL"));
+  }
+
+  /** List sent to a VARCHAR column is serialized to JSON array string. */
+  @Test
+  public void testValidateRowVarcharListSerializedToJson() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "STR_COL", createColumnSchema("STR_COL", ColumnLogicalType.TEXT, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("STR_COL", Arrays.asList(1, 2, 3));
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    assertEquals("[1,2,3]", row.get("STR_COL"));
+  }
+
+  /** Nested Map sent to VARCHAR is serialized recursively. */
+  @Test
+  public void testValidateRowVarcharNestedMapSerializedToJson() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "STR_COL", createColumnSchema("STR_COL", ColumnLogicalType.TEXT, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> nested = new LinkedHashMap<>();
+    nested.put("b", 1);
+    Map<String, Object> inputMap = new LinkedHashMap<>();
+    inputMap.put("a", nested);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("STR_COL", inputMap);
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    assertEquals("{\"a\":{\"b\":1}}", row.get("STR_COL"));
+  }
+
+  /** Map serialized to JSON that exceeds VARCHAR(N) length limit produces a type error. */
+  @Test
+  public void testValidateRowVarcharMapExceedsLengthLimit() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "STR_COL", createColumnSchema("STR_COL", ColumnLogicalType.TEXT, true, null, null, 5));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> inputMap = new LinkedHashMap<>();
+    inputMap.put("key", "value"); // {"key":"value"} = 15 chars, exceeds 5
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("STR_COL", inputMap);
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+  }
+
+  // ================ Boolean Normalization Tests ================
+
+  /**
+   * Integer 0/1 must be normalized to Boolean before reaching the SSv2 SDK. The SDK only accepts
+   * Boolean for BOOLEAN columns — Integer inputs are silently dropped without this normalization.
+   */
+  @Test
+  public void testValidateRowBooleanIntegerZeroNormalizedToFalse() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BOOL_COL",
+        createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("BOOL_COL", 0);
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    assertEquals(Boolean.FALSE, row.get("BOOL_COL"));
+  }
+
+  @Test
+  public void testValidateRowBooleanIntegerOneNormalizedToTrue() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BOOL_COL",
+        createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("BOOL_COL", 1);
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    assertEquals(Boolean.TRUE, row.get("BOOL_COL"));
+  }
+
+  /** Native Boolean values must also be normalized (no-op in effect, but consistent). */
+  @Test
+  public void testValidateRowBooleanNativeBooleanPassthrough() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BOOL_COL",
+        createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    for (Object input : Arrays.asList(Boolean.TRUE, Boolean.FALSE)) {
+      Map<String, Object> row = new HashMap<>();
+      row.put("BOOL_COL", input);
+      ValidationResult result = validator.validateRow(row);
+      assertTrue(result.isValid());
+      assertInstanceOf(Boolean.class, row.get("BOOL_COL"));
+      assertEquals(input, row.get("BOOL_COL"));
+    }
+  }
+
+  /** String tokens are normalized to Boolean (previously accepted as String by SDK). */
+  @Test
+  public void testValidateRowBooleanStringTokensNormalizedToBoolean() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BOOL_COL",
+        createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> trueInputs = new LinkedHashMap<>();
+    trueInputs.put("true", Boolean.TRUE);
+    trueInputs.put("yes", Boolean.TRUE);
+    trueInputs.put("on", Boolean.TRUE);
+
+    Map<String, Object> falseInputs = new LinkedHashMap<>();
+    falseInputs.put("false", Boolean.FALSE);
+    falseInputs.put("no", Boolean.FALSE);
+    falseInputs.put("off", Boolean.FALSE);
+
+    for (Map.Entry<String, Object> entry : trueInputs.entrySet()) {
+      Map<String, Object> row = new HashMap<>();
+      row.put("BOOL_COL", entry.getKey());
+      ValidationResult result = validator.validateRow(row);
+      assertTrue(result.isValid(), "Expected valid for input: " + entry.getKey());
+      assertEquals(entry.getValue(), row.get("BOOL_COL"), "Expected TRUE for: " + entry.getKey());
+    }
+
+    for (Map.Entry<String, Object> entry : falseInputs.entrySet()) {
+      Map<String, Object> row = new HashMap<>();
+      row.put("BOOL_COL", entry.getKey());
+      ValidationResult result = validator.validateRow(row);
+      assertTrue(result.isValid(), "Expected valid for input: " + entry.getKey());
+      assertEquals(entry.getValue(), row.get("BOOL_COL"), "Expected FALSE for: " + entry.getKey());
+    }
+  }
+
+  /** Invalid inputs for BOOLEAN still produce a type error. */
+  @Test
+  public void testValidateRowBooleanInvalidInputProducesTypeError() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BOOL_COL",
+        createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    for (Object invalid : Arrays.asList(new HashMap<>(), new ArrayList<>(), "not_a_bool")) {
+      Map<String, Object> row = new HashMap<>();
+      row.put("BOOL_COL", invalid);
+      ValidationResult result = validator.validateRow(row);
+      assertFalse(result.isValid(), "Expected type error for input: " + invalid);
+      assertTrue(result.hasTypeError(), "Expected type error for input: " + invalid);
+      assertEquals("BOOL_COL", result.getColumnName());
+    }
+  }
+
+  /**
+   * Non-0/1 numeric values for BOOLEAN produce a type error. Although SSv1 SDK's
+   * DataValidationUtil.validateAndParseBoolean accepts any Number directly, in KC v3 the record
+   * mapper converts all values to Strings first — and SSv1's convertStringToBoolean only accepts
+   * "0"/"1"/"true"/"false"/"yes"/"no"/"on"/"off". "42" is not in that set, so it's rejected.
+   * RowValidator pre-rejects non-0/1 Numbers to match end-to-end KC v3 behavior.
+   */
+  @Test
+  public void testValidateRowBooleanNonZeroOneIntegerProducesTypeError() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put(
+        "BOOL_COL",
+        createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    for (Object input : Arrays.asList(42, -1, 999, 2L, -100L)) {
+      Map<String, Object> row = new HashMap<>();
+      row.put("BOOL_COL", input);
+      ValidationResult result = validator.validateRow(row);
+      assertFalse(result.isValid(), "Expected type error for numeric input: " + input);
+      assertTrue(result.hasTypeError(), "Expected type error for numeric input: " + input);
+      assertEquals("BOOL_COL", result.getColumnName());
+    }
+  }
+
+  // ================ VARIANT normalization (String → native object) ================
+
+  /**
+   * JSON object string sent to VARIANT is parsed back to a Map so the SSv2 SDK stores it as a
+   * native VARIANT object, not a JSON-quoted string.
+   */
+  @Test
+  public void testValidateRowVariantJsonObjectStringNormalizedToMap() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("V", createColumnSchema("V", ColumnLogicalType.VARIANT, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("V", "{\"a\":1}");
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    Object normalized = row.get("V");
+    assertTrue(normalized instanceof Map, "Expected Map but got: " + normalized.getClass());
+    assertEquals(1, ((Map<?, ?>) normalized).size());
+    assertEquals(1, ((Map<?, ?>) normalized).get("a"));
+  }
+
+  /**
+   * JSON array string sent to VARIANT is parsed back to a List so the SSv2 SDK stores it as a
+   * native array.
+   */
+  @Test
+  public void testValidateRowVariantJsonArrayStringNormalizedToList() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("V", createColumnSchema("V", ColumnLogicalType.VARIANT, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("V", "[1,2,3]");
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    Object normalized = row.get("V");
+    assertTrue(normalized instanceof List, "Expected List but got: " + normalized.getClass());
+    assertEquals(Arrays.asList(1, 2, 3), normalized);
+  }
+
+  /** Non-String native objects passed to VARIANT are returned unchanged. */
+  @Test
+  public void testValidateRowVariantNativeObjectPassthrough() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("V", createColumnSchema("V", ColumnLogicalType.VARIANT, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> nativeMap = new HashMap<>();
+    nativeMap.put("key", "value");
+    Map<String, Object> row = new HashMap<>();
+    row.put("V", nativeMap);
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    assertSame(nativeMap, row.get("V"), "Native Map should not be replaced");
+  }
+
+  /** Invalid (non-JSON) string sent to VARIANT produces a type error. */
+  @Test
+  public void testValidateRowVariantInvalidJsonStringProducesTypeError() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("V", createColumnSchema("V", ColumnLogicalType.VARIANT, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("V", "not valid json");
+    ValidationResult result = validator.validateRow(row);
+
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+    assertEquals("V", result.getColumnName());
+  }
+
+  // ================ ARRAY normalization (String → List) ================
+
+  /**
+   * JSON array string sent to ARRAY is parsed back to a List so the SSv2 SDK stores it as a proper
+   * array, not a single-element array wrapping the literal string.
+   */
+  @Test
+  public void testValidateRowArrayJsonStringNormalizedToList() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("A", createColumnSchema("A", ColumnLogicalType.ARRAY, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("A", "[1,2,3]");
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    Object normalized = row.get("A");
+    assertTrue(normalized instanceof List, "Expected List but got: " + normalized.getClass());
+    assertEquals(Arrays.asList(1, 2, 3), normalized);
+  }
+
+  /**
+   * Non-array JSON string sent to ARRAY is wrapped in a single-element List (matching
+   * validateAndParseArray behavior which wraps non-arrays into single-element arrays).
+   */
+  @Test
+  public void testValidateRowArrayNonArrayJsonStringWrappedInList() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("A", createColumnSchema("A", ColumnLogicalType.ARRAY, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("A", "\"hello\""); // JSON string (not an array)
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    Object normalized = row.get("A");
+    assertTrue(normalized instanceof List, "Expected List but got: " + normalized.getClass());
+    assertEquals(Arrays.asList("hello"), normalized);
+  }
+
+  /** Native List passed to ARRAY is returned unchanged. */
+  @Test
+  public void testValidateRowArrayNativeListPassthrough() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("A", createColumnSchema("A", ColumnLogicalType.ARRAY, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    List<Integer> nativeList = Arrays.asList(10, 20, 30);
+    Map<String, Object> row = new HashMap<>();
+    row.put("A", nativeList);
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+    assertSame(nativeList, row.get("A"), "Native List should not be replaced");
+  }
+
+  /** Invalid (non-JSON) string sent to ARRAY produces a type error. */
+  @Test
+  public void testValidateRowArrayInvalidJsonStringProducesTypeError() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("A", createColumnSchema("A", ColumnLogicalType.ARRAY, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("A", "not_json");
+    ValidationResult result = validator.validateRow(row);
+
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+    assertEquals("A", result.getColumnName());
+  }
+
+  // ================ OBJECT validation Tests ================
+
+  /** Invalid (non-JSON) string sent to OBJECT produces a type error. */
+  @Test
+  public void testValidateRowObjectInvalidJsonStringProducesTypeError() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("O", createColumnSchema("O", ColumnLogicalType.OBJECT, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("O", "not_json");
+    ValidationResult result = validator.validateRow(row);
+
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+    assertEquals("O", result.getColumnName());
+  }
+
+  /** Valid JSON array string sent to OBJECT is rejected (not an object). */
+  @Test
+  public void testValidateRowObjectArrayJsonStringProducesTypeError() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("O", createColumnSchema("O", ColumnLogicalType.OBJECT, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("O", "[1,2,3]");
+    ValidationResult result = validator.validateRow(row);
+
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+    assertEquals("O", result.getColumnName());
+  }
+
+  /** Valid JSON object string sent to OBJECT is accepted. */
+  @Test
+  public void testValidateRowObjectValidJsonStringAccepted() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("O", createColumnSchema("O", ColumnLogicalType.OBJECT, true, null, null, null));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("O", "{\"key\":\"value\"}");
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+  }
+
   /** Invalid hex string for a BINARY column produces a type error. */
   @Test
   public void testValidateRowBinaryInvalidHexStringFails() {
@@ -936,6 +1362,95 @@ public class RowValidatorTest {
     assertFalse(result.isValid());
     assertTrue(result.hasTypeError());
     assertEquals("BIN_COL", result.getColumnName());
+  }
+
+  // ================ Timestamp normalization Tests ================
+
+  /**
+   * Integer epoch for TIMESTAMP_NTZ must be normalized to an ISO timestamp string. The SSv2 SDK
+   * passes raw integers to the Snowflake backend which interprets them using the channel's default
+   * timezone (America/Los_Angeles) instead of UTC. SSv1 SDK converts epochs to UTC client-side.
+   */
+  @Test
+  public void testValidateRowTimestampNtzIntegerEpochNormalized() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
+    RowValidator validator = new RowValidator(schema);
+
+    // 1705312800 = 2024-01-15T10:00:00Z
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", 1705312800);
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    Object normalized = row.get("TS");
+    assertInstanceOf(String.class, normalized, "Integer epoch should be normalized to String");
+    assertEquals("2024-01-15T10:00", normalized);
+  }
+
+  /** Long epoch for TIMESTAMP_NTZ is also normalized (same as Integer). */
+  @Test
+  public void testValidateRowTimestampNtzLongEpochNormalized() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", 1705312800L);
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    Object normalized = row.get("TS");
+    assertInstanceOf(String.class, normalized, "Long epoch should be normalized to String");
+    assertEquals("2024-01-15T10:00", normalized);
+  }
+
+  /** String timestamp for TIMESTAMP_NTZ is validated but returned unchanged. */
+  @Test
+  public void testValidateRowTimestampNtzStringPassthrough() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "2024-01-15T13:45:30");
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    assertEquals("2024-01-15T13:45:30", row.get("TS"));
+  }
+
+  /** Integer epoch for TIMESTAMP_LTZ is normalized to ISO string with UTC offset. */
+  @Test
+  public void testValidateRowTimestampLtzIntegerEpochNormalized() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_LTZ));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", 1705312800);
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    Object normalized = row.get("TS");
+    assertInstanceOf(String.class, normalized, "Integer epoch should be normalized to String");
+    assertEquals("2024-01-15T10:00Z", normalized);
+  }
+
+  /** Invalid string for TIMESTAMP_NTZ produces a type error. */
+  @Test
+  public void testValidateRowTimestampNtzInvalidStringRejects() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "not_a_timestamp");
+    ValidationResult result = validator.validateRow(row);
+
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+    assertEquals("TS", result.getColumnName());
   }
 
   // ================ Helper Methods ================
@@ -971,5 +1486,10 @@ public class RowValidatorTest {
 
     return new ColumnSchema(
         name, logicalType, physicalType, nullable, precision, scale, length, byteLength, null);
+  }
+
+  private ColumnSchema createTimestampColumnSchema(String name, ColumnLogicalType logicalType) {
+    return new ColumnSchema(
+        name, logicalType, ColumnPhysicalType.SB8, true, null, 9, null, null, null);
   }
 }

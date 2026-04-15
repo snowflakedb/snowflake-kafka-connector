@@ -1551,6 +1551,121 @@ public class DataValidationUtilTest {
         () -> validateAndParseObject("COL", "}{", 0));
   }
 
+  // ================ validateAndParseVariantAsObject ================
+
+  @Test
+  public void testValidateAndParseVariantAsObject_jsonObject() {
+    Object result =
+        DataValidationUtil.validateAndParseVariantAsObject("COL", "{\"a\":1,\"b\":true}", 0);
+    Assert.assertTrue(result instanceof Map);
+    Map<?, ?> map = (Map<?, ?>) result;
+    assertEquals(1, map.get("a"));
+    assertEquals(true, map.get("b"));
+  }
+
+  @Test
+  public void testValidateAndParseVariantAsObject_jsonArray() {
+    Object result = DataValidationUtil.validateAndParseVariantAsObject("COL", "[1,2,3]", 0);
+    Assert.assertTrue(result instanceof java.util.List);
+    assertEquals(Arrays.asList(1, 2, 3), result);
+  }
+
+  @Test
+  public void testValidateAndParseVariantAsObject_primitive() {
+    assertEquals(42, DataValidationUtil.validateAndParseVariantAsObject("COL", "42", 0));
+    assertEquals(true, DataValidationUtil.validateAndParseVariantAsObject("COL", "true", 0));
+    assertEquals(
+        "hello", DataValidationUtil.validateAndParseVariantAsObject("COL", "\"hello\"", 0));
+  }
+
+  @Test
+  public void testValidateAndParseVariantAsObject_missingNode() {
+    assertNull(DataValidationUtil.validateAndParseVariantAsObject("COL", "", 0));
+    assertNull(DataValidationUtil.validateAndParseVariantAsObject("COL", "  ", 0));
+  }
+
+  @Test
+  public void testValidateAndParseVariantAsObject_invalidJson() {
+    expectError(
+        ErrorCode.INVALID_VALUE_ROW,
+        () -> DataValidationUtil.validateAndParseVariantAsObject("COL", "not_json", 0));
+  }
+
+  @Test
+  public void testValidateAndParseVariantAsObject_nativePassthrough() {
+    Map<String, Object> nativeMap = Collections.singletonMap("key", "value");
+    Object result = DataValidationUtil.validateAndParseVariantAsObject("COL", nativeMap, 0);
+    Assert.assertTrue(result instanceof Map);
+    assertEquals("value", ((Map<?, ?>) result).get("key"));
+  }
+
+  // ================ validateAndParseArrayAsList ================
+
+  @Test
+  public void testValidateAndParseArrayAsList_jsonArray() {
+    java.util.List<?> result = DataValidationUtil.validateAndParseArrayAsList("COL", "[1,2,3]", 0);
+    assertEquals(Arrays.asList(1, 2, 3), result);
+  }
+
+  @Test
+  public void testValidateAndParseArrayAsList_nonArrayWrapped() {
+    java.util.List<?> result =
+        DataValidationUtil.validateAndParseArrayAsList("COL", "\"hello\"", 0);
+    assertEquals(Collections.singletonList("hello"), result);
+  }
+
+  @Test
+  public void testValidateAndParseArrayAsList_nativeList() {
+    java.util.List<?> result =
+        DataValidationUtil.validateAndParseArrayAsList("COL", Arrays.asList(10, 20), 0);
+    assertEquals(Arrays.asList(10, 20), result);
+  }
+
+  @Test
+  public void testValidateAndParseArrayAsList_invalidJson() {
+    expectError(
+        ErrorCode.INVALID_VALUE_ROW,
+        () -> DataValidationUtil.validateAndParseArrayAsList("COL", "not_json", 0));
+  }
+
+  // ================ validateAndFormatTimestamp ================
+
+  @Test
+  public void testValidateAndFormatTimestamp_integerEpochNtz() {
+    // 1705312800 seconds = 2024-01-15T10:00:00 UTC
+    String result = DataValidationUtil.validateAndFormatTimestamp("COL", 1705312800, UTC, true, 0);
+    assertEquals("2024-01-15T10:00", result);
+  }
+
+  @Test
+  public void testValidateAndFormatTimestamp_longEpochNtz() {
+    String result = DataValidationUtil.validateAndFormatTimestamp("COL", 1705312800L, UTC, true, 0);
+    assertEquals("2024-01-15T10:00", result);
+  }
+
+  @Test
+  public void testValidateAndFormatTimestamp_integerEpochLtz() {
+    String result = DataValidationUtil.validateAndFormatTimestamp("COL", 1705312800, UTC, false, 0);
+    assertEquals("2024-01-15T10:00Z", result);
+  }
+
+  @Test
+  public void testValidateAndFormatTimestamp_stringPassthrough() {
+    // String input with explicit timezone
+    String result =
+        DataValidationUtil.validateAndFormatTimestamp(
+            "COL", "2024-01-15T13:45:30+05:00", UTC, false, 0);
+    assertEquals("2024-01-15T13:45:30+05:00", result);
+  }
+
+  @Test
+  public void testValidateAndFormatTimestamp_invalidString() {
+    expectError(
+        ErrorCode.INVALID_VALUE_ROW,
+        () ->
+            DataValidationUtil.validateAndFormatTimestamp("COL", "not_a_timestamp", UTC, true, 0));
+  }
+
   private JsonNode readTree(String value) {
     try {
       return objectMapper.readTree(value);

@@ -6,13 +6,18 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
+import java.math.BigDecimal;
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +32,7 @@ import org.slf4j.LoggerFactory;
  */
 public class RowValidator {
   private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private final Map<String, ColumnSchema> columnSchemaMap;
 
   /**
@@ -138,8 +144,22 @@ public class RowValidator {
 
     switch (col.getLogicalType()) {
       case BOOLEAN:
-        DataValidationUtil.validateAndParseBoolean(col.getName(), value, insertRowIndex);
-        break;
+        // SSv2 SDK only accepts Boolean — normalize to avoid silent drops.
+        // Pre-reject non-0/1 Numbers for KC v3 parity: KC v3's StreamingRecordMapper stringified
+        // all values, and SSv1's convertStringToBoolean rejects e.g. "42".
+        if (value instanceof Number && !(value instanceof Boolean)) {
+          BigDecimal bd = new BigDecimal(value.toString());
+          if (bd.compareTo(BigDecimal.ZERO) != 0 && bd.compareTo(BigDecimal.ONE) != 0) {
+            throw DataValidationUtil.valueFormatNotAllowedException(
+                col.getName(),
+                "BOOLEAN",
+                "Only 0 and 1 are accepted for numeric boolean values",
+                insertRowIndex);
+          }
+        }
+        return DataValidationUtil.validateAndParseBoolean(col.getName(), value, insertRowIndex) == 1
+            ? Boolean.TRUE
+            : Boolean.FALSE;
 
       case FIXED:
         // Note: DataValidationUtil.validateAndParseBigDecimal doesn't check precision/scale
@@ -154,8 +174,26 @@ public class RowValidator {
 
       case TEXT:
       case CHAR:
+        // DVU.validateAndParseString only accepts String, Number, boolean, char — it rejects
+        // Map/Collection.  However, KC v3's StreamingRecordMapper serialized all non-textual
+        // JsonNodes to JSON strings via Jackson before the SDK saw them.  We replicate that
+        // pipeline-level serialization so v4-compat handles Map/Collection inputs the same way.
+        if (value instanceof Map || value instanceof Collection) {
+          try {
+            String json = OBJECT_MAPPER.writeValueAsString(value);
+            DataValidationUtil.validateAndParseString(
+                col.getName(), json, Optional.ofNullable(col.getLength()), insertRowIndex);
+            return json;
+          } catch (JsonProcessingException e) {
+            throw DataValidationUtil.valueFormatNotAllowedException(
+                col.getName(),
+                "STRING",
+                "Cannot serialize " + value.getClass().getSimpleName() + " to JSON",
+                insertRowIndex);
+          }
+        }
         DataValidationUtil.validateAndParseString(
-            col.getName(), value, java.util.Optional.ofNullable(col.getLength()), insertRowIndex);
+            col.getName(), value, Optional.ofNullable(col.getLength()), insertRowIndex);
         break;
 
       case BINARY:
@@ -164,10 +202,7 @@ public class RowValidator {
         // Returning byte[] sidesteps this ambiguity: byte[] is accepted uniformly regardless of
         // how that parameter is set.
         return DataValidationUtil.validateAndParseBinary(
-            col.getName(),
-            value,
-            java.util.Optional.ofNullable(col.getByteLength()),
-            insertRowIndex);
+            col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
         DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
@@ -179,26 +214,38 @@ public class RowValidator {
         break;
 
       case TIMESTAMP_NTZ:
-        validateTimestamp(col, value, insertRowIndex, true);
-        break;
+        return validateAndNormalizeTimestamp(col, value, /* trimTimezone= */ true, insertRowIndex);
 
       case TIMESTAMP_LTZ:
-        validateTimestamp(col, value, insertRowIndex, false);
-        break;
-
       case TIMESTAMP_TZ:
-        validateTimestamp(col, value, insertRowIndex, false);
-        break;
+        return validateAndNormalizeTimestamp(col, value, /* trimTimezone= */ false, insertRowIndex);
 
       case VARIANT:
+        // When input is a String, the SSv2 SDK stores it as a JSON-quoted string (e.g.
+        // '{"a":1}' → '"{\\"a\\":1}"'), whereas SSv1 stored the parsed native object.
+        // validateAndParseVariantAsObject returns a native Java object (Map/List/primitive)
+        // so the SDK receives the right type.
+        if (value instanceof String) {
+          return DataValidationUtil.validateAndParseVariantAsObject(
+              col.getName(), value, insertRowIndex);
+        }
         DataValidationUtil.validateAndParseVariant(col.getName(), value, insertRowIndex);
         break;
 
       case ARRAY:
+        // SSv2 SDK wraps a String value for an ARRAY column as a single-element array (e.g.
+        // "[1,2,3]" → ["[1,2,3]"]), while SSv1 parsed the string into a proper array.
+        // validateAndParseArrayAsList returns a native List so the SDK gets the right type.
+        if (value instanceof String) {
+          return DataValidationUtil.validateAndParseArrayAsList(
+              col.getName(), value, insertRowIndex);
+        }
         DataValidationUtil.validateAndParseArray(col.getName(), value, insertRowIndex);
         break;
 
       case OBJECT:
+        // No normalization needed: SSv2 SDK correctly parses JSON strings for OBJECT columns
+        // (unlike VARIANT/ARRAY). Passing the original String value through is safe.
         DataValidationUtil.validateAndParseObject(col.getName(), value, insertRowIndex);
         break;
 
@@ -210,16 +257,16 @@ public class RowValidator {
   }
 
   /**
-   * Validate a timestamp column value.
-   *
-   * @param col Column schema
-   * @param value Value to validate
-   * @param insertRowIndex Row index for error messages
-   * @param trimTimezone Whether to trim timezone (true for NTZ, false for LTZ/TZ)
+   * Validate and optionally normalize a timestamp value. Integer/Long epoch values are converted to
+   * ISO strings so the SSv2 SDK interprets them correctly; other types are validated in place.
    */
-  private void validateTimestamp(
-      ColumnSchema col, Object value, long insertRowIndex, boolean trimTimezone)
+  private Object validateAndNormalizeTimestamp(
+      ColumnSchema col, Object value, boolean trimTimezone, long insertRowIndex)
       throws SFExceptionValidation {
+    if (value instanceof Integer || value instanceof Long) {
+      return DataValidationUtil.validateAndFormatTimestamp(
+          col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
+    }
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),
         value,
@@ -227,6 +274,7 @@ public class RowValidator {
         defaultTimezone,
         trimTimezone,
         insertRowIndex);
+    return value;
   }
 
   /** Detect columns in the row that don't exist in the table schema. */
