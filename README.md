@@ -57,6 +57,8 @@ Custom license handling process is run during build to meet legal standards.
 
 [![Kafka Connector end-to-end test](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end.yaml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end.yaml)
 
+[![Kafka Connector end-to-end test (legacy platforms)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end-legacy.yml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end-legacy.yml)
+
 [![Kafka Connector stress test](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end-stress.yml/badge.svg?branch=master)](https://github.com/snowflakedb/snowflake-kafka-connector/actions/workflows/end-to-end-stress.yml)
 
-[![codecov](https://codecov.io/gh/snowflakedb/snowflake-kafka-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/snowflakedb/snowflake-kafka-connector)
+<!-- [![codecov](https://codecov.io/gh/snowflakedb/snowflake-kafka-connector/branch/master/graph/badge.svg)](https://codecov.io/gh/snowflakedb/snowflake-kafka-connector) -->
