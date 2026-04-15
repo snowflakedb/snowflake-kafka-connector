@@ -433,4 +433,25 @@ Tests: `test_type_compatibility.py` (JSON, dual mode). Each test covers positive
 
 ### Avro-Specific Type Mapping
 
-Not yet implemented. Avro has its own type system (logical types for dates, decimals, etc.). V3 parity testing is blocked by the SR classloader conflict. Planned file: `test_type_compatibility_avro.py`.
+Tests: `test_type_compatibility_avro.py` (Avro SR, v4-compat + v4-ht). V3 parity testing is blocked by the SR classloader conflict.
+
+Avro provides typed values (native int, float, boolean, bytes, logical types) unlike schemaless JSON. The AvroConverter produces Kafka Connect Structs with schemas, testing a different pipeline path than JSON.
+
+| Avro Type | Target Column | v4 Client | v4 Server | Notes |
+|---|:---:|:---:|:---:|---|
+| `int` | NUMBER | 🟢 | 🟢 | 32-bit typed integer |
+| `long` | NUMBER | 🟢 | 🟢 | 64-bit typed integer |
+| `float` | FLOAT | 🟢 | 🟢 | 32-bit; incl. NaN, Inf, -Inf as native floats |
+| `double` | FLOAT | 🟢 | 🟢 | 64-bit; incl. NaN, Inf, -Inf |
+| `string` | VARCHAR | 🟢 | 🟢 | |
+| `boolean` | BOOLEAN | 🟢 | 🟢 | Native bool (no 0/1 coercion path) |
+| `bytes` | BINARY | 🟢 | 🟢 | Raw bytes; RowValidator unwraps ByteBuffer to byte[] |
+| `date` logical | DATE | 🟢 | 🟢 | Days-from-epoch via Avro logical type |
+| `timestamp-millis` logical | TIMESTAMP_NTZ | 🟢 | 🟢 | Millis-from-epoch via logical type |
+| `array` | ARRAY | 🟢 | 🟢 | Native Avro array |
+| `map` | VARIANT | 🟢 | 🟢 | Avro map → VARIANT |
+| null unions | various | 🟢 | 🟢 | Nullable union handling |
+| `bytes` → VARCHAR | divergence | 🟢 | 🟡 | v4-compat rejects byte[]; v4-ht coerces to base64 |
+| `bytes` → NUMBER | error | 🟢 | 🟢 | Cross-type: byte[] rejected (Avro-specific) |
+| `float` NaN/Inf → NUMBER | error | 🟢 | 🟢 | Cross-type: native float NaN (Avro-specific) |
+| `map`/`array` → BOOLEAN | error | 🟢 | 🟢 | Cross-type: typed complex → primitive |
