@@ -513,7 +513,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
 
     String query = "SELECT SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET(?, ?, ?, ?)";
     try (PreparedStatement stmt = conn.prepareStatement(query)) {
-      stmt.setString(1, tableName);
+      stmt.setString(1, quoteIdentifier(tableName));
       // The backend should unquote/uppercase the channel name, but that fix is not yet rolled out.
       // Uppercase here as a workaround
       // TODO(SNOW-3360048): Remove once the backend fix is rolled out.
