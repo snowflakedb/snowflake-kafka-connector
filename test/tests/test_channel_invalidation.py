@@ -48,20 +48,16 @@ def invalidate_channel(driver, credentials, table_name, topic, partition=0):
 
     cur = driver.snowflake_conn.cursor()
     try:
-        cur.execute("USE ROLE SYSADMIN")
-        try:
-            result = cur.execute(
-                f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_fqn}', '{channel_name}')"
-            ).fetchone()[0]
-        except snowflake.connector.errors.ProgrammingError as e:
-            if e.errno == 2140 or "Unknown function" in str(e):
-                pytest.skip(
-                    f"SYSTEM$STREAMING_CHANNEL_INVALIDATE is not available on this "
-                    f"Snowflake account — skipping channel invalidation test ({e})"
-                )
-            raise
-    finally:
-        cur.execute(f"USE ROLE {credentials.role}")
+        result = cur.execute(
+            f"SELECT SYSTEM$STREAMING_CHANNEL_INVALIDATE('{pipe_fqn}', '{channel_name}')"
+        ).fetchone()[0]
+    except snowflake.connector.errors.ProgrammingError as e:
+        if e.errno == 2140 or "Unknown function" in str(e):
+            pytest.skip(
+                f"SYSTEM$STREAMING_CHANNEL_INVALIDATE is not available on this "
+                f"Snowflake account — skipping channel invalidation test ({e})"
+            )
+        raise
 
     logger.info(f"Invalidation result: {result}")
     assert "ERR_CHANNEL_MUST_BE_REOPENED" in result, f"Invalidation failed: {result}"
