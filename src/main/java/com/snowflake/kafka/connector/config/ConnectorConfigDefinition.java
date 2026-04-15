@@ -153,32 +153,7 @@ public class ConnectorConfigDefinition {
             4,
             Width.NONE,
             KafkaConnectorConfigParams.JVM_PROXY_PASSWORD)
-        // Connector Config
-        .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC,
-            BOOLEAN,
-            KafkaConnectorConfigParams
-                .SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC_DEFAULT,
-            HIGH,
-            "When true (default), the connector validates that all settings required for KC v3"
-                + " backward compatibility are configured. Set to false to use v4-optimized"
-                + " defaults without compatibility checks.",
-            CONNECTOR_CONFIG_DOC,
-            0,
-            Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC)
-        .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
-            STRING,
-            "",
-            TOPIC_TO_TABLE_VALIDATOR,
-            LOW,
-            "Map of topics to tables (optional). Format : comma-separated tuples, e.g."
-                + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
-            CONNECTOR_CONFIG_DOC,
-            0,
-            Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)
+        // Metadata
         .define(
             KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,
             BOOLEAN,
@@ -232,6 +207,76 @@ public class ConnectorConfigDefinition {
             4,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME)
+
+        // Connector Config
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC,
+            BOOLEAN,
+            KafkaConnectorConfigParams
+                .SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC_DEFAULT,
+            HIGH,
+            "When true (default), the connector validates that all settings required for KC v3"
+                + " backward compatibility are configured. Set to false to use v4-optimized"
+                + " defaults without compatibility checks.",
+            CONNECTOR_CONFIG_DOC,
+            0,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+            STRING,
+            "",
+            TOPIC_TO_TABLE_VALIDATOR,
+            LOW,
+            "Map of topics to tables (optional). Format : comma-separated tuples, e.g."
+                + " <topic-1>:<table-1>,<topic-2>:<table-2>,... ",
+            CONNECTOR_CONFIG_DOC,
+            1,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
+            STRING,
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT,
+            ConfigDef.ValidString.in("client_side", "server_side"),
+            HIGH,
+            "Data validation mode. 'client_side' enables client-side data validation and schema"
+                + " evolution before sending to Snowflake. 'server_side' defers validation and"
+                + " schema evolution to the backend for maximum throughput; requires that error"
+                + " logging is enabled on the target table.",
+            CONNECTOR_CONFIG_DOC,
+            2,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION,
+            STRING,
+            KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION_DEFAULT,
+            ConfigDef.ValidString.in("skip", "best_effort", "strict"),
+            HIGH,
+            "Controls offset migration from KC v3 (Snowpipe Streaming Classic) channels. 'skip'"
+                + " (default): do not consult Classic channels. 'best_effort': migrate the offset"
+                + " if the Classic channel exists, otherwise fall through to the Kafka consumer"
+                + " group offset. 'strict': migrate the offset if the Classic channel exists, fail"
+                + " if it does not.",
+            CONNECTOR_CONFIG_DOC,
+            3,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME,
+            BOOLEAN,
+            KafkaConnectorConfigParams
+                .SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME_DEFAULT,
+            HIGH,
+            "Whether the KC v3 connector included the connector name in its channel names."
+                + " Set to true if the v3 connector had"
+                + " 'snowflake.streaming.channel.name.include.connector.name=true'."
+                + " Only relevant when offset migration is not 'skip'.",
+            CONNECTOR_CONFIG_DOC,
+            4,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME)
         .define(
             KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
             STRING,
@@ -241,7 +286,7 @@ public class ConnectorConfigDefinition {
             "How to handle records with a null value (i.e. Kafka tombstone records)."
                 + " Valid options are 'DEFAULT' and 'IGNORE'.",
             CONNECTOR_CONFIG_DOC,
-            4,
+            5,
             Width.NONE,
             KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES)
         .define(
@@ -250,19 +295,6 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.JMX_OPT_DEFAULT,
             HIGH,
             "Whether to enable JMX MBeans for custom SF metrics")
-        //  TODO(SNOW-3136086): decide if this should be configurable
-        // .define(
-        //     KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS,
-        //     INT,
-        //     KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT,
-        //     atLeast(1),
-        //     LOW,
-        //     "Number of threads per connector per worker used to open streaming channels in"
-        //         + " parallel.",
-        //     CONNECTOR_CONFIG_DOC,
-        //     16,
-        //     Width.NONE,
-        //     KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS)
         .define(
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
             STRING,
@@ -273,7 +305,7 @@ public class ConnectorConfigDefinition {
                 + " optional and recommended to use ONLY after consulting Snowflake Support. Format"
                 + " : comma-separated tuples, e.g.: key1:value1,key2:value2",
             CONNECTOR_CONFIG_DOC,
-            0,
+            6,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
         .define(
@@ -297,7 +329,7 @@ public class ConnectorConfigDefinition {
             "If true, write/log each error along with details of the failed operation and record"
                 + " properties to the Connect log. Default is 'false', so that only errors that are"
                 + " not tolerated are reported.",
-            "ERRORS",
+            ERRORS,
             1,
             Width.NONE,
             "Log Errors")
@@ -321,7 +353,7 @@ public class ConnectorConfigDefinition {
             "Enable MDC context to prepend log messages. Note that this is only available after"
                 + " Apache Kafka 2.3",
             CONNECTOR_CONFIG_DOC,
-            8,
+            7,
             Width.NONE,
             "Enable MDC logging")
         .define(
@@ -343,7 +375,7 @@ public class ConnectorConfigDefinition {
                 + " through as-is. Use topic2table.map with quoted identifiers for special"
                 + " characters when disabled.",
             CONNECTOR_CONFIG_DOC,
-            9,
+            8,
             Width.NONE,
             KafkaConnectorConfigParams
                 .SNOWFLAKE_COMPATIBILITY_ENABLE_AUTOGENERATED_TABLE_NAME_SANITIZATION)
@@ -356,10 +388,22 @@ public class ConnectorConfigDefinition {
             LOW,
             "When enabled, column identifiers are normalized to uppercase for v3 compatibility.",
             CONNECTOR_CONFIG_DOC,
-            10,
+            9,
             Width.NONE,
             KafkaConnectorConfigParams
                 .SNOWFLAKE_COMPATIBILITY_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT,
+            MEDIUM,
+            "When true (default), records are schematized into individual columns. When false,"
+                + " records are wrapped into legacy RECORD_CONTENT and RECORD_METADATA VARIANT"
+                + " columns for backward compatibility with KC v3.",
+            CONNECTOR_CONFIG_DOC,
+            10,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION)
         .define(
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
             BOOLEAN,
@@ -403,32 +447,6 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             14,
             Width.NONE,
-            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS)
-        .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
-            STRING,
-            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT,
-            ConfigDef.ValidString.in("client_side", "server_side"),
-            LOW,
-            "Data validation mode. 'client_side' enables client-side data validation and schema"
-                + " evolution before sending to Snowflake. 'server_side' defers validation and"
-                + " schema evolution to the backend for maximum throughput; requires that error"
-                + " logging is enabled on the target table.",
-            CONNECTOR_CONFIG_DOC,
-            15,
-            Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION)
-        .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION,
-            BOOLEAN,
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT,
-            MEDIUM,
-            "When true (default), records are schematized into individual columns. When false,"
-                + " records are wrapped into legacy RECORD_CONTENT and RECORD_METADATA VARIANT"
-                + " columns for backward compatibility with KC v3.",
-            CONNECTOR_CONFIG_DOC,
-            16,
-            Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION);
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS);
   }
 }
