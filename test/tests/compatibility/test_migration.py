@@ -24,7 +24,6 @@ value of `auto.offset.reset`, the KC v4 will start ingesting:
 """
 
 import logging
-import os
 import time
 import pytest
 
@@ -113,21 +112,7 @@ def test_migration_without_ingestion(
 
 # Don't parameterize on v3, we create both connector versions explicitly here.
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-@pytest.mark.parametrize(
-    "ssv1_offset_migration",
-    [
-        "skip",
-        pytest.param(
-            "strict",
-            marks=pytest.mark.skipif(
-                # only run this test if the local proxy is available
-                not os.environ.get("SNOWPIPE_STREAMING_URL"),
-                reason="SNOW-3350611: SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET requires "
-                "local proxy (not available on non-internal accounts)",
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("ssv1_offset_migration", ["skip", "strict"])
 def test_migration_with_ingestion(
     driver: KafkaDriver,
     name_salt,
@@ -258,12 +243,6 @@ def test_migration_with_ingestion(
 
 # Don't parameterize on v3, we create both connector versions explicitly here.
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-@pytest.mark.skipif(
-    # only run this test if the local proxy is available
-    not os.environ.get("SNOWPIPE_STREAMING_URL"),
-    reason="SNOW-3350611: SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET requires "
-    "local proxy (not available on non-internal accounts)",
-)
 def test_migration_different_connector_name(
     driver: KafkaDriver,
     name_salt,
