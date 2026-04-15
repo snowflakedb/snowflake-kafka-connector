@@ -155,6 +155,19 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.JVM_PROXY_PASSWORD)
         // Connector Config
         .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC,
+            BOOLEAN,
+            KafkaConnectorConfigParams
+                .SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC_DEFAULT,
+            HIGH,
+            "When true (default), the connector validates that all settings required for KC v3"
+                + " backward compatibility are configured. Set to false to use v4-optimized"
+                + " defaults without compatibility checks.",
+            CONNECTOR_CONFIG_DOC,
+            0,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC)
+        .define(
             KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
             STRING,
             "",

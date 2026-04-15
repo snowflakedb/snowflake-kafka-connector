@@ -281,6 +281,11 @@ public class TestUtils {
     // enable test query mark
     configuration.put(Utils.TASK_ID, "");
 
+    // ITs test features other than compatibility validation; opt out by default
+    configuration.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC,
+        "false");
+
     return configuration;
   }
 

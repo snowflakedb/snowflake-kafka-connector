@@ -182,6 +182,8 @@ def test_migration_with_ingestion(
         v4_config_template = {
             **v3_config_to_v4(v3_config_template),
             "snowflake.streaming.classic.offset.migration": ssv1_offset_migration,
+            # Disable compatibility validation to allow not migrating offsets from SSv1.
+            "snowflake.streaming.validate.compatibility.with.classic": "false",
         }
         v4_connector = create_custom_connector(test_name, v4_config_template)
 
