@@ -35,7 +35,7 @@ public class StreamingClientFactory {
     String schemaName = config.getSnowflakeSchema();
 
     return ingestClientSupplier.get(
-        clientName, dbName, schemaName, pipeName, config, streamingClientProperties);
+        clientName, dbName, schemaName, pipeName, streamingClientProperties);
   }
 
   private static String clientName(final StreamingClientProperties streamingClientProperties) {
@@ -49,7 +49,6 @@ public class StreamingClientFactory {
         final String dbName,
         final String schemaName,
         final String pipeName,
-        final SinkTaskConfig config,
         final StreamingClientProperties streamingClientProperties) {
 
       // Quote the pipe name to handle lowercase / special characters in the name.

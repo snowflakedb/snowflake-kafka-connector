@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIngestClient {
 
   private final String pipeName;
-  private final String connectorName;
+  private final String clientName;
   private final Map<String, FakeSnowflakeStreamingIngestChannel> openedChannels =
       new ConcurrentHashMap<>();
   private final Map<String, String> channelNameToOffsetTokens = new ConcurrentHashMap<>();
@@ -25,9 +25,9 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
   private long defaultErrorCount = 0;
   private boolean closed = false;
 
-  public FakeSnowflakeStreamingIngestClient(final String pipeName, final String connectorName) {
+  public FakeSnowflakeStreamingIngestClient(final String pipeName, final String clientName) {
     this.pipeName = pipeName;
-    this.connectorName = connectorName;
+    this.clientName = clientName;
   }
 
   public void setDefaultErrorCount(final long errorCount) {
@@ -131,15 +131,11 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
 
   @Override
   public String getClientName() {
-    throw new UnsupportedOperationException();
+    return clientName;
   }
 
   public List<FakeSnowflakeStreamingIngestChannel> getOpenedChannels() {
     return new ArrayList<>(openedChannels.values());
-  }
-
-  public String getConnectorName() {
-    return connectorName;
   }
 
   public long countClosedChannels() {

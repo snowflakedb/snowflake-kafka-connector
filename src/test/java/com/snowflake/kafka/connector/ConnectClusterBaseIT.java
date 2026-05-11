@@ -125,7 +125,7 @@ public abstract class ConnectClusterBaseIT {
     Utils.convertAppName(config);
     String sanitizedConnectorName = config.get(KafkaConnectorConfigParams.NAME);
     return fakeClientSupplier.getFakeIngestClients().stream()
-        .filter((client) -> client.getConnectorName().equals(sanitizedConnectorName))
+        .filter((client) -> client.getClientName().contains(sanitizedConnectorName))
         .findFirst()
         .orElseThrow();
   }

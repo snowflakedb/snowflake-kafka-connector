@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientSupplier;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,13 +18,12 @@ public class FakeIngestClientSupplier implements StreamingClientSupplier {
       final String dbName,
       final String schemaName,
       final String pipeName,
-      final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties) {
     return pipeToIngestClientMap.computeIfAbsent(
         pipeName,
         (key) -> {
           final FakeSnowflakeStreamingIngestClient client =
-              new FakeSnowflakeStreamingIngestClient(pipeName, config.getConnectorName());
+              new FakeSnowflakeStreamingIngestClient(pipeName, clientName);
           client.setDefaultErrorCount(preExistingErrorCount);
           return client;
         });

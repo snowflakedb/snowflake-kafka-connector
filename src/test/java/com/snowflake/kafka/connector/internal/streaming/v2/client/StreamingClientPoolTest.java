@@ -188,7 +188,7 @@ class StreamingClientPoolTest {
     void getClient_reuses_client_for_same_pipe() {
       AtomicInteger callCount = new AtomicInteger();
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             callCount.incrementAndGet();
             return mock(SnowflakeStreamingIngestClient.class);
           });
@@ -205,7 +205,7 @@ class StreamingClientPoolTest {
     void getClient_returns_different_clients_for_different_pipes() {
       AtomicInteger callCount = new AtomicInteger();
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             callCount.incrementAndGet();
             return mock(SnowflakeStreamingIngestClient.class);
           });
@@ -262,7 +262,7 @@ class StreamingClientPoolTest {
     void closeTaskClients_then_getClient_creates_new_client() {
       AtomicInteger callCount = new AtomicInteger();
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             callCount.incrementAndGet();
             return mock(SnowflakeStreamingIngestClient.class);
           });
@@ -300,7 +300,7 @@ class StreamingClientPoolTest {
       SnowflakeStreamingIngestClient mockClient = mock(SnowflakeStreamingIngestClient.class);
 
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             if (callCount.incrementAndGet() == 1) {
               throw new SnowflakeKafkaConnectorException("transient", "TEST_ERROR");
             }
@@ -321,7 +321,7 @@ class StreamingClientPoolTest {
     void pool_threads_inherit_context_classloader_from_pool_creator() {
       AtomicReference<ClassLoader> capturedClassLoader = new AtomicReference<>();
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             capturedClassLoader.set(Thread.currentThread().getContextClassLoader());
             return mock(SnowflakeStreamingIngestClient.class);
           });
@@ -360,7 +360,7 @@ class StreamingClientPoolTest {
       CountDownLatch proceed = new CountDownLatch(1);
 
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             bothStarted.countDown();
             try {
               proceed.await();
@@ -391,12 +391,12 @@ class StreamingClientPoolTest {
 
   private void setSupplierReturning(SnowflakeStreamingIngestClient client) {
     StreamingClientFactory.setStreamingClientSupplier(
-        (clientName, dbName, schemaName, pipeName, config, props) -> client);
+        (clientName, dbName, schemaName, pipeName, props) -> client);
   }
 
   private void setSupplierThrowing(RuntimeException exception) {
     StreamingClientFactory.setStreamingClientSupplier(
-        (clientName, dbName, schemaName, pipeName, config, props) -> {
+        (clientName, dbName, schemaName, pipeName, props) -> {
           throw exception;
         });
   }
@@ -404,7 +404,7 @@ class StreamingClientPoolTest {
   @SuppressWarnings("unchecked")
   private void setSupplierThrowingChecked(Exception checkedException) {
     StreamingClientFactory.setStreamingClientSupplier(
-        (clientName, dbName, schemaName, pipeName, config, props) -> {
+        (clientName, dbName, schemaName, pipeName, props) -> {
           sneakyThrow(checkedException);
           return null; // unreachable
         });

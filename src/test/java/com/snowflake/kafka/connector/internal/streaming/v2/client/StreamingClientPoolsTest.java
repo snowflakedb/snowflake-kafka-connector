@@ -39,7 +39,7 @@ class StreamingClientPoolsTest {
     SnowflakeKafkaConnectorException originalException =
         new SnowflakeKafkaConnectorException("creation failed", "TEST_ERROR");
     StreamingClientFactory.setStreamingClientSupplier(
-        (clientName, dbName, schemaName, pipeName, config, props) -> {
+        (clientName, dbName, schemaName, pipeName, props) -> {
           throw originalException;
         });
 

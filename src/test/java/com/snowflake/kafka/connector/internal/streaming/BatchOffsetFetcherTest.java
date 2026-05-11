@@ -246,7 +246,6 @@ class BatchOffsetFetcherTest {
         String dbName,
         String schemaName,
         String pipeName,
-        SinkTaskConfig config,
         StreamingClientProperties streamingClientProperties) {
       SnowflakeStreamingIngestClient client = mock(SnowflakeStreamingIngestClient.class);
       when(client.getChannelStatus(any()))

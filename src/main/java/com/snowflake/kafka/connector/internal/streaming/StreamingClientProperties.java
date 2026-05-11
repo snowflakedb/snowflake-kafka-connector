@@ -17,6 +17,7 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -56,7 +57,7 @@ public class StreamingClientProperties {
   /** Creates streaming client properties from parsed {@link SinkTaskConfig}. */
   public static StreamingClientProperties from(SinkTaskConfig config) {
     final Properties clientProperties = new Properties();
-    if (config.getSnowflakeUrl() != null) {
+    if (!Strings.isNullOrEmpty(config.getSnowflakeUrl())) {
       SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
       final String privateKeyStr = config.getSnowflakePrivateKey();
       final String privateKeyPassphrase = config.getSnowflakePrivateKeyPassphrase();
