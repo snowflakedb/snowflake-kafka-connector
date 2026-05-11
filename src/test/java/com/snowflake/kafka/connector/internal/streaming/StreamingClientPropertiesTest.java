@@ -18,16 +18,20 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
+import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKey;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.STREAMING_CLIENT_V2_PREFIX_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
-import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
+import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import java.security.PrivateKey;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -41,32 +45,33 @@ public class StreamingClientPropertiesTest {
 
   @Test
   public void testGetValidProperties() {
-    // setup config with all loggable properties and parameter override
-    Map<String, String> connectorConfig = getConnectorConfigurationForStreaming(false);
+    String privateKeyPem = Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded());
+    String testUrl = "https://testaccount.us-east-1.snowflakecomputing.com";
+
+    Map<String, String> connectorConfig = new HashMap<>();
     connectorConfig.put(KafkaConnectorConfigParams.NAME, "testName");
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "testUrl");
+    connectorConfig.put(Utils.TASK_ID, "0");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, testUrl);
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, privateKeyPem);
 
-    Properties expectedProps = new Properties();
-    expectedProps.put(StreamingIngestClientConfigParams.ACCOUNT_URL, "testUrl");
-    expectedProps.put(StreamingIngestClientConfigParams.ROLE, "testRole");
-    expectedProps.put(StreamingIngestClientConfigParams.USER, "testUser");
-    String privateKey = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
-    if (privateKey != null) {
-      expectedProps.put(StreamingIngestClientConfigParams.PRIVATE_KEY, privateKey);
-    }
-    String expectedClientName = STREAMING_CLIENT_V2_PREFIX_NAME + "testName";
-    Map<String, Object> expectedParameterOverrides = new HashMap<>();
-
-    // test get properties
     SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
-    StreamingClientProperties resultProperties = StreamingClientProperties.from(config);
+    StreamingClientProperties result = StreamingClientProperties.from(config);
 
-    // verify
-    assert resultProperties.clientProperties.equals(expectedProps);
-    assert resultProperties.clientNamePrefix.equals(expectedClientName);
-    assert resultProperties.parameterOverrides.equals(expectedParameterOverrides);
+    // verify client properties
+    Properties clientProps = result.clientProperties;
+    assertThat(clientProps.getProperty("user")).isEqualTo("testUser");
+    assertThat(clientProps.getProperty("role")).isEqualTo("testRole");
+    assertThat(clientProps.getProperty("account")).isEqualTo("testaccount");
+    assertThat(clientProps.getProperty("host"))
+        .isEqualTo("testaccount.us-east-1.snowflakecomputing.com");
+    assertThat(clientProps.getProperty("private_key")).isEqualTo(privateKeyPem);
+    assertThat(clientProps).hasSize(5);
+
+    // verify client name prefix and empty parameter overrides
+    assertThat(result.clientNamePrefix).isEqualTo(STREAMING_CLIENT_V2_PREFIX_NAME + "testName");
+    assertThat(result.parameterOverrides).isEmpty();
   }
 
   @Test
@@ -76,6 +81,9 @@ public class StreamingClientPropertiesTest {
         SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
 
     connectorConfig.put(Utils.TASK_ID, "0");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+        Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()));
     connectorConfig.put(
         SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "EXAMPLE_PARAM1:1,EXAMPLE_PARAM2:2");
 
@@ -99,6 +107,9 @@ public class StreamingClientPropertiesTest {
 
     connectorConfig.put(Utils.TASK_ID, "0");
     connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+        Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()));
+    connectorConfig.put(
         SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "EXAMPLE_PARAM1:1,EXAMPLE_PARAM2:2");
 
     Map<String, Object> expectedParameterOverrides = new HashMap<>();
@@ -117,19 +128,25 @@ public class StreamingClientPropertiesTest {
   public void testValidPropertiesWithOverriddenStreamingPropertiesMap() {
     Map<String, String> connectorConfig = getConnectorConfigurationForStreaming(true);
     connectorConfig.put(KafkaConnectorConfigParams.NAME, "testName");
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "testUrl");
+    String testUrl = "https://testaccount.us-east-1.snowflakecomputing.com";
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, testUrl);
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
     connectorConfig.put(
         SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "EXAMPLE_PARAM2:10000000");
 
+    SnowflakeURL parsedUrl = new SnowflakeURL(testUrl);
     Properties expectedProps = new Properties();
-    expectedProps.put(StreamingIngestClientConfigParams.ACCOUNT_URL, "testUrl");
-    expectedProps.put(StreamingIngestClientConfigParams.ROLE, "testRole");
-    expectedProps.put(StreamingIngestClientConfigParams.USER, "testUser");
-    String privateKey = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
-    if (privateKey != null) {
-      expectedProps.put(StreamingIngestClientConfigParams.PRIVATE_KEY, privateKey);
+    expectedProps.put("user", "testUser");
+    expectedProps.put("role", "testRole");
+    expectedProps.put("account", parsedUrl.getAccount());
+    expectedProps.put("host", parsedUrl.getUrlWithoutPort());
+    String privateKeyStr = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
+    if (privateKeyStr != null) {
+      String passphrase =
+          connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
+      PrivateKey privateKey = PrivateKeyTool.parsePrivateKey(privateKeyStr, passphrase);
+      expectedProps.put("private_key", Base64.getEncoder().encodeToString(privateKey.getEncoded()));
     }
     String expectedClientName = STREAMING_CLIENT_V2_PREFIX_NAME + "testName";
     Map<String, Object> expectedParameterOverrides = new HashMap<>();
@@ -149,7 +166,9 @@ public class StreamingClientPropertiesTest {
   public void testInvalidStreamingClientPropertiesMap() {
     Map<String, String> connectorConfig = getConnectorConfigurationForStreaming(true);
     connectorConfig.put(KafkaConnectorConfigParams.NAME, "testName");
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "testUrl");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+        "https://testaccount.us-east-1.snowflakecomputing.com");
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
     connectorConfig.put(

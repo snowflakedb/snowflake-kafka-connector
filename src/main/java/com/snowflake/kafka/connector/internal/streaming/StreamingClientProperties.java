@@ -17,10 +17,13 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.PrivateKeyTool;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import java.security.PrivateKey;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -52,19 +55,20 @@ public class StreamingClientProperties {
 
   /** Creates streaming client properties from parsed {@link SinkTaskConfig}. */
   public static StreamingClientProperties from(SinkTaskConfig config) {
-    Properties clientProperties = new Properties();
+    final Properties clientProperties = new Properties();
     if (config.getSnowflakeUrl() != null) {
-      clientProperties.put(StreamingIngestClientConfigParams.ACCOUNT_URL, config.getSnowflakeUrl());
-    }
-    if (config.getSnowflakeRole() != null) {
-      clientProperties.put(StreamingIngestClientConfigParams.ROLE, config.getSnowflakeRole());
-    }
-    if (config.getSnowflakeUser() != null) {
-      clientProperties.put(StreamingIngestClientConfigParams.USER, config.getSnowflakeUser());
-    }
-    if (config.getSnowflakePrivateKey() != null) {
-      clientProperties.put(
-          StreamingIngestClientConfigParams.PRIVATE_KEY, config.getSnowflakePrivateKey());
+      SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
+      final String privateKeyStr = config.getSnowflakePrivateKey();
+      final String privateKeyPassphrase = config.getSnowflakePrivateKeyPassphrase();
+      final PrivateKey privateKey =
+          PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
+      final String privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
+      clientProperties.put("private_key", privateKeyEncoded);
+
+      clientProperties.put("user", config.getSnowflakeUser());
+      clientProperties.put("role", config.getSnowflakeRole());
+      clientProperties.put("account", url.getAccount());
+      clientProperties.put("host", url.getUrlWithoutPort());
     }
 
     String clientNamePrefix =
