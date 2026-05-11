@@ -2,16 +2,18 @@ package com.snowflake.kafka.connector.config;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.TopicToTableParser;
+import com.snowflake.kafka.connector.TopicToTableResolver;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.CachingConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -29,8 +31,7 @@ public abstract class SinkTaskConfig {
 
   public abstract String getTaskId();
 
-  /** Returns an unmodifiable view of the topic-to-table mapping. */
-  public abstract Map<String, String> getTopicToTableMap();
+  public abstract TopicToTableResolver getTopicToTableResolver();
 
   public abstract ConnectorConfigTools.BehaviorOnNullValues getBehaviorOnNullValues();
 
@@ -184,19 +185,19 @@ public abstract class SinkTaskConfig {
       }
     }
 
-    ImmutableMap<String, String> topicToTableMap = ImmutableMap.of();
-    if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)) {
-      try {
-        Map<String, String> parsed =
-            TopicToTableParser.parse(
-                config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
-        if (parsed != null) {
-          topicToTableMap = ImmutableMap.copyOf(parsed);
-        }
-      } catch (IllegalArgumentException e) {
-        throw SnowflakeErrors.ERROR_0021.getException(e.getMessage());
-      }
-    }
+    TopicToTableResolver topicToTableResolver =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP))
+            .map(
+                value -> {
+                  try {
+                    List<TopicToTableParser.Entry> entries =
+                        TopicToTableParser.parseAndValidate(value);
+                    return StaticTopicToTableResolver.from(entries);
+                  } catch (IllegalArgumentException e) {
+                    throw SnowflakeErrors.ERROR_0021.getException(e.getMessage());
+                  }
+                })
+            .orElseGet(() -> new StaticTopicToTableResolver(Map.of()));
 
     ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues =
         ConnectorConfigTools.BehaviorOnNullValues.DEFAULT;
@@ -352,7 +353,7 @@ public abstract class SinkTaskConfig {
     Builder b = builder();
     b.connectorName(connectorName)
         .taskId(taskId)
-        .topicToTableMap(topicToTableMap)
+        .topicToTableResolver(topicToTableResolver)
         .behaviorOnNullValues(behaviorOnNullValues)
         .jmxEnabled(jmxEnabled)
         .tolerateErrors(tolerateErrors)
@@ -418,7 +419,7 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder taskId(String taskId);
 
-    public abstract Builder topicToTableMap(Map<String, String> topicToTableMap);
+    public abstract Builder topicToTableResolver(TopicToTableResolver topicToTableResolver);
 
     public abstract Builder behaviorOnNullValues(
         ConnectorConfigTools.BehaviorOnNullValues behaviorOnNullValues);
