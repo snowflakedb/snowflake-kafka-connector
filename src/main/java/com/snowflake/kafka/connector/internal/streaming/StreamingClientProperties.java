@@ -32,19 +32,21 @@ import java.util.Properties;
  * equality between clients in {@code StreamingClientProvider}.
  */
 public class StreamingClientProperties {
-  public static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
+  public static final String STREAMING_CLIENT_V2_PREFIX_NAME = "KC_CLIENT_V2_";
   public static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
   public final Properties clientProperties;
-  public final String clientName;
+  public final String clientNamePrefix;
   public final Map<String, Object> parameterOverrides;
 
   /** Constructor used by {@link #from(SinkTaskConfig)}. */
   private StreamingClientProperties(
-      Properties clientProperties, String clientName, Map<String, Object> parameterOverrides) {
+      Properties clientProperties,
+      String clientNamePrefix,
+      Map<String, Object> parameterOverrides) {
     this.clientProperties = clientProperties;
-    this.clientName = clientName;
+    this.clientNamePrefix = clientNamePrefix;
     this.parameterOverrides = parameterOverrides;
   }
 
@@ -65,8 +67,8 @@ public class StreamingClientProperties {
           StreamingIngestClientConfigParams.PRIVATE_KEY, config.getSnowflakePrivateKey());
     }
 
-    String clientName =
-        STREAMING_CLIENT_PREFIX_NAME
+    String clientNamePrefix =
+        STREAMING_CLIENT_V2_PREFIX_NAME
             + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME);
 
     Map<String, Object> parameterOverrides = new HashMap<>();
@@ -77,7 +79,7 @@ public class StreamingClientProperties {
       LOGGER.info("Streaming Client config overrides: {}", parameterOverrides);
     }
 
-    return new StreamingClientProperties(clientProperties, clientName, parameterOverrides);
+    return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
   }
 
   /**

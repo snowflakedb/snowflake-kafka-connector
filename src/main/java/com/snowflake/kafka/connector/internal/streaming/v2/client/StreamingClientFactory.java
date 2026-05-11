@@ -37,7 +37,7 @@ public class StreamingClientFactory {
       final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties) {
 
-    String clientName = clientNameFromConfig(config);
+    String clientName = clientName(streamingClientProperties);
     String dbName = config.getSnowflakeDatabase();
     String schemaName = config.getSnowflakeSchema();
 
@@ -45,10 +45,8 @@ public class StreamingClientFactory {
         clientName, dbName, schemaName, pipeName, config, streamingClientProperties);
   }
 
-  private static String clientNameFromConfig(final SinkTaskConfig config) {
-    return STREAMING_CLIENT_V2_PREFIX_NAME
-        + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME)
-        + createdClientId.incrementAndGet();
+  private static String clientName(final StreamingClientProperties streamingClientProperties) {
+    return streamingClientProperties.clientNamePrefix + createdClientId.incrementAndGet();
   }
 
   public static Properties getClientProperties(final SinkTaskConfig config) {

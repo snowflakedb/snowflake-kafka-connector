@@ -19,7 +19,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
-import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.STREAMING_CLIENT_PREFIX_NAME;
+import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.STREAMING_CLIENT_V2_PREFIX_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
@@ -56,7 +56,7 @@ public class StreamingClientPropertiesTest {
     if (privateKey != null) {
       expectedProps.put(StreamingIngestClientConfigParams.PRIVATE_KEY, privateKey);
     }
-    String expectedClientName = STREAMING_CLIENT_PREFIX_NAME + "testName";
+    String expectedClientName = STREAMING_CLIENT_V2_PREFIX_NAME + "testName";
     Map<String, Object> expectedParameterOverrides = new HashMap<>();
 
     // test get properties
@@ -65,7 +65,7 @@ public class StreamingClientPropertiesTest {
 
     // verify
     assert resultProperties.clientProperties.equals(expectedProps);
-    assert resultProperties.clientName.equals(expectedClientName);
+    assert resultProperties.clientNamePrefix.equals(expectedClientName);
     assert resultProperties.parameterOverrides.equals(expectedParameterOverrides);
   }
 
@@ -131,7 +131,7 @@ public class StreamingClientPropertiesTest {
     if (privateKey != null) {
       expectedProps.put(StreamingIngestClientConfigParams.PRIVATE_KEY, privateKey);
     }
-    String expectedClientName = STREAMING_CLIENT_PREFIX_NAME + "testName";
+    String expectedClientName = STREAMING_CLIENT_V2_PREFIX_NAME + "testName";
     Map<String, Object> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(EXAMPLE_PARAM2, "10000000");
 
@@ -141,7 +141,7 @@ public class StreamingClientPropertiesTest {
 
     // verify
     assert resultProperties.clientProperties.equals(expectedProps);
-    assert resultProperties.clientName.equals(expectedClientName);
+    assert resultProperties.clientNamePrefix.equals(expectedClientName);
     assert resultProperties.parameterOverrides.equals(expectedParameterOverrides);
   }
 
