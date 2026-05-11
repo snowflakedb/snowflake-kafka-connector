@@ -166,7 +166,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // Check each target table for ERROR_LOGGING.
       // Note: makes up to 3 network calls per table (tableExist + isIcebergTable +
       // hasErrorLoggingEnabled). Acceptable at startup; only runs once per task constructor.
-      Set<String> uniqueTables = new HashSet<>(taskConfig.getTopicToTableMap().values());
+      Set<String> uniqueTables = new HashSet<>(taskConfig.getTopicToTableResolver().tableNames());
       for (String tableName : uniqueTables) {
         if (!conn.tableExist(tableName)) {
           // Table doesn't exist yet — will be auto-created with ERROR_LOGGING = TRUE
@@ -253,7 +253,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     for (String topic : uniqueTopics) {
       final String tableName =
-          getTableName(topic, taskConfig.getTopicToTableMap(), taskConfig.isEnableSanitization());
+          getTableName(
+              topic, taskConfig.getTopicToTableResolver(), taskConfig.isEnableSanitization());
       createTableIfNotExists(tableName);
 
       // Client-side validation only supports default pipes.

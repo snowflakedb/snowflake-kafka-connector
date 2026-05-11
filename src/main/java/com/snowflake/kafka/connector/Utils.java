@@ -299,49 +299,44 @@ public class Utils {
     String appName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     // If appName is empty the following call will throw error
     // Application names are always sanitized for backward compatibility
-    String validAppName = generateValidNameFromMap(appName, new HashMap<>(), true);
+    String validAppName = deriveTableName(appName, true);
 
     config.put(KafkaConnectorConfigParams.NAME, validAppName);
   }
 
   /**
-   * verify topic name, and generate valid table name with optional sanitization
+   * Resolve a topic name to a table name. Tries the resolver first; if no mapping matches, falls
+   * back to sanitization or pass-through depending on the flag.
    *
    * @param topic input topic name
-   * @param topic2table topic to table map
+   * @param resolver topic-to-table resolver
    * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
-   * @return valid table name
+   * @return table name
    */
   public static String getTableName(
-      String topic, Map<String, String> topic2table, boolean enableSanitization) {
-    return generateValidNameFromMap(topic, topic2table, enableSanitization);
-  }
-
-  /**
-   * verify topic name, and generate valid table/application name with optional sanitization
-   *
-   * @param topic input topic name
-   * @param topic2table topic to table map
-   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
-   * @return valid generated table/application name
-   */
-  private static String generateValidNameFromMap(
-      String topic, Map<String, String> topic2table, boolean enableSanitization) {
-    final String PLACE_HOLDER = "_";
+      String topic, TopicToTableResolver resolver, boolean enableSanitization) {
     if (topic == null || topic.isEmpty()) {
       throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
     }
 
-    // Map entries always bypass sanitization
-    if (topic2table.containsKey(topic)) {
-      return topic2table.get(topic);
+    String resolved = resolver.resolve(topic);
+    if (resolved != null) {
+      return resolved;
     }
 
-    // try matching regex tables
-    for (String regexTopic : topic2table.keySet()) {
-      if (topic.matches(regexTopic)) {
-        return topic2table.get(regexTopic);
-      }
+    return deriveTableName(topic, enableSanitization);
+  }
+
+  /**
+   * Derive a table name from a topic when no explicit mapping exists.
+   *
+   * @param topic input topic name
+   * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @return derived table name
+   */
+  private static String deriveTableName(String topic, boolean enableSanitization) {
+    if (topic == null || topic.isEmpty()) {
+      throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
     }
 
     // If sanitization is disabled, pass through the topic name as is
@@ -356,6 +351,7 @@ public class Utils {
     }
 
     // Invalid identifiers are sanitized and uppercased when sanitization is enabled
+    final String PLACE_HOLDER = "_";
     int hash = Math.abs(topic.hashCode());
 
     StringBuilder result = new StringBuilder();

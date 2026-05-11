@@ -6,6 +6,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
@@ -66,7 +67,8 @@ class TombstoneRecordIngestionIT {
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     SinkTaskConfig taskConfig =
         SinkTaskConfig.builderFrom(TestUtils.getConnectorConfigurationForStreaming(false))
-            .topicToTableMap(Collections.singletonMap(topic, table))
+            .topicToTableResolver(
+                new StaticTopicToTableResolver(Collections.singletonMap(topic, table)))
             .behaviorOnNullValues(behavior)
             .build();
     SnowflakeSinkServiceV2 service =
@@ -94,7 +96,8 @@ class TombstoneRecordIngestionIT {
     TopicPartition topicPartition = new TopicPartition(topic, partition);
     SinkTaskConfig taskConfig =
         SinkTaskConfig.builderFrom(TestUtils.getConnectorConfigurationForStreaming(false))
-            .topicToTableMap(Collections.singletonMap(topic, table))
+            .topicToTableResolver(
+                new StaticTopicToTableResolver(Collections.singletonMap(topic, table)))
             .behaviorOnNullValues(behavior)
             .build();
     SnowflakeSinkServiceV2 service =

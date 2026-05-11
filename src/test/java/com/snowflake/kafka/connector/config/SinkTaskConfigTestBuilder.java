@@ -2,11 +2,12 @@ package com.snowflake.kafka.connector.config;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.internal.CachingConfig;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Test-only builder for {@link SinkTaskConfig}. Provides a builder with default values for all
@@ -25,7 +26,7 @@ public final class SinkTaskConfigTestBuilder {
    */
   public static SinkTaskConfig.Builder builder() {
     return SinkTaskConfig.builder()
-        .topicToTableMap(new HashMap<>())
+        .topicToTableResolver(new StaticTopicToTableResolver(Map.of()))
         .behaviorOnNullValues(ConnectorConfigTools.BehaviorOnNullValues.DEFAULT)
         .jmxEnabled(KafkaConnectorConfigParams.JMX_OPT_DEFAULT)
         .tolerateErrors(false)

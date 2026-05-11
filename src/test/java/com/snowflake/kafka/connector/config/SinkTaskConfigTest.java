@@ -30,7 +30,7 @@ public class SinkTaskConfigTest {
 
     assertEquals("test_connector", config.getConnectorName());
     assertEquals("0", config.getTaskId());
-    assertTrue(config.getTopicToTableMap().isEmpty());
+    assertNull(config.getTopicToTableResolver().resolve("anything"));
     assertEquals(
         ConnectorConfigTools.BehaviorOnNullValues.DEFAULT, config.getBehaviorOnNullValues());
     assertTrue(config.isJmxEnabled());
@@ -100,9 +100,8 @@ public class SinkTaskConfigTest {
 
     SinkTaskConfig parsed = SinkTaskConfig.from(config);
 
-    assertEquals(2, parsed.getTopicToTableMap().size());
-    assertEquals("TABLE1", parsed.getTopicToTableMap().get("t1"));
-    assertEquals("TABLE2", parsed.getTopicToTableMap().get("t2"));
+    assertEquals("TABLE1", parsed.getTopicToTableResolver().resolve("t1"));
+    assertEquals("TABLE2", parsed.getTopicToTableResolver().resolve("t2"));
   }
 
   @Test
