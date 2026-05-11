@@ -75,10 +75,30 @@ public abstract class SinkTaskConfig {
   public abstract String getSnowflakePrivateKeyPassphrase();
 
   @Nullable
+  public abstract String getAuthenticator();
+
+  @Nullable
+  public abstract String getOauthClientId();
+
+  @Nullable
+  public abstract String getOauthClientSecret();
+
+  @Nullable
+  public abstract String getOauthRefreshToken();
+
+  @Nullable
+  public abstract String getOauthTokenEndpoint();
+
+  @Nullable
   public abstract String getSnowflakeDatabase();
 
   @Nullable
   public abstract String getSnowflakeSchema();
+
+  /** Returns true if the authenticator is set to OAuth. */
+  public boolean isOAuth() {
+    return KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH.equalsIgnoreCase(getAuthenticator());
+  }
 
   public abstract Ssv1MigrationMode getSsv1MigrationMode();
 
@@ -231,6 +251,13 @@ public abstract class SinkTaskConfig {
     String snowflakeDatabase = config.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
     String snowflakeSchema = config.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
 
+    String authenticator = config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR);
+    String oauthClientId = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID);
+    String oauthClientSecret = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET);
+    String oauthRefreshToken = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN);
+    String oauthTokenEndpoint =
+        config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT);
+
     return builder()
         .connectorName(connectorName)
         .taskId(taskId)
@@ -253,6 +280,11 @@ public abstract class SinkTaskConfig {
         .snowflakeRole(snowflakeRole)
         .snowflakePrivateKey(snowflakePrivateKey)
         .snowflakePrivateKeyPassphrase(snowflakePrivateKeyPassphrase)
+        .authenticator(authenticator)
+        .oauthClientId(oauthClientId)
+        .oauthClientSecret(oauthClientSecret)
+        .oauthRefreshToken(oauthRefreshToken)
+        .oauthTokenEndpoint(oauthTokenEndpoint)
         .snowflakeDatabase(snowflakeDatabase)
         .snowflakeSchema(snowflakeSchema)
         .ssv1MigrationMode(ssv1MigrationMode)
@@ -313,6 +345,16 @@ public abstract class SinkTaskConfig {
     public abstract Builder snowflakePrivateKey(String snowflakePrivateKey);
 
     public abstract Builder snowflakePrivateKeyPassphrase(String snowflakePrivateKeyPassphrase);
+
+    public abstract Builder authenticator(String authenticator);
+
+    public abstract Builder oauthClientId(String oauthClientId);
+
+    public abstract Builder oauthClientSecret(String oauthClientSecret);
+
+    public abstract Builder oauthRefreshToken(String oauthRefreshToken);
+
+    public abstract Builder oauthTokenEndpoint(String oauthTokenEndpoint);
 
     public abstract Builder snowflakeDatabase(String snowflakeDatabase);
 

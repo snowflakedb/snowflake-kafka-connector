@@ -216,9 +216,9 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
       Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
     }
 
-    // If private key or private key passphrase is
-    // provided through a config provider, skip validation
-    if (isUsingConfigProviderForPrivateKey(connectorConfigs)) {
+    // Skip connection validation for OAuth (credentials may come from config provider)
+    // or when private key is provided through a config provider
+    if (isUsingOAuth(connectorConfigs) || isUsingConfigProviderForPrivateKey(connectorConfigs)) {
       return result;
     }
 
@@ -272,6 +272,30 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
               KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
               " must be a valid PEM RSA private key");
           break;
+        case "0026":
+          Utils.updateConfigErrorMessage(
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0027":
+          Utils.updateConfigErrorMessage(
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+              " must be non-empty when using oauth authenticator");
+          break;
+        case "0029":
+          Utils.updateConfigErrorMessage(
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+              " is not a valid authenticator");
+          break;
+        case "1004":
+          Utils.updateConfigErrorMessage(
+              result,
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID,
+              ": Failed to fetch OAuth token");
+          break;
         default:
           throw e; // Shouldn't reach here, so crash.
       }
@@ -308,6 +332,13 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
     LOGGER.info("Validated config with no error");
     return result;
+  }
+
+  private static boolean isUsingOAuth(Map<String, String> connectorConfigs) {
+    return KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH.equalsIgnoreCase(
+        connectorConfigs.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+            KafkaConnectorConfigParams.AUTHENTICATOR_SNOWFLAKE_JWT));
   }
 
   private static boolean isUsingConfigProviderForPrivateKey(Map<String, String> connectorConfigs) {

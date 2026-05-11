@@ -18,6 +18,8 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -59,12 +61,37 @@ public class StreamingClientProperties {
     final Properties clientProperties = new Properties();
     if (!Strings.isNullOrEmpty(config.getSnowflakeUrl())) {
       SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
-      final String privateKeyStr = config.getSnowflakePrivateKey();
-      final String privateKeyPassphrase = config.getSnowflakePrivateKeyPassphrase();
-      final PrivateKey privateKey =
-          PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
-      final String privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
-      clientProperties.put("private_key", privateKeyEncoded);
+
+      if (config.isOAuth()) {
+        clientProperties.put(
+            StreamingIngestClientConfigParams.AUTHORIZATION_TYPE,
+            KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH);
+        if (config.getOauthClientId() != null) {
+          clientProperties.put(
+              StreamingIngestClientConfigParams.OAUTH_CLIENT_ID, config.getOauthClientId());
+        }
+        if (config.getOauthClientSecret() != null) {
+          clientProperties.put(
+              StreamingIngestClientConfigParams.OAUTH_CLIENT_SECRET, config.getOauthClientSecret());
+        }
+        if (config.getOauthRefreshToken() != null && !config.getOauthRefreshToken().isEmpty()) {
+          clientProperties.put(
+              StreamingIngestClientConfigParams.OAUTH_REFRESH_TOKEN, config.getOauthRefreshToken());
+        }
+        if (config.getOauthTokenEndpoint() != null && !config.getOauthTokenEndpoint().isEmpty()) {
+          clientProperties.put(
+              StreamingIngestClientConfigParams.OAUTH_TOKEN_ENDPOINT,
+              config.getOauthTokenEndpoint());
+        }
+      } else {
+        final String privateKeyStr = config.getSnowflakePrivateKey();
+        final String privateKeyPassphrase = config.getSnowflakePrivateKeyPassphrase();
+        final PrivateKey privateKey =
+            PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
+        final String privateKeyEncoded =
+            Base64.getEncoder().encodeToString(privateKey.getEncoded());
+        clientProperties.put("private_key", privateKeyEncoded);
+      }
 
       clientProperties.put("user", config.getSnowflakeUser());
       clientProperties.put("role", config.getSnowflakeRole());

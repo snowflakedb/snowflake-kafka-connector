@@ -24,6 +24,7 @@ import static com.snowflake.kafka.connector.internal.streaming.StreamingClientPr
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
@@ -228,5 +229,73 @@ public class StreamingClientPropertiesTest {
 
     assert !prop1.equals(prop2);
     assert prop1.hashCode() != prop2.hashCode();
+  }
+
+  @Test
+  void oAuthConfig_setsAuthorizationTypeAndCredentials() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+            .withOauthClientId("test_client_id")
+            .withOauthClientSecret("test_client_secret")
+            .withOauthRefreshToken("test_refresh_token")
+            .withOauthTokenEndpoint("https://oauth.example.com/token")
+            .withoutPrivateKey()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsEntry(
+            StreamingIngestClientConfigParams.AUTHORIZATION_TYPE,
+            KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+        .containsEntry(StreamingIngestClientConfigParams.OAUTH_CLIENT_ID, "test_client_id")
+        .containsEntry(StreamingIngestClientConfigParams.OAUTH_CLIENT_SECRET, "test_client_secret")
+        .containsEntry(StreamingIngestClientConfigParams.OAUTH_REFRESH_TOKEN, "test_refresh_token")
+        .containsEntry(
+            StreamingIngestClientConfigParams.OAUTH_TOKEN_ENDPOINT,
+            "https://oauth.example.com/token")
+        .doesNotContainKey("private_key");
+  }
+
+  @Test
+  void oAuthConfig_clientCredentials_omitsRefreshToken() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+            .withOauthClientId("test_client_id")
+            .withOauthClientSecret("test_client_secret")
+            .withoutPrivateKey()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsEntry(
+            StreamingIngestClientConfigParams.AUTHORIZATION_TYPE,
+            KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+        .containsEntry(StreamingIngestClientConfigParams.OAUTH_CLIENT_ID, "test_client_id")
+        .containsEntry(StreamingIngestClientConfigParams.OAUTH_CLIENT_SECRET, "test_client_secret")
+        .doesNotContainKey(StreamingIngestClientConfigParams.OAUTH_REFRESH_TOKEN)
+        .doesNotContainKey("private_key");
+  }
+
+  @Test
+  void jwtConfig_setsPrivateKey_noOAuthProperties() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsKey("private_key")
+        .doesNotContainKey(StreamingIngestClientConfigParams.AUTHORIZATION_TYPE)
+        .doesNotContainKey(StreamingIngestClientConfigParams.OAUTH_CLIENT_ID);
   }
 }

@@ -156,6 +156,53 @@ public class InternalUtilsTest {
   }
 
   @Test
+  public void testMakeJdbcDriverProperties_oauthMissingClientId_throws() {
+    Map<String, String> config = new HashMap<>();
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, "db");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, "schema");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "user");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://account.snowflake.com");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, "oauth");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "secret");
+
+    SnowflakeURL url = new SnowflakeURL("https://account.snowflake.com");
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0026,
+        () -> InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(config, url));
+  }
+
+  @Test
+  public void testMakeJdbcDriverProperties_oauthMissingClientSecret_throws() {
+    Map<String, String> config = new HashMap<>();
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, "db");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, "schema");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "user");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://account.snowflake.com");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, "oauth");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID, "client_id");
+
+    SnowflakeURL url = new SnowflakeURL("https://account.snowflake.com");
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0027,
+        () -> InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(config, url));
+  }
+
+  @Test
+  public void testMakeJdbcDriverProperties_invalidAuthenticator_throws() {
+    Map<String, String> config = new HashMap<>();
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, "db");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, "schema");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "user");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://account.snowflake.com");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, "invalid_auth");
+
+    SnowflakeURL url = new SnowflakeURL("https://account.snowflake.com");
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0029,
+        () -> InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(config, url));
+  }
+
+  @Test
   public void parseJdbcPropertiesMapTest() {
     String key = "snowflake.jdbc.map";
     String input =

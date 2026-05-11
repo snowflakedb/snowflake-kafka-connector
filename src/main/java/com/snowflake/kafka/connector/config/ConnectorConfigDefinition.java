@@ -102,6 +102,58 @@ public class ConnectorConfigDefinition {
             6,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)
+        // OAuth
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+            STRING,
+            KafkaConnectorConfigParams.AUTHENTICATOR_SNOWFLAKE_JWT,
+            LOW,
+            "Authenticator for JDBC and streaming ingest SDK."
+                + " Valid values: snowflake_jwt, oauth.",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            7,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID,
+            STRING,
+            "",
+            HIGH,
+            "Client id of target OAuth integration",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            8,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+            PASSWORD,
+            "",
+            HIGH,
+            "Client secret of target OAuth integration",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            9,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN,
+            PASSWORD,
+            "",
+            HIGH,
+            "Refresh token for OAuth. If empty, client_credentials grant is used.",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            10,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT,
+            STRING,
+            null,
+            HIGH,
+            "OAuth token endpoint URL. If not set, defaults to the Snowflake account URL.",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            11,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT)
         // proxy
         .define(
             KafkaConnectorConfigParams.JVM_PROXY_HOST,

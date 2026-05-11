@@ -75,9 +75,32 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
     }
 
-    if (!config.containsKey(SNOWFLAKE_PRIVATE_KEY)) {
+    String authenticator =
+        config.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+            KafkaConnectorConfigParams.AUTHENTICATOR_SNOWFLAKE_JWT);
+    boolean isOAuth =
+        KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH.equalsIgnoreCase(authenticator);
+
+    if (!isOAuth
+        && !KafkaConnectorConfigParams.AUTHENTICATOR_SNOWFLAKE_JWT.equalsIgnoreCase(
+            authenticator)) {
       invalidConfigParams.put(
-          SNOWFLAKE_PRIVATE_KEY, Utils.formatString("{} cannot be empty", SNOWFLAKE_PRIVATE_KEY));
+          KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+          Utils.formatString(
+              "{} is not a valid authenticator. Must be '{}' or '{}'.",
+              authenticator,
+              KafkaConnectorConfigParams.AUTHENTICATOR_SNOWFLAKE_JWT,
+              KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH));
+    }
+
+    if (isOAuth) {
+      validateOAuthConfig(config, invalidConfigParams);
+    } else {
+      if (!config.containsKey(SNOWFLAKE_PRIVATE_KEY)) {
+        invalidConfigParams.put(
+            SNOWFLAKE_PRIVATE_KEY, Utils.formatString("{} cannot be empty", SNOWFLAKE_PRIVATE_KEY));
+      }
     }
 
     if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME)) {
@@ -132,6 +155,28 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     // logs and throws exception if there are invalid params
     handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));
+  }
+
+  private void validateOAuthConfig(
+      Map<String, String> config, Map<String, String> invalidConfigParams) {
+    String clientId = config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID, "");
+    if (clientId.isEmpty()) {
+      invalidConfigParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID,
+          Utils.formatString(
+              "{} must be non-empty when using oauth authenticator",
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID));
+    }
+
+    String clientSecret =
+        config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "");
+    if (clientSecret.isEmpty()) {
+      invalidConfigParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+          Utils.formatString(
+              "{} must be non-empty when using oauth authenticator",
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
+    }
   }
 
   private void validateCompatibilitySettings(

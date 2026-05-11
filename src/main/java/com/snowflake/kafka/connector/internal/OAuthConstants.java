@@ -1,0 +1,20 @@
+package com.snowflake.kafka.connector.internal;
+
+/**
+ * Constants for OAuth token requests.
+ *
+ * @see <a
+ *     href="https://github.com/snowflakedb/snowflake/blob/4fdb96cd5849f266cda430c5d49a13c29e866af5/GlobalServices/src/main/java/com/snowflake/resources/ResourceConstants.java">ResourceConstants</a>
+ */
+public class OAuthConstants {
+  public static final String TOKEN_REQUEST_ENDPOINT = "/oauth/token-request";
+  public static final String OAUTH_CONTENT_TYPE_HEADER = "application/x-www-form-urlencoded";
+  public static final String BASIC_AUTH_HEADER_PREFIX = "Basic ";
+  public static final String GRANT_TYPE_PARAM = "grant_type";
+  public static final String GRANT_TYPE_REFRESH_TOKEN = "refresh_token";
+  public static final String GRANT_TYPE_CLIENT_CREDENTIALS = "client_credentials";
+  public static final String REFRESH_TOKEN = "refresh_token";
+  public static final String ACCESS_TOKEN = "access_token";
+  public static final String REDIRECT_URI = "redirect_uri";
+  public static final String DEFAULT_REDIRECT_URI = "https://localhost.com/oauth";
+}

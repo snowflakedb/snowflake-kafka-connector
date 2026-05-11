@@ -90,6 +90,13 @@ public class InternalUtils {
     String privateKeyPassphrase = "";
     String role = "";
 
+    // OAuth params
+    String authenticator = "";
+    String oAuthClientId = "";
+    String oAuthClientSecret = "";
+    String oAuthRefreshToken = "";
+    String oAuthTokenEndpoint = "";
+
     for (Map.Entry<String, String> entry : connectorConfiguration.entrySet()) {
       // case insensitive
       switch (entry.getKey().toLowerCase()) {
@@ -111,17 +118,57 @@ public class InternalUtils {
         case KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME:
           role = entry.getValue();
           break;
+        case KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR:
+          authenticator = entry.getValue();
+          break;
+        case KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID:
+          oAuthClientId = entry.getValue();
+          break;
+        case KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET:
+          oAuthClientSecret = entry.getValue();
+          break;
+        case KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN:
+          oAuthRefreshToken = entry.getValue();
+          break;
+        case KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT:
+          oAuthTokenEndpoint = entry.getValue();
+          break;
         default:
           // ignore unrecognized keys
       }
     }
 
-    properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
-    if (isBlank(privateKey)) {
-      throw SnowflakeErrors.ERROR_0013.getException();
+    if (isBlank(authenticator)) {
+      authenticator = SNOWFLAKE_JWT;
     }
-    properties.put(
-        JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
+
+    if (KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH.equalsIgnoreCase(authenticator)) {
+      // OAuth auth
+      properties.put(
+          JdbcPropertyKeys.AUTHENTICATOR, KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH);
+      if (isBlank(oAuthClientId)) {
+        throw SnowflakeErrors.ERROR_0026.getException();
+      }
+      if (isBlank(oAuthClientSecret)) {
+        throw SnowflakeErrors.ERROR_0027.getException();
+      }
+      URL oauthUrl = isBlank(oAuthTokenEndpoint) ? url : OAuthURL.from(oAuthTokenEndpoint);
+
+      String accessToken =
+          OAuthAccessTokenFetcher.fetchAccessToken(
+              oauthUrl, oAuthClientId, oAuthClientSecret, oAuthRefreshToken);
+      properties.put(JDBC_TOKEN, accessToken);
+    } else if (SNOWFLAKE_JWT.equalsIgnoreCase(authenticator)) {
+      // JWT key pair auth
+      properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
+      if (isBlank(privateKey)) {
+        throw SnowflakeErrors.ERROR_0013.getException();
+      }
+      properties.put(
+          JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
+    } else {
+      throw SnowflakeErrors.ERROR_0029.getException();
+    }
 
     // set role for JDBC connection (SNOW-3029864)
     if (!isBlank(role)) {

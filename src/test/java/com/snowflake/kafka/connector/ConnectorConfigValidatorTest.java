@@ -676,6 +676,99 @@ public class ConnectorConfigValidatorTest {
         .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION);
   }
 
+  @Test
+  public void testOAuthAuthenticator() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withOauthRefreshToken("refresh_token")
+            .withoutPrivateKey()
+            .build();
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  public void testOAuthWithoutRefreshToken_clientCredentialsGrant() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withoutPrivateKey()
+            .build();
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  public void testOAuthWithTokenEndpoint() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withOauthRefreshToken("refresh_token")
+            .withOauthTokenEndpoint("https://login.example.com/oauth2/v2.0/token")
+            .withoutPrivateKey()
+            .build();
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  public void testInvalidAuthenticator() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator("invalid_authenticator")
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR);
+  }
+
+  @Test
+  public void testOAuthEmptyClientId() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+            .withOauthClientSecret("client_secret")
+            .withoutPrivateKey()
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID);
+  }
+
+  @Test
+  public void testOAuthEmptyClientSecret() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+            .withOauthClientId("client_id")
+            .withoutPrivateKey()
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET);
+  }
+
+  @Test
+  public void testOAuthDoesNotRequirePrivateKey() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(KafkaConnectorConfigParams.AUTHENTICATOR_OAUTH)
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withOauthRefreshToken("refresh_token")
+            .withoutPrivateKey()
+            .build();
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
   private void invalidConfigRunner(List<String> paramsToRemove) {
     Map<String, String> config = getConfig();
     for (String configParam : paramsToRemove) {

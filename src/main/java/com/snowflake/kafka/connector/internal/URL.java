@@ -4,4 +4,12 @@ public interface URL {
   String hostWithPort();
 
   String getScheme();
+
+  default boolean sslEnabled() {
+    return "https".equals(getScheme());
+  }
+
+  default String path() {
+    return "";
+  }
 }

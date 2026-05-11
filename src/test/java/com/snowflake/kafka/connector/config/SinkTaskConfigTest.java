@@ -168,4 +168,43 @@ public class SinkTaskConfigTest {
     SinkTaskConfig config = SinkTaskConfig.from(raw);
     assertTrue(config.isSsv1MigrationIncludeConnectorName());
   }
+
+  @Test
+  public void from_oauthFields_areParsed() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTHENTICATOR, AUTHENTICATOR_OAUTH);
+    raw.put(SNOWFLAKE_OAUTH_CLIENT_ID, "my_client_id");
+    raw.put(SNOWFLAKE_OAUTH_CLIENT_SECRET, "my_client_secret");
+    raw.put(SNOWFLAKE_OAUTH_REFRESH_TOKEN, "my_refresh_token");
+    raw.put(SNOWFLAKE_OAUTH_TOKEN_ENDPOINT, "https://oauth.example.com/token");
+
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+
+    assertEquals(AUTHENTICATOR_OAUTH, config.getAuthenticator());
+    assertTrue(config.isOAuth());
+    assertEquals("my_client_id", config.getOauthClientId());
+    assertEquals("my_client_secret", config.getOauthClientSecret());
+    assertEquals("my_refresh_token", config.getOauthRefreshToken());
+    assertEquals("https://oauth.example.com/token", config.getOauthTokenEndpoint());
+  }
+
+  @Test
+  public void from_defaultAuthenticator_isNull() {
+    SinkTaskConfig config = SinkTaskConfig.from(minimalConfig());
+    assertNull(config.getAuthenticator());
+    assertFalse(config.isOAuth());
+  }
+
+  @Test
+  public void from_oauthWithoutOptionalFields_succeeds() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTHENTICATOR, AUTHENTICATOR_OAUTH);
+    raw.put(SNOWFLAKE_OAUTH_CLIENT_ID, "client_id");
+    raw.put(SNOWFLAKE_OAUTH_CLIENT_SECRET, "client_secret");
+
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertTrue(config.isOAuth());
+    assertNull(config.getOauthRefreshToken());
+    assertNull(config.getOauthTokenEndpoint());
+  }
 }
