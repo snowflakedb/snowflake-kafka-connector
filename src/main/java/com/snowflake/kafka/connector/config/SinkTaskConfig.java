@@ -100,36 +100,49 @@ public abstract class SinkTaskConfig {
 
   /**
    * Parses the raw connector config map into an immutable SinkTaskConfig. Applies defaults for
-   * missing optional keys. Caller must ensure required fields (connector name, task id) are present
-   * or validation will throw.
+   * missing optional keys.
    *
    * @param raw raw config from the connector (typically after setDefaultValues)
+   * @param skipTaskSpecificConfig if true, task ID and connector name default to "" when absent
+   *     instead of throwing. Use this when building a config outside of task startup -- e.g. in
+   *     {@code validate()} or connection factory setup -- where task ID is not yet assigned.
    * @return parsed config
    * @throws IllegalArgumentException if required fields are missing or invalid
    */
   public static SinkTaskConfig from(Map<String, String> raw) {
-    return builderFrom(raw).build();
+    return from(raw, false);
+  }
+
+  public static SinkTaskConfig from(Map<String, String> raw, boolean skipTaskSpecificConfig) {
+    return builderFrom(raw, skipTaskSpecificConfig).build();
   }
 
   @VisibleForTesting
   public static Builder builderFrom(Map<String, String> raw) {
+    return builderFrom(raw, false);
+  }
+
+  @VisibleForTesting
+  public static Builder builderFrom(Map<String, String> raw, boolean skipTaskSpecificConfig) {
     if (raw == null) {
       raw = new HashMap<>();
     }
     Map<String, String> config = new HashMap<>(raw);
 
-    String connectorName = config.get(KafkaConnectorConfigParams.NAME);
-    if (connectorName == null || connectorName.trim().isEmpty()) {
-      throw new IllegalArgumentException(
-          "Connector name ('"
-              + KafkaConnectorConfigParams.NAME
-              + "') must be set and cannot be empty");
-    }
+    String connectorName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
+    String taskId = config.getOrDefault(Utils.TASK_ID, "");
 
-    String taskId = config.get(Utils.TASK_ID);
-    if (taskId == null || taskId.trim().isEmpty()) {
-      throw new IllegalArgumentException(
-          "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
+    if (!skipTaskSpecificConfig) {
+      if (connectorName == null || connectorName.trim().isEmpty()) {
+        throw new IllegalArgumentException(
+            "Connector name ('"
+                + KafkaConnectorConfigParams.NAME
+                + "') must be set and cannot be empty");
+      }
+      if (taskId == null || taskId.trim().isEmpty()) {
+        throw new IllegalArgumentException(
+            "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
+      }
     }
 
     ImmutableMap<String, String> topicToTableMap = ImmutableMap.of();

@@ -4,6 +4,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -75,65 +76,31 @@ public class InternalUtils {
   }
 
   /**
-   * create a properties for snowflake connection
+   * Build JDBC driver properties from a parsed {@link SinkTaskConfig}.
    *
-   * @param connectorConfiguration a map contains all parameters
+   * @param config parsed sink task configuration
    * @param url target server url
-   * @return a Properties instance
+   * @return a Properties instance ready for JDBC
    */
-  static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(
-      Map<String, String> connectorConfiguration, SnowflakeURL url) {
+  static Properties makeJdbcDriverProperties(SinkTaskConfig config, SnowflakeURL url) {
     Properties properties = new Properties();
 
-    // decrypt rsa key
-    String privateKey = "";
-    String privateKeyPassphrase = "";
-    String role = "";
-
-    for (Map.Entry<String, String> entry : connectorConfiguration.entrySet()) {
-      // case insensitive
-      switch (entry.getKey().toLowerCase()) {
-        case KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME:
-          properties.put(JDBC_DATABASE, entry.getValue());
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY:
-          privateKey = entry.getValue();
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME:
-          properties.put(JDBC_SCHEMA, entry.getValue());
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME:
-          properties.put(JDBC_USER, entry.getValue());
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE:
-          privateKeyPassphrase = entry.getValue();
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME:
-          role = entry.getValue();
-          break;
-        default:
-          // ignore unrecognized keys
-      }
-    }
+    putIfNotBlank(properties, JDBC_DATABASE, config.getSnowflakeDatabase());
+    putIfNotBlank(properties, JDBC_SCHEMA, config.getSnowflakeSchema());
+    putIfNotBlank(properties, JDBC_USER, config.getSnowflakeUser());
+    putIfNotBlank(properties, JdbcPropertyKeys.ROLE, config.getSnowflakeRole());
 
     properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
+
+    String privateKey = config.getSnowflakePrivateKey();
     if (isBlank(privateKey)) {
       throw SnowflakeErrors.ERROR_0013.getException();
     }
     properties.put(
-        JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
+        JDBC_PRIVATE_KEY,
+        PrivateKeyTool.parsePrivateKey(privateKey, config.getSnowflakePrivateKeyPassphrase()));
 
-    // set role for JDBC connection (SNOW-3029864)
-    if (!isBlank(role)) {
-      properties.put(JdbcPropertyKeys.ROLE, role);
-    }
-
-    // set ssl
-    if (url.sslEnabled()) {
-      properties.put(JDBC_SSL, "on");
-    } else {
-      properties.put(JDBC_SSL, "off");
-    }
+    properties.put(JDBC_SSL, url.sslEnabled() ? "on" : "off");
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
     // SNOW-989387 - Set query resultset format to JSON as a workaround
@@ -143,16 +110,20 @@ public class InternalUtils {
     if (!properties.containsKey(JDBC_SCHEMA)) {
       throw SnowflakeErrors.ERROR_0014.getException();
     }
-
     if (!properties.containsKey(JDBC_DATABASE)) {
       throw SnowflakeErrors.ERROR_0015.getException();
     }
-
     if (!properties.containsKey(JDBC_USER)) {
       throw SnowflakeErrors.ERROR_0016.getException();
     }
 
     return properties;
+  }
+
+  private static void putIfNotBlank(Properties properties, String key, String value) {
+    if (!isBlank(value)) {
+      properties.put(key, value);
+    }
   }
 
   /**

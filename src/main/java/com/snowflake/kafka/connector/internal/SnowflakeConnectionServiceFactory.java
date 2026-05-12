@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import java.util.Map;
 import java.util.Properties;
 
@@ -37,9 +38,11 @@ public class SnowflakeConnectionServiceFactory {
       this.connectorName = conf.get(KafkaConnectorConfigParams.NAME);
       this.config = conf; // Store the config for caching configuration
 
+      SinkTaskConfig parsedConfig = SinkTaskConfig.from(conf, true);
+
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =
-          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(conf, this.url);
+          InternalUtils.makeJdbcDriverProperties(parsedConfig, this.url);
       Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(conf);
       this.jdbcProperties =
           JdbcProperties.create(connectionProperties, proxyProperties, jdbcPropertiesMap);

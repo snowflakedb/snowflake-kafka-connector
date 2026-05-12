@@ -1,12 +1,17 @@
 package com.snowflake.kafka.connector.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -66,10 +71,11 @@ public class InternalUtilsTest {
   }
 
   @Test
-  public void testMakeJdbcDriverPropertiesFromConnectorConfiguration() {
+  public void testMakeJdbcDriverProperties() {
     Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(true);
     SnowflakeURL url = TestUtils.getUrl();
-    Properties prop = InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(config, url);
+    SinkTaskConfig parsedConfig = SinkTaskConfig.from(config, true);
+    Properties prop = InternalUtils.makeJdbcDriverProperties(parsedConfig, url);
     assert prop.containsKey(InternalUtils.JDBC_DATABASE);
     assert prop.containsKey(InternalUtils.JDBC_PRIVATE_KEY);
     assert prop.containsKey(InternalUtils.JDBC_SCHEMA);
@@ -89,7 +95,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
-          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
+          InternalUtils.makeJdbcDriverProperties(SinkTaskConfig.from(t, true), url);
         });
 
     assert TestUtils.assertError(
@@ -97,7 +103,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
-          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
+          InternalUtils.makeJdbcDriverProperties(SinkTaskConfig.from(t, true), url);
         });
 
     assert TestUtils.assertError(
@@ -105,7 +111,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
-          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
+          InternalUtils.makeJdbcDriverProperties(SinkTaskConfig.from(t, true), url);
         });
 
     assert TestUtils.assertError(
@@ -113,7 +119,7 @@ public class InternalUtilsTest {
         () -> {
           Map<String, String> t = new HashMap<>(config);
           t.remove(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
-          InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(t, url);
+          InternalUtils.makeJdbcDriverProperties(SinkTaskConfig.from(t, true), url);
         });
   }
 
@@ -131,7 +137,7 @@ public class InternalUtilsTest {
 
     // when
     Properties props =
-        InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(config, url);
+        InternalUtils.makeJdbcDriverProperties(SinkTaskConfig.from(config, true), url);
 
     // then — the role from connector config must appear in the JDBC properties
     String rolePropertyKey = JdbcPropertyKeys.ROLE;
@@ -167,5 +173,79 @@ public class InternalUtilsTest {
     Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(config);
     // then
     assertEquals(jdbcPropertiesMap.size(), 5);
+  }
+
+  @Test
+  public void makeJdbcDriverProperties_setsAllFields() {
+    String pemKey = Base64.getEncoder().encodeToString(TestUtils.generatePrivateKey().getEncoded());
+    SnowflakeURL url = new SnowflakeURL("https://testaccount.snowflakecomputing.com:443");
+
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .snowflakeDatabase("MY_DB")
+            .snowflakeSchema("MY_SCHEMA")
+            .snowflakeUser("MY_USER")
+            .snowflakePrivateKey(pemKey)
+            .snowflakeRole("MY_ROLE")
+            .snowflakeUrl(url.getFullUrl())
+            .build();
+
+    Properties props = InternalUtils.makeJdbcDriverProperties(taskConfig, url);
+
+    assertEquals("MY_DB", props.getProperty(InternalUtils.JDBC_DATABASE));
+    assertEquals("MY_SCHEMA", props.getProperty(InternalUtils.JDBC_SCHEMA));
+    assertEquals("MY_USER", props.getProperty(InternalUtils.JDBC_USER));
+    assertEquals("MY_ROLE", props.getProperty(JdbcPropertyKeys.ROLE));
+    assertTrue(props.containsKey(InternalUtils.JDBC_PRIVATE_KEY));
+    assertEquals("on", props.getProperty(InternalUtils.JDBC_SSL));
+    assertEquals("true", props.getProperty(InternalUtils.JDBC_SESSION_KEEP_ALIVE));
+    assertEquals("json", props.getProperty(InternalUtils.JDBC_QUERY_RESULT_FORMAT));
+  }
+
+  @Test
+  public void makeJdbcDriverProperties_missingPrivateKey_throws() {
+    SnowflakeURL url = new SnowflakeURL("https://testaccount.snowflakecomputing.com:443");
+
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .snowflakeDatabase("MY_DB")
+            .snowflakeSchema("MY_SCHEMA")
+            .snowflakeUser("MY_USER")
+            .snowflakeRole("MY_ROLE")
+            .snowflakeUrl(url.getFullUrl())
+            .build();
+
+    SnowflakeKafkaConnectorException exception =
+        assertThrows(
+            SnowflakeKafkaConnectorException.class,
+            () -> InternalUtils.makeJdbcDriverProperties(taskConfig, url));
+    assertEquals("0013", exception.getCode());
+  }
+
+  @Test
+  public void makeJdbcDriverProperties_noRole_omitsRoleProperty() {
+    String pemKey = Base64.getEncoder().encodeToString(TestUtils.generatePrivateKey().getEncoded());
+    SnowflakeURL url = new SnowflakeURL("https://testaccount.snowflakecomputing.com:443");
+
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .snowflakeDatabase("MY_DB")
+            .snowflakeSchema("MY_SCHEMA")
+            .snowflakeUser("MY_USER")
+            .snowflakePrivateKey(pemKey)
+            .snowflakeUrl(url.getFullUrl())
+            .build();
+
+    Properties props = InternalUtils.makeJdbcDriverProperties(taskConfig, url);
+
+    assertFalse(
+        props.containsKey(JdbcPropertyKeys.ROLE),
+        "JDBC properties should not contain role when role is blank");
   }
 }
