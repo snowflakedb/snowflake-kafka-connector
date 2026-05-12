@@ -49,6 +49,7 @@ public final class SinkTaskConfigTestBuilder {
         .snowflakeRole("")
         .snowflakePrivateKey("")
         .snowflakePrivateKeyPassphrase("")
+        .authenticator(AuthenticatorType.SNOWFLAKE_JWT)
         .snowflakeDatabase("")
         .snowflakeSchema("")
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)

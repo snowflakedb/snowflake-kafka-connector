@@ -74,6 +74,20 @@ public abstract class SinkTaskConfig {
   @Nullable
   public abstract String getSnowflakePrivateKeyPassphrase();
 
+  public abstract AuthenticatorType getAuthenticator();
+
+  @Nullable
+  public abstract String getOauthClientId();
+
+  @Nullable
+  public abstract String getOauthClientSecret();
+
+  @Nullable
+  public abstract String getOauthRefreshToken();
+
+  @Nullable
+  public abstract String getOauthTokenEndpoint();
+
   @Nullable
   public abstract String getSnowflakeDatabase();
 
@@ -231,6 +245,15 @@ public abstract class SinkTaskConfig {
     String snowflakeDatabase = config.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
     String snowflakeSchema = config.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
 
+    AuthenticatorType authenticator =
+        AuthenticatorType.fromConfig(
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR));
+    String oauthClientId = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID);
+    String oauthClientSecret = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET);
+    String oauthRefreshToken = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN);
+    String oauthTokenEndpoint =
+        config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT);
+
     return builder()
         .connectorName(connectorName)
         .taskId(taskId)
@@ -253,6 +276,11 @@ public abstract class SinkTaskConfig {
         .snowflakeRole(snowflakeRole)
         .snowflakePrivateKey(snowflakePrivateKey)
         .snowflakePrivateKeyPassphrase(snowflakePrivateKeyPassphrase)
+        .authenticator(authenticator)
+        .oauthClientId(oauthClientId)
+        .oauthClientSecret(oauthClientSecret)
+        .oauthRefreshToken(oauthRefreshToken)
+        .oauthTokenEndpoint(oauthTokenEndpoint)
         .snowflakeDatabase(snowflakeDatabase)
         .snowflakeSchema(snowflakeSchema)
         .ssv1MigrationMode(ssv1MigrationMode)
@@ -313,6 +341,16 @@ public abstract class SinkTaskConfig {
     public abstract Builder snowflakePrivateKey(String snowflakePrivateKey);
 
     public abstract Builder snowflakePrivateKeyPassphrase(String snowflakePrivateKeyPassphrase);
+
+    public abstract Builder authenticator(AuthenticatorType authenticator);
+
+    public abstract Builder oauthClientId(String oauthClientId);
+
+    public abstract Builder oauthClientSecret(String oauthClientSecret);
+
+    public abstract Builder oauthRefreshToken(String oauthRefreshToken);
+
+    public abstract Builder oauthTokenEndpoint(String oauthTokenEndpoint);
 
     public abstract Builder snowflakeDatabase(String snowflakeDatabase);
 
