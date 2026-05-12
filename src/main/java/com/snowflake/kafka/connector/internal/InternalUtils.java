@@ -3,13 +3,17 @@ package com.snowflake.kafka.connector.internal;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.internal.oauth.OAuthAccessTokenFetcher;
+import com.snowflake.kafka.connector.internal.oauth.OAuthURL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Properties;
+import org.apache.kafka.common.config.types.Password;
 
 public class InternalUtils {
   // authenticator type
@@ -88,13 +92,35 @@ public class InternalUtils {
     putIfNotBlank(properties, JDBC_USER, config.getSnowflakeUser());
     putIfNotBlank(properties, JdbcPropertyKeys.ROLE, config.getSnowflakeRole());
 
-    properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
-
-    properties.put(
-        JDBC_PRIVATE_KEY,
-        PrivateKeyTool.parsePrivateKey(
-            config.getSnowflakePrivateKey().orElseThrow(SnowflakeErrors.ERROR_0013::getException),
-            config.getSnowflakePrivateKeyPassphrase()));
+    switch (config.getAuthenticator()) {
+      case OAUTH:
+        properties.put(JdbcPropertyKeys.AUTHENTICATOR, AuthenticatorType.OAUTH.toConfigValue());
+        String oauthClientId =
+            config.getOauthClientId().orElseThrow(SnowflakeErrors.ERROR_0026::getException);
+        Password oauthClientSecret =
+            config.getOauthClientSecret().orElseThrow(SnowflakeErrors.ERROR_0027::getException);
+        URL oauthUrl =
+            config.getOauthTokenEndpoint().isPresent()
+                ? OAuthURL.from(config.getOauthTokenEndpoint().get())
+                : url;
+        properties.put(
+            JDBC_TOKEN,
+            OAuthAccessTokenFetcher.fetchAccessToken(
+                oauthUrl, oauthClientId, oauthClientSecret, config.getOauthRefreshToken()));
+        break;
+      case SNOWFLAKE_JWT:
+        properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
+        properties.put(
+            JDBC_PRIVATE_KEY,
+            PrivateKeyTool.parsePrivateKey(
+                config
+                    .getSnowflakePrivateKey()
+                    .orElseThrow(SnowflakeErrors.ERROR_0013::getException),
+                config.getSnowflakePrivateKeyPassphrase()));
+        break;
+      default:
+        throw new IllegalStateException("unhandled authenticator: " + config.getAuthenticator());
+    }
 
     properties.put(JDBC_SSL, url.sslEnabled() ? "on" : "off");
     // put values for optional parameters
