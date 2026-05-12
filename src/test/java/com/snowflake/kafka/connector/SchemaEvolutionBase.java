@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -37,11 +38,10 @@ abstract class SchemaEvolutionBase extends ConnectClusterBaseIT {
     topic1 = tableName + "1";
     connectCluster.kafka().createTopic(topic0, PARTITION_COUNT);
     connectCluster.kafka().createTopic(topic1, PARTITION_COUNT);
-    snowflake =
-        SnowflakeConnectionServiceFactory.builder()
-            .setProperties(TestUtils.transformProfileFileToConnectorConfiguration(false))
-            .noCaching()
-            .build();
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
+    config.put(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS, "false");
+    config.put(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS, "false");
+    snowflake = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
     StreamingClientFactory.resetStreamingClientSupplier();
   }

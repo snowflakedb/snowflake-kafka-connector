@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.CachingConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import java.util.Map;
 import java.util.Properties;
@@ -16,9 +16,7 @@ public class SnowflakeConnectionServiceFactory {
     private SnowflakeURL url;
     private String connectorName;
     private String taskID = "-1";
-
-    // Store the full config map to pass to connection service for caching configuration
-    private Map<String, String> config;
+    private CachingConfig cachingConfig;
 
     // For testing only
     public Properties getProperties() {
@@ -31,14 +29,21 @@ public class SnowflakeConnectionServiceFactory {
     }
 
     public SnowflakeConnectionServiceBuilder setProperties(Map<String, String> conf) {
-      if (!conf.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME)) {
+      return setProperties(SinkTaskConfig.from(conf, true), conf);
+    }
+
+    /**
+     * @param conf raw config map, still needed for proxy settings and {@code snowflake.jdbc.*}
+     *     passthrough properties that are not modeled in {@link SinkTaskConfig}.
+     */
+    public SnowflakeConnectionServiceBuilder setProperties(
+        SinkTaskConfig parsedConfig, Map<String, String> conf) {
+      if (parsedConfig.getSnowflakeUrl() == null || parsedConfig.getSnowflakeUrl().isEmpty()) {
         throw SnowflakeErrors.ERROR_0017.getException();
       }
-      this.url = new SnowflakeURL(conf.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
-      this.connectorName = conf.get(KafkaConnectorConfigParams.NAME);
-      this.config = conf; // Store the config for caching configuration
-
-      SinkTaskConfig parsedConfig = SinkTaskConfig.from(conf, true);
+      this.url = new SnowflakeURL(parsedConfig.getSnowflakeUrl());
+      this.connectorName = parsedConfig.getConnectorName();
+      this.cachingConfig = parsedConfig.getCachingConfig();
 
       Properties proxyProperties = InternalUtils.generateProxyParametersIfRequired(conf);
       Properties connectionProperties =
@@ -57,14 +62,7 @@ public class SnowflakeConnectionServiceFactory {
       SnowflakeConnectionService baseService =
           new StandardSnowflakeConnectionService(jdbcProperties, url, connectorName, taskID);
 
-      CachingConfig cachingConfig = CachingConfig.fromConfig(config);
       return new CachingSnowflakeConnectionService(baseService, cachingConfig);
-    }
-
-    public SnowflakeConnectionServiceBuilder noCaching() {
-      config.put(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS, "false");
-      config.put(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS, "false");
-      return this;
     }
   }
 }
