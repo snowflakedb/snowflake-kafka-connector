@@ -234,6 +234,8 @@ public class SnowflakeTelemetryService {
       Set.of(
           KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
           KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN,
           KafkaConnectorConfigParams.JVM_PROXY_USERNAME,
           KafkaConnectorConfigParams.JVM_PROXY_PASSWORD,
           KafkaConnectorConfigParams.HTTPS_PROXY_USER,

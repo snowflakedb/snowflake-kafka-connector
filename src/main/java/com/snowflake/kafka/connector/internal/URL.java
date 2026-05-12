@@ -4,4 +4,8 @@ public interface URL {
   String hostWithPort();
 
   String getScheme();
+
+  boolean sslEnabled();
+
+  String path();
 }

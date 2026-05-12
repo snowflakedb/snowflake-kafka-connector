@@ -19,6 +19,7 @@ package com.snowflake.kafka.connector.internal;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 
 public enum SnowflakeErrors {
@@ -88,6 +89,25 @@ public enum SnowflakeErrors {
       "0023",
       "Invalid proxy username or password",
       "Both username and password need to be provided if one of them is provided"),
+  ERROR_0026(
+      "0026",
+      "Missing OAuth client id in connector config",
+      "oauth_client_id must be provided with "
+          + KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID
+          + " parameter when using oauth as authenticator"),
+  ERROR_0027(
+      "0027",
+      "Missing OAuth client secret in connector config",
+      "oauth_client_secret must be provided with "
+          + KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET
+          + " parameter when using oauth as authenticator"),
+  ERROR_0029(
+      "0029",
+      "Invalid authenticator",
+      "Authenticator should be either "
+          + AuthenticatorType.OAUTH.toConfigValue()
+          + " or "
+          + AuthenticatorType.SNOWFLAKE_JWT.toConfigValue()),
   ERROR_0030(
       "0030",
       String.format(
@@ -100,6 +120,13 @@ public enum SnowflakeErrors {
       "0031",
       "Failed to combine JDBC properties",
       "One of snowflake.jdbc.map property overrides other jdbc property"),
+  ERROR_0033(
+      "0033",
+      "Invalid OAuth URL",
+      "OAuth URL format: '[http://|https://]<oauth_server>[:<port>][/<path>]'. Protocol defaults"
+          + " to 'https://'. Port defaults to 443 for https and 80 for http. Path may contain"
+          + " alphanumeric characters, dots, hyphens, and forward slashes (e.g.,"
+          + " 'login.example.com/oauth2/v2.0/token')."),
   ERROR_1001(
       "1001",
       "Failed to connect to Snowflake Server",
@@ -108,6 +135,8 @@ public enum SnowflakeErrors {
       "1003",
       "Snowflake connection is closed",
       "Either the current connection is closed or hasn't connect to snowflake" + " server"),
+  ERROR_1004(
+      "1004", "Fetching OAuth token failed", "Failed to get OAuth token from authorization server"),
   ERROR_1005(
       "1005",
       "Task failed due to authorization error",
