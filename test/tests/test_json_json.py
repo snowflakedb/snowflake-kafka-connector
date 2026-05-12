@@ -30,7 +30,11 @@ def test_json_json(
     wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row content --
-    record_metadata = json.loads(table.select_scalar("record_metadata"))
+    record_metadata = json.loads(
+        table.select_scalar(
+            "record_metadata", "ORDER BY record_metadata:offset LIMIT 1"
+        )
+    )
 
     assert record_metadata == {
         "SnowflakeConnectorPushTime": ANY_INT,

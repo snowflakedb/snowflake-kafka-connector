@@ -538,7 +538,14 @@ class KafkaDriver:
 
         deadline = time.monotonic() + wait_timeout
         while time.monotonic() < deadline:
-            status_code = requests.get(base_url, timeout=5).status_code
+            try:
+                status_code = requests.get(base_url, timeout=5).status_code
+            except requests.exceptions.RequestException as exc:
+                logger.debug(
+                    f"Transient error polling connector {connector_name}: {exc}"
+                )
+                time.sleep(1)
+                continue
             if status_code == 404:
                 logger.info(f"Connector {connector_name} fully removed")
                 return True
