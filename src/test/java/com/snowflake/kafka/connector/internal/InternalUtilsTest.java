@@ -163,12 +163,15 @@ public class InternalUtilsTest {
 
   @Test
   public void parseJdbcPropertiesMapTest() {
-    String key = "snowflake.jdbc.map";
     String input =
         "isInsecureMode:true,  disableSamlURLCheck:false, passcodeInPassword:on, foo:bar,"
             + " networkTimeout:100";
-    Map<String, String> config = new HashMap<>();
-    config.put(key, input);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .jdbcMap(input)
+            .build();
     // when
     Properties jdbcPropertiesMap = InternalUtils.parseJdbcPropertiesMap(config);
     // then
@@ -247,5 +250,53 @@ public class InternalUtilsTest {
     assertFalse(
         props.containsKey(JdbcPropertyKeys.ROLE),
         "JDBC properties should not contain role when role is blank");
+  }
+
+  @Test
+  public void makeJdbcDriverProperties_emptyStringRole_omitsRoleProperty() {
+    String pemKey = Base64.getEncoder().encodeToString(TestUtils.generatePrivateKey().getEncoded());
+    SnowflakeURL url = new SnowflakeURL("https://testaccount.snowflakecomputing.com:443");
+
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .snowflakeDatabase("MY_DB")
+            .snowflakeSchema("MY_SCHEMA")
+            .snowflakeUser("MY_USER")
+            .snowflakePrivateKey(pemKey)
+            .snowflakeUrl(url.getFullUrl())
+            .snowflakeRole("")
+            .build();
+
+    Properties props = InternalUtils.makeJdbcDriverProperties(taskConfig, url);
+
+    assertFalse(
+        props.containsKey(JdbcPropertyKeys.ROLE),
+        "JDBC properties should not contain role when role is empty string");
+  }
+
+  @Test
+  public void makeJdbcDriverProperties_whitespaceRole_omitsRoleProperty() {
+    String pemKey = Base64.getEncoder().encodeToString(TestUtils.generatePrivateKey().getEncoded());
+    SnowflakeURL url = new SnowflakeURL("https://testaccount.snowflakecomputing.com:443");
+
+    SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .snowflakeDatabase("MY_DB")
+            .snowflakeSchema("MY_SCHEMA")
+            .snowflakeUser("MY_USER")
+            .snowflakePrivateKey(pemKey)
+            .snowflakeUrl(url.getFullUrl())
+            .snowflakeRole("   ")
+            .build();
+
+    Properties props = InternalUtils.makeJdbcDriverProperties(taskConfig, url);
+
+    assertFalse(
+        props.containsKey(JdbcPropertyKeys.ROLE),
+        "JDBC properties should not contain role when role is whitespace");
   }
 }

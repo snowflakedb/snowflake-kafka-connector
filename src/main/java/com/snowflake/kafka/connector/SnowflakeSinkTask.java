@@ -156,7 +156,7 @@ public class SnowflakeSinkTask extends SinkTask {
 
     conn =
         SnowflakeConnectionServiceFactory.builder()
-            .setProperties(config, parsedConfig)
+            .setProperties(config)
             .setTaskID(this.taskConfigId)
             .build();
 

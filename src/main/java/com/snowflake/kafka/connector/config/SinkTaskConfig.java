@@ -94,6 +94,24 @@ public abstract class SinkTaskConfig {
   @Nullable
   public abstract String getSnowflakeSchema();
 
+  @Nullable
+  public abstract String getProxyHost();
+
+  @Nullable
+  public abstract String getProxyPort();
+
+  @Nullable
+  public abstract String getNonProxyHosts();
+
+  @Nullable
+  public abstract String getProxyUsername();
+
+  @Nullable
+  public abstract String getProxyPassword();
+
+  @Nullable
+  public abstract String getJdbcMap();
+
   public abstract Ssv1MigrationMode getSsv1MigrationMode();
 
   public abstract boolean isSsv1MigrationIncludeConnectorName();
@@ -267,6 +285,13 @@ public abstract class SinkTaskConfig {
     String oauthTokenEndpoint =
         config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT);
 
+    String proxyHost = config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST);
+    String proxyPort = config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT);
+    String nonProxyHosts = config.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS);
+    String proxyUsername = config.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
+    String proxyPassword = config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
+    String jdbcMap = config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP);
+
     return builder()
         .connectorName(connectorName)
         .taskId(taskId)
@@ -296,6 +321,12 @@ public abstract class SinkTaskConfig {
         .oauthTokenEndpoint(oauthTokenEndpoint)
         .snowflakeDatabase(snowflakeDatabase)
         .snowflakeSchema(snowflakeSchema)
+        .proxyHost(proxyHost)
+        .proxyPort(proxyPort)
+        .nonProxyHosts(nonProxyHosts)
+        .proxyUsername(proxyUsername)
+        .proxyPassword(proxyPassword)
+        .jdbcMap(jdbcMap)
         .ssv1MigrationMode(ssv1MigrationMode)
         .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName);
   }
@@ -368,6 +399,18 @@ public abstract class SinkTaskConfig {
     public abstract Builder snowflakeDatabase(String snowflakeDatabase);
 
     public abstract Builder snowflakeSchema(String snowflakeSchema);
+
+    public abstract Builder proxyHost(String proxyHost);
+
+    public abstract Builder proxyPort(String proxyPort);
+
+    public abstract Builder nonProxyHosts(String nonProxyHosts);
+
+    public abstract Builder proxyUsername(String proxyUsername);
+
+    public abstract Builder proxyPassword(String proxyPassword);
+
+    public abstract Builder jdbcMap(String jdbcMap);
 
     public abstract Builder ssv1MigrationMode(Ssv1MigrationMode ssv1MigrationMode);
 
