@@ -29,8 +29,10 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Utils.JDK_HTTP_AUTH_TUNNELING;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
@@ -74,36 +76,42 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS8EncryptedPrivateKeyInfoBuilder;
 import org.bouncycastle.pkcs.jcajce.JcePKCSPBEOutputEncryptorBuilder;
 
 public class TestUtils {
-  // test profile properties
   private static final KCLogger log = new KCLogger(TestUtils.class.getName());
-  private static final String USER = "user";
-  private static final String DATABASE = "database";
-  private static final String SCHEMA = "schema";
-  private static final String HOST = "host";
-  private static final String ROLE = "role";
-  private static final String WAREHOUSE = "warehouse";
-  private static final String PRIVATE_KEY = "private_key";
-  private static final String ENCRYPTED_PRIVATE_KEY = "encrypted_private_key";
-  private static final String PRIVATE_KEY_PASSPHRASE = "private_key_passphrase";
-  private static final String PASSWORD = "password";
 
   private static final Random random = new Random();
   public static final String TEST_CONNECTOR_NAME = "TEST_CONNECTOR";
 
-  // profile path
-  public static final String PROFILE_PATH = "profile.json";
+  private static final String SNOWFLAKE_CREDENTIAL_FILE_ENV = "SNOWFLAKE_CREDENTIAL_FILE";
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
   private static SnowflakeURL url = null;
 
-  private static JsonNode profile = null;
-
-  private static JsonNode profileForStreaming = null;
+  private static volatile Profile profile = null;
 
   // Ephemeral schema: each test run creates its own schema to avoid collisions.
   private static volatile String ephemeralSchema = null;
   private static volatile boolean creatingEphemeralSchema = false;
+
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class Profile {
+    public String user;
+    public String role;
+    public String host;
+    public String database;
+    public String schema;
+    public String warehouse;
+    public String privateKey;
+    public String encryptedPrivateKey;
+    public String privateKeyPassphrase;
+    public String password;
+    public String oauthClientId;
+    public String oauthClientSecret;
+    public String oauthRefreshToken;
+    public String oauthTokenEndpoint;
+    public String desRsaKey;
+  }
 
   public static final String JSON_WITH_SCHEMA =
       "{\n"
@@ -132,26 +140,20 @@ public class TestUtils {
           + "}";
   public static final String JSON_WITHOUT_SCHEMA = "{\"userid\": \"User_1\"}";
 
-  private static JsonNode getProfile(final String profileFilePath) {
-    if (profileFilePath.equalsIgnoreCase(PROFILE_PATH)) {
-      if (profile == null) {
-        try {
-          profile = mapper.readTree(new File(profileFilePath));
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
+  private static Profile getProfile() {
+    if (profile == null) {
+      String path = System.getenv(SNOWFLAKE_CREDENTIAL_FILE_ENV);
+      if (path == null || path.isEmpty()) {
+        throw new IllegalStateException(
+            SNOWFLAKE_CREDENTIAL_FILE_ENV + " environment variable is not set");
       }
-      return profile;
-    } else {
-      if (profileForStreaming == null) {
-        try {
-          profileForStreaming = mapper.readTree(new File(profileFilePath));
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
+      try {
+        profile = mapper.readValue(new File(path), Profile.class);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
-      return profileForStreaming;
     }
+    return profile;
   }
 
   public static PrivateKey generatePrivateKey() {
@@ -189,12 +191,12 @@ public class TestUtils {
       // call back into transformProfileFileToConnectorConfiguration → here. Return the original
       // schema so that bootstrap connection can be established.
       if (creatingEphemeralSchema) {
-        return getProfile(PROFILE_PATH).get(SCHEMA).asText();
+        return getProfile().schema;
       }
       creatingEphemeralSchema = true;
       try {
-        String originalSchema = getProfile(PROFILE_PATH).get(SCHEMA).asText();
-        String database = getProfile(PROFILE_PATH).get(DATABASE).asText();
+        String originalSchema = getProfile().schema;
+        String database = getProfile().database;
 
         String salt = randomAlphanumeric(7);
         String salted = originalSchema + "_" + salt;
@@ -226,7 +228,7 @@ public class TestUtils {
         // Snowflake is unreachable (e.g. unit tests without a live connection).
         // Fall back to the original schema so unit tests behave exactly as before.
         log.warn("Could not create ephemeral test schema, using original: {}", e.getMessage());
-        ephemeralSchema = getProfile(PROFILE_PATH).get(SCHEMA).asText();
+        ephemeralSchema = getProfile().schema;
         return ephemeralSchema;
       } finally {
         creatingEphemeralSchema = false;
@@ -247,33 +249,25 @@ public class TestUtils {
       boolean takeEncryptedKeyAndPassword) {
     Map<String, String> configuration = new HashMap<>();
 
-    JsonNode profileJson = getProfile(PROFILE_PATH);
-    configuration.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, profileJson.get(USER).asText());
-    configuration.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, profileJson.get(ROLE).asText());
-    configuration.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, profileJson.get(DATABASE).asText());
+    Profile p = getProfile();
+    configuration.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, p.user);
+    configuration.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, p.role);
+    configuration.put(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, p.database);
     configuration.put(
         KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, getOrCreateEphemeralSchema());
-    configuration.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, profileJson.get(HOST).asText());
-    configuration.put(SnowflakeDataSourceFactory.SF_WAREHOUSE, profileJson.get(WAREHOUSE).asText());
+    configuration.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, p.host);
+    configuration.put(SnowflakeDataSourceFactory.SF_WAREHOUSE, p.warehouse);
 
     if (takeEncryptedKeyAndPassword) {
-      configuration.put(
-          KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
-          profileJson.get(ENCRYPTED_PRIVATE_KEY).asText());
-      configuration.put(
-          SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, profileJson.get(PRIVATE_KEY_PASSPHRASE).asText());
+      configuration.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, p.encryptedPrivateKey);
+      configuration.put(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, p.privateKeyPassphrase);
     } else {
-      configuration.put(
-          KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, profileJson.get(PRIVATE_KEY).asText());
+      configuration.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, p.privateKey);
     }
 
     // password only appears in test profile
-    if (profileJson.has(PASSWORD)) {
-      configuration.put(PASSWORD, profileJson.get(PASSWORD).asText());
+    if (p.password != null) {
+      configuration.put("password", p.password);
     }
 
     configuration.put(KafkaConnectorConfigParams.NAME, TEST_CONNECTOR_NAME);
@@ -495,7 +489,7 @@ public class TestUtils {
 
   static SnowflakeURL getUrl() {
     if (url == null) {
-      url = new SnowflakeURL(getProfile(PROFILE_PATH).get(HOST).asText());
+      url = new SnowflakeURL(getProfile().host);
     }
     return url;
   }
