@@ -65,7 +65,7 @@ jobs:
     - name: Unit and Integration Test - ${{ matrix.snowflake_cloud }}
       id: java_tests
       env:
-        SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
+        SNOWFLAKE_CREDENTIAL_FILE: "${{ github.workspace }}/profile.json"
         SHELL: "/bin/bash"
       run: |
         set -Eeuo pipefail
