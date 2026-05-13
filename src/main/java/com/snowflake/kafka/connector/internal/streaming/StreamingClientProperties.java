@@ -28,7 +28,9 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
+import org.apache.kafka.common.config.types.Password;
 
 /**
  * Object to convert and store properties for {@code
@@ -59,8 +61,12 @@ public class StreamingClientProperties {
     final Properties clientProperties = new Properties();
     if (!Strings.isNullOrEmpty(config.getSnowflakeUrl())) {
       SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
-      final String privateKeyStr = config.getSnowflakePrivateKey();
-      final String privateKeyPassphrase = config.getSnowflakePrivateKeyPassphrase();
+      final String privateKeyStr =
+          Optional.ofNullable(config.getSnowflakePrivateKey()).map(Password::value).orElse(null);
+      final String privateKeyPassphrase =
+          Optional.ofNullable(config.getSnowflakePrivateKeyPassphrase())
+              .map(Password::value)
+              .orElse(null);
       final PrivateKey privateKey =
           PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
       final String privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());

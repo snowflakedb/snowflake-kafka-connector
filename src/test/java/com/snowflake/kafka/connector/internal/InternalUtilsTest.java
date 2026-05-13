@@ -15,6 +15,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.Test;
 
 public class InternalUtilsTest {
@@ -190,7 +191,7 @@ public class InternalUtilsTest {
             .snowflakeDatabase("MY_DB")
             .snowflakeSchema("MY_SCHEMA")
             .snowflakeUser("MY_USER")
-            .snowflakePrivateKey(pemKey)
+            .snowflakePrivateKey(new Password(pemKey))
             .snowflakeRole("MY_ROLE")
             .snowflakeUrl(url.getFullUrl())
             .build();
@@ -241,7 +242,7 @@ public class InternalUtilsTest {
             .snowflakeDatabase("MY_DB")
             .snowflakeSchema("MY_SCHEMA")
             .snowflakeUser("MY_USER")
-            .snowflakePrivateKey(pemKey)
+            .snowflakePrivateKey(new Password(pemKey))
             .snowflakeUrl(url.getFullUrl())
             .build();
 
@@ -264,7 +265,7 @@ public class InternalUtilsTest {
             .snowflakeDatabase("MY_DB")
             .snowflakeSchema("MY_SCHEMA")
             .snowflakeUser("MY_USER")
-            .snowflakePrivateKey(pemKey)
+            .snowflakePrivateKey(new Password(pemKey))
             .snowflakeUrl(url.getFullUrl())
             .snowflakeRole("")
             .build();
@@ -288,7 +289,7 @@ public class InternalUtilsTest {
             .snowflakeDatabase("MY_DB")
             .snowflakeSchema("MY_SCHEMA")
             .snowflakeUser("MY_USER")
-            .snowflakePrivateKey(pemKey)
+            .snowflakePrivateKey(new Password(pemKey))
             .snowflakeUrl(url.getFullUrl())
             .snowflakeRole("   ")
             .build();
