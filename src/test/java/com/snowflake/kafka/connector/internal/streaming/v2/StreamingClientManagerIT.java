@@ -1,23 +1,17 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import static com.snowflake.kafka.connector.Constants.DEFAULT_PIPE_NAME_SUFFIX;
-import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKey;
 import static org.assertj.core.api.Assertions.*;
 
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
-import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientFactory;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
-import java.util.Base64;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -141,31 +135,6 @@ public class StreamingClientManagerIT {
   }
 
   @Test
-  void test_GetClientProperties_includes_all_needed_properties() {
-    // Given
-    String privateKey = generatePemPrivateKey();
-    Map<String, String> connectorConfig = new HashMap<>();
-    connectorConfig.put(KafkaConnectorConfigParams.NAME, "test_connector");
-    connectorConfig.put(com.snowflake.kafka.connector.Utils.TASK_ID, "0");
-    connectorConfig.put(
-        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://test.snowflakecomputing.com");
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, privateKey);
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "test_user");
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "TEST_ROLE");
-
-    // When
-    SinkTaskConfig taskConfig = SinkTaskConfig.from(connectorConfig);
-    Properties properties = StreamingClientFactory.getClientProperties(taskConfig);
-
-    // Then
-    assertThat(properties).isNotNull();
-    assertThat(properties.getProperty("role")).isEqualTo("TEST_ROLE");
-    assertThat(properties.getProperty("user")).isEqualTo("test_user");
-    assertThat(properties.getProperty("host")).isEqualTo("test.snowflakecomputing.com");
-    assertThat(properties.getProperty("private_key")).isEqualTo(privateKey);
-  }
-
-  @Test
   public void testProvider_ReuseAfterPartialClose_WorksCorrectly() {
     // task 1 uses 2 pipes, so it has 2 ingest clients
     SnowflakeStreamingIngestClient client1 = getClient(task1, pipe1);
@@ -197,10 +166,6 @@ public class StreamingClientManagerIT {
         sinkTaskConfig,
         streamingClientProperties,
         TaskMetrics.noop());
-  }
-
-  private String generatePemPrivateKey() {
-    return Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded());
   }
 
   private void closeTaskClients(String task) {

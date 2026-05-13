@@ -17,10 +17,14 @@
 
 package com.snowflake.kafka.connector.internal.streaming;
 
-import com.snowflake.kafka.connector.Constants.StreamingIngestClientConfigParams;
+import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import com.snowflake.kafka.connector.internal.PrivateKeyTool;
+import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import java.security.PrivateKey;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -32,41 +36,44 @@ import java.util.Properties;
  * equality between clients in {@code StreamingClientProvider}.
  */
 public class StreamingClientProperties {
-  public static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
+  public static final String STREAMING_CLIENT_V2_PREFIX_NAME = "KC_CLIENT_V2_";
   public static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
   public final Properties clientProperties;
-  public final String clientName;
+  public final String clientNamePrefix;
   public final Map<String, Object> parameterOverrides;
 
   /** Constructor used by {@link #from(SinkTaskConfig)}. */
   private StreamingClientProperties(
-      Properties clientProperties, String clientName, Map<String, Object> parameterOverrides) {
+      Properties clientProperties,
+      String clientNamePrefix,
+      Map<String, Object> parameterOverrides) {
     this.clientProperties = clientProperties;
-    this.clientName = clientName;
+    this.clientNamePrefix = clientNamePrefix;
     this.parameterOverrides = parameterOverrides;
   }
 
   /** Creates streaming client properties from parsed {@link SinkTaskConfig}. */
   public static StreamingClientProperties from(SinkTaskConfig config) {
-    Properties clientProperties = new Properties();
-    if (config.getSnowflakeUrl() != null) {
-      clientProperties.put(StreamingIngestClientConfigParams.ACCOUNT_URL, config.getSnowflakeUrl());
-    }
-    if (config.getSnowflakeRole() != null) {
-      clientProperties.put(StreamingIngestClientConfigParams.ROLE, config.getSnowflakeRole());
-    }
-    if (config.getSnowflakeUser() != null) {
-      clientProperties.put(StreamingIngestClientConfigParams.USER, config.getSnowflakeUser());
-    }
-    if (config.getSnowflakePrivateKey() != null) {
-      clientProperties.put(
-          StreamingIngestClientConfigParams.PRIVATE_KEY, config.getSnowflakePrivateKey());
+    final Properties clientProperties = new Properties();
+    if (!Strings.isNullOrEmpty(config.getSnowflakeUrl())) {
+      SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
+      final String privateKeyStr = config.getSnowflakePrivateKey();
+      final String privateKeyPassphrase = config.getSnowflakePrivateKeyPassphrase();
+      final PrivateKey privateKey =
+          PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
+      final String privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
+      clientProperties.put("private_key", privateKeyEncoded);
+
+      clientProperties.put("user", config.getSnowflakeUser());
+      clientProperties.put("role", config.getSnowflakeRole());
+      clientProperties.put("account", url.getAccount());
+      clientProperties.put("host", url.getUrlWithoutPort());
     }
 
-    String clientName =
-        STREAMING_CLIENT_PREFIX_NAME
+    String clientNamePrefix =
+        STREAMING_CLIENT_V2_PREFIX_NAME
             + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME);
 
     Map<String, Object> parameterOverrides = new HashMap<>();
@@ -77,7 +84,7 @@ public class StreamingClientProperties {
       LOGGER.info("Streaming Client config overrides: {}", parameterOverrides);
     }
 
-    return new StreamingClientProperties(clientProperties, clientName, parameterOverrides);
+    return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
   }
 
   /**

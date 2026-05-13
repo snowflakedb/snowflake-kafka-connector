@@ -122,12 +122,4 @@ public final class Constants {
     public static final String HTTP_PROXY_USER = "http.proxyUser";
     public static final String HTTP_PROXY_PASSWORD = "http.proxyPassword";
   }
-
-  public static final class StreamingIngestClientConfigParams {
-
-    public static final String USER = "user";
-    public static final String ACCOUNT_URL = "url";
-    public static final String ROLE = "role";
-    public static final String PRIVATE_KEY = "private_key";
-  }
 }
