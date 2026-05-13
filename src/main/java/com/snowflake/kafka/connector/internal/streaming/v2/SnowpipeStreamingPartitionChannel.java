@@ -755,6 +755,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   @Override
   public boolean isChannelClosed() {
+    if (cancelled.get()) {
+      return true;
+    }
     try {
       return this.getChannel().isClosed();
     } catch (RuntimeException e) {

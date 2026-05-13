@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.snowflake.ingest.streaming.ChannelStatus;
@@ -136,6 +137,61 @@ class BatchOffsetFetcherTest {
   }
 
   @Test
+  void sfExceptionInvalidatesClientAndClosesChannels() {
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+
+    TopicPartitionChannel mockChannel = mock(TopicPartitionChannel.class);
+    when(mockChannel.getChannelName()).thenReturn("ch0");
+    when(mockChannel.getPipeName()).thenReturn("pipeA");
+    when(mockChannel.closeChannelAsync())
+        .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(null));
+
+    channels.put(tp0, mockChannel);
+    clientSupplier.setFailingPipe("pipeA");
+
+    Map<TopicPartition, Long> result = fetcher.getCommittedOffsets(Set.of(tp0), channelLookup());
+
+    assertTrue(result.isEmpty(), "No offsets should be returned for the failing pipe");
+    verify(mockChannel).closeChannelAsync();
+  }
+
+  @Test
+  void channelErrorStatusInvalidatesClientAndClosesChannels() {
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+
+    TopicPartitionChannel mockChannel = mock(TopicPartitionChannel.class);
+    when(mockChannel.getChannelName()).thenReturn("ch0");
+    when(mockChannel.getPipeName()).thenReturn("pipeA");
+    when(mockChannel.closeChannelAsync())
+        .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(null));
+
+    channels.put(tp0, mockChannel);
+    clientSupplier.setInvalidatedPipe("pipeA");
+
+    Map<TopicPartition, Long> result = fetcher.getCommittedOffsets(Set.of(tp0), channelLookup());
+
+    assertTrue(result.isEmpty(), "No offsets should be returned for the invalidated pipe");
+    verify(mockChannel).closeChannelAsync();
+  }
+
+  @Test
+  void channelErrorStatusForOnePipeDoesNotAffectOthers() {
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+    TopicPartition tp1 = new TopicPartition("topicB", 0);
+
+    registerChannel(tp0, "pipeA", "ch0", 10L);
+    registerChannel(tp1, "pipeB", "ch1", 20L);
+
+    clientSupplier.setInvalidatedPipe("pipeA");
+
+    Map<TopicPartition, Long> result =
+        fetcher.getCommittedOffsets(Set.of(tp0, tp1), channelLookup());
+
+    assertEquals(1, result.size());
+    assertEquals(21L, result.get(tp1));
+  }
+
+  @Test
   void connectorExceptionPropagates() {
     TopicPartition tp0 = new TopicPartition("topicA", 0);
 
@@ -225,6 +281,7 @@ class BatchOffsetFetcherTest {
     // pipeName -> (channelName -> offsetToken)
     private final Map<String, Map<String, String>> pipeChannelOffsets = new ConcurrentHashMap<>();
     private volatile String failingPipe = null;
+    private volatile String invalidatedPipe = null;
 
     void setChannelOffset(String channelName, String pipeName, String offsetToken) {
       pipeChannelOffsets
@@ -234,6 +291,10 @@ class BatchOffsetFetcherTest {
 
     void setFailingPipe(String pipeName) {
       this.failingPipe = pipeName;
+    }
+
+    void setInvalidatedPipe(String pipeName) {
+      this.invalidatedPipe = pipeName;
     }
 
     int getBatchCallCount() {
@@ -259,6 +320,10 @@ class BatchOffsetFetcherTest {
                 }
                 List<String> names = invocation.getArgument(0);
                 Map<String, ChannelStatus> statusMap = new HashMap<>();
+                String statusCode =
+                    pipeName.equals(invalidatedPipe)
+                        ? "ERR_CHANNEL_DOES_NOT_EXIST_OR_NOT_AUTHORIZED"
+                        : "SUCCESS";
                 Map<String, String> offsets =
                     pipeChannelOffsets.getOrDefault(pipeName, Collections.emptyMap());
                 for (String name : names) {
@@ -269,7 +334,7 @@ class BatchOffsetFetcherTest {
                           "schema",
                           pipeName,
                           name,
-                          "SUCCESS",
+                          statusCode,
                           offsets.get(name),
                           Instant.now(),
                           0,

@@ -107,12 +107,15 @@ public class BatchOffsetFetcher {
         () -> {
           try {
             result.putAll(getCommittedOffsetsForPipe(pipeName, channelsByPartition));
-          } catch (SFException e) {
+          } catch (SFException | PipeInvalidatedException e) {
             LOGGER.error(
-                "Failed to fetch committed offsets for pipe: {}, skipping {} channel(s)",
+                "Failed to fetch committed offsets for pipe: {}, "
+                    + "invalidating client and closing {} channel(s)",
                 pipeName,
                 channelsByPartition.size(),
                 e);
+            StreamingClientPools.invalidateClient(connectorName, pipeName);
+            channelsByPartition.values().forEach(TopicPartitionChannel::closeChannelAsync);
           }
         },
         ioExecutor);
@@ -139,25 +142,44 @@ public class BatchOffsetFetcher {
     }
 
     Map<TopicPartition, Long> result = new HashMap<>();
-    channelsByPartition.forEach(
-        (topicPartition, channel) -> {
-          String channelName = channel.getChannelName();
+    for (Map.Entry<TopicPartition, TopicPartitionChannel> entry : channelsByPartition.entrySet()) {
+      TopicPartition topicPartition = entry.getKey();
+      TopicPartitionChannel channel = entry.getValue();
+      String channelName = channel.getChannelName();
 
-          ChannelStatus status = batch.getChannelStatusBatch().get(channelName);
-          if (status == null) {
-            // This should never happen but we can still recover by simply skipping this channel.
-            // There is no obligation to return any committed offsets in `preCommit`.
-            LOGGER.warn("No status returned for channel: {}", channelName);
-            return;
-          }
-          long offset = channel.processChannelStatus(status, tolerateErrors);
-          LOGGER.info(
-              "Fetched snowflake committed offset: [{}] for channel [{}]", offset, channelName);
-          if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-            result.put(topicPartition, offset);
-          }
-        });
+      ChannelStatus status = batch.getChannelStatusBatch().get(channelName);
+      if (status == null) {
+        // This should never happen but we can still recover by simply skipping this channel.
+        // There is no obligation to return any committed offsets in `preCommit`.
+        LOGGER.warn("No status returned for channel: {}", channelName);
+        continue;
+      }
+
+      String statusCode = status.getStatusCode();
+      if (statusCode != null && !"SUCCESS".equals(statusCode)) {
+        throw new PipeInvalidatedException(pipeName, channelName, statusCode);
+      }
+
+      long offset = channel.processChannelStatus(status, tolerateErrors);
+      LOGGER.info("Fetched snowflake committed offset: [{}] for channel [{}]", offset, channelName);
+      if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+        result.put(topicPartition, offset);
+      }
+    }
     return result;
+  }
+
+  /**
+   * Thrown when a channel's status indicates the server-side pipe no longer exists (e.g. after
+   * CREATE OR REPLACE TABLE). Caught by {@link #fetchOffsetsAsync} to trigger client invalidation
+   * and channel recreation.
+   */
+  static class PipeInvalidatedException extends RuntimeException {
+    PipeInvalidatedException(String pipeName, String channelName, String statusCode) {
+      super(
+          String.format(
+              "Pipe %s invalidated: channel %s has status %s", pipeName, channelName, statusCode));
+    }
   }
 
   public static class PartitionsByTopic {
