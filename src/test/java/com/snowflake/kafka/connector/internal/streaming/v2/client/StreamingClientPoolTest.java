@@ -325,7 +325,7 @@ class StreamingClientPoolTest {
       AtomicInteger callCount = new AtomicInteger();
 
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             int count = callCount.incrementAndGet();
             if (count == 1) return oldClient;
             if (count == 2) {
@@ -398,7 +398,7 @@ class StreamingClientPoolTest {
       AtomicInteger callCount = new AtomicInteger();
 
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             return callCount.incrementAndGet() == 1 ? oldClient : newClient;
           });
 
@@ -432,7 +432,7 @@ class StreamingClientPoolTest {
       AtomicInteger callCount = new AtomicInteger();
 
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             return callCount.incrementAndGet() == 1 ? oldClient : newClient;
           });
 
@@ -485,7 +485,7 @@ class StreamingClientPoolTest {
       AtomicInteger callCount = new AtomicInteger();
 
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             return callCount.incrementAndGet() == 1 ? oldClient : newClient;
           });
 
@@ -524,7 +524,7 @@ class StreamingClientPoolTest {
       AtomicInteger callCount = new AtomicInteger();
 
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             return callCount.incrementAndGet() == 1 ? oldClient : newClient;
           });
 
@@ -552,7 +552,7 @@ class StreamingClientPoolTest {
       CountDownLatch supplierProceed = new CountDownLatch(1);
 
       StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, config, props) -> {
+          (clientName, dbName, schemaName, pipeName, props) -> {
             int count = supplierCallCount.incrementAndGet();
             if (count == 1) {
               // First call returns oldClient immediately
