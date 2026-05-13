@@ -51,10 +51,12 @@ class Table:
             .fetchall()
         )
 
-    def select_scalar(self, projection: str):
+    def select_scalar(self, projection: str, extra_clauses: str = ""):
         return (
             self.driver.snowflake_conn.cursor()
-            .execute(f"SELECT {projection} FROM {quote_name(self.name)}")
+            .execute(
+                f"SELECT {projection} FROM {quote_name(self.name)} {extra_clauses}"
+            )
             .fetchone()[0]
         )
 
