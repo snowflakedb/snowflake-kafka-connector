@@ -13,6 +13,7 @@ import static com.snowflake.kafka.connector.Utils.validateProxySettings;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
@@ -75,9 +76,32 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
     }
 
-    if (!config.containsKey(SNOWFLAKE_PRIVATE_KEY)) {
-      invalidConfigParams.put(
-          SNOWFLAKE_PRIVATE_KEY, Utils.formatString("{} cannot be empty", SNOWFLAKE_PRIVATE_KEY));
+    AuthenticatorType authenticator;
+    try {
+      authenticator =
+          AuthenticatorType.fromConfig(
+              config.getOrDefault(
+                  KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+                  AuthenticatorType.SNOWFLAKE_JWT.toConfigValue()));
+    } catch (IllegalArgumentException e) {
+      invalidConfigParams.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, e.getMessage());
+      authenticator = null;
+    }
+    if (authenticator != null) {
+      switch (authenticator) {
+        case OAUTH:
+          validateOAuthConfig(config, invalidConfigParams);
+          break;
+        case SNOWFLAKE_JWT:
+          if (!config.containsKey(SNOWFLAKE_PRIVATE_KEY)) {
+            invalidConfigParams.put(
+                SNOWFLAKE_PRIVATE_KEY,
+                Utils.formatString("{} cannot be empty", SNOWFLAKE_PRIVATE_KEY));
+          }
+          break;
+        default:
+          throw new IllegalStateException("Unhandled authenticator type: " + authenticator);
+      }
     }
 
     if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME)) {
@@ -132,6 +156,28 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     // logs and throws exception if there are invalid params
     handleInvalidParameters(ImmutableMap.copyOf(invalidConfigParams));
+  }
+
+  private void validateOAuthConfig(
+      Map<String, String> config, Map<String, String> invalidConfigParams) {
+    String clientId = config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID, "");
+    if (clientId.isEmpty()) {
+      invalidConfigParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID,
+          Utils.formatString(
+              "{} must be non-empty when using oauth authenticator",
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID));
+    }
+
+    String clientSecret =
+        config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "");
+    if (clientSecret.isEmpty()) {
+      invalidConfigParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+          Utils.formatString(
+              "{} must be non-empty when using oauth authenticator",
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
+    }
   }
 
   private void validateCompatibilitySettings(

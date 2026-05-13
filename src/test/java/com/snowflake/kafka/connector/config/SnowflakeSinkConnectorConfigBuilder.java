@@ -81,6 +81,36 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
+  public SnowflakeSinkConnectorConfigBuilder withAuthenticator(String authenticator) {
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, authenticator);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthClientId(String clientId) {
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID, clientId);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthClientSecret(String clientSecret) {
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, clientSecret);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthRefreshToken(String refreshToken) {
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN, refreshToken);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthTokenEndpoint(String tokenEndpoint) {
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT, tokenEndpoint);
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withoutPrivateKey() {
+    config.remove(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
+    return this;
+  }
+
   public SnowflakeSinkConnectorConfigBuilder withCompatibilityValidate(boolean validate) {
     config.put(
         KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_VALIDATE_COMPATIBILITY_WITH_CLASSIC,
