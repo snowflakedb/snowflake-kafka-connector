@@ -205,4 +205,30 @@ public class SinkTaskConfigTest {
     assertNull(config.getOauthRefreshToken());
     assertNull(config.getOauthTokenEndpoint());
   }
+
+  @Test
+  public void from_skipTaskSpecificConfig_succeedsWithoutTaskId() {
+    Map<String, String> raw = minimalConfig();
+    raw.remove(Utils.TASK_ID);
+    SinkTaskConfig config = SinkTaskConfig.from(raw, true);
+    assertEquals("", config.getTaskId());
+    assertEquals("test_connector", config.getConnectorName());
+  }
+
+  @Test
+  public void from_skipTaskSpecificConfig_succeedsWithoutConnectorName() {
+    Map<String, String> raw = minimalConfig();
+    raw.remove(NAME);
+    raw.remove(Utils.TASK_ID);
+    SinkTaskConfig config = SinkTaskConfig.from(raw, true);
+    assertEquals("", config.getConnectorName());
+    assertEquals("", config.getTaskId());
+  }
+
+  @Test
+  public void from_skipTaskSpecificConfig_false_throwsWithoutTaskId() {
+    Map<String, String> raw = minimalConfig();
+    raw.remove(Utils.TASK_ID);
+    assertThrows(IllegalArgumentException.class, () -> SinkTaskConfig.from(raw));
+  }
 }

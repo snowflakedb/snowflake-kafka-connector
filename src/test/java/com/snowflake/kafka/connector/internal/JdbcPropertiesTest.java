@@ -4,6 +4,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
@@ -13,9 +14,9 @@ public class JdbcPropertiesTest {
   public void shouldCombineProperties() {
     // given
     SnowflakeURL url = TestUtils.getUrl();
-    Properties connection =
-        InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(
-            TestUtils.transformProfileFileToConnectorConfiguration(false), url);
+    SinkTaskConfig parsedConfig =
+        SinkTaskConfig.from(TestUtils.transformProfileFileToConnectorConfiguration(false), true);
+    Properties connection = InternalUtils.makeJdbcDriverProperties(parsedConfig, url);
 
     Properties proxy = new Properties();
     proxy.put("useProxy", "true");

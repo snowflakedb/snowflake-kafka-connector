@@ -2,14 +2,13 @@ package com.snowflake.kafka.connector.internal;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.Map;
 import java.util.Properties;
 
 public class InternalUtils {
@@ -75,65 +74,31 @@ public class InternalUtils {
   }
 
   /**
-   * create a properties for snowflake connection
+   * Build JDBC driver properties from a parsed {@link SinkTaskConfig}.
    *
-   * @param connectorConfiguration a map contains all parameters
+   * @param config parsed sink task configuration
    * @param url target server url
-   * @return a Properties instance
+   * @return a Properties instance ready for JDBC
    */
-  static Properties makeJdbcDriverPropertiesFromConnectorConfiguration(
-      Map<String, String> connectorConfiguration, SnowflakeURL url) {
+  static Properties makeJdbcDriverProperties(SinkTaskConfig config, SnowflakeURL url) {
     Properties properties = new Properties();
 
-    // decrypt rsa key
-    String privateKey = "";
-    String privateKeyPassphrase = "";
-    String role = "";
-
-    for (Map.Entry<String, String> entry : connectorConfiguration.entrySet()) {
-      // case insensitive
-      switch (entry.getKey().toLowerCase()) {
-        case KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME:
-          properties.put(JDBC_DATABASE, entry.getValue());
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY:
-          privateKey = entry.getValue();
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME:
-          properties.put(JDBC_SCHEMA, entry.getValue());
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME:
-          properties.put(JDBC_USER, entry.getValue());
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE:
-          privateKeyPassphrase = entry.getValue();
-          break;
-        case KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME:
-          role = entry.getValue();
-          break;
-        default:
-          // ignore unrecognized keys
-      }
-    }
+    putIfNotBlank(properties, JDBC_DATABASE, config.getSnowflakeDatabase());
+    putIfNotBlank(properties, JDBC_SCHEMA, config.getSnowflakeSchema());
+    putIfNotBlank(properties, JDBC_USER, config.getSnowflakeUser());
+    putIfNotBlank(properties, JdbcPropertyKeys.ROLE, config.getSnowflakeRole());
 
     properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
+
+    String privateKey = config.getSnowflakePrivateKey();
     if (isBlank(privateKey)) {
       throw SnowflakeErrors.ERROR_0013.getException();
     }
     properties.put(
-        JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
+        JDBC_PRIVATE_KEY,
+        PrivateKeyTool.parsePrivateKey(privateKey, config.getSnowflakePrivateKeyPassphrase()));
 
-    // set role for JDBC connection (SNOW-3029864)
-    if (!isBlank(role)) {
-      properties.put(JdbcPropertyKeys.ROLE, role);
-    }
-
-    // set ssl
-    if (url.sslEnabled()) {
-      properties.put(JDBC_SSL, "on");
-    } else {
-      properties.put(JDBC_SSL, "off");
-    }
+    properties.put(JDBC_SSL, url.sslEnabled() ? "on" : "off");
     // put values for optional parameters
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
     // SNOW-989387 - Set query resultset format to JSON as a workaround
@@ -143,11 +108,9 @@ public class InternalUtils {
     if (!properties.containsKey(JDBC_SCHEMA)) {
       throw SnowflakeErrors.ERROR_0014.getException();
     }
-
     if (!properties.containsKey(JDBC_DATABASE)) {
       throw SnowflakeErrors.ERROR_0015.getException();
     }
-
     if (!properties.containsKey(JDBC_USER)) {
       throw SnowflakeErrors.ERROR_0016.getException();
     }
@@ -155,52 +118,48 @@ public class InternalUtils {
     return properties;
   }
 
+  private static void putIfNotBlank(Properties properties, String key, String value) {
+    if (!isBlank(value)) {
+      properties.put(key, value);
+    }
+  }
+
   /**
    * Helper method to decide whether to add any properties related to proxy server. These property
    * is passed on to snowflake JDBC while calling put API, which requires proxyProperties
    *
-   * @param conf
+   * @param config parsed connector configuration
    * @return proxy parameters if needed
    */
-  protected static Properties generateProxyParametersIfRequired(Map<String, String> conf) {
-    Properties proxyProperties = new Properties();
+  protected static Properties generateProxyParametersIfRequired(SinkTaskConfig config) {
+    Properties properties = new Properties();
     // Set proxyHost and proxyPort only if both of them are present and are non null
-    if (conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST) != null
-        && conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT) != null) {
-      proxyProperties.put(JdbcPropertyKeys.USE_PROXY, "true");
-      proxyProperties.put(
-          JdbcPropertyKeys.PROXY_HOST, conf.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
-      proxyProperties.put(
-          JdbcPropertyKeys.PROXY_PORT, conf.get(KafkaConnectorConfigParams.JVM_PROXY_PORT));
+    if (config.getProxyHost() != null && config.getProxyPort() != null) {
+      properties.put(JdbcPropertyKeys.USE_PROXY, "true");
+      properties.put(JdbcPropertyKeys.PROXY_HOST, config.getProxyHost());
+      properties.put(JdbcPropertyKeys.PROXY_PORT, config.getProxyPort());
 
       // nonProxyHosts parameter is not required. Check if it was set or not.
-      if (conf.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS) != null) {
-        proxyProperties.put(
-            JdbcPropertyKeys.NON_PROXY_HOSTS,
-            conf.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS));
+      if (config.getNonProxyHosts() != null) {
+        properties.put(JdbcPropertyKeys.NON_PROXY_HOSTS, config.getNonProxyHosts());
       }
 
       // For username and password, check if host and port are given.
       // If they are given, check if username and password are non null
-      String username = conf.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
-      String password = conf.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
-
-      if (username != null && password != null) {
-        proxyProperties.put(JdbcPropertyKeys.PROXY_USER, username);
-        proxyProperties.put(JdbcPropertyKeys.PROXY_PASSWORD, password);
+      if (config.getProxyUsername() != null && config.getProxyPassword() != null) {
+        properties.put(JdbcPropertyKeys.PROXY_USER, config.getProxyUsername());
+        properties.put(JdbcPropertyKeys.PROXY_PASSWORD, config.getProxyPassword());
       }
     }
-    return proxyProperties;
+    return properties;
   }
 
-  protected static Properties parseJdbcPropertiesMap(Map<String, String> conf) {
-    String jdbcConfigMapInput = conf.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP);
-    if (jdbcConfigMapInput == null) {
+  protected static Properties parseJdbcPropertiesMap(SinkTaskConfig config) {
+    if (config.getJdbcMap() == null) {
       return new Properties();
     }
-    Map<String, String> jdbcMap = Utils.parseCommaSeparatedKeyValuePairs(jdbcConfigMapInput);
     Properties properties = new Properties();
-    properties.putAll(jdbcMap);
+    properties.putAll(Utils.parseCommaSeparatedKeyValuePairs(config.getJdbcMap()));
     return properties;
   }
 

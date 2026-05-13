@@ -14,11 +14,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class ConnectionServiceIT {
-  private final SnowflakeConnectionService conn =
-      SnowflakeConnectionServiceFactory.builder()
-          .setProperties(TestUtils.transformProfileFileToConnectorConfiguration(false))
-          .noCaching()
-          .build();
+  private final SnowflakeConnectionService conn = buildNoCachingConnection();
+
+  private static SnowflakeConnectionService buildNoCachingConnection() {
+    Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
+    config.put(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS, "false");
+    config.put(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS, "false");
+    return SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
+  }
 
   private final String tableName = TestUtils.randomTableName();
   private final String tableName1 = TestUtils.randomTableName();

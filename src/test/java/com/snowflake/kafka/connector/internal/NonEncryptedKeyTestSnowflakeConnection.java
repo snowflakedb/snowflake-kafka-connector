@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.internal.TestUtils.transformProfileFileToConnectorConfiguration;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import java.sql.Connection;
 import java.util.Map;
 import java.util.Properties;
@@ -20,8 +21,8 @@ public class NonEncryptedKeyTestSnowflakeConnection {
         new SnowflakeURL(connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
 
     Properties properties =
-        InternalUtils.makeJdbcDriverPropertiesFromConnectorConfiguration(
-            connectorConfiguration, url);
+        InternalUtils.makeJdbcDriverProperties(
+            SinkTaskConfig.from(connectorConfiguration, true), url);
 
     return new SnowflakeDriver().connect(url.getJdbcUrl(), properties);
   }

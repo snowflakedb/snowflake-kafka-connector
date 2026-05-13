@@ -94,42 +94,73 @@ public abstract class SinkTaskConfig {
   @Nullable
   public abstract String getSnowflakeSchema();
 
+  @Nullable
+  public abstract String getProxyHost();
+
+  @Nullable
+  public abstract String getProxyPort();
+
+  @Nullable
+  public abstract String getNonProxyHosts();
+
+  @Nullable
+  public abstract String getProxyUsername();
+
+  @Nullable
+  public abstract String getProxyPassword();
+
+  @Nullable
+  public abstract String getJdbcMap();
+
   public abstract Ssv1MigrationMode getSsv1MigrationMode();
 
   public abstract boolean isSsv1MigrationIncludeConnectorName();
 
   /**
    * Parses the raw connector config map into an immutable SinkTaskConfig. Applies defaults for
-   * missing optional keys. Caller must ensure required fields (connector name, task id) are present
-   * or validation will throw.
+   * missing optional keys.
    *
    * @param raw raw config from the connector (typically after setDefaultValues)
+   * @param skipTaskSpecificConfig if true, task ID and connector name default to "" when absent
+   *     instead of throwing. Use this when building a config outside of task startup -- e.g. in
+   *     {@code validate()} or connection factory setup -- where task ID is not yet assigned.
    * @return parsed config
    * @throws IllegalArgumentException if required fields are missing or invalid
    */
   public static SinkTaskConfig from(Map<String, String> raw) {
-    return builderFrom(raw).build();
+    return from(raw, false);
+  }
+
+  public static SinkTaskConfig from(Map<String, String> raw, boolean skipTaskSpecificConfig) {
+    return builderFrom(raw, skipTaskSpecificConfig).build();
   }
 
   @VisibleForTesting
   public static Builder builderFrom(Map<String, String> raw) {
+    return builderFrom(raw, false);
+  }
+
+  @VisibleForTesting
+  public static Builder builderFrom(Map<String, String> raw, boolean skipTaskSpecificConfig) {
     if (raw == null) {
       raw = new HashMap<>();
     }
     Map<String, String> config = new HashMap<>(raw);
 
-    String connectorName = config.get(KafkaConnectorConfigParams.NAME);
-    if (connectorName == null || connectorName.trim().isEmpty()) {
-      throw new IllegalArgumentException(
-          "Connector name ('"
-              + KafkaConnectorConfigParams.NAME
-              + "') must be set and cannot be empty");
-    }
+    String connectorName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
+    String taskId = config.getOrDefault(Utils.TASK_ID, "");
 
-    String taskId = config.get(Utils.TASK_ID);
-    if (taskId == null || taskId.trim().isEmpty()) {
-      throw new IllegalArgumentException(
-          "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
+    if (!skipTaskSpecificConfig) {
+      if (connectorName == null || connectorName.trim().isEmpty()) {
+        throw new IllegalArgumentException(
+            "Connector name ('"
+                + KafkaConnectorConfigParams.NAME
+                + "') must be set and cannot be empty");
+      }
+      if (taskId == null || taskId.trim().isEmpty()) {
+        throw new IllegalArgumentException(
+            "Task ID ('" + Utils.TASK_ID + "') must be set and cannot be null or empty");
+      }
     }
 
     ImmutableMap<String, String> topicToTableMap = ImmutableMap.of();
@@ -254,6 +285,13 @@ public abstract class SinkTaskConfig {
     String oauthTokenEndpoint =
         config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT);
 
+    String proxyHost = config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST);
+    String proxyPort = config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT);
+    String nonProxyHosts = config.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS);
+    String proxyUsername = config.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
+    String proxyPassword = config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
+    String jdbcMap = config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP);
+
     return builder()
         .connectorName(connectorName)
         .taskId(taskId)
@@ -283,6 +321,12 @@ public abstract class SinkTaskConfig {
         .oauthTokenEndpoint(oauthTokenEndpoint)
         .snowflakeDatabase(snowflakeDatabase)
         .snowflakeSchema(snowflakeSchema)
+        .proxyHost(proxyHost)
+        .proxyPort(proxyPort)
+        .nonProxyHosts(nonProxyHosts)
+        .proxyUsername(proxyUsername)
+        .proxyPassword(proxyPassword)
+        .jdbcMap(jdbcMap)
         .ssv1MigrationMode(ssv1MigrationMode)
         .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName);
   }
@@ -355,6 +399,18 @@ public abstract class SinkTaskConfig {
     public abstract Builder snowflakeDatabase(String snowflakeDatabase);
 
     public abstract Builder snowflakeSchema(String snowflakeSchema);
+
+    public abstract Builder proxyHost(String proxyHost);
+
+    public abstract Builder proxyPort(String proxyPort);
+
+    public abstract Builder nonProxyHosts(String nonProxyHosts);
+
+    public abstract Builder proxyUsername(String proxyUsername);
+
+    public abstract Builder proxyPassword(String proxyPassword);
+
+    public abstract Builder jdbcMap(String jdbcMap);
 
     public abstract Builder ssv1MigrationMode(Ssv1MigrationMode ssv1MigrationMode);
 
