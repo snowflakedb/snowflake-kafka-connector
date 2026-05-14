@@ -757,6 +757,34 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
+  public void testOAuthBlankClientId() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("   ")
+            .withOauthClientSecret("client_secret")
+            .withoutPrivateKey()
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID);
+  }
+
+  @Test
+  public void testOAuthBlankClientSecret() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("   ")
+            .withoutPrivateKey()
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET);
+  }
+
+  @Test
   public void testOAuthDoesNotRequirePrivateKey() {
     Map<String, String> config =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig()

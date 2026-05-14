@@ -14,6 +14,7 @@ import java.sql.SQLException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.Test;
@@ -22,26 +23,30 @@ public class InternalUtilsTest {
   @Test
   public void testPrivateKey() {
     assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0002, () -> PrivateKeyTool.parsePrivateKey("adfsfsaff", null));
+        SnowflakeErrors.ERROR_0002,
+        () -> PrivateKeyTool.parsePrivateKey(new Password("adfsfsaff"), Optional.empty()));
 
     Map<String, String> connectorConfiguration =
         TestUtils.transformProfileFileToConnectorConfiguration(true);
-    String privateKey =
-        connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
-    String pass =
-        connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
+    Password privateKey =
+        new Password(connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
+    Optional<Password> pass =
+        Optional.ofNullable(
+                connectorConfiguration.get(
+                    KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE))
+            .map(Password::new);
     // no exception
     PrivateKeyTool.parsePrivateKey(privateKey, pass);
     StringBuilder builder = new StringBuilder();
     builder.append("-----BEGIN RSA PRIVATE KEY-----\n");
-    for (int i = 0; i < privateKey.length(); i++) {
-      builder.append(privateKey.charAt(i));
+    for (int i = 0; i < privateKey.value().length(); i++) {
+      builder.append(privateKey.value().charAt(i));
       if ((i + 1) % 64 == 0) {
         builder.append("\n");
       }
     }
     builder.append("\n-----END RSA PRIVATE KEY-----");
-    String originalKey = builder.toString();
+    Password originalKey = new Password(builder.toString());
     // no exception
     PrivateKeyTool.parsePrivateKey(originalKey, pass);
   }

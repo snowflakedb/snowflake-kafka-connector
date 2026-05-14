@@ -34,7 +34,9 @@ import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
+import org.apache.kafka.common.config.types.Password;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 
@@ -146,9 +148,12 @@ public class StreamingClientPropertiesTest {
     expectedProps.put("application", "SnowflakeKafkaConnector/" + Utils.VERSION);
     String privateKeyStr = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
     if (privateKeyStr != null) {
-      String passphrase =
-          connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
-      PrivateKey privateKey = PrivateKeyTool.parsePrivateKey(privateKeyStr, passphrase);
+      Optional<Password> passphrase =
+          Optional.ofNullable(
+                  connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE))
+              .map(Password::new);
+      PrivateKey privateKey =
+          PrivateKeyTool.parsePrivateKey(new Password(privateKeyStr), passphrase);
       expectedProps.put("private_key", Base64.getEncoder().encodeToString(privateKey.getEncoded()));
     }
     String expectedClientName = STREAMING_CLIENT_V2_PREFIX_NAME + "testName";

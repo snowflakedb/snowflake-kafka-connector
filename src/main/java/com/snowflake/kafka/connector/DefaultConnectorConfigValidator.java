@@ -161,7 +161,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
   private void validateOAuthConfig(
       Map<String, String> config, Map<String, String> invalidConfigParams) {
     String clientId = config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID, "");
-    if (clientId.isEmpty()) {
+    if (clientId.isBlank()) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID,
           Utils.formatString(
@@ -171,7 +171,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     String clientSecret =
         config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "");
-    if (clientSecret.isEmpty()) {
+    if (clientSecret.isBlank()) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
           Utils.formatString(

@@ -13,6 +13,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.security.PrivateKey;
 import java.util.Map;
+import java.util.Optional;
+import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +37,7 @@ public class ConnectorConfigValidatorLogsTest {
     connectorConfigValidator.validateConfig(testConf);
 
     // then
-    PrivateKeyTool.parsePrivateKey(testKey, testPasswd);
+    PrivateKeyTool.parsePrivateKey(new Password(testKey), Optional.of(new Password(testPasswd)));
     Assertions.assertFalse(logFileContains(testPasswd));
   }
 

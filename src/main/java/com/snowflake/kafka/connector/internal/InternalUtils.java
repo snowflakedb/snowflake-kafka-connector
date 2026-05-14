@@ -9,9 +9,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.Optional;
 import java.util.Properties;
-import org.apache.kafka.common.config.types.Password;
 
 public class InternalUtils {
   // authenticator type
@@ -92,17 +90,11 @@ public class InternalUtils {
 
     properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
 
-    String privateKey =
-        Optional.ofNullable(config.getSnowflakePrivateKey()).map(Password::value).orElse(null);
-    if (isBlank(privateKey)) {
-      throw SnowflakeErrors.ERROR_0013.getException();
-    }
-    String privateKeyPassphrase =
-        Optional.ofNullable(config.getSnowflakePrivateKeyPassphrase())
-            .map(Password::value)
-            .orElse(null);
     properties.put(
-        JDBC_PRIVATE_KEY, PrivateKeyTool.parsePrivateKey(privateKey, privateKeyPassphrase));
+        JDBC_PRIVATE_KEY,
+        PrivateKeyTool.parsePrivateKey(
+            config.getSnowflakePrivateKey().orElseThrow(SnowflakeErrors.ERROR_0013::getException),
+            config.getSnowflakePrivateKeyPassphrase()));
 
     properties.put(JDBC_SSL, url.sslEnabled() ? "on" : "off");
     // put values for optional parameters
