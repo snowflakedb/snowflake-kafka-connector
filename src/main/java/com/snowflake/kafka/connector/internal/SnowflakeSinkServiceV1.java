@@ -922,7 +922,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
 
       // Just checking buffer size, no atomic operation required
       if (buffer.isEmpty()) {
-        LOGGER.info(
+        LOGGER.debug(
             "Buffer for pipe: {}, tableName: {}, stageName: {}, nothing to be flushed",
             pipeName,
             tableName,
