@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import org.apache.kafka.common.config.types.Password;
 
 /**
  * Parsed, typed configuration for the sink task. Built once from the raw connector config map in
@@ -69,10 +70,10 @@ public abstract class SinkTaskConfig {
   public abstract String getSnowflakeRole();
 
   @Nullable
-  public abstract String getSnowflakePrivateKey();
+  public abstract Password getSnowflakePrivateKey();
 
   @Nullable
-  public abstract String getSnowflakePrivateKeyPassphrase();
+  public abstract Password getSnowflakePrivateKeyPassphrase();
 
   public abstract AuthenticatorType getAuthenticator();
 
@@ -80,10 +81,10 @@ public abstract class SinkTaskConfig {
   public abstract String getOauthClientId();
 
   @Nullable
-  public abstract String getOauthClientSecret();
+  public abstract Password getOauthClientSecret();
 
   @Nullable
-  public abstract String getOauthRefreshToken();
+  public abstract Password getOauthRefreshToken();
 
   @Nullable
   public abstract String getOauthTokenEndpoint();
@@ -270,9 +271,10 @@ public abstract class SinkTaskConfig {
     String snowflakeUrl = config.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
     String snowflakeUser = config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
     String snowflakeRole = config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
-    String snowflakePrivateKey = config.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
-    String snowflakePrivateKeyPassphrase =
-        config.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
+    Password snowflakePrivateKey =
+        passwordOrNull(config.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
+    Password snowflakePrivateKeyPassphrase =
+        passwordOrNull(config.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE));
     String snowflakeDatabase = config.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
     String snowflakeSchema = config.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
 
@@ -280,8 +282,10 @@ public abstract class SinkTaskConfig {
         AuthenticatorType.fromConfig(
             config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR));
     String oauthClientId = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID);
-    String oauthClientSecret = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET);
-    String oauthRefreshToken = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN);
+    Password oauthClientSecret =
+        passwordOrNull(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
+    Password oauthRefreshToken =
+        passwordOrNull(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN));
     String oauthTokenEndpoint =
         config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT);
 
@@ -329,6 +333,10 @@ public abstract class SinkTaskConfig {
         .jdbcMap(jdbcMap)
         .ssv1MigrationMode(ssv1MigrationMode)
         .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName);
+  }
+
+  private static Password passwordOrNull(String value) {
+    return value == null ? null : new Password(value);
   }
 
   /** Creates a new builder. Used by {@link #from(Map)} and by tests. */
@@ -382,17 +390,17 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder snowflakeRole(String snowflakeRole);
 
-    public abstract Builder snowflakePrivateKey(String snowflakePrivateKey);
+    public abstract Builder snowflakePrivateKey(Password snowflakePrivateKey);
 
-    public abstract Builder snowflakePrivateKeyPassphrase(String snowflakePrivateKeyPassphrase);
+    public abstract Builder snowflakePrivateKeyPassphrase(Password snowflakePrivateKeyPassphrase);
 
     public abstract Builder authenticator(AuthenticatorType authenticator);
 
     public abstract Builder oauthClientId(String oauthClientId);
 
-    public abstract Builder oauthClientSecret(String oauthClientSecret);
+    public abstract Builder oauthClientSecret(Password oauthClientSecret);
 
-    public abstract Builder oauthRefreshToken(String oauthRefreshToken);
+    public abstract Builder oauthRefreshToken(Password oauthRefreshToken);
 
     public abstract Builder oauthTokenEndpoint(String oauthTokenEndpoint);
 

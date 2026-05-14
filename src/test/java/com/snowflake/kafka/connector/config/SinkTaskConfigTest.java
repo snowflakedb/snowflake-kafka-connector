@@ -182,9 +182,29 @@ public class SinkTaskConfigTest {
 
     assertEquals(AuthenticatorType.OAUTH, config.getAuthenticator());
     assertEquals("my_client_id", config.getOauthClientId());
-    assertEquals("my_client_secret", config.getOauthClientSecret());
-    assertEquals("my_refresh_token", config.getOauthRefreshToken());
+    assertEquals("my_client_secret", config.getOauthClientSecret().value());
+    assertEquals("my_refresh_token", config.getOauthRefreshToken().value());
     assertEquals("https://oauth.example.com/token", config.getOauthTokenEndpoint());
+  }
+
+  @Test
+  public void from_privateKeyFields_wrappedAsPassword() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_PRIVATE_KEY, "my_private_key");
+    raw.put(SNOWFLAKE_PRIVATE_KEY_PASSPHRASE, "my_passphrase");
+
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+
+    assertEquals("my_private_key", config.getSnowflakePrivateKey().value());
+    assertEquals("my_passphrase", config.getSnowflakePrivateKeyPassphrase().value());
+  }
+
+  @Test
+  public void from_missingPrivateKey_returnsNull() {
+    SinkTaskConfig config = SinkTaskConfig.from(minimalConfig());
+
+    assertNull(config.getSnowflakePrivateKey());
+    assertNull(config.getSnowflakePrivateKeyPassphrase());
   }
 
   @Test
