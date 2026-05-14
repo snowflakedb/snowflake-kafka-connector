@@ -54,7 +54,7 @@
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
 
         <kafka.version>3.9.2</kafka.version>
-        <awaitility.version>4.2.2</awaitility.version>
+        <awaitility.version>4.3.0</awaitility.version>
         <assertj-core.version>3.27.7</assertj-core.version>
         <confluent.version>7.9.2</confluent.version>
         <!--Compatible protobuf version https://github.com/confluentinc/common/blob/v7.7.0/pom.xml#L91 -->
