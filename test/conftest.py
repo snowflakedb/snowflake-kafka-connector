@@ -29,6 +29,7 @@ from lib.fixtures.table import (  # noqa: F401
     iceberg_external_volume,
 )
 from lib.fixtures.function import connector_version, name_salt  # noqa: F401
+from lib import mitmproxy_control
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +196,18 @@ def create_connector_from_file(
     finally:
         for connector_name in reversed(created):
             driver.closeConnector(connector_name)
+
+
+@pytest.fixture(scope="session")
+def mitmproxy():
+    """Session-scoped mitmproxy control client. None if mitmproxy is not configured."""
+    ctrl = mitmproxy_control.from_env()
+    if ctrl is not None and not ctrl.is_reachable():
+        ctrl = None
+    if ctrl is not None:
+        # Ensure clean state at session start
+        ctrl.disable_410()
+    return ctrl
 
 
 @pytest.fixture(scope="session")

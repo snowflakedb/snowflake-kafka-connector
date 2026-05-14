@@ -1,0 +1,99 @@
+# Overlay for mitmproxy-based fault injection tests.
+# Compose with: -f docker-compose.base.yml -f docker-compose.confluent.yml -f docker-compose.mitmproxy.yml
+#
+# Intercepts Snowflake HTTPS traffic via HTTPS_PROXY env var:
+#   - JVM (JDBC) uses Java system properties (https.proxyHost/Port)
+#   - Rust FFI SDK (reqwest) uses HTTPS_PROXY env var
+#   - mitmproxy runs in regular mode as an HTTP CONNECT proxy
+#   - Patched SDK native library trusts system CA roots (not compiled-in)
+#
+# Required env vars:
+#   UPSTREAM_HOST - real Snowflake host without port (e.g., sfctest0.snowflakecomputing.com)
+# Required files:
+#   PATCHED_SDK_LIB - path to libcyclone_shared.so built with rustls-tls-native-roots
+
+services:
+  mitmproxy:
+    build:
+      context: ./mitmproxy
+      dockerfile: Dockerfile
+    hostname: mitmproxy
+    networks:
+      default:
+    environment:
+      UPSTREAM_HOST: "${UPSTREAM_HOST}"
+      PROXY_HOSTNAME: "${UPSTREAM_HOST}"
+    volumes:
+      - mitmproxy-certs:/certs
+    healthcheck:
+      test: ["CMD", "test", "-f", "/certs/mitmproxy-ca-cert.pem"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  kafka-connect:
+    depends_on:
+      mitmproxy:
+        condition: service_healthy
+    environment:
+      UPSTREAM_HOST: "${UPSTREAM_HOST}"
+      # Rust FFI SDK (reqwest) respects HTTPS_PROXY
+      HTTPS_PROXY: "http://mitmproxy:8080"
+      # Exclude Docker-internal hosts from proxy for Rust SDK
+      NO_PROXY: "kafka,kafka-connect,schema-registry,zookeeper,localhost,127.0.0.1"
+      # JVM uses Java system properties for proxy.
+      # nonProxyHosts uses | as separator and must be quoted to avoid shell interpretation.
+      KAFKA_OPTS: "${KAFKA_OPTS:-} -Dhttps.proxyHost=mitmproxy -Dhttps.proxyPort=8080 -Dhttp.nonProxyHosts=\"kafka|kafka-connect|schema-registry|zookeeper|localhost|127.0.0.1\""
+    volumes:
+      - mitmproxy-certs:/certs:ro
+      - ${PATCHED_SDK_LIB:-/dev/null}:/patched/libcyclone_shared.so:ro
+    # Run as root for CA cert import.
+    user: root
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        # --- Patch SDK: replace native lib with test build ---
+        if [ -f /patched/libcyclone_shared.so ] && [ -s /patched/libcyclone_shared.so ]; then
+          SDK_JAR=$$(find /opt/kafka-connect/plugins -name "snowpipe-streaming-*.jar" | head -1)
+          if [ -n "$$SDK_JAR" ]; then
+            cd /tmp && mkdir -p patch-sdk && cd patch-sdk
+            ARCH=$$(uname -m)
+            case "$$ARCH" in
+              aarch64|arm64) TARGET_DIR="rust/linux-arm64" ;;
+              x86_64|amd64)  TARGET_DIR="rust/linux-x86_64" ;;
+              *)             TARGET_DIR="" ;;
+            esac
+            if [ -n "$$TARGET_DIR" ]; then
+              jar xf "$$SDK_JAR" "$$TARGET_DIR/libcyclone_shared.so" 2>/dev/null || mkdir -p "$$TARGET_DIR"
+              cp /patched/libcyclone_shared.so "$$TARGET_DIR/libcyclone_shared.so"
+              jar uf "$$SDK_JAR" "$$TARGET_DIR/libcyclone_shared.so"
+              echo "SDK patched: replaced $$TARGET_DIR/libcyclone_shared.so"
+            fi
+            cd / && rm -rf /tmp/patch-sdk
+          fi
+        fi
+
+        # --- TLS: import mitmproxy CA cert ---
+        # Append to system CA bundle (for Rust native-roots)
+        cat /certs/mitmproxy-ca-cert.pem >> /etc/pki/tls/certs/ca-bundle.crt 2>/dev/null \
+          || cat /certs/mitmproxy-ca-cert.pem >> /etc/ssl/certs/ca-certificates.crt 2>/dev/null \
+          || true
+        # Import into JVM truststore (for JDBC)
+        JAVA_HOME_DETECTED=$$(java -XshowSettings:all 2>&1 | grep 'java.home' | awk '{print $$3}')
+        CACERTS="$${JAVA_HOME_DETECTED}/lib/security/cacerts"
+        keytool -delete -alias mitmproxy-ca -keystore "$$CACERTS" -storepass changeit 2>/dev/null || true
+        keytool -importcert -noprompt -trustcacerts \
+          -alias mitmproxy-ca \
+          -file /certs/mitmproxy-ca-cert.pem \
+          -keystore "$$CACERTS" \
+          -storepass changeit
+        echo "CA cert imported. Proxy: http://mitmproxy:8080"
+        exec /etc/confluent/docker/run
+
+  test-runner:
+    environment:
+      MITMPROXY_CONTROL_URL: "http://mitmproxy:9080"
+
+volumes:
+  mitmproxy-certs:

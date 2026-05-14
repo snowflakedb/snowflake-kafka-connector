@@ -64,6 +64,7 @@ usage() {
     echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
     echo "  --jmx                Enable JMX metrics scraping via Jolokia"
     echo "  --profile            Enable JVM profiling (JFR, GC logs, JMX, async-profiler)"
+    echo "  --with-mitmproxy     Enable mitmproxy for fault injection tests (410 injection)"
     echo "  --keep               Keep containers running after tests"
     echo "  -i, --interactive    Start infra, then drop into a bash shell in the test-runner"
     echo "  --rebuild            Force rebuild of images"
@@ -95,6 +96,7 @@ PLATFORM_VERSION="7.8.0"
 JAVA_VERSION="11"
 JMX_ENABLED="false"
 PROFILE_ENABLED="false"
+MITMPROXY_ENABLED="false"
 KEEP_RUNNING="false"
 INTERACTIVE="false"
 FORCE_REBUILD="false"
@@ -125,6 +127,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --profile)
             PROFILE_ENABLED="true"
+            shift
+            ;;
+        --with-mitmproxy)
+            MITMPROXY_ENABLED="true"
             shift
             ;;
         --keep)
@@ -231,6 +237,12 @@ if [ "$PROFILE_ENABLED" = "true" ]; then
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.profile-${PLATFORM}.yml"
     info "Profiling enabled: JFR, GC logs, JMX (port 9999), heap dump on OOM"
     info "Use test/scripts/profile_connect.sh to interact with the profiler"
+fi
+
+# Append mitmproxy overlay if requested
+if [ "$MITMPROXY_ENABLED" = "true" ]; then
+    info "mitmproxy fault injection enabled"
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.mitmproxy.yml"
 fi
 
 # Check prerequisites
@@ -368,6 +380,35 @@ cd "$DOCKER_DIR"
 BUILD_ARGS=""
 if [ "$FORCE_REBUILD" = "true" ]; then
     BUILD_ARGS="--no-cache"
+fi
+
+if [ "$MITMPROXY_ENABLED" = "true" ]; then
+    # Extract real Snowflake host from credential file for the upstream proxy target
+    # Strip port if present (profile.json host may be "account.snowflakecomputing.com:443")
+    UPSTREAM_HOST=$(python3 -c "import json; host=json.load(open('$SNOWFLAKE_CREDENTIAL_FILE'))['host']; print(host.split(':')[0])" 2>/dev/null)
+    if [ -z "$UPSTREAM_HOST" ]; then
+        error_exit "Failed to extract UPSTREAM_HOST from $SNOWFLAKE_CREDENTIAL_FILE"
+    fi
+    export UPSTREAM_HOST
+    info "mitmproxy upstream host: $UPSTREAM_HOST"
+
+    # Path to the patched SDK native library (built with rustls-tls-native-roots
+    # so it trusts system CA roots instead of compiled-in webpki-roots).
+    # Build with: cd ~/snowflake-ingest-sdk/rust && cargo build --release
+    # after changing Cargo.toml: rustls-tls -> rustls-tls-native-roots
+    PATCHED_SDK_LIB="${PATCHED_SDK_LIB:-/tmp/libcyclone_shared_native_roots.so}"
+    if [ ! -f "$PATCHED_SDK_LIB" ]; then
+        warn "Patched SDK library not found at $PATCHED_SDK_LIB"
+        warn "mitmproxy will not be able to intercept Rust SDK HTTPS traffic."
+        warn "Build it with: cd ~/snowflake-ingest-sdk/rust && cargo build --release"
+        warn "  (after changing Cargo.toml: rustls-tls -> rustls-tls-native-roots)"
+    else
+        info "Using patched SDK library: $PATCHED_SDK_LIB"
+    fi
+    export PATCHED_SDK_LIB
+
+    info "Building mitmproxy image..."
+    docker compose $COMPOSE_FILES build $BUILD_ARGS mitmproxy
 fi
 
 info "Building test runner image..."
