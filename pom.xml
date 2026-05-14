@@ -67,7 +67,7 @@
         <snowflake-jdbc.version>4.0.2</snowflake-jdbc.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
         <commons-lang3.version>3.20.0</commons-lang3.version>
-        <auto-value.version>1.10.4</auto-value.version>
+        <auto-value.version>1.11.1</auto-value.version>
 
     </properties>
 
