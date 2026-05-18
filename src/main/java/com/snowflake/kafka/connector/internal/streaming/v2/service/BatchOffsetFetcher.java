@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import java.util.Collection;
 import java.util.HashMap;
@@ -108,11 +109,24 @@ public class BatchOffsetFetcher {
           try {
             result.putAll(getCommittedOffsetsForPipe(pipeName, channelsByPartition));
           } catch (SFException e) {
-            LOGGER.error(
-                "Failed to fetch committed offsets for pipe: {}, skipping {} channel(s)",
-                pipeName,
-                channelsByPartition.size(),
-                e);
+            if (ClientRecreationException.isClientInvalidError(e)) {
+              // Corner case: if the topic is idle (no new records), no appendRow will fire and
+              // the batch loop will never trigger recreation. Accepted — when traffic resumes,
+              // the first appendRow will fail → recreation kicks in → normal recovery.
+              taskMetrics.incClientRecreationSkipCount();
+              LOGGER.warn(
+                  "Client is invalid for pipe: {}, skipping offset fetch for {} channel(s)."
+                      + " Client will be recreated on the next put() cycle.",
+                  pipeName,
+                  channelsByPartition.size(),
+                  e);
+            } else {
+              LOGGER.error(
+                  "Failed to fetch committed offsets for pipe: {}, skipping {} channel(s)",
+                  pipeName,
+                  channelsByPartition.size(),
+                  e);
+            }
           }
         },
         ioExecutor);

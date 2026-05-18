@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.ingest.streaming.SFException;
 import dev.failsafe.function.CheckedRunnable;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
@@ -20,6 +22,17 @@ public class AppendRowWithFallbackPolicyTest {
   @BeforeEach
   void setUp() {
     MockitoAnnotations.initMocks(this);
+    // Don't actually sleep in unit tests.
+    AppendRowWithFallbackPolicy.BASE_DELAY = Duration.ofMillis(1);
+    AppendRowWithFallbackPolicy.MAX_DELAY = Duration.ofMillis(1);
+    AppendRowWithFallbackPolicy.JITTER_FACTOR = 0.0;
+  }
+
+  @AfterEach
+  void tearDown() {
+    AppendRowWithFallbackPolicy.BASE_DELAY = Duration.ofSeconds(1);
+    AppendRowWithFallbackPolicy.MAX_DELAY = Duration.ofSeconds(30);
+    AppendRowWithFallbackPolicy.JITTER_FACTOR = 0.2;
   }
 
   @Test
@@ -142,6 +155,79 @@ public class AppendRowWithFallbackPolicyTest {
 
     assertSame(nonRetryableException, thrownException);
     assertEquals(1, attemptCounter.get()); // Should only attempt once
+  }
+
+  @Test
+  void shouldPropagateClientRecreationExceptionFromFallbackForInvalidClientError() {
+    SFException invalidClientException =
+        new SFException("InvalidClientError", "Client is invalid", 409, "Conflict");
+    CheckedRunnable supplier =
+        () -> {
+          throw invalidClientException;
+        };
+
+    // The fallback supplier throws ClientRecreationException for client-invalid errors
+    AppendRowWithFallbackPolicy.FallbackSupplierWithException fallback =
+        exception -> {
+          if (ClientRecreationException.isClientInvalidError(exception)) {
+            throw new ClientRecreationException((SFException) exception);
+          }
+        };
+
+    ClientRecreationException exception =
+        assertThrows(
+            ClientRecreationException.class,
+            () -> AppendRowWithFallbackPolicy.executeWithFallback(supplier, fallback, channelName));
+
+    assertSame(invalidClientException, exception.getCause());
+  }
+
+  @Test
+  void shouldPropagateClientRecreationExceptionForSfApiPipeFailedOverError() {
+    SFException failoverException =
+        new SFException("SfApiPipeFailedOverError", "Pipe failed over", 400, "");
+    CheckedRunnable supplier =
+        () -> {
+          throw failoverException;
+        };
+
+    AppendRowWithFallbackPolicy.FallbackSupplierWithException fallback =
+        exception -> {
+          if (ClientRecreationException.isClientInvalidError(exception)) {
+            throw new ClientRecreationException((SFException) exception);
+          }
+        };
+
+    ClientRecreationException exception =
+        assertThrows(
+            ClientRecreationException.class,
+            () -> AppendRowWithFallbackPolicy.executeWithFallback(supplier, fallback, channelName));
+
+    assertSame(failoverException, exception.getCause());
+  }
+
+  @Test
+  void shouldCheckBackpressureBeforeClientInvalid() {
+    // If an error code is both retryable AND client-invalid (hypothetically),
+    // backpressure should win. In practice these sets are disjoint, but this
+    // test verifies the ordering.
+    SFException retryableException = new SFException("ReceiverSaturated", "Backpressure", 429, "");
+    CheckedRunnable supplier =
+        () -> {
+          throw retryableException;
+        };
+
+    // Fallback that would throw ClientRecreationException if reached
+    AppendRowWithFallbackPolicy.FallbackSupplierWithException fallback =
+        exception -> {
+          throw new ClientRecreationException(
+              new SFException("InvalidClientError", "Should not reach here", 409, ""));
+        };
+
+    // Backpressure check should fire first
+    assertThrows(
+        BackpressureException.class,
+        () -> AppendRowWithFallbackPolicy.executeWithFallback(supplier, fallback, channelName));
   }
 
   private AppendRowWithFallbackPolicy.FallbackSupplierWithException failingFallback() {

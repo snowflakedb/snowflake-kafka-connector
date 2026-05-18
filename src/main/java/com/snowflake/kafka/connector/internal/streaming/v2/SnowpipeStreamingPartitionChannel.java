@@ -67,15 +67,26 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   // are cumulative and don't reset when a channel is reopened.
   private long initialErrorCount = 0;
 
-  /** Max consecutive channel recoveries before giving up and letting the task fail. */
-  private static final int MAX_CONSECUTIVE_RECOVERIES = 5;
+  /**
+   * Maximum wall-clock duration we keep retrying recovery before giving up. Sized for real SSv2
+   * pipe failover propagation (observed 2-4 min). Package-private + non-final so tests can
+   * override.
+   */
+  @VisibleForTesting static Duration MAX_RECOVERY_DURATION = Duration.ofMinutes(6);
 
   /**
    * Consecutive recovery counter. Incremented each time the fallback reopens the channel, reset to
-   * zero on every successful appendRow. If this reaches {@link #MAX_CONSECUTIVE_RECOVERIES} the
-   * fallback re-throws to let the KC framework kill the task.
+   * zero on every successful appendRow. Drives the exponential backoff in {@link
+   * AppendRowWithFallbackPolicy#computeBackoffDelay(int)} — it is no longer used as the giving-up
+   * threshold; that is now {@link #MAX_RECOVERY_DURATION}.
    */
   private int consecutiveRecoveryCount = 0;
+
+  /**
+   * Wall-clock timestamp (nanos) of the first failure in the current recovery streak; -1 when no
+   * recovery is in progress. Reset on every successful appendRow.
+   */
+  private long firstFailureNanos = -1L;
 
   private final String channelName;
 
@@ -91,7 +102,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final String pipeName;
 
-  private final SnowflakeStreamingIngestClient streamingClient;
+  private volatile SnowflakeStreamingIngestClient streamingClient;
+  private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
   private final StreamingErrorHandler streamingErrorHandler;
@@ -114,6 +126,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String channelName,
       String pipeName,
       SnowflakeStreamingIngestClient streamingClient,
+      ClientRecreator clientRecreator,
       ExecutorService openChannelIoExecutor,
       SnowflakeTelemetryService telemetryService,
       SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
@@ -127,6 +140,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
+    this.clientRecreator = clientRecreator;
     this.openChannelIoExecutor = openChannelIoExecutor;
     this.taskConfig = taskConfig;
     this.streamingErrorHandler = streamingErrorHandler;
@@ -248,7 +262,21 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.channelName);
 
-          streamingClient.initiateFlush();
+          try {
+            streamingClient.initiateFlush();
+          } catch (SFException e) {
+            if (ClientRecreationException.isClientInvalidError(e)) {
+              // Called from stop(); next task instance will get a fresh client and Kafka
+              // will redeliver uncommitted rows.
+              LOGGER.warn(
+                  "Skipping flush for channel {}: client is invalid ({}). "
+                      + "Uncommitted data will be replayed on task restart.",
+                  this.channelName,
+                  e.getErrorCodeName());
+              return;
+            }
+            throw e;
+          }
 
           final long targetOffset = offsetTracker.getLastAppendRowsOffset();
           WaitForLastOffsetCommittedPolicy.getPolicy(
@@ -285,32 +313,51 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           getChannel().appendRow(row, Long.toString(offset));
           offsetTracker.recordAppended(offset);
           consecutiveRecoveryCount = 0;
+          firstFailureNanos = -1L;
         },
         (Throwable ex) -> {
           consecutiveRecoveryCount++;
-          if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
+          if (firstFailureNanos == -1L) {
+            firstFailureNanos = System.nanoTime();
+          }
+          Duration elapsed = Duration.ofNanos(System.nanoTime() - firstFailureNanos);
+          if (elapsed.compareTo(MAX_RECOVERY_DURATION) > 0) {
             // Recovery is stuck. Throw ConnectException (NOT
             // TopicPartitionChannelInsertionException — transformAndSend's catch swallows that
             // and commits the offset without calling recordProcessed, silently losing the
             // record). ConnectException fails the Kafka Connect task so offsets are not
             // committed; the task retries recovery on restart.
             LOGGER.error(
-                "Channel {} exceeded max consecutive recoveries ({}), giving up",
+                "Channel {} exceeded max recovery duration ({}s) after {} attempts, giving up",
                 this.channelName,
-                MAX_CONSECUTIVE_RECOVERIES);
+                MAX_RECOVERY_DURATION.getSeconds(),
+                consecutiveRecoveryCount);
             throw new ConnectException(
                 String.format(
-                    "Channel %s could not be recovered after %d consecutive attempts."
+                    "Channel %s could not be recovered within %ds (%d attempts)."
                         + " Check Snowflake service health.",
-                    this.channelName, MAX_CONSECUTIVE_RECOVERIES),
+                    this.channelName,
+                    MAX_RECOVERY_DURATION.getSeconds(),
+                    consecutiveRecoveryCount),
                 ex);
           }
+          Duration backoff = AppendRowWithFallbackPolicy.computeBackoffDelay(
+              consecutiveRecoveryCount);
           LOGGER.warn(
-              "Channel {} recovery attempt {}/{}",
+              "Channel {} recovery attempt {} (elapsed {}s / {}s budget), backoff {}ms",
               this.channelName,
               consecutiveRecoveryCount,
-              MAX_CONSECUTIVE_RECOVERIES);
-          reopenChannel("APPEND_ROW_FALLBACK");
+              elapsed.getSeconds(),
+              MAX_RECOVERY_DURATION.getSeconds(),
+              backoff.toMillis());
+          try {
+            Thread.sleep(backoff.toMillis());
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return;
+          }
+          boolean clientInvalid = ClientRecreationException.isClientInvalidError(ex);
+          reopenChannel(clientInvalid ? "CLIENT_RECREATION" : "APPEND_ROW_FALLBACK", clientInvalid);
           snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
         },
         this.channelName);
@@ -339,11 +386,30 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * @param reason Reason for the channel recovery. Used for logging.
    * @return offset which was last present in Snowflake
    */
-  private void reopenChannel(final String reason) {
+  private void reopenChannel(final String reason, boolean recreateClient) {
     LOGGER.warn("{} Channel {} recovery initiated", reason, this.channelName);
 
     if (this.snowflakeTelemetryChannelStatus != null) {
       this.snowflakeTelemetryChannelStatus.incRecoveryCount();
+    }
+
+    if (recreateClient) {
+      // Client recreation is a higher-level recovery than channel reopen — the fresh client can
+      // unblock a pipe that channel-reopen alone couldn't. The pool's CAS ensures only one new
+      // client is created even if multiple channels call this concurrently. Reset the retry
+      // budget so subsequent channel-reopen attempts on the new client get their full window.
+      try {
+        this.streamingClient = clientRecreator.recreate(this.streamingClient);
+        snowflakeTelemetryChannelStatus.incClientRecreationCount();
+        consecutiveRecoveryCount = 0;
+        firstFailureNanos = -1L;
+      } catch (RuntimeException e) {
+        LOGGER.warn(
+            "{} Channel {} client recreation failed (failover may still be propagating): {}",
+            reason,
+            this.channelName,
+            e.getMessage());
+      }
     }
 
     this.channel =
