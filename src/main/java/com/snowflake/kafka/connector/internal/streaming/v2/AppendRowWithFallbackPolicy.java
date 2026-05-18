@@ -33,23 +33,16 @@ class AppendRowWithFallbackPolicy {
    * @param channelName the channel name for logging purposes
    */
   private static void withDelay(CheckedRunnable action, String channelName) throws Throwable {
+    long delayMs = FALLBACK_DELAY.toMillis() + (long) (Math.random() * JITTER_DURATION.toMillis());
+    LOGGER.info("Delaying channel recovery by {}ms for channel: {}", delayMs, channelName);
     try {
-      long delayMs =
-          FALLBACK_DELAY.toMillis() + (long) (Math.random() * JITTER_DURATION.toMillis());
-
-      LOGGER.info("Delaying channel recovery by {}ms for channel: {}", delayMs, channelName);
       Thread.sleep(delayMs);
-
-      LOGGER.info("Executing channel recovery for channel: {}", channelName);
-      action.run();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-    } catch (SFException e) {
-      // Re-throw SFException unchanged so Fallback can handle it properly
-      throw e;
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+      return;
     }
+    LOGGER.info("Executing channel recovery for channel: {}", channelName);
+    action.run();
   }
 
   /**

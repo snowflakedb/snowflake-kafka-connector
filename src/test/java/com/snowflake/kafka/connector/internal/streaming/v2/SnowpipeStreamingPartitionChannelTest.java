@@ -29,6 +29,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InsertResult;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
@@ -212,7 +213,7 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void insertRecordThrowsBackpressureExceptionOnRetryableError() {
+  void insertRecordReturnsBackpressureOnRetryableError() {
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
     partitionChannel.getChannel();
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
@@ -220,17 +221,11 @@ class SnowpipeStreamingPartitionChannelTest {
     // appendRow will throw MemoryThresholdExceeded (retryable error)
     trackingClientSupplier.setRetryableAppendRowFailures(1);
 
-    // BackpressureException should propagate up (not caught in this layer)
-    // Task 4 will handle it at the batch-level insert() loop
-    BackpressureException exception =
-        assertThrows(
-            BackpressureException.class,
-            () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+    // Returns BACKPRESSURE_TRIGGERED so the batch loop enters cooldown.
+    InsertResult result = partitionChannel.insertRecord(buildValidRecord(0), true);
+    assertEquals(InsertResult.BACKPRESSURE_TRIGGERED, result);
 
-    assertEquals("SDK backpressure: MemoryThresholdExceeded", exception.getMessage());
-
-    // No channel reopening should have happened - the exception signals backpressure, not channel
-    // invalidation
+    // No channel reopening — backpressure signals throttling, not channel invalidation.
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
   }

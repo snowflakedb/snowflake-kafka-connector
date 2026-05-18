@@ -24,6 +24,7 @@ import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvo
 import com.snowflake.kafka.connector.internal.schemaevolution.ValidationResultMapper;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelInsertionException;
+import com.snowflake.kafka.connector.internal.streaming.channel.InsertResult;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -164,14 +165,17 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
-  public boolean insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
+  public InsertResult insertRecord(
+      SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
     if (offsetTracker.shouldProcess(kafkaSinkRecord.kafkaOffset(), isFirstRowPerPartitionInBatch)) {
       return transformAndSend(kafkaSinkRecord);
     }
-    return true;
+    // shouldProcess returned false — the record is either a duplicate (already processed) or
+    // skipped because needToSkipCurrentBatch is set after a mid-batch recovery. Nothing to do.
+    return InsertResult.PROCESSED;
   }
 
-  private boolean transformAndSend(SinkRecord kafkaSinkRecord) {
+  private InsertResult transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
       final long kafkaOffset = kafkaSinkRecord.kafkaOffset();
       final SnowflakeSinkRecord record =
@@ -203,32 +207,34 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                 handleValidationError(validationResult, kafkaSinkRecord);
               }
               offsetTracker.recordProcessed(kafkaOffset);
-              return true;
+              return InsertResult.PROCESSED;
             }
           }
 
           if (!insertRowWithFallback(row, kafkaOffset)) {
-            // Fallback fired: the record was NOT inserted, and the fallback's recovery
-            // logic already reset processedOffset + rewound Kafka. Do NOT call
-            // recordProcessed() here — that would advance processedOffset past the
-            // recovery point and cause replayed offsets to be skipped. See SNOW-3344243.
-            return false;
+            // Fallback fired: the record was NOT inserted. The fallback's resetAfterRecovery
+            // already issued the authoritative Kafka seek to (committed + 1). Do NOT call
+            // recordProcessed() here — that would advance processedOffset past the recovery
+            // point and cause replayed offsets to be skipped. See SNOW-3344243. The batch
+            // loop receives RECOVERY_IN_FLIGHT and skips its own end-of-batch rewind for
+            // this partition, so the authoritative seek survives.
+            return InsertResult.RECOVERY_IN_FLIGHT;
           }
         }
       }
       // Always update processedOffset after processing, even for broken records
       offsetTracker.recordProcessed(kafkaOffset);
-      return true;
+      return InsertResult.PROCESSED;
     } catch (BackpressureException ex) {
       snowflakeTelemetryChannelStatus.incBackpressureRetryCount();
-      throw ex;
+      return InsertResult.BACKPRESSURE_TRIGGERED;
     } catch (TopicPartitionChannelInsertionException ex) {
       // Suppressing the exception because other channels might still continue to ingest
       LOGGER.warn(
           "Failed to insert row for channel:{}. Will be retried by Kafka. Exception: {}",
           this.channelName,
           ex);
-      return true;
+      return InsertResult.PROCESSED;
     }
   }
 
@@ -283,13 +289,19 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         (Throwable ex) -> {
           consecutiveRecoveryCount++;
           if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
+            // Recovery is stuck. Throw ConnectException (NOT
+            // TopicPartitionChannelInsertionException — transformAndSend's catch swallows that
+            // and commits the offset without calling recordProcessed, silently losing the
+            // record). ConnectException fails the Kafka Connect task so offsets are not
+            // committed; the task retries recovery on restart.
             LOGGER.error(
                 "Channel {} exceeded max consecutive recoveries ({}), giving up",
                 this.channelName,
                 MAX_CONSECUTIVE_RECOVERIES);
-            throw new TopicPartitionChannelInsertionException(
+            throw new ConnectException(
                 String.format(
-                    "Channel %s failed after %d consecutive recovery attempts",
+                    "Channel %s could not be recovered after %d consecutive attempts."
+                        + " Check Snowflake service health.",
                     this.channelName, MAX_CONSECUTIVE_RECOVERIES),
                 ex);
           }

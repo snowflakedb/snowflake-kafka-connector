@@ -5,13 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
@@ -19,8 +19,8 @@ import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.channel.InsertResult;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
@@ -292,12 +292,9 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
     when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
 
-    // channel0 throws BackpressureException
-    doThrow(
-            new BackpressureException(
-                new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
-        .when(channel0)
-        .insertRecord(any(), anyBoolean());
+    // channel0 returns BACKPRESSURE_TRIGGERED
+    when(channel0.insertRecord(any(), anyBoolean()))
+        .thenReturn(InsertResult.BACKPRESSURE_TRIGGERED);
 
     List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
     service.insert(records);
@@ -322,10 +319,9 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
     when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
 
-    // channel1 throws BackpressureException
-    doThrow(new BackpressureException(new SFException("ReceiverSaturated", "backpressure", 0, "")))
-        .when(channel1)
-        .insertRecord(any(), anyBoolean());
+    // channel1 returns BACKPRESSURE_TRIGGERED
+    when(channel1.insertRecord(any(), anyBoolean()))
+        .thenReturn(InsertResult.BACKPRESSURE_TRIGGERED);
 
     // p0's first record succeeds, p1 throws, p0's second record is skipped
     List<SinkRecord> records =
@@ -353,12 +349,9 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tpInit)).thenReturn(Optional.of(initChannel));
     when(mockChannelManager.getChannel(tpReady)).thenReturn(Optional.of(readyChannel));
 
-    // Ready channel hits backpressure
-    doThrow(
-            new BackpressureException(
-                new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
-        .when(readyChannel)
-        .insertRecord(any(), anyBoolean());
+    // Ready channel returns BACKPRESSURE_TRIGGERED
+    when(readyChannel.insertRecord(any(), anyBoolean()))
+        .thenReturn(InsertResult.BACKPRESSURE_TRIGGERED);
 
     List<SinkRecord> records = Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 1, 200));
     service.insert(records);
@@ -378,11 +371,8 @@ class SnowflakeSinkServiceV2Test {
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
 
-    doThrow(
-            new BackpressureException(
-                new SFException("MemoryThresholdExceeded", "backpressure", 0, "")))
-        .when(channel0)
-        .insertRecord(any(), anyBoolean());
+    when(channel0.insertRecord(any(), anyBoolean()))
+        .thenReturn(InsertResult.BACKPRESSURE_TRIGGERED);
 
     service.insert(Collections.singletonList(recordFor(TOPIC, 0, 100)));
 
@@ -437,7 +427,7 @@ class SnowflakeSinkServiceV2Test {
   // --- recovery skip logic ---
 
   @Test
-  void insertSkipsRemainingRecordsForPartitionAfterRecovery() {
+  void insertDoesNotRewindWhenChannelReportsRecoveryInFlight() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);
 
@@ -447,8 +437,9 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
     when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
 
-    // channel0 signals recovery on its first record
-    when(channel0.insertRecord(any(), anyBoolean())).thenReturn(false);
+    // channel0 returns RECOVERY_IN_FLIGHT — its fallback already issued the authoritative
+    // seek via resetAfterRecovery.
+    when(channel0.insertRecord(any(), anyBoolean())).thenReturn(InsertResult.RECOVERY_IN_FLIGHT);
 
     List<SinkRecord> records =
         Arrays.asList(
@@ -458,39 +449,17 @@ class SnowflakeSinkServiceV2Test {
             recordFor(TOPIC, 0, 102));
     service.insert(records);
 
-    // channel0: only the first record was attempted; 101 and 102 were skipped
+    // channel0: first record attempted (it's the one that triggers recovery); 101 and 102
+    // are skipped via PREVIOUSLY_SKIPPED_IN_BATCH.
     verify(channel0).insertRecord(records.get(0), true);
-    verify(channel0, never()).insertRecord(records.get(2), false);
-    verify(channel0, never()).insertRecord(records.get(3), false);
 
     // channel1: processed normally
     verify(channel1).insertRecord(records.get(1), true);
 
-    // Only the recovering partition is rewound, to the triggering record's offset
-    verify(mockSinkTaskContext).offset(tp0, 100L);
-    verify(mockSinkTaskContext, never()).offset(tp1, 200L);
-  }
-
-  @Test
-  void insertRewindsToFirstSkippedOffsetAfterRecoveryMidPartition() {
-    TopicPartition tp = new TopicPartition(TOPIC, 0);
-    TopicPartitionChannel channel = mockChannel("ch_0", false);
-    when(mockChannelManager.getChannel(tp)).thenReturn(Optional.of(channel));
-
-    // First record succeeds, second triggers recovery
-    when(channel.insertRecord(any(), anyBoolean())).thenReturn(true).thenReturn(false);
-
-    List<SinkRecord> records =
-        Arrays.asList(recordFor(TOPIC, 0, 100), recordFor(TOPIC, 0, 101), recordFor(TOPIC, 0, 102));
-    service.insert(records);
-
-    // First two records attempted, third skipped
-    verify(channel).insertRecord(records.get(0), true);
-    verify(channel).insertRecord(records.get(1), false);
-    verify(channel, never()).insertRecord(records.get(2), false);
-
-    // Rewind to the record that triggered recovery
-    verify(mockSinkTaskContext).offset(tp, 101L);
+    // No batch-loop rewind — the channel's tracker already issued its own seek via
+    // resetAfterRecovery. Issuing one from here would clobber it and lose records.
+    verify(mockSinkTaskContext, never()).offset(eq(tp0), anyLong());
+    verify(mockSinkTaskContext, never()).offset(eq(tp1), anyLong());
   }
 
   // --- helpers ---
@@ -525,11 +494,17 @@ class SnowflakeSinkServiceV2Test {
   }
 
   private static TopicPartitionChannel mockChannel(String channelName, boolean initializing) {
+    return mockChannel(channelName, initializing, "default-pipe");
+  }
+
+  private static TopicPartitionChannel mockChannel(
+      String channelName, boolean initializing, String pipeName) {
     TopicPartitionChannel channel = mock(TopicPartitionChannel.class);
     when(channel.getChannelName()).thenReturn(channelName);
+    when(channel.getPipeName()).thenReturn(pipeName);
     when(channel.isInitializing()).thenReturn(initializing);
     when(channel.isChannelClosed()).thenReturn(false);
-    when(channel.insertRecord(any(), anyBoolean())).thenReturn(true);
+    when(channel.insertRecord(any(), anyBoolean())).thenReturn(InsertResult.PROCESSED);
     return channel;
   }
 

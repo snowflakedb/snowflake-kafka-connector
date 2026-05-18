@@ -17,8 +17,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.channel.InsertResult;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
-import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
@@ -338,57 +338,47 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           initializingPartitions);
     }
 
-    // If still in cooldown from a recent backpressure event, treat all partitions as
-    // backpressured so we skip the entire batch and give the SDK time to drain.
-    boolean skipAllPartitions = false;
-    if (Instant.now().isBefore(backpressureUntil)) {
-      LOGGER.debug(
-          "Backpressure cooldown active until {}. Skipping entire batch.", backpressureUntil);
-      skipAllPartitions = true;
-    }
-
     Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
-    boolean newBackpressure = false;
     for (SinkRecord record : records) {
-      // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
         continue;
       }
-
       TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
 
+      InsertResult result;
       if (offsetsOfFirstSkippedRecord.containsKey(tp)) {
-        // We've already skipped a record in this partition, so should also skip the remaining
-        // records in this partition.
-        continue;
-      }
-      if (skipAllPartitions || initializingPartitions.contains(tp)) {
-        // Make sure we store the first record in each partition that we skipped so we can correctly
-        // rewind the offset.
-        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
-        continue;
+        result = InsertResult.PREVIOUSLY_SKIPPED_IN_BATCH;
+      } else if (Instant.now().isBefore(backpressureUntil)) {
+        result = InsertResult.IN_BACKPRESSURE_COOLDOWN;
+      } else if (initializingPartitions.contains(tp)) {
+        result = InsertResult.CHANNEL_INITIALIZING;
+      } else {
+        result = insert(record);
       }
 
-      try {
-        if (!insert(record)) {
+      switch (result) {
+        case PROCESSED:
+        case RECOVERY_IN_FLIGHT:
+          // PROCESSED: nothing to rewind. RECOVERY_IN_FLIGHT: the channel's resetAfterRecovery
+          // owns the authoritative seek; our rewind would clobber it.
+          break;
+
+        case PREVIOUSLY_SKIPPED_IN_BATCH:
+          // Already in the rewind map from an earlier record in this partition.
+          break;
+
+        case CHANNEL_INITIALIZING:
+        case IN_BACKPRESSURE_COOLDOWN:
           offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
-        }
-      } catch (BackpressureException e) {
-        LOGGER.warn(
-            "Backpressure on partition {}. Skipping remaining records for this partition."
-                + " Exception: {}",
-            tp,
-            e.getMessage());
-        taskMetrics.incBackpressureRewindCount();
-        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
-        skipAllPartitions = true;
-        newBackpressure = true;
-      }
-    }
+          break;
 
-    if (newBackpressure) {
-      backpressureUntil = Instant.now().plus(BACKPRESSURE_COOLDOWN);
-      LOGGER.info("Backpressure cooldown set until {}", backpressureUntil);
+        case BACKPRESSURE_TRIGGERED:
+          LOGGER.warn("Backpressure on partition {}. Starting cooldown.", tp);
+          taskMetrics.incBackpressureRewindCount();
+          offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+          backpressureUntil = Instant.now().plus(BACKPRESSURE_COOLDOWN);
+          break;
+      }
     }
 
     if (!offsetsOfFirstSkippedRecord.isEmpty()) {
@@ -398,21 +388,26 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Inserts individual records into buffer. It fetches the TopicPartitionChannel from the map and
-   * then each partition(Streaming channel) calls its respective appendRows API
+   * Inserts a single record. Fetches the channel (creating one on first contact) and delegates to
+   * {@link TopicPartitionChannel#insertRecord}.
+   *
+   * <p>We never rebuild an already-registered partition from scratch here. Rebuilding would
+   * construct a fresh {@link
+   * com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker} and wipe
+   * the recovery state (pending seek, processedOffset). Recovery for an existing channel goes
+   * through the appendRow fallback path ({@code reopenChannel} / {@code
+   * recreateClientAndReopenChannel}), which preserves the tracker. The manager removes entries only
+   * on explicit {@link #close}/{@link #closeAll}, so {@code isEmpty()} cleanly distinguishes "first
+   * time we see this partition" from "recovery needed".
    */
   @Override
-  public boolean insert(SinkRecord record) {
+  public InsertResult insert(SinkRecord record) {
     LOGGER.trace("Inserting record: {}", record);
 
     TopicPartition topicPartition = new TopicPartition(record.topic(), record.kafkaPartition());
 
-    // Initialize a new topic partition if it's not in the cache or if the channel is closed.
-    if (channelManager
-        .getChannel(topicPartition)
-        .map(TopicPartitionChannel::isChannelClosed)
-        .orElse(true)) {
-      LOGGER.warn("Streaming channel doesn't exist or is closed for {}", topicPartition);
+    if (channelManager.getChannel(topicPartition).isEmpty()) {
+      LOGGER.warn("Streaming channel missing for {}, creating", topicPartition);
       startPartition(topicPartition);
     }
 
