@@ -50,6 +50,7 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   static final String CLOSE_COUNT = "close-count";
   static final String CHANNEL_OPEN_COUNT = "channel-open-count";
   static final String BACKPRESSURE_REWIND_COUNT = "backpressure-rewind-count";
+  static final String CLIENT_RECREATION_SKIP_COUNT = "client-recreation-skip-count";
 
   // Gauges
   static final String ASSIGNED_PARTITIONS = "assigned-partitions";
@@ -79,6 +80,7 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   private final Counter closeCount;
   private final Counter channelOpenCount;
   private final Counter backpressureRewindCount;
+  private final Counter clientRecreationSkipCount;
 
   // Gauges (backed by atomics)
   private final AtomicInteger assignedPartitions;
@@ -140,6 +142,9 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
     this.backpressureRewindCount =
         registry.counter(
             taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, BACKPRESSURE_REWIND_COUNT));
+    this.clientRecreationSkipCount =
+        registry.counter(
+            taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, CLIENT_RECREATION_SKIP_COUNT));
 
     // Gauges
     registry.register(
@@ -224,6 +229,11 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   @Override
   public void incBackpressureRewindCount() {
     backpressureRewindCount.inc();
+  }
+
+  @Override
+  public void incClientRecreationSkipCount() {
+    clientRecreationSkipCount.inc();
   }
 
   // ---- TaskMetrics interface (throughput) ----

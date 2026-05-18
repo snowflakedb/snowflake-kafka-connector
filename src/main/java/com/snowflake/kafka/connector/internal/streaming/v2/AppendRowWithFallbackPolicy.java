@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming.v2;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import dev.failsafe.Failsafe;
@@ -12,19 +13,34 @@ import java.time.Duration;
  * fallback functionality.
  *
  * <p>This class provides a clean interface to execute append row operations with automatic channel
- * recovery on non-retryable {@link SFException}. For retryable backpressure errors, it throws
- * {@link BackpressureException} to signal the batch-level insert loop to abandon the batch and
- * rewind offsets.
+ * recovery on non-retryable {@link SFException}. The fallback supplier determines the recovery
+ * strategy:
+ *
+ * <ul>
+ *   <li>Retryable backpressure errors throw {@link BackpressureException}
+ *   <li>Client-invalid errors trigger client recreation via the fallback, which throws {@link
+ *       ClientRecreationException}
+ *   <li>Other errors trigger channel-level recovery (reopen channel)
+ * </ul>
+ *
+ * Both {@link BackpressureException} and {@link ClientRecreationException} propagate out of
+ * Failsafe to signal the batch-level insert loop.
  */
 class AppendRowWithFallbackPolicy {
 
   private static final KCLogger LOGGER = new KCLogger(AppendRowWithFallbackPolicy.class.getName());
 
-  /** Delay before fallback attempt (channel reopening). */
-  private static final Duration FALLBACK_DELAY = Duration.ofMillis(500);
+  /**
+   * Delay before fallback attempt (channel reopening / client recreation). Sized for SSv2 pipe
+   * failovers (1-3 min) — with MAX_CONSECUTIVE_RECOVERIES=30 upstream, 5s per attempt covers ~2.5
+   * min without spamming Snowflake during the outage.
+   *
+   * <p>Package-private + non-final so tests can override it to avoid long sleeps.
+   */
+  @VisibleForTesting static Duration FALLBACK_DELAY = Duration.ofSeconds(5);
 
   /** Random jitter added to fallback delays to prevent retry storms. */
-  private static final Duration JITTER_DURATION = Duration.ofMillis(200);
+  @VisibleForTesting static Duration JITTER_DURATION = Duration.ofMillis(500);
 
   /**
    * Executes the given action after a delay with jitter to prevent retry storms.
@@ -100,6 +116,11 @@ class AppendRowWithFallbackPolicy {
                   if (event.getException() instanceof BackpressureException) {
                     LOGGER.warn(
                         "Backpressure on channel {}: {}",
+                        channelName,
+                        event.getException().getMessage());
+                  } else if (event.getException() instanceof ClientRecreationException) {
+                    LOGGER.warn(
+                        "Client recreation triggered on channel {}: {}",
                         channelName,
                         event.getException().getMessage());
                   } else {

@@ -67,8 +67,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   // are cumulative and don't reset when a channel is reopened.
   private long initialErrorCount = 0;
 
-  /** Max consecutive channel recoveries before giving up and letting the task fail. */
-  private static final int MAX_CONSECUTIVE_RECOVERIES = 5;
+  /**
+   * Max consecutive channel recoveries before failing the task. Each recovery attempt blocks on
+   * AppendRowWithFallbackPolicy.FALLBACK_DELAY (5s + 0-500ms jitter), so 30 attempts covers ~2.5
+   * minutes — enough for real SSv2 pipe failovers (1-3 min) without hammering Snowflake during the
+   * outage.
+   */
+  private static final int MAX_CONSECUTIVE_RECOVERIES = 30;
 
   /**
    * Consecutive recovery counter. Incremented each time the fallback reopens the channel, reset to
@@ -91,7 +96,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final String pipeName;
 
-  private final SnowflakeStreamingIngestClient streamingClient;
+  private volatile SnowflakeStreamingIngestClient streamingClient;
+  private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
   private final StreamingErrorHandler streamingErrorHandler;
@@ -114,6 +120,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String channelName,
       String pipeName,
       SnowflakeStreamingIngestClient streamingClient,
+      ClientRecreator clientRecreator,
       ExecutorService openChannelIoExecutor,
       SnowflakeTelemetryService telemetryService,
       SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
@@ -127,6 +134,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
+    this.clientRecreator = clientRecreator;
     this.openChannelIoExecutor = openChannelIoExecutor;
     this.taskConfig = taskConfig;
     this.streamingErrorHandler = streamingErrorHandler;
@@ -248,7 +256,21 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.channelName);
 
-          streamingClient.initiateFlush();
+          try {
+            streamingClient.initiateFlush();
+          } catch (SFException e) {
+            if (ClientRecreationException.isClientInvalidError(e)) {
+              // Called from stop(); next task instance will get a fresh client and Kafka
+              // will redeliver uncommitted rows.
+              LOGGER.warn(
+                  "Skipping flush for channel {}: client is invalid ({}). "
+                      + "Uncommitted data will be replayed on task restart.",
+                  this.channelName,
+                  e.getErrorCodeName());
+              return;
+            }
+            throw e;
+          }
 
           final long targetOffset = offsetTracker.getLastAppendRowsOffset();
           WaitForLastOffsetCommittedPolicy.getPolicy(
@@ -310,7 +332,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               this.channelName,
               consecutiveRecoveryCount,
               MAX_CONSECUTIVE_RECOVERIES);
-          reopenChannel("APPEND_ROW_FALLBACK");
+          boolean clientInvalid = ClientRecreationException.isClientInvalidError(ex);
+          reopenChannel(clientInvalid ? "CLIENT_RECREATION" : "APPEND_ROW_FALLBACK", clientInvalid);
           snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
         },
         this.channelName);
@@ -339,11 +362,21 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * @param reason Reason for the channel recovery. Used for logging.
    * @return offset which was last present in Snowflake
    */
-  private void reopenChannel(final String reason) {
+  private void reopenChannel(final String reason, boolean recreateClient) {
     LOGGER.warn("{} Channel {} recovery initiated", reason, this.channelName);
 
     if (this.snowflakeTelemetryChannelStatus != null) {
       this.snowflakeTelemetryChannelStatus.incRecoveryCount();
+    }
+
+    if (recreateClient) {
+      // Client recreation is a higher-level recovery than channel reopen — the fresh client can
+      // unblock a pipe that channel-reopen alone couldn't. The pool's CAS ensures only one new
+      // client is created even if multiple channels call this concurrently. Reset the retry
+      // budget so subsequent channel-reopen attempts on the new client get their full window.
+      this.streamingClient = clientRecreator.recreate(this.streamingClient);
+      snowflakeTelemetryChannelStatus.incClientRecreationCount();
+      consecutiveRecoveryCount = 0;
     }
 
     this.channel =
