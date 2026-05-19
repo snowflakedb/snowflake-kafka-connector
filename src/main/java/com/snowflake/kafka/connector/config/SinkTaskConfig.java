@@ -117,6 +117,11 @@ public abstract class SinkTaskConfig {
 
   public abstract boolean isSsv1MigrationIncludeConnectorName();
 
+  /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
+  public static SinkTaskConfig from(Map<String, String> raw) {
+    return from(raw, false);
+  }
+
   /**
    * Parses the raw connector config map into an immutable SinkTaskConfig. Applies defaults for
    * missing optional keys.
@@ -128,10 +133,6 @@ public abstract class SinkTaskConfig {
    * @return parsed config
    * @throws IllegalArgumentException if required fields are missing or invalid
    */
-  public static SinkTaskConfig from(Map<String, String> raw) {
-    return from(raw, false);
-  }
-
   public static SinkTaskConfig from(Map<String, String> raw, boolean skipTaskSpecificConfig) {
     return builderFrom(raw, skipTaskSpecificConfig).build();
   }
