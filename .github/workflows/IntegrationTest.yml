@@ -38,7 +38,7 @@ jobs:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
     - name: Install Dependency
       run: |
-        pip3 install --upgrade setuptools
+        pip3 install --upgrade "setuptools<81"
         pip3 install requests certifi "confluent-kafka[avro,json,protobuf]==1.9.2"
         pip3 install avro kafka-python
         pip3 install protobuf
