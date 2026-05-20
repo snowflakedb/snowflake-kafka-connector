@@ -34,6 +34,7 @@ public class FakeSnowflakeStreamingIngestChannel implements SnowflakeStreamingIn
 
   /** Reference to the client that owns this channel */
   private final SnowflakeStreamingIngestClient owningClient;
+
   /** Lock used to protect the buffers from concurrent read/write */
   private final Lock bufferLock;
 

@@ -88,6 +88,7 @@ public class FileNameUtils {
   // /startOffset_endOffset_time_format.json.gz
   private static Pattern FILE_NAME_PATTERN =
       Pattern.compile("^[^/]+/[^/]+/(\\d+)/(\\d+)_(\\d+)_(\\d+)\\.json\\.gz$");
+
   /**
    * verify file name
    *

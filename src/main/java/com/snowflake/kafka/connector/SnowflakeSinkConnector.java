@@ -148,7 +148,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
   // and
   // cleaning up pipes for partitions that are not in the new configuration.
 
-  /** @return Sink task class */
+  /**
+   * @return Sink task class
+   */
   @Override
   public Class<? extends Task> taskClass() {
     return SnowflakeSinkTask.class;
@@ -192,7 +194,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
     return taskConfigs;
   }
 
-  /** @return ConfigDef with original configuration properties */
+  /**
+   * @return ConfigDef with original configuration properties
+   */
   @Override
   public ConfigDef config() {
     return ConnectorConfigDefinition.getConfig();
@@ -330,7 +334,9 @@ public class SnowflakeSinkConnector extends SinkConnector {
         .equals(Utils.SNOWFLAKE_JWT);
   }
 
-  /** @return connector version */
+  /**
+   * @return connector version
+   */
   @Override
   public String version() {
     return Utils.VERSION;
