@@ -53,7 +53,7 @@
         <skipUnitTests>${skipTests}</skipUnitTests>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
 
-        <kafka.version>3.9.1</kafka.version>
+        <kafka.version>3.9.2</kafka.version>
         <awaitility.version>4.2.2</awaitility.version>
         <assertj-core.version>3.26.3</assertj-core.version>
         <confluent.version>7.9.2</confluent.version>
@@ -61,7 +61,7 @@
         <protobuf.version>3.25.5</protobuf.version>
         <guava.version>33.4.0-jre</guava.version>
         <iceberg.version>1.6.1</iceberg.version>
-        <jackson.version>2.18.2</jackson.version>
+        <jackson.version>2.18.6</jackson.version>
         <commons-compress.version>1.27.1</commons-compress.version>
         <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
         <snowflake-jdbc.version>3.26.1</snowflake-jdbc.version>
@@ -621,11 +621,25 @@
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-api</artifactId>
             <version>${iceberg.version}</version>
+            <exclusions>
+                <!-- aircompressor is only used by iceberg's PuffinFormat, which is not exercised by the connector.
+                     Excluded to remove unfixed CVE GHSA-vx9q-rhv9-3jvg from the shaded artifact. -->
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>aircompressor</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
             <version>${iceberg.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>aircompressor</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
     </dependencies>
