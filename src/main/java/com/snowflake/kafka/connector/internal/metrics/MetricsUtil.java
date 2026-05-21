@@ -43,6 +43,7 @@ public class MetricsUtil {
 
   // file count related constants
   public static final String OFFSET_SUB_DOMAIN = "offsets";
+
   /**
    * Offset number that is most recent inside the buffer (In memory buffer)
    *
@@ -91,6 +92,7 @@ public class MetricsUtil {
   public static final String OFFSET_PERSISTED_IN_SNOWFLAKE = "persisted-in-snowflake-offset";
 
   public static final String LATEST_CONSUMER_OFFSET = "latest-consumer-offset";
+
   // ********** ^ Streaming Constants ^ **********//
 
   public enum EventType {

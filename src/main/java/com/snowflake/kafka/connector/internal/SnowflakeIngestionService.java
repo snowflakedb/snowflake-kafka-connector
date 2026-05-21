@@ -16,6 +16,7 @@ public interface SnowflakeIngestionService {
    * @param telemetry telemetry client
    */
   void setTelemetry(SnowflakeTelemetryService telemetry);
+
   /**
    * Ingest single file
    *
@@ -30,7 +31,9 @@ public interface SnowflakeIngestionService {
    */
   void ingestFiles(List<String> fileNames);
 
-  /** @return corresponding stage name */
+  /**
+   * @return corresponding stage name
+   */
   String getStageName();
 
   /**

@@ -16,5 +16,5 @@ jobs:
         uses: axel-op/googlejavaformat-action@v3
         with:
           skip-commit: true
-          version: 1.10.0
+          version: v1.24.0
           args: "-n --set-exit-if-changed"

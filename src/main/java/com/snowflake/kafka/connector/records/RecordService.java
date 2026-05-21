@@ -182,7 +182,7 @@ public class RecordService {
   public String getProcessedRecordForSnowpipe(SinkRecord record) {
     SnowflakeTableRow row =
         processRecord(
-            record, /*connectorPushTime=*/ null); // ConnectorPushTime is not used for Snowpipe.
+            record, /* connectorPushTime= */ null); // ConnectorPushTime is not used for Snowpipe.
     StringBuilder buffer = new StringBuilder();
     for (JsonNode node : row.content.getData()) {
       ObjectNode data = mapper.createObjectNode();

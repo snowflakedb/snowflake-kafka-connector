@@ -171,7 +171,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
     switch (config
         .getOrDefault(SnowflakeSinkConnectorConfig.AUTHENTICATOR_TYPE, Utils.SNOWFLAKE_JWT)
         .toLowerCase()) {
-        // TODO: SNOW-889748 change to enum
+      // TODO: SNOW-889748 change to enum
       case Utils.SNOWFLAKE_JWT:
         if (!config.containsKey(SnowflakeSinkConnectorConfig.SNOWFLAKE_PRIVATE_KEY)) {
           invalidConfigParams.put(
