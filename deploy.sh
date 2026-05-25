@@ -80,17 +80,25 @@ sign_and_hash_artifact() {
   )
 
   echo "[INFO] Generating GPG detached signature for $artifact_base"
-  local passphrase_file
-  umask 077
-  passphrase_file="$(mktemp)"
-  trap 'rm -f "$passphrase_file"' RETURN
+  local passphrase_file rc=0
+  # Scope umask 077 to the mktemp subshell so the tighter mask does not
+  # leak into the caller's shell.
+  passphrase_file="$(umask 077 && mktemp)"
+  # EXIT trap fires reliably even on `set -e`-induced exit, unlike RETURN.
+  # Belt-and-suspenders: also rm explicitly below so the tempfile cannot
+  # outlive a single sign_and_hash_artifact invocation in a multi-call loop.
+  trap 'rm -f "$passphrase_file"' EXIT
   printf '%s' "$GPG_KEY_PASSPHRASE" > "$passphrase_file"
 
   gpg --detach-sign --armor \
       --batch --pinentry-mode loopback \
       --passphrase-file "$passphrase_file" \
       --local-user "$GPG_KEY_ID" \
-      --output "${artifact}.asc" "$artifact"
+      --output "${artifact}.asc" "$artifact" || rc=$?
+
+  rm -f "$passphrase_file"
+  trap - EXIT
+  return $rc
 }
 
 # Sign and hash every Confluent zip produced by the package step above so
