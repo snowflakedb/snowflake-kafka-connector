@@ -62,4 +62,43 @@ mvn -f pom_confluent.xml --settings $CENTRAL_DEPLOY_SETTINGS_XML -DskipTests cle
 #white source
 # whitesource/run_whitesource.sh
 
+# Produce a SHA-256 checksum and a detached, ASCII-armored GPG signature
+# next to the given artifact. Run sha256sum from inside the artifact's
+# directory so the checksum file records only the basename, which keeps
+# `sha256sum -c` working for downstream consumers.
+sign_and_hash_artifact() {
+  local artifact="$1"
+  local artifact_dir
+  local artifact_base
+  artifact_dir="$(cd "$(dirname "$artifact")" && pwd)"
+  artifact_base="$(basename "$artifact")"
+
+  echo "[INFO] Generating SHA-256 checksum for $artifact_base"
+  (
+    cd "$artifact_dir"
+    sha256sum "$artifact_base" > "${artifact_base}.sha256"
+  )
+
+  echo "[INFO] Generating GPG detached signature for $artifact_base"
+  local passphrase_file
+  umask 077
+  passphrase_file="$(mktemp)"
+  trap 'rm -f "$passphrase_file"' RETURN
+  printf '%s' "$GPG_KEY_PASSPHRASE" > "$passphrase_file"
+
+  gpg --detach-sign --armor \
+      --batch --pinentry-mode loopback \
+      --passphrase-file "$passphrase_file" \
+      --local-user "$GPG_KEY_ID" \
+      --output "${artifact}.asc" "$artifact"
+}
+
+# Sign and hash every Confluent zip produced by the package step above so
+# the .asc and .sha256 sidecars are uploaded alongside the .zip.
+for zip in target/components/packages/*.zip; do
+  sign_and_hash_artifact "$zip"
+done
+
 aws s3 cp target/components/packages/*.zip s3://sfc-eng-jenkins/repository/kafka/
+aws s3 cp target/components/packages/ s3://sfc-eng-jenkins/repository/kafka/ \
+  --recursive --exclude "*" --include "*.zip.asc" --include "*.zip.sha256"
