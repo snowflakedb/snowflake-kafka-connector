@@ -61,7 +61,7 @@
         <protobuf.version>3.25.5</protobuf.version>
         <guava.version>33.6.0-jre</guava.version>
 
-        <jackson.version>2.21.2</jackson.version>
+        <jackson.version>2.21.3</jackson.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
         <snowflake-jdbc.version>4.2.0</snowflake-jdbc.version>
