@@ -259,49 +259,74 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   /**
-   * Uses {@link AppendRowWithFallbackPolicy} to reopen the channel if insertRows throws {@link
-   * SFException}.
+   * Appends a row to the channel, reopening it on non-retryable {@link SFException}.
    *
    * <p>We have deliberately not performed retries on insertRows because it might slow down overall
    * ingestion and introduce lags in committing offsets to Kafka.
    *
    * <p>Note that insertRows API does perform channel validation which might throw SFException if
    * channel is invalidated.
-   */
-  /**
-   * @return true if the record was inserted successfully, false if the fallback fired (record was
-   *     NOT inserted)
+   *
+   * @return true if the record was inserted successfully, false if recovery was triggered (record
+   *     was NOT inserted). When this returns false, callers must NOT advance processedOffset — the
+   *     recovery logic has already reset offset state.
    */
   private boolean insertRowWithFallback(Map<String, Object> row, long offset) {
-    return AppendRowWithFallbackPolicy.executeWithFallback(
-        () -> {
-          LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
-          getChannel().appendRow(row, Long.toString(offset));
-          offsetTracker.recordAppended(offset);
-          consecutiveRecoveryCount = 0;
-        },
-        (Throwable ex) -> {
-          consecutiveRecoveryCount++;
-          if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
-            LOGGER.error(
-                "Channel {} exceeded max consecutive recoveries ({}), giving up",
-                this.channelName,
-                MAX_CONSECUTIVE_RECOVERIES);
-            throw new TopicPartitionChannelInsertionException(
-                String.format(
-                    "Channel %s failed after %d consecutive recovery attempts",
-                    this.channelName, MAX_CONSECUTIVE_RECOVERIES),
-                ex);
-          }
-          LOGGER.warn(
-              "Channel {} recovery attempt {}/{}",
-              this.channelName,
-              consecutiveRecoveryCount,
-              MAX_CONSECUTIVE_RECOVERIES);
-          reopenChannel("APPEND_ROW_FALLBACK");
-          snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
-        },
-        this.channelName);
+    try {
+      LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
+      getChannel().appendRow(row, Long.toString(offset));
+      offsetTracker.recordAppended(offset);
+      consecutiveRecoveryCount = 0;
+      return true;
+    } catch (SFException e) {
+      LOGGER.warn(
+          "Failed to invoke appendRow API for channel: {}. Exception: {}", this.channelName, e);
+
+      if (BackpressureException.isRetryableError(e)) {
+        throw new BackpressureException(e);
+      }
+
+      handleNonRetryableAppendRowFailure(e);
+      return false;
+    }
+  }
+
+  /**
+   * Handles a non-retryable {@link SFException} from appendRow by reopening the channel after a
+   * short delay with jitter. Throws {@link TopicPartitionChannelInsertionException} if the circuit
+   * breaker ({@link #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded.
+   */
+  private void handleNonRetryableAppendRowFailure(SFException cause) {
+    consecutiveRecoveryCount++;
+    if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
+      LOGGER.error(
+          "Channel {} exceeded max consecutive recoveries ({}), giving up",
+          this.channelName,
+          MAX_CONSECUTIVE_RECOVERIES);
+      throw new TopicPartitionChannelInsertionException(
+          String.format(
+              "Channel %s failed after %d consecutive recovery attempts",
+              this.channelName, MAX_CONSECUTIVE_RECOVERIES),
+          cause);
+    }
+
+    final long recoveryDelayMs = 500;
+    final long recoveryJitterMaxMs = 200;
+    long delayMs = recoveryDelayMs + (long) (Math.random() * recoveryJitterMaxMs);
+    LOGGER.info("Delaying channel recovery by {}ms for channel: {}", delayMs, this.channelName);
+    try {
+      Thread.sleep(delayMs);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+
+    LOGGER.warn(
+        "Channel {} recovery attempt {}/{}",
+        this.channelName,
+        consecutiveRecoveryCount,
+        MAX_CONSECUTIVE_RECOVERIES);
+    reopenChannel("APPEND_ROW_FALLBACK");
+    snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
   }
 
   private static void closeChannelWithoutFlushing(SnowflakeStreamingIngestChannel channel) {

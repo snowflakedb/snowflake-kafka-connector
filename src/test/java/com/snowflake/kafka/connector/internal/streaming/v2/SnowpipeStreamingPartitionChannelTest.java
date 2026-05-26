@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -231,6 +232,26 @@ class SnowpipeStreamingPartitionChannelTest {
 
     // No channel reopening should have happened - the exception signals backpressure, not channel
     // invalidation
+    assertEquals(0, trackingClientSupplier.getCloseCallCount());
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void nonSFExceptionFromAppendRowPropagatesWithoutRecovery() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+
+    IllegalStateException cause = new IllegalStateException("unexpected error");
+    trackingClientSupplier.setAppendRowRuntimeException(cause);
+
+    IllegalStateException thrown =
+        assertThrows(
+            IllegalStateException.class,
+            () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+
+    assertSame(cause, thrown);
+    // No recovery should have been attempted
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
   }
@@ -907,6 +928,7 @@ class SnowpipeStreamingPartitionChannelTest {
     private volatile boolean throwOnOpenChannel;
     private final AtomicInteger retryableAppendRowFailures = new AtomicInteger(0);
     private final AtomicInteger nonRetryableAppendRowFailures = new AtomicInteger(0);
+    private volatile RuntimeException appendRowRuntimeException;
     private volatile CountDownLatch blockOnOpenChannel;
 
     int getCloseCallCount() {
@@ -935,6 +957,10 @@ class SnowpipeStreamingPartitionChannelTest {
 
     void setNonRetryableAppendRowFailures(int count) {
       this.nonRetryableAppendRowFailures.set(count);
+    }
+
+    void setAppendRowRuntimeException(RuntimeException exception) {
+      this.appendRowRuntimeException = exception;
     }
 
     void setBlockOnOpenChannel(CountDownLatch latch) {
@@ -1137,6 +1163,9 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public void appendRow(final Map<String, Object> row, final String offsetToken) {
+      if (supplier.appendRowRuntimeException != null) {
+        throw supplier.appendRowRuntimeException;
+      }
       if (supplier.retryableAppendRowFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
         throw new SFException("MemoryThresholdExceeded", "Test simulated backpressure", 0, "");
       }
