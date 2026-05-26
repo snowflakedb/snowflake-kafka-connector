@@ -65,8 +65,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final SinkTaskConfig taskConfig;
   private final SinkTaskContext sinkTaskContext;
 
-  // Set that keeps track of the channels that have been seen per input batch
-  private final Set<String> channelsVisitedPerBatch = new HashSet<>();
   private final BatchOffsetFetcher batchOffsetFetcher;
 
   private final PartitionChannelManager channelManager;
@@ -302,18 +300,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
-  private Set<TopicPartition> currentlyInitializing(Collection<TopicPartition> partitions) {
-    return partitions.stream()
-        .filter(
-            tp -> {
-              return channelManager
-                  .getChannel(tp)
-                  .map(TopicPartitionChannel::isInitializing)
-                  .orElse(false);
-            })
-        .collect(Collectors.toSet());
-  }
-
   /**
    * @param records records coming from Kafka. Please note, they are not just from single topic and
    *     partition. It depends on the kafka connect worker node which can consume from multiple
@@ -321,67 +307,73 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(final Collection<SinkRecord> records) {
-    channelsVisitedPerBatch.clear();
+    // Resume partitions whose channels have finished initialization or recovery on the IO thread.
+    // This issues the Kafka seek and resume on the task thread, which is the only thread allowed
+    // to call SinkTaskContext methods.
+    channelManager.resumeReadyPartitions();
 
-    // Skip partitions for which the partition-channel bridge is currently being initialized.
-    Set<TopicPartition> partitions =
-        records.stream()
-            .map(record -> new TopicPartition(record.topic(), record.kafkaPartition()))
-            .collect(Collectors.toSet());
+    // Partitions to skip for the remainder of this batch. This is a batch-local set — it does NOT
+    // trigger a Kafka rewind, because paused partitions already have an authoritative seek set by
+    // the onChannelReady callback via resumeReadyPartitions().
+    Set<TopicPartition> partitionsToSkipInBatch = new HashSet<>();
 
-    Set<TopicPartition> initializingPartitions = currentlyInitializing(partitions);
-    if (!initializingPartitions.isEmpty()) {
-      LOGGER.debug(
-          "Skipping put for {}/{} partitions that are currently being initialized: {}",
-          initializingPartitions.size(),
-          partitions.size(),
-          initializingPartitions);
-    }
+    // Backpressure handling: rewind offsets are tracked separately because backpressured partitions
+    // are not paused — they need an explicit rewind to re-deliver the skipped records.
+    Map<TopicPartition, Long> backpressureRewindOffsets = new HashMap<>();
+    boolean newBackpressure = false;
 
     // If still in cooldown from a recent backpressure event, treat all partitions as
     // backpressured so we skip the entire batch and give the SDK time to drain.
-    boolean skipAllPartitions = false;
+    boolean skipAllForBackpressure = false;
     if (Instant.now().isBefore(backpressureUntil)) {
       LOGGER.debug(
           "Backpressure cooldown active until {}. Skipping entire batch.", backpressureUntil);
-      skipAllPartitions = true;
+      skipAllForBackpressure = true;
     }
 
-    Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
-    boolean newBackpressure = false;
     for (SinkRecord record : records) {
-      // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
         continue;
       }
 
       TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
 
-      if (offsetsOfFirstSkippedRecord.containsKey(tp)) {
-        // We've already skipped a record in this partition, so should also skip the remaining
-        // records in this partition.
+      if (partitionsToSkipInBatch.contains(tp)) {
         continue;
       }
-      if (skipAllPartitions || initializingPartitions.contains(tp)) {
-        // Make sure we store the first record in each partition that we skipped so we can correctly
-        // rewind the offset.
-        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+
+      // Paused partitions (initializing or recovering) — skip without rewind. The onChannelReady
+      // callback will set the authoritative seek when the channel is ready.
+      if (channelManager.isPaused(tp)) {
+        partitionsToSkipInBatch.add(tp);
+        continue;
+      }
+
+      // Backpressure cooldown — skip with rewind so records are re-delivered after cooldown.
+      if (skipAllForBackpressure) {
+        backpressureRewindOffsets.putIfAbsent(tp, record.kafkaOffset());
+        partitionsToSkipInBatch.add(tp);
         continue;
       }
 
       try {
         if (!insert(record)) {
-          offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+          // Recovery triggered — the channel is being reopened. Pause the partition so the
+          // consumer stops delivering remaining records in this batch. The onChannelReady callback
+          // populates partitionsReadyToResume, and the next resumeReadyPartitions() call will
+          // seek + resume on the task thread.
+          channelManager.pausePartition(tp);
+          partitionsToSkipInBatch.add(tp);
         }
       } catch (BackpressureException e) {
         LOGGER.warn(
-            "Backpressure on partition {}. Skipping remaining records for this partition."
-                + " Exception: {}",
+            "Backpressure on partition {}. Skipping remaining records. Exception: {}",
             tp,
             e.getMessage());
         taskMetrics.incBackpressureRewindCount();
-        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
-        skipAllPartitions = true;
+        backpressureRewindOffsets.putIfAbsent(tp, record.kafkaOffset());
+        partitionsToSkipInBatch.add(tp);
+        skipAllForBackpressure = true;
         newBackpressure = true;
       }
     }
@@ -391,15 +383,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Backpressure cooldown set until {}", backpressureUntil);
     }
 
-    if (!offsetsOfFirstSkippedRecord.isEmpty()) {
-      LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsOfFirstSkippedRecord);
-      offsetsOfFirstSkippedRecord.forEach(sinkTaskContext::offset);
+    if (!backpressureRewindOffsets.isEmpty()) {
+      LOGGER.info("Rewinding offsets for backpressured partitions: {}", backpressureRewindOffsets);
+      backpressureRewindOffsets.forEach(sinkTaskContext::offset);
     }
   }
 
   /**
-   * Inserts individual records into buffer. It fetches the TopicPartitionChannel from the map and
-   * then each partition(Streaming channel) calls its respective appendRows API
+   * Inserts a single record. Fetches the channel (creating one on first contact) and delegates to
+   * {@link TopicPartitionChannel#insertRecord}.
    */
   @Override
   public boolean insert(SinkRecord record) {
@@ -407,13 +399,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
     TopicPartition topicPartition = new TopicPartition(record.topic(), record.kafkaPartition());
 
-    // Initialize a new topic partition if it's not in the cache or if the channel is closed.
-    if (channelManager
-        .getChannel(topicPartition)
-        .map(TopicPartitionChannel::isChannelClosed)
-        .orElse(true)) {
-      LOGGER.warn("Streaming channel doesn't exist or is closed for {}", topicPartition);
+    // Initialize a new topic partition if it's not in the channel manager.
+    if (channelManager.getChannel(topicPartition).isEmpty()) {
+      LOGGER.warn("Streaming channel missing for {}, creating", topicPartition);
       startPartition(topicPartition);
+      // startPartition pauses the partition and the async init will resume it via onChannelReady.
+      // Signal to the caller that this record was not processed.
+      return false;
     }
 
     TopicPartitionChannel channel =
@@ -424,8 +416,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                     new IllegalStateException(
                         "Channel for " + topicPartition + " not found after startPartition"));
 
-    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channel.getChannelName());
-    return channel.insertRecord(record, isFirstRowPerPartitionInBatch);
+    return channel.insertRecord(record);
   }
 
   private boolean shouldSkipNullValue(SinkRecord record) {
@@ -453,20 +444,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public Map<TopicPartition, Long> getCommittedOffsets(
       final Collection<TopicPartition> partitions) {
 
-    // Skip partitions for which the partition-channel bridge is currently being initialized.
-    Set<TopicPartition> initializingPartitions = currentlyInitializing(partitions);
-    if (!initializingPartitions.isEmpty()) {
+    // Skip paused partitions (initializing, recovering) — they don't have stable offsets yet.
+    Set<TopicPartition> currentlyPaused =
+        partitions.stream().filter(channelManager::isPaused).collect(Collectors.toSet());
+    if (!currentlyPaused.isEmpty()) {
       LOGGER.info(
-          "Skipping preCommit for {}/{} partitions that are currently being initialized: {}",
-          initializingPartitions.size(),
+          "Skipping preCommit for {}/{} paused partitions: {}",
+          currentlyPaused.size(),
           partitions.size(),
-          initializingPartitions);
+          currentlyPaused);
     }
 
     Set<TopicPartition> partitionsToFetchOffsetsFor =
-        partitions.stream()
-            .filter(tp -> !initializingPartitions.contains(tp))
-            .collect(Collectors.toSet());
+        partitions.stream().filter(tp -> !currentlyPaused.contains(tp)).collect(Collectors.toSet());
 
     return batchOffsetFetcher.getCommittedOffsets(
         partitionsToFetchOffsetsFor, channelManager::getChannel);

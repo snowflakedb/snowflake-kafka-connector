@@ -47,6 +47,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -107,6 +108,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile Map<String, ColumnSchema> tableSchema;
   private final boolean shouldEvolveSchema;
 
+  /**
+   * Called on the IO thread when channel initialization or recovery completes. The consumer is
+   * responsible for issuing the Kafka seek and resume on the task thread. The argument is the Kafka
+   * offset to seek to (or {@link #NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE} if no seek is needed).
+   */
+  private final Consumer<Long> onChannelReady;
+
   public SnowpipeStreamingPartitionChannel(
       String tableName,
       String channelName,
@@ -121,7 +129,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       TaskMetrics taskMetrics,
       boolean shouldEvolveSchema,
       SnowflakeConnectionService conn,
-      Optional<String> ssv1ChannelName) {
+      Optional<String> ssv1ChannelName,
+      Consumer<Long> onChannelReady) {
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
@@ -136,6 +145,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.conn = conn;
     this.tableName = tableName;
     this.ssv1ChannelName = ssv1ChannelName;
+    this.onChannelReady = onChannelReady;
 
     LOGGER.info(
         "Initializing SnowpipeStreamingPartitionChannel channel: {}, pipe: {}",
@@ -144,13 +154,26 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
     this.channel =
         CompletableFuture.supplyAsync(
-            () -> {
-              OpenChannelResult openChannelResult = openChannelForTable(channelName);
-              long offsetRecoveredFromSnowflake = parseOrMigrateOffsetToken(openChannelResult);
-              offsetTracker.initializeFromSnowflake(offsetRecoveredFromSnowflake);
-              return openChannelResult.getChannel();
-            },
-            openChannelIoExecutor);
+                () -> {
+                  OpenChannelResult openChannelResult = openChannelForTable(channelName);
+                  long offsetRecoveredFromSnowflake = parseOrMigrateOffsetToken(openChannelResult);
+                  long resumeOffset =
+                      offsetTracker.initializeFromSnowflake(offsetRecoveredFromSnowflake);
+                  onChannelReady.accept(resumeOffset);
+                  return openChannelResult.getChannel();
+                },
+                openChannelIoExecutor)
+            .whenComplete(
+                (channel, failure) -> {
+                  if (failure != null) {
+                    LOGGER.error(
+                        "Channel {} initialization failed, unpausing partition so the circuit"
+                            + " breaker can fire: {}",
+                        channelName,
+                        failure.getMessage());
+                    onChannelReady.accept(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+                  }
+                });
 
     if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
       initializeValidation();
@@ -163,8 +186,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
-  public boolean insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
-    if (offsetTracker.shouldProcess(kafkaSinkRecord.kafkaOffset(), isFirstRowPerPartitionInBatch)) {
+  public boolean insertRecord(SinkRecord kafkaSinkRecord) {
+    if (offsetTracker.shouldProcess(kafkaSinkRecord.kafkaOffset())) {
       return transformAndSend(kafkaSinkRecord);
     }
     return true;
@@ -389,7 +412,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                         offsetTracker.consumerGroupOffsetRef().get());
                   }
 
-                  offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
+                  long resumeOffset =
+                      offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
+                  onChannelReady.accept(resumeOffset);
 
                   LOGGER.info(
                       "{} Channel {} recovery complete, offsetRecoveredFromSnowflake={}",
@@ -398,6 +423,18 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                       offsetRecoveredFromSnowflake);
 
                   return openChannelResult.getChannel();
+                })
+            .whenComplete(
+                (channel, failure) -> {
+                  if (failure != null) {
+                    LOGGER.error(
+                        "{} Channel {} recovery failed, unpausing partition so the circuit"
+                            + " breaker can fire: {}",
+                        reason,
+                        this.channelName,
+                        failure.getMessage());
+                    onChannelReady.accept(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+                  }
                 });
   }
 

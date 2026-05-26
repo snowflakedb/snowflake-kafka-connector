@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +48,9 @@ class PartitionChannelManagerTest {
           return channel;
         };
 
-    manager = new PartitionChannelManager(testConfig(Collections.emptyMap()), trackingBuilder);
+    manager =
+        new PartitionChannelManager(
+            testConfig(Collections.emptyMap()), mock(SinkTaskContext.class), trackingBuilder);
   }
 
   // --- makeChannelName ---
@@ -89,7 +92,8 @@ class PartitionChannelManagerTest {
         };
 
     PartitionChannelManager capturingManager =
-        new PartitionChannelManager(testConfig(Collections.emptyMap()), capturingBuilder);
+        new PartitionChannelManager(
+            testConfig(Collections.emptyMap()), mock(SinkTaskContext.class), capturingBuilder);
 
     TopicPartition tp = new TopicPartition(TOPIC, 7);
     Map<String, String> tableToPipe = new HashMap<>();
@@ -119,7 +123,8 @@ class PartitionChannelManagerTest {
         };
 
     PartitionChannelManager managerWithMapping =
-        new PartitionChannelManager(testConfig(topicToTable), capturingBuilder);
+        new PartitionChannelManager(
+            testConfig(topicToTable), mock(SinkTaskContext.class), capturingBuilder);
 
     TopicPartition tp = new TopicPartition("raw_topic", 0);
     Map<String, String> tableToPipe = new HashMap<>();

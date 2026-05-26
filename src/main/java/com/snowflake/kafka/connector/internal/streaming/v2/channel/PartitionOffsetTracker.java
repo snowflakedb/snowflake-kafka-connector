@@ -4,13 +4,11 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 
 import com.snowflake.kafka.connector.internal.KCLogger;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.sink.SinkTaskContext;
 
 /**
  * Tracks all offset state for a single partition channel. This is a passive state holder -- it
- * makes no network calls. Offsets are updated during channel init/recovery, record processing in
- * `put`, and when processing channel statuses in `preCommit`.
+ * makes no network calls and no Kafka consumer calls. Offsets are updated during channel
+ * init/recovery, record processing in `put`, and when processing channel statuses in `preCommit`.
  *
  * <h3>Threading model</h3>
  *
@@ -22,15 +20,19 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  * set-if-greater logic uses a CAS loop for atomicity. The three AtomicLong fields use atomic types
  * for two reasons: (1) their refs are exposed for telemetry reads from other threads, and (2)
  * {@code currentConsumerGroupOffset} is written by both the task thread and {@link
- * #setLatestConsumerGroupOffset}. The remaining fields ({@code lastAppendRowsOffset}, {@code
- * needToSkipCurrentBatch}) are only accessed from the task thread and need no synchronization.
+ * #setLatestConsumerGroupOffset}.
+ *
+ * <h3>Kafka consumer interaction</h3>
+ *
+ * This class does NOT call {@code SinkTaskContext.offset()} or any other Kafka consumer API.
+ * Callers (via the {@code onChannelReady} callback in {@link
+ * com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel}) are
+ * responsible for issuing the Kafka seek and resume on the task thread.
  */
 public class PartitionOffsetTracker {
 
   private static final KCLogger LOGGER = new KCLogger(PartitionOffsetTracker.class.getName());
 
-  private final TopicPartition topicPartition;
-  private final SinkTaskContext sinkTaskContext;
   private final String channelName;
 
   // Offset persisted in Snowflake, determined from the insertRows API / fetchOffsetToken calls.
@@ -50,19 +52,18 @@ public class PartitionOffsetTracker {
   // Last offset passed to appendRow -- used by flush to know when all data is committed.
   private long lastAppendRowsOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
-  // When true, leftover rows in the current batch are skipped because the channel was
-  // invalidated and offsets were reset in Kafka.
-  private boolean needToSkipCurrentBatch = false;
-
-  public PartitionOffsetTracker(
-      TopicPartition topicPartition, SinkTaskContext sinkTaskContext, String channelName) {
-    this.topicPartition = topicPartition;
-    this.sinkTaskContext = sinkTaskContext;
+  public PartitionOffsetTracker(String channelName) {
     this.channelName = channelName;
   }
 
-  /** Sets both persisted and processed offsets, and resets the Kafka consumer position. */
-  public void initializeFromSnowflake(long committedOffset) {
+  /**
+   * Sets both persisted and processed offsets from the initial channel open.
+   *
+   * @return the Kafka offset to seek to (committedOffset + 1), or {@link
+   *     #NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE} if there is no committed offset and the caller
+   *     should rely on Kafka's consumer group offset
+   */
+  public long initializeFromSnowflake(long committedOffset) {
     LOGGER.info(
         "Initializing offsetPersistedInSnowflake=[{}], channel=[{}]", committedOffset, channelName);
     this.offsetPersistedInSnowflake.set(committedOffset);
@@ -70,33 +71,27 @@ public class PartitionOffsetTracker {
     LOGGER.info("Initializing processedOffset=[{}], channel=[{}]", committedOffset, channelName);
     this.processedOffset.set(committedOffset);
 
-    resetKafkaOffset(committedOffset);
+    if (committedOffset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      return committedOffset + 1L;
+    } else {
+      LOGGER.info(
+          "TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
+              + " correct offset instead",
+          channelName);
+      return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+    }
   }
 
   /**
-   * Determines whether the given kafka offset should be processed, and manages batch-skip state.
+   * Determines whether the given kafka offset should be processed.
    *
-   * @return true if the record should be ingested, false if it should be skipped
+   * @return true if the record should be ingested, false if it should be skipped (duplicate)
    */
-  public boolean shouldProcess(long kafkaOffset, boolean isFirstRowInBatch) {
+  public boolean shouldProcess(long kafkaOffset) {
     if (currentConsumerGroupOffset.compareAndSet(
         NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, kafkaOffset)) {
       LOGGER.trace(
           "Setting currentConsumerGroupOffset=[{}], channel=[{}]", kafkaOffset, channelName);
-    }
-
-    if (isFirstRowInBatch) {
-      needToSkipCurrentBatch = false;
-    }
-
-    if (needToSkipCurrentBatch) {
-      LOGGER.info(
-          "Ignore inserting offset:{} for channel:{} because we recently reset offset in"
-              + " Kafka. currentProcessedOffset:{}",
-          kafkaOffset,
-          channelName,
-          processedOffset.get());
-      return false;
     }
 
     long currentProcessedOffset = this.processedOffset.get();
@@ -127,8 +122,7 @@ public class PartitionOffsetTracker {
   }
 
   /**
-   * Resets offset state after a channel recovery (reopen). Resets the Kafka consumer position and
-   * marks the current batch for skipping so leftover rows are discarded.
+   * Resets offset state after a channel recovery (reopen).
    *
    * <p>If we don't get a valid offset token (because of a table recreation or channel inactivity),
    * we will rely on Kafka to send us the correct offset.
@@ -137,19 +131,15 @@ public class PartitionOffsetTracker {
    * offsets starting from the next unprocessed record, avoiding data loss.
    *
    * @param offsetRecoveredFromSnowflake the offset recovered from Snowflake after reopening
+   * @return the Kafka offset to seek to, or {@link #NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE} if
+   *     there is nothing to seek to
    */
-  public void resetAfterRecovery(long offsetRecoveredFromSnowflake) {
+  public long resetAfterRecovery(long offsetRecoveredFromSnowflake) {
     long consumerGroupOffset = currentConsumerGroupOffset.get();
     final long offsetToResetInKafka =
         offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
             ? consumerGroupOffset
             : offsetRecoveredFromSnowflake + 1L;
-
-    if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      return;
-    }
-
-    sinkTaskContext.offset(topicPartition, offsetToResetInKafka);
 
     this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
     LOGGER.info(
@@ -158,7 +148,7 @@ public class PartitionOffsetTracker {
         channelName);
     this.processedOffset.set(offsetRecoveredFromSnowflake);
 
-    needToSkipCurrentBatch = true;
+    return offsetToResetInKafka;
   }
 
   public void setLatestConsumerGroupOffset(long consumerOffset) {
@@ -207,16 +197,5 @@ public class PartitionOffsetTracker {
 
   public AtomicLong consumerGroupOffsetRef() {
     return currentConsumerGroupOffset;
-  }
-
-  private void resetKafkaOffset(long committedOffset) {
-    if (committedOffset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      sinkTaskContext.offset(topicPartition, committedOffset + 1L);
-    } else {
-      LOGGER.info(
-          "TopicPartitionChannel:{}, offset token is NULL, will rely on Kafka to send us the"
-              + " correct offset instead",
-          channelName);
-    }
   }
 }

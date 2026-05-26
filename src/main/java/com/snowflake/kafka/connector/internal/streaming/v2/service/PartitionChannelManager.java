@@ -20,8 +20,10 @@ import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClien
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,6 +63,23 @@ public class PartitionChannelManager {
   private final Map<String, TopicPartitionChannel> partitionChannels;
   private final Map<String, Boolean> shouldEvolveSchemaCache = new ConcurrentHashMap<>();
 
+  /**
+   * Partitions that have completed channel initialization or recovery on the IO thread and are
+   * ready to be resumed on the task thread. Keyed by TopicPartition, value is the Kafka offset to
+   * seek to (or {@link TopicPartitionChannel#NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE} if no seek is
+   * needed). Written by the IO thread (via the {@code onChannelReady} callback passed to each
+   * channel), drained by the task thread via {@link #resumeReadyPartitions()}.
+   */
+  private final ConcurrentHashMap<TopicPartition, Long> partitionsReadyToResume =
+      new ConcurrentHashMap<>();
+
+  /**
+   * Partitions currently paused via {@code sinkTaskContext.pause()}. Includes partitions that are
+   * initializing or recovering. Tracked explicitly because {@code SinkTaskContext} does not expose
+   * its paused set in the public API.
+   */
+  @VisibleForTesting final Set<TopicPartition> pausedPartitions = ConcurrentHashMap.newKeySet();
+
   public PartitionChannelManager(
       SnowflakeTelemetryService telemetryService,
       SinkTaskConfig taskConfig,
@@ -82,13 +101,15 @@ public class PartitionChannelManager {
 
   @VisibleForTesting
   PartitionChannelManager(
-      SinkTaskConfig taskConfig, PartitionChannelBuilder partitionChannelBuilder) {
+      SinkTaskConfig taskConfig,
+      SinkTaskContext sinkTaskContext,
+      PartitionChannelBuilder partitionChannelBuilder) {
     this.taskConfig = taskConfig;
+    this.sinkTaskContext = sinkTaskContext;
     this.partitionChannelBuilder = partitionChannelBuilder;
     this.partitionChannels = new ConcurrentHashMap<>();
     this.telemetryService = null;
     this.kafkaRecordErrorReporter = null;
-    this.sinkTaskContext = null;
     this.metricsJmxReporter = Optional.empty();
     this.taskMetrics = null;
     this.conn = null;
@@ -127,6 +148,14 @@ public class PartitionChannelManager {
         taskConfig.getConnectorName(),
         taskConfig.getTaskId());
 
+    // Pause all partitions before starting channels. The async channel initialization will
+    // signal readiness via partitionsReadyToResume, and the task thread will seek + resume
+    // in the next resumeReadyPartitions() call.
+    for (TopicPartition tp : partitions) {
+      sinkTaskContext.pause(tp);
+      pausedPartitions.add(tp);
+    }
+
     warmUpStreamingClients(tableToPipeMapping);
 
     for (TopicPartition topicPartition : partitions) {
@@ -164,8 +193,7 @@ public class PartitionChannelManager {
             taskConfig,
             streamingClientProperties,
             taskMetrics);
-    final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, this.sinkTaskContext, channelName);
+    final PartitionOffsetTracker offsetTracker = new PartitionOffsetTracker(channelName);
 
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
@@ -217,7 +245,8 @@ public class PartitionChannelManager {
         this.taskMetrics,
         shouldEvolveSchema,
         this.conn,
-        ssv1ChannelName);
+        ssv1ChannelName,
+        offset -> partitionsReadyToResume.put(topicPartition, offset));
   }
 
   /**
@@ -316,6 +345,12 @@ public class PartitionChannelManager {
         taskConfig.getConnectorName(),
         taskConfig.getTaskId());
 
+    partitions.forEach(
+        tp -> {
+          partitionsReadyToResume.remove(tp);
+          pausedPartitions.remove(tp);
+        });
+
     CompletableFuture<?>[] futures =
         partitions.stream()
             .map(this::getChannel)
@@ -334,6 +369,56 @@ public class PartitionChannelManager {
         partitions.size(),
         partitionChannels.size(),
         partitionChannels.keySet().toString());
+  }
+
+  /**
+   * Drains all partitions that have completed initialization or recovery on the IO thread, issuing
+   * the Kafka seek and resume for each. Must be called on the task thread (the same thread that
+   * calls {@code SinkTaskContext} methods).
+   */
+  public void resumeReadyPartitions() {
+    if (partitionsReadyToResume.isEmpty()) {
+      return;
+    }
+    Map<TopicPartition, Long> drained = new HashMap<>();
+    partitionsReadyToResume
+        .keySet()
+        .forEach(
+            tp -> {
+              Long offset = partitionsReadyToResume.remove(tp);
+              if (offset != null) {
+                drained.put(tp, offset);
+              }
+            });
+
+    for (Map.Entry<TopicPartition, Long> entry : drained.entrySet()) {
+      TopicPartition topicPartition = entry.getKey();
+      long resumeOffset = entry.getValue();
+
+      if (resumeOffset != TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+        LOGGER.info("Seeking {} to offset {} before resuming", topicPartition, resumeOffset);
+        sinkTaskContext.offset(topicPartition, resumeOffset);
+      }
+
+      sinkTaskContext.resume(topicPartition);
+      pausedPartitions.remove(topicPartition);
+
+      LOGGER.info("Resumed partition {}", topicPartition);
+    }
+  }
+
+  /**
+   * Pauses a partition via the Kafka Connect {@code SinkTaskContext}. The consumer will stop
+   * delivering records for this partition until it is resumed. Must be called on the task thread.
+   */
+  public void pausePartition(TopicPartition topicPartition) {
+    sinkTaskContext.pause(topicPartition);
+    pausedPartitions.add(topicPartition);
+  }
+
+  /** Returns {@code true} if the given partition is currently paused. */
+  public boolean isPaused(TopicPartition topicPartition) {
+    return pausedPartitions.contains(topicPartition);
   }
 
   /** Returns the channel for the given name, or empty if not found. */

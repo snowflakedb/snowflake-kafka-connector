@@ -69,6 +69,7 @@ class SnowpipeStreamingPartitionChannelTest {
   private static final String TOPIC_NAME = "test_topic";
   private static final int PARTITION = 0;
   private static final String SSV1_CHANNEL_NAME = TOPIC_NAME + "_" + PARTITION;
+  private static final TopicPartition TOPIC_PARTITION = new TopicPartition(TOPIC_NAME, PARTITION);
 
   private String channelName;
   private String pipeName;
@@ -130,7 +131,7 @@ class SnowpipeStreamingPartitionChannelTest {
     // When: appendRow throws SFException once, triggering the fallback that reopens the channel.
     // After recovery the fallback completes normally — no exception propagates.
     trackingClientSupplier.setNonRetryableAppendRowFailures(1);
-    partitionChannel.insertRecord(buildValidRecord(0), true);
+    partitionChannel.insertRecord(buildValidRecord(0));
 
     // reopenChannel closes the old channel before opening a new one
     assertEquals(closeCountBeforeRecovery + 1, trackingClientSupplier.getCloseCallCount());
@@ -182,7 +183,7 @@ class SnowpipeStreamingPartitionChannelTest {
     // First insertRecord triggers recovery via the Failsafe fallback. reopenChannel handles
     // the failed init future gracefully (skips close, opens a new channel). After successful
     // recovery the record is inserted on the new channel — no exception propagates.
-    partitionChannel.insertRecord(buildValidRecord(0), true);
+    partitionChannel.insertRecord(buildValidRecord(0));
 
     assertEquals(
         1,
@@ -199,7 +200,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
     // Trigger reopenChannel via appendRow SFException (throw once, then succeed on new channel)
     trackingClientSupplier.setNonRetryableAppendRowFailures(1);
-    partitionChannel.insertRecord(buildValidRecord(0), true);
+    partitionChannel.insertRecord(buildValidRecord(0));
 
     // reopenChannel should have closed the old channel BEFORE opening the new one
     assertEquals(
@@ -225,8 +226,7 @@ class SnowpipeStreamingPartitionChannelTest {
     // Task 4 will handle it at the batch-level insert() loop
     BackpressureException exception =
         assertThrows(
-            BackpressureException.class,
-            () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+            BackpressureException.class, () -> partitionChannel.insertRecord(buildValidRecord(0)));
 
     assertEquals("SDK backpressure: MemoryThresholdExceeded", exception.getMessage());
 
@@ -247,8 +247,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
     IllegalStateException thrown =
         assertThrows(
-            IllegalStateException.class,
-            () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+            IllegalStateException.class, () -> partitionChannel.insertRecord(buildValidRecord(0)));
 
     assertSame(cause, thrown);
     // No recovery should have been attempted
@@ -292,20 +291,20 @@ class SnowpipeStreamingPartitionChannelTest {
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
 
     // Insert first record successfully
-    partitionChannel.insertRecord(buildValidRecord(0), true);
+    partitionChannel.insertRecord(buildValidRecord(0));
 
     // Simulate channel invalidation: appendRow throws once (non-retryable SFException),
     // then succeeds on the reopened channel.
     trackingClientSupplier.setNonRetryableAppendRowFailures(1);
-    partitionChannel.insertRecord(buildValidRecord(1), false);
+    partitionChannel.insertRecord(buildValidRecord(1));
 
     // The channel should have been reopened (old closed, new opened)
     assertEquals(1, trackingClientSupplier.getCloseCallCount());
     assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
 
     // Subsequent records should continue to be ingested on the new channel
-    partitionChannel.insertRecord(buildValidRecord(2), false);
-    partitionChannel.insertRecord(buildValidRecord(3), false);
+    partitionChannel.insertRecord(buildValidRecord(2));
+    partitionChannel.insertRecord(buildValidRecord(3));
 
     // No additional channel reopenings
     assertEquals(1, trackingClientSupplier.getCloseCallCount());
@@ -325,9 +324,6 @@ class SnowpipeStreamingPartitionChannelTest {
     // Every appendRow throws — channel is permanently invalid
     trackingClientSupplier.setThrowOnAppendRow(true);
 
-    // Each record is sent as the first in a new batch (isFirstRowInBatch=true) because
-    // recovery sets needToSkipCurrentBatch=true, which would cause subsequent records
-    // in the same batch to be skipped before reaching appendRow.
     // The first 5 records trigger recovery attempts (channel reopening).
     // The 6th record exceeds MAX_CONSECUTIVE_RECOVERIES and throws ConnectException.
     ConnectException thrown =
@@ -335,7 +331,7 @@ class SnowpipeStreamingPartitionChannelTest {
             ConnectException.class,
             () -> {
               for (int i = 0; i < 20; i++) {
-                partitionChannel.insertRecord(buildValidRecord(i), true);
+                partitionChannel.insertRecord(buildValidRecord(i));
               }
             });
 
@@ -360,9 +356,7 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel() {
-    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
-    final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final PartitionOffsetTracker offsetTracker = new PartitionOffsetTracker(channelName);
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             TABLE_NAME,
@@ -397,7 +391,8 @@ class SnowpipeStreamingPartitionChannelTest {
         TaskMetrics.noop(),
         false,
         null,
-        Optional.empty());
+        Optional.empty(),
+        offset -> {});
   }
 
   @Test
@@ -441,9 +436,7 @@ class SnowpipeStreamingPartitionChannelTest {
     mockConnService = mock(SnowflakeConnectionService.class);
     when(mockConnService.describeTable(TABLE_NAME)).thenReturn(Optional.of(describeResult));
 
-    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
-    final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final PartitionOffsetTracker offsetTracker = new PartitionOffsetTracker(channelName);
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             TABLE_NAME,
@@ -478,7 +471,8 @@ class SnowpipeStreamingPartitionChannelTest {
         TaskMetrics.noop(),
         shouldEvolveSchema,
         mockConnService,
-        Optional.empty());
+        Optional.empty(),
+        offset -> {});
   }
 
   private static final List<DescribeTableRow> STANDARD_TABLE_SCHEMA =
@@ -493,7 +487,7 @@ class SnowpipeStreamingPartitionChannelTest {
         createValidationEnabledChannel(STANDARD_TABLE_SCHEMA, false, true);
     SinkRecord record = buildValidRecord(0);
 
-    channel.insertRecord(record, true);
+    channel.insertRecord(record);
 
     verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
@@ -508,7 +502,7 @@ class SnowpipeStreamingPartitionChannelTest {
     SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true, true);
 
     SinkRecord record = buildValidRecord(0);
-    channel.insertRecord(record, true);
+    channel.insertRecord(record);
 
     // Schema evolution attempted, but refreshed schema still missing RECORD_CONTENT -> error
     verify(mockErrorHandler).handleError(any(Exception.class), eq(record));
@@ -522,7 +516,7 @@ class SnowpipeStreamingPartitionChannelTest {
     SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, true, false);
 
     SinkRecord record = buildValidRecord(0);
-    channel.insertRecord(record, true);
+    channel.insertRecord(record);
 
     verify(mockErrorHandler).handleError(any(Exception.class), eq(record));
     verify(mockConnService, never()).appendColumnsToTable(any(), any());
@@ -534,9 +528,7 @@ class SnowpipeStreamingPartitionChannelTest {
     mockConnService = mock(SnowflakeConnectionService.class);
     when(mockConnService.describeTable(TABLE_NAME)).thenReturn(Optional.empty());
 
-    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
-    final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final PartitionOffsetTracker offsetTracker = new PartitionOffsetTracker(channelName);
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             TABLE_NAME,
@@ -572,10 +564,11 @@ class SnowpipeStreamingPartitionChannelTest {
             TaskMetrics.noop(),
             true,
             mockConnService,
-            Optional.empty());
+            Optional.empty(),
+            offset -> {});
 
     SinkRecord record = buildValidRecord(0);
-    channel.insertRecord(record, true);
+    channel.insertRecord(record);
 
     verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
   }
@@ -595,7 +588,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
     // Record doesn't have REQUIRED_COL — should trigger structural error
     SinkRecord record = buildValidRecord(0);
-    channel.insertRecord(record, true);
+    channel.insertRecord(record);
 
     verify(mockErrorHandler).handleError(any(Exception.class), eq(record));
   }
@@ -618,7 +611,7 @@ class SnowpipeStreamingPartitionChannelTest {
             .withOffset(0)
             .build();
 
-    channel.insertRecord(record, true);
+    channel.insertRecord(record);
 
     verify(mockConnService)
         .appendColumnsToTable(
@@ -646,7 +639,7 @@ class SnowpipeStreamingPartitionChannelTest {
     SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false, true);
     SinkRecord record = buildValidRecord(0);
 
-    channel.insertRecord(record, true);
+    channel.insertRecord(record);
 
     // Identity column is missing from the row but should not trigger an error
     verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
@@ -664,7 +657,7 @@ class SnowpipeStreamingPartitionChannelTest {
     SnowpipeStreamingPartitionChannel channel = createValidationEnabledChannel(schema, false, true);
     SinkRecord record = buildValidRecord(0);
 
-    channel.insertRecord(record, true);
+    channel.insertRecord(record);
 
     verify(mockErrorHandler, never()).handleError(any(Exception.class), any(SinkRecord.class));
   }
@@ -673,9 +666,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
   private SnowpipeStreamingPartitionChannel createPartitionChannelWithMigration(
       Ssv1MigrationMode migrationMode, SnowflakeConnectionService mockConn) {
-    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
-    final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+    final PartitionOffsetTracker offsetTracker = new PartitionOffsetTracker(channelName);
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             TABLE_NAME,
@@ -711,9 +702,12 @@ class SnowpipeStreamingPartitionChannelTest {
         TaskMetrics.noop(),
         false,
         mockConn,
-        migrationMode == Ssv1MigrationMode.SKIP
-            ? Optional.empty()
-            : Optional.of(SSV1_CHANNEL_NAME));
+        migrationMode == Ssv1MigrationMode.SKIP ? Optional.empty() : Optional.of(SSV1_CHANNEL_NAME),
+        offset -> {
+          if (offset >= 0) {
+            sinkTaskContext.offset(TOPIC_PARTITION, offset);
+          }
+        });
   }
 
   @Test
@@ -913,7 +907,7 @@ class SnowpipeStreamingPartitionChannelTest {
     // Trigger reopenChannel via insertRecord: getChannel() re-throws the SFException from the
     // failed init future, which AppendRowWithFallbackPolicy catches and invokes reopenChannel.
     // reopenChannel's .exceptionally() handler handles the failed init, then opens a new channel.
-    channel.insertRecord(buildValidRecord(0), true);
+    channel.insertRecord(buildValidRecord(0));
 
     // Wait for the async reopen to complete
     channel.getChannel();
