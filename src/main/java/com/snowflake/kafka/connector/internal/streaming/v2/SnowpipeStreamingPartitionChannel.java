@@ -23,7 +23,6 @@ import com.snowflake.kafka.connector.internal.schemaevolution.SchemaEvolutionTar
 import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.schemaevolution.ValidationResultMapper;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
-import com.snowflake.kafka.connector.internal.streaming.TopicPartitionChannelInsertionException;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -222,13 +221,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     } catch (BackpressureException ex) {
       snowflakeTelemetryChannelStatus.incBackpressureRetryCount();
       throw ex;
-    } catch (TopicPartitionChannelInsertionException ex) {
-      // Suppressing the exception because other channels might still continue to ingest
-      LOGGER.warn(
-          "Failed to insert row for channel:{}. Will be retried by Kafka. Exception: {}",
-          this.channelName,
-          ex);
-      return true;
     }
   }
 
@@ -293,8 +285,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   /**
    * Handles a non-retryable {@link SFException} from appendRow by reopening the channel after a
-   * short delay with jitter. Throws {@link TopicPartitionChannelInsertionException} if the circuit
-   * breaker ({@link #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded.
+   * short delay with jitter. Throws {@link ConnectException} if the circuit breaker ({@link
+   * #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded, which causes Kafka Connect to kill and restart
+   * the task.
    */
   private void handleNonRetryableAppendRowFailure(SFException cause) {
     consecutiveRecoveryCount++;
@@ -303,7 +296,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
           "Channel {} exceeded max consecutive recoveries ({}), giving up",
           this.channelName,
           MAX_CONSECUTIVE_RECOVERIES);
-      throw new TopicPartitionChannelInsertionException(
+      throw new ConnectException(
           String.format(
               "Channel %s failed after %d consecutive recovery attempts",
               this.channelName, MAX_CONSECUTIVE_RECOVERIES),
