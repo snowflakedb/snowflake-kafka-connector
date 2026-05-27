@@ -82,7 +82,7 @@ class StreamingErrorHandlerIT {
     SinkRecord brokenSinkRecord = buildBrokenValueRecord(0);
 
     DataException thrown =
-        assertThrows(DataException.class, () -> channel.insertRecord(brokenSinkRecord, true));
+        assertThrows(DataException.class, () -> channel.insertRecord(brokenSinkRecord));
 
     // The cause should be the original SnowflakeKafkaConnectorException from convertToMap
     assertNotNull(thrown.getCause(), "DataException should wrap the original conversion exception");
@@ -102,7 +102,7 @@ class StreamingErrorHandlerIT {
     SinkRecord brokenSinkRecord = buildBrokenKeyRecord(0);
 
     DataException thrown =
-        assertThrows(DataException.class, () -> channel.insertRecord(brokenSinkRecord, true));
+        assertThrows(DataException.class, () -> channel.insertRecord(brokenSinkRecord));
 
     assertNotNull(thrown.getCause(), "DataException should wrap the original conversion exception");
     assertEquals(0, errorReporter.getReportedRecords().size());
@@ -121,7 +121,7 @@ class StreamingErrorHandlerIT {
     SinkRecord brokenSinkRecord = buildBrokenValueRecord(0);
 
     DataException thrown =
-        assertThrows(DataException.class, () -> channel.insertRecord(brokenSinkRecord, true));
+        assertThrows(DataException.class, () -> channel.insertRecord(brokenSinkRecord));
 
     assertNotNull(thrown.getCause(), "DataException should wrap the original conversion exception");
 
@@ -152,7 +152,7 @@ class StreamingErrorHandlerIT {
     SinkRecord brokenSinkRecord = buildBrokenValueRecord(0);
 
     // Should NOT throw
-    channel.insertRecord(brokenSinkRecord, true);
+    channel.insertRecord(brokenSinkRecord);
 
     assertEquals(1, errorReporter.getReportedRecords().size());
 
@@ -184,7 +184,7 @@ class StreamingErrorHandlerIT {
     SnowpipeStreamingPartitionChannel channel = createChannel(config, errorReporter);
     SinkRecord brokenSinkRecord = buildBrokenKeyRecord(0);
 
-    channel.insertRecord(brokenSinkRecord, true);
+    channel.insertRecord(brokenSinkRecord);
 
     assertEquals(1, errorReporter.getReportedRecords().size());
     InMemoryKafkaRecordErrorReporter.ReportedRecord reported =
@@ -208,10 +208,10 @@ class StreamingErrorHandlerIT {
 
     SnowpipeStreamingPartitionChannel channel = createChannel(config, errorReporter);
 
-    channel.insertRecord(buildBrokenValueRecord(0), true);
-    channel.insertRecord(buildValidRecord(1), false);
-    channel.insertRecord(buildBrokenValueRecord(2), false);
-    channel.insertRecord(buildBrokenValueRecord(3), false);
+    channel.insertRecord(buildBrokenValueRecord(0));
+    channel.insertRecord(buildValidRecord(1));
+    channel.insertRecord(buildBrokenValueRecord(2));
+    channel.insertRecord(buildBrokenValueRecord(3));
 
     assertEquals(3, errorReporter.getReportedRecords().size());
   }
@@ -229,7 +229,7 @@ class StreamingErrorHandlerIT {
     SinkRecord brokenSinkRecord = buildBrokenValueRecord(0);
 
     // Should NOT throw - record is silently dropped with a warning log
-    channel.insertRecord(brokenSinkRecord, true);
+    channel.insertRecord(brokenSinkRecord);
 
     assertEquals(0, errorReporter.getReportedRecords().size());
   }

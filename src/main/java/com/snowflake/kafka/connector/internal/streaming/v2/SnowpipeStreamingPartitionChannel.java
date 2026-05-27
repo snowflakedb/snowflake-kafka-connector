@@ -23,6 +23,7 @@ import com.snowflake.kafka.connector.internal.schemaevolution.SchemaEvolutionTar
 import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.schemaevolution.ValidationResultMapper;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InsertResult;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -163,14 +164,14 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
-  public boolean insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
-    if (offsetTracker.shouldProcess(kafkaSinkRecord.kafkaOffset(), isFirstRowPerPartitionInBatch)) {
+  public InsertResult insertRecord(SinkRecord kafkaSinkRecord) {
+    if (offsetTracker.shouldProcess(kafkaSinkRecord.kafkaOffset())) {
       return transformAndSend(kafkaSinkRecord);
     }
-    return true;
+    return InsertResult.PROCESSED;
   }
 
-  private boolean transformAndSend(SinkRecord kafkaSinkRecord) {
+  private InsertResult transformAndSend(SinkRecord kafkaSinkRecord) {
     try {
       final long kafkaOffset = kafkaSinkRecord.kafkaOffset();
       final SnowflakeSinkRecord record =
@@ -197,12 +198,16 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
             if (!validationResult.isValid()) {
               if (validationResult.hasStructuralError()) {
-                handleStructuralError(validationResult, kafkaSinkRecord, record, row);
+                InsertResult structuralResult =
+                    handleStructuralError(validationResult, kafkaSinkRecord, record, row);
+                if (structuralResult == InsertResult.RECOVERY_COMPLETED) {
+                  return InsertResult.RECOVERY_COMPLETED;
+                }
               } else {
                 handleValidationError(validationResult, kafkaSinkRecord);
               }
               offsetTracker.recordProcessed(kafkaOffset);
-              return true;
+              return InsertResult.PROCESSED;
             }
           }
 
@@ -211,13 +216,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             // logic already reset processedOffset + rewound Kafka. Do NOT call
             // recordProcessed() here — that would advance processedOffset past the
             // recovery point and cause replayed offsets to be skipped. See SNOW-3344243.
-            return false;
+            return InsertResult.RECOVERY_COMPLETED;
           }
         }
       }
       // Always update processedOffset after processing, even for broken records
       offsetTracker.recordProcessed(kafkaOffset);
-      return true;
+      return InsertResult.PROCESSED;
     } catch (BackpressureException ex) {
       snowflakeTelemetryChannelStatus.incBackpressureRetryCount();
       throw ex;
@@ -343,62 +348,52 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * (offsetReturnedFromSnowflake + 1).
    *
    * @param reason Reason for the channel recovery. Used for logging.
-   * @return offset which was last present in Snowflake
    */
-  private void reopenChannel(final String reason) {
+  private synchronized void reopenChannel(final String reason) {
     LOGGER.warn("{} Channel {} recovery initiated", reason, this.channelName);
 
     if (this.snowflakeTelemetryChannelStatus != null) {
       this.snowflakeTelemetryChannelStatus.incRecoveryCount();
     }
 
-    this.channel =
-        this.channel
-            // Close old channel before reopening a new one. We don't want to wait for the channel
-            // to flush since it will be reopened right away and the in-progress data will be lost.
-            .thenAccept(
-                oldChannel -> {
-                  if (!oldChannel.isClosed()) {
-                    LOGGER.info(
-                        "{} Channel {} is not closed before reopening", reason, this.channelName);
-                    closeChannelWithoutFlushing(oldChannel);
-                  }
-                })
-            // If the previous init failed, there is no old channel to close.
-            .exceptionally(
-                initFailure -> {
-                  LOGGER.warn(
-                      "{} Channel {} had a failed initialization, skipping close: {}",
-                      reason,
-                      this.channelName,
-                      initFailure.getMessage());
-                  return null;
-                })
-            .thenApply(
-                ignored -> {
-                  OpenChannelResult openChannelResult = openChannelForTable(channelName);
-                  final long offsetRecoveredFromSnowflake =
-                      parseOrMigrateOffsetToken(openChannelResult);
+    // Close old channel before reopening a new one. We don't want to wait for the channel
+    // to flush since it will be reopened right away and the in-progress data will be lost.
+    SnowflakeStreamingIngestChannel oldChannel = null;
+    try {
+      oldChannel = this.channel.getNow(null);
+    } catch (CompletionException initFailure) {
+      // If the previous init failed, there is no old channel to close.
+      LOGGER.warn(
+          "{} Channel {} had a failed initialization, skipping close: {}",
+          reason,
+          this.channelName,
+          initFailure.getMessage());
+    }
+    if (oldChannel != null && !oldChannel.isClosed()) {
+      LOGGER.info("{} Channel {} is not closed before reopening", reason, this.channelName);
+      closeChannelWithoutFlushing(oldChannel);
+    }
 
-                  if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-                    LOGGER.info(
-                        "{} Channel {} has no offset token. Will use consumer group offset,"
-                            + " currently {}",
-                        reason,
-                        this.channelName,
-                        offsetTracker.consumerGroupOffsetRef().get());
-                  }
+    OpenChannelResult openChannelResult = openChannelForTable(channelName);
+    final long offsetRecoveredFromSnowflake = parseOrMigrateOffsetToken(openChannelResult);
 
-                  offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
+    if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      LOGGER.info(
+          "{} Channel {} has no offset token. Will use consumer group offset, currently {}",
+          reason,
+          this.channelName,
+          offsetTracker.consumerGroupOffsetRef().get());
+    }
 
-                  LOGGER.info(
-                      "{} Channel {} recovery complete, offsetRecoveredFromSnowflake={}",
-                      reason,
-                      this.channelName,
-                      offsetRecoveredFromSnowflake);
+    offsetTracker.resetAfterRecovery(offsetRecoveredFromSnowflake);
 
-                  return openChannelResult.getChannel();
-                });
+    this.channel = CompletableFuture.completedFuture(openChannelResult.getChannel());
+
+    LOGGER.info(
+        "{} Channel {} recovery complete, offsetRecoveredFromSnowflake={}",
+        reason,
+        this.channelName,
+        offsetRecoveredFromSnowflake);
   }
 
   /**
@@ -591,7 +586,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     snowflakeTelemetryChannelStatus.incErrorToleratedCount();
   }
 
-  private void handleStructuralError(
+  private InsertResult handleStructuralError(
       ValidationResult result,
       SinkRecord originalRecordForReporting,
       SnowflakeSinkRecord snowflakeRecord,
@@ -621,7 +616,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       LOGGER.info("Routing to DLQ for channel {}: {}", channelName, errorMsg);
       streamingErrorHandler.handleError(new DataException(errorMsg), originalRecordForReporting);
       snowflakeTelemetryChannelStatus.incErrorToleratedCount();
-      return;
+      return InsertResult.PROCESSED;
     }
 
     try {
@@ -636,8 +631,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       if (rowValidator != null) {
         retryResult = rowValidator.validateRow(row);
         if (retryResult.isValid()) {
-          insertRowWithFallback(row, originalRecordForReporting.kafkaOffset());
-          return;
+          // Propagate recovery signal: if insertRowWithFallback returns false, the channel was
+          // reopened and Kafka was seeked. The caller (transformAndSend) must abort the batch.
+          if (!insertRowWithFallback(row, originalRecordForReporting.kafkaOffset())) {
+            return InsertResult.RECOVERY_COMPLETED;
+          }
+          return InsertResult.PROCESSED;
         }
       }
 
@@ -650,6 +649,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
               retryResult.getExtraColNames(), retryResult.getMissingNotNullColNames());
       streamingErrorHandler.handleError(new DataException(errorMsg), originalRecordForReporting);
       snowflakeTelemetryChannelStatus.incErrorToleratedCount();
+      return InsertResult.PROCESSED;
     } catch (SnowflakeKafkaConnectorException e) {
       LOGGER.error("Schema evolution failed for table {}", tableName, e);
       throw e;
@@ -708,17 +708,19 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     return channel
         .thenAccept(
             c -> {
-              try {
-                if (!c.isClosed()) {
-                  closeChannelWithoutFlushing(c);
+              synchronized (this) {
+                try {
+                  if (!c.isClosed()) {
+                    closeChannelWithoutFlushing(c);
+                  }
+                  LOGGER.info("Successfully closed streaming channel {}", this.channelName);
+                } catch (RuntimeException e) {
+                  tryRecoverFromCloseChannelError(e);
+                } finally {
+                  this.telemetryService.reportKafkaPartitionUsage(
+                      this.snowflakeTelemetryChannelStatus, true);
+                  this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
                 }
-                LOGGER.info("Successfully closed streaming channel {}", this.channelName);
-              } catch (RuntimeException e) {
-                tryRecoverFromCloseChannelError(e);
-              } finally {
-                this.telemetryService.reportKafkaPartitionUsage(
-                    this.snowflakeTelemetryChannelStatus, true);
-                this.snowflakeTelemetryChannelStatus.tryUnregisterChannelJMXMetrics();
               }
             })
         .exceptionally(

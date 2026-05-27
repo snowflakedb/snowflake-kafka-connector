@@ -22,8 +22,8 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
  * set-if-greater logic uses a CAS loop for atomicity. The three AtomicLong fields use atomic types
  * for two reasons: (1) their refs are exposed for telemetry reads from other threads, and (2)
  * {@code currentConsumerGroupOffset} is written by both the task thread and {@link
- * #setLatestConsumerGroupOffset}. The remaining fields ({@code lastAppendRowsOffset}, {@code
- * needToSkipCurrentBatch}) are only accessed from the task thread and need no synchronization.
+ * #setLatestConsumerGroupOffset}. The remaining field ({@code lastAppendRowsOffset}) is only
+ * accessed from the task thread and needs no synchronization.
  */
 public class PartitionOffsetTracker {
 
@@ -50,10 +50,6 @@ public class PartitionOffsetTracker {
   // Last offset passed to appendRow -- used by flush to know when all data is committed.
   private long lastAppendRowsOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
-  // When true, leftover rows in the current batch are skipped because the channel was
-  // invalidated and offsets were reset in Kafka.
-  private boolean needToSkipCurrentBatch = false;
-
   public PartitionOffsetTracker(
       TopicPartition topicPartition, SinkTaskContext sinkTaskContext, String channelName) {
     this.topicPartition = topicPartition;
@@ -74,29 +70,15 @@ public class PartitionOffsetTracker {
   }
 
   /**
-   * Determines whether the given kafka offset should be processed, and manages batch-skip state.
+   * Determines whether the given kafka offset should be processed.
    *
    * @return true if the record should be ingested, false if it should be skipped
    */
-  public boolean shouldProcess(long kafkaOffset, boolean isFirstRowInBatch) {
+  public boolean shouldProcess(long kafkaOffset) {
     if (currentConsumerGroupOffset.compareAndSet(
         NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, kafkaOffset)) {
       LOGGER.trace(
           "Setting currentConsumerGroupOffset=[{}], channel=[{}]", kafkaOffset, channelName);
-    }
-
-    if (isFirstRowInBatch) {
-      needToSkipCurrentBatch = false;
-    }
-
-    if (needToSkipCurrentBatch) {
-      LOGGER.info(
-          "Ignore inserting offset:{} for channel:{} because we recently reset offset in"
-              + " Kafka. currentProcessedOffset:{}",
-          kafkaOffset,
-          channelName,
-          processedOffset.get());
-      return false;
     }
 
     long currentProcessedOffset = this.processedOffset.get();
@@ -127,8 +109,10 @@ public class PartitionOffsetTracker {
   }
 
   /**
-   * Resets offset state after a channel recovery (reopen). Resets the Kafka consumer position and
-   * marks the current batch for skipping so leftover rows are discarded.
+   * Resets offset state after a channel recovery (reopen). Seeks the Kafka consumer to the
+   * Snowflake-committed offset + 1 so the next put() starts from the right place. Leftover records
+   * in the current batch are discarded by the batch loop's RECOVERY_COMPLETED branch (see
+   * SnowflakeSinkServiceV2.insert).
    *
    * <p>If we don't get a valid offset token (because of a table recreation or channel inactivity),
    * we will rely on Kafka to send us the correct offset.
@@ -157,8 +141,6 @@ public class PartitionOffsetTracker {
         offsetRecoveredFromSnowflake,
         channelName);
     this.processedOffset.set(offsetRecoveredFromSnowflake);
-
-    needToSkipCurrentBatch = true;
   }
 
   public void setLatestConsumerGroupOffset(long consumerOffset) {

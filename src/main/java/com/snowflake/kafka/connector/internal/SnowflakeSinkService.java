@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.snowflake.kafka.connector.internal.streaming.channel.InsertResult;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import java.util.Collection;
 import java.util.Map;
@@ -37,10 +38,11 @@ public interface SnowflakeSinkService {
    * call pipe to insert a JSON record will not trigger time based flush
    *
    * @param record record content
-   * @return true if the record was processed successfully, false if recovery was triggered and the
-   *     caller should stop feeding records to this partition for the remainder of the batch
+   * @return {@link InsertResult#PROCESSED} on success or duplicate-skip; {@link
+   *     InsertResult#RECOVERY_COMPLETED} when recovery was triggered and the caller should stop
+   *     feeding records to this partition for the remainder of the batch
    */
-  boolean insert(final SinkRecord record);
+  InsertResult insert(final SinkRecord record);
 
   /**
    * retrieve offset of last loaded record for given pipe name

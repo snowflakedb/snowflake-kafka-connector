@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.channel.InsertResult;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
@@ -65,8 +66,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final SinkTaskConfig taskConfig;
   private final SinkTaskContext sinkTaskContext;
 
-  // Set that keeps track of the channels that have been seen per input batch
-  private final Set<String> channelsVisitedPerBatch = new HashSet<>();
   private final BatchOffsetFetcher batchOffsetFetcher;
 
   private final PartitionChannelManager channelManager;
@@ -320,9 +319,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    *     Topic and multiple Partitions
    */
   @Override
-  public void insert(final Collection<SinkRecord> records) {
-    channelsVisitedPerBatch.clear();
-
+  public synchronized void insert(final Collection<SinkRecord> records) {
     // Skip partitions for which the partition-channel bridge is currently being initialized.
     Set<TopicPartition> partitions =
         records.stream()
@@ -370,8 +367,15 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
 
       try {
-        if (!insert(record)) {
-          offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+        if (insert(record) == InsertResult.RECOVERY_COMPLETED) {
+          // Recovery seeked Kafka to the committed offset for this partition. Exit the
+          // batch loop without rewinding — recovery's seek is the authoritative position
+          // (SNOW-3574225). Other partitions' records will be redelivered on the next put().
+          LOGGER.info(
+              "Recovery fired for partition {} at offset {}; aborting batch without rewind.",
+              tp,
+              record.kafkaOffset());
+          return;
         }
       } catch (BackpressureException e) {
         LOGGER.warn(
@@ -402,7 +406,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * then each partition(Streaming channel) calls its respective appendRows API
    */
   @Override
-  public boolean insert(SinkRecord record) {
+  public InsertResult insert(SinkRecord record) {
     LOGGER.trace("Inserting record: {}", record);
 
     TopicPartition topicPartition = new TopicPartition(record.topic(), record.kafkaPartition());
@@ -424,8 +428,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                     new IllegalStateException(
                         "Channel for " + topicPartition + " not found after startPartition"));
 
-    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channel.getChannelName());
-    return channel.insertRecord(record, isFirstRowPerPartitionInBatch);
+    return channel.insertRecord(record);
   }
 
   private boolean shouldSkipNullValue(SinkRecord record) {

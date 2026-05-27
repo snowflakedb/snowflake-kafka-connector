@@ -11,22 +11,14 @@ public interface TopicPartitionChannel {
   long NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE = -1L;
 
   /**
-   * Inserts the record into buffer
-   *
-   * <p>Step 1: Initializes this channel by fetching the offsetToken from Snowflake for the first
-   * time this channel/partition has received offset after start/restart.
-   *
-   * <p>Step 2: Decides whether given offset from Kafka needs to be processed and whether it
-   * qualifies for being added into buffer.
+   * Inserts the record into the channel.
    *
    * @param kafkaSinkRecord input record from Kafka
-   * @param isFirstRowPerPartitionInBatch indicates whether the given record is the first record per
-   *     partition in a batch
-   * @return true if the record was processed (or legitimately skipped as a duplicate), false if
-   *     recovery was triggered and the caller should stop feeding records to this partition for the
-   *     remainder of the batch
+   * @return {@link InsertResult#PROCESSED} on success or duplicate-skip; {@link
+   *     InsertResult#RECOVERY_COMPLETED} when recovery was (or will be) triggered for this channel
+   *     and the caller should stop feeding it records for the remainder of the batch.
    */
-  boolean insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch);
+  InsertResult insertRecord(SinkRecord kafkaSinkRecord);
 
   /**
    * Asynchronously closes a channel associated to this partition. Any {@link SFException} occurred
