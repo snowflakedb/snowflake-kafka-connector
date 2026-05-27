@@ -63,18 +63,41 @@ public class ClientRecreationException extends RuntimeException {
     return new ClientRecreationException((SFException) e);
   }
 
+  // Stable substrings produced by the SDK for inner client-invalid errors. The SDK only exposes
+  // the outermost error code via getErrorCodeName(); on appendRow, that is "ChannelInvalidated"
+  // even when the root cause is client-invalid (the SDK includes the inner error in the message
+  // text but not as a Java cause). Match those substrings as a fallback.
+  private static final java.util.List<String> CLIENT_INVALID_INNER_MESSAGES =
+      java.util.List.of(
+          "is in an invalid state. Please close and re-create the client",
+          "pipe fail over error",
+          "client has been closed");
+
   /**
    * Checks if the given throwable represents a client-level invalidation error that requires client
    * recreation.
    *
    * @param e the exception to check (may be null)
-   * @return {@code true} if {@code e} is an {@link SFException} with a client-invalid error code
-   *     name; {@code false} otherwise
+   * @return {@code true} if {@code e} is an {@link SFException} whose outer error code is
+   *     client-invalid, or whose message contains an inner client-invalid signature
    */
   public static boolean isClientInvalidError(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
-    return CLIENT_INVALID_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
+    SFException sf = (SFException) e;
+    if (CLIENT_INVALID_ERROR_CODE_NAMES.contains(sf.getErrorCodeName())) {
+      return true;
+    }
+    String message = sf.getMessage();
+    if (message == null) {
+      return false;
+    }
+    for (String marker : CLIENT_INVALID_INNER_MESSAGES) {
+      if (message.contains(marker)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

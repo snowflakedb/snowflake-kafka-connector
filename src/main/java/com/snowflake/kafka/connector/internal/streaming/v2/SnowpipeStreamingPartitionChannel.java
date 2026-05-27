@@ -50,6 +50,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel {
@@ -80,7 +81,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final String pipeName;
 
-  private final SnowflakeStreamingIngestClient streamingClient;
+  private volatile SnowflakeStreamingIngestClient streamingClient;
+  private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
   private final StreamingErrorHandler streamingErrorHandler;
@@ -103,6 +105,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String channelName,
       String pipeName,
       SnowflakeStreamingIngestClient streamingClient,
+      ClientRecreator clientRecreator,
       ExecutorService openChannelIoExecutor,
       SnowflakeTelemetryService telemetryService,
       SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
@@ -116,6 +119,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
+    this.clientRecreator = clientRecreator;
     this.openChannelIoExecutor = openChannelIoExecutor;
     this.taskConfig = taskConfig;
     this.streamingErrorHandler = streamingErrorHandler;
@@ -229,7 +233,19 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.channelName);
 
-          streamingClient.initiateFlush();
+          try {
+            streamingClient.initiateFlush();
+          } catch (SFException e) {
+            if (ClientRecreationException.isClientInvalidError(e)) {
+              LOGGER.warn(
+                  "Skipping flush for channel {}: client is invalid ({}). "
+                      + "Uncommitted data will be replayed on task restart.",
+                  this.channelName,
+                  e.getErrorCodeName());
+              return;
+            }
+            throw e;
+          }
 
           final long targetOffset = offsetTracker.getLastAppendRowsOffset();
           WaitForLastOffsetCommittedPolicy.getPolicy(
@@ -272,7 +288,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         throw new BackpressureException(e);
       }
 
-      reopenChannel("APPEND_ROW_FALLBACK");
+      boolean clientInvalid = ClientRecreationException.isClientInvalidError(e);
+      reopenChannel(clientInvalid ? "CLIENT_RECREATION" : "APPEND_ROW_FALLBACK", clientInvalid);
       snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
       return false;
     }
@@ -300,11 +317,28 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    *
    * @param reason Reason for the channel recovery. Used for logging.
    */
-  private synchronized void reopenChannel(final String reason) {
+  private synchronized void reopenChannel(final String reason, boolean recreateClient) {
     LOGGER.warn("{} Channel {} recovery initiated", reason, this.channelName);
 
     if (this.snowflakeTelemetryChannelStatus != null) {
       this.snowflakeTelemetryChannelStatus.incRecoveryCount();
+    }
+
+    if (recreateClient) {
+      try {
+        this.streamingClient = clientRecreator.recreate(this.streamingClient);
+        snowflakeTelemetryChannelStatus.incClientRecreationCount();
+      } catch (RuntimeException e) {
+        // Pool's Failsafe retries exhausted (3 × 5s by default). The pool closed the old
+        // client during recreate, so we cannot reopen the channel on the stale reference.
+        // Throw RetriableException so Kafka Connect retries put() after backoff.
+        LOGGER.warn(
+            "{} Channel {} client recreation failed; will retry on next put: {}",
+            reason,
+            this.channelName,
+            e.getMessage());
+        throw new RetriableException(e);
+      }
     }
 
     // Close old channel before reopening a new one. We don't want to wait for the channel
@@ -325,7 +359,23 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       closeChannelWithoutFlushing(oldChannel);
     }
 
-    OpenChannelResult openChannelResult = openChannelForTable(channelName);
+    final OpenChannelResult openChannelResult;
+    try {
+      openChannelResult = openChannelForTable(channelName);
+    } catch (SFException e) {
+      // The fault that prompted recovery may still be in flight (e.g. ongoing pipe failover
+      // returning HTTP 410 on every API call). Don't fail the task — let Kafka Connect retry
+      // put() after backoff, by which time the fault should have cleared.
+      if (ClientRecreationException.isClientInvalidError(e)) {
+        LOGGER.warn(
+            "{} Channel {} reopen failed with client-invalid error; will retry on next put: {}",
+            reason,
+            this.channelName,
+            e.getMessage());
+        throw new RetriableException(e);
+      }
+      throw e;
+    }
     final long offsetRecoveredFromSnowflake = parseOrMigrateOffsetToken(openChannelResult);
 
     if (offsetRecoveredFromSnowflake == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {

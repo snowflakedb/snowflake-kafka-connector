@@ -26,6 +26,7 @@ public final class TelemetryConstants {
   public static final String VALIDATION_FAILURE_COUNT = "validation_failure_count";
   public static final String ERROR_TOLERATED_COUNT = "error_tolerated_count";
   public static final String CHANNEL_RECOVERY_COUNT = "channel_recovery_count";
+  public static final String CLIENT_RECREATION_COUNT = "client_recreation_count";
   public static final String VALIDATION_DISABLED = "validation_disabled";
   public static final String ROWS_INSERTED_COUNT = "rows_inserted_count";
   public static final String ROWS_PARSED_COUNT = "rows_parsed_count";

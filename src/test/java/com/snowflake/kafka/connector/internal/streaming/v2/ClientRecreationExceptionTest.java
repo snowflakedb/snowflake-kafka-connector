@@ -72,6 +72,34 @@ public class ClientRecreationExceptionTest {
     assertFalse(ClientRecreationException.isClientInvalidError(sfException));
   }
 
+  // The SDK wraps a client-invalid root cause inside a "ChannelInvalidated" outer error on
+  // appendRow, exposing the inner error only as a substring in getMessage(). Detect that.
+  @Test
+  void shouldRecognizeChannelInvalidatedWrappingInvalidClient() {
+    SFException sfException =
+        new SFException(
+            "ChannelInvalidated",
+            "Channel ... is in an invalid state. Inner Error: Client ... is in an invalid state."
+                + " Please close and re-create the client. Inner Error: HTTP 410",
+            400,
+            "stack");
+
+    assertTrue(ClientRecreationException.isClientInvalidError(sfException));
+  }
+
+  @Test
+  void shouldRecognizeChannelInvalidatedWrappingPipeFailedOver() {
+    SFException sfException =
+        new SFException(
+            "ChannelInvalidated",
+            "Channel ... Inner Error: HTTP request failed with a pipe fail over error for API"
+                + " get_channel_status_batch.",
+            400,
+            "stack");
+
+    assertTrue(ClientRecreationException.isClientInvalidError(sfException));
+  }
+
   @Test
   void shouldNotRecognizeNonSFException() {
     IllegalArgumentException nonSFException = new IllegalArgumentException("not an SFException");

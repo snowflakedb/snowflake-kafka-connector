@@ -58,6 +58,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   // channel recovery counter (always tracked; also registered as JMX gauge if enabled)
   private final AtomicLong recoveryCount = new AtomicLong(0);
 
+  // client recreation counter — incremented when reopenChannel swaps the streaming client
+  // due to a client-invalid SDK error (HTTP 410 / pipe failover).
+  private final AtomicLong clientRecreationCount = new AtomicLong(0);
+
   // Aggregated count of client-side validation failures for this channel.
   // Reported in channel status telemetry on close, avoiding per-record telemetry overhead.
   private final AtomicLong validationFailureCount = new AtomicLong(0);
@@ -147,6 +151,7 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.VALIDATION_FAILURE_COUNT, this.validationFailureCount.get());
     msg.put(TelemetryConstants.ERROR_TOLERATED_COUNT, this.errorToleratedCount.get());
     msg.put(TelemetryConstants.CHANNEL_RECOVERY_COUNT, this.recoveryCount.get());
+    msg.put(TelemetryConstants.CLIENT_RECREATION_COUNT, this.clientRecreationCount.get());
     msg.put(TelemetryConstants.VALIDATION_DISABLED, this.validationDisabled);
     msg.put(TelemetryConstants.ROWS_INSERTED_COUNT, this.rowsInsertedCount);
     msg.put(TelemetryConstants.ROWS_PARSED_COUNT, this.rowsParsedCount);
@@ -228,6 +233,16 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Increments the channel recovery counter. Thread-safe. */
   public void incRecoveryCount() {
     this.recoveryCount.incrementAndGet();
+  }
+
+  /** Increments the client recreation counter. Thread-safe. */
+  public void incClientRecreationCount() {
+    this.clientRecreationCount.incrementAndGet();
+  }
+
+  @VisibleForTesting
+  public long getClientRecreationCount() {
+    return this.clientRecreationCount.get();
   }
 
   /** Increments the validation failure counter. Thread-safe. */

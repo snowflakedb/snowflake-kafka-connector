@@ -363,6 +363,82 @@ class SnowpipeStreamingPartitionChannelTest {
     assertEquals(11, trackingClientSupplier.getTotalChannelsCreated());
   }
 
+  @Test
+  void insertRecord_clientInvalid_recreatesClientAndReopensChannel() {
+    TrackingIngestClientSupplier newClientSupplier = new TrackingIngestClientSupplier();
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(pipeName, newClientSupplier);
+    AtomicInteger recreateCallCount = new AtomicInteger();
+    ClientRecreator clientRecreator =
+        invalidClient -> {
+          recreateCallCount.incrementAndGet();
+          return newClient;
+        };
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+
+    trackingClientSupplier.setClientInvalidAppendRowFailures(1);
+    partitionChannel.insertRecord(buildValidRecord(0));
+
+    assertEquals(1, recreateCallCount.get());
+    assertEquals(1, newClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void insertRecord_clientInvalid_subsequentInsertsUseNewClient() {
+    TrackingIngestClientSupplier newClientSupplier = new TrackingIngestClientSupplier();
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(pipeName, newClientSupplier);
+    ClientRecreator clientRecreator = invalidClient -> newClient;
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+
+    trackingClientSupplier.setClientInvalidAppendRowFailures(1);
+    partitionChannel.insertRecord(buildValidRecord(0));
+    partitionChannel.insertRecord(buildValidRecord(1));
+    partitionChannel.insertRecord(buildValidRecord(2));
+
+    assertEquals(1, newClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
+  void insertRecord_clientRecreateFails_throwsRetriableException() {
+    ClientRecreator clientRecreator =
+        invalidClient -> {
+          throw new RuntimeException("simulated pool failure: 3 attempts exhausted");
+        };
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+
+    trackingClientSupplier.setClientInvalidAppendRowFailures(1);
+
+    assertThrows(
+        org.apache.kafka.connect.errors.RetriableException.class,
+        () -> partitionChannel.insertRecord(buildValidRecord(0)));
+  }
+
+  @Test
+  void insertRecord_channelOnlyError_doesNotRecreateClient() {
+    AtomicInteger recreateCallCount = new AtomicInteger();
+    ClientRecreator clientRecreator =
+        invalidClient -> {
+          recreateCallCount.incrementAndGet();
+          return invalidClient;
+        };
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+
+    trackingClientSupplier.setNonRetryableAppendRowFailures(1);
+    partitionChannel.insertRecord(buildValidRecord(0));
+
+    assertEquals(0, recreateCallCount.get());
+    assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
   private SinkRecord buildValidRecord(long offset) {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
@@ -376,6 +452,14 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel() {
+    return createPartitionChannel(
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        });
+  }
+
+  private SnowpipeStreamingPartitionChannel createPartitionChannel(
+      ClientRecreator clientRecreator) {
     final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
     final PartitionOffsetTracker offsetTracker =
         new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
@@ -404,6 +488,7 @@ class SnowpipeStreamingPartitionChannelTest {
         channelName,
         pipeName,
         trackingClient,
+        clientRecreator,
         openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
@@ -485,6 +570,9 @@ class SnowpipeStreamingPartitionChannelTest {
         channelName,
         pipeName,
         trackingClient,
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        },
         openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
@@ -579,6 +667,9 @@ class SnowpipeStreamingPartitionChannelTest {
             channelName,
             pipeName,
             trackingClient,
+            invalidClient -> {
+              throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+            },
             openChannelIoExecutor,
             mockTelemetryService,
             telemetryChannelStatus,
@@ -718,6 +809,9 @@ class SnowpipeStreamingPartitionChannelTest {
         channelName,
         pipeName,
         trackingClient,
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        },
         openChannelIoExecutor,
         mockTelemetryService,
         telemetryChannelStatus,
@@ -951,6 +1045,7 @@ class SnowpipeStreamingPartitionChannelTest {
     private volatile boolean throwOnOpenChannel;
     private final AtomicInteger retryableAppendRowFailures = new AtomicInteger(0);
     private final AtomicInteger nonRetryableAppendRowFailures = new AtomicInteger(0);
+    private final AtomicInteger clientInvalidAppendRowFailures = new AtomicInteger(0);
     private volatile RuntimeException appendRowRuntimeException;
     private volatile CountDownLatch blockOnOpenChannel;
     private final List<Thread> openChannelThreads = Collections.synchronizedList(new ArrayList<>());
@@ -985,6 +1080,10 @@ class SnowpipeStreamingPartitionChannelTest {
 
     void setNonRetryableAppendRowFailures(int count) {
       this.nonRetryableAppendRowFailures.set(count);
+    }
+
+    void setClientInvalidAppendRowFailures(int count) {
+      this.clientInvalidAppendRowFailures.set(count);
     }
 
     void setAppendRowRuntimeException(RuntimeException exception) {
@@ -1194,6 +1293,9 @@ class SnowpipeStreamingPartitionChannelTest {
     public void appendRow(final Map<String, Object> row, final String offsetToken) {
       if (supplier.appendRowRuntimeException != null) {
         throw supplier.appendRowRuntimeException;
+      }
+      if (supplier.clientInvalidAppendRowFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
+        throw new SFException("InvalidClientError", "Test simulated client invalidation", 409, "");
       }
       if (supplier.retryableAppendRowFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
         throw new SFException("MemoryThresholdExceeded", "Test simulated backpressure", 0, "");
