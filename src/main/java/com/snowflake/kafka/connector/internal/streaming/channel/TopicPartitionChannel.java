@@ -20,13 +20,11 @@ public interface TopicPartitionChannel {
    * qualifies for being added into buffer.
    *
    * @param kafkaSinkRecord input record from Kafka
-   * @param isFirstRowPerPartitionInBatch indicates whether the given record is the first record per
-   *     partition in a batch
    * @return true if the record was processed (or legitimately skipped as a duplicate), false if
    *     recovery was triggered and the caller should stop feeding records to this partition for the
    *     remainder of the batch
    */
-  boolean insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch);
+  boolean insertRecord(SinkRecord kafkaSinkRecord);
 
   /**
    * Asynchronously closes a channel associated to this partition. Any {@link SFException} occurred

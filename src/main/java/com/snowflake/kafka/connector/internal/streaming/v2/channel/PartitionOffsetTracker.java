@@ -57,10 +57,6 @@ public class PartitionOffsetTracker {
   // Last offset passed to appendRow -- used by flush to know when all data is committed.
   private long lastAppendRowsOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
-  // When true, leftover rows in the current batch are skipped because the channel was
-  // invalidated and offsets were reset in Kafka.
-  private boolean needToSkipCurrentBatch = false;
-
   public PartitionOffsetTracker(String channelName, Consumer<Long> onOffsetReset) {
     this.channelName = channelName;
     this.onOffsetReset = onOffsetReset;
@@ -89,29 +85,15 @@ public class PartitionOffsetTracker {
   }
 
   /**
-   * Determines whether the given kafka offset should be processed, and manages batch-skip state.
+   * Determines whether the given kafka offset should be processed.
    *
    * @return true if the record should be ingested, false if it should be skipped
    */
-  public boolean shouldProcess(long kafkaOffset, boolean isFirstRowInBatch) {
+  public boolean shouldProcess(long kafkaOffset) {
     if (currentConsumerGroupOffset.compareAndSet(
         NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, kafkaOffset)) {
       LOGGER.trace(
           "Setting currentConsumerGroupOffset=[{}], channel=[{}]", kafkaOffset, channelName);
-    }
-
-    if (isFirstRowInBatch) {
-      needToSkipCurrentBatch = false;
-    }
-
-    if (needToSkipCurrentBatch) {
-      LOGGER.info(
-          "Ignore inserting offset:{} for channel:{} because we recently reset offset in"
-              + " Kafka. currentProcessedOffset:{}",
-          kafkaOffset,
-          channelName,
-          processedOffset.get());
-      return false;
     }
 
     long currentProcessedOffset = this.processedOffset.get();
@@ -167,11 +149,6 @@ public class PartitionOffsetTracker {
         offsetRecoveredFromSnowflake,
         channelName);
     this.processedOffset.set(offsetRecoveredFromSnowflake);
-
-    // TODO(SNOW-3574225): dead code - needToSkipCurrentBatch is never cleared because the
-    // batch-level skip is now handled by offsetsOfFirstSkippedRecord in SSV2.insert(Collection).
-    // Remove together with isFirstRowInBatch in shouldProcess().
-    needToSkipCurrentBatch = true;
   }
 
   public void setLatestConsumerGroupOffset(long consumerOffset) {
