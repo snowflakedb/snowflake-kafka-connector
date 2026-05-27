@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -236,6 +237,26 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
+  void nonSFExceptionFromAppendRowPropagatesWithoutRecovery() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+
+    IllegalStateException cause = new IllegalStateException("unexpected error");
+    trackingClientSupplier.setAppendRowRuntimeException(cause);
+
+    IllegalStateException thrown =
+        assertThrows(
+            IllegalStateException.class,
+            () -> partitionChannel.insertRecord(buildValidRecord(0), true));
+
+    assertSame(cause, thrown);
+    // No recovery should have been attempted
+    assertEquals(0, trackingClientSupplier.getCloseCallCount());
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
+  @Test
   void isInitializingReturnsTrueWhileChannelFutureIsPending() throws Exception {
     // Block the executor so the channel init task is queued but not started
     CountDownLatch blockExecutor = new CountDownLatch(1);
@@ -292,10 +313,10 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void channelInvalidation_stopsReopeningAfterMaxConsecutiveRecoveries() {
-    // If the channel is permanently broken (every appendRow fails), we should not
-    // loop forever reopening channels. After MAX_CONSECUTIVE_RECOVERIES (5) the
-    // fallback stops reopening — no more channel churn.
+  void channelInvalidation_failsTaskAfterMaxConsecutiveRecoveries() {
+    // If the channel is permanently broken (every appendRow fails), the circuit breaker
+    // should trip after MAX_CONSECUTIVE_RECOVERIES (5) and throw ConnectException to
+    // kill the task — rather than silently dropping records forever.
 
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
     partitionChannel.getChannel();
@@ -304,19 +325,26 @@ class SnowpipeStreamingPartitionChannelTest {
     // Every appendRow throws — channel is permanently invalid
     trackingClientSupplier.setThrowOnAppendRow(true);
 
-    // Send many records. Each triggers the fallback, but only the first
-    // MAX_CONSECUTIVE_RECOVERIES (5) actually reopen the channel. After that
-    // the circuit breaker trips and no more channels are created.
-    for (int i = 0; i < 20; i++) {
-      partitionChannel.insertRecord(buildValidRecord(i), i == 0);
-    }
+    // Each record is sent as the first in a new batch (isFirstRowInBatch=true) because
+    // recovery sets needToSkipCurrentBatch=true, which would cause subsequent records
+    // in the same batch to be skipped before reaching appendRow.
+    // The first 5 records trigger recovery attempts (channel reopening).
+    // The 6th record exceeds MAX_CONSECUTIVE_RECOVERIES and throws ConnectException.
+    ConnectException thrown =
+        assertThrows(
+            ConnectException.class,
+            () -> {
+              for (int i = 0; i < 20; i++) {
+                partitionChannel.insertRecord(buildValidRecord(i), true);
+              }
+            });
 
-    // Verify we didn't create an unbounded number of channels.
-    // 1 initial + at most 5 recoveries = at most 6 channels.
     assertTrue(
-        trackingClientSupplier.getTotalChannelsCreated() <= 6,
-        "Expected at most 6 channels (1 initial + 5 recoveries), got: "
-            + trackingClientSupplier.getTotalChannelsCreated());
+        thrown.getMessage().contains("failed after 5 consecutive recovery attempts"),
+        "Expected circuit breaker message, got: " + thrown.getMessage());
+
+    // 1 initial + 5 recoveries = 6 channels created before the circuit breaker tripped
+    assertEquals(6, trackingClientSupplier.getTotalChannelsCreated());
   }
 
   private SinkRecord buildValidRecord(long offset) {
@@ -907,6 +935,7 @@ class SnowpipeStreamingPartitionChannelTest {
     private volatile boolean throwOnOpenChannel;
     private final AtomicInteger retryableAppendRowFailures = new AtomicInteger(0);
     private final AtomicInteger nonRetryableAppendRowFailures = new AtomicInteger(0);
+    private volatile RuntimeException appendRowRuntimeException;
     private volatile CountDownLatch blockOnOpenChannel;
 
     int getCloseCallCount() {
@@ -935,6 +964,10 @@ class SnowpipeStreamingPartitionChannelTest {
 
     void setNonRetryableAppendRowFailures(int count) {
       this.nonRetryableAppendRowFailures.set(count);
+    }
+
+    void setAppendRowRuntimeException(RuntimeException exception) {
+      this.appendRowRuntimeException = exception;
     }
 
     void setBlockOnOpenChannel(CountDownLatch latch) {
@@ -1137,6 +1170,9 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public void appendRow(final Map<String, Object> row, final String offsetToken) {
+      if (supplier.appendRowRuntimeException != null) {
+        throw supplier.appendRowRuntimeException;
+      }
       if (supplier.retryableAppendRowFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
         throw new SFException("MemoryThresholdExceeded", "Test simulated backpressure", 0, "");
       }
