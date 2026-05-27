@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import java.util.Collection;
 import java.util.HashMap;
@@ -108,11 +109,20 @@ public class BatchOffsetFetcher {
           try {
             result.putAll(getCommittedOffsetsForPipe(pipeName, channelsByPartition));
           } catch (SFException e) {
-            LOGGER.error(
-                "Failed to fetch committed offsets for pipe: {}, skipping {} channel(s)",
-                pipeName,
-                channelsByPartition.size(),
-                e);
+            if (ClientRecreationException.isClientInvalidError(e)) {
+              LOGGER.warn(
+                  "Client is invalid for pipe: {}, skipping offset fetch for {} channel(s)."
+                      + " Client recreation will be triggered by the next appendRow on this pipe.",
+                  pipeName,
+                  channelsByPartition.size(),
+                  e);
+            } else {
+              LOGGER.error(
+                  "Failed to fetch committed offsets for pipe: {}, skipping {} channel(s)",
+                  pipeName,
+                  channelsByPartition.size(),
+                  e);
+            }
           }
         },
         ioExecutor);

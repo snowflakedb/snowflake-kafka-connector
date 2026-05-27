@@ -193,6 +193,9 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
             channelName,
             pipeName,
             mockClient,
+            invalidClient -> {
+              throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+            },
             ioExecutor,
             mockTelemetry,
             telemetryStatus,

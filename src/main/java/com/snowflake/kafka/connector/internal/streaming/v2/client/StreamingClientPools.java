@@ -153,58 +153,63 @@ public class StreamingClientPools {
   }
 
   /**
-   * Delay between client-creation retries. Pipe failover typically takes a few seconds to stabilize
-   * on the server side, and back-to-back retries with no delay would all hit the same in-flight
-   * failover window and fail before the server finishes.
-   *
-   * <p>Note: this delay is per-invocation. {@link #recreateClient} can be called concurrently by
-   * multiple {@link
-   * com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel}s on the
-   * same pipe. The pool's CAS dedupes to a single fresh client, but each caller runs its own
-   * Failsafe retry schedule — so from the pool's perspective, client creation can happen more than
-   * once per {@code CLIENT_CREATION_RETRY_DELAY} window across concurrent callers. This is
-   * acceptable: each individual channel still retries at ~5s cadence, so its total recovery window
-   * spans {@code MAX_CLIENT_CREATION_RETRIES * CLIENT_CREATION_RETRY_DELAY = ~15s}. When reading
-   * logs, expect to see overlapping retry schedules across channels on the same pipe during a
-   * failover event.
+   * Initial delay before the first recreate retry. Backoff doubles each attempt up to {@link
+   * #CLIENT_CREATION_MAX_DELAY}, with ±{@link #CLIENT_CREATION_JITTER_FACTOR} jitter to prevent
+   * concurrent partition channels from retrying in lockstep.
    */
-  private static final Duration CLIENT_CREATION_RETRY_DELAY = Duration.ofSeconds(5);
+  private static final Duration CLIENT_CREATION_BASE_DELAY = Duration.ofSeconds(1);
+
+  /** Cap on the exponential backoff delay between recreate retries. */
+  private static final Duration CLIENT_CREATION_MAX_DELAY = Duration.ofSeconds(30);
+
+  /** Jitter factor (±, 0.0–1.0) applied to each recreate retry delay. */
+  private static final double CLIENT_CREATION_JITTER_FACTOR = 0.2;
 
   /**
-   * Maximum retry attempts when a replacement client also fails with a client-invalid error during
-   * {@link #recreateClient}. Three attempts provide enough headroom for transient failover windows
-   * while keeping total blocking time bounded (each attempt creates a fresh SDK client).
+   * Total wall-clock budget for recreate retries before giving up. Sized for real SSv2
+   * pipe-failover propagation windows (observed 2–4 min) plus headroom. {@link #recreateClient}
+   * throws {@link ClientRecreationException} when exhausted; callers are expected to convert that
+   * to a {@link ConnectException} so Kafka Connect fails and restarts the task.
    */
-  private static final int MAX_CLIENT_CREATION_RETRIES = 3;
+  private static final Duration CLIENT_CREATION_MAX_DURATION = Duration.ofMinutes(6);
 
   /**
    * Retries replacement-client creation when the SDK reports a client-invalid error (e.g., pipe
    * failover still in flight). The pool evicts the failed entry on each attempt, so the retry
    * creates a fresh client. Non-client-invalid errors fall through immediately.
+   *
+   * <p>{@link #recreateClient} can be called concurrently by multiple {@link
+   * com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel}s on the
+   * same pipe. The pool's CAS dedupes to a single fresh client per round, but each caller runs its
+   * own Failsafe retry schedule. When reading logs, expect overlapping retry schedules across
+   * channels on the same pipe during a failover event.
    */
   private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
       String pipeName) {
     return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
         .handleIf(
             e -> e instanceof RuntimeException && ClientRecreationException.isClientInvalidError(e))
-        .withMaxAttempts(MAX_CLIENT_CREATION_RETRIES)
-        .withDelay(CLIENT_CREATION_RETRY_DELAY)
+        .withBackoff(CLIENT_CREATION_BASE_DELAY, CLIENT_CREATION_MAX_DELAY, 2.0)
+        .withJitter(CLIENT_CREATION_JITTER_FACTOR)
+        .withMaxAttempts(-1)
+        .withMaxDuration(CLIENT_CREATION_MAX_DURATION)
         .onRetry(
             event ->
                 LOGGER.warn(
                     "Replacement client for pipe {} failed with client-invalid error"
-                        + " (attempt {}/{}): {}. Retrying after {}.",
+                        + " (attempt {}, elapsed {}s / {}s budget): {}",
                     pipeName,
                     event.getAttemptCount(),
-                    MAX_CLIENT_CREATION_RETRIES,
-                    event.getLastException().getMessage(),
-                    CLIENT_CREATION_RETRY_DELAY))
+                    event.getElapsedTime().toSeconds(),
+                    CLIENT_CREATION_MAX_DURATION.toSeconds(),
+                    event.getLastException().getMessage()))
         .onRetriesExceeded(
             event ->
                 LOGGER.error(
-                    "Replacement client for pipe {} failed after {} attempts: {}",
+                    "Replacement client for pipe {} failed after {} attempts ({}s elapsed): {}",
                     pipeName,
                     event.getAttemptCount(),
+                    event.getElapsedTime().toSeconds(),
                     event.getException().getMessage()))
         .build();
   }
