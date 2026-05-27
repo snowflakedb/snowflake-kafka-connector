@@ -155,6 +155,12 @@ public class PartitionOffsetTracker {
             ? consumerGroupOffset
             : offsetRecoveredFromSnowflake + 1L;
 
+    if (offsetToResetInKafka == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      return;
+    }
+
+    onOffsetReset.accept(offsetToResetInKafka);
+
     this.offsetPersistedInSnowflake.set(offsetRecoveredFromSnowflake);
     LOGGER.info(
         "Reset channel metadata after recovery offsetPersistedInSnowflake=[{}], channel=[{}]",
@@ -166,10 +172,6 @@ public class PartitionOffsetTracker {
     // batch-level skip is now handled by offsetsOfFirstSkippedRecord in SSV2.insert(Collection).
     // Remove together with isFirstRowInBatch in shouldProcess().
     needToSkipCurrentBatch = true;
-
-    if (offsetToResetInKafka != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-      onOffsetReset.accept(offsetToResetInKafka);
-    }
   }
 
   public void setLatestConsumerGroupOffset(long consumerOffset) {

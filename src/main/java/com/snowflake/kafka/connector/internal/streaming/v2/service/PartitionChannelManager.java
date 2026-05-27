@@ -386,6 +386,11 @@ public class PartitionChannelManager {
     return partitionChannels;
   }
 
+  @VisibleForTesting
+  void submitPendingOffsetReset(TopicPartition topicPartition, long offset) {
+    pendingOffsetResets.put(topicPartition, offset);
+  }
+
   /** Blocks until all partition channels have finished initialization. */
   @VisibleForTesting
   public void awaitAllPartitions() {
