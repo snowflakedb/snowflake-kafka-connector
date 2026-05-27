@@ -342,35 +342,25 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void channelInvalidation_failsTaskAfterMaxConsecutiveRecoveries() {
-    // If the channel is permanently broken (every appendRow fails), the circuit breaker
-    // should trip after MAX_CONSECUTIVE_RECOVERIES (5) and throw ConnectException to
-    // kill the task — rather than silently dropping records forever.
+  void channelInvalidation_continuouslyReopens_relyingOnConnectTimeoutForFailFast() {
+    // After dropping the count-based circuit breaker, recovery loops indefinitely on a
+    // permanently-invalid channel within a single test run. Bounded-time failure for real
+    // permanent failures is provided by Kafka Connect's max.poll.interval.ms timeout
+    // (default 5 minutes), which is outside the scope of a unit test. Here we just verify
+    // the loop keeps reopening — no breaker fires after 5 attempts.
 
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
     partitionChannel.getChannel();
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
 
-    // Every appendRow throws — channel is permanently invalid
     trackingClientSupplier.setThrowOnAppendRow(true);
 
-    // The first 5 records trigger recovery attempts (channel reopening).
-    // The 6th record exceeds MAX_CONSECUTIVE_RECOVERIES and throws ConnectException.
-    ConnectException thrown =
-        assertThrows(
-            ConnectException.class,
-            () -> {
-              for (int i = 0; i < 20; i++) {
-                partitionChannel.insertRecord(buildValidRecord(i));
-              }
-            });
+    for (int i = 0; i < 10; i++) {
+      partitionChannel.insertRecord(buildValidRecord(i));
+    }
 
-    assertTrue(
-        thrown.getMessage().contains("failed after 5 consecutive recovery attempts"),
-        "Expected circuit breaker message, got: " + thrown.getMessage());
-
-    // 1 initial + 5 recoveries = 6 channels created before the circuit breaker tripped
-    assertEquals(6, trackingClientSupplier.getTotalChannelsCreated());
+    // 1 initial open + 10 reopens. No ConnectException — that's the point of this PR.
+    assertEquals(11, trackingClientSupplier.getTotalChannelsCreated());
   }
 
   private SinkRecord buildValidRecord(long offset) {
