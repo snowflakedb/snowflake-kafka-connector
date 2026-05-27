@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.DataException;
@@ -50,7 +49,6 @@ class StreamingErrorHandlerIT {
   private String pipeName;
 
   private SnowflakeTelemetryService mockTelemetryService;
-  private InMemorySinkTaskContext sinkTaskContext;
   private ExecutorService openChannelIoExecutor;
 
   @BeforeEach
@@ -60,9 +58,6 @@ class StreamingErrorHandlerIT {
     pipeName = "test_pipe_" + uniqueId;
 
     mockTelemetryService = mock(SnowflakeTelemetryService.class);
-
-    sinkTaskContext =
-        new InMemorySinkTaskContext(Collections.singleton(new TopicPartition(TOPIC, PARTITION)));
     openChannelIoExecutor = Executors.newSingleThreadExecutor();
   }
 
@@ -280,9 +275,8 @@ class StreamingErrorHandlerIT {
     StreamingErrorHandler errorHandler =
         new StreamingErrorHandler(taskConfig, errorReporter, mockTelemetryService);
 
-    final TopicPartition topicPartition = new TopicPartition(TOPIC, PARTITION);
     final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+        new PartitionOffsetTracker(channelName, offset -> {});
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             "test_table",

@@ -825,6 +825,10 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .build();
     service2.startPartition(topicPartition);
     service2.awaitInitialization();
+
+    // Drain the pending init offset reset (see comment in the test below).
+    service2.insert(Collections.emptyList());
+
     offset = 1;
     // Create sink record
     SinkRecord record2 =
@@ -872,6 +876,11 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
             .build();
     service2.startPartition(topicPartition);
     service2.awaitInitialization();
+
+    // Drain the pending init offset reset so that the next insert() processes records normally.
+    // Channel init enqueues an offset reset in pendingOffsetResets; the first insert() drains it
+    // into offsetsToRewindTo, skipping the entire batch.
+    service2.insert(Collections.emptyList());
 
     final long startOffsetAlreadyInserted = 5;
     records =

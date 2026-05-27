@@ -338,6 +338,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           initializingPartitions);
     }
 
+    Map<TopicPartition, Long> offsetsToRewindTo = new HashMap<>();
+
+    // Drain offset resets submitted by channel init / recovery on the IO thread.
+    // These partitions are skipped in this batch and rewound at the end.
+    // They will be processed normally in the next batch.
+    // This is so that sinkTaskContext.offset() is only ever called from this (task) thread.
+    Map<TopicPartition, Long> pendingResets = channelManager.drainPendingOffsetResets();
+    if (!pendingResets.isEmpty()) {
+      LOGGER.info("Draining {} pending offset resets: {}", pendingResets.size(), pendingResets);
+      offsetsToRewindTo.putAll(pendingResets);
+    }
+
     // If still in cooldown from a recent backpressure event, treat all partitions as
     // backpressured so we skip the entire batch and give the SDK time to drain.
     boolean skipAllPartitions = false;
@@ -347,7 +359,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       skipAllPartitions = true;
     }
 
-    Map<TopicPartition, Long> offsetsOfFirstSkippedRecord = new HashMap<>();
     boolean newBackpressure = false;
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
@@ -357,7 +368,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
       TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
 
-      if (offsetsOfFirstSkippedRecord.containsKey(tp)) {
+      if (offsetsToRewindTo.containsKey(tp)) {
         // We've already skipped a record in this partition, so should also skip the remaining
         // records in this partition.
         continue;
@@ -365,13 +376,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       if (skipAllPartitions || initializingPartitions.contains(tp)) {
         // Make sure we store the first record in each partition that we skipped so we can correctly
         // rewind the offset.
-        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+        offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
         continue;
       }
 
       try {
         if (!insert(record)) {
-          offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+          offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
         }
       } catch (BackpressureException e) {
         LOGGER.warn(
@@ -380,7 +391,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             tp,
             e.getMessage());
         taskMetrics.incBackpressureRewindCount();
-        offsetsOfFirstSkippedRecord.putIfAbsent(tp, record.kafkaOffset());
+        offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
         skipAllPartitions = true;
         newBackpressure = true;
       }
@@ -391,9 +402,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Backpressure cooldown set until {}", backpressureUntil);
     }
 
-    if (!offsetsOfFirstSkippedRecord.isEmpty()) {
-      LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsOfFirstSkippedRecord);
-      offsetsOfFirstSkippedRecord.forEach(sinkTaskContext::offset);
+    if (!offsetsToRewindTo.isEmpty()) {
+      LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsToRewindTo);
+      sinkTaskContext.offset(offsetsToRewindTo);
     }
   }
 
