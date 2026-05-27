@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,6 +37,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.json.JsonConverter;
@@ -168,8 +170,12 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
 
     // --- Build a real SSPC with mock SDK ---
 
-    PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(tp, sinkTaskContext, channelName);
+    // Simulate the pendingOffsetResets map from PartitionChannelManager.
+    // The onOffsetReset callback writes here; drainPendingOffsetResets() drains it.
+    ConcurrentHashMap<TopicPartition, Long> pendingOffsetResets = new ConcurrentHashMap<>();
+    Consumer<Long> onOffsetReset = offset -> pendingOffsetResets.put(tp, offset);
+
+    PartitionOffsetTracker offsetTracker = new PartitionOffsetTracker(channelName, onOffsetReset);
     SnowflakeTelemetryChannelStatus telemetryStatus =
         new SnowflakeTelemetryChannelStatus(
             TOPIC,
@@ -200,11 +206,12 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
 
     realChannel.awaitInitialization();
 
-    // After initialization, offset should be committedOffset + 1
+    // After initialization, the offset reset is pending (not yet applied to sinkTaskContext).
+    // It will be drained by SSV2.insert() at the start of the first batch.
     assertEquals(
         committedOffset + 1,
-        sinkTaskContext.offset(tp),
-        "Initialization should set offset to committedOffset + 1");
+        pendingOffsetResets.get(tp),
+        "Initialization should enqueue offset reset to committedOffset + 1");
 
     // --- Mock PartitionChannelManager to return the real channel ---
 
@@ -214,6 +221,25 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
     Map<String, TopicPartitionChannel> channelMap = new ConcurrentHashMap<>();
     channelMap.put(channelName, realChannel);
     when(mockChannelManager.getPartitionChannels()).thenReturn(channelMap);
+    // Wire drainPendingOffsetResets to drain the real map (mirrors PartitionChannelManager)
+    when(mockChannelManager.drainPendingOffsetResets())
+        .thenAnswer(
+            invocation -> {
+              if (pendingOffsetResets.isEmpty()) {
+                return Map.of();
+              }
+              Map<TopicPartition, Long> drained = new HashMap<>();
+              pendingOffsetResets
+                  .keySet()
+                  .forEach(
+                      key -> {
+                        Long offset = pendingOffsetResets.remove(key);
+                        if (offset != null) {
+                          drained.put(key, offset);
+                        }
+                      });
+              return drained;
+            });
 
     // --- Wire SSV2 ---
 
@@ -230,32 +256,29 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
             () -> mockChannelManager,
             TaskMetrics.noop());
 
-    // --- Batch 0: verify init offset was applied ---
-    // On master, initializeFromSnowflake calls sinkTaskContext.offset(tp, 51) directly.
-    // On fix branch, it enqueues in pendingOffsetResets and this empty batch drains it.
+    // --- Batch 0: drain the init offset reset ---
+    // initializeFromSnowflake enqueued offset 51 in pendingOffsetResets. The first insert()
+    // drains it into offsetsToRewindTo, skipping the (empty) batch and rewinding to 51.
     service.insert(Collections.emptyList());
-    assertEquals(committedOffset + 1, sinkTaskContext.offset(tp), "Init should set offset");
+    assertEquals(committedOffset + 1, sinkTaskContext.offset(tp), "Init drain should set offset");
 
     // --- Batch 1: records 51–85, appendRow fails at offset 80 ---
     //
+    // Top-of-batch drain: pendingOffsetResets is empty (init already drained).
     // Records 51–79 are appended successfully.
-    // Record 80 triggers SFException → recovery → resetAfterRecovery(50) calls
-    //   sinkTaskContext.offset(tp, 51) directly.
-    // insertRecord returns false for record 80 → SSV2 puts {tp: 80} in offsetsOfFirstSkippedRecord.
-    // Records 81–85 are skipped (tp already in offsetsOfFirstSkippedRecord).
-    // End of batch: sinkTaskContext.offset(tp, 80) OVERWRITES the recovery offset.
+    // Record 80 triggers SFException → recovery → resetAfterRecovery(50) enqueues offset 51
+    //   in pendingOffsetResets.
+    // insertRecord returns false for record 80 → SSV2 puts {tp: 80} in offsetsToRewindTo.
+    // Records 81–85 are skipped (tp already in offsetsToRewindTo).
+    // End of batch: sinkTaskContext.offset({tp: 80}). The recovery offset 51 is still pending.
 
     service.insert(buildRecordBatch(51, 85));
 
     // --- Batch 2: records 80–85 (what Kafka would re-deliver from offset 80) ---
     //
-    // On master: needToSkipCurrentBatch is reset on first record (isFirstRowInBatch=true),
-    //            all records process normally at offsets 80–85. No offset rewind occurs.
-    //            Offset stays at 80. Records 51–79 are permanently lost.
-    //
-    // On fix branch: pendingOffsetResets contains {tp: 51} from recovery, which is drained
-    //                into offsetsToRewindTo at the start of the batch. All records are
-    //                skipped. sinkTaskContext.offset({tp: 51}) is called.
+    // Top-of-batch drain: pendingOffsetResets has {tp: 51} → offsetsToRewindTo = {tp: 51}.
+    // All records are skipped (offsetsToRewindTo.containsKey(tp) is true).
+    // End of batch: sinkTaskContext.offset({tp: 51}). Recovery offset wins.
 
     service.insert(buildRecordBatch(80, 85));
 
