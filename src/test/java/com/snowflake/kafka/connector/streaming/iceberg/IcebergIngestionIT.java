@@ -65,6 +65,8 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
             .withErrorReporter(kafkaRecordErrorReporter)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
+    service.startPartition(topicPartition);
+    service.awaitInitialization();
   }
 
   @AfterEach

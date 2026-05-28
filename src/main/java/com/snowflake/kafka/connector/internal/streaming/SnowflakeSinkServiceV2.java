@@ -444,6 +444,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   public Map<TopicPartition, Long> getCommittedOffsets(
       final Collection<TopicPartition> partitions) {
 
+    // Resume any partitions that have completed initialization or recovery since the last call.
+    channelManager.resumeReadyPartitions();
+
     // Skip paused partitions (initializing, recovering) — they don't have stable offsets yet.
     Set<TopicPartition> currentlyPaused =
         partitions.stream().filter(channelManager::isPaused).collect(Collectors.toSet());
@@ -526,10 +529,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     return metricsJmxReporter.map(MetricsJmxReporter::getMetricRegistry);
   }
 
-  /** Blocks until all partition channels have finished initialization. */
+  /** Blocks until all partition channels have finished initialization, then resumes them. */
   @Override
   public void awaitInitialization() {
     channelManager.awaitAllPartitions();
+    channelManager.resumeReadyPartitions();
   }
 
   @VisibleForTesting
