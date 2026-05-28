@@ -20,12 +20,14 @@ import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClien
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -60,6 +62,13 @@ public class PartitionChannelManager {
   private final PartitionChannelBuilder partitionChannelBuilder;
   private final Map<String, TopicPartitionChannel> partitionChannels;
   private final Map<String, Boolean> shouldEvolveSchemaCache = new ConcurrentHashMap<>();
+
+  /**
+   * Offset resets submitted by channel init / recovery on the IO thread. Drained by SSV2.insert on
+   * the task thread so that sinkTaskContext.offset() is only ever called from the task thread.
+   */
+  private final ConcurrentHashMap<TopicPartition, Long> pendingOffsetResets =
+      new ConcurrentHashMap<>();
 
   public PartitionChannelManager(
       SnowflakeTelemetryService telemetryService,
@@ -164,8 +173,9 @@ public class PartitionChannelManager {
             taskConfig,
             streamingClientProperties,
             taskMetrics);
+    Consumer<Long> onOffsetReset = offset -> pendingOffsetResets.put(topicPartition, offset);
     final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, this.sinkTaskContext, channelName);
+        new PartitionOffsetTracker(channelName, onOffsetReset);
 
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
@@ -316,6 +326,8 @@ public class PartitionChannelManager {
         taskConfig.getConnectorName(),
         taskConfig.getTaskId());
 
+    partitions.forEach(pendingOffsetResets::remove);
+
     CompletableFuture<?>[] futures =
         partitions.stream()
             .map(this::getChannel)
@@ -336,6 +348,27 @@ public class PartitionChannelManager {
         partitionChannels.keySet().toString());
   }
 
+  /**
+   * Atomically drains all pending offset resets submitted by channel init / recovery. Called from
+   * the task thread at the beginning of {@code SSV2.insert(Collection)}.
+   */
+  public Map<TopicPartition, Long> drainPendingOffsetResets() {
+    if (pendingOffsetResets.isEmpty()) {
+      return Map.of();
+    }
+    Map<TopicPartition, Long> drained = new HashMap<>();
+    pendingOffsetResets
+        .keySet()
+        .forEach(
+            tp -> {
+              Long offset = pendingOffsetResets.remove(tp);
+              if (offset != null) {
+                drained.put(tp, offset);
+              }
+            });
+    return drained;
+  }
+
   /** Returns the channel for the given name, or empty if not found. */
   public Optional<TopicPartitionChannel> getChannel(String channelName) {
     return Optional.ofNullable(partitionChannels.get(channelName));
@@ -351,6 +384,11 @@ public class PartitionChannelManager {
 
   public Map<String, TopicPartitionChannel> getPartitionChannels() {
     return partitionChannels;
+  }
+
+  @VisibleForTesting
+  void submitPendingOffsetReset(TopicPartition topicPartition, long offset) {
+    pendingOffsetResets.put(topicPartition, offset);
   }
 
   /** Blocks until all partition channels have finished initialization. */

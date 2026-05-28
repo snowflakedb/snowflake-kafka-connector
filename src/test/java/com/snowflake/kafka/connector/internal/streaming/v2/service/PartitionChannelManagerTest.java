@@ -260,6 +260,56 @@ class PartitionChannelManagerTest {
     assertTrue(manager.getPartitionChannels().isEmpty());
   }
 
+  // --- drainPendingOffsetResets ---
+
+  @Test
+  void drainPendingOffsetResetsReturnsEmptyMapWhenNothingPending() {
+    assertTrue(manager.drainPendingOffsetResets().isEmpty());
+  }
+
+  @Test
+  void drainPendingOffsetResetsReturnsAndClearsPendingEntries() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+
+    manager.submitPendingOffsetReset(tp0, 51L);
+    manager.submitPendingOffsetReset(tp1, 101L);
+
+    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets();
+
+    assertEquals(Map.of(tp0, 51L, tp1, 101L), drained);
+    assertTrue(manager.drainPendingOffsetResets().isEmpty(), "Second drain should be empty");
+  }
+
+  @Test
+  void drainPendingOffsetResetsLastWriteWinsForSamePartition() {
+    TopicPartition tp = new TopicPartition(TOPIC, 0);
+
+    manager.submitPendingOffsetReset(tp, 51L);
+    manager.submitPendingOffsetReset(tp, 71L);
+
+    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets();
+
+    assertEquals(71L, drained.get(tp), "Later recovery offset should win");
+    assertEquals(1, drained.size());
+  }
+
+  @Test
+  void closeClearsPendingOffsetResetsForClosedPartitions() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    startPartitions(tp0, tp1);
+
+    manager.submitPendingOffsetReset(tp0, 51L);
+    manager.submitPendingOffsetReset(tp1, 101L);
+
+    manager.close(Collections.singletonList(tp0));
+
+    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets();
+    assertFalse(drained.containsKey(tp0), "Closed partition should not appear in drain");
+    assertEquals(101L, drained.get(tp1));
+  }
+
   // --- helpers ---
 
   private void startSinglePartition(TopicPartition topicPartition) {

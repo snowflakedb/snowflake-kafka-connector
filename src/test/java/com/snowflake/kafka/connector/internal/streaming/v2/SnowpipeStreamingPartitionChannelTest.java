@@ -360,9 +360,8 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel() {
-    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
     final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+        new PartitionOffsetTracker(channelName, offset -> {});
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             TABLE_NAME,
@@ -441,9 +440,8 @@ class SnowpipeStreamingPartitionChannelTest {
     mockConnService = mock(SnowflakeConnectionService.class);
     when(mockConnService.describeTable(TABLE_NAME)).thenReturn(Optional.of(describeResult));
 
-    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
     final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+        new PartitionOffsetTracker(channelName, offset -> {});
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             TABLE_NAME,
@@ -534,9 +532,8 @@ class SnowpipeStreamingPartitionChannelTest {
     mockConnService = mock(SnowflakeConnectionService.class);
     when(mockConnService.describeTable(TABLE_NAME)).thenReturn(Optional.empty());
 
-    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
     final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+        new PartitionOffsetTracker(channelName, offset -> {});
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             TABLE_NAME,
@@ -673,9 +670,9 @@ class SnowpipeStreamingPartitionChannelTest {
 
   private SnowpipeStreamingPartitionChannel createPartitionChannelWithMigration(
       Ssv1MigrationMode migrationMode, SnowflakeConnectionService mockConn) {
-    final TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, PARTITION);
+    TopicPartition tp = new TopicPartition(TOPIC_NAME, PARTITION);
     final PartitionOffsetTracker offsetTracker =
-        new PartitionOffsetTracker(topicPartition, sinkTaskContext, channelName);
+        new PartitionOffsetTracker(channelName, offset -> sinkTaskContext.offset(tp, offset));
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
         new SnowflakeTelemetryChannelStatus(
             TABLE_NAME,
