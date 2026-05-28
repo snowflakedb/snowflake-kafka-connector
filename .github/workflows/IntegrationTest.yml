@@ -2,7 +2,7 @@ name: Kafka Connector Integration Test
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, release-3.5 ]
   pull_request:
     branches: '**'
 
