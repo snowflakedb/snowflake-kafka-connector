@@ -55,6 +55,7 @@ class SnowflakeSinkServiceV2Test {
   @BeforeEach
   void setUp() {
     mockChannelManager = mock(PartitionChannelManager.class);
+    when(mockChannelManager.drainPendingOffsetResets()).thenReturn(Map.of());
     mockBatchOffsetFetcher = mock(BatchOffsetFetcher.class);
     mockSinkTaskContext = mock(SinkTaskContext.class);
 
@@ -89,10 +90,11 @@ class SnowflakeSinkServiceV2Test {
     service.insert(Collections.singletonList(record));
 
     verify(channel, never()).insertRecord(any(), anyBoolean());
-    verify(mockSinkTaskContext).offset(tp, 10);
+    verify(mockSinkTaskContext).offset(Map.of(tp, 10L));
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void insertProcessesRecordsForReadyPartitions() {
     TopicPartition tp = new TopicPartition(TOPIC, 0);
     TopicPartitionChannel channel = mockChannel("ch_0", false);
@@ -102,7 +104,7 @@ class SnowflakeSinkServiceV2Test {
     service.insert(Collections.singletonList(record));
 
     verify(channel).insertRecord(record, true);
-    verify(mockSinkTaskContext, never()).offset(any(TopicPartition.class), any(Long.class));
+    verify(mockSinkTaskContext, never()).offset(any(Map.class));
   }
 
   @Test
@@ -122,8 +124,7 @@ class SnowflakeSinkServiceV2Test {
 
     verify(initChannel, never()).insertRecord(any(), anyBoolean());
     verify(readyChannel).insertRecord(records.get(1), true);
-    verify(mockSinkTaskContext).offset(tpInit, 100);
-    verify(mockSinkTaskContext, never()).offset(tpReady, 200);
+    verify(mockSinkTaskContext).offset(Map.of(tpInit, 100L));
   }
 
   @Test
@@ -137,9 +138,7 @@ class SnowflakeSinkServiceV2Test {
 
     service.insert(records);
 
-    verify(mockSinkTaskContext).offset(tp, 5);
-    verify(mockSinkTaskContext, never()).offset(tp, 6);
-    verify(mockSinkTaskContext, never()).offset(tp, 7);
+    verify(mockSinkTaskContext).offset(Map.of(tp, 5L));
   }
 
   // --- getCommittedOffsets() skip logic ---
@@ -209,7 +208,7 @@ class SnowflakeSinkServiceV2Test {
     service.insert(Collections.singletonList(record1));
 
     verify(channel, never()).insertRecord(any(), anyBoolean());
-    verify(mockSinkTaskContext).offset(tp, 10);
+    verify(mockSinkTaskContext).offset(Map.of(tp, 10L));
 
     // Channel finishes initializing — Kafka re-delivers from the rewound offset
     when(channel.isInitializing()).thenReturn(false);
@@ -306,9 +305,8 @@ class SnowflakeSinkServiceV2Test {
     verify(channel0).insertRecord(records.get(0), true);
     verify(channel1, never()).insertRecord(any(), anyBoolean());
 
-    // Both partitions rewound
-    verify(mockSinkTaskContext).offset(tp0, 100L);
-    verify(mockSinkTaskContext).offset(tp1, 200L);
+    // Both partitions rewound in one call
+    verify(mockSinkTaskContext).offset(Map.of(tp0, 100L, tp1, 200L));
   }
 
   @Test
@@ -338,8 +336,7 @@ class SnowflakeSinkServiceV2Test {
     verify(channel0, never()).insertRecord(records.get(2), false);
 
     // p1 rewound to the backpressured record; p0 rewound to the first skipped record
-    verify(mockSinkTaskContext).offset(tp1, 200L);
-    verify(mockSinkTaskContext).offset(tp0, 101L);
+    verify(mockSinkTaskContext).offset(Map.of(tp0, 101L, tp1, 200L));
   }
 
   @Test
@@ -368,8 +365,7 @@ class SnowflakeSinkServiceV2Test {
     verify(readyChannel).insertRecord(records.get(1), true);
 
     // Both partitions rewound via offsetsOfFirstSkippedRecord
-    verify(mockSinkTaskContext).offset(tpInit, 100L);
-    verify(mockSinkTaskContext).offset(tpReady, 200L);
+    verify(mockSinkTaskContext).offset(Map.of(tpInit, 100L, tpReady, 200L));
   }
 
   @Test
@@ -414,11 +410,11 @@ class SnowflakeSinkServiceV2Test {
     verify(channel1, never()).insertRecord(any(), anyBoolean());
 
     // All partitions rewound
-    verify(mockSinkTaskContext).offset(tp0, 100L);
-    verify(mockSinkTaskContext).offset(tp1, 200L);
+    verify(mockSinkTaskContext).offset(Map.of(tp0, 100L, tp1, 200L));
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void insertResumesNormallyAfterCooldownExpires() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
@@ -431,7 +427,7 @@ class SnowflakeSinkServiceV2Test {
 
     // Normal processing resumes
     verify(channel0).insertRecord(any(), anyBoolean());
-    verify(mockSinkTaskContext, never()).offset(any(TopicPartition.class), any(Long.class));
+    verify(mockSinkTaskContext, never()).offset(any(Map.class));
   }
 
   // --- recovery skip logic ---
@@ -467,8 +463,7 @@ class SnowflakeSinkServiceV2Test {
     verify(channel1).insertRecord(records.get(1), true);
 
     // Only the recovering partition is rewound, to the triggering record's offset
-    verify(mockSinkTaskContext).offset(tp0, 100L);
-    verify(mockSinkTaskContext, never()).offset(tp1, 200L);
+    verify(mockSinkTaskContext).offset(Map.of(tp0, 100L));
   }
 
   @Test
@@ -490,7 +485,7 @@ class SnowflakeSinkServiceV2Test {
     verify(channel, never()).insertRecord(records.get(2), false);
 
     // Rewind to the record that triggered recovery
-    verify(mockSinkTaskContext).offset(tp, 101L);
+    verify(mockSinkTaskContext).offset(Map.of(tp, 101L));
   }
 
   // --- helpers ---
