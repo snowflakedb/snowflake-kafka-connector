@@ -163,8 +163,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
-  public boolean insertRecord(SinkRecord kafkaSinkRecord, boolean isFirstRowPerPartitionInBatch) {
-    if (offsetTracker.shouldProcess(kafkaSinkRecord.kafkaOffset(), isFirstRowPerPartitionInBatch)) {
+  public boolean insertRecord(SinkRecord kafkaSinkRecord) {
+    if (offsetTracker.shouldProcess(kafkaSinkRecord.kafkaOffset())) {
       return transformAndSend(kafkaSinkRecord);
     }
     return true;

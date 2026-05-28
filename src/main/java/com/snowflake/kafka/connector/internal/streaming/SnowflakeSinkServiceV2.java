@@ -65,8 +65,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   private final SinkTaskConfig taskConfig;
   private final SinkTaskContext sinkTaskContext;
 
-  // Set that keeps track of the channels that have been seen per input batch
-  private final Set<String> channelsVisitedPerBatch = new HashSet<>();
   private final BatchOffsetFetcher batchOffsetFetcher;
 
   private final PartitionChannelManager channelManager;
@@ -321,8 +319,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(final Collection<SinkRecord> records) {
-    channelsVisitedPerBatch.clear();
-
     // Skip partitions for which the partition-channel bridge is currently being initialized.
     Set<TopicPartition> partitions =
         records.stream()
@@ -435,8 +431,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                     new IllegalStateException(
                         "Channel for " + topicPartition + " not found after startPartition"));
 
-    boolean isFirstRowPerPartitionInBatch = channelsVisitedPerBatch.add(channel.getChannelName());
-    return channel.insertRecord(record, isFirstRowPerPartitionInBatch);
+    return channel.insertRecord(record);
   }
 
   private boolean shouldSkipNullValue(SinkRecord record) {
