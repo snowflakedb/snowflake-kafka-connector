@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - release-4.0
 
 jobs:
   java:

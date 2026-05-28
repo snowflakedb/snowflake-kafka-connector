@@ -2,7 +2,7 @@ name: Kafka Connector end-to-end tests
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, release-4.0 ]
   pull_request:
     branches: ['**']
   workflow_dispatch:
