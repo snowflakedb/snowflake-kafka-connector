@@ -64,6 +64,7 @@ usage() {
     echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
     echo "  --jmx                Enable JMX metrics scraping via Jolokia"
     echo "  --profile            Enable JVM profiling (JFR, GC logs, JMX, async-profiler)"
+    echo "  --with-mitmproxy     Enable mitmproxy for fault injection tests (410 injection)"
     echo "  --keep               Keep containers running after tests"
     echo "  -i, --interactive    Start infra, then drop into a bash shell in the test-runner"
     echo "  --rebuild            Force rebuild of images"
@@ -95,6 +96,7 @@ PLATFORM_VERSION="7.8.0"
 JAVA_VERSION="11"
 JMX_ENABLED="false"
 PROFILE_ENABLED="false"
+MITMPROXY_ENABLED="false"
 KEEP_RUNNING="false"
 INTERACTIVE="false"
 FORCE_REBUILD="false"
@@ -125,6 +127,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --profile)
             PROFILE_ENABLED="true"
+            shift
+            ;;
+        --with-mitmproxy)
+            MITMPROXY_ENABLED="true"
             shift
             ;;
         --keep)
@@ -233,9 +239,20 @@ if [ "$PROFILE_ENABLED" = "true" ]; then
     info "Use test/scripts/profile_connect.sh to interact with the profiler"
 fi
 
+# Append mitmproxy overlay if requested
+if [ "$MITMPROXY_ENABLED" = "true" ]; then
+    info "mitmproxy fault injection enabled"
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.mitmproxy.yml"
+    START_SERVICES="$START_SERVICES mitmproxy"
+fi
+
 # Check prerequisites
 command -v docker >/dev/null 2>&1 || error_exit "Docker is not installed"
 command -v docker compose >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1 || error_exit "Docker Compose is not installed"
+
+if [ "$MITMPROXY_ENABLED" = "true" ] && [ -n "${LOCAL_PROXY_PORT:-}" ]; then
+    error_exit "--with-mitmproxy and LOCAL_PROXY_PORT cannot be used together (untested combination)"
+fi
 
 # Check credentials file
 if [ -n "${LOCAL_PROXY_PORT:-}" ]; then
@@ -368,6 +385,20 @@ cd "$DOCKER_DIR"
 BUILD_ARGS=""
 if [ "$FORCE_REBUILD" = "true" ]; then
     BUILD_ARGS="--no-cache"
+fi
+
+if [ "$MITMPROXY_ENABLED" = "true" ]; then
+    # Extract real Snowflake host from credential file for the upstream proxy target
+    # Strip port if present (profile.json host may be "account.snowflakecomputing.com:443")
+    UPSTREAM_HOST=$(python3 -c "import json; host=json.load(open('$SNOWFLAKE_CREDENTIAL_FILE'))['host']; print(host.split(':')[0])" 2>/dev/null)
+    if [ -z "$UPSTREAM_HOST" ]; then
+        error_exit "Failed to extract UPSTREAM_HOST from $SNOWFLAKE_CREDENTIAL_FILE"
+    fi
+    export UPSTREAM_HOST
+    info "mitmproxy upstream host: $UPSTREAM_HOST"
+
+    info "Building mitmproxy image..."
+    docker compose $COMPOSE_FILES build $BUILD_ARGS mitmproxy
 fi
 
 info "Building test runner image..."

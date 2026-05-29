@@ -1,0 +1,39 @@
+# Overlay for mitmproxy-based fault injection tests.
+# Compose with: -f docker-compose.base.yml -f docker-compose.confluent.yml -f docker-compose.mitmproxy.yml
+#
+# The proxy runs in reverse mode: plain HTTP on port 8080, forwarding HTTPS to
+# the real Snowflake host. The SDK is configured (via connector overrides) to
+# use scheme=http, host=mitmproxy, port=8080, so no TLS exists between the SDK
+# and the proxy — eliminating the need for a patched native library or CA cert
+# injection.
+#
+# The addon rewrites the /v2/streaming/hostname response to "mitmproxy-subdomain"
+# (a Docker network alias for the same container). This ensures all subsequent
+# SDK streaming API calls also route through the proxy. The addon fixes up the
+# OAuth scope in /oauth/token requests to use the real subdomain.
+#
+# Required env vars:
+#   UPSTREAM_HOST - real Snowflake host without port (e.g., sfctest0.snowflakecomputing.com)
+
+services:
+  mitmproxy:
+    build:
+      context: ./mitmproxy
+      dockerfile: Dockerfile
+    hostname: mitmproxy
+    networks:
+      default:
+        aliases:
+          - mitmproxy-subdomain
+    environment:
+      UPSTREAM_HOST: "${UPSTREAM_HOST}"
+      PROXY_SUBDOMAIN_ALIAS: "mitmproxy-subdomain"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9080/status')"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  test-runner:
+    environment:
+      MITMPROXY_CONTROL_URL: "http://mitmproxy:9080"
