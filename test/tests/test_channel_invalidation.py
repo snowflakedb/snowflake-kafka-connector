@@ -443,7 +443,7 @@ def test_invalidation_offset_consistency(
 ):
     """Test 6: Verify offset consistency after invalidation recovery.
 
-    Checks the full offset range (0..max_offset) has no gaps. Duplicates are OK.
+    Checks the full offset range (0..max_offset) has no gaps and no duplicates.
     """
     topic = f"test_invalidation_offset_consistency{name_salt}"
     table_name = topic
@@ -476,25 +476,57 @@ def test_invalidation_offset_consistency(
     producer.stop_continuous()
     _assert_task_running(driver, connector.name)
 
-    # Verify offset integrity: the full range 0..max_offset must have no gaps.
-    # With the recordProcessed fix (SNOW-3344243), the offset rewind replays all
-    # records that were in-flight during the flush-failure window, so no data is lost.
-    cur = driver.snowflake_conn.cursor()
-    offsets = sorted(
-        row[0]
-        for row in cur.execute(
-            f"SELECT DISTINCT record_metadata:offset::int AS off "
-            f'FROM "{table_name}" ORDER BY off'
-        ).fetchall()
+    # Wait for the connector to commit every record it consumed before
+    # measuring. The connector's preCommit reports SSv2's
+    # latestCommittedOffsetToken + 1 as the Kafka offset that is safe to
+    # commit, so when the consumer group offset reaches records_produced,
+    # the streaming pipeline has finished landing every record we sent and
+    # the verification queries below see a stable table state without
+    # needing to retry.
+    target_kafka_offset = producer.records_produced  # one past max sent offset
+    deadline = time.monotonic() + 60
+    committed = None
+    while time.monotonic() < deadline:
+        committed = driver.get_consumer_group_offset(connector.name, topic, 0)
+        if committed is not None and committed >= target_kafka_offset:
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError(
+            f"Connector did not commit through Kafka offset {target_kafka_offset - 1} "
+            f"within 60s; last consumer group offset={committed}"
+        )
+    logger.info(
+        f"Connector caught up: consumer group offset={committed} "
+        f"(target={target_kafka_offset})"
     )
 
-    total_rows = int(driver.select_number_of_records(table_name))
-    distinct_offsets = len(offsets)
-    max_offset = offsets[-1]
-
+    # Verify offset integrity: the full range 0..max_offset must have no gaps
+    # and no duplicates. With the recordProcessed fix (SNOW-3344243) the
+    # offset rewind replays all records that were in-flight during the flush
+    # window, so no data is lost; SSv2's offset tokens guarantee exactly-once
+    # so no record is committed twice. Read both metrics from a single SQL
+    # snapshot to avoid the inter-query race that previously made two
+    # back-to-back cursor.execute() calls observe different table states.
+    cur = driver.snowflake_conn.cursor()
+    total_rows, distinct_offsets, max_offset = cur.execute(
+        f"WITH t AS (SELECT record_metadata:offset::int AS off "
+        f'FROM "{table_name}") '
+        f"SELECT count(*), count(DISTINCT off), max(off) FROM t"
+    ).fetchone()
     logger.info(
         f"Offset check: {total_rows} total rows, {distinct_offsets} distinct offsets, "
         f"range [0..{max_offset}]"
+    )
+
+    offsets = sorted(
+        row[0]
+        for row in driver.snowflake_conn.cursor()
+        .execute(
+            f"SELECT DISTINCT record_metadata:offset::int AS off "
+            f'FROM "{table_name}" ORDER BY off'
+        )
+        .fetchall()
     )
 
     # No gaps in the full range 0..max_offset
@@ -506,9 +538,12 @@ def test_invalidation_offset_consistency(
         f"{sorted(missing)[:20]}{'...' if len(missing) > 20 else ''}"
     )
 
-    duplicates = total_rows - distinct_offsets
-    if duplicates > 0:
-        logger.info(f"Found {duplicates} duplicate rows (expected after recovery)")
+    # Snowpipe Streaming v2 provides exactly-once semantics via offset tokens, so
+    # the connector should never produce duplicate offsets after channel-recovery.
+    assert total_rows == distinct_offsets, (
+        f"Duplicate rows detected: {total_rows} total rows, "
+        f"{distinct_offsets} distinct offsets ({total_rows - distinct_offsets} duplicates)"
+    )
 
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
