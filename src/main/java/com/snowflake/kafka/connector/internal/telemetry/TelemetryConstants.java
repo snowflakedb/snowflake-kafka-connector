@@ -26,6 +26,12 @@ public final class TelemetryConstants {
   public static final String VALIDATION_FAILURE_COUNT = "validation_failure_count";
   public static final String ERROR_TOLERATED_COUNT = "error_tolerated_count";
   public static final String CHANNEL_RECOVERY_COUNT = "channel_recovery_count";
+  // Client recreation telemetry: attempts is the number of times openChannelWithClientRecovery
+  // tried to swap the SDK client; success/failure split records whether the underlying pool retry
+  // budget held. attempts == success + failure.
+  public static final String CLIENT_RECREATION_ATTEMPT_COUNT = "client_recreation_attempt_count";
+  public static final String CLIENT_RECREATION_SUCCESS_COUNT = "client_recreation_success_count";
+  public static final String CLIENT_RECREATION_FAILURE_COUNT = "client_recreation_failure_count";
   public static final String VALIDATION_DISABLED = "validation_disabled";
   public static final String ROWS_INSERTED_COUNT = "rows_inserted_count";
   public static final String ROWS_PARSED_COUNT = "rows_parsed_count";

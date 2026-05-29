@@ -88,8 +88,13 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     // Closing a partition == closing a channel
     service.close(Collections.singletonList(topicPartition));
 
-    // Lets insert a record when partition was closed.
-    // It should auto create the channel
+    // After close, the first insert short-circuits via SnowflakeSinkServiceV2#insert's
+    // "channel doesn't exist" branch: it kicks off async startPartition and returns false,
+    // which signals the caller to rewind the offset. In real Kafka the consumer redelivers
+    // on the next poll; here we simulate that by awaiting initialization and re-inserting
+    // explicitly.
+    service.insert(record1);
+    service.awaitInitialization();
     service.insert(record1);
 
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
@@ -136,7 +141,13 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     // Closing a partition == closing a channel
     service.close(Collections.singletonList(topicPartition));
 
-    // it should skip this record1 since it will fetch offset token 0 from Snowflake
+    // After close, the first re-insert short-circuits via SnowflakeSinkServiceV2#insert's
+    // "channel doesn't exist" branch (async startPartition + rewind). The recreated channel
+    // recovers offset 0 from Snowflake, so re-inserting record1 (offset 0) is a deduped
+    // no-op while offset still advances to 1. In real Kafka the consumer redelivers on the
+    // next poll; here we simulate that by awaiting initialization and re-inserting.
+    service.insert(record1);
+    service.awaitInitialization();
     service.insert(record1);
 
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 20);
