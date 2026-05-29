@@ -89,7 +89,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private final String pipeName;
 
-  private final SnowflakeStreamingIngestClient streamingClient;
+  private volatile SnowflakeStreamingIngestClient streamingClient;
+  private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
   private final StreamingErrorHandler streamingErrorHandler;
@@ -112,6 +113,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       String channelName,
       String pipeName,
       SnowflakeStreamingIngestClient streamingClient,
+      ClientRecreator clientRecreator,
       ExecutorService openChannelIoExecutor,
       SnowflakeTelemetryService telemetryService,
       SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
@@ -125,6 +127,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
+    this.clientRecreator = clientRecreator;
     this.openChannelIoExecutor = openChannelIoExecutor;
     this.taskConfig = taskConfig;
     this.streamingErrorHandler = streamingErrorHandler;
@@ -145,7 +148,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.channel =
         CompletableFuture.supplyAsync(
             () -> {
-              OpenChannelResult openChannelResult = openChannelForTable(channelName);
+              OpenChannelResult openChannelResult = openChannelWithClientRecovery(channelName);
               long offsetRecoveredFromSnowflake = parseOrMigrateOffsetToken(openChannelResult);
               offsetTracker.initializeFromSnowflake(offsetRecoveredFromSnowflake);
               return openChannelResult.getChannel();
@@ -234,7 +237,19 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.channelName);
 
-          streamingClient.initiateFlush();
+          try {
+            streamingClient.initiateFlush();
+          } catch (SFException e) {
+            if (ClientRecreationException.isClientInvalidError(e)) {
+              LOGGER.warn(
+                  "Skipping flush for channel {}: client is invalid ({}). "
+                      + "Uncommitted data will be replayed on task restart.",
+                  this.channelName,
+                  e.getErrorCodeName());
+              return;
+            }
+            throw e;
+          }
 
           final long targetOffset = offsetTracker.getLastAppendRowsOffset();
           WaitForLastOffsetCommittedPolicy.getPolicy(
@@ -288,6 +303,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * short delay with jitter. Throws {@link ConnectException} if the circuit breaker ({@link
    * #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded, which causes Kafka Connect to kill and restart
    * the task.
+   *
+   * <p>This circuit breaker only covers channel-side failures. Patience for SDK client recreation
+   * (pipe failover, HTTP 410) lives in {@link
+   * com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools#recreateClient}
+   * — its Failsafe retry policy absorbs multi-minute failover windows, so this loop does not need
+   * its own large budget.
    */
   private void handleNonRetryableAppendRowFailure(SFException cause) {
     consecutiveRecoveryCount++;
@@ -342,8 +363,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * <p>If a valid offset is found from snowflake, we will reset the topicPartition with
    * (offsetReturnedFromSnowflake + 1).
    *
-   * @param reason Reason for the channel recovery. Used for logging.
-   * @return offset which was last present in Snowflake
+   * <p>Client recreation (for client-invalid errors like HTTP 410 pipe failover) is handled
+   * transparently by {@link #openChannelWithClientRecovery}, so callers no longer need to decide
+   * whether to swap the SDK client first.
+   *
+   * @param reason reason for the channel recovery, used for logging
    */
   private void reopenChannel(final String reason) {
     LOGGER.warn("{} Channel {} recovery initiated", reason, this.channelName);
@@ -376,7 +400,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                 })
             .thenApply(
                 ignored -> {
-                  OpenChannelResult openChannelResult = openChannelForTable(channelName);
+                  OpenChannelResult openChannelResult = openChannelWithClientRecovery(channelName);
                   final long offsetRecoveredFromSnowflake =
                       parseOrMigrateOffsetToken(openChannelResult);
 
@@ -669,6 +693,57 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    *
    * @return new channel which was fetched after open/reopen
    */
+  /**
+   * Opens a channel, recreating the SDK client once if the open fails with a client-invalid error.
+   *
+   * <p>This is the universal entry point for client recreation: every code path that needs a
+   * working channel (initial open in the constructor, recovery open in {@link #reopenChannel})
+   * funnels through here, so a stale {@code streamingClient} reference can never cause the channel
+   * future to stay permanently failed. Without this, when the connector hits a recoverable
+   * client-invalid error before {@code appendRow} ever runs (e.g. because {@code
+   * SnowflakeSinkServiceV2.insert(SinkRecord)} short-circuits on {@code isChannelClosed} → {@code
+   * startPartition} → {@code return false}), the appendRow-driven recovery loop is starved and the
+   * task spins forever rebuilding broken channels.
+   *
+   * <p>Single-shot retry at this layer by design — the patience for transient pipe-failover windows
+   * lives inside {@link
+   * com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools#recreateClient}
+   * (multi-minute Failsafe budget with exponential backoff). If {@code recreate} still fails after
+   * that budget, it throws and we translate to {@link ConnectException} so Kafka Connect fails and
+   * restarts the task — at that point the fault is not transient.
+   */
+  private OpenChannelResult openChannelWithClientRecovery(final String channelName) {
+    try {
+      return openChannelForTable(channelName);
+    } catch (SFException e) {
+      if (!ClientRecreationException.isClientInvalidError(e)) {
+        throw e;
+      }
+      LOGGER.warn(
+          "Channel {} open failed with client-invalid error ({}); recreating client and retrying",
+          channelName,
+          e.getErrorCodeName());
+      snowflakeTelemetryChannelStatus.incClientRecreationAttemptCount();
+      try {
+        this.streamingClient = clientRecreator.recreate(this.streamingClient);
+      } catch (RuntimeException recreateFailure) {
+        snowflakeTelemetryChannelStatus.incClientRecreationFailureCount();
+        LOGGER.error(
+            "Channel {} client recreation exhausted its retry budget; failing task",
+            channelName,
+            recreateFailure);
+        throw new ConnectException(
+            String.format(
+                "Channel %s could not recreate the Snowpipe Streaming client."
+                    + " Check Snowflake service health.",
+                channelName),
+            recreateFailure);
+      }
+      snowflakeTelemetryChannelStatus.incClientRecreationSuccessCount();
+      return openChannelForTable(channelName);
+    }
+  }
+
   private OpenChannelResult openChannelForTable(final String channelName) {
     if (cancelled.get()) {
       throw new CancellationException("Channel " + channelName + " was cancelled before opening");
@@ -775,8 +850,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   public boolean isChannelClosed() {
     try {
       return this.getChannel().isClosed();
+    } catch (ConnectException e) {
+      // Terminal failure (e.g. client recreation exhausted its retry budget). Propagate so
+      // SnowflakeSinkServiceV2.insert surfaces it to Kafka Connect rather than silently rebuilding
+      // the SSPC, which would otherwise hot-spin on the same fault.
+      throw e;
     } catch (RuntimeException e) {
-      // If the channel failed to initialize, we consider it closed.
+      // Transient init failure — treat as closed so the next put() triggers a fresh startPartition.
       LOGGER.warn(
           "Channel {} failed to initialize, treating as closed: {}", channelName, e.getMessage());
       return true;

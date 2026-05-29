@@ -421,6 +421,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         .orElse(true)) {
       LOGGER.warn("Streaming channel doesn't exist or is closed for {}", topicPartition);
       startPartition(topicPartition);
+      return false;
     }
 
     TopicPartitionChannel channel =
