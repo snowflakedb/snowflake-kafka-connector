@@ -1,0 +1,36 @@
+name: Kafka Connector fault-injection tests
+
+# Exercises error-recovery paths using mitmproxy to inject HTTP 410 responses.
+# Runs on PRs that touch fault-injection-related code and on master push.
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  fault_injection:
+    runs-on: ubuntu-22.04
+    name: client recreation (410 injection)
+    permissions:
+      packages: read
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Decrypt profile.json
+      run: ./.github/scripts/decrypt_secret.sh AWS
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: apache
+
+    - uses: ./.github/actions/run-e2e-tests
+      with:
+        platform: apache
+        platform-version: '3.9.2'
+        snowflake-cloud: AWS
+        with-mitmproxy: 'true'
+        marker-filter: 'fault_injection'
+        test-group: fault-injection
