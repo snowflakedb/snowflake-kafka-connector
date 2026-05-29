@@ -65,6 +65,13 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
             .withErrorReporter(kafkaRecordErrorReporter)
             .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
             .build();
+
+    // Mirror Kafka Connect's open(partitions) → put(records) lifecycle: start and await the channel
+    // before any insert. Without this, the first insert would short-circuit via the
+    // "channel doesn't exist" path in SnowflakeSinkServiceV2#insert and rewind the offsets, which
+    // these direct-call tests don't replay (no real Kafka consumer in the loop).
+    service.startPartition(topicPartition);
+    service.awaitInitialization();
   }
 
   @AfterEach
