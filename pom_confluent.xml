@@ -64,21 +64,21 @@
         <license.processing.targetDir>${project.build.directory}/../licenses</license.processing.targetDir>
 
         <kafka.version>3.9.1</kafka.version>
-        <awaitility.version>4.2.2</awaitility.version>
+        <awaitility.version>4.3.0</awaitility.version>
         <assertj-core.version>3.26.3</assertj-core.version>
         <confluent.version>7.9.2</confluent.version>
         <!--Compatible protobuf version https://github.com/confluentinc/common/blob/v7.7.0/pom.xml#L91 -->
         <protobuf.version>3.25.5</protobuf.version>
-        <guava.version>33.4.0-jre</guava.version>
+        <guava.version>33.6.0-jre</guava.version>
 
-        <jackson.version>2.18.2</jackson.version>
-        <commons-compress.version>1.27.1</commons-compress.version>
-        <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
-        <snowflake-jdbc.version>4.0.2</snowflake-jdbc.version>
+        <jackson.version>2.21.2</jackson.version>
+        <commons-compress.version>1.28.0</commons-compress.version>
+        <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
+        <snowflake-jdbc.version>4.2.0</snowflake-jdbc.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
         <parquet.version>1.14.4</parquet.version>
-        <commons-lang3.version>3.18.0</commons-lang3.version>
-        <auto-value.version>1.10.4</auto-value.version>
+        <commons-lang3.version>3.20.0</commons-lang3.version>
+        <auto-value.version>1.11.1</auto-value.version>
 
     </properties>
 
@@ -278,13 +278,14 @@
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
                     <skipTests>${skipUnitTests}</skipTests>
+                    <useModulePath>false</useModulePath>
                 </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.15.0</version>
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
@@ -298,7 +299,7 @@
 
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.4.2</version>
+                <version>3.8.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -324,7 +325,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.2.2</version>
+                <version>3.5.0</version>
                 <executions>
                     <execution>
                         <id>default-jar</id>
@@ -335,7 +336,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
-                <version>3.0.1</version>
+                <version>3.2.8</version>
                 <executions>
                     <execution>
                         <id>sign-artifacts</id>
@@ -362,7 +363,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.11.2</version>
+                <version>3.12.0</version>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
@@ -371,6 +372,8 @@
                         </goals>
                         <configuration>
                             <failOnError>false</failOnError>
+                            <failOnWarnings>false</failOnWarnings>
+                            <doclint>none</doclint>
                         </configuration>
                     </execution>
                 </executions>
@@ -396,7 +399,7 @@
             <!-- This dependency won't be present in the kafka connect runtime, hence we are packaging this in an uber jar -->
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-fips</artifactId>
-            <version>2.1.8</version>
+            <version>2.1.11</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
@@ -466,7 +469,7 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
-            <version>1.11.4</version>
+            <version>1.12.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>
@@ -574,13 +577,13 @@
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
-            <version>4.2.26</version>
+            <version>4.2.33</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-jmx -->
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-jmx</artifactId>
-            <version>4.2.3</version>
+            <version>4.2.33</version>
         </dependency>
 
         <dependency>
@@ -607,7 +610,7 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
-            <version>2.9.3</version>
+            <version>3.2.4</version>
         </dependency>
 
         <!-- https://github.com/failsafe-lib/failsafe-->
@@ -652,7 +655,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>2.20.1</version>
+            <version>5.23.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -780,14 +783,14 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>1.19.3</version>
+            <version>2.0.5</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.snowflake</groupId>
             <artifactId>snowpipe-streaming</artifactId>
-            <version>1.2.0</version>
+            <version>1.4.0</version>
         </dependency>
 
     </dependencies>
@@ -800,8 +803,9 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
-                        <version>2.22.2</version>
+                        <version>3.5.5</version>
                         <configuration>
+                            <useModulePath>false</useModulePath>
                             <includes>
                                 <include>**/*IT.java</include>
                             </includes>
@@ -830,8 +834,9 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
-                        <version>2.22.2</version>
+                        <version>3.5.5</version>
                         <configuration>
+                            <useModulePath>false</useModulePath>
                             <includes>
                                 <include>**/*IT.java</include>
                             </includes>
@@ -864,7 +869,7 @@
             <dependency>
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
-                <version>5.11.2</version>
+                <version>5.14.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
