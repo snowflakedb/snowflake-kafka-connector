@@ -162,19 +162,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     boolean dlqConfigured = dlqTopic != null && !dlqTopic.trim().isEmpty();
     boolean tolerateAll = "all".equalsIgnoreCase(errorsTolerance);
 
-    // Check for legacy KC v3 config and warn if present (schematization enabled via task config)
-    if (taskConfig.isEnableSchematization()) {
-      LOGGER.warn(
-          "Config 'snowflake.enable.schematization' is not supported in KC v4. "
-              + "Schema evolution is now handled server-side via table property "
-              + "'ENABLE_SCHEMA_EVOLUTION'. For pre-created tables, run: "
-              + "ALTER TABLE ... SET ENABLE_SCHEMA_EVOLUTION = TRUE");
-    } else {
-      LOGGER.info(
-          "Schematization is disabled — the connector wraps payloads into"
-              + " RECORD_CONTENT/RECORD_METADATA.");
-    }
-
     if (taskConfig.getValidation() != SnowflakeValidation.CLIENT_SIDE) {
       // Check each target table for ERROR_LOGGING.
       // Note: makes up to 3 network calls per table (tableExist + isIcebergTable +
