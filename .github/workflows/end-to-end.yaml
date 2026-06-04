@@ -2,15 +2,37 @@ name: Kafka Connector end-to-end tests
 
 on:
   push:
-    branches: [ master, release-4.0 ]
+    branches: [master, 'release-*']
   pull_request:
     branches: ['**']
   workflow_dispatch:
+    inputs:
+      run_functional:
+        description: 'functional tests'
+        type: boolean
+        default: true
+      run_fault_injection:
+        description: 'fault injection tests'
+        type: boolean
+        default: true
+      run_core_legacy:
+        description: 'core tests on legacy platforms'
+        type: boolean
+        default: true
+      run_stress:
+        description: 'stress tests'
+        type: boolean
+        default: true
 
 jobs:
-  build_and_test:
+  functional:
+    if: >
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_functional)
     runs-on: ubuntu-22.04
     name: >
+      functional
       ${{ matrix.platform }} ${{ matrix.platform_version }},
       ${{ matrix.java_test_version && format('Java {0},', matrix.java_test_version) || '' }}
       ${{ matrix.snowflake_cloud }}
@@ -77,3 +99,128 @@ jobs:
         java-version: ${{ matrix.java_test_version || '11' }}
         marker-filter: ${{ matrix.marker_filter }}
         test-group: ${{ matrix.test_group }}
+
+  fault_injection:
+    # Exercises error-recovery paths using mitmproxy to inject HTTP 410 responses.
+    if: >
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection)
+    runs-on: ubuntu-22.04
+    name: fault_injection
+    permissions:
+      packages: read
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Decrypt profile.json
+      run: ./.github/scripts/decrypt_secret.sh AWS
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: apache
+
+    - uses: ./.github/actions/run-e2e-tests
+      with:
+        platform: apache
+        platform-version: '3.9.2'
+        snowflake-cloud: AWS
+        with-mitmproxy: 'true'
+        marker-filter: 'fault_injection'
+        test-group: fault-injection
+
+  core_legacy:
+    # Runs the core e2e suite on older Kafka platform versions.
+    # Skipped on pull_requests to reduce concurrent load on the shared Snowflake test account.
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_core_legacy)
+    runs-on: ubuntu-22.04
+    name: >
+      core_legacy
+      ${{ matrix.platform }} ${{ matrix.platform_version }},
+      ${{ matrix.java_test_version && format('Java {0},', matrix.java_test_version) || '' }}
+      ${{ matrix.snowflake_cloud }}
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Compatibility, schema_evolution and correctness groups are intentionally
+          # skipped here — full coverage runs on the new platforms in the `functional` job.
+          - platform: apache
+            platform_version: '2.8.2'
+            snowflake_cloud: 'AWS'
+            java_test_version: '11'
+          - platform: apache
+            platform_version: '3.9.2'
+            snowflake_cloud: 'GCP'
+            java_test_version: '11'
+          - platform: confluent
+            platform_version: '6.2.15'
+            snowflake_cloud: 'AZURE'
+          - platform: confluent
+            platform_version: '7.9.3'
+            snowflake_cloud: 'AWS'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Decrypt profile.json in Snowflake Cloud ${{ matrix.snowflake_cloud }}
+      run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake_cloud }}
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: ${{ matrix.platform }}
+
+    - uses: ./.github/actions/run-e2e-tests
+      with:
+        platform: ${{ matrix.platform }}
+        platform-version: ${{ matrix.platform_version }}
+        snowflake-cloud: ${{ matrix.snowflake_cloud }}
+        java-version: ${{ matrix.java_test_version || '11' }}
+        marker-filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+        test-group: core
+
+  stress:
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_stress)
+    runs-on: ubuntu-22.04
+    name: >
+      stress
+      ${{ matrix.platform }} ${{ matrix.platform_version }},
+      ${{ matrix.snowflake_cloud }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: confluent
+            platform_version: '7.6.0'
+            snowflake_cloud: 'AWS'
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Decrypt profile.json in Snowflake Cloud ${{ matrix.snowflake_cloud }}
+      run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake_cloud }}
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: ${{ matrix.platform }}
+
+    - uses: ./.github/actions/run-e2e-tests
+      env:
+        # Less frequent preCommit than default E2E
+        CONNECT_OFFSET_FLUSH_INTERVAL_MS: '10000'
+      with:
+        platform: ${{ matrix.platform }}
+        platform-version: ${{ matrix.platform_version }}
+        snowflake-cloud: ${{ matrix.snowflake_cloud }}
+        pressure: 'true'
