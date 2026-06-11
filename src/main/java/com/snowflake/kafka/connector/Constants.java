@@ -38,6 +38,9 @@ public final class Constants {
     public static final String SNOWFLAKE_OPEN_CHANNEL_IO_THREADS =
         "snowflake.open.channel.io.threads";
     public static final int SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT = 50;
+    public static final String SNOWFLAKE_CONNECTOR_VERSION_CHECK_ENABLED =
+        "snowflake.connector.version.check.enabled";
+    public static final boolean SNOWFLAKE_CONNECTOR_VERSION_CHECK_ENABLED_DEFAULT = true;
 
     // Validation
     public static final String SNOWFLAKE_VALIDATION = "snowflake.validation";
