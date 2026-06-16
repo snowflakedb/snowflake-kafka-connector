@@ -279,29 +279,40 @@ else
 fi
 info "Credentials: $SNOWFLAKE_CREDENTIAL_FILE"
 
-# Check for connector plugin based on platform
-PLUGIN_DIR="/tmp/sf-kafka-connect-plugin"
+# Check for connector plugin based on platform.
+#
+# Both platforms read the build artifact directly from this worktree's Maven
+# output dir ("$PROJECT_ROOT/target"), and stage the cleaned plugin under that
+# same dir. Docker bind-mounts the whole staging dir as the plugin folder, so
+# it must contain only the connector (target/ itself has other Maven output).
+# Keeping it inside the gitignored target/ makes it naturally per-worktree
+# (no /tmp namespacing needed) and lets "mvn clean" reclaim it.
+TARGET_DIR="$PROJECT_ROOT/target"
+PLUGIN_DIR="$TARGET_DIR/e2e-plugin"
 rm -rf "$PLUGIN_DIR"
 mkdir -p "$PLUGIN_DIR"
 
 if [ "$PLATFORM" = "apache" ]; then
-    # Apache: Look for JAR in plugin path
-    PLUGIN_JAR_PATH="/usr/local/share/kafka/plugins"
-    PLUGIN_JAR=$(ls "$PLUGIN_JAR_PATH"/snowflake-kafka-connector-*.jar 2>/dev/null | head -n 1)
+    # Apache: the shaded runtime JAR lives in target/. Filter to the versioned
+    # connector jar (skip original-/sources/javadoc variants).
+    PLUGIN_JAR=$(ls "$TARGET_DIR"/snowflake-kafka-connector-*.jar 2>/dev/null \
+        | grep -E "snowflake-kafka-connector-[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?\.jar$" \
+        | head -n 1)
 
     if [ -z "$PLUGIN_JAR" ]; then
-        error_exit "Connector plugin JAR not found at $PLUGIN_JAR_PATH/. Run './build_runtime_jar.sh . package apache' first."
+        error_exit "Connector plugin JAR not found in $TARGET_DIR/. Run './build_runtime_jar.sh . package apache' first."
     fi
 
     info "Using Apache connector JAR: $PLUGIN_JAR"
     cp "$PLUGIN_JAR" "$PLUGIN_DIR/"
 
 elif [ "$PLATFORM" = "confluent" ]; then
-    # Confluent: Look for zip file
-    PLUGIN_ZIP="/tmp/sf-kafka-connect-plugin.zip"
+    # Confluent: the kafka-connect-maven-plugin writes the component zip under
+    # target/components/packages/ as snowflakeinc-snowflake-kafka-connector-*.zip.
+    PLUGIN_ZIP=$(ls "$TARGET_DIR"/components/packages/snowflakeinc-snowflake-kafka-connector-*.zip 2>/dev/null | head -n 1)
 
-    if [ ! -f "$PLUGIN_ZIP" ]; then
-        error_exit "Connector plugin zip not found at $PLUGIN_ZIP. Run './build_runtime_jar.sh . package confluent' first."
+    if [ -z "$PLUGIN_ZIP" ]; then
+        error_exit "Connector plugin zip not found in $TARGET_DIR/components/packages/. Run './build_runtime_jar.sh . package confluent' first."
     fi
 
     info "Extracting Confluent connector zip: $PLUGIN_ZIP"
