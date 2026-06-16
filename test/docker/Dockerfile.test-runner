@@ -34,7 +34,7 @@ RUN pip install --no-cache-dir \
     avro-python3 \
     kafka-python-ng \
     "snowflake-connector-python==4.2.0" \
-    pytest
+    "pytest==8.3.5"
 
 # Create app directory
 WORKDIR /app
