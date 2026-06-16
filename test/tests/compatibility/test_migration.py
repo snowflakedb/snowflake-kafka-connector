@@ -238,8 +238,13 @@ def test_migration_with_ingestion(
             f"but got {total_rows}"
         )
     else:
-        assert total_rows > expected, (
-            f"Expected duplicates (total > {expected}), but got {total_rows}"
+        # skip mode: v4 resumes from the Kafka consumer-group offset, which may
+        # lag behind the SSv1 committed offset and cause duplicates. Whether duplicates
+        # actually materialize is timing-dependent (offset.flush.interval.ms,
+        # task.shutdown.graceful.timeout.ms, producer rate at the moment of switchover);
+        # the contract of skip mode is "duplicates allowed, no gaps", not "duplicates required".
+        assert total_rows >= expected, (
+            f"Expected at least {expected} rows (duplicates allowed), but got {total_rows}"
         )
 
 
