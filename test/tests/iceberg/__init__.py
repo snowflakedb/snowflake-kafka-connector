@@ -1,5 +1,28 @@
 from lib.config_migration import V4_CONFIG_TEMPLATE
 
+# Structured RECORD_METADATA OBJECT schema for managed Iceberg, mirroring the
+# connector's IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA. Used to pre-create
+# v2 Iceberg tables, where a VARIANT metadata column is not allowed (VARIANT in
+# Iceberg requires format v3).
+ICEBERG_METADATA_OBJECT = (
+    "OBJECT(offset LONG, topic STRING, partition INTEGER, key STRING, "
+    "CreateTime BIGINT, SnowflakeConnectorPushTime BIGINT, headers MAP(VARCHAR, VARCHAR))"
+)
+
+
+def record_metadata_column(iceberg_version: int) -> str:
+    """RECORD_METADATA column DDL for a given Iceberg format version.
+
+    v3 can use VARIANT; v2 must use the structured OBJECT (VARIANT-in-Iceberg
+    requires v3). Using OBJECT on v2 also exercises the connector's strict
+    typed-OBJECT cast / metadata-conform path.
+    """
+    return (
+        "RECORD_METADATA VARIANT"
+        if iceberg_version == 3
+        else f"RECORD_METADATA {ICEBERG_METADATA_OBJECT}"
+    )
+
 
 def json_connector_config(
     topic: str,
