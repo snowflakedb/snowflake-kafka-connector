@@ -99,8 +99,12 @@ public class SnowflakeSinkTaskForStreamingIT {
     ConnectorConfigTools.setDefaultValues(config);
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
-    // Inits the sinktaskcontext
-    sinkTask.initialize(new InMemorySinkTaskContext(Collections.singleton(topicPartition)));
+    // Inits the sinktaskcontext. The task opens a second partition later in this test, so the
+    // assignment must include both partitions (Kafka Connect updates assignment() on open()).
+    sinkTask.initialize(
+        new InMemorySinkTaskContext(
+            new HashSet<>(
+                Arrays.asList(topicPartition, new TopicPartition(topicName, partition + 1)))));
 
     sinkTask.start(config);
     ArrayList<TopicPartition> topicPartitions = new ArrayList<>();

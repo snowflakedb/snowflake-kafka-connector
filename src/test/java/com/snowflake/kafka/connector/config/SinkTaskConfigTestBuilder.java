@@ -53,6 +53,7 @@ public final class SinkTaskConfigTestBuilder {
         .snowflakeDatabase("")
         .snowflakeSchema("")
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)
-        .ssv1MigrationIncludeConnectorName(false);
+        .ssv1MigrationIncludeConnectorName(false)
+        .assertPartitionAssignmentEnabled(true);
   }
 }

@@ -164,6 +164,136 @@ class SnowpipeStreamingPartitionChannelTest {
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
   }
 
+  /**
+   * Reproduces SNOW-3647384: an {@code openChannel} that is still in-flight when the partition is
+   * revoked completes <b>after</b> {@code PartitionChannelManager.close()} has already removed the
+   * partition's pending offset reset, and re-enqueues it.
+   *
+   * <p>Production ordering ({@code PartitionChannelManager.close}):
+   *
+   * <ol>
+   *   <li>{@code pendingOffsetResets.remove(tp)}
+   *   <li>{@code channel.closeChannelAsync().join()} — chains onto the still-pending open future
+   * </ol>
+   *
+   * <p>The open future's body unconditionally calls {@code offsetTracker.initializeFromSnowflake},
+   * which fires {@code onOffsetReset} → {@code pendingOffsetResets.put(tp, committedOffset + 1)} —
+   * re-adding the entry that {@code close()} just removed. That stale reset is later drained on the
+   * task thread and applied via {@code sinkTaskContext.offset()}, so {@code
+   * WorkerSinkTask.rewind()} seeks a partition the consumer no longer owns:
+   *
+   * <pre>java.lang.IllegalStateException: No current assignment for partition ...</pre>
+   *
+   * which Kafka Connect treats as unrecoverable and kills the task.
+   *
+   * <p>This test should <b>FAIL</b> on current code and <b>PASS</b> once the async open skips the
+   * offset reset for a cancelled/closed channel.
+   */
+  @Test
+  void inFlightOpenCompletingAfterCloseDoesNotReAddOffsetReset() throws Exception {
+    final TopicPartition tp = new TopicPartition(TOPIC_NAME, PARTITION);
+    final long committedOffset = 50L;
+
+    // Mirror PartitionChannelManager.pendingOffsetResets and the onOffsetReset wiring that
+    // PartitionChannelManager.buildChannel installs on each channel's PartitionOffsetTracker.
+    final ConcurrentHashMap<TopicPartition, Long> pendingOffsetResets = new ConcurrentHashMap<>();
+
+    // Hold the openChannel call so the channel stays "initializing" while we run close().
+    final CountDownLatch openGate = new CountDownLatch(1);
+    trackingClientSupplier.setBlockOnOpenChannel(openGate);
+
+    // openChannel reports a committed offset of 50 so init fires onOffsetReset(51).
+    final TrackingStreamingIngestClient committedOffsetClient =
+        new TrackingStreamingIngestClient(pipeName, trackingClientSupplier) {
+          @Override
+          public OpenChannelResult openChannel(String channelNameArg, String offsetToken) {
+            OpenChannelResult result =
+                super.openChannel(channelNameArg, offsetToken); // awaits gate
+            ChannelStatus status =
+                new ChannelStatus(
+                    "db",
+                    "schema",
+                    pipeName,
+                    channelNameArg,
+                    "SUCCESS",
+                    String.valueOf(committedOffset),
+                    Instant.now(),
+                    0,
+                    0,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    Instant.now());
+            return new OpenChannelResult(result.getChannel(), status);
+          }
+        };
+
+    final PartitionOffsetTracker offsetTracker =
+        new PartitionOffsetTracker(channelName, offset -> pendingOffsetResets.put(tp, offset));
+    final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
+        new SnowflakeTelemetryChannelStatus(
+            TABLE_NAME,
+            CONNECTOR_NAME,
+            channelName,
+            System.currentTimeMillis(),
+            Optional.empty(),
+            offsetTracker.persistedOffsetRef(),
+            offsetTracker.processedOffsetRef(),
+            offsetTracker.consumerGroupOffsetRef());
+    final SinkTaskConfig taskConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .enableSchematization(false)
+            .enableColumnIdentifierNormalization(true)
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .build();
+
+    final SnowpipeStreamingPartitionChannel partitionChannel =
+        new SnowpipeStreamingPartitionChannel(
+            TABLE_NAME,
+            channelName,
+            pipeName,
+            committedOffsetClient,
+            invalidClient -> {
+              throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+            },
+            openChannelIoExecutor,
+            mockTelemetryService,
+            telemetryChannelStatus,
+            offsetTracker,
+            taskConfig,
+            mockErrorHandler,
+            TaskMetrics.noop(),
+            false,
+            null,
+            Optional.empty());
+
+    assertTrue(
+        partitionChannel.isInitializing(), "Open should still be in-flight (blocked on gate)");
+
+    // Simulate PartitionChannelManager.close([tp]) for the just-revoked partition:
+    // (1) remove any pending reset for the revoked partition, then
+    // (2) close the channel (chains onto the still-in-flight open future).
+    pendingOffsetResets.remove(tp);
+    final CompletableFuture<Void> closeFuture = partitionChannel.closeChannelAsync();
+
+    // The in-flight open now completes -- AFTER close() already removed the pending reset.
+    openGate.countDown();
+    closeFuture.get(5, TimeUnit.SECONDS);
+
+    assertTrue(
+        pendingOffsetResets.isEmpty(),
+        "An openChannel that completes after the partition was revoked/closed must not re-enqueue"
+            + " an offset reset. A stale reset here is later drained on the task thread and applied"
+            + " via sinkTaskContext.offset(), causing WorkerSinkTask.rewind() to seek a partition"
+            + " the consumer no longer owns -> IllegalStateException: No current assignment for"
+            + " partition (task killed). Found stale reset: "
+            + pendingOffsetResets);
+  }
+
   @Test
   void reopenChannelRecoversAfterFailedAsyncInitialization() {
     // Make the first openChannel call (during async init) throw
