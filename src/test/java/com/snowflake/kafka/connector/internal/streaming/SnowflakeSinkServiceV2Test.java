@@ -54,9 +54,13 @@ class SnowflakeSinkServiceV2Test {
   @BeforeEach
   void setUp() {
     mockChannelManager = mock(PartitionChannelManager.class);
-    when(mockChannelManager.drainPendingOffsetResets()).thenReturn(Map.of());
+    when(mockChannelManager.drainPendingOffsetResets(any())).thenReturn(Map.of());
     mockBatchOffsetFetcher = mock(BatchOffsetFetcher.class);
     mockSinkTaskContext = mock(SinkTaskContext.class);
+    // insert() asserts that record partitions and rewinds are within the current assignment; the
+    // insert() tests below use partitions 0 and 1 of TOPIC.
+    when(mockSinkTaskContext.assignment())
+        .thenReturn(Set.of(new TopicPartition(TOPIC, 0), new TopicPartition(TOPIC, 1)));
 
     SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
     when(mockConn.isClosed()).thenReturn(false);
