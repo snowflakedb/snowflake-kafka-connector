@@ -154,6 +154,34 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
+def _parametrize_argnames(marker) -> List[str]:
+    """Argument names targeted by a @pytest.mark.parametrize marker."""
+    argnames = marker.args[0] if marker.args else ""
+    if isinstance(argnames, str):
+        return [name.strip() for name in argnames.split(",")]
+    return list(argnames)
+
+
+def pytest_generate_tests(metafunc):
+    """Default the connector_version fixture to the v4/v3 cross-product.
+
+    connector_version is a plain fixture (no ``params=``), so we supply the
+    default matrix here for every test that consumes it (directly or
+    transitively) without already parametrizing it. Tests that pin a subset via
+    ``@pytest.mark.parametrize("connector_version", [...], indirect=True)`` keep
+    their own values. Doing the default here rather than on the fixture avoids
+    pytest>=8's "duplicate parametrization" error when a test overrides it.
+    """
+    if "connector_version" not in metafunc.fixturenames:
+        return
+    already_parametrized = any(
+        "connector_version" in _parametrize_argnames(marker)
+        for marker in metafunc.definition.iter_markers("parametrize")
+    )
+    if not already_parametrized:
+        metafunc.parametrize("connector_version", ["v4", "v3"], indirect=True)
+
+
 @pytest.fixture()
 def create_connector_from_file(
     driver: KafkaDriver,  # noqa: F811

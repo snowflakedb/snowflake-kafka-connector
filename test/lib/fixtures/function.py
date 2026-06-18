@@ -1,12 +1,16 @@
 import pytest
 
 
-@pytest.fixture(params=["v4", "v3"])
+@pytest.fixture
 def connector_version(request):
     """The Snowflake Kafka Connector version under test.
 
-    Every test that (transitively) depends on this fixture is automatically run twice:
-    once for v4 and once for v3.
+    Plain fixture (no ``params=``): the default v4/v3 cross-product is supplied
+    by the ``pytest_generate_tests`` hook in conftest.py. Keeping the params out
+    of the fixture lets individual tests pin a subset via
+    ``@pytest.mark.parametrize("connector_version", [...], indirect=True)``
+    without tripping pytest>=8's "duplicate parametrization" error (a
+    fixture-level ``params=`` combined with a test-level indirect override).
     """
     return request.param
 
