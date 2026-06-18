@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.BeforeEach;
@@ -264,7 +265,7 @@ class PartitionChannelManagerTest {
 
   @Test
   void drainPendingOffsetResetsReturnsEmptyMapWhenNothingPending() {
-    assertTrue(manager.drainPendingOffsetResets().isEmpty());
+    assertTrue(manager.drainPendingOffsetResets(Set.of()).isEmpty());
   }
 
   @Test
@@ -275,10 +276,12 @@ class PartitionChannelManagerTest {
     manager.submitPendingOffsetReset(tp0, 51L);
     manager.submitPendingOffsetReset(tp1, 101L);
 
-    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets();
+    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets(Set.of(tp0, tp1));
 
     assertEquals(Map.of(tp0, 51L, tp1, 101L), drained);
-    assertTrue(manager.drainPendingOffsetResets().isEmpty(), "Second drain should be empty");
+    assertTrue(
+        manager.drainPendingOffsetResets(Set.of(tp0, tp1)).isEmpty(),
+        "Second drain should be empty");
   }
 
   @Test
@@ -288,10 +291,30 @@ class PartitionChannelManagerTest {
     manager.submitPendingOffsetReset(tp, 51L);
     manager.submitPendingOffsetReset(tp, 71L);
 
-    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets();
+    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets(Set.of(tp));
 
     assertEquals(71L, drained.get(tp), "Later recovery offset should win");
     assertEquals(1, drained.size());
+  }
+
+  @Test
+  void drainPendingOffsetResetsDropsResetsForUnassignedPartitions() {
+    TopicPartition assigned = new TopicPartition(TOPIC, 0);
+    TopicPartition revoked = new TopicPartition(TOPIC, 1);
+
+    manager.submitPendingOffsetReset(assigned, 51L);
+    manager.submitPendingOffsetReset(revoked, 101L);
+
+    // The revoked partition is no longer in the task's assignment (a rebalance revoked it after the
+    // reset was enqueued). Its stale reset must be dropped, not returned -- rewinding it would seek
+    // a partition the consumer no longer owns -> IllegalStateException: No current assignment for
+    // partition (SNOW-3647384).
+    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets(Set.of(assigned));
+
+    assertEquals(Map.of(assigned, 51L), drained);
+    assertTrue(
+        manager.drainPendingOffsetResets(Set.of(assigned, revoked)).isEmpty(),
+        "Dropped reset must be removed from the pending map, not left for a later drain");
   }
 
   @Test
@@ -305,7 +328,7 @@ class PartitionChannelManagerTest {
 
     manager.close(Collections.singletonList(tp0));
 
-    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets();
+    Map<TopicPartition, Long> drained = manager.drainPendingOffsetResets(Set.of(tp0, tp1));
     assertFalse(drained.containsKey(tp0), "Closed partition should not appear in drain");
     assertEquals(101L, drained.get(tp1));
   }

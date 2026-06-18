@@ -224,10 +224,12 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
     Map<String, TopicPartitionChannel> channelMap = new ConcurrentHashMap<>();
     channelMap.put(channelName, realChannel);
     when(mockChannelManager.getPartitionChannels()).thenReturn(channelMap);
-    // Wire drainPendingOffsetResets to drain the real map (mirrors PartitionChannelManager)
-    when(mockChannelManager.drainPendingOffsetResets())
+    // Wire drainPendingOffsetResets to drain the real map (mirrors PartitionChannelManager):
+    // returns resets for assigned partitions and drops the rest.
+    when(mockChannelManager.drainPendingOffsetResets(any()))
         .thenAnswer(
             invocation -> {
+              Set<TopicPartition> assignment = invocation.getArgument(0);
               if (pendingOffsetResets.isEmpty()) {
                 return Map.of();
               }
@@ -237,7 +239,7 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
                   .forEach(
                       key -> {
                         Long offset = pendingOffsetResets.remove(key);
-                        if (offset != null) {
+                        if (offset != null && assignment.contains(key)) {
                           drained.put(key, offset);
                         }
                       });
