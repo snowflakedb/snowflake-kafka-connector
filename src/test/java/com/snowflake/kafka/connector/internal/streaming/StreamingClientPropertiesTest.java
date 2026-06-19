@@ -67,7 +67,9 @@ public class StreamingClientPropertiesTest {
     assertThat(clientProps.getProperty("host"))
         .isEqualTo("testaccount.us-east-1.snowflakecomputing.com");
     assertThat(clientProps.getProperty("private_key")).isEqualTo(privateKeyPem);
-    assertThat(clientProps).hasSize(5);
+    assertThat(clientProps.getProperty("application"))
+        .isEqualTo("SnowflakeKafkaConnector/" + Utils.VERSION);
+    assertThat(clientProps).hasSize(6);
 
     // verify client name prefix and empty parameter overrides
     assertThat(result.clientNamePrefix).isEqualTo(STREAMING_CLIENT_V2_PREFIX_NAME + "testName");
@@ -141,6 +143,7 @@ public class StreamingClientPropertiesTest {
     expectedProps.put("role", "testRole");
     expectedProps.put("account", parsedUrl.getAccount());
     expectedProps.put("host", parsedUrl.getUrlWithoutPort());
+    expectedProps.put("application", "SnowflakeKafkaConnector/" + Utils.VERSION);
     String privateKeyStr = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
     if (privateKeyStr != null) {
       String passphrase =
