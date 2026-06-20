@@ -4,6 +4,7 @@ import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.ChannelStatusBatch;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestElasticChannel;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -132,6 +133,11 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
   @Override
   public String getClientName() {
     return clientName;
+  }
+
+  @Override
+  public SnowflakeStreamingIngestElasticChannel getElasticChannel() {
+    throw new UnsupportedOperationException();
   }
 
   public List<FakeSnowflakeStreamingIngestChannel> getOpenedChannels() {

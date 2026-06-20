@@ -26,6 +26,20 @@ if [[ -z "${BUILD_METHOD}" ]]; then
     BUILD_METHOD="verify"
 fi
 
+# Optional override for the snowpipe-streaming SDK version. Used by the
+# mitmproxy fault-injection job to pin to a version compatible with its
+# http:// reverse proxy. Empty -> POM default applies. When set, we also
+# skip test compilation because the test sources track the SDK API surface
+# of the default (latest) version.
+SDK_OVERRIDE_OPTS=()
+if [[ -n "${SNOWPIPE_STREAMING_VERSION_OVERRIDE}" ]]; then
+    SDK_OVERRIDE_OPTS=(
+      "-Dsnowpipe-streaming.version=${SNOWPIPE_STREAMING_VERSION_OVERRIDE}"
+      "-Dmaven.test.skip=true"
+    )
+    echo "=== Overriding snowpipe-streaming SDK version to ${SNOWPIPE_STREAMING_VERSION_OVERRIDE} ==="
+fi
+
 if [[ $BUILD_FOR_RUNTIME == "confluent" ]]; then
     POM_FILE_NAME="pom_confluent.xml"
 else
@@ -89,10 +103,10 @@ case $BUILD_METHOD in
 	  # skip Iceberg tests outside of AWS
 	  if [[ $BUILD_FOR_CLOUD == "AWS" ]]; then
 	    echo "Running integration tests against AWS cloud"
-	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 -P aws
+	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 "${SDK_OVERRIDE_OPTS[@]}" -P aws
 	  else
 	    echo "Running integration tests against non-AWS cloud"
-	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 -P non-aws
+	    mvn -f $POM_FILE_NAME verify -Dgpg.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 "${SDK_OVERRIDE_OPTS[@]}" -P non-aws
 	  fi
 		;;
 	package)
@@ -100,7 +114,7 @@ case $BUILD_METHOD in
 	  mvn -f $POM_FILE_NAME clean
 	  # mvn package with pom_confluent runs the kafka-connect-maven-plugin which creates a zip file
 	  # More information: https://docs.confluent.io/platform/current/connect/kafka-connect-maven-plugin/site/plugin-info.html
-    mvn -f $POM_FILE_NAME package -Dgpg.skip=true -DskipTests -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+    mvn -f $POM_FILE_NAME package -Dgpg.skip=true -DskipTests -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 "${SDK_OVERRIDE_OPTS[@]}"
 		;;
 	none)
 		echo -e "\n=== skip building, please make sure built connector exist ==="
