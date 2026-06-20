@@ -5,30 +5,38 @@ on:
     branches: [master, 'release-*']
   pull_request:
     branches: ['**']
+  schedule:
+    # Nightly run with all jobs, including the soak test.
+    - cron: '0 20 * * *'
   workflow_dispatch:
     inputs:
       run_functional:
         description: 'functional tests'
         type: boolean
-        default: true
+        default: false
       run_fault_injection:
         description: 'fault injection tests'
         type: boolean
-        default: true
+        default: false
       run_core_legacy:
         description: 'core tests on legacy platforms'
         type: boolean
-        default: true
+        default: false
       run_stress:
         description: 'stress tests'
         type: boolean
-        default: true
+        default: false
+      run_soak_with_chaos:
+        description: 'soak + chaos tests'
+        type: boolean
+        default: false
 
 jobs:
   functional:
     if: >
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_functional)
     runs-on: ubuntu-22.04
     name: >
@@ -61,7 +69,7 @@ jobs:
             snowflake_cloud: 'AWS'
             java_test_version: '17'
             test_group: core
-            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
 
           - platform: confluent
             platform_version: '8.2.0'
@@ -77,7 +85,7 @@ jobs:
             platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
             test_group: core
-            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
 
     steps:
     - uses: actions/checkout@v4
@@ -105,6 +113,7 @@ jobs:
     if: >
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection)
     runs-on: ubuntu-22.04
     name: fault_injection
@@ -141,6 +150,7 @@ jobs:
     # Skipped on pull_requests to reduce concurrent load on the shared Snowflake test account.
     if: >
       github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_core_legacy)
     runs-on: ubuntu-22.04
     name: >
@@ -189,12 +199,13 @@ jobs:
         platform-version: ${{ matrix.platform_version }}
         snowflake-cloud: ${{ matrix.snowflake_cloud }}
         java-version: ${{ matrix.java_test_version || '11' }}
-        marker-filter: 'not compatibility and not schema_evolution and not correctness and not pressure'
+        marker-filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
         test-group: core
 
   stress:
     if: >
       github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_stress)
     runs-on: ubuntu-22.04
     name: >
@@ -229,3 +240,35 @@ jobs:
         platform-version: ${{ matrix.platform_version }}
         snowflake-cloud: ${{ matrix.snowflake_cloud }}
         pressure: 'true'
+
+  soak_with_chaos:
+    if: >
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_soak_with_chaos)
+    runs-on: ubuntu-22.04
+    name: soak with chaos
+    timeout-minutes: 600
+    steps:
+    - uses: actions/checkout@v4
+
+    # SYSTEM$STREAMING_CHANNEL_INVALIDATE is not enabled on the AWS CI
+    # profile (every test_channel_invalidation case is skipped there on
+    # master). The AZURE profile has it, so we point the soak there to
+    # actually exercise the recovery path the test is built around.
+    - name: Decrypt profile.json
+      run: ./.github/scripts/decrypt_secret.sh AZURE
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: confluent
+
+    - uses: ./.github/actions/run-e2e-tests
+      with:
+        platform: confluent
+        platform-version: '7.8.0'
+        snowflake-cloud: AZURE
+        marker-filter: 'soak'
+        test-group: soak
+        jmx: 'true'
