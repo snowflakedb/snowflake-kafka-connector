@@ -22,6 +22,18 @@ if [ -n "${CONNECT_OFFSET_FLUSH_INTERVAL_MS:-}" ]; then
     "$CONNECT_DISTRIBUTED_CONFIG"
 fi
 
+# CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS, when set, overrides task.shutdown.graceful.timeout.ms in connect-distributed.properties.
+# The stock file does not include this key, so substitute if present, otherwise append.
+if [ -n "${CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS:-}" ]; then
+  echo "Setting task.shutdown.graceful.timeout.ms=${CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS} in connect-distributed.properties"
+  if grep -q "^task\\.shutdown\\.graceful\\.timeout\\.ms=" "$CONNECT_DISTRIBUTED_CONFIG"; then
+    sed -i "s/^task\\.shutdown\\.graceful\\.timeout\\.ms=.*/task.shutdown.graceful.timeout.ms=${CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS}/" \
+      "$CONNECT_DISTRIBUTED_CONFIG"
+  else
+    echo "task.shutdown.graceful.timeout.ms=${CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS}" >> "$CONNECT_DISTRIBUTED_CONFIG"
+  fi
+fi
+
 if [ "${KRAFT_MODE:-false}" = "true" ]; then
     #######################################################################
     # KRaft mode (Kafka 4.x+)

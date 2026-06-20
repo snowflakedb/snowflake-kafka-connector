@@ -58,6 +58,11 @@ services:
       CONNECT_STATUS_STORAGE_TOPIC: connect-status
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_FLUSH_INTERVAL_MS: ${CONNECT_OFFSET_FLUSH_INTERVAL_MS:-1000}
+      # Worker-level setting (connect-distributed.properties), NOT a connector config.
+      # Caps how long the framework waits for a SinkTask's final preCommit on shutdown.
+      # File-based Snowpipe v3 can block in ingestFiles for ~1 minute; the default 5s
+      # strands the bumped offset and causes duplicates on v3 -> v4 migration (SNOW-3608128).
+      CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS: ${CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS:-300000}
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
