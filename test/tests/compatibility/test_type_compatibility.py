@@ -24,6 +24,7 @@ Reference: https://docs.snowflake.com/en/sql-reference/intro-summary-data-types
 import datetime
 import json
 import logging
+from decimal import Decimal
 from enum import Enum
 
 import pytest
@@ -57,6 +58,7 @@ COLUMNS = {
     "TEST_CASE": "VARCHAR",
     "COL_NUMBER": "NUMBER",
     "COL_NUMSCALE": "NUMBER(10,2)",
+    "COL_NUM3820": "NUMBER(38,20)",
     "COL_FLOAT": "FLOAT",
     "COL_VARCHAR": "VARCHAR",
     "COL_VARCHAR10": "VARCHAR(10)",
@@ -104,6 +106,36 @@ CASES = [
     Case("nsc_zero", "COL_NUMSCALE", 0.0, OK, approx=0.01),
     Case("nsc_max", "COL_NUMSCALE", 99999.99, OK, approx=0.01),
     Case("nsc_bad_text", "COL_NUMSCALE", "text", ERR),
+    # NUMBER(10,2) permits 10 - 2 = 8 integer digits; 11 integer digits overflows.
+    Case("nsc_overflow", "COL_NUMSCALE", "12345678901", ERR),
+    # ---- NUMBER(38,20) — precision/scale overflow (SNOW-3675649) ----
+    # Values are sent as strings to mirror Debezium decimal.handling.mode=string.
+    # NUMBER(38,20) permits 38 - 20 = 18 integer digits.
+    # In range: 17 integer digits + 2 fractional → ingested on all modes.
+    Case(
+        "num3820_inrange",
+        "COL_NUM3820",
+        "99999999999999999.99",
+        OK,
+        expected_value=Decimal("99999999999999999.99"),
+    ),
+    # Overflow: 30 integer digits (the exact value from the ticket) cannot fit
+    # 18 integer digits → rejected. v3 (SSv1) rejects during client-side
+    # serialization; v4-compat must match via RowValidator's range check;
+    # v4-ht relies on the server, which rejects with error 100071.
+    Case(
+        "num3820_overflow",
+        "COL_NUM3820",
+        "999999999999999999999999999999.999999999",
+        ERR,
+    ),
+    # Sign must not matter — a large negative value overflows identically.
+    Case(
+        "num3820_neg_overflow",
+        "COL_NUM3820",
+        "-999999999999999999999999999999.999999999",
+        ERR,
+    ),
     # ---- FLOAT ----
     Case("flt_pi", "COL_FLOAT", 3.14, OK),
     Case("flt_neg", "COL_FLOAT", -1.5, OK),
@@ -480,6 +512,20 @@ def test_number_with_scale(results):
     _assert_all(
         results, cases_where(col="COL_NUMSCALE", exclude_groups=_SPECIAL_GROUPS)
     )
+
+
+def test_number_high_precision_overflow(results):
+    """NUMBER(38,20): integer part exceeding (precision - scale)=18 digits → DLQ/dropped.
+
+    SNOW-3675649: a Debezium decimal.handling.mode=string value with 30 integer
+    digits overflows NUMBER(38,20).  v3 (SSv1) rejects it during client-side
+    serialization and routes it to the DLQ.  v4-compat must match — previously
+    it passed client-side validation and was rejected only server-side ("Failed
+    to cast variant value", error 100071), silently dropping the record.  v4-ht
+    has no client-side range check and relies on the server, which also rejects.
+    An in-range value (≤18 integer digits) ingests on all modes.
+    """
+    _assert_all(results, cases_where(col="COL_NUM3820", exclude_groups=_SPECIAL_GROUPS))
 
 
 def test_float(results):

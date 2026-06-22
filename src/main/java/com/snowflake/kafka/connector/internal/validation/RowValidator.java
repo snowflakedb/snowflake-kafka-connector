@@ -10,6 +10,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Collections;
@@ -162,10 +163,21 @@ public class RowValidator {
             : Boolean.FALSE;
 
       case FIXED:
-        // Note: DataValidationUtil.validateAndParseBigDecimal doesn't check precision/scale
-        // It just parses the value. Precision/scale checking would need to be done separately
-        // if needed, but SSv1 didn't enforce it at validation time either.
-        DataValidationUtil.validateAndParseBigDecimal(col.getName(), value, insertRowIndex);
+        // DataValidationUtil.validateAndParseBigDecimal doesn't check precision/scale
+        // It just parses the value.
+        BigDecimal parsedNumber =
+            DataValidationUtil.validateAndParseBigDecimal(col.getName(), value, insertRowIndex);
+        // SSv1 enforced this during Parquet/SB16 serialization.
+        // We must range-check the value here.
+        int columnScale = col.getScale() != null ? col.getScale() : 0;
+        int columnPrecision = col.getPrecision() != null ? col.getPrecision() : 38;
+        // Round excess fractional digits to the column scale first, mirroring the server: it rounds
+        // the fraction and only errors when the *rounded* integer part exceeds (precision - scale)
+        // digits. The original value is still passed to the SDK unchanged; this scaled copy is used
+        // only for the range check.
+        BigDecimal scaledNumber = parsedNumber.setScale(columnScale, RoundingMode.HALF_UP);
+        DataValidationUtil.checkValueInRange(
+            col.getName(), scaledNumber, columnScale, columnPrecision, insertRowIndex);
         break;
 
       case REAL:
