@@ -52,6 +52,7 @@ public class StreamingClientPropertiesTest {
     expectedProps.put(StreamingIngestClientConfigParams.ACCOUNT_URL, "testUrl");
     expectedProps.put(StreamingIngestClientConfigParams.ROLE, "testRole");
     expectedProps.put(StreamingIngestClientConfigParams.USER, "testUser");
+    expectedProps.put("application", "SnowflakeKafkaConnector/" + Utils.VERSION);
     String privateKey = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
     if (privateKey != null) {
       expectedProps.put(StreamingIngestClientConfigParams.PRIVATE_KEY, privateKey);
@@ -127,6 +128,7 @@ public class StreamingClientPropertiesTest {
     expectedProps.put(StreamingIngestClientConfigParams.ACCOUNT_URL, "testUrl");
     expectedProps.put(StreamingIngestClientConfigParams.ROLE, "testRole");
     expectedProps.put(StreamingIngestClientConfigParams.USER, "testUser");
+    expectedProps.put("application", "SnowflakeKafkaConnector/" + Utils.VERSION);
     String privateKey = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
     if (privateKey != null) {
       expectedProps.put(StreamingIngestClientConfigParams.PRIVATE_KEY, privateKey);
