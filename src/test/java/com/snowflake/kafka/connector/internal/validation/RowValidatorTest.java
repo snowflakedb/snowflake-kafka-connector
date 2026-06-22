@@ -260,6 +260,203 @@ public class RowValidatorTest {
   }
 
   @Test
+  public void testValidateRowNumberOverflowRejected() {
+    // SNOW-3675649: a value whose integer part exceeds the column's (precision - scale) digits must
+    // be rejected client-side. Previously it passed validation and failed server-side ("Failed to
+    // cast variant value", error 100071), silently dropping the record.
+    // NUMBER(38,20) allows 38 - 20 = 18 integer digits; this value has 30.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "999999999999999999999999999999.999999999");
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+    assertEquals("COL1", result.getColumnName());
+    assertNotNull(result.getValueError());
+  }
+
+  @Test
+  public void testValidateRowNumberWithinRangeAccepted() {
+    // A value that fits within NUMBER(38,20) (18 integer digits, 9 fractional) must pass.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "123456789012345678.123456789");
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+  }
+
+  @Test
+  public void testValidateRowNumberRoundsUpToOverflow() {
+    // Mirror the server: excess fractional digits are rounded to the column scale before the range
+    // check. NUMBER(2,1) allows 1 integer digit; 9.96 rounds (HALF_UP) to 10.0, which overflows.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 2, 1, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "9.96");
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+    assertEquals("COL1", result.getColumnName());
+  }
+
+  @Test
+  public void testValidateRowNumberExcessFractionalDigitsAccepted() {
+    // Excess fractional digits alone (without integer overflow) are rounded by the server, not
+    // rejected. NUMBER(38,2) with extra fractional precision must pass client-side validation.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 2, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "123.456789");
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+  }
+
+  @Test
+  public void testValidateRowNumberNegativeOverflowRejected() {
+    // Sign must not matter: a large-magnitude negative value also overflows.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "-999999999999999999999999999999.999999999");
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+  }
+
+  @Test
+  public void testValidateRowNumberScientificNotationOverflowRejected() {
+    // Scientific notation must be range-checked after parsing: 1E30 overflows NUMBER(38,20).
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "1E30");
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+  }
+
+  @Test
+  public void testValidateRowNumberNativeLongOverflowRejected() {
+    // The range check must apply to native numeric inputs too, not just strings. Long.MAX_VALUE
+    // (19 digits) overflows NUMBER(38,20), which permits 18 integer digits.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", Long.MAX_VALUE); // 9223372036854775807 — 19 digits
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+  }
+
+  @Test
+  public void testValidateRowNumberBoundaryMaxAccepted() {
+    // NUMBER(5,0) permits magnitudes < 10^5. 99999 is the largest in-range value.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 5, 0, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "99999");
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+  }
+
+  @Test
+  public void testValidateRowNumberBoundaryOverflowRejected() {
+    // NUMBER(5,0): 100000 (= 10^5) is the smallest value that overflows.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 5, 0, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "100000");
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+  }
+
+  @Test
+  public void testValidateRowNumberFullPrecisionAccepted() {
+    // Guard against over-rejection: the full 38-digit precision (38 nines) fits NUMBER(38,0).
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "99999999999999999999999999999999999999"); // 38 nines
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+  }
+
+  @Test
+  public void testValidateRowVarcharExceedsLengthRejected() {
+    // Parallel server-constraint check: a plain string longer than VARCHAR(N) must be rejected
+    // client-side, not silently truncated/dropped server-side.
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 5));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "abcdef"); // 6 characters, exceeds VARCHAR(5)
+
+    ValidationResult result = validator.validateRow(row);
+    assertFalse(result.isValid());
+    assertTrue(result.hasTypeError());
+  }
+
+  @Test
+  public void testValidateRowVarcharExactLengthAccepted() {
+    // A string exactly at the VARCHAR(N) limit must be accepted (boundary guard).
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 5));
+
+    RowValidator validator = new RowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("COL1", "abcde"); // exactly 5 characters
+
+    ValidationResult result = validator.validateRow(row);
+    assertTrue(result.isValid());
+  }
+
+  @Test
   public void testValidateRowMatchingColumnName() {
     // Column names are expected to be already normalized by the caller (SnowflakeSinkRecord).
     // RowValidator just does direct comparison against raw column names.
