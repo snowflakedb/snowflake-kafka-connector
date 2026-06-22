@@ -481,6 +481,52 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseBigDecimal("COL", new byte[4], 0));
   }
 
+  /**
+   * Range check for NUMBER(precision, scale): a value is rejected when its magnitude is >=
+   * 10^(precision - scale).
+   */
+  @Test
+  public void testCheckValueInRange() {
+    // NUMBER(3,0): comparand = 10^3 = 1000 (POWER_10 table branch).
+    DataValidationUtil.checkValueInRange("COL", new BigDecimal("999"), 0, 3, 0);
+    DataValidationUtil.checkValueInRange("COL", new BigDecimal("-999"), 0, 3, 0);
+    expectError(
+        ErrorCode.INVALID_FORMAT_ROW,
+        () -> DataValidationUtil.checkValueInRange("COL", new BigDecimal("1000"), 0, 3, 0));
+    expectError(
+        ErrorCode.INVALID_FORMAT_ROW,
+        () -> DataValidationUtil.checkValueInRange("COL", new BigDecimal("-1000"), 0, 3, 0));
+
+    // NUMBER(5,2): integer part limited to 10^(5-2)=10^3 (POWER_10 table branch).
+    DataValidationUtil.checkValueInRange("COL", new BigDecimal("999.99"), 2, 5, 0);
+    expectError(
+        ErrorCode.INVALID_FORMAT_ROW,
+        () -> DataValidationUtil.checkValueInRange("COL", new BigDecimal("1000.00"), 2, 5, 0));
+
+    // precision == scale: comparand = 10^0 = 1, so abs must be strictly < 1.
+    DataValidationUtil.checkValueInRange("COL", new BigDecimal("0.5"), 10, 10, 0);
+    expectError(
+        ErrorCode.INVALID_FORMAT_ROW,
+        () -> DataValidationUtil.checkValueInRange("COL", new BigDecimal("1"), 10, 10, 0));
+
+    // NUMBER(38,20): comparand = 10^18 (BigDecimal.TEN.pow fallback, beyond the cached table).
+    // 18 nines (10^18 - 1) is in range; 10^18 overflows.
+    DataValidationUtil.checkValueInRange("COL", new BigDecimal("999999999999999999"), 20, 38, 0);
+    expectError(
+        ErrorCode.INVALID_FORMAT_ROW,
+        () ->
+            DataValidationUtil.checkValueInRange(
+                "COL", new BigDecimal("1000000000000000000"), 20, 38, 0));
+
+    // NUMBER(38,0): the full 38-digit precision (38 nines) is in range — guards against
+    // over-rejection of legitimately large values.
+    DataValidationUtil.checkValueInRange(
+        "COL", new BigDecimal("99999999999999999999999999999999999999"), 0, 38, 0);
+    expectError(
+        ErrorCode.INVALID_FORMAT_ROW,
+        () -> DataValidationUtil.checkValueInRange("COL", BigDecimal.TEN.pow(38), 0, 38, 0));
+  }
+
   @Test
   public void testValidateAndParseString() {
     assertEquals("honk", validateAndParseString("COL", "honk", Optional.empty(), 0));
