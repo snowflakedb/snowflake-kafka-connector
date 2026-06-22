@@ -80,6 +80,16 @@
         <commons-lang3.version>3.20.0</commons-lang3.version>
         <auto-value.version>1.11.1</auto-value.version>
 
+        <!--
+            Default to the latest released SDK. Overridden to 1.4.0 only by the
+            mitmproxy fault-injection E2E test (test_client_recreation.py) which
+            cannot run against 1.5.0+ — those versions enforce
+            reqwest::ClientBuilder::https_only(true) and reject the test's
+            http://mitmproxy:8080 destination at the request-builder layer.
+            Tracking ticket: SNOW-3683451.
+        -->
+        <snowpipe-streaming.version>1.6.0</snowpipe-streaming.version>
+
     </properties>
 
 
@@ -790,7 +800,7 @@
         <dependency>
             <groupId>com.snowflake</groupId>
             <artifactId>snowpipe-streaming</artifactId>
-            <version>1.4.0</version>
+            <version>${snowpipe-streaming.version}</version>
         </dependency>
 
     </dependencies>

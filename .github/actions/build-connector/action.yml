@@ -5,6 +5,16 @@ inputs:
   platform:
     description: "Target platform: 'apache' or 'confluent'"
     required: true
+  snowpipe-streaming-version:
+    description: >
+      Optional override for the snowpipe-streaming SDK version. Leave empty
+      to use the POM default. Set to a specific version (e.g. '1.4.0') only
+      for jobs that require an older SDK — currently the mitmproxy
+      fault-injection job, which depends on plain-HTTP requests being
+      allowed by the SDK. Setting this also skips test compilation because
+      test sources track the SDK API surface of the default version.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -33,3 +43,4 @@ runs:
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "../profile.json"
         PLATFORM: ${{ inputs.platform }}
+        SNOWPIPE_STREAMING_VERSION_OVERRIDE: ${{ inputs.snowpipe-streaming-version }}

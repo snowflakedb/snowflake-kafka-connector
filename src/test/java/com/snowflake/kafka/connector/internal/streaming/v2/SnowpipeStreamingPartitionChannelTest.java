@@ -21,6 +21,7 @@ import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestElasticChannel;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
@@ -1212,6 +1213,11 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public String getClientName() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SnowflakeStreamingIngestElasticChannel getElasticChannel() {
       throw new UnsupportedOperationException();
     }
   }
