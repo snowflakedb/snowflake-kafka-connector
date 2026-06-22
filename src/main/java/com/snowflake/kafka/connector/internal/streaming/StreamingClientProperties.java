@@ -35,6 +35,12 @@ public class StreamingClientProperties {
   public static final String STREAMING_CLIENT_PREFIX_NAME = "KC_CLIENT_";
   public static final String DEFAULT_CLIENT_NAME = "DEFAULT_CLIENT";
 
+  /**
+   * Identifier sent to the SSv2 SDK via the {@code application} property. The SDK appends it to the
+   * outbound User-Agent as {@code (app=<value>)} for connector version attribution.
+   */
+  public static final String APPLICATION_NAME = "SnowflakeKafkaConnector/" + Utils.VERSION;
+
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
   public final Properties clientProperties;
   public final String clientName;
@@ -64,6 +70,7 @@ public class StreamingClientProperties {
       clientProperties.put(
           StreamingIngestClientConfigParams.PRIVATE_KEY, config.getSnowflakePrivateKey());
     }
+    clientProperties.put("application", APPLICATION_NAME);
 
     String clientName =
         STREAMING_CLIENT_PREFIX_NAME
