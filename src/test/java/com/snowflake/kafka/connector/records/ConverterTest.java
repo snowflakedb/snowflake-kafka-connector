@@ -111,11 +111,50 @@ class ConverterTest {
     headers.addInt("intHeader", 42);
     headers.addBoolean("boolHeader", true);
 
-    Map<String, String> result = KafkaRecordConverter.convertHeaders(headers);
+    Map<String, Object> result = KafkaRecordConverter.convertHeaders(headers, true);
+
+    assertEquals("value", result.get("stringHeader"));
+    assertEquals(42, result.get("intHeader"));
+    assertEquals(true, result.get("boolHeader"));
+  }
+
+  @Test
+  void testConvertHeaders_LegacyStringFlattening() {
+    org.apache.kafka.connect.header.Headers headers =
+        new org.apache.kafka.connect.header.ConnectHeaders();
+    headers.addString("stringHeader", "value");
+    headers.addInt("intHeader", 42);
+    headers.addBoolean("boolHeader", true);
+
+    Map<String, Object> result = KafkaRecordConverter.convertHeaders(headers, false);
 
     assertEquals("value", result.get("stringHeader"));
     assertEquals("42", result.get("intHeader"));
     assertEquals("true", result.get("boolHeader"));
+  }
+
+  @Test
+  void testConvertHeaders_StructuredObjectHeader() {
+    // A header converter (e.g. JsonConverter) can produce a structured Map value. With structured
+    // headers enabled, that Map is preserved (lands as a VARIANT object), not flattened to a
+    // string.
+    Schema objectSchema =
+        SchemaBuilder.struct()
+            .field("key1", Schema.STRING_SCHEMA)
+            .field("key2", Schema.INT32_SCHEMA)
+            .build();
+    Struct objectValue = new Struct(objectSchema).put("key1", "value1").put("key2", 7);
+
+    ConnectHeaders headers = new ConnectHeaders();
+    headers.add("objectHeader", objectValue, objectSchema);
+
+    Map<String, Object> result = KafkaRecordConverter.convertHeaders(headers, true);
+
+    assertInstanceOf(Map.class, result.get("objectHeader"));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> objectHeader = (Map<String, Object>) result.get("objectHeader");
+    assertEquals("value1", objectHeader.get("key1"));
+    assertEquals(7, objectHeader.get("key2"));
   }
 
   @Test
@@ -150,12 +189,12 @@ class ConverterTest {
     ConnectHeaders headers = new ConnectHeaders();
     headers.add("h1", schemaAndValue);
 
-    Map<String, String> result = KafkaRecordConverter.convertHeaders(headers);
+    Map<String, Object> result = KafkaRecordConverter.convertHeaders(headers, true);
 
     // The header value should contain the JSON structure as a string
     assertNotNull(result.get("h1"));
-    assertTrue(result.get("h1").contains("f1"));
-    assertTrue(result.get("h1").contains("f2"));
+    assertTrue(String.valueOf(result.get("h1")).contains("f1"));
+    assertTrue(String.valueOf(result.get("h1")).contains("f2"));
   }
 
   @Test
@@ -168,11 +207,11 @@ class ConverterTest {
     headers.add("timestampHeader", timestampValue, Timestamp.SCHEMA);
     headers.add("boolHeader", true, Schema.BOOLEAN_SCHEMA);
 
-    Map<String, String> result = KafkaRecordConverter.convertHeaders(headers);
+    Map<String, Object> result = KafkaRecordConverter.convertHeaders(headers, true);
 
     // Timestamp is formatted as ISO-8601 with millisecond precision via ISO_DATE_TIME_FORMAT
     assertEquals("1970-03-22T00:00:00.000Z", result.get("timestampHeader"));
-    assertEquals("true", result.get("boolHeader"));
+    assertEquals(true, result.get("boolHeader"));
   }
 
   @Test
@@ -184,7 +223,7 @@ class ConverterTest {
 
     headers.add("dateHeader", dateValue, Date.SCHEMA);
 
-    Map<String, String> result = KafkaRecordConverter.convertHeaders(headers);
+    Map<String, Object> result = KafkaRecordConverter.convertHeaders(headers, true);
 
     // Date should be formatted as ISO date-time string
     assertEquals("1970-03-22T00:00:00.000Z", result.get("dateHeader"));

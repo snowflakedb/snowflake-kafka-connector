@@ -184,7 +184,10 @@ public final class SnowflakeSinkRecord {
     // Add headers (these should be safe to convert)
     if (record.headers() != null && !record.headers().isEmpty()) {
       try {
-        metadata.put(HEADERS, KafkaRecordConverter.convertHeaders(record.headers()));
+        metadata.put(
+            HEADERS,
+            KafkaRecordConverter.convertHeaders(
+                record.headers(), metadataConfig.structuredHeadersFlag));
       } catch (Exception e) {
         // Skip headers if conversion fails
       }
@@ -203,7 +206,10 @@ public final class SnowflakeSinkRecord {
 
     // Add headers
     if (record.headers() != null && !record.headers().isEmpty()) {
-      metadata.put(HEADERS, KafkaRecordConverter.convertHeaders(record.headers()));
+      metadata.put(
+          HEADERS,
+          KafkaRecordConverter.convertHeaders(
+              record.headers(), metadataConfig.structuredHeadersFlag));
     }
 
     return metadata;

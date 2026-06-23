@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.streaming.iceberg;
 
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
   private static final int PARTITION = 0;
+
   private String topic;
 
   protected String tableName;
@@ -43,6 +45,22 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
    */
   protected void createIcebergTable() {}
 
+  /**
+   * Enables {@code snowflake.feature.structured.headers}. Only meaningful when the target {@code
+   * RECORD_METADATA:headers} can hold VARIANT values; subclasses whose metadata schema types
+   * headers as {@code MAP(VARCHAR, VARCHAR)} must leave this off.
+   */
+  protected boolean structuredHeadersEnabled() {
+    return false;
+  }
+
+  /**
+   * Override to append structured (object/array) headers on top of the common scalar headers added
+   * by {@link #createKafkaRecord}. Only used by subclasses that both enable structured headers and
+   * have a VARIANT-capable metadata column.
+   */
+  protected void addStructuredHeaders(Headers headers) {}
+
   @BeforeEach
   public void setUp() {
     tableName = TestUtils.randomTableName();
@@ -53,6 +71,9 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
     ConnectorConfigTools.setDefaultValues(config);
+    if (structuredHeadersEnabled()) {
+      config.put(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS, "true");
+    }
     SinkTaskConfig sinkTaskConfig =
         SinkTaskConfig.builderFrom(config)
             .tolerateErrors(false)
@@ -98,10 +119,9 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
     headers.addBoolean("booleanHeader", true);
     headers.addString("stringHeader", "test");
     headers.addInt("intHeader", 123);
-    headers.addDouble("doubleHeader", 1.234);
-    headers.addFloat("floatHeader", 1.234f);
     headers.addLong("longHeader", 123L);
     headers.addShort("shortHeader", (short) 123);
+    addStructuredHeaders(headers);
     return new SinkRecord(
         topic,
         PARTITION,

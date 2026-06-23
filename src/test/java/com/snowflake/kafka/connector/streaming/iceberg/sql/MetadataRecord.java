@@ -15,7 +15,7 @@ public class MetadataRecord {
   private final Long createTime;
   private final Long logAppendTime;
   private final Long snowflakeConnectorPushTime;
-  private final Map<String, String> headers;
+  private final Map<String, Object> headers;
 
   @JsonCreator
   public MetadataRecord(
@@ -28,7 +28,7 @@ public class MetadataRecord {
       @JsonProperty("CreateTime") Long createTime,
       @JsonProperty("LogAppendTime") Long logAppendTime,
       @JsonProperty("SnowflakeConnectorPushTime") Long snowflakeConnectorPushTime,
-      @JsonProperty("headers") Map<String, String> headers) {
+      @JsonProperty("headers") Map<String, Object> headers) {
     this.offset = offset;
     this.topic = topic;
     this.partition = partition;
@@ -78,7 +78,7 @@ public class MetadataRecord {
     return snowflakeConnectorPushTime;
   }
 
-  public Map<String, String> getHeaders() {
+  public Map<String, Object> getHeaders() {
     return headers;
   }
 

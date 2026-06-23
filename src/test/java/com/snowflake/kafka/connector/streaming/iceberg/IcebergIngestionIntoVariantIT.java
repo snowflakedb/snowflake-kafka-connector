@@ -11,15 +11,61 @@ import com.snowflake.kafka.connector.streaming.iceberg.sql.RecordWithMetadata;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.header.Headers;
 import org.junit.jupiter.api.Test;
 
 public class IcebergIngestionIntoVariantIT extends IcebergIngestionIT {
+
+  /**
+   * Expected {@code RECORD_METADATA:headers} for records built by {@link #createKafkaRecord} with
+   * structured headers enabled. The RECORD_METADATA VARIANT column preserves each converted value's
+   * type: scalars stay native, the object header lands as a nested object, and the array header as
+   * a list. This is the KC v3-compatible behavior (legacy string flattening is covered by unit
+   * tests).
+   */
+  private static final Map<String, Object> EXPECTED_HEADERS =
+      Map.of(
+          "booleanHeader",
+          true,
+          "stringHeader",
+          "test",
+          "intHeader",
+          123,
+          "longHeader",
+          123,
+          "shortHeader",
+          123,
+          "objectHeader",
+          Map.of("nestedString", "inner", "nestedInt", 7),
+          "arrayHeader",
+          List.of(1, 2, 3));
 
   @Override
   protected void createIcebergTable() {
     createIcebergTableWithColumnClause(
         tableName, "RECORD_METADATA VARIANT, RECORD_CONTENT VARIANT", V3);
+  }
+
+  @Override
+  protected boolean structuredHeadersEnabled() {
+    return true;
+  }
+
+  @Override
+  protected void addStructuredHeaders(Headers headers) {
+    Schema objectSchema =
+        SchemaBuilder.struct()
+            .field("nestedString", Schema.STRING_SCHEMA)
+            .field("nestedInt", Schema.INT32_SCHEMA)
+            .build();
+    Struct objectValue = new Struct(objectSchema).put("nestedString", "inner").put("nestedInt", 7);
+    headers.add("objectHeader", objectValue, objectSchema);
+    headers.add("arrayHeader", Arrays.asList(1, 2, 3), SchemaBuilder.array(Schema.INT32_SCHEMA));
   }
 
   @Test
@@ -61,5 +107,8 @@ public class IcebergIngestionIntoVariantIT extends IcebergIngestionIT {
                     && record.getPartition().equals(topicPartition.partition())
                     && record.getKey().equals("test")
                     && record.getSnowflakeConnectorPushTime() != null);
+    assertThat(metadataRecords)
+        .extracting(MetadataRecord::getHeaders)
+        .containsOnly(EXPECTED_HEADERS);
   }
 }

@@ -72,15 +72,28 @@ public final class KafkaRecordConverter {
             + " HoistField transformer to wrap the value of the record.");
   }
 
-  public static Map<String, String> convertHeaders(Headers headers) {
-    Map<String, String> result = new HashMap<>();
+  /**
+   * Converts Kafka record headers into a map suitable for {@code RECORD_METADATA:headers}.
+   *
+   * <p>Each header has already been deserialized by the worker's {@code header.converter} into a
+   * {@link org.apache.kafka.connect.data.SchemaAndValue}. When {@code structured} is true the
+   * converted value keeps its type (objects become maps, arrays become lists, numbers/booleans stay
+   * native), so structured headers land as VARIANT objects rather than strings. When false, every
+   * value is flattened to a string (the original KC v4 behavior, which is not KC v3-compatible).
+   */
+  public static Map<String, Object> convertHeaders(Headers headers, boolean structured) {
+    Map<String, Object> result = new HashMap<>();
     if (headers == null) {
       LOGGER.trace("Headers is null, returning empty map");
       return result;
     }
     for (Header header : headers) {
       Object headerValue = convertValue(header.schema(), header.value());
-      result.put(header.key(), headerValue == null ? null : String.valueOf(headerValue));
+      if (structured) {
+        result.put(header.key(), headerValue);
+      } else {
+        result.put(header.key(), headerValue == null ? null : String.valueOf(headerValue));
+      }
     }
     return result;
   }
