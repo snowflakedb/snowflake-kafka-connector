@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 
 NUM_PARTITIONS = 3
 RECORDS_PER_PARTITION = 100
-# Reuses the same connector config as the 410 test — same mitmproxy override.
-CONFIG_FILE = "client_recreation.json"
+# Dedicated config (distinct connector/topic/table name) so this test does not collide with the
+# 410 test, which derives its names from client_recreation.json and runs in the same session.
+CONFIG_FILE = "client_recreation_404.json"
 
 
 def _send_records(driver, topic: str, count_per_partition: int):
@@ -121,7 +122,9 @@ def test_client_recreation_on_bulk_channel_status_404(
         f"No 404 responses were injected on :bulk-channel-status — the proxy is "
         f"not intercepting streaming API traffic. Proxy status: {proxy_status}"
     )
-    logger.info("Confirmed: %d 404 responses injected on :bulk-channel-status", injected)
+    logger.info(
+        "Confirmed: %d 404 responses injected on :bulk-channel-status", injected
+    )
 
     # --- Phase 4: Post-heal ingestion + verify recovery ---
     logger.info("Phase 4: Sending post-heal records")
