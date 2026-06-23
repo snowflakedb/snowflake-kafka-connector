@@ -91,6 +91,13 @@ public interface TopicPartitionChannel {
     return CompletableFuture.completedFuture(null);
   }
 
+  /**
+   * Records that this channel finished recovering while the current batch contained only records
+   * past its resume offset for this channel (the PROD-538073 data-loss interleaving). Default is a
+   * no-op for channel implementations that do not track it.
+   */
+  default void incRecoverySkipConflictCount() {}
+
   @VisibleForTesting
   SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus();
 }

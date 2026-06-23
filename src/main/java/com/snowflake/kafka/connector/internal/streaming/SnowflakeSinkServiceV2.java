@@ -351,6 +351,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     if (!pendingResets.isEmpty()) {
       LOGGER.info("Draining {} pending offset resets: {}", pendingResets.size(), pendingResets);
       offsetsToRewindTo.putAll(pendingResets);
+
+      // Count channels recovering while this batch carries records past their resume offset -- the
+      // PROD-538073 data-loss interleaving. Benign post-fix; tracked for cross-version trending.
+      for (TopicPartition tp : detectRecoverySkipConflicts(pendingResets, records)) {
+        channelManager
+            .getChannel(tp)
+            .ifPresent(TopicPartitionChannel::incRecoverySkipConflictCount);
+      }
     }
 
     // If still in cooldown from a recent backpressure event, treat all partitions as
@@ -424,6 +432,48 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsToRewindTo);
       sinkTaskContext.offset(offsetsToRewindTo);
     }
+  }
+
+  /**
+   * Returns the set of channels for which:
+   *
+   * <ol>
+   *   <li>we enqueued an offset rewind (a pending reset in {@code pendingResets}), and
+   *   <li>the current batch contains only records with higher offsets than that rewind offset.
+   * </ol>
+   *
+   * <p>For such channels we must take care NOT to rewind to the beginning of the current batch, or
+   * we would skip the records between the rewind offset and the batch — exactly the PROD-538073
+   * data-loss interleaving (the pre-SNOW-3574225 code rewound to a skipped record's offset instead
+   * of the recovery offset). A batch that includes a record at or below the rewind offset (e.g.
+   * {@code [51, 52, 53]} after a reset to 51, which also covers ordinary channel init) is NOT a
+   * conflict — nothing is dropped.
+   *
+   * <p>The fix preserves the recovery offset, so any conflict counted here is benign today; a
+   * rising cross-version trend means the risky interleaving is more frequent or a regression has
+   * returned.
+   */
+  static Set<TopicPartition> detectRecoverySkipConflicts(
+      Map<TopicPartition, Long> pendingResets, Collection<SinkRecord> records) {
+    if (pendingResets.isEmpty()) {
+      return Collections.emptySet();
+    }
+    Set<TopicPartition> partitionsWithRecordsAfterRewindOffset = new HashSet<>();
+    Set<TopicPartition> partitionsWithRecordsBeforeOrOnRewindOffset = new HashSet<>();
+    for (SinkRecord record : records) {
+      TopicPartition tp = new TopicPartition(record.topic(), record.kafkaPartition());
+      Long rewindOffset = pendingResets.get(tp);
+      if (rewindOffset == null) {
+        continue;
+      }
+      if (record.kafkaOffset() <= rewindOffset) {
+        partitionsWithRecordsBeforeOrOnRewindOffset.add(tp);
+      } else {
+        partitionsWithRecordsAfterRewindOffset.add(tp);
+      }
+    }
+    partitionsWithRecordsAfterRewindOffset.removeAll(partitionsWithRecordsBeforeOrOnRewindOffset);
+    return partitionsWithRecordsAfterRewindOffset;
   }
 
   /**

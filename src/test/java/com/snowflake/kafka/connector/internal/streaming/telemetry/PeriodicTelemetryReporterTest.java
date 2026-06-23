@@ -333,7 +333,9 @@ class PeriodicTelemetryReporterTest {
             Optional.empty(),
             new AtomicLong(10L),
             new AtomicLong(5L),
-            new AtomicLong(15L));
+            new AtomicLong(15L),
+            new AtomicLong(0),
+            new AtomicLong(0));
     when(mockChannel.getSnowflakeTelemetryChannelStatus()).thenReturn(mockStatus);
     return mockChannel;
   }
@@ -349,7 +351,9 @@ class PeriodicTelemetryReporterTest {
             Optional.empty(),
             new AtomicLong(-1L),
             new AtomicLong(-1L),
-            new AtomicLong(-1L));
+            new AtomicLong(-1L),
+            new AtomicLong(0),
+            new AtomicLong(0));
     when(mockChannel.getSnowflakeTelemetryChannelStatus()).thenReturn(emptyStatus);
     return mockChannel;
   }

@@ -36,9 +36,11 @@ public class SnowflakeTelemetryChannelStatusTest {
             Optional.of(metricsJmxReporter),
             new AtomicLong(-1),
             new AtomicLong(-1),
-            new AtomicLong(-1));
+            new AtomicLong(-1),
+            new AtomicLong(0),
+            new AtomicLong(0));
 
-    // Registration: 4 metrics registered, start() NOT called (handled at task level)
+    // Registration: NUM_METRICS gauges registered, start() NOT called (handled at task level)
     verify(metricsJmxReporter, times(0)).start();
     verify(metricRegistry, times((int) SnowflakeTelemetryChannelStatus.NUM_METRICS))
         .register(Mockito.anyString(), Mockito.any());
@@ -67,7 +69,9 @@ public class SnowflakeTelemetryChannelStatusTest {
             Optional.empty(),
             new AtomicLong(-1),
             new AtomicLong(-1),
-            new AtomicLong(-1));
+            new AtomicLong(-1),
+            new AtomicLong(0),
+            new AtomicLong(0));
     verify(metricsJmxReporter, times(0)).start();
     verify(metricRegistry, times(0)).register(Mockito.anyString(), Mockito.any());
     verify(metricsJmxReporter, times(0))
@@ -89,7 +93,9 @@ public class SnowflakeTelemetryChannelStatusTest {
             Optional.empty(),
             new AtomicLong(-1),
             new AtomicLong(-1),
-            new AtomicLong(-1));
+            new AtomicLong(-1),
+            new AtomicLong(0),
+            new AtomicLong(0));
 
     // Initially zero
     ObjectNode msg = new ObjectMapper().createObjectNode();
@@ -104,5 +110,42 @@ public class SnowflakeTelemetryChannelStatusTest {
     msg = new ObjectMapper().createObjectNode();
     status.dumpTo(msg);
     assertEquals(3, msg.get(TelemetryConstants.VALIDATION_FAILURE_COUNT).asLong());
+  }
+
+  @Test
+  public void testOffsetGapAndConflictCountsInDumpTo() {
+    AtomicLong offsetGapCount = new AtomicLong(0);
+    AtomicLong offsetGapMissingRecordCount = new AtomicLong(0);
+    SnowflakeTelemetryChannelStatus status =
+        new SnowflakeTelemetryChannelStatus(
+            tableName,
+            connectorName,
+            channelName,
+            1234,
+            Optional.empty(),
+            new AtomicLong(-1),
+            new AtomicLong(-1),
+            new AtomicLong(-1),
+            offsetGapCount,
+            offsetGapMissingRecordCount);
+
+    // Initially zero
+    ObjectNode msg = new ObjectMapper().createObjectNode();
+    status.dumpTo(msg);
+    assertEquals(0, msg.get(TelemetryConstants.OFFSET_GAP_COUNT).asLong());
+    assertEquals(0, msg.get(TelemetryConstants.OFFSET_GAP_MISSING_RECORD_COUNT).asLong());
+    assertEquals(0, msg.get(TelemetryConstants.RECOVERY_SKIP_CONFLICT_COUNT).asLong());
+
+    // The gap counters are owned by the offset tracker; simulate it observing two gaps totalling
+    // seven missing offsets, and the service recording one recovery-skip conflict.
+    offsetGapCount.set(2);
+    offsetGapMissingRecordCount.set(7);
+    status.incRecoverySkipConflictCount();
+
+    msg = new ObjectMapper().createObjectNode();
+    status.dumpTo(msg);
+    assertEquals(2, msg.get(TelemetryConstants.OFFSET_GAP_COUNT).asLong());
+    assertEquals(7, msg.get(TelemetryConstants.OFFSET_GAP_MISSING_RECORD_COUNT).asLong());
+    assertEquals(1, msg.get(TelemetryConstants.RECOVERY_SKIP_CONFLICT_COUNT).asLong());
   }
 }

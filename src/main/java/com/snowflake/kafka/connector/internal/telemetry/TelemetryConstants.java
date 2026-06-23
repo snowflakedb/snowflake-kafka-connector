@@ -26,6 +26,16 @@ public final class TelemetryConstants {
   public static final String VALIDATION_FAILURE_COUNT = "validation_failure_count";
   public static final String ERROR_TOLERATED_COUNT = "error_tolerated_count";
   public static final String CHANNEL_RECOVERY_COUNT = "channel_recovery_count";
+  // Offset-gap / data-loss detection telemetry (SNOW-3655748 / PROD-538073):
+  //   offset_gap_count                - forward discontinuities in the processed offsets
+  //                                     (recorded in insertRecord)
+  //   offset_gap_missing_record_count - offset positions skipped across those gaps
+  //                                     (upper bound on records actually lost)
+  //   recovery_skip_conflict_count    - batches delivered entirely past a recovering channel's
+  //                                     rewind offset
+  public static final String OFFSET_GAP_COUNT = "offset_gap_count";
+  public static final String OFFSET_GAP_MISSING_RECORD_COUNT = "offset_gap_missing_record_count";
+  public static final String RECOVERY_SKIP_CONFLICT_COUNT = "recovery_skip_conflict_count";
   // Client recreation telemetry: attempts is the number of times openChannelWithClientRecovery
   // tried to swap the SDK client; success/failure split records whether the underlying pool retry
   // budget held. attempts == success + failure.

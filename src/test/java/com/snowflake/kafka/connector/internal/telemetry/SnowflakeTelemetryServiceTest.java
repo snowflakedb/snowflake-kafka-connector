@@ -226,7 +226,9 @@ public class SnowflakeTelemetryServiceTest {
             Optional.empty(),
             new AtomicLong(expectedOffsetPersistedInSnowflake),
             new AtomicLong(expectedProcessedOffset),
-            new AtomicLong(expectedLatestConsumerOffset));
+            new AtomicLong(expectedLatestConsumerOffset),
+            new AtomicLong(0),
+            new AtomicLong(0));
 
     channelStatus.incErrorToleratedCount();
     channelStatus.incErrorToleratedCount();

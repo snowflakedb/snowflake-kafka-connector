@@ -57,6 +57,19 @@ public class PartitionOffsetTracker {
   // Last offset passed to appendRow -- used by flush to know when all data is committed.
   private long lastAppendRowsOffset = NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 
+  // Offset-gap data-loss detection (SNOW-3655748 / PROD-538073). Observed in shouldProcess (called
+  // from insertRecord), when the connector decides to process a record whose offset is past the
+  // next expected one:
+  //   offsetGapCount      - number of such forward discontinuities.
+  //   offsetGapMissingRecordCount - total count of offset positions skipped over across those gaps.
+  // These are observation-time, cumulative counts: a gap seen here that is later closed by recovery
+  // + redelivery is still counted, and legitimate gaps (compaction, SMT filters,
+  // errors.tolerance=all) are counted too. So the missing count is an upper bound on records
+  // actually lost, NOT a count of permanently lost rows -- the cross-version trend, not the
+  // absolute value, is the data-loss signal.
+  private final AtomicLong offsetGapCount = new AtomicLong(0);
+  private final AtomicLong offsetGapMissingRecordCount = new AtomicLong(0);
+
   public PartitionOffsetTracker(String channelName, Consumer<Long> onOffsetReset) {
     this.channelName = channelName;
     this.onOffsetReset = onOffsetReset;
@@ -97,19 +110,37 @@ public class PartitionOffsetTracker {
     }
 
     long currentProcessedOffset = this.processedOffset.get();
-    if (currentProcessedOffset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
-        || kafkaOffset >= currentProcessedOffset + 1) {
-      return true;
+
+    // Already-committed / duplicate record (offset at or below what we've processed): skip it.
+    if (currentProcessedOffset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        && kafkaOffset < currentProcessedOffset + 1) {
+      LOGGER.warn(
+          "Channel {} - skipping current record - expected offset {} but received {}. The"
+              + " current offset stored in Snowflake: {}",
+          channelName,
+          currentProcessedOffset,
+          kafkaOffset,
+          offsetPersistedInSnowflake.get());
+      return false;
     }
 
-    LOGGER.warn(
-        "Channel {} - skipping current record - expected offset {} but received {}. The"
-            + " current offset stored in Snowflake: {}",
-        channelName,
-        currentProcessedOffset,
-        kafkaOffset,
-        offsetPersistedInSnowflake.get());
-    return false;
+    // The record will be processed. If its offset is past the next expected one, the connector
+    // observed a gap (offsets it expected but never received); record it for data-loss detection.
+    if (currentProcessedOffset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE
+        && kafkaOffset > currentProcessedOffset + 1) {
+      long missing = kafkaOffset - (currentProcessedOffset + 1);
+      offsetGapCount.incrementAndGet();
+      offsetGapMissingRecordCount.addAndGet(missing);
+      LOGGER.debug(
+          "Channel {} - offset gap detected: expected {} but received {} ({} offset(s) missing)."
+              + " Persisted offset in Snowflake: {}",
+          channelName,
+          currentProcessedOffset + 1,
+          kafkaOffset,
+          missing,
+          offsetPersistedInSnowflake.get());
+    }
+    return true;
   }
 
   /** Called after a record has been fully processed (inserted or reported as broken). */
@@ -186,6 +217,14 @@ public class PartitionOffsetTracker {
     return lastAppendRowsOffset;
   }
 
+  public long getOffsetGapCount() {
+    return offsetGapCount.get();
+  }
+
+  public long getOffsetGapMissingRecordCount() {
+    return offsetGapMissingRecordCount.get();
+  }
+
   // Expose AtomicLong refs for telemetry binding
   public AtomicLong persistedOffsetRef() {
     return offsetPersistedInSnowflake;
@@ -197,5 +236,13 @@ public class PartitionOffsetTracker {
 
   public AtomicLong consumerGroupOffsetRef() {
     return currentConsumerGroupOffset;
+  }
+
+  public AtomicLong offsetGapCountRef() {
+    return offsetGapCount;
+  }
+
+  public AtomicLong offsetGapMissingRecordCountRef() {
+    return offsetGapMissingRecordCount;
   }
 }

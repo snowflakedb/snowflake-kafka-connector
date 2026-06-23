@@ -185,7 +185,9 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
             Optional.empty(),
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
+            offsetTracker.consumerGroupOffsetRef(),
+            offsetTracker.offsetGapCountRef(),
+            offsetTracker.offsetGapMissingRecordCountRef());
 
     SnowpipeStreamingPartitionChannel realChannel =
         new SnowpipeStreamingPartitionChannel(
@@ -303,6 +305,14 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
             + (failingOffset - 1)
             + " are permanently lost because resetAfterRecovery's offset was overwritten by"
             + " offsetsOfFirstSkippedRecord.");
+
+    // Batch 2 drained the pending recovery reset (51) while carrying records 80-85 (all past 51) --
+    // exactly the PROD-538073 interleaving -- so one recovery-skip conflict must be recorded.
+    assertEquals(
+        1,
+        realChannel.getSnowflakeTelemetryChannelStatus().getRecoverySkipConflictCount(),
+        "Recovery-skip conflict should be counted when a recovering channel's batch carries"
+            + " records past the recovery offset.");
   }
 
   private List<SinkRecord> buildRecordBatch(long fromOffset, long toOffset) {
