@@ -43,6 +43,22 @@ public interface TopicPartitionChannel {
   /* Return true is channel is closed. Caller should handle the logic for reopening the channel if it is closed. */
   boolean isChannelClosed();
 
+  /**
+   * Triggers an asynchronous channel reopen (and SDK client recreation) outside of the {@code
+   * appendRow} path.
+   *
+   * <p>Normally a client-invalid error (e.g. {@code InvalidClientError} after a pipe failover)
+   * surfaces on the next {@code appendRow} and drives recovery from there. But if the client is
+   * invalidated while there are appended-but-uncommitted records and no new records arrive, {@code
+   * appendRow} is never called again, so recovery never starts: {@code preCommit} keeps skipping
+   * the failed offset fetch and the task is stuck (it neither ingests the last records nor fails).
+   * The {@code preCommit} offset-fetch path calls this when it detects the client is invalid so
+   * recovery starts even without new data.
+   *
+   * <p>No-op by default.
+   */
+  default void triggerReopenForInvalidClient() {}
+
   /** Returns the fully qualified channel name in the format of "db.schema.channel". */
   String getChannelNameFormatV1();
 
