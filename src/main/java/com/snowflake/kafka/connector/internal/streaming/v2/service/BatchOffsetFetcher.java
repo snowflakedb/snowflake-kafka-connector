@@ -112,10 +112,18 @@ public class BatchOffsetFetcher {
             if (ClientRecreationException.isClientInvalidError(e)) {
               LOGGER.warn(
                   "Client is invalid for pipe: {}, skipping offset fetch for {} channel(s)."
-                      + " Client recreation will be triggered by the next appendRow on this pipe.",
+                      + " Triggering channel recovery so the client is recreated even if no new"
+                      + " records arrive to drive appendRow-based recovery.",
                   pipeName,
                   channelsByPartition.size(),
                   e);
+              // Without this, recovery would only ever start from the next appendRow. If the
+              // client is invalidated while there are appended-but-uncommitted records and no new
+              // records are produced, appendRow is never called again and the task gets stuck
+              // (neither ingesting the last records nor failing).
+              channelsByPartition
+                  .values()
+                  .forEach(TopicPartitionChannel::triggerReopenForInvalidClient);
             } else {
               LOGGER.error(
                   "Failed to fetch committed offsets for pipe: {}, skipping {} channel(s)",
