@@ -10,6 +10,7 @@ import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
+import com.snowflake.kafka.connector.config.TableType;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -172,15 +173,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           // Table doesn't exist yet — will be auto-created with ERROR_LOGGING = TRUE
           continue;
         }
-        if (conn.isIcebergTable(tableName)) {
-          LOGGER.warn(
-              "Table '{}' is an Iceberg table. Iceberg tables do not support ERROR_LOGGING."
-                  + " In v4 high-throughput mode, invalid records targeting this table will be"
-                  + " silently dropped. Error table functionality is not available for Iceberg"
-                  + " tables.",
-              tableName);
-          continue;
-        }
         if (!conn.hasErrorLoggingEnabled(tableName)) {
           LOGGER.warn(
               "Table '{}' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
@@ -261,7 +253,30 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // When validation is enabled, reject non-default pipes (pipes whose name equals the table
       // name) because validation assumptions may not hold for user-created pipes.
       final String targetPipeName;
-      if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
+      if (taskConfig.getTableType() == TableType.NONE) {
+        // table.type=none: the pipe must already exist (we created nothing). Fail fast if neither
+        // the default nor a named pipe is present, and name the detected table type.
+        boolean defaultPipeExists = this.conn.pipeExist(buildDefaultPipeName(tableName));
+        boolean namedPipeExists = this.conn.pipeExist(tableName);
+        if (!defaultPipeExists && !namedPipeExists) {
+          String detectedType = this.conn.isIcebergTable(tableName) ? "ICEBERG" : "SNOWFLAKE";
+          throw SnowflakeErrors.ERROR_0033.getException(
+              "snowflake.autocreate.table.type=none and no pipe exists for table '"
+                  + tableName
+                  + "' (detected table type="
+                  + detectedType
+                  + "). Create the pipe yourself, or set snowflake.autocreate.table.type="
+                  + detectedType.toLowerCase(java.util.Locale.ROOT)
+                  + " so the connector manages it.");
+        }
+        targetPipeName = namedPipeExists ? tableName : buildDefaultPipeName(tableName);
+        // Client-side validation only supports default pipes. Even under table.type=none, a
+        // pre-existing named pipe must be rejected for the same reason as the CLIENT_SIDE branch
+        // below: validation assumptions may not hold for user-created pipes.
+        if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE && namedPipeExists) {
+          throw SnowflakeErrors.ERROR_0032.getException("table: " + tableName);
+        }
+      } else if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
         if (this.conn.pipeExist(tableName)) {
           throw SnowflakeErrors.ERROR_0032.getException("table: " + tableName);
         }
@@ -279,12 +294,55 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     channelManager.startPartitions(partitions, tableToPipeMapping);
   }
 
-  private void createTableIfNotExists(final String tableName) {
+  @VisibleForTesting
+  void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
-      LOGGER.info("Using existing table {}.", tableName);
-    } else {
-      LOGGER.info("Creating new table {}.", tableName);
-      this.conn.createTableWithOnlyMetadataColumn(tableName);
+      // Existing table: use it as-is, regardless of the configured table.type (which only governs
+      // auto-creation). Log the detected type for operator visibility. (For table.type=none, pipe
+      // existence is asserted in startPartitions.)
+      LOGGER.info(
+          "Using existing table {} (snowflake.autocreate.table.type={}; detected type={}).",
+          tableName,
+          taskConfig.getTableType().configValue(),
+          this.conn.isIcebergTable(tableName) ? "ICEBERG" : "SNOWFLAKE");
+      return;
+    }
+    switch (taskConfig.getTableType()) {
+      case ICEBERG:
+        // Non-schematized Iceberg stores the raw record in a RECORD_CONTENT VARIANT column, which
+        // is only supported on Iceberg format v3. Auto-creating without ICEBERG_VERSION=3 yields a
+        // v2 table (the default) that cannot hold RECORD_CONTENT, so fail fast at startup instead
+        // of mysteriously at ingest time.
+        if (!taskConfig.isEnableSchematization()
+            && !taskConfig
+                .getIcebergCreateTableOptions()
+                .matches("(?is).*ICEBERG_VERSION\\s*=\\s*3(?!\\d).*")) {
+          throw SnowflakeErrors.ERROR_0033.getException(
+              "Auto-creating Iceberg table '"
+                  + tableName
+                  + "' with snowflake.enable.schematization=false requires ICEBERG_VERSION=3 in"
+                  + " snowflake.iceberg.create.table.options: the raw record is stored in a"
+                  + " RECORD_CONTENT VARIANT column, supported only on Iceberg format v3.");
+        }
+        LOGGER.info(
+            "Creating new Iceberg table {} (createTableOptions='{}').",
+            tableName,
+            taskConfig.getIcebergCreateTableOptions());
+        this.conn.createIcebergTableWithOnlyMetadataColumn(
+            tableName, taskConfig.getIcebergCreateTableOptions());
+        break;
+      case NONE:
+        // Missing table + none: fail loudly and tell the operator their two ways out.
+        throw SnowflakeErrors.ERROR_0033.getException(
+            "Table '"
+                + tableName
+                + "' does not exist and snowflake.autocreate.table.type=none. Either create the"
+                + " table and its pipe yourself, or set snowflake.autocreate.table.type=snowflake"
+                + "|iceberg so the connector creates the table for you.");
+      case SNOWFLAKE:
+      default:
+        LOGGER.info("Creating new table {}.", tableName);
+        this.conn.createTableWithOnlyMetadataColumn(tableName);
     }
   }
 

@@ -82,6 +82,18 @@ public interface SnowflakeConnectionService {
   void createTableWithOnlyMetadataColumn(String tableName);
 
   /**
+   * Create a managed Iceberg table with only the RECORD_METADATA column, schema evolution and error
+   * logging enabled. No-op if the table already exists.
+   *
+   * @param tableName table name
+   * @param createTableOptions operator-supplied SQL clauses spliced after the column list (e.g.
+   *     "EXTERNAL_VOLUME='v' ICEBERG_VERSION=3 CLUSTER BY (id)"). May be empty. The connector
+   *     always supplies CATALOG='SNOWFLAKE', ENABLE_SCHEMA_EVOLUTION and ERROR_LOGGING, so callers
+   *     must not repeat those here.
+   */
+  void createIcebergTableWithOnlyMetadataColumn(String tableName, String createTableOptions);
+
+  /**
    * Calls describe table statement and returns all columns and corresponding types.
    *
    * @param tableName - table name
