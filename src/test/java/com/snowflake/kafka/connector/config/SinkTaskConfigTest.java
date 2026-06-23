@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.config;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
@@ -275,5 +277,67 @@ public class SinkTaskConfigTest {
     Map<String, String> raw = minimalConfig();
     raw.remove(Utils.TASK_ID);
     assertThrows(IllegalArgumentException.class, () -> SinkTaskConfig.from(raw));
+  }
+
+  @Test
+  void from_defaultsTableTypeToSnowflake() {
+    SinkTaskConfig config = SinkTaskConfig.from(minimalConfig());
+    assertThat(config.getTableType()).isEqualTo(TableType.SNOWFLAKE);
+    assertThat(config.getIcebergCreateTableOptions()).isEmpty();
+  }
+
+  @Test
+  void from_parsesIcebergTableTypeAndCreateOptions() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "iceberg");
+    // Iceberg + schema evolution requires server-side validation (client_side is rejected).
+    raw.put("snowflake.validation", "server_side");
+    raw.put("snowflake.iceberg.create.table.options", "EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getTableType()).isEqualTo(TableType.ICEBERG);
+    assertThat(config.getIcebergCreateTableOptions())
+        .isEqualTo("EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3");
+  }
+
+  @Test
+  void from_icebergWithClientSideValidationAndSchematization_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "iceberg");
+    raw.put("snowflake.enable.schematization", "true");
+    raw.put("snowflake.validation", "client_side");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("client_side")
+        .hasMessageContaining("server_side");
+  }
+
+  @Test
+  void from_icebergWithServerSideValidationAndSchematization_ok() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "iceberg");
+    raw.put("snowflake.enable.schematization", "true");
+    raw.put("snowflake.validation", "server_side");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getTableType()).isEqualTo(TableType.ICEBERG);
+    assertThat(config.getValidation()).isEqualTo(SnowflakeValidation.SERVER_SIDE);
+  }
+
+  @Test
+  void from_createOptionsWithoutIcebergTableType_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "snowflake");
+    raw.put("snowflake.iceberg.create.table.options", "EXTERNAL_VOLUME='my_vol'");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("snowflake.iceberg.create.table.options");
+  }
+
+  @Test
+  void from_blankCreateOptionsWithoutIcebergTableType_ok() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "snowflake");
+    raw.put("snowflake.iceberg.create.table.options", "   ");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getIcebergCreateTableOptions()).isEmpty();
   }
 }

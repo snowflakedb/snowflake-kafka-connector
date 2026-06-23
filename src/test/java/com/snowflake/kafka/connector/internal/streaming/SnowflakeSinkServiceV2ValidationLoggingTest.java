@@ -266,13 +266,14 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   }
 
   /**
-   * Test: Validation disabled, table is Iceberg.
+   * Test: Validation disabled, existing Iceberg table with ERROR_LOGGING enabled.
    *
-   * <p>Should warn that Iceberg tables do not support ERROR_LOGGING and not check
-   * hasErrorLoggingEnabled.
+   * <p>Iceberg tables support ERROR_LOGGING and are returned by SHOW TABLES, so they are checked
+   * the same way as FDN tables (no special-casing). With ERROR_LOGGING enabled, there is no
+   * warning.
    */
   @Test
-  public void testValidationDisabledIcebergTableWarning() {
+  public void testValidationDisabledIcebergTableCheckedLikeFdn() {
     SinkTaskConfig config =
         SinkTaskConfigTestBuilder.builder()
             .connectorName("test-connector")
@@ -286,19 +287,13 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             config,
             mockConn -> {
               when(mockConn.tableExist("iceberg_table")).thenReturn(true);
-              when(mockConn.isIcebergTable("iceberg_table")).thenReturn(true);
+              when(mockConn.hasErrorLoggingEnabled("iceberg_table")).thenReturn(true);
             });
     assertNotNull(service);
 
-    assertTrue(
-        testAppender.containsMessage(Level.WARN, "Iceberg table"),
-        "Should warn that the table is Iceberg");
-    assertTrue(
-        testAppender.containsMessage(Level.WARN, "do not support ERROR_LOGGING"),
-        "Should warn that Iceberg does not support ERROR_LOGGING");
     assertFalse(
-        testAppender.containsMessage(Level.WARN, "does not have ERROR_LOGGING"),
-        "Should NOT emit the generic missing-ERROR_LOGGING warning for Iceberg tables");
+        testAppender.containsMessage(Level.WARN, "ERROR_LOGGING"),
+        "Iceberg table with ERROR_LOGGING enabled should not warn");
   }
 
   /** Helper to create SnowflakeSinkServiceV2 with minimal mocked dependencies. */

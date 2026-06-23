@@ -7,6 +7,7 @@ import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -77,23 +78,50 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
-      // Snowflake rejects CREATE TABLE IF NOT EXISTS when the name is already taken by an
-      // ICEBERG TABLE (cross-type conflict is not suppressed by IF NOT EXISTS). KCv4 only
-      // supports pre-created Iceberg tables; error_logging is not available for them.
-      // We match on the error message text because Snowflake does not provide a stable SQL
-      // error code that distinguishes this cross-type conflict from other CREATE TABLE errors.
-      if (e.getMessage() != null && e.getMessage().contains("already exists as ICEBERG_TABLE")) {
-        LOGGER.warn(
-            "Table '{}' is a pre-created Iceberg table. Skipping auto-creation."
-                + " Error table functionality is not available for Iceberg tables.",
-            tableName);
-        return;
-      }
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
     LOGGER.info(
         "Created table {} with RECORD_METADATA column and ERROR_LOGGING enabled", tableName);
+  }
+
+  @Override
+  public void createIcebergTableWithOnlyMetadataColumn(
+      final String tableName, final String createTableOptions) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    // Operator-supplied clauses (external volume, iceberg version, cluster by, base location, ...)
+    // are spliced right after the column list so positional clauses like CLUSTER BY land correctly.
+    String optionsClause =
+        (createTableOptions == null || createTableOptions.trim().isEmpty())
+            ? ""
+            : " " + createTableOptions.trim();
+    // Snowflake-managed Iceberg tables require an explicit catalog integration; the connector also
+    // owns ENABLE_SCHEMA_EVOLUTION / ERROR_LOGGING (ingestion-mandatory), so they are not exposed.
+    String createTableQuery =
+        "create iceberg table if not exists identifier(?) ("
+            + TABLE_COLUMN_METADATA
+            + " "
+            + IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA
+            + ")"
+            + optionsClause
+            + " catalog = 'SNOWFLAKE' enable_schema_evolution = true error_logging = true";
+
+    try {
+      PreparedStatement stmt = conn.prepareStatement(createTableQuery);
+      stmt.setString(1, quoteIdentifier(tableName));
+      stmt.execute();
+      stmt.close();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+
+    LOGGER.info(
+        "Created Iceberg table {} (createTableOptions='{}') with RECORD_METADATA, schema evolution"
+            + " and error logging enabled",
+        tableName,
+        createTableOptions);
   }
 
   @Override

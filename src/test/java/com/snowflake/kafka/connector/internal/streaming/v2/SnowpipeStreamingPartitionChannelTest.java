@@ -705,7 +705,7 @@ class SnowpipeStreamingPartitionChannelTest {
         mockErrorHandler,
         taskMetrics,
         false,
-        null,
+        mock(SnowflakeConnectionService.class),
         Optional.empty());
   }
 

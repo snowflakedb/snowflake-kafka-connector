@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -61,6 +62,9 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
    */
   protected void addStructuredHeaders(Headers headers) {}
 
+  /** Hook for subclasses to add/override connector config keys (e.g. external volume, version). */
+  protected void customizeIcebergConfig(Map<String, String> config) {}
+
   @BeforeEach
   public void setUp() {
     tableName = TestUtils.randomTableName();
@@ -71,6 +75,13 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
     ConnectorConfigTools.setDefaultValues(config);
+    // Declare the managed-Iceberg table type via config (exercises the real builderFrom parsing
+    // path). The table is pre-created, so it is used as-is; table.type only governs auto-creation.
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    // Managed-Iceberg schema evolution is server-side; the connector rejects client-side
+    // validation for Iceberg + schematization. Use server-side validation for all Iceberg ITs.
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
+    customizeIcebergConfig(config);
     if (structuredHeadersEnabled()) {
       config.put(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS, "true");
     }
