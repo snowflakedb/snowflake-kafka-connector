@@ -166,6 +166,14 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
+  public void createIcebergTableWithOnlyMetadataColumn(
+      String tableName, String createTableOptions) {
+    delegate.createIcebergTableWithOnlyMetadataColumn(tableName, createTableOptions);
+    tableExistsCache.invalidate(tableName);
+    errorLoggingCache.invalidate(tableName);
+  }
+
+  @Override
   public boolean isTableCompatible(String tableName) {
     return delegate.isTableCompatible(tableName);
   }

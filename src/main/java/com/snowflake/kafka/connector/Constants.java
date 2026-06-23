@@ -102,6 +102,19 @@ public final class Constants {
     public static final String SNOWFLAKE_ENABLE_SCHEMATIZATION = "snowflake.enable.schematization";
     public static final boolean SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT = true;
 
+    // Iceberg table auto-creation (SNOW-3552261)
+    public static final String SNOWFLAKE_AUTOCREATE_TABLE_TYPE = "snowflake.autocreate.table.type";
+    public static final String SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT = "snowflake";
+    // Optional SQL clauses spliced into the auto-created Iceberg table's CREATE statement, right
+    // after the column list (e.g. "EXTERNAL_VOLUME='v' ICEBERG_VERSION=3 CLUSTER BY (id)"). Lets
+    // operators set any managed-Iceberg create option without the connector exposing a knob per
+    // option. The connector always supplies the ingestion-mandatory clauses (RECORD_METADATA
+    // column, CATALOG='SNOWFLAKE', ENABLE_SCHEMA_EVOLUTION, ERROR_LOGGING); do not repeat those
+    // here. Only valid when snowflake.autocreate.table.type=iceberg.
+    public static final String SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS =
+        "snowflake.iceberg.create.table.options";
+    public static final String SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT = "";
+
     // MDC logging header
     public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";
     public static final String ENABLE_MDC_LOGGING_DEFAULT = "false";

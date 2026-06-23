@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
@@ -304,7 +305,7 @@ class StreamingErrorHandlerIT {
         errorHandler,
         TaskMetrics.noop(),
         false,
-        null,
+        mock(SnowflakeConnectionService.class),
         Optional.empty());
   }
 }
