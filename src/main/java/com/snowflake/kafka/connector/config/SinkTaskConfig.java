@@ -47,6 +47,10 @@ public abstract class SinkTaskConfig {
 
   public abstract boolean isEnableSchematization();
 
+  public abstract TableType getTableType();
+
+  public abstract String getIcebergCreateTableOptions();
+
   public abstract boolean isEnableColumnIdentifierNormalization();
 
   public abstract SnowflakeValidation getValidation();
@@ -297,6 +301,39 @@ public abstract class SinkTaskConfig {
     String proxyPassword = config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
     String jdbcMap = config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP);
 
+    TableType tableType =
+        TableType.fromConfig(
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE));
+
+    String icebergCreateTableOptions =
+        config
+            .getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS,
+                KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT)
+            .trim();
+    if (!icebergCreateTableOptions.isEmpty() && tableType != TableType.ICEBERG) {
+      throw new IllegalArgumentException(
+          "snowflake.iceberg.create.table.options is only valid when"
+              + " snowflake.autocreate.table.type=iceberg (got table.type="
+              + tableType.configValue()
+              + ")");
+    }
+
+    // Client-side validation drives client-side schema evolution (ALTER ADD COLUMN issued by the
+    // connector). For managed Iceberg, schema evolution is performed server-side; the client-side
+    // RowValidator cannot even model the structured RECORD_METADATA column. Reject the combination
+    // loudly rather than silently producing a misleading runtime failure. Server-side SE is the
+    // supported mechanism: use snowflake.validation=server_side with Iceberg + schematization.
+    if (tableType == TableType.ICEBERG
+        && enableSchematization
+        && validation == SnowflakeValidation.CLIENT_SIDE) {
+      throw new IllegalArgumentException(
+          "snowflake.validation=client_side is not supported with"
+              + " snowflake.autocreate.table.type=iceberg when schema evolution is enabled"
+              + " (snowflake.enable.schematization=true). Managed Iceberg schema evolution is"
+              + " server-side; set snowflake.validation=server_side.");
+    }
+
     return builder()
         .connectorName(connectorName)
         .taskId(taskId)
@@ -333,7 +370,9 @@ public abstract class SinkTaskConfig {
         .proxyPassword(proxyPassword)
         .jdbcMap(jdbcMap)
         .ssv1MigrationMode(ssv1MigrationMode)
-        .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName);
+        .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName)
+        .tableType(tableType)
+        .icebergCreateTableOptions(icebergCreateTableOptions);
   }
 
   private static Password passwordOrNull(String value) {
@@ -342,7 +381,13 @@ public abstract class SinkTaskConfig {
 
   /** Creates a new builder. Used by {@link #from(Map)} and by tests. */
   public static Builder builder() {
-    return new AutoValue_SinkTaskConfig.Builder();
+    // Default the Iceberg auto-creation properties here so every builder() caller (including
+    // raw-builder test helpers) gets valid values; builderFrom overrides them from config. Without
+    // this, AutoValue throws "missing required properties" because these props are non-nullable.
+    return new AutoValue_SinkTaskConfig.Builder()
+        .tableType(TableType.SNOWFLAKE)
+        .icebergCreateTableOptions(
+            KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT);
   }
 
   /**
@@ -370,6 +415,10 @@ public abstract class SinkTaskConfig {
     public abstract Builder enableSanitization(boolean enableSanitization);
 
     public abstract Builder enableSchematization(boolean enableSchematization);
+
+    public abstract Builder tableType(TableType tableType);
+
+    public abstract Builder icebergCreateTableOptions(String icebergCreateTableOptions);
 
     public abstract Builder enableColumnIdentifierNormalization(
         boolean enableColumnIdentifierNormalization);

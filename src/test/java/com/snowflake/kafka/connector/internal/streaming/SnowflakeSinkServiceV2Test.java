@@ -1,9 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -15,6 +17,7 @@ import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
+import com.snowflake.kafka.connector.config.TableType;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
@@ -488,6 +491,142 @@ class SnowflakeSinkServiceV2Test {
   }
 
   // --- helpers ---
+
+  private SnowflakeSinkServiceV2 newService(SnowflakeConnectionService conn, SinkTaskConfig cfg) {
+    return new SnowflakeSinkServiceV2(
+        conn,
+        cfg,
+        mockSinkTaskContext,
+        Optional.empty(),
+        () -> mock(BatchOffsetFetcher.class),
+        () -> mock(PartitionChannelManager.class),
+        TaskMetrics.noop());
+  }
+
+  private SinkTaskConfig cfg(TableType type, String createTableOptions) {
+    return SinkTaskConfigTestBuilder.builder()
+        .connectorName(CONNECTOR_NAME)
+        .taskId("0")
+        .tableType(type)
+        .icebergCreateTableOptions(createTableOptions)
+        .build();
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_callsIcebergCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, "ICEBERG_VERSION=3"));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn).createIcebergTableWithOnlyMetadataColumn("t1", "ICEBERG_VERSION=3");
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_snowflakeType_callsFdnCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.SNOWFLAKE, ""));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn).createTableWithOnlyMetadataColumn("t1");
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_noneType_missingTable_throws() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.NONE, ""));
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("t1");
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_existingIcebergTable_noCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isIcebergTable("t1")).thenReturn(true);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_existingFdnTable_usedAsIs_noCreate() {
+    // table.type only governs auto-creation; an existing table is used as-is regardless of type.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isIcebergTable("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_snowflakeType_existingIcebergTable_usedAsIs_noCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isIcebergTable("t1")).thenReturn(true);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.SNOWFLAKE, ""));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_nonSchematized_withoutV3_throws() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .tableType(TableType.ICEBERG)
+            .enableSchematization(false)
+            .icebergCreateTableOptions("EXTERNAL_VOLUME='v'")
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("ICEBERG_VERSION=3");
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_nonSchematized_withV3_creates() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .tableType(TableType.ICEBERG)
+            .enableSchematization(false)
+            .icebergCreateTableOptions("ICEBERG_VERSION=3")
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn).createIcebergTableWithOnlyMetadataColumn("t1", "ICEBERG_VERSION=3");
+  }
 
   private SnowflakeSinkServiceV2 buildService(
       SnowflakeConnectionService conn, boolean clientValidationEnabled) {

@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -42,6 +43,9 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
    */
   protected void createIcebergTable() {}
 
+  /** Hook for subclasses to add/override connector config keys (e.g. external volume, version). */
+  protected void customizeIcebergConfig(Map<String, String> config) {}
+
   @BeforeEach
   public void setUp() {
     tableName = TestUtils.randomTableName();
@@ -52,6 +56,13 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
 
     Map<String, String> config = getConnectorConfigurationForStreaming(false);
     ConnectorConfigTools.setDefaultValues(config);
+    // Declare the managed-Iceberg table type via config (exercises the real builderFrom parsing
+    // path). The table is pre-created, so it is used as-is; table.type only governs auto-creation.
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    // Managed-Iceberg schema evolution is server-side; the connector rejects client-side
+    // validation for Iceberg + schematization. Use server-side validation for all Iceberg ITs.
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
+    customizeIcebergConfig(config);
     SinkTaskConfig sinkTaskConfig =
         SinkTaskConfig.builderFrom(config)
             .tolerateErrors(false)

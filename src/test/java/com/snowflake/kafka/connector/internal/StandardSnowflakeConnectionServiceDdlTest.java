@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -374,25 +375,103 @@ public class StandardSnowflakeConnectionServiceDdlTest {
   }
 
   @Test
-  public void testCreateTableWithOnlyMetadataColumn_icebergTableAlreadyExists_doesNotThrow()
-      throws SQLException {
-    // Snowflake rejects CREATE TABLE IF NOT EXISTS when the name belongs to an ICEBERG TABLE.
-    // The method should swallow the error and return normally rather than propagating it.
-    SQLException icebergConflict =
-        new SQLException(
-            "SQL compilation error:\nObject 'MY_TABLE' already exists as ICEBERG_TABLE");
-    when(mockAlterStmt.execute()).thenThrow(icebergConflict);
-
-    assertDoesNotThrow(() -> service.createTableWithOnlyMetadataColumn("MY_TABLE"));
-  }
-
-  @Test
   public void testCreateTableWithOnlyMetadataColumn_otherSqlError_throws() throws SQLException {
     SQLException otherError = new SQLException("Some other SQL error");
     when(mockAlterStmt.execute()).thenThrow(otherError);
 
     assertThrows(
-        com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException.class,
+        SnowflakeKafkaConnectorException.class,
         () -> service.createTableWithOnlyMetadataColumn("MY_TABLE"));
+  }
+
+  @Test
+  public void createIcebergTable_noOptions_generatesMandatorySkeleton() throws SQLException {
+    // createIcebergTable issues exactly one prepareStatement (no SHOW probe).
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createIcebergTableWithOnlyMetadataColumn("test_table", "");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue().toLowerCase();
+
+    assertThat(sql).startsWith("create iceberg table if not exists identifier(?)");
+    assertThat(sql).contains("record_metadata");
+    // connector-mandatory clauses are always present
+    assertThat(sql).contains("catalog = 'snowflake'");
+    assertThat(sql).contains("enable_schema_evolution = true");
+    assertThat(sql).contains("error_logging = true");
+    // no operator options -> nothing extra spliced in
+    assertThat(sql).doesNotContain("iceberg_version");
+    assertThat(sql).doesNotContain("external_volume");
+    assertThat(sql).doesNotContain("cluster by");
+    verify(createStmt).setString(1, "\"test_table\"");
+    verify(createStmt).execute();
+  }
+
+  @Test
+  public void createIcebergTable_splicesOptionsAfterColumnList() throws SQLException {
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createIcebergTableWithOnlyMetadataColumn(
+        "test_table", "EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3 CLUSTER BY (id)");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue();
+
+    // options land right after the column list, before the connector-mandatory clauses so
+    // positional clauses like CLUSTER BY are valid.
+    assertThat(sql)
+        .contains(
+            ") EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3 CLUSTER BY (id) catalog = 'SNOWFLAKE'");
+    assertThat(sql.toLowerCase()).contains("enable_schema_evolution = true");
+    assertThat(sql.toLowerCase()).contains("error_logging = true");
+  }
+
+  @Test
+  public void createIcebergTable_blankOptions_treatedAsNone() throws SQLException {
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createIcebergTableWithOnlyMetadataColumn("test_table", "   ");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    // collapses the column-list paren straight into the catalog clause (single space)
+    assertThat(sqlCaptor.getValue()).contains(") catalog = 'SNOWFLAKE'");
+  }
+
+  @Test
+  public void testHasErrorLoggingEnabled_onMeansEnabled() throws Exception {
+    // SHOW TABLES renders error_logging as ON/OFF, not Y/N.
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement showStmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(rs.next()).thenReturn(true);
+    when(rs.getString("error_logging")).thenReturn("ON");
+    when(showStmt.executeQuery()).thenReturn(rs);
+    when(conn.prepareStatement("show tables like ? limit 1")).thenReturn(showStmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    assertTrue(svc.hasErrorLoggingEnabled("my_table"));
+  }
+
+  @Test
+  public void testHasErrorLoggingEnabled_offMeansDisabled() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement showStmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(rs.next()).thenReturn(true);
+    when(rs.getString("error_logging")).thenReturn("OFF");
+    when(showStmt.executeQuery()).thenReturn(rs);
+    when(conn.prepareStatement("show tables like ? limit 1")).thenReturn(showStmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    assertFalse(svc.hasErrorLoggingEnabled("my_table"));
   }
 }

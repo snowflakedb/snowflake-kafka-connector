@@ -7,6 +7,7 @@ import com.snowflake.kafka.connector.internal.validation.SqlIdentifierNormalizer
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Field;
@@ -28,6 +29,17 @@ public final class SnowflakeSinkRecord {
   static final String KEY = "key";
   static final String CONNECTOR_PUSH_TIME = "SnowflakeConnectorPushTime";
   static final String HEADERS = "headers";
+
+  // Kafka emits the record timestamp under TimestampType.name ("CreateTime"/"LogAppendTime"); the
+  // managed-Iceberg metadata column always declares the field as "CreateTime".
+  static final String CREATE_TIME = "CreateTime";
+  // This list must contain exactly the fields declared by
+  // IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA. Managed-Iceberg ingestion casts each row's
+  // RECORD_METADATA into that structured OBJECT with a strict cast that rejects any field missing
+  // from the schema, so the two must stay identical — enforced by
+  // SnowflakeSinkRecordTest#testIcebergMetadataFields_matchDdlSchema.
+  static final List<String> ICEBERG_METADATA_FIELDS =
+      List.of(OFFSET, TOPIC, PARTITION, KEY, CREATE_TIME, CONNECTOR_PUSH_TIME, HEADERS);
 
   private final Map<String, Object> content;
   private final Map<String, Object> metadata;
@@ -288,13 +300,63 @@ public final class SnowflakeSinkRecord {
   }
 
   public Map<String, Object> getContentWithMetadata(boolean includeMetadata) {
+    return getContentWithMetadata(includeMetadata, false);
+  }
+
+  /**
+   * @param conformToIcebergMetadataSchema when true, the RECORD_METADATA value is reshaped to match
+   *     the structured {@code IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA} exactly: every
+   *     declared field present (absent ones as {@code null}), the variable timestamp-type key
+   *     normalized to "CreateTime", and any field outside the schema dropped. Managed-Iceberg
+   *     ingestion casts RECORD_METADATA into that typed OBJECT with a strict cast that throws on a
+   *     missing field, so a sparse Kafka metadata map (e.g. a keyless/headerless record) would
+   *     otherwise be rejected. FDN tables use a VARIANT RECORD_METADATA and pass {@code false}
+   *     (behavior unchanged).
+   */
+  public Map<String, Object> getContentWithMetadata(
+      boolean includeMetadata, boolean conformToIcebergMetadataSchema) {
     if (!includeMetadata || metadata.isEmpty()) {
       return content;
     }
 
     Map<String, Object> result = new HashMap<>(content);
-    result.put(TABLE_COLUMN_METADATA, metadata);
+    result.put(
+        TABLE_COLUMN_METADATA,
+        conformToIcebergMetadataSchema ? conformIcebergMetadata(metadata) : metadata);
     return result;
+  }
+
+  /**
+   * Reshape a Kafka metadata map to exactly the fields of {@code ICEBERG_METADATA_OBJECT_SCHEMA}.
+   * Every declared field is present (absent ones {@code null}, which the strict typed-OBJECT cast
+   * accepts because the schema fields are nullable, whereas a <em>missing</em> field is rejected);
+   * the timestamp field — emitted by Kafka under {@code TimestampType.name} — is normalized to
+   * "CreateTime"; fields outside the schema are dropped.
+   */
+  private static Map<String, Object> conformIcebergMetadata(Map<String, Object> metadata) {
+    Map<String, Object> conformed = new HashMap<>();
+    for (String field : ICEBERG_METADATA_FIELDS) {
+      conformed.put(field, null);
+    }
+    for (Map.Entry<String, Object> entry : metadata.entrySet()) {
+      String field = entry.getKey();
+      if (TimestampType.CREATE_TIME.name.equals(field)
+          || TimestampType.LOG_APPEND_TIME.name.equals(field)) {
+        field = CREATE_TIME;
+      }
+      if (!conformed.containsKey(field)) {
+        continue;
+      }
+      Object value = entry.getValue();
+      // The schema declares `key STRING`, but the record key can convert to a non-String (e.g. an
+      // INT-keyed topic yields an Integer, a struct/Avro key a Map). Coerce to String so the
+      // strict typed-OBJECT cast accepts it; absent keys stay null.
+      if (KEY.equals(field) && value != null && !(value instanceof String)) {
+        value = String.valueOf(value);
+      }
+      conformed.put(field, value);
+    }
+    return conformed;
   }
 
   public Map<String, Object> getMetadata() {

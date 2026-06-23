@@ -108,6 +108,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile Map<String, ColumnSchema> tableSchema;
   private final boolean shouldEvolveSchema;
 
+  // Whether the target table's RECORD_METADATA is the structured Iceberg OBJECT (vs FDN VARIANT),
+  // resolved lazily on first use and memoized for the channel's lifetime. We probe the ACTUAL
+  // table via conn.isIcebergTable rather than trusting the configured table.type, because the
+  // config only governs auto-creation: an existing table may differ from it (e.g. table.type=none
+  // targeting a pre-existing Iceberg table). null = not yet resolved.
+  private Boolean recordMetadataIsIcebergObject;
+
   public SnowpipeStreamingPartitionChannel(
       String tableName,
       String channelName,
@@ -192,7 +199,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         // If we reach here, it means we should ingest a record (possibly empty for tombstones)
         final Map<String, Object> row =
             record.getContentWithMetadata(
-                taskConfig.getMetadataConfig().shouldIncludeAllMetadata());
+                taskConfig.getMetadataConfig().shouldIncludeAllMetadata(),
+                conformMetadataToIcebergObject());
         if (!row.isEmpty()) {
           if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE
               && rowValidator != null) {
@@ -278,6 +286,19 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    *     was NOT inserted). When this returns false, callers must NOT advance processedOffset — the
    *     recovery logic has already reset offset state.
    */
+  /**
+   * Whether record metadata must be conformed to the strict structured-OBJECT RECORD_METADATA
+   * schema used by managed-Iceberg tables. True iff the actual target table is Iceberg. The
+   * configured table.type only governs auto-creation -- an existing table may be a different type
+   * -- so we probe the real table via {@code isIcebergTable} once and memoize.
+   */
+  private boolean conformMetadataToIcebergObject() {
+    if (recordMetadataIsIcebergObject == null) {
+      recordMetadataIsIcebergObject = conn.isIcebergTable(tableName);
+    }
+    return recordMetadataIsIcebergObject;
+  }
+
   private boolean insertRowWithFallback(Map<String, Object> row, long offset) {
     try {
       LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
