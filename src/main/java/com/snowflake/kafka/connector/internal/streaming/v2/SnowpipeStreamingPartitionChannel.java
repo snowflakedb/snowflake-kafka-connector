@@ -150,7 +150,20 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
             () -> {
               OpenChannelResult openChannelResult = openChannelWithClientRecovery(channelName);
               long offsetRecoveredFromSnowflake = parseOrMigrateOffsetToken(openChannelResult);
-              offsetTracker.initializeFromSnowflake(offsetRecoveredFromSnowflake);
+              // If this channel was cancelled (e.g. the partition was revoked during a rebalance)
+              // while the open was in-flight, skip the offset reset. Otherwise
+              // initializeFromSnowflake fires onOffsetReset, which re-enqueues a pending offset
+              // reset for a partition the task no longer owns; that reset is later applied via
+              // sinkTaskContext.offset() and seeks a revoked partition (SNOW-3647384). The channel
+              // is still returned so closeChannelAsync can close it.
+              if (cancelled.get()) {
+                LOGGER.info(
+                    "Channel {} was cancelled during open; skipping offset reset to avoid rewinding"
+                        + " a revoked partition",
+                    channelName);
+              } else {
+                offsetTracker.initializeFromSnowflake(offsetRecoveredFromSnowflake);
+              }
               return openChannelResult.getChannel();
             },
             openChannelIoExecutor);

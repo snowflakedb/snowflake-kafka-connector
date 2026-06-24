@@ -306,11 +306,29 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void insert(final Collection<SinkRecord> records) {
+    // Materialize the current assignment once. The connector must never ingest into or rewind a
+    // partition it no longer owns: a rebalance can revoke a partition, and seeking it would make
+    // WorkerSinkTask.rewind() throw "IllegalStateException: No current assignment for partition"
+    // and kill the task (SNOW-3647384).
+    Set<TopicPartition> assignment = sinkTaskContext.assignment();
+
     // Skip partitions for which the partition-channel bridge is currently being initialized.
     Set<TopicPartition> partitions =
         records.stream()
             .map(record -> new TopicPartition(record.topic(), record.kafkaPartition()))
             .collect(Collectors.toSet());
+    // Kafka Connect only delivers records for partitions currently assigned to this task. If this
+    // did not hold we would ingest data for a partition we don't own without ever rewinding it.
+    if (taskConfig.isAssertPartitionAssignmentEnabled() && !assignment.containsAll(partitions)) {
+      throw new AssertionError(
+          "Received records for partitions not in the current assignment: "
+              + partitions.stream()
+                  .filter(partition -> !assignment.contains(partition))
+                  .collect(Collectors.toSet())
+              + " (assignment="
+              + assignment
+              + ")");
+    }
 
     Set<TopicPartition> initializingPartitions = currentlyInitializing(partitions);
     if (!initializingPartitions.isEmpty()) {
@@ -327,7 +345,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // These partitions are skipped in this batch and rewound at the end.
     // They will be processed normally in the next batch.
     // This is so that sinkTaskContext.offset() is only ever called from this (task) thread.
-    Map<TopicPartition, Long> pendingResets = channelManager.drainPendingOffsetResets();
+    // Pass the current assignment so resets for partitions revoked by a rebalance are dropped
+    // rather than rewound (SNOW-3647384).
+    Map<TopicPartition, Long> pendingResets = channelManager.drainPendingOffsetResets(assignment);
     if (!pendingResets.isEmpty()) {
       LOGGER.info("Draining {} pending offset resets: {}", pendingResets.size(), pendingResets);
       offsetsToRewindTo.putAll(pendingResets);
@@ -386,6 +406,21 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     if (!offsetsToRewindTo.isEmpty()) {
+      // Defense-in-depth against SNOW-3647384: drainPendingOffsetResets already dropped revoked
+      // partitions and the skipped-record offsets come from `partitions` (asserted assigned above),
+      // so every rewind must target a currently-assigned partition. Guards any future path that
+      // could add an unassigned partition to offsetsToRewindTo before the seek.
+      if (taskConfig.isAssertPartitionAssignmentEnabled()
+          && !assignment.containsAll(offsetsToRewindTo.keySet())) {
+        throw new AssertionError(
+            "Attempting to rewind partitions not in the current assignment: "
+                + offsetsToRewindTo.keySet().stream()
+                    .filter(partition -> !assignment.contains(partition))
+                    .collect(Collectors.toSet())
+                + " (assignment="
+                + assignment
+                + ")");
+      }
       LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsToRewindTo);
       sinkTaskContext.offset(offsetsToRewindTo);
     }

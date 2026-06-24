@@ -31,6 +31,10 @@ inputs:
     description: "Enable mitmproxy reverse proxy for fault injection tests"
     required: false
     default: 'false'
+  jmx:
+    description: "Enable JMX metrics scraping via the Jolokia javaagent (sets KAFKA_OPTS so the connector JVM exposes MBeans on port 8778)"
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -55,6 +59,7 @@ runs:
         LOGS_DIR: "${{ github.workspace }}/test-logs"
         MARKER_FILTER: ${{ inputs.pressure == 'true' && 'pressure' || inputs['marker-filter'] }}
         MITMPROXY_FLAG: ${{ inputs['with-mitmproxy'] == 'true' && '--with-mitmproxy' || '' }}
+        JMX_FLAG: ${{ inputs.jmx == 'true' && '--jmx' || '' }}
       run: |
         ./run_tests.sh \
           --platform="$PLATFORM" \
@@ -63,6 +68,7 @@ runs:
           --java-version="$JAVA_VERSION" \
           --logs-dir="$LOGS_DIR" \
           $MITMPROXY_FLAG \
+          $JMX_FLAG \
           -- -m "$MARKER_FILTER"
 
     - name: Upload service logs on failure

@@ -52,6 +52,11 @@ public final class Constants {
     public static final boolean SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME_DEFAULT =
         false;
 
+    // Feature flags
+    public static final String SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT =
+        "snowflake.feature.assert.partition.assignment";
+    public static final boolean SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT_DEFAULT = true;
+
     // Caching
     public static final String CACHE_TABLE_EXISTS = "snowflake.cache.table.exists";
     public static final boolean CACHE_TABLE_EXISTS_DEFAULT = true;

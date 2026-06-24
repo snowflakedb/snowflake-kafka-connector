@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -363,8 +364,17 @@ public class PartitionChannelManager {
   /**
    * Atomically drains all pending offset resets submitted by channel init / recovery. Called from
    * the task thread at the beginning of {@code SSV2.insert(Collection)}.
+   *
+   * <p>Resets for partitions not in {@code assignment} are dropped (with a warning) rather than
+   * returned. A rebalance can revoke a partition after a reset was enqueued for it (e.g. an
+   * in-flight channel open completing after close re-adds the reset). Rewinding an unassigned
+   * partition makes {@code WorkerSinkTask.rewind()} seek a partition the consumer no longer owns
+   * and throws "IllegalStateException: No current assignment for partition", killing the task
+   * (SNOW-3647384). The partition's new owner re-initializes its own offset on open.
+   *
+   * @param assignment the partitions currently assigned to this task
    */
-  public Map<TopicPartition, Long> drainPendingOffsetResets() {
+  public Map<TopicPartition, Long> drainPendingOffsetResets(Set<TopicPartition> assignment) {
     if (pendingOffsetResets.isEmpty()) {
       return Map.of();
     }
@@ -372,10 +382,19 @@ public class PartitionChannelManager {
     pendingOffsetResets
         .keySet()
         .forEach(
-            tp -> {
-              Long offset = pendingOffsetResets.remove(tp);
-              if (offset != null) {
-                drained.put(tp, offset);
+            topicPartition -> {
+              Long offset = pendingOffsetResets.remove(topicPartition);
+              if (offset == null) {
+                return;
+              }
+              if (assignment.contains(topicPartition)) {
+                drained.put(topicPartition, offset);
+              } else {
+                LOGGER.warn(
+                    "Dropping pending offset reset for partition {} (offset {}) that is no longer"
+                        + " assigned to this task",
+                    topicPartition,
+                    offset);
               }
             });
     return drained;
