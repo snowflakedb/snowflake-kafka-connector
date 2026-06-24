@@ -88,6 +88,9 @@ class FaultState:
 
 fault_state = FaultState()
 
+# Separate state for 404-on-bulk-channel-status injection (SNOW-3670537)
+fault_state_404_bcs = FaultState()
+
 
 class Addon410:
     """mitmproxy addon that injects HTTP 410 and manages hostname routing."""
@@ -133,6 +136,16 @@ class Addon410:
             )
             fault_state.inc_injected()
             log(f"Injected 410 on {flow.request.method} {path}")
+
+        # Inject 404 on :bulk-channel-status when that fault mode is active.
+        if fault_state_404_bcs.enabled and ":bulk-channel-status" in path:
+            flow.response = http.Response.make(
+                404,
+                b"Not Found",
+                {"Content-Type": "text/plain"},
+            )
+            fault_state_404_bcs.inc_injected()
+            log(f"Injected 404 (bulk-channel-status) on {flow.request.method} {path}")
 
     def _rewrite_oauth_scope(self, flow: http.HTTPFlow) -> None:
         """Replace the Docker alias in the OAuth scope with the real subdomain."""
@@ -197,13 +210,24 @@ class ControlHandler(BaseHTTPRequestHandler):
             self._respond(200, {"status": "disabled"})
         elif self.path == "/reset-counters":
             fault_state.reset_counters()
+            fault_state_404_bcs.reset_counters()
             self._respond(200, {"status": "reset"})
+        elif self.path == "/enable-404-bcs":
+            fault_state_404_bcs.enabled = True
+            log("404-bulk-channel-status injection ENABLED")
+            self._respond(200, {"status": "enabled"})
+        elif self.path == "/disable-404-bcs":
+            fault_state_404_bcs.enabled = False
+            log("404-bulk-channel-status injection DISABLED")
+            self._respond(200, {"status": "disabled"})
         else:
             self._respond(404, {"error": "not found"})
 
     def do_GET(self):
         if self.path == "/status":
-            self._respond(200, fault_state.to_dict())
+            status = fault_state.to_dict()
+            status["injected_404_bcs_count"] = fault_state_404_bcs.injected_count
+            self._respond(200, status)
         else:
             self._respond(404, {"error": "not found"})
 

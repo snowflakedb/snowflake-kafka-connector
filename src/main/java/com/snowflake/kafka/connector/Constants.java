@@ -51,6 +51,14 @@ public final class Constants {
         "snowflake.feature.assert.partition.assignment";
     public static final boolean SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT_DEFAULT = true;
 
+    // Kill-switch (unregistered, default on) for preCommit-driven client recovery: when the
+    // offset-fetch (bulk-channel-status) path detects an invalid SDK client it triggers a
+    // channel reopen so recovery starts even with no appendRow traffic (SNOW-3670537). Set to
+    // false to fall back to the legacy behavior (defer recovery to the next appendRow).
+    public static final String SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY =
+        "snowflake.feature.precommit.client.recovery";
+    public static final boolean SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY_DEFAULT = true;
+
     // Caching
     public static final String CACHE_TABLE_EXISTS = "snowflake.cache.table.exists";
     public static final boolean CACHE_TABLE_EXISTS_DEFAULT = true;

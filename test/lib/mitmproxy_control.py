@@ -51,6 +51,22 @@ class MitmproxyControl:
         resp.raise_for_status()
         logger.info("Counters reset")
 
+    def enable_404_bulk_channel_status(self):
+        """Activate HTTP 404 injection on :bulk-channel-status paths."""
+        resp = requests.post(f"{self.base_url}/enable-404-bcs", timeout=5)
+        resp.raise_for_status()
+        logger.info("404 bulk-channel-status injection enabled")
+
+    def disable_404_bulk_channel_status(self):
+        """Deactivate HTTP 404 injection on :bulk-channel-status paths."""
+        resp = requests.post(f"{self.base_url}/disable-404-bcs", timeout=5)
+        resp.raise_for_status()
+        logger.info("404 bulk-channel-status injection disabled")
+
+    def get_404_bcs_injected_count(self) -> int:
+        """Return the number of 404 responses injected on :bulk-channel-status."""
+        return self.get_status()["injected_404_bcs_count"]
+
     def is_reachable(self) -> bool:
         """Check if the control API is reachable."""
         try:

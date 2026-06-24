@@ -888,6 +888,25 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
+  public void triggerReopenForInvalidClient() {
+    // A reopen already in flight (channel future not yet completed) recreates the client and
+    // resets the offset on its own, so don't pile a second reopen on top of it. Each subsequent
+    // preCommit will re-evaluate this and retry if the client is still invalid once the in-flight
+    // reopen settles.
+    if (isInitializing()) {
+      LOGGER.info(
+          "Channel {} reopen already in progress; skipping preCommit-triggered recovery",
+          channelName);
+      return;
+    }
+    LOGGER.warn(
+        "Channel {} client detected invalid during offset fetch; triggering recovery so the"
+            + " client is recreated even though no new records are arriving",
+        channelName);
+    reopenChannel("PRECOMMIT_CLIENT_INVALID");
+  }
+
+  @Override
   public String getChannelNameFormatV1() {
     return getChannel().getFullyQualifiedChannelName();
   }
