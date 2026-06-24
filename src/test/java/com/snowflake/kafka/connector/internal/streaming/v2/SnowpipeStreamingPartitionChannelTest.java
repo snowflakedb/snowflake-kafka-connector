@@ -563,6 +563,71 @@ class SnowpipeStreamingPartitionChannelTest {
     assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
   }
 
+  @Test
+  void triggerReopenForInvalidClient_recreatesClientAndReopensChannel() {
+    // Reproduces the stuck-task bug: the SDK client is invalidated while there are
+    // appended-but-uncommitted records, but no new records arrive to drive appendRow-based
+    // recovery. The preCommit offset-fetch path calls triggerReopenForInvalidClient(), which must
+    // recreate the client and reopen the channel even though appendRow is never called.
+    TrackingIngestClientSupplier newClientSupplier = new TrackingIngestClientSupplier();
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(pipeName, newClientSupplier);
+    AtomicInteger recreateCallCount = new AtomicInteger();
+    ClientRecreator clientRecreator =
+        invalidClient -> {
+          recreateCallCount.incrementAndGet();
+          return newClient;
+        };
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
+    partitionChannel.getChannel();
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+
+    // Client becomes invalid; no appendRow traffic to surface it.
+    trackingClientSupplier.markClientInvalid();
+
+    partitionChannel.triggerReopenForInvalidClient();
+    // Block until the async reopen settles.
+    partitionChannel.getChannel();
+
+    assertEquals(1, recreateCallCount.get(), "client should have been recreated once");
+    assertEquals(
+        1,
+        newClientSupplier.getTotalChannelsCreated(),
+        "channel should have been reopened on the recreated client");
+  }
+
+  @Test
+  void triggerReopenForInvalidClient_skipsWhenReopenAlreadyInProgress() {
+    // Block the executor so the initial open stays in-flight (isInitializing() == true).
+    CountDownLatch blockExecutor = new CountDownLatch(1);
+    openChannelIoExecutor.submit(
+        () -> {
+          blockExecutor.await();
+          return null;
+        });
+
+    AtomicInteger recreateCallCount = new AtomicInteger();
+    SnowpipeStreamingPartitionChannel partitionChannel =
+        createPartitionChannel(
+            invalidClient -> {
+              recreateCallCount.incrementAndGet();
+              return trackingClient;
+            });
+
+    assertTrue(partitionChannel.isInitializing(), "open should still be in flight");
+
+    // A reopen already in flight recreates the client on its own; the trigger must be a no-op so
+    // repeated preCommit calls don't pile up reopens.
+    partitionChannel.triggerReopenForInvalidClient();
+
+    blockExecutor.countDown();
+    partitionChannel.getChannel();
+
+    assertEquals(0, recreateCallCount.get(), "trigger must not start a second reopen");
+    assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
+  }
+
   private SinkRecord buildValidRecord(long offset) {
     JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
