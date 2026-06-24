@@ -24,8 +24,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -223,7 +225,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     // opens a channel for partition 0, table and topic
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(connectionService, configBuilder.build())
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withSinkTaskContext(
+                new InMemorySinkTaskContext(Set.of(topicPartition, topicPartition2)))
             .withMetricsJmxReporter(
                 new com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter(
                     new com.codahale.metrics.MetricRegistry(), TEST_CONNECTOR_NAME))
@@ -346,9 +349,16 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     }
     configBuilder.topicToTableMap(topic2Table);
 
+    Set<TopicPartition> assignment = new HashSet<>();
+    for (String assignedTopic : topics) {
+      for (int assignedPartition = 0; assignedPartition < partitionCount; assignedPartition++) {
+        assignment.add(new TopicPartition(assignedTopic, assignedPartition));
+      }
+    }
+
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withSinkTaskContext(new InMemorySinkTaskContext(assignment))
             .build();
 
     for (int topic = 0; topic < topicCount; topic++) {
@@ -402,7 +412,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
 
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, configBuilder.build())
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withSinkTaskContext(new InMemorySinkTaskContext(new HashSet<>(topicPartitions)))
             .build();
 
     service.startPartitions(topicPartitions);

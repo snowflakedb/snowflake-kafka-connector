@@ -85,6 +85,13 @@ public abstract class SinkTaskConfig {
   public abstract boolean isSsv1MigrationIncludeConnectorName();
 
   /**
+   * Whether the partition-assignment invariant assertions in {@code
+   * SnowflakeSinkServiceV2.insert(Collection)} are enabled. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT}.
+   */
+  public abstract boolean isAssertPartitionAssignmentEnabled();
+
+  /**
    * Parses the raw connector config map into an immutable SinkTaskConfig. Applies defaults for
    * missing optional keys. Caller must ensure required fields (connector name, task id) are present
    * or validation will throw.
@@ -231,6 +238,14 @@ public abstract class SinkTaskConfig {
     String snowflakeDatabase = config.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
     String snowflakeSchema = config.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
 
+    boolean assertPartitionAssignmentEnabled =
+        Optional.ofNullable(
+                config.get(
+                    KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT))
+            .map(Boolean::parseBoolean)
+            .orElse(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT_DEFAULT);
+
     return builder()
         .connectorName(connectorName)
         .taskId(taskId)
@@ -256,7 +271,8 @@ public abstract class SinkTaskConfig {
         .snowflakeDatabase(snowflakeDatabase)
         .snowflakeSchema(snowflakeSchema)
         .ssv1MigrationMode(ssv1MigrationMode)
-        .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName);
+        .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName)
+        .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled);
   }
 
   /** Creates a new builder. Used by {@link #from(Map)} and by tests. */
@@ -322,6 +338,9 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder ssv1MigrationIncludeConnectorName(
         boolean ssv1MigrationIncludeConnectorName);
+
+    public abstract Builder assertPartitionAssignmentEnabled(
+        boolean assertPartitionAssignmentEnabled);
 
     public abstract SinkTaskConfig build();
   }
