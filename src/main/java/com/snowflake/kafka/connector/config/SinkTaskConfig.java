@@ -117,6 +117,13 @@ public abstract class SinkTaskConfig {
 
   public abstract boolean isSsv1MigrationIncludeConnectorName();
 
+  /**
+   * Whether the partition-assignment invariant assertions in {@code
+   * SnowflakeSinkServiceV2.insert(Collection)} are enabled. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT}.
+   */
+  public abstract boolean isAssertPartitionAssignmentEnabled();
+
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
     return from(raw, false);
@@ -297,6 +304,14 @@ public abstract class SinkTaskConfig {
     String proxyPassword = config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
     String jdbcMap = config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP);
 
+    boolean assertPartitionAssignmentEnabled =
+        Optional.ofNullable(
+                config.get(
+                    KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT))
+            .map(Boolean::parseBoolean)
+            .orElse(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT_DEFAULT);
+
     return builder()
         .connectorName(connectorName)
         .taskId(taskId)
@@ -333,7 +348,8 @@ public abstract class SinkTaskConfig {
         .proxyPassword(proxyPassword)
         .jdbcMap(jdbcMap)
         .ssv1MigrationMode(ssv1MigrationMode)
-        .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName);
+        .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName)
+        .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled);
   }
 
   private static Password passwordOrNull(String value) {
@@ -425,6 +441,9 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder ssv1MigrationIncludeConnectorName(
         boolean ssv1MigrationIncludeConnectorName);
+
+    public abstract Builder assertPartitionAssignmentEnabled(
+        boolean assertPartitionAssignmentEnabled);
 
     public abstract SinkTaskConfig build();
   }
