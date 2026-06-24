@@ -3,45 +3,39 @@ E2E test for client recreation on transient 404 (bulk-channel-status path).
 
 Uses mitmproxy to inject HTTP 404 on :bulk-channel-status requests, triggering
 InvalidClientError in the SDK (mirroring the customer's envoy NR scenario in
-SNOW-3670537). Verifies the connector recreates the client via the offset-fetch
-path (BatchOffsetFetcher) and delivers all records without data loss.
+SNOW-3670537). Verifies the connector recovers via the preCommit offset-fetch
+path (BatchOffsetFetcher -> triggerReopenForInvalidClient) and delivers every
+record without loss or duplication.
 
 Requires: --with-mitmproxy flag when running run_tests.sh.
 """
 
-import json
 import logging
 import os
 from time import sleep
 
 import pytest
 
+from lib.config_migration import V4_CONFIG_TEMPLATE
+from lib.utils import RecordProducer
+
 logger = logging.getLogger(__name__)
 
-NUM_PARTITIONS = 3
-RECORDS_PER_PARTITION = 100
-# Dedicated config (distinct connector/topic/table name) so this test does not collide with the
-# 410 test, which derives its names from client_recreation.json and runs in the same session.
-CONFIG_FILE = "client_recreation_404.json"
-
-
-def _send_records(driver, topic: str, count_per_partition: int):
-    for partition in range(NUM_PARTITIONS):
-        values = [
-            json.dumps({"partition": partition, "seq": i}).encode()
-            for i in range(count_per_partition)
-        ]
-        keys = [
-            json.dumps({"key": f"p{partition}-{i}"}).encode()
-            for i in range(count_per_partition)
-        ]
-        driver.sendBytesData(topic, values, keys, partition=partition)
-    logger.info(
-        "Sent %d records (%d per partition x %d partitions)",
-        count_per_partition * NUM_PARTITIONS,
-        count_per_partition,
-        NUM_PARTITIONS,
-    )
+RECORD_BATCH = 300
+CONNECTOR_CONFIG = {
+    **V4_CONFIG_TEMPLATE,
+    "topics": "SNOWFLAKE_TEST_TOPIC",
+    "tasks.max": "1",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "errors.tolerance": "none",
+    "errors.log.enable": "true",
+    "snowflake.enable.schematization": "false",
+    # Route the SDK's streaming traffic through mitmproxy so the e2e can inject
+    # HTTP 404 on :bulk-channel-status (the customer's exact envoy error).
+    "snowflake.streaming.client.provider.override.map": "scheme:http,host:mitmproxy,port:8080",
+}
 
 
 @pytest.mark.fault_injection
@@ -53,101 +47,93 @@ def _send_records(driver, topic: str, count_per_partition: int):
 def test_client_recreation_on_bulk_channel_status_404(
     driver,
     name_salt,
-    create_table,
+    create_connector,
     wait_for_rows,
     mitmproxy,
 ):
     """
-    Verify that the connector recovers from SDK client invalidation triggered by
-    a transient HTTP 404 on :bulk-channel-status (the preCommit / offset-fetch path).
+    Verify the connector recovers from SDK client invalidation triggered by a
+    transient HTTP 404 on :bulk-channel-status (the preCommit / offset-fetch path).
 
     This is the SNOW-3670537 customer scenario: a brief envoy routing disruption
     returns 404 on bulk-channel-status, the Rust SDK marks the client permanently
     invalid, and without the fix the connector logs InvalidClientError forever
-    with no recovery and no task failure.
+    with no recovery and no task failure -- even for an idle pipe with no new data.
 
     Phases:
     1. Steady state: send records, verify they land.
     2. Fault: inject 404 on :bulk-channel-status for ~15 s (several preCommit
-       cycles). The SDK marks the client invalid; BatchOffsetFetcher detects
-       InvalidClientError and recreates the client.
+       cycles) with NO new data -- the idle-pipe case. getChannelStatus returns
+       404, the SDK marks the client invalid, and BatchOffsetFetcher signals the
+       channel to reopen and recreate the client.
     3. Heal: disable 404 injection.
-    4. Verify: all records (pre-fault + post-heal) arrive in Snowflake; connector
-       is RUNNING with no failed tasks.
+    4. Verify: post-heal records flow and EXACTLY the sent total lands (no loss,
+       no duplicates); connector is RUNNING with no failed tasks.
     """
     if mitmproxy is None:
         pytest.skip("mitmproxy control API not reachable")
 
-    unsalted_name = CONFIG_FILE.split(".")[0]
-    connector_name = f"{unsalted_name}{name_salt}"
-    topic = connector_name
+    # create_connector derives the connector/topic/table name from this test
+    # function name, so the topic must match it.
+    topic = f"test_client_recreation_on_bulk_channel_status_404{name_salt}"
+    table_name = topic.upper()
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
-    # --- Setup ---
-    table = create_table(
-        unsalted_name,
-        columns='(record_metadata variant, "partition" varchar, "seq" varchar, "key" varchar)',
-    )
-    driver.createTopics(topic, partitionNum=NUM_PARTITIONS, replicationNum=1)
-    driver.createConnector(
-        name_salt=name_salt,
-        rest_request_template_filename=CONFIG_FILE,
-    )
-    driver.wait_for_connector_running(connector_name)
+    connector = create_connector(v4_config=CONNECTOR_CONFIG)
+    driver.wait_for_connector_running(connector.name)
+    producer = RecordProducer(driver, topic)
 
     # --- Phase 1: Steady state ---
     logger.info("Phase 1: Sending records in steady state")
-    _send_records(driver, topic, RECORDS_PER_PARTITION)
-    expected_phase1 = RECORDS_PER_PARTITION * NUM_PARTITIONS
-    wait_for_rows(table.name, expected_phase1, connector_name=connector_name)
-    logger.info("Phase 1 complete: %d rows in Snowflake", expected_phase1)
+    producer.send(RECORD_BATCH)
+    wait_for_rows(table_name, RECORD_BATCH, connector_name=connector.name)
+    logger.info("Phase 1 complete: %d rows in Snowflake", RECORD_BATCH)
 
-    # --- Phase 2: Inject 404 on bulk-channel-status ---
+    # --- Phase 2: Inject 404 on bulk-channel-status (idle pipe, no new data) ---
     logger.info("Phase 2: Enabling 404 injection on :bulk-channel-status")
     mitmproxy.reset_counters()
     mitmproxy.enable_404_bulk_channel_status()
-
-    # Hold the fault for ~15 s so several preCommit cycles fire while the client
-    # is invalid. BatchOffsetFetcher's new recreation logic detects InvalidClientError
-    # and recreates the client in the background; the connector continues running.
+    # Hold the fault for several preCommit cycles. With no new records arriving,
+    # the only thing hitting Snowflake is the per-preCommit getChannelStatus call
+    # -- exactly the path that must drive recovery without an appendRow.
     sleep(15)
 
     # --- Phase 3: Heal ---
     logger.info("Phase 3: Disabling 404 injection")
     mitmproxy.disable_404_bulk_channel_status()
-
     proxy_status = mitmproxy.get_status()
     injected = proxy_status["injected_404_bcs_count"]
     logger.info("Proxy status after fault window: %s", proxy_status)
     assert injected > 0, (
-        f"No 404 responses were injected on :bulk-channel-status — the proxy is "
+        f"No 404 responses were injected on :bulk-channel-status -- the proxy is "
         f"not intercepting streaming API traffic. Proxy status: {proxy_status}"
     )
     logger.info(
         "Confirmed: %d 404 responses injected on :bulk-channel-status", injected
     )
 
-    # --- Phase 4: Post-heal ingestion + verify recovery ---
+    # --- Phase 4: Post-heal ingestion + verify exact recovery ---
     logger.info("Phase 4: Sending post-heal records")
-    _send_records(driver, topic, RECORDS_PER_PARTITION)
+    producer.send(RECORD_BATCH)
 
-    # EXACT: 300 pre-fault + 300 post-heal = 600, with no duplicates. wait_for_rows defaults to
-    # at_least=False, so it returns only on count == 600 and fails if the count overshoots --
-    # which would expose duplicate delivery during recovery.
-    expected_total = RECORDS_PER_PARTITION * NUM_PARTITIONS * 2
+    # EXACT: Phase 1 + Phase 4 = 2 * RECORD_BATCH, with no duplicates. wait_for_rows
+    # defaults to at_least=False, so it returns only on count == expected and fails
+    # on overshoot -- which would expose duplicate delivery during recovery.
+    expected_total = RECORD_BATCH * 2
     logger.info("Waiting for exactly %d total rows", expected_total)
     wait_for_rows(
-        table.name,
+        table_name,
         expected_total,
-        connector_name=connector_name,
+        connector_name=connector.name,
         timeout=180,
         max_consecutive_failures=20,
     )
 
-    status = driver.get_connector_status(connector_name)
+    status = driver.get_connector_status(connector.name)
     assert status["connector"]["state"] == "RUNNING", (
         f"Connector not RUNNING after recovery: {status}"
     )
-    failed_tasks = driver.get_failed_tasks(connector_name)
+    failed_tasks = driver.get_failed_tasks(connector.name)
     assert len(failed_tasks) == 0, f"Tasks failed after recovery: {failed_tasks}"
 
     logger.info(

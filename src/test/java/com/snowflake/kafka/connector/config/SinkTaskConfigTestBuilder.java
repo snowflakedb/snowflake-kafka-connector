@@ -55,7 +55,6 @@ public final class SinkTaskConfigTestBuilder {
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)
         .ssv1MigrationIncludeConnectorName(false)
         .assertPartitionAssignmentEnabled(true)
-        .precommitClientRecoveryEnabled(
-            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY_DEFAULT);
+        .precommitClientRecoveryEnabled(true);
   }
 }
