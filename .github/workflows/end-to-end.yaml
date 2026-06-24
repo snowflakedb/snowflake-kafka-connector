@@ -247,7 +247,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.run_soak_with_chaos)
     runs-on: ubuntu-22.04
     name: soak with chaos
-    timeout-minutes: 600
+    timeout-minutes: 360 # 6 hours (5 hours + buffer) - hard cap from GHA runners
     steps:
     - uses: actions/checkout@v4
 

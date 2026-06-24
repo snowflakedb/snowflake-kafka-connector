@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 
 # Soak duration. Set to 60 for a quick sanity check; bump to thousands of
 # seconds for multi-hour endurance runs.
-SOAK_DURATION_SECONDS = 60 * 60 * 1
+SOAK_DURATION_SECONDS = 60 * 60 * 5
 
 # Channel invalidation chaos: how often the side thread calls
 # SYSTEM$STREAMING_CHANNEL_INVALIDATE during the soak. Spread uniformly over a
