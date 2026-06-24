@@ -54,6 +54,7 @@ public final class SinkTaskConfigTestBuilder {
         .snowflakeSchema("")
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)
         .ssv1MigrationIncludeConnectorName(false)
-        .assertPartitionAssignmentEnabled(true);
+        .assertPartitionAssignmentEnabled(true)
+        .precommitClientRecoveryEnabled(true);
   }
 }

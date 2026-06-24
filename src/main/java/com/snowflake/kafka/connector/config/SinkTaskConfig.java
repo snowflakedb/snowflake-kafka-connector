@@ -124,6 +124,13 @@ public abstract class SinkTaskConfig {
    */
   public abstract boolean isAssertPartitionAssignmentEnabled();
 
+  /**
+   * Whether the preCommit offset-fetch path triggers a channel reopen when it detects an invalid
+   * SDK client, so recovery starts even without appendRow traffic. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY}.
+   */
+  public abstract boolean isPrecommitClientRecoveryEnabled();
+
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
     return from(raw, false);
@@ -276,6 +283,14 @@ public abstract class SinkTaskConfig {
                     KafkaConnectorConfigParams
                         .SNOWFLAKE_SSV1_OFFSET_MIGRATION_INCLUDE_CONNECTOR_NAME_DEFAULT)));
 
+    boolean precommitClientRecoveryEnabled =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY_DEFAULT)));
+
     String snowflakeUrl = config.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
     String snowflakeUser = config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
     String snowflakeRole = config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
@@ -349,7 +364,8 @@ public abstract class SinkTaskConfig {
         .jdbcMap(jdbcMap)
         .ssv1MigrationMode(ssv1MigrationMode)
         .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName)
-        .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled);
+        .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled)
+        .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled);
   }
 
   private static Password passwordOrNull(String value) {
@@ -444,6 +460,8 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder assertPartitionAssignmentEnabled(
         boolean assertPartitionAssignmentEnabled);
+
+    public abstract Builder precommitClientRecoveryEnabled(boolean precommitClientRecoveryEnabled);
 
     public abstract SinkTaskConfig build();
   }

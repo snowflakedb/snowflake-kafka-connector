@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.snowflake.ingest.streaming.ChannelStatus;
@@ -133,6 +135,64 @@ class BatchOffsetFetcherTest {
 
     assertEquals(1, result.size());
     assertEquals(21L, result.get(tp1));
+
+    // A generic (non-client-invalid) failure must not trigger client recreation.
+    verify(channels.get(tp0), never()).triggerReopenForInvalidClient();
+  }
+
+  @Test
+  void clientInvalidErrorTriggersChannelRecovery() {
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+    TopicPartition tp1 = new TopicPartition("topicA", 1);
+    TopicPartition tp2 = new TopicPartition("topicB", 0);
+
+    registerChannel(tp0, "pipeA", "chA0", 10L);
+    registerChannel(tp1, "pipeA", "chA1", 20L);
+    registerChannel(tp2, "pipeB", "chB0", 30L);
+
+    clientSupplier.setClientInvalidPipe("pipeA");
+
+    Map<TopicPartition, Long> result =
+        fetcher.getCommittedOffsets(Set.of(tp0, tp1, tp2), channelLookup());
+
+    // The invalid pipe's offsets are skipped, but the healthy pipe is unaffected.
+    assertEquals(1, result.size());
+    assertEquals(31L, result.get(tp2));
+
+    // Every channel on the invalid pipe is told to reopen so the client is recreated even though
+    // no appendRow traffic is arriving to drive recovery (the stuck-task bug). Channels on the
+    // healthy pipe are left alone.
+    verify(channels.get(tp0)).triggerReopenForInvalidClient();
+    verify(channels.get(tp1)).triggerReopenForInvalidClient();
+    verify(channels.get(tp2), never()).triggerReopenForInvalidClient();
+  }
+
+  // SNOW-3670537 kill-switch: with snowflake.feature.precommit.client.recovery=false an invalid
+  // client must NOT trigger a preCommit reopen -- legacy behavior (recovery deferred to appendRow).
+  @Test
+  void clientInvalid_recoveryDisabled_doesNotTriggerReopen_snow3670537() {
+    SinkTaskConfig offConfig =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(connectorName)
+            .taskId(TASK_ID)
+            .precommitClientRecoveryEnabled(false)
+            .build();
+    BatchOffsetFetcher offFetcher =
+        new BatchOffsetFetcher(connectorName, TASK_ID, offConfig, ioExecutor, TaskMetrics.noop());
+
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+    TopicPartition tp1 = new TopicPartition("topicB", 0);
+    registerChannel(tp0, "pipeA", "chA0", 10L);
+    registerChannel(tp1, "pipeB", "chB0", 30L);
+    clientSupplier.setClientInvalidPipe("pipeA");
+
+    Map<TopicPartition, Long> result =
+        offFetcher.getCommittedOffsets(Set.of(tp0, tp1), channelLookup());
+
+    // Invalid pipe still skipped and the healthy pipe is unaffected, but NO reopen is triggered.
+    assertEquals(1, result.size());
+    assertEquals(31L, result.get(tp1));
+    verify(channels.get(tp0), never()).triggerReopenForInvalidClient();
   }
 
   @Test
@@ -225,6 +285,7 @@ class BatchOffsetFetcherTest {
     // pipeName -> (channelName -> offsetToken)
     private final Map<String, Map<String, String>> pipeChannelOffsets = new ConcurrentHashMap<>();
     private volatile String failingPipe = null;
+    private volatile String clientInvalidPipe = null;
 
     void setChannelOffset(String channelName, String pipeName, String offsetToken) {
       pipeChannelOffsets
@@ -234,6 +295,11 @@ class BatchOffsetFetcherTest {
 
     void setFailingPipe(String pipeName) {
       this.failingPipe = pipeName;
+    }
+
+    /** Makes {@code getChannelStatus} throw a client-invalid SFException for the given pipe. */
+    void setClientInvalidPipe(String pipeName) {
+      this.clientInvalidPipe = pipeName;
     }
 
     int getBatchCallCount() {
@@ -252,6 +318,10 @@ class BatchOffsetFetcherTest {
           .thenAnswer(
               invocation -> {
                 batchCallCount.incrementAndGet();
+                if (pipeName.equals(clientInvalidPipe)) {
+                  throw new SFException(
+                      "InvalidClientError", "Simulated client invalidation", 409, "Conflict");
+                }
                 if (pipeName.equals(failingPipe)) {
                   throw new SFException(
                       "TestError", "Simulated batch failure", 500, "Internal Server Error");
