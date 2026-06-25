@@ -4,6 +4,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.RegexTopicToTableResolver;
 import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.TopicToTableParser;
 import com.snowflake.kafka.connector.TopicToTableResolver;
@@ -180,6 +181,14 @@ public abstract class SinkTaskConfig {
       }
     }
 
+    boolean regexReplacement =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT_DEFAULT)));
+
     TopicToTableResolver topicToTableResolver =
         Optional.ofNullable(config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP))
             .map(
@@ -187,7 +196,9 @@ public abstract class SinkTaskConfig {
                   try {
                     List<TopicToTableParser.Entry> entries =
                         TopicToTableParser.parseAndValidate(value);
-                    return StaticTopicToTableResolver.from(entries);
+                    return regexReplacement
+                        ? RegexTopicToTableResolver.from(entries)
+                        : StaticTopicToTableResolver.from(entries);
                   } catch (IllegalArgumentException e) {
                     throw SnowflakeErrors.ERROR_0021.getException(e.getMessage());
                   }
