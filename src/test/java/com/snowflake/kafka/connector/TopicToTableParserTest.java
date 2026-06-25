@@ -16,6 +16,11 @@ public class TopicToTableParserTest {
     return StaticTopicToTableResolver.from(entries);
   }
 
+  private static TopicToTableResolver regexResolverFrom(String input) {
+    List<TopicToTableParser.Entry> entries = TopicToTableParser.parseAndValidate(input);
+    return RegexTopicToTableResolver.from(entries);
+  }
+
   @Test
   public void testParseEmptyInput() {
     assertNull(staticResolverFrom("").resolve("anything"));
@@ -104,6 +109,23 @@ public class TopicToTableParserTest {
   public void testParseRejectsMissingColon() {
     IllegalArgumentException error = assertParseError("topic table");
     assertTrue(error.getMessage().contains("Expected ':'"));
+  }
+
+  @Test
+  public void testParseRegexGroupSubstitution() {
+    TopicToTableResolver resolver = regexResolverFrom("topic_(.*):table_$1");
+
+    assertEquals("TABLE_EVENTS", resolver.resolve("topic_events"));
+    assertEquals("TABLE_LOGS", resolver.resolve("topic_logs"));
+    assertNull(resolver.resolve("other"));
+  }
+
+  @Test
+  public void testParseRegexQuotedPreservesCase() {
+    TopicToTableResolver resolver = regexResolverFrom("topic_(.*):\"Table_$1\"");
+
+    assertEquals("Table_Events", resolver.resolve("topic_Events"));
+    assertNull(resolver.resolve("other"));
   }
 
   private static IllegalArgumentException assertParseError(String input) {
