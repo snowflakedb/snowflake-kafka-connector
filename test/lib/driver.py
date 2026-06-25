@@ -670,9 +670,6 @@ class KafkaDriver:
 
         snowflake_connector_name = unsalted_name + name_salt
         logger.info(f"=== Creating connector: {snowflake_connector_name} ===")
-        logger.info(
-            f"Config template: {json.dumps(rest_request_template['config'], indent=4)}"
-        )
 
         snowflake_topic_name = snowflake_connector_name
 
