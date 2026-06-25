@@ -9,6 +9,9 @@ public final class Constants {
     public static final String NAME = "name";
     public static final String TOPICS = "topics";
     public static final String SNOWFLAKE_TOPICS2TABLE_MAP = "snowflake.topic2table.map";
+    public static final String SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT =
+        "snowflake.topic2table.map.regex.replacement";
+    public static final boolean SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT_DEFAULT = false;
     public static final String SNOWFLAKE_URL_NAME = "snowflake.url.name";
     public static final String SNOWFLAKE_USER_NAME = "snowflake.user.name";
     public static final String SNOWFLAKE_PRIVATE_KEY = "snowflake.private.key";
