@@ -82,6 +82,13 @@ class KafkaDriver:
         self.MAX_FLUSH_BUFFER_SIZE = (
             5000  # flush buffer when 5000 data was in the queue
         )
+        # Max seconds to block waiting for produced records to be acknowledged
+        # by the broker. librdkafka retries delivery up to message.timeout.ms
+        # (default 5 min); we cap the flush wait well below that so a stuck or
+        # lost record fails the test loudly here instead of silently leaving 0
+        # rows for the connector to consume (which surfaces as a confusing
+        # "got 0 rows" assertion much further downstream).
+        self.PRODUCER_FLUSH_TIMEOUT_SECS = 120
 
         self.kafkaConnectAddress = kafkaConnectAddress
         self.schemaRegistryAddress = schemaRegistryAddress
@@ -218,22 +225,74 @@ class KafkaDriver:
             except Exception as e:
                 logger.error(f"Failed to create topic partitions {topic}: {e}")
 
+    def _flush_and_verify(self, producer, expected_count, delivery_errors):
+        """Flush the producer and fail loudly if any record was not delivered.
+
+        confluent_kafka's ``produce()`` is fire-and-forget: it reports delivery
+        failures only via the per-message ``on_delivery`` callback, and
+        ``flush()`` returns the number of messages still queued rather than
+        raising. Without this check a dropped record is silently lost, leaving
+        the connector with fewer rows than expected and surfacing as a baffling
+        downstream assertion (e.g. "got 0 rows"). We block on flush (bounded by
+        PRODUCER_FLUSH_TIMEOUT_SECS) and raise if anything is still undelivered
+        or any delivery callback reported an error.
+        """
+        remaining = producer.flush(self.PRODUCER_FLUSH_TIMEOUT_SECS)
+        if remaining > 0:
+            raise NonRetryableError(
+                f"Producer flush timed out after "
+                f"{self.PRODUCER_FLUSH_TIMEOUT_SECS}s with {remaining} of "
+                f"{expected_count} record(s) still undelivered to Kafka"
+            )
+        if delivery_errors:
+            raise NonRetryableError(
+                f"{len(delivery_errors)} of {expected_count} record(s) failed "
+                f"delivery to Kafka; first error: {delivery_errors[0]}"
+            )
+
+    @staticmethod
+    def _delivery_error_collector():
+        """Return (callback, errors) for capturing produce delivery failures."""
+        errors = []
+
+        def on_delivery(err, msg):
+            if err is not None:
+                errors.append(err)
+
+        return on_delivery, errors
+
     def sendBytesData(self, topic, value, key=None, partition=0, headers=None):
+        on_delivery, delivery_errors = self._delivery_error_collector()
+        # Count as we iterate rather than len(value): callers may pass a lazy
+        # iterator (e.g. itertools.islice) that has no length and can only be
+        # consumed once.
+        produced = 0
         if not key:
             for i, v in enumerate(value):
                 self.producer.produce(
-                    topic, value=v, partition=partition, headers=headers or []
+                    topic,
+                    value=v,
+                    partition=partition,
+                    headers=headers or [],
+                    on_delivery=on_delivery,
                 )
+                produced += 1
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
                     self.producer.flush()
         else:
             for i, (k, v) in enumerate(zip(key, value, strict=True)):
                 self.producer.produce(
-                    topic, value=v, key=k, partition=partition, headers=headers or []
+                    topic,
+                    value=v,
+                    key=k,
+                    partition=partition,
+                    headers=headers or [],
+                    on_delivery=on_delivery,
                 )
+                produced += 1
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
                     self.producer.flush()
-        self.producer.flush()
+        self._flush_and_verify(self.producer, produced, delivery_errors)
 
     def sendAvroSRData(
         self,
@@ -245,6 +304,11 @@ class KafkaDriver:
         partition=0,
         headers=None,
     ):
+        on_delivery, delivery_errors = self._delivery_error_collector()
+        # Count as we iterate rather than len(value): callers may pass a lazy
+        # iterator (e.g. itertools.islice) that has no length and can only be
+        # consumed once.
+        produced = 0
         if not key:
             for i, v in enumerate(value):
                 self.avroProducer.produce(
@@ -253,9 +317,11 @@ class KafkaDriver:
                     value_schema=value_schema,
                     partition=partition,
                     headers=headers or [],
+                    on_delivery=on_delivery,
                 )
+                produced += 1
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
-                    self.producer.flush()
+                    self.avroProducer.flush()
         else:
             for i, (k, v) in enumerate(zip(key, value, strict=True)):
                 self.avroProducer.produce(
@@ -266,10 +332,12 @@ class KafkaDriver:
                     key_schema=key_schema,
                     partition=partition,
                     headers=headers or [],
+                    on_delivery=on_delivery,
                 )
+                produced += 1
                 if (i + 1) % self.MAX_FLUSH_BUFFER_SIZE == 0:
-                    self.producer.flush()
-        self.avroProducer.flush()
+                    self.avroProducer.flush()
+        self._flush_and_verify(self.avroProducer, produced, delivery_errors)
 
     def consume_messages_dlq(self, config, partition_no, target_dlq_offset_number):
         """
