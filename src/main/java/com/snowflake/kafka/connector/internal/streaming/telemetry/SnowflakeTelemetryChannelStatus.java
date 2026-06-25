@@ -40,9 +40,12 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * <p>Most of the data sent to Snowflake is aggregated data.
  */
 public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
-  public static final long NUM_METRICS = 4; // update when new metrics are added
+  public static final long NUM_METRICS = 7; // update when new metrics are added
 
   static final String CHANNEL_RECOVERY_COUNT = "channel-recovery-count";
+  static final String OFFSET_GAP_COUNT = "offset-gap-count";
+  static final String OFFSET_GAP_MISSING_RECORD_COUNT = "offset-gap-missing-record-count";
+  static final String RECOVERY_SKIP_CONFLICT_COUNT = "recovery-skip-conflict-count";
 
   // channel properties
   private final String connectorName;
@@ -55,8 +58,20 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private final AtomicLong processedOffset;
   private final AtomicLong latestConsumerOffset;
 
+  // Offset-gap counters, owned by PartitionOffsetTracker and read here by reference for telemetry
+  // and JMX. Recorded in shouldProcess (from insertRecord): the number of forward discontinuities
+  // in the processed offsets, and the total offset positions skipped across them (an upper bound on
+  // records actually lost). See SNOW-3655748 / PROD-538073.
+  private final AtomicLong offsetGapCount;
+  private final AtomicLong offsetGapMissingRecordCount;
+
   // channel recovery counter (always tracked; also registered as JMX gauge if enabled)
   private final AtomicLong recoveryCount = new AtomicLong(0);
+
+  // Count of batches where this channel was recovering while the same batch carried records past
+  // its resume offset -- the PROD-538073 data-loss interleaving. Benign post-SNOW-3574225; tracked
+  // for cross-version trending.
+  private final AtomicLong recoverySkipConflictCount = new AtomicLong(0);
 
   // Client recreation counters — incremented from openChannelWithClientRecovery when a
   // client-invalid SDK error (HTTP 410 / pipe failover) triggers a swap of the streaming client.
@@ -116,7 +131,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
       final Optional<MetricsJmxReporter> metricsJmxReporter,
       final AtomicLong offsetPersistedInSnowflake,
       final AtomicLong processedOffset,
-      final AtomicLong latestConsumerOffset) {
+      final AtomicLong latestConsumerOffset,
+      final AtomicLong offsetGapCount,
+      final AtomicLong offsetGapMissingRecordCount) {
     super(tableName, SnowflakeTelemetryService.TelemetryType.KAFKA_CHANNEL_USAGE);
 
     this.channelCreationTime = startTime;
@@ -127,6 +144,8 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     this.offsetPersistedInSnowflake = offsetPersistedInSnowflake;
     this.processedOffset = processedOffset;
     this.latestConsumerOffset = latestConsumerOffset;
+    this.offsetGapCount = offsetGapCount;
+    this.offsetGapMissingRecordCount = offsetGapMissingRecordCount;
 
     metricsJmxReporter.ifPresent(reporter -> registerChannelJMXMetrics(reporter));
   }
@@ -155,6 +174,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.VALIDATION_FAILURE_COUNT, this.validationFailureCount.get());
     msg.put(TelemetryConstants.ERROR_TOLERATED_COUNT, this.errorToleratedCount.get());
     msg.put(TelemetryConstants.CHANNEL_RECOVERY_COUNT, this.recoveryCount.get());
+    msg.put(TelemetryConstants.OFFSET_GAP_COUNT, this.offsetGapCount.get());
+    msg.put(
+        TelemetryConstants.OFFSET_GAP_MISSING_RECORD_COUNT, this.offsetGapMissingRecordCount.get());
+    msg.put(TelemetryConstants.RECOVERY_SKIP_CONFLICT_COUNT, this.recoverySkipConflictCount.get());
     msg.put(
         TelemetryConstants.CLIENT_RECREATION_ATTEMPT_COUNT,
         this.clientRecreationAttemptCount.get());
@@ -200,6 +223,11 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, MetricsUtil.LATEST_CONSUMER_OFFSET),
           channelMetricName(
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, CHANNEL_RECOVERY_COUNT),
+          channelMetricName(this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, OFFSET_GAP_COUNT),
+          channelMetricName(
+              this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, OFFSET_GAP_MISSING_RECORD_COUNT),
+          channelMetricName(
+              this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, RECOVERY_SKIP_CONFLICT_COUNT),
         };
 
     @SuppressWarnings("unchecked")
@@ -209,6 +237,9 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
           (Gauge<Long>) this.processedOffset::get,
           (Gauge<Long>) this.latestConsumerOffset::get,
           (Gauge<Long>) this.recoveryCount::get,
+          (Gauge<Long>) this.offsetGapCount::get,
+          (Gauge<Long>) this.offsetGapMissingRecordCount::get,
+          (Gauge<Long>) this.recoverySkipConflictCount::get,
         };
 
     for (int i = 0; i < registeredMetricNames.length; i++) {
@@ -245,6 +276,11 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Increments the channel recovery counter. Thread-safe. */
   public void incRecoveryCount() {
     this.recoveryCount.incrementAndGet();
+  }
+
+  /** Increments the recovery-skip conflict counter. Thread-safe. */
+  public void incRecoverySkipConflictCount() {
+    this.recoverySkipConflictCount.incrementAndGet();
   }
 
   /** Increments the client recreation attempt counter. Thread-safe. */
@@ -344,5 +380,20 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   @VisibleForTesting
   public long getLatestConsumerOffset() {
     return this.latestConsumerOffset.get();
+  }
+
+  @VisibleForTesting
+  public long getOffsetGapCount() {
+    return this.offsetGapCount.get();
+  }
+
+  @VisibleForTesting
+  public long getOffsetGapMissingRecordCount() {
+    return this.offsetGapMissingRecordCount.get();
+  }
+
+  @VisibleForTesting
+  public long getRecoverySkipConflictCount() {
+    return this.recoverySkipConflictCount.get();
   }
 }

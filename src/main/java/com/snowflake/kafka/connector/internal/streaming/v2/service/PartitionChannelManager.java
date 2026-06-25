@@ -198,7 +198,9 @@ public class PartitionChannelManager {
             this.metricsJmxReporter,
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
+            offsetTracker.consumerGroupOffsetRef(),
+            offsetTracker.offsetGapCountRef(),
+            offsetTracker.offsetGapMissingRecordCountRef());
 
     final ExecutorService openChannelIoExecutor =
         ThreadPools.getOpenChannelIoExecutor(taskConfig.getConnectorName());

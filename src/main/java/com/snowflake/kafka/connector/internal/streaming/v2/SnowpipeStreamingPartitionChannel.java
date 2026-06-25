@@ -943,6 +943,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
+  public void incRecoverySkipConflictCount() {
+    this.snowflakeTelemetryChannelStatus.incRecoverySkipConflictCount();
+  }
+
+  @Override
   public void setLatestConsumerGroupOffset(long consumerOffset) {
     offsetTracker.setLatestConsumerGroupOffset(consumerOffset);
   }

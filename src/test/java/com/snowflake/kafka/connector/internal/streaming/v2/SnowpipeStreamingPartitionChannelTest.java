@@ -241,7 +241,9 @@ class SnowpipeStreamingPartitionChannelTest {
             Optional.empty(),
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
+            offsetTracker.consumerGroupOffsetRef(),
+            offsetTracker.offsetGapCountRef(),
+            offsetTracker.offsetGapMissingRecordCountRef());
     final SinkTaskConfig taskConfig =
         SinkTaskConfigTestBuilder.builder()
             .connectorName(CONNECTOR_NAME)
@@ -660,7 +662,9 @@ class SnowpipeStreamingPartitionChannelTest {
             Optional.empty(),
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
+            offsetTracker.consumerGroupOffsetRef(),
+            offsetTracker.offsetGapCountRef(),
+            offsetTracker.offsetGapMissingRecordCountRef());
 
     SinkTaskConfig taskConfig =
         SinkTaskConfigTestBuilder.builder()
@@ -741,7 +745,9 @@ class SnowpipeStreamingPartitionChannelTest {
             Optional.empty(),
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
+            offsetTracker.consumerGroupOffsetRef(),
+            offsetTracker.offsetGapCountRef(),
+            offsetTracker.offsetGapMissingRecordCountRef());
 
     SinkTaskConfig taskConfig =
         SinkTaskConfigTestBuilder.builder()
@@ -836,7 +842,9 @@ class SnowpipeStreamingPartitionChannelTest {
             Optional.empty(),
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
+            offsetTracker.consumerGroupOffsetRef(),
+            offsetTracker.offsetGapCountRef(),
+            offsetTracker.offsetGapMissingRecordCountRef());
 
     SinkTaskConfig taskConfig =
         SinkTaskConfigTestBuilder.builder()
@@ -978,7 +986,9 @@ class SnowpipeStreamingPartitionChannelTest {
             Optional.empty(),
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
+            offsetTracker.consumerGroupOffsetRef(),
+            offsetTracker.offsetGapCountRef(),
+            offsetTracker.offsetGapMissingRecordCountRef());
 
     SinkTaskConfig migrationTaskConfig =
         SinkTaskConfigTestBuilder.builder()

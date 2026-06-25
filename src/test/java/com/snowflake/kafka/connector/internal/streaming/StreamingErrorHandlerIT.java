@@ -286,7 +286,9 @@ class StreamingErrorHandlerIT {
             Optional.empty(),
             offsetTracker.persistedOffsetRef(),
             offsetTracker.processedOffsetRef(),
-            offsetTracker.consumerGroupOffsetRef());
+            offsetTracker.consumerGroupOffsetRef(),
+            offsetTracker.offsetGapCountRef(),
+            offsetTracker.offsetGapMissingRecordCountRef());
 
     return new SnowpipeStreamingPartitionChannel(
         "test_table",
