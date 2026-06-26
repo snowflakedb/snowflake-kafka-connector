@@ -424,7 +424,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       try (ResultSet result = stmt.executeQuery()) {
         if (result.next()) {
           try {
-            if ("Y".equals(result.getString("error_logging"))) {
+            if ("ON".equals(result.getString("error_logging"))) {
               LOGGER.debug("Table {} has ERROR_LOGGING enabled", tableName);
               return true;
             }
