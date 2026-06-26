@@ -265,11 +265,6 @@ public class TestUtils {
       configuration.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, p.privateKey);
     }
 
-    // password only appears in test profile
-    if (p.password != null) {
-      configuration.put("password", p.password);
-    }
-
     configuration.put(KafkaConnectorConfigParams.NAME, TEST_CONNECTOR_NAME);
 
     // enable test query mark
