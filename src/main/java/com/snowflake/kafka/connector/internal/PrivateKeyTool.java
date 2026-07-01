@@ -1,13 +1,13 @@
 package com.snowflake.kafka.connector.internal;
 
-import static org.apache.commons.lang3.StringUtils.isBlank;
-
 import java.io.StringReader;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
+import java.util.Optional;
+import org.apache.kafka.common.config.types.Password;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.bouncycastle.openssl.PEMParser;
@@ -20,12 +20,11 @@ public final class PrivateKeyTool {
 
   private static final KCLogger LOGGER = new KCLogger(PrivateKeyTool.class.getName());
 
-  public static PrivateKey parsePrivateKey(String privateKeyStr, String privateKeyPassword) {
-    if (isBlank(privateKeyPassword)) {
-      return parseNonEncryptedPrivateKey(privateKeyStr);
-    } else {
-      return parseEncryptedPrivateKey(privateKeyStr, privateKeyPassword);
-    }
+  public static PrivateKey parsePrivateKey(
+      Password privateKey, Optional<Password> privateKeyPassphrase) {
+    return privateKeyPassphrase
+        .map(passphrase -> parseEncryptedPrivateKey(privateKey.value(), passphrase.value()))
+        .orElseGet(() -> parseNonEncryptedPrivateKey(privateKey.value()));
   }
 
   private static PrivateKey parseNonEncryptedPrivateKey(String key) {

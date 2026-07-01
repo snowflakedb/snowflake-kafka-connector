@@ -22,15 +22,14 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Properties;
-import org.apache.kafka.common.config.types.Password;
 
 /**
  * Object to convert and store properties for {@code
@@ -67,14 +66,10 @@ public class StreamingClientProperties {
     final Properties clientProperties = new Properties();
     if (!Strings.isNullOrEmpty(config.getSnowflakeUrl())) {
       SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
-      final String privateKeyStr =
-          Optional.ofNullable(config.getSnowflakePrivateKey()).map(Password::value).orElse(null);
-      final String privateKeyPassphrase =
-          Optional.ofNullable(config.getSnowflakePrivateKeyPassphrase())
-              .map(Password::value)
-              .orElse(null);
       final PrivateKey privateKey =
-          PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
+          PrivateKeyTool.parsePrivateKey(
+              config.getSnowflakePrivateKey().orElseThrow(SnowflakeErrors.ERROR_0013::getException),
+              config.getSnowflakePrivateKeyPassphrase());
       final String privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
       clientProperties.put("private_key", privateKeyEncoded);
 

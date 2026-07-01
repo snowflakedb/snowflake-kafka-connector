@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import java.security.PrivateKey;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import javax.sql.DataSource;
 import net.snowflake.client.api.driver.SnowflakeDriver;
@@ -12,6 +13,7 @@ import org.apache.commons.dbcp2.PoolableConnection;
 import org.apache.commons.dbcp2.PoolableConnectionFactory;
 import org.apache.commons.dbcp2.PoolingDataSource;
 import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.kafka.common.config.types.Password;
 
 /** Factory class for creating DataSource instances using Apache Commons DBCP2 for testing. */
 public final class SnowflakeDataSourceFactory {
@@ -58,7 +60,9 @@ public final class SnowflakeDataSourceFactory {
 
         // JWT key pair auth - set private key
         final PrivateKey privateKey =
-            PrivateKeyTool.parsePrivateKey(privateKeyStr, privateKeyPassphrase);
+            PrivateKeyTool.parsePrivateKey(
+                new Password(privateKeyStr),
+                Optional.ofNullable(privateKeyPassphrase).map(Password::new));
         connectionProperties.put("privateKey", privateKey);
 
         // Create connection factory with Snowflake driver

@@ -47,8 +47,6 @@ public final class SinkTaskConfigTestBuilder {
         .snowflakeUrl("")
         .snowflakeUser("")
         .snowflakeRole("")
-        .snowflakePrivateKey(null)
-        .snowflakePrivateKeyPassphrase(null)
         .authenticator(AuthenticatorType.SNOWFLAKE_JWT)
         .snowflakeDatabase("")
         .snowflakeSchema("")
