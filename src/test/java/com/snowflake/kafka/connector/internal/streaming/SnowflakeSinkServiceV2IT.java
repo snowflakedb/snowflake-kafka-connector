@@ -5,6 +5,7 @@ import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPart
 import static com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager.makeChannelName;
 
 import com.codahale.metrics.Gauge;
+import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
@@ -347,7 +348,7 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
       topics.add(topicName);
       topic2Table.put(topicName, table);
     }
-    configBuilder.topicToTableMap(topic2Table);
+    configBuilder.topicToTableResolver(new StaticTopicToTableResolver(topic2Table));
 
     Set<TopicPartition> assignment = new HashSet<>();
     for (String assignedTopic : topics) {
@@ -408,7 +409,8 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     for (int partition = 0; partition < partitionCount; partition++) {
       topicPartitions.add(new TopicPartition(topic, partition));
     }
-    configBuilder.topicToTableMap(Collections.singletonMap(topic, table));
+    configBuilder.topicToTableResolver(
+        new StaticTopicToTableResolver(Collections.singletonMap(topic, table)));
 
     SnowflakeSinkService service =
         StreamingSinkServiceBuilder.builder(conn, configBuilder.build())

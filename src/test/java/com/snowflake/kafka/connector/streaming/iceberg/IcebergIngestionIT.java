@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.streaming.iceberg;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
+import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.dlq.InMemoryKafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
@@ -56,7 +57,8 @@ public abstract class IcebergIngestionIT extends BaseIcebergIT {
         SinkTaskConfig.builderFrom(config)
             .tolerateErrors(false)
             .dlqTopicName("test_DLQ")
-            .topicToTableMap(Collections.singletonMap(topic, tableName))
+            .topicToTableResolver(
+                new StaticTopicToTableResolver(Collections.singletonMap(topic, tableName)))
             .build();
 
     kafkaRecordErrorReporter = new InMemoryKafkaRecordErrorReporter();

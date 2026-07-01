@@ -1,40 +1,43 @@
 package com.snowflake.kafka.connector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 
 public class TopicToTableParserTest {
 
+  private static TopicToTableResolver staticResolverFrom(String input) {
+    List<TopicToTableParser.Entry> entries = TopicToTableParser.parseAndValidate(input);
+    return StaticTopicToTableResolver.from(entries);
+  }
+
   @Test
   public void testParseEmptyInput() {
-    assertTrue(TopicToTableParser.parse("").isEmpty());
-    assertTrue(TopicToTableParser.parse("   ").isEmpty());
+    assertNull(staticResolverFrom("").resolve("anything"));
+    assertNull(staticResolverFrom("   ").resolve("anything"));
   }
 
   @Test
   public void testParseMultipleEntries() {
-    Map<String, String> expected = new LinkedHashMap<>();
-    expected.put("topic_a", "TABLE_A");
-    expected.put("topic_b", "TABLE_B");
+    TopicToTableResolver resolver = staticResolverFrom("topic_a:table_a, topic_b:table_b");
 
-    assertEquals(expected, TopicToTableParser.parse("topic_a:table_a, topic_b:table_b"));
+    assertEquals("TABLE_A", resolver.resolve("topic_a"));
+    assertEquals("TABLE_B", resolver.resolve("topic_b"));
+    assertNull(resolver.resolve("topic_c"));
   }
 
   @Test
   public void testParseQuotedEntries() {
-    Map<String, String> expected = new LinkedHashMap<>();
-    expected.put("topic:one", "table,one");
-    expected.put("topic two", "table two");
+    TopicToTableResolver resolver =
+        staticResolverFrom("\"topic:one\":\"table,one\", \"topic two\":\"table two\"");
 
-    assertEquals(
-        expected,
-        TopicToTableParser.parse("\"topic:one\":\"table,one\", \"topic two\":\"table two\""));
+    assertEquals("table,one", resolver.resolve("topic:one"));
+    assertEquals("table two", resolver.resolve("topic two"));
   }
 
   @Test
@@ -44,18 +47,31 @@ public class TopicToTableParserTest {
 
     assertEquals(2, entries.size());
     assertEquals("first", entries.get(0).getTopic());
-    assertEquals("ONE", entries.get(0).getTable());
+    assertEquals("one", entries.get(0).getTable());
+    assertTrue(entries.get(0).shouldUppercase());
     assertEquals("second", entries.get(1).getTopic());
-    assertEquals("TWO", entries.get(1).getTable());
+    assertEquals("two", entries.get(1).getTable());
+    assertTrue(entries.get(1).shouldUppercase());
+  }
+
+  @Test
+  public void testParseEntriesTracksQuotedStatus() {
+    List<TopicToTableParser.Entry> entries =
+        new TopicToTableParser("topic:unquoted, other:\"Quoted\"").parseEntries();
+
+    assertEquals(2, entries.size());
+    assertTrue(entries.get(0).shouldUppercase());
+    assertEquals("unquoted", entries.get(0).getTable());
+    assertFalse(entries.get(1).shouldUppercase());
+    assertEquals("Quoted", entries.get(1).getTable());
   }
 
   @Test
   public void testParseUppercasesOnlyUnquotedTableTokens() {
-    Map<String, String> expected = new LinkedHashMap<>();
-    expected.put("topic", "E");
-    expected.put("other_topic", "e");
+    TopicToTableResolver resolver = staticResolverFrom("topic:e, other_topic:\"e\"");
 
-    assertEquals(expected, TopicToTableParser.parse("topic:e, other_topic:\"e\""));
+    assertEquals("E", resolver.resolve("topic"));
+    assertEquals("e", resolver.resolve("other_topic"));
   }
 
   @Test
@@ -92,7 +108,7 @@ public class TopicToTableParserTest {
 
   private static IllegalArgumentException assertParseError(String input) {
     try {
-      TopicToTableParser.parse(input);
+      TopicToTableParser.parseAndValidate(input);
       fail("Expected IllegalArgumentException");
       return null;
     } catch (IllegalArgumentException error) {

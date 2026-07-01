@@ -53,7 +53,8 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     if (config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP)) {
       try {
-        TopicToTableParser.parse(config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
+        TopicToTableParser.parseAndValidate(
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
       } catch (IllegalArgumentException e) {
         invalidConfigParams.put(
             KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, e.getMessage());

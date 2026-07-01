@@ -1,10 +1,7 @@
 package com.snowflake.kafka.connector;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 public class TopicToTableParser {
   private final String input;
@@ -14,26 +11,30 @@ public class TopicToTableParser {
     this.input = input;
   }
 
-  public static Map<String, String> parse(String input) {
+  /**
+   * Parse the topic2table config string into validated entries. Resolvers are responsible for
+   * turning these entries into a concrete {@link TopicToTableResolver}.
+   */
+  public static List<Entry> parseAndValidate(String input) {
     List<Entry> entries = new TopicToTableParser(input).parseEntries();
-    Map<String, String> result = new LinkedHashMap<>();
+    List<String> seenTopics = new ArrayList<>();
     for (Entry entry : entries) {
       String newTopic = entry.getTopic();
-      if (result.containsKey(newTopic)) {
+      if (seenTopics.contains(newTopic)) {
         throw new IllegalArgumentException("Duplicate topic: " + newTopic);
       }
 
       // Check that regexes don't overlap.
-      for (String topic : result.keySet()) {
+      for (String topic : seenTopics) {
         if (topic.matches(newTopic) || newTopic.matches(topic)) {
           throw new IllegalArgumentException(
               "Topic regexes cannot overlap. Overlapping regexes: " + topic + ", " + newTopic);
         }
       }
 
-      result.put(newTopic, entry.getTable());
+      seenTopics.add(newTopic);
     }
-    return result;
+    return entries;
   }
 
   public List<Entry> parseEntries() {
@@ -45,12 +46,14 @@ public class TopicToTableParser {
         return entries;
       }
 
-      String topic = parseToken(false);
+      Token topic = parseToken();
       skipWhitespace();
       expect(':');
       skipWhitespace();
-      String table = parseToken(true);
-      entries.add(new Entry(topic, table));
+      Token table = parseToken();
+      // Only the table token drives uppercasing: unquoted tables are uppercased.
+      // Quotes around topics are discarded.
+      entries.add(new Entry(topic.text, table.text, !table.quoted));
 
       skipWhitespace();
       if (isAtEnd()) {
@@ -60,19 +63,15 @@ public class TopicToTableParser {
     }
   }
 
-  private String parseToken(boolean uppercaseIfUnquoted) {
+  private Token parseToken() {
     if (isAtEnd()) {
       throw error("Expected token, found end of input");
     }
 
     if (input.charAt(index) == '"') {
-      return parseQuotedToken();
+      return new Token(parseQuotedToken(), true);
     }
-    if (uppercaseIfUnquoted) {
-      return parseUnquotedToken().toUpperCase(Locale.ROOT);
-    } else {
-      return parseUnquotedToken();
-    }
+    return new Token(parseUnquotedToken(), false);
   }
 
   private String parseQuotedToken() {
@@ -143,21 +142,40 @@ public class TopicToTableParser {
     return new IllegalArgumentException(sb.toString());
   }
 
+  /** A single parsed token plus whether it was written as a quoted ("...") token. */
+  private static final class Token {
+    final String text;
+    final boolean quoted;
+
+    Token(String text, boolean quoted) {
+      this.text = text;
+      this.quoted = quoted;
+    }
+  }
+
   public static final class Entry {
     private final String topic;
     private final String table;
+    private final boolean shouldUppercase;
 
-    private Entry(String topic, String table) {
+    private Entry(String topic, String table, boolean shouldUppercase) {
       this.topic = topic;
       this.table = table;
+      this.shouldUppercase = shouldUppercase;
     }
 
     public String getTopic() {
       return topic;
     }
 
+    /** Returns the raw table token as written in the config (never uppercased by the parser). */
     public String getTable() {
       return table;
+    }
+
+    /** Whether the resolved table name should be uppercased (true for unquoted table tokens). */
+    public boolean shouldUppercase() {
+      return shouldUppercase;
     }
   }
 }
