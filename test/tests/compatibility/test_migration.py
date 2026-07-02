@@ -402,8 +402,15 @@ def test_migration_from_snowpipe(
 
     try:
         logging.info("Waiting for v3 to ingest beyond the warmup batch")
-        assert wait_for(lambda: table.select_scalar("count(*)") > warmup_records), (
-            f"v3 never ingested beyond {warmup_records} warmup records"
+        # File-based Snowpipe loads staged files asynchronously with highly
+        # variable server-side latency (the warmup batch alone can take ~45s+).
+        # Use wait_for_rows for its longer default budget and task-health check
+        # rather than the 60s wait_for, which flakes when Snowpipe is slow.
+        wait_for_rows(
+            table_name=table.name,
+            expected=warmup_records + 1,
+            at_least=True,
+            connector_name=v3_connector.name,
         )
         logging.info(f"v3 ingested {table.select_scalar('count(*)')} rows so far")
 
