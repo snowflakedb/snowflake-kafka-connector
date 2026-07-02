@@ -87,7 +87,9 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   public void start(final Map<String, String> parsedConfig) {
     LOGGER.info("SnowflakeStreamingSinkConnector:starting...");
 
-    Utils.checkConnectorVersion();
+    if (isConnectorVersionCheckEnabled(parsedConfig)) {
+      Utils.checkConnectorVersion();
+    }
 
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
@@ -121,6 +123,15 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     setupComplete = true;
 
     LOGGER.info("SnowflakeStreamingSinkConnector:started");
+  }
+
+  static boolean isConnectorVersionCheckEnabled(final Map<String, String> parsedConfig) {
+    String configuredValue =
+        parsedConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_CONNECTOR_VERSION_CHECK_ENABLED);
+    if (configuredValue == null) {
+      return KafkaConnectorConfigParams.SNOWFLAKE_CONNECTOR_VERSION_CHECK_ENABLED_DEFAULT;
+    }
+    return !Boolean.FALSE.toString().equalsIgnoreCase(configuredValue.trim());
   }
 
   /**

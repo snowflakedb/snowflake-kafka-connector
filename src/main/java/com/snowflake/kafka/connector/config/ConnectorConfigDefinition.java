@@ -499,6 +499,17 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             14,
             Width.NONE,
-            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS);
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_CONNECTOR_VERSION_CHECK_ENABLED,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_CONNECTOR_VERSION_CHECK_ENABLED_DEFAULT,
+            LOW,
+            "Whether to check the latest available connector version at startup. Set to false for"
+                + " deployments that do not allow outbound access to the Maven repository.",
+            CONNECTOR_CONFIG_DOC,
+            15,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_CONNECTOR_VERSION_CHECK_ENABLED);
   }
 }
