@@ -140,7 +140,7 @@ public class TestUtils {
           + "}";
   public static final String JSON_WITHOUT_SCHEMA = "{\"userid\": \"User_1\"}";
 
-  private static Profile getProfile() {
+  public static Profile getProfile() {
     if (profile == null) {
       String path = System.getenv(SNOWFLAKE_CREDENTIAL_FILE_ENV);
       if (path == null || path.isEmpty()) {

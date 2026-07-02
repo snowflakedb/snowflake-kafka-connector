@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;
@@ -165,6 +166,56 @@ public class InternalUtilsTest {
     assert InternalUtils.resultSize(resultSet) == 0;
     resultSet = new MockResultSetForSizeTest(100);
     assert InternalUtils.resultSize(resultSet) == 100;
+  }
+
+  @Test
+  public void testMakeJdbcDriverProperties_oauthMissingClientId_throws() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .snowflakeDatabase("db")
+            .snowflakeSchema("schema")
+            .snowflakeUser("user")
+            .snowflakeUrl("https://account.snowflake.com")
+            .authenticator(AuthenticatorType.OAUTH)
+            .oauthClientSecret(new Password("secret"))
+            .build();
+
+    SnowflakeURL url = new SnowflakeURL("https://account.snowflake.com");
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0026, () -> InternalUtils.makeJdbcDriverProperties(config, url));
+  }
+
+  @Test
+  public void testMakeJdbcDriverProperties_oauthMissingClientSecret_throws() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .snowflakeDatabase("db")
+            .snowflakeSchema("schema")
+            .snowflakeUser("user")
+            .snowflakeUrl("https://account.snowflake.com")
+            .authenticator(AuthenticatorType.OAUTH)
+            .oauthClientId("client_id")
+            .build();
+
+    SnowflakeURL url = new SnowflakeURL("https://account.snowflake.com");
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0027, () -> InternalUtils.makeJdbcDriverProperties(config, url));
+  }
+
+  @Test
+  public void testMakeJdbcDriverProperties_invalidAuthenticator_throws() {
+    Map<String, String> rawConfig = new HashMap<>();
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, "db");
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, "schema");
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "user");
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://account.snowflake.com");
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, "invalid_auth");
+
+    assertThrows(IllegalArgumentException.class, () -> SinkTaskConfig.from(rawConfig, true));
   }
 
   @Test
