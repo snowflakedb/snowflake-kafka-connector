@@ -259,14 +259,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         boolean defaultPipeExists = this.conn.pipeExist(buildDefaultPipeName(tableName));
         boolean namedPipeExists = this.conn.pipeExist(tableName);
         if (!defaultPipeExists && !namedPipeExists) {
-          String detectedType = this.conn.isIcebergTable(tableName) ? "ICEBERG" : "SNOWFLAKE";
+          String detectedType =
+              this.conn.isIcebergTable(tableName)
+                  ? TableType.ICEBERG.configValue()
+                  : TableType.SNOWFLAKE.configValue();
           throw SnowflakeErrors.ERROR_0034.getException(
               "snowflake.autocreate.table.type=none and no pipe exists for table '"
                   + tableName
                   + "' (detected table type="
                   + detectedType
                   + "). Create the pipe yourself, or set snowflake.autocreate.table.type="
-                  + detectedType.toLowerCase(java.util.Locale.ROOT)
+                  + detectedType
                   + " so the connector manages it.");
         }
         targetPipeName = namedPipeExists ? tableName : buildDefaultPipeName(tableName);
@@ -298,13 +301,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
       // Existing table: use it as-is, regardless of the configured table.type (which only governs
-      // auto-creation). Log the detected type for operator visibility. (For table.type=none, pipe
-      // existence is asserted in startPartitions.)
+      // auto-creation). (For table.type=none, pipe existence is asserted in startPartitions.)
       LOGGER.info(
-          "Using existing table {} (snowflake.autocreate.table.type={}; detected type={}).",
+          "Using existing table {} (snowflake.autocreate.table.type={}).",
           tableName,
-          taskConfig.getTableType().configValue(),
-          this.conn.isIcebergTable(tableName) ? "ICEBERG" : "SNOWFLAKE");
+          taskConfig.getTableType().configValue());
       return;
     }
     switch (taskConfig.getTableType()) {
