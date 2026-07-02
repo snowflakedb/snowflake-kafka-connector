@@ -308,7 +308,7 @@ def test_iceberg_se_datatypes(driver, create_topics, create_connector, wait_for_
     topic = create_topics([base_name], with_tables=False)[0]
     table = IcebergTable(driver, topic)
     try:
-        create_connector(
+        connector = create_connector(
             v4_config=json_connector_config(
                 topic,
                 schematization=True,
@@ -335,7 +335,7 @@ def test_iceberg_se_datatypes(driver, create_topics, create_connector, wait_for_
             ],
             partition=0,
         )
-        wait_for_rows(topic, count)
+        wait_for_rows(topic, count, connector_name=connector.name)
         cols = _desc(driver, topic)
         assert cols["I_INT"].startswith("NUMBER"), cols
         assert cols["S_STR"].startswith("VARCHAR"), cols

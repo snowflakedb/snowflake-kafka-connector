@@ -90,14 +90,14 @@ def test_iceberg_se_avro_add_column(
     )
     topic = create_topics([base_name], with_tables=False)[0]
 
-    create_connector(v4_config=_avro_se_connector_config(topic))
+    connector = create_connector(v4_config=_avro_se_connector_config(topic))
     driver.startConnectorWaitTime()
 
     wave1_count = 100
     wave1_values = [{"CITY": "Hsinchu", "AGE": i} for i in range(wave1_count)]
     driver.sendAvroSRData(topic, wave1_values, WAVE1_SCHEMA, partition=0)
 
-    wait_for_rows(table.name, wave1_count)
+    wait_for_rows(table.name, wave1_count, connector_name=connector.name)
 
     cols = {row[0] for row in table.schema()}
     assert "AGE" in cols, (
@@ -110,7 +110,7 @@ def test_iceberg_se_avro_add_column(
     ]
     driver.sendAvroSRData(topic, wave2_values, WAVE2_SCHEMA, partition=0)
 
-    wait_for_rows(table.name, wave1_count + wave2_count)
+    wait_for_rows(table.name, wave1_count + wave2_count, connector_name=connector.name)
 
     cols = {row[0] for row in table.schema()}
     assert "COUNTRY" in cols, (
