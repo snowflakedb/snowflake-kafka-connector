@@ -145,6 +145,18 @@ public interface SnowflakeConnectionService {
   boolean isIcebergTable(String tableName);
 
   /**
+   * Whether the given table's {@code RECORD_METADATA} column is a structured {@code OBJECT(...)}
+   * (as opposed to {@code VARIANT}). Managed-Iceberg v2 tables must use a structured OBJECT
+   * (VARIANT is unsupported on format v2); v3 and FDN tables use VARIANT. The connector conforms
+   * the metadata map to the strict OBJECT schema ONLY for structured-OBJECT columns. Returns false
+   * when the table or the {@code RECORD_METADATA} column is absent.
+   *
+   * @param tableName table name
+   * @return true iff {@code RECORD_METADATA} is a structured OBJECT column
+   */
+  boolean isRecordMetadataStructuredObject(String tableName);
+
+  /**
    * Check whether the given table has ERROR_LOGGING enabled via SHOW TABLES.
    *
    * @param tableName table name

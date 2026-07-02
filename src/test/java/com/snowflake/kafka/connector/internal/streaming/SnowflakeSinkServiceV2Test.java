@@ -541,6 +541,23 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
+  void createTableIfNotExists_snowflakeType_createdTableIsIceberg_warnsButProceeds() {
+    // A bare CREATE TABLE can come out Iceberg if the schema default is
+    // DEFAULT_METADATA_WRITE_FORMAT=ICEBERG. That is a benign surprise (the connector ingests into
+    // the Iceberg table), so we create, then check and warn -- we do NOT fail.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    when(conn.isIcebergTable("t1")).thenReturn(true); // created table came out Iceberg
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.SNOWFLAKE, ""));
+
+    svc.createTableIfNotExists("t1"); // must not throw
+
+    verify(conn).createTableWithOnlyMetadataColumn("t1");
+    verify(conn).isIcebergTable("t1");
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
   void createTableIfNotExists_noneType_missingTable_throws() {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(false);

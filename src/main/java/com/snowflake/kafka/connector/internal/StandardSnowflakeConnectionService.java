@@ -33,6 +33,11 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       "created by automatic table creation from Snowflake Kafka Connector High Performance";
 
   private static final String SHOW_ICEBERG_TABLES_QUERY = "show iceberg tables like ? limit 1";
+  // Snowflake errno for ICEBERG_DATATYPE_NOT_SUPPORTED ("Unsupported data type '...' for iceberg
+  // tables"), thrown at CREATE-time when a VARIANT column is used on an Iceberg table that does not
+  // support it (format v2, or ENABLE_ICEBERG_VARIANT_TYPE off). JDBC strips the leading zero of
+  // 091386.
+  private static final int ERR_ICEBERG_DATATYPE_NOT_SUPPORTED = 91386;
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
@@ -97,31 +102,62 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
         (createTableOptions == null || createTableOptions.trim().isEmpty())
             ? ""
             : " " + createTableOptions.trim();
+
+    // Prefer a VARIANT RECORD_METADATA: it tolerates the variable Kafka metadata map and needs no
+    // client-side conforming. VARIANT is only allowed on Iceberg format v3+ (with
+    // ENABLE_ICEBERG_VARIANT_TYPE); where it is not -- e.g. an Iceberg v2 table -- the CREATE fails
+    // at DDL compile time with errno 91386 (ICEBERG_DATATYPE_NOT_SUPPORTED), and we fall back to a
+    // structured OBJECT RECORD_METADATA (the only option on v2, which then requires conforming).
+    try {
+      executeIcebergCreate(tableName, TABLE_COLUMN_METADATA + " VARIANT", optionsClause);
+      LOGGER.info(
+          "Created Iceberg table {} (createTableOptions='{}') with VARIANT RECORD_METADATA, schema"
+              + " evolution and error logging enabled",
+          tableName,
+          createTableOptions);
+      return;
+    } catch (SQLException e) {
+      if (e.getErrorCode() != ERR_ICEBERG_DATATYPE_NOT_SUPPORTED) {
+        throw SnowflakeErrors.ERROR_2007.getException(e);
+      }
+      LOGGER.info(
+          "VARIANT RECORD_METADATA not supported for Iceberg table {} (errno {}: {}); falling back"
+              + " to a structured OBJECT RECORD_METADATA (Iceberg v2).",
+          tableName,
+          ERR_ICEBERG_DATATYPE_NOT_SUPPORTED,
+          e.getMessage());
+    }
+
+    try {
+      executeIcebergCreate(
+          tableName,
+          TABLE_COLUMN_METADATA + " " + IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA,
+          optionsClause);
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+    LOGGER.info(
+        "Created Iceberg table {} (createTableOptions='{}') with structured OBJECT RECORD_METADATA,"
+            + " schema evolution and error logging enabled",
+        tableName,
+        createTableOptions);
+  }
+
+  /** Builds and executes the managed-Iceberg CREATE with the given RECORD_METADATA column DDL. */
+  private void executeIcebergCreate(
+      String tableName, String metadataColumnDdl, String optionsClause) throws SQLException {
     // Snowflake-managed Iceberg tables require an explicit catalog integration; the connector also
     // owns ENABLE_SCHEMA_EVOLUTION / ERROR_LOGGING (ingestion-mandatory), so they are not exposed.
     String createTableQuery =
         "create iceberg table if not exists identifier(?) ("
-            + TABLE_COLUMN_METADATA
-            + " "
-            + IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA
+            + metadataColumnDdl
             + ")"
             + optionsClause
             + " catalog = 'SNOWFLAKE' enable_schema_evolution = true error_logging = true";
-
-    try {
-      PreparedStatement stmt = conn.prepareStatement(createTableQuery);
+    try (PreparedStatement stmt = conn.prepareStatement(createTableQuery)) {
       stmt.setString(1, quoteIdentifier(tableName));
       stmt.execute();
-      stmt.close();
-    } catch (SQLException e) {
-      throw SnowflakeErrors.ERROR_2007.getException(e);
     }
-
-    LOGGER.info(
-        "Created Iceberg table {} (createTableOptions='{}') with RECORD_METADATA, schema evolution"
-            + " and error logging enabled",
-        tableName,
-        createTableOptions);
   }
 
   @Override
@@ -438,6 +474,23 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     } catch (SQLException e) {
       throw SnowflakeErrors.ERROR_2001.getException(e);
     }
+  }
+
+  @Override
+  public boolean isRecordMetadataStructuredObject(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    return describeTable(tableName)
+        .flatMap(
+            rows ->
+                rows.stream()
+                    .filter(r -> TABLE_COLUMN_METADATA.equalsIgnoreCase(r.getColumn()))
+                    .findFirst())
+        .map(
+            r ->
+                r.getType() != null
+                    && r.getType().trim().toUpperCase(Locale.ROOT).startsWith("OBJECT"))
+        .orElse(false);
   }
 
   @Override

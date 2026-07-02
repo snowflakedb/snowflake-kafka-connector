@@ -343,6 +343,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       default:
         LOGGER.info("Creating new table {}.", tableName);
         this.conn.createTableWithOnlyMetadataColumn(tableName);
+        // A bare CREATE TABLE honors a schema/database/account
+        // DEFAULT_METADATA_WRITE_FORMAT=ICEBERG,
+        // which yields a managed-Iceberg table even though this config asked for a standard (FDN)
+        // table. That is a benign surprise -- the connector ingests into the Iceberg table fine --
+        // so
+        // just warn. Combos that would actually fail (Iceberg v2 rejecting the VARIANT metadata
+        // column, or a missing external volume) already fail loudly in the create above.
+        if (this.conn.isIcebergTable(tableName)) {
+          LOGGER.warn(
+              "Auto-created table '{}' is a managed-Iceberg table, not a standard (FDN) table,"
+                  + " despite snowflake.autocreate.table.type=snowflake -- most likely the target"
+                  + " schema/database/account has DEFAULT_METADATA_WRITE_FORMAT=ICEBERG. Ingestion"
+                  + " will proceed against the Iceberg table. Set snowflake.autocreate.table.type="
+                  + "iceberg to make this explicit, or unset DEFAULT_METADATA_WRITE_FORMAT.",
+              tableName);
+        }
     }
   }
 

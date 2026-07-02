@@ -249,6 +249,11 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
+  public boolean isRecordMetadataStructuredObject(String tableName) {
+    return delegate.isRecordMetadataStructuredObject(tableName);
+  }
+
+  @Override
   public boolean hasErrorLoggingEnabled(String tableName) {
     if (!tableExistsCacheEnabled) {
       return delegate.hasErrorLoggingEnabled(tableName);
