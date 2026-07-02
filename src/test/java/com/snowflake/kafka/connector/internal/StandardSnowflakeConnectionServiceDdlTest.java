@@ -474,4 +474,101 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
     assertFalse(svc.hasErrorLoggingEnabled("my_table"));
   }
+
+  // ---- createIcebergTableWithOnlyMetadataColumn: VARIANT-first with OBJECT fallback ----
+
+  @Test
+  public void createIcebergTable_prefersVariantMetadata() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    when(stmt.execute()).thenReturn(false);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    svc.createIcebergTableWithOnlyMetadataColumn("t", "EXTERNAL_VOLUME='v'");
+
+    ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+    verify(conn, times(1)).prepareStatement(sql.capture()); // only the VARIANT attempt
+    assertThat(sql.getValue().toLowerCase()).contains("record_metadata variant");
+    assertThat(sql.getValue()).doesNotContain("OBJECT(");
+  }
+
+  @Test
+  public void createIcebergTable_fallsBackToObjectOnVariantUnsupported() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    // First attempt (VARIANT) rejected with errno 91386; second attempt (OBJECT) succeeds.
+    when(stmt.execute())
+        .thenThrow(
+            new SQLException("Unsupported data type 'VARIANT' for iceberg tables.", "42601", 91386))
+        .thenReturn(false);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    svc.createIcebergTableWithOnlyMetadataColumn("t", "");
+
+    ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+    verify(conn, times(2)).prepareStatement(sql.capture());
+    assertThat(sql.getAllValues().get(0).toLowerCase()).contains("record_metadata variant");
+    assertThat(sql.getAllValues().get(1)).contains("OBJECT(offset"); // structured OBJECT schema
+  }
+
+  @Test
+  public void createIcebergTable_rethrowsNon91386WithoutFallback() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    // e.g. missing external volume (not the VARIANT-unsupported errno) -> must NOT fall back.
+    when(stmt.execute())
+        .thenThrow(new SQLException("External volume 'v' does not exist", "42601", 91361));
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    assertThrows(
+        RuntimeException.class, () -> svc.createIcebergTableWithOnlyMetadataColumn("t", ""));
+    verify(conn, times(1)).prepareStatement(anyString()); // no OBJECT fallback attempt
+  }
+
+  // ---- isRecordMetadataStructuredObject ----
+
+  @Test
+  public void isRecordMetadataStructuredObject_objectColumn_true() throws Exception {
+    assertTrue(
+        serviceForDescribe(
+                "RECORD_METADATA", "OBJECT(offset NUMBER(19,0), topic VARCHAR(16777216))")
+            .isRecordMetadataStructuredObject("t"));
+  }
+
+  @Test
+  public void isRecordMetadataStructuredObject_variantColumn_false() throws Exception {
+    assertFalse(
+        serviceForDescribe("RECORD_METADATA", "VARIANT").isRecordMetadataStructuredObject("t"));
+  }
+
+  @Test
+  public void isRecordMetadataStructuredObject_noMetadataColumn_false() throws Exception {
+    assertFalse(
+        serviceForDescribe("SOME_COL", "NUMBER(38,0)").isRecordMetadataStructuredObject("t"));
+  }
+
+  /** Builds a service whose DESC TABLE returns a single column with the given name/type. */
+  private static StandardSnowflakeConnectionService serviceForDescribe(
+      String columnName, String columnType) throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(rs.next()).thenReturn(true).thenReturn(false);
+    when(rs.getString("name")).thenReturn(columnName);
+    when(rs.getString("type")).thenReturn(columnType);
+    when(rs.getString("comment")).thenReturn(null);
+    when(rs.getString("null?")).thenReturn("Y");
+    when(rs.getString("default")).thenReturn(null);
+    when(rs.getString("autoincrement")).thenReturn(null);
+    when(stmt.executeQuery()).thenReturn(rs);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+    return createServiceWithMockConnection(conn);
+  }
 }

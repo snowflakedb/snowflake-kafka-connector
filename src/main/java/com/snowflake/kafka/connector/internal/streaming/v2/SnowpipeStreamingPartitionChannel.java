@@ -113,7 +113,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   // table via conn.isIcebergTable rather than trusting the configured table.type, because the
   // config only governs auto-creation: an existing table may differ from it (e.g. table.type=none
   // targeting a pre-existing Iceberg table). null = not yet resolved.
-  private Boolean recordMetadataIsIcebergObject;
+  private volatile Boolean recordMetadataIsIcebergObject;
 
   public SnowpipeStreamingPartitionChannel(
       String tableName,
@@ -307,13 +307,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    */
   /**
    * Whether record metadata must be conformed to the strict structured-OBJECT RECORD_METADATA
-   * schema used by managed-Iceberg tables. True iff the actual target table is Iceberg. The
-   * configured table.type only governs auto-creation -- an existing table may be a different type
-   * -- so we probe the real table via {@code isIcebergTable} once and memoize.
+   * schema. True iff the actual target table's RECORD_METADATA column is a structured OBJECT --
+   * which is only the case for managed-Iceberg v2 tables (v3 and FDN use VARIANT, which accepts the
+   * natural metadata map as-is). We probe the real column type via {@code
+   * isRecordMetadataStructuredObject} once and memoize; the configured table.type only governs
+   * auto-creation, and even an auto-created Iceberg table may be VARIANT (v3) or OBJECT (v2).
    */
   private boolean conformMetadataToIcebergObject() {
     if (recordMetadataIsIcebergObject == null) {
-      recordMetadataIsIcebergObject = conn.isIcebergTable(tableName);
+      recordMetadataIsIcebergObject = conn.isRecordMetadataStructuredObject(tableName);
     }
     return recordMetadataIsIcebergObject;
   }
