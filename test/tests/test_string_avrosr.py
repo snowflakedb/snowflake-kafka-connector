@@ -50,7 +50,9 @@ def test_string_avrosr(
     wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row content --
-    row = table.select("*")[0]
+    # Snowflake does not guarantee row ordering without ORDER BY, so we must
+    # select the specific record at offset 0 rather than relying on insertion order.
+    row = table.select("*", "WHERE record_metadata:offset::int = 0")[0]
 
     assert row["ID"] == 0
     assert row["FIRSTNAME"] == "abc0"
