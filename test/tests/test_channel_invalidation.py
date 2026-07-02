@@ -137,6 +137,32 @@ def _get_partition_row_counts(driver, table_name):
     return {int(r[0]): int(r[1]) for r in rows}
 
 
+def _wait_for_partition_recovery(
+    driver, table_name, partition, count_before, timeout=120
+):
+    """Wait until a specific partition's row count exceeds count_before.
+
+    Waiting on the *global* row count is racy when a drip-feed writes to
+    multiple partitions: the healthy partitions alone can push the total past
+    the threshold before the invalidated partition reopens, so the wait would
+    return before recovery actually happened. Poll the invalidated partition's
+    own count instead, which is exactly the post-condition under test.
+
+    Returns the per-partition counts observed once recovery is detected.
+    """
+    deadline = time.monotonic() + timeout
+    partition_counts = {}
+    while time.monotonic() < deadline:
+        partition_counts = _get_partition_row_counts(driver, table_name)
+        if partition_counts.get(partition, 0) > count_before:
+            return partition_counts
+        time.sleep(2)
+    raise AssertionError(
+        f"Partition {partition} did not recover within {timeout}s: "
+        f"before={count_before}, after={partition_counts.get(partition, 0)}"
+    )
+
+
 def _assert_task_running(driver, connector_name):
     """Assert all connector tasks are RUNNING."""
     status = driver.get_connector_status(connector_name)
@@ -402,17 +428,20 @@ def test_invalidation_one_partition_others_healthy(
     rows_after_wave1 = int(driver.select_number_of_records(table_name))
 
     # Wait for stall on partition 1, then drip-feed to ALL partitions
-    stalled_rows = _wait_for_stall(driver, table_name, rows_after_wave1)
+    _wait_for_stall(driver, table_name, rows_after_wave1)
 
     stop_event, thread = _drip_feed_to_partitions(
         driver, topic, list(range(num_partitions))
     )
-    wait_for_rows(
+    # Wait for the *invalidated* partition specifically to recover. Waiting on
+    # the global row count is racy: the two healthy partitions can push the
+    # total past the threshold before partition 1 reopens, ending the wait
+    # before recovery and failing the assertion below.
+    _wait_for_partition_recovery(
+        driver,
         table_name,
-        stalled_rows + 50,
-        at_least=True,
-        connector_name=connector.name,
-        timeout=120,
+        partition=1,
+        count_before=partition_counts_before.get(1, 0),
     )
     stop_event.set()
     thread.join(timeout=5)
