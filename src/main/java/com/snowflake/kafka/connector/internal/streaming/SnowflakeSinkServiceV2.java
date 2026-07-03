@@ -263,7 +263,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               this.conn.isIcebergTable(tableName)
                   ? TableType.ICEBERG.configValue()
                   : TableType.SNOWFLAKE.configValue();
-          throw SnowflakeErrors.ERROR_0033.getException(
+          throw SnowflakeErrors.ERROR_0034.getException(
               "snowflake.autocreate.table.type=none and no pipe exists for table '"
                   + tableName
                   + "' (detected table type="
@@ -318,7 +318,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             && !taskConfig
                 .getIcebergCreateTableOptions()
                 .matches("(?is).*ICEBERG_VERSION\\s*=\\s*3(?!\\d).*")) {
-          throw SnowflakeErrors.ERROR_0033.getException(
+          throw SnowflakeErrors.ERROR_0034.getException(
               "Auto-creating Iceberg table '"
                   + tableName
                   + "' with snowflake.enable.schematization=false requires ICEBERG_VERSION=3 in"
@@ -334,7 +334,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         break;
       case NONE:
         // Missing table + none: fail loudly and tell the operator their two ways out.
-        throw SnowflakeErrors.ERROR_0033.getException(
+        throw SnowflakeErrors.ERROR_0034.getException(
             "Table '"
                 + tableName
                 + "' does not exist and snowflake.autocreate.table.type=none. Either create the"

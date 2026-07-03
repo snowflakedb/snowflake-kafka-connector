@@ -200,8 +200,8 @@ public enum SnowflakeErrors {
       "Client-side validation only supports default pipes ({table}-STREAMING). Either disable"
           + " client-side validation (snowflake.validation=server_side) or drop the"
           + " existing pipe so the connector uses the default pipe."),
-  ERROR_0033(
-      "0033",
+  ERROR_0034(
+      "0034",
       "Table auto-creation configuration error",
       "snowflake.autocreate.table.type is misconfigured for the target table -- e.g."
           + " table.type=none but the table or its pipe does not exist, or an auto-created Iceberg"
