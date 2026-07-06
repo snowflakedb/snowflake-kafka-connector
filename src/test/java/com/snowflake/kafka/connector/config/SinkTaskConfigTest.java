@@ -188,6 +188,23 @@ public class SinkTaskConfigTest {
     assertEquals(
         "my_refresh_token", config.getOauthRefreshToken().map(Password::value).orElse(null));
     assertEquals("https://oauth.example.com/token", config.getOauthTokenEndpoint().orElse(null));
+    assertFalse(config.getOauthIncludeScope());
+    assertTrue(config.getOauthScope().isEmpty());
+  }
+
+  @Test
+  public void from_oauthScopeFields_areParsed() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTHENTICATOR, AuthenticatorType.OAUTH.toConfigValue());
+    raw.put(SNOWFLAKE_OAUTH_CLIENT_ID, "my_client_id");
+    raw.put(SNOWFLAKE_OAUTH_CLIENT_SECRET, "my_client_secret");
+    raw.put(SNOWFLAKE_OAUTH_INCLUDE_SCOPE, "true");
+    raw.put(SNOWFLAKE_OAUTH_SCOPE, "session:role:MY_ROLE");
+
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+
+    assertTrue(config.getOauthIncludeScope());
+    assertEquals("session:role:MY_ROLE", config.getOauthScope().orElse(null));
   }
 
   @Test
@@ -230,6 +247,8 @@ public class SinkTaskConfigTest {
     assertEquals(AuthenticatorType.OAUTH, config.getAuthenticator());
     assertTrue(config.getOauthRefreshToken().isEmpty());
     assertTrue(config.getOauthTokenEndpoint().isEmpty());
+    assertFalse(config.getOauthIncludeScope());
+    assertTrue(config.getOauthScope().isEmpty());
   }
 
   @Test

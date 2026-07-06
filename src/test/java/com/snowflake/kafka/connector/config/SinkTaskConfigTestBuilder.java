@@ -48,6 +48,7 @@ public final class SinkTaskConfigTestBuilder {
         .snowflakeUser("")
         .snowflakeRole("")
         .authenticator(AuthenticatorType.SNOWFLAKE_JWT)
+        .oauthIncludeScope(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT)
         .snowflakeDatabase("")
         .snowflakeSchema("")
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)

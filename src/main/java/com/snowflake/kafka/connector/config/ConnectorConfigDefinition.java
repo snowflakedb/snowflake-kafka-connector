@@ -154,6 +154,29 @@ public class ConnectorConfigDefinition {
             11,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT,
+            LOW,
+            "Whether OAuth token requests include a scope parameter. Defaults to false; enable only"
+                + " when the OAuth grant requires a role scope.",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            12,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE,
+            STRING,
+            "",
+            LOW,
+            "Explicit OAuth scope to request. Only used when "
+                + KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE
+                + " is true; otherwise the scope defaults to session:role:{role}.",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            13,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE)
         // proxy
         .define(
             KafkaConnectorConfigParams.JVM_PROXY_HOST,
