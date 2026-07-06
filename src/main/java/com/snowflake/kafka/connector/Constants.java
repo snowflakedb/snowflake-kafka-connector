@@ -65,6 +65,13 @@ public final class Constants {
         "snowflake.feature.precommit.client.recovery";
     public static final boolean SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY_DEFAULT = true;
 
+    // Kill-switch (unregistered, default on) for including the target table name in client-side
+    // structural validation error messages routed to the DLQ. Set to false to revert to the
+    // legacy message format that omits the table name.
+    public static final String SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME =
+        "snowflake.feature.validation.error.table.name";
+    public static final boolean SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT = true;
+
     // Caching
     public static final String CACHE_TABLE_EXISTS = "snowflake.cache.table.exists";
     public static final boolean CACHE_TABLE_EXISTS_DEFAULT = true;
