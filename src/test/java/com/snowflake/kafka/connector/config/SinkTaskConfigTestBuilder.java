@@ -53,6 +53,8 @@ public final class SinkTaskConfigTestBuilder {
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)
         .ssv1MigrationIncludeConnectorName(false)
         .assertPartitionAssignmentEnabled(true)
-        .precommitClientRecoveryEnabled(true);
+        .precommitClientRecoveryEnabled(true)
+        .validationErrorTableNameEnabled(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
   }
 }
