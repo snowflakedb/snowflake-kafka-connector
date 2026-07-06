@@ -25,7 +25,11 @@ public interface TaskMetrics {
 
   TimingContext timeOffsetFetch();
 
+  TimingContext timeAppendRow();
+
   void recordStartDuration(long nanos);
+
+  void recordFlushDuration(long nanos);
 
   // ---- counters ----
 
@@ -42,6 +46,8 @@ public interface TaskMetrics {
   // ---- throughput ----
 
   void markPutRecords(long count);
+
+  void markRecordsAppended(long count);
 
   // ---- gauges ----
 

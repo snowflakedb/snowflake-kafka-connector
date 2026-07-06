@@ -40,9 +40,12 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   static final String CHANNEL_OPEN_DURATION = "channel-open-duration";
   static final String SDK_CLIENT_CREATE_DURATION = "sdk-client-create-duration";
   static final String PRECOMMIT_OFFSET_FETCH_DURATION = "precommit-offset-fetch-duration";
+  static final String FLUSH_DURATION = "flush-duration";
+  static final String APPEND_ROW_DURATION = "append-row-duration";
 
   // Throughput
   static final String PUT_RECORDS = "put-records";
+  static final String RECORDS_APPENDED = "records-appended";
 
   // Counters
   static final String PRECOMMIT_PARTITIONS_SKIPPED = "precommit-partitions-skipped";
@@ -69,9 +72,12 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   private final Timer channelOpenDuration;
   private final Timer sdkClientCreateDuration;
   private final Timer preCommitOffsetFetchDuration;
+  private final Timer flushDuration;
+  private final Timer appendRowDuration;
 
   // Throughput
   private final Meter putRecords;
+  private final Meter recordsAppended;
 
   // Counters
   private final Counter preCommitPartitionsSkipped;
@@ -121,10 +127,16 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
     this.preCommitOffsetFetchDuration =
         registry.timer(
             taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, PRECOMMIT_OFFSET_FETCH_DURATION));
+    this.flushDuration =
+        registry.timer(taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, FLUSH_DURATION));
+    this.appendRowDuration =
+        registry.timer(taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, APPEND_ROW_DURATION));
 
     // Throughput
     this.putRecords =
         registry.meter(taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, PUT_RECORDS));
+    this.recordsAppended =
+        registry.meter(taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, RECORDS_APPENDED));
 
     // Counters
     this.preCommitPartitionsSkipped =
@@ -195,8 +207,18 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   }
 
   @Override
+  public TimingContext timeAppendRow() {
+    return wrap(appendRowDuration);
+  }
+
+  @Override
   public void recordStartDuration(long nanos) {
     startDuration.update(nanos, TimeUnit.NANOSECONDS);
+  }
+
+  @Override
+  public void recordFlushDuration(long nanos) {
+    flushDuration.update(nanos, TimeUnit.NANOSECONDS);
   }
 
   // ---- TaskMetrics interface (counters) ----
@@ -231,6 +253,11 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   @Override
   public void markPutRecords(long count) {
     putRecords.mark(count);
+  }
+
+  @Override
+  public void markRecordsAppended(long count) {
+    recordsAppended.mark(count);
   }
 
   // ---- TaskMetrics interface (gauges) ----
@@ -282,8 +309,20 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
     return preCommitOffsetFetchDuration;
   }
 
+  Timer flushDuration() {
+    return flushDuration;
+  }
+
+  Timer appendRowDuration() {
+    return appendRowDuration;
+  }
+
   Meter putRecords() {
     return putRecords;
+  }
+
+  Meter recordsAppended() {
+    return recordsAppended;
   }
 
   Counter preCommitPartitionsSkipped() {

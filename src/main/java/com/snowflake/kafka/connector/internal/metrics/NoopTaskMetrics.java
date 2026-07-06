@@ -40,7 +40,15 @@ enum NoopTaskMetrics implements TaskMetrics {
   }
 
   @Override
+  public TimingContext timeAppendRow() {
+    return TimingContext.NOOP;
+  }
+
+  @Override
   public void recordStartDuration(long nanos) {}
+
+  @Override
+  public void recordFlushDuration(long nanos) {}
 
   @Override
   public void incOpenCount() {}
@@ -59,6 +67,9 @@ enum NoopTaskMetrics implements TaskMetrics {
 
   @Override
   public void markPutRecords(long count) {}
+
+  @Override
+  public void markRecordsAppended(long count) {}
 
   @Override
   public void setAssignedPartitions(int count) {}

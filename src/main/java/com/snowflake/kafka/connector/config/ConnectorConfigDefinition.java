@@ -499,6 +499,42 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             14,
             Width.NONE,
-            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS);
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS)
+        .define(
+            KafkaConnectorConfigParams.PROMETHEUS_ENABLE,
+            BOOLEAN,
+            KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT,
+            LOW,
+            "When true, enables the Snowpipe Streaming SDK's Prometheus metrics endpoint for"
+                + " benchmarking. Off by default.",
+            CONNECTOR_CONFIG_DOC,
+            15,
+            Width.NONE,
+            KafkaConnectorConfigParams.PROMETHEUS_ENABLE)
+        .define(
+            KafkaConnectorConfigParams.PROMETHEUS_PORT,
+            INT,
+            KafkaConnectorConfigParams.PROMETHEUS_PORT_DEFAULT,
+            between(1, 65535),
+            LOW,
+            "Port for the Snowpipe Streaming SDK's Prometheus metrics endpoint. Only used when"
+                + " snowflake.streaming.metrics.prometheus.enable is true.",
+            CONNECTOR_CONFIG_DOC,
+            16,
+            Width.NONE,
+            KafkaConnectorConfigParams.PROMETHEUS_PORT)
+        .define(
+            KafkaConnectorConfigParams.PROMETHEUS_HOST,
+            STRING,
+            KafkaConnectorConfigParams.PROMETHEUS_HOST_DEFAULT,
+            LOW,
+            "Bind address for the Snowpipe Streaming SDK's Prometheus metrics endpoint. Only used"
+                + " when snowflake.streaming.metrics.prometheus.enable is true. Use 0.0.0.0 to"
+                + " expose the endpoint beyond loopback (e.g. for container-to-container"
+                + " scraping).",
+            CONNECTOR_CONFIG_DOC,
+            17,
+            Width.NONE,
+            KafkaConnectorConfigParams.PROMETHEUS_HOST);
   }
 }
