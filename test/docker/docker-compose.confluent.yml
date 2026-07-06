@@ -69,6 +69,11 @@ services:
       CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/opt/kafka-connect/plugins
       CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
       CONNECT_LOG4J_LOGGERS: com.snowflake=INFO
+      # Enable the Snowpipe Streaming SDK's Prometheus metrics endpoint at the worker-JVM level
+      # so it is reliably up for the local-observability e2e (see docker-compose.apache.yml).
+      SS_ENABLE_METRICS: "true"
+      SS_METRICS_IP: "0.0.0.0"
+      SS_METRICS_PORT: "50000"
       CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %X{connector.context}%m (%c:%L)%n"
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx6g"
       KAFKA_OPTS: "${KAFKA_OPTS:-}"

@@ -27,6 +27,13 @@ services:
       # File-based Snowpipe v3 can block in ingestFiles for ~1 minute; the default 5s
       # strands the bumped offset and causes duplicates on v3 -> v4 migration (SNOW-3608128).
       CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS: ${CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS:-300000}
+      # Enable the Snowpipe Streaming SDK's Prometheus metrics endpoint at the worker-JVM level
+      # so it is reliably up for the local-observability e2e. The SDK starts its metrics server
+      # once per JVM on first client creation; a per-connector config can't turn it on in a shared
+      # worker where an earlier connector already bootstrapped the SDK without it.
+      SS_ENABLE_METRICS: "true"
+      SS_METRICS_IP: "0.0.0.0"
+      SS_METRICS_PORT: "50000"
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/usr/local/share/kafka/plugins/snowflake-connector
       - ${V3_PLUGIN_PATH:-/tmp/sf-kafka-connect-v3}:/usr/local/share/kafka/plugins/snowflake-connector-v3
