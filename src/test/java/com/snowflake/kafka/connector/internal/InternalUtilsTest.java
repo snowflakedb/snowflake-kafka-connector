@@ -207,6 +207,81 @@ public class InternalUtilsTest {
   }
 
   @Test
+  public void resolveOauthScope_scopeDisabled_returnsEmpty() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("MY_ROLE")
+            .oauthIncludeScope(false)
+            .oauthScope("session:role:IGNORED")
+            .build();
+
+    assertTrue(InternalUtils.resolveOauthScope(config).isEmpty());
+  }
+
+  @Test
+  public void resolveOauthScope_explicitScope_isUsedAsIs() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("MY_ROLE")
+            .oauthIncludeScope(true)
+            .oauthScope("custom scope")
+            .build();
+
+    assertEquals("custom scope", InternalUtils.resolveOauthScope(config).orElse(null));
+  }
+
+  @Test
+  public void resolveOauthScope_derivesFromRole() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("MY_ROLE")
+            .oauthIncludeScope(true)
+            .build();
+
+    assertEquals("session:role:MY_ROLE", InternalUtils.resolveOauthScope(config).orElse(null));
+  }
+
+  @Test
+  public void resolveOauthScope_urlEncodesRoleWithReservedChars() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("My Custom Role")
+            .oauthIncludeScope(true)
+            .build();
+
+    // The role is percent-encoded (spaces as %20, matching the SDK) so it doesn't split the
+    // space-delimited scope value.
+    assertEquals(
+        "session:role:My%20Custom%20Role", InternalUtils.resolveOauthScope(config).orElse(null));
+  }
+
+  @Test
+  public void resolveOauthScope_blankRoleWithoutExplicitScope_returnsEmpty() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("   ")
+            .oauthIncludeScope(true)
+            .build();
+
+    assertTrue(InternalUtils.resolveOauthScope(config).isEmpty());
+  }
+
+  @Test
   public void testMakeJdbcDriverProperties_invalidAuthenticator_throws() {
     Map<String, String> rawConfig = new HashMap<>();
     rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, "db");

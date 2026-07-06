@@ -7,6 +7,8 @@ import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.oauth.OAuthAccessTokenFetcher;
 import com.snowflake.kafka.connector.internal.oauth.OAuthURL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -159,8 +161,13 @@ public class InternalUtils {
    * {@code snowflake.oauth.scope} if set, otherwise {@code session:role:{role}} derived from the
    * configured role. Returns empty when scopes are disabled or no scope can be derived, preserving
    * KC v3 behavior (no scope) by default.
+   *
+   * <p>The derived role is URL-encoded so that reserved characters (e.g. spaces) don't split the
+   * scope value, matching the SDK (OAuth scopes are space-delimited per RFC 6749 §3.3). The token
+   * fetcher form-encodes the whole value again, so the server form-decodes once to recover {@code
+   * session:role:<encoded-role>} as a single token and then URL-decodes the role.
    */
-  private static Optional<String> resolveOauthScope(SinkTaskConfig config) {
+  static Optional<String> resolveOauthScope(SinkTaskConfig config) {
     if (!config.getOauthIncludeScope()) {
       return Optional.empty();
     }
@@ -169,7 +176,17 @@ public class InternalUtils {
     }
     return Optional.ofNullable(config.getSnowflakeRole())
         .filter(role -> !isBlank(role))
-        .map(role -> "session:role:" + role);
+        .map(role -> "session:role:" + percentEncode(role));
+  }
+
+  /**
+   * Percent-encodes a value for use inside a scope token. {@link URLEncoder} follows {@code
+   * application/x-www-form-urlencoded} rules (space -> {@code +}); we convert those to {@code %20}
+   * so the encoding matches the streaming SDK and is unambiguous once the token fetcher
+   * form-encodes the whole scope value a second time.
+   */
+  private static String percentEncode(String value) {
+    return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
   }
 
   /**
