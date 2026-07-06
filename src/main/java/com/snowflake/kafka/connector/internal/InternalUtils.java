@@ -7,11 +7,14 @@ import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.oauth.OAuthAccessTokenFetcher;
 import com.snowflake.kafka.connector.internal.oauth.OAuthURL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 import java.util.Properties;
 import org.apache.kafka.common.config.types.Password;
 
@@ -106,7 +109,11 @@ public class InternalUtils {
         properties.put(
             JDBC_TOKEN,
             OAuthAccessTokenFetcher.fetchAccessToken(
-                oauthUrl, oauthClientId, oauthClientSecret, config.getOauthRefreshToken()));
+                oauthUrl,
+                oauthClientId,
+                oauthClientSecret,
+                config.getOauthRefreshToken(),
+                resolveOauthScope(config)));
         break;
       case SNOWFLAKE_JWT:
         properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
@@ -146,6 +153,40 @@ public class InternalUtils {
     if (!isBlank(value)) {
       properties.put(key, value);
     }
+  }
+
+  /**
+   * Resolves the OAuth scope to send on the JDBC token request, mirroring the streaming SDK's
+   * resolution: no scope unless {@code snowflake.oauth.include.scope} is enabled, then the explicit
+   * {@code snowflake.oauth.scope} if set, otherwise {@code session:role:{role}} derived from the
+   * configured role. Returns empty when scopes are disabled or no scope can be derived, preserving
+   * KC v3 behavior (no scope) by default.
+   *
+   * <p>The derived role is URL-encoded so that reserved characters (e.g. spaces) don't split the
+   * scope value, matching the SDK (OAuth scopes are space-delimited per RFC 6749 §3.3). The token
+   * fetcher form-encodes the whole value again, so the server form-decodes once to recover {@code
+   * session:role:<encoded-role>} as a single token and then URL-decodes the role.
+   */
+  static Optional<String> resolveOauthScope(SinkTaskConfig config) {
+    if (!config.getOauthIncludeScope()) {
+      return Optional.empty();
+    }
+    if (config.getOauthScope().isPresent()) {
+      return config.getOauthScope();
+    }
+    return Optional.ofNullable(config.getSnowflakeRole())
+        .filter(role -> !isBlank(role))
+        .map(role -> "session:role:" + percentEncode(role));
+  }
+
+  /**
+   * Percent-encodes a value for use inside a scope token. {@link URLEncoder} follows {@code
+   * application/x-www-form-urlencoded} rules (space -> {@code +}); we convert those to {@code %20}
+   * so the encoding matches the streaming SDK and is unambiguous once the token fetcher
+   * form-encodes the whole scope value a second time.
+   */
+  private static String percentEncode(String value) {
+    return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
   }
 
   /**

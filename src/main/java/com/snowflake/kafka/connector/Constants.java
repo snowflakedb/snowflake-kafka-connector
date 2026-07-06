@@ -22,6 +22,14 @@ public final class Constants {
     public static final String SNOWFLAKE_OAUTH_CLIENT_SECRET = "snowflake.oauth.client.secret";
     public static final String SNOWFLAKE_OAUTH_REFRESH_TOKEN = "snowflake.oauth.refresh.token";
     public static final String SNOWFLAKE_OAUTH_TOKEN_ENDPOINT = "snowflake.oauth.token.endpoint";
+    // Whether OAuth token requests include a "scope" parameter. Defaults to false so that a refresh
+    // token whose original authorize grant did not include a role scope (e.g. external OAuth / IdP
+    // tokens) is not rejected. When true, the scope is the explicit SNOWFLAKE_OAUTH_SCOPE or, when
+    // that is unset, "session:role:{role}" derived from SNOWFLAKE_ROLE_NAME.
+    public static final String SNOWFLAKE_OAUTH_INCLUDE_SCOPE = "snowflake.oauth.include.scope";
+    public static final boolean SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT = false;
+    // Explicit OAuth scope to request. Only used when SNOWFLAKE_OAUTH_INCLUDE_SCOPE is true.
+    public static final String SNOWFLAKE_OAUTH_SCOPE = "snowflake.oauth.scope";
 
     public static final String SNOWFLAKE_JDBC_MAP = "snowflake.jdbc.map";
     public static final String SNOWFLAKE_METADATA_CREATETIME = "snowflake.metadata.createtime";

@@ -798,6 +798,38 @@ public class ConnectorConfigValidatorTest {
         .doesNotThrowAnyException();
   }
 
+  @Test
+  public void testOAuthScopeWithoutIncludeScopeIsInvalid() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withOauthRefreshToken("refresh_token")
+            .withOauthScope("session:role:MY_ROLE")
+            .withoutPrivateKey()
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE);
+  }
+
+  @Test
+  public void testOAuthScopeWithIncludeScopeIsValid() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withOauthRefreshToken("refresh_token")
+            .withOauthIncludeScope(true)
+            .withOauthScope("session:role:MY_ROLE")
+            .withoutPrivateKey()
+            .build();
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
   private void invalidConfigRunner(List<String> paramsToRemove) {
     Map<String, String> config = getConfig();
     for (String configParam : paramsToRemove) {

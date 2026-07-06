@@ -51,6 +51,7 @@ public class OAuthAccessTokenFetcher {
   private static final String GRANT_TYPE_CLIENT_CREDENTIALS = "client_credentials";
   private static final String REFRESH_TOKEN = "refresh_token";
   private static final String ACCESS_TOKEN = "access_token";
+  private static final String SCOPE = "scope";
   private static final String REDIRECT_URI = "redirect_uri";
   private static final String DEFAULT_REDIRECT_URI = "https://localhost.com/oauth";
 
@@ -69,13 +70,18 @@ public class OAuthAccessTokenFetcher {
    * @param clientId OAuth client ID
    * @param clientSecret OAuth client secret
    * @param refreshToken OAuth refresh token; empty selects client_credentials grant
+   * @param scope explicit OAuth scope to request; empty sends no scope (KC v3 behavior)
    * @return the access token string
    * @throws SnowflakeKafkaConnectorException if the token fetch fails after all retries
    */
   public static String fetchAccessToken(
-      URL url, String clientId, Password clientSecret, Optional<Password> refreshToken) {
+      URL url,
+      String clientId,
+      Password clientSecret,
+      Optional<Password> refreshToken,
+      Optional<String> scope) {
     HttpClient httpClient = HttpClient.newBuilder().proxy(ProxySelector.getDefault()).build();
-    return fetchAccessToken(url, clientId, clientSecret, refreshToken, httpClient);
+    return fetchAccessToken(url, clientId, clientSecret, refreshToken, scope, httpClient);
   }
 
   static String fetchAccessToken(
@@ -83,6 +89,7 @@ public class OAuthAccessTokenFetcher {
       String clientId,
       Password clientSecret,
       Optional<Password> refreshToken,
+      Optional<String> scope,
       HttpClient httpClient) {
     String basicAuth =
         BASIC_AUTH_HEADER_PREFIX
@@ -100,6 +107,7 @@ public class OAuthAccessTokenFetcher {
               formParams.put(REDIRECT_URI, DEFAULT_REDIRECT_URI);
             },
             () -> formParams.put(GRANT_TYPE_PARAM, GRANT_TYPE_CLIENT_CREDENTIALS));
+    scope.ifPresent(value -> formParams.put(SCOPE, value));
 
     String formBody =
         formParams.entrySet().stream()

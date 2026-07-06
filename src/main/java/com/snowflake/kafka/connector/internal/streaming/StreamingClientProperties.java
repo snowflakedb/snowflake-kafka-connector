@@ -80,6 +80,15 @@ public class StreamingClientProperties {
           config
               .getOauthTokenEndpoint()
               .ifPresent(v -> clientProperties.put("oauth_token_endpoint", v));
+          // The SDK defaults oauth_include_scope to true, which makes it derive
+          // "session:role:{role}" and send it as the scope on refresh. That breaks external OAuth /
+          // IdP refresh tokens minted without a role scope, so forward the connector's value
+          // explicitly (default false). Only send an explicit scope when scopes are enabled.
+          clientProperties.put(
+              "oauth_include_scope", String.valueOf(config.getOauthIncludeScope()));
+          if (config.getOauthIncludeScope()) {
+            config.getOauthScope().ifPresent(v -> clientProperties.put("oauth_scope", v));
+          }
           break;
         case SNOWFLAKE_JWT:
           final PrivateKey privateKey =

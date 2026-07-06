@@ -178,6 +178,21 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
               "{} must be non-empty when using oauth authenticator",
               KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
     }
+
+    boolean includeScope =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE,
+                String.valueOf(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT)));
+    String scope = config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE, "");
+    if (!scope.isBlank() && !includeScope) {
+      invalidConfigParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE,
+          Utils.formatString(
+              "{} is only used when {} is true",
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE,
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE));
+    }
   }
 
   private void validateCompatibilitySettings(

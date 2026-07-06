@@ -12,10 +12,15 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Flow;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class OAuthAccessTokenFetcherTest {
 
@@ -44,6 +49,7 @@ class OAuthAccessTokenFetcherTest {
             "client_id",
             new Password("client_secret"),
             Optional.of(new Password("my_refresh_token")),
+            Optional.empty(),
             httpClient);
 
     assertThat(token).isEqualTo("my-access-token");
@@ -56,7 +62,12 @@ class OAuthAccessTokenFetcherTest {
 
     String token =
         OAuthAccessTokenFetcher.fetchAccessToken(
-            url, "client_id", new Password("client_secret"), Optional.empty(), httpClient);
+            url,
+            "client_id",
+            new Password("client_secret"),
+            Optional.empty(),
+            Optional.empty(),
+            httpClient);
 
     assertThat(token).isEqualTo("cc-token");
   }
@@ -68,7 +79,12 @@ class OAuthAccessTokenFetcherTest {
 
     String token =
         OAuthAccessTokenFetcher.fetchAccessToken(
-            url, "client_id", new Password("client_secret"), Optional.empty(), httpClient);
+            url,
+            "client_id",
+            new Password("client_secret"),
+            Optional.empty(),
+            Optional.empty(),
+            httpClient);
 
     assertThat(token).isEqualTo("cc-token");
   }
@@ -87,6 +103,7 @@ class OAuthAccessTokenFetcherTest {
                     "client_id",
                     new Password("client_secret"),
                     Optional.of(new Password("token")),
+                    Optional.empty(),
                     httpClient))
         .matches(exception -> exception.getCode().equals("1004"));
 
@@ -107,6 +124,7 @@ class OAuthAccessTokenFetcherTest {
                     "client_id",
                     new Password("client_secret"),
                     Optional.of(new Password("token")),
+                    Optional.empty(),
                     httpClient))
         .matches(exception -> exception.getCode().equals("1004"));
   }
@@ -125,6 +143,7 @@ class OAuthAccessTokenFetcherTest {
                     "client_id",
                     new Password("client_secret"),
                     Optional.of(new Password("token")),
+                    Optional.empty(),
                     httpClient))
         .matches(exception -> exception.getCode().equals("1004"));
   }
@@ -150,9 +169,78 @@ class OAuthAccessTokenFetcherTest {
             "client_id",
             new Password("client_secret"),
             Optional.of(new Password("token")),
+            Optional.empty(),
             httpClient);
 
     assertThat(token).isEqualTo("retry-token");
     verify(httpClient, times(2)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void fetchAccessToken_withScope_addsScopeFormParam() throws Exception {
+    when(httpResponse.statusCode()).thenReturn(200);
+    when(httpResponse.body()).thenReturn("{\"access_token\": \"scoped-token\"}");
+
+    OAuthAccessTokenFetcher.fetchAccessToken(
+        url,
+        "client_id",
+        new Password("client_secret"),
+        Optional.of(new Password("my_refresh_token")),
+        Optional.of("session:role:MY_ROLE"),
+        httpClient);
+
+    ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(httpClient).send(captor.capture(), any(HttpResponse.BodyHandler.class));
+    assertThat(requestBody(captor.getValue())).contains("scope=session%3Arole%3AMY_ROLE");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void fetchAccessToken_withoutScope_omitsScopeFormParam() throws Exception {
+    when(httpResponse.statusCode()).thenReturn(200);
+    when(httpResponse.body()).thenReturn("{\"access_token\": \"unscoped-token\"}");
+
+    OAuthAccessTokenFetcher.fetchAccessToken(
+        url,
+        "client_id",
+        new Password("client_secret"),
+        Optional.of(new Password("my_refresh_token")),
+        Optional.empty(),
+        httpClient);
+
+    ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(httpClient).send(captor.capture(), any(HttpResponse.BodyHandler.class));
+    assertThat(requestBody(captor.getValue())).doesNotContain("scope=");
+  }
+
+  private static String requestBody(HttpRequest request) throws InterruptedException {
+    HttpRequest.BodyPublisher publisher = request.bodyPublisher().orElseThrow();
+    StringBuilder body = new StringBuilder();
+    CountDownLatch done = new CountDownLatch(1);
+    publisher.subscribe(
+        new Flow.Subscriber<>() {
+          @Override
+          public void onSubscribe(Flow.Subscription subscription) {
+            subscription.request(Long.MAX_VALUE);
+          }
+
+          @Override
+          public void onNext(ByteBuffer item) {
+            body.append(StandardCharsets.UTF_8.decode(item));
+          }
+
+          @Override
+          public void onError(Throwable throwable) {
+            done.countDown();
+          }
+
+          @Override
+          public void onComplete() {
+            done.countDown();
+          }
+        });
+    done.await();
+    return body.toString();
   }
 }

@@ -261,7 +261,55 @@ public class StreamingClientPropertiesTest {
         .containsEntry("oauth_client_secret", "test_client_secret")
         .containsEntry("oauth_refresh_token", "test_refresh_token")
         .containsEntry("oauth_token_endpoint", "https://oauth.example.com/token")
+        // Defaults to disabling scope so the SDK doesn't derive session:role:{role}.
+        .containsEntry("oauth_include_scope", "false")
+        .doesNotContainKey("oauth_scope")
         .doesNotContainKey("private_key");
+  }
+
+  @Test
+  void oAuthConfig_includeScopeEnabled_forwardsScope() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("test_client_id")
+            .withOauthClientSecret("test_client_secret")
+            .withOauthRefreshToken("test_refresh_token")
+            .withOauthTokenEndpoint("https://oauth.example.com/token")
+            .withOauthIncludeScope(true)
+            .withOauthScope("session:role:MY_ROLE")
+            .withoutPrivateKey()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsEntry("oauth_include_scope", "true")
+        .containsEntry("oauth_scope", "session:role:MY_ROLE");
+  }
+
+  @Test
+  void oAuthConfig_includeScopeEnabledWithoutExplicitScope_letsSdkDeriveScope() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("test_client_id")
+            .withOauthClientSecret("test_client_secret")
+            .withOauthRefreshToken("test_refresh_token")
+            .withOauthTokenEndpoint("https://oauth.example.com/token")
+            .withOauthIncludeScope(true)
+            .withoutPrivateKey()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsEntry("oauth_include_scope", "true")
+        .doesNotContainKey("oauth_scope");
   }
 
   @Test

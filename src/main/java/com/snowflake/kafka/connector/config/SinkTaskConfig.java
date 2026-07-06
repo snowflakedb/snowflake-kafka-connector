@@ -83,6 +83,10 @@ public abstract class SinkTaskConfig {
 
   public abstract Optional<String> getOauthTokenEndpoint();
 
+  public abstract boolean getOauthIncludeScope();
+
+  public abstract Optional<String> getOauthScope();
+
   @Nullable
   public abstract String getSnowflakeDatabase();
 
@@ -308,6 +312,12 @@ public abstract class SinkTaskConfig {
         optionalPassword(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN));
     Optional<String> oauthTokenEndpoint =
         optionalString(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT));
+    boolean oauthIncludeScope =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE))
+            .map(Boolean::parseBoolean)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT);
+    Optional<String> oauthScope =
+        optionalString(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE));
 
     String proxyHost = config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST);
     String proxyPort = config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT);
@@ -345,6 +355,7 @@ public abstract class SinkTaskConfig {
         .snowflakeUser(snowflakeUser)
         .snowflakeRole(snowflakeRole)
         .authenticator(authenticator)
+        .oauthIncludeScope(oauthIncludeScope)
         .snowflakeDatabase(snowflakeDatabase)
         .snowflakeSchema(snowflakeSchema)
         .proxyHost(proxyHost)
@@ -365,6 +376,7 @@ public abstract class SinkTaskConfig {
     oauthClientSecret.ifPresent(b::oauthClientSecret);
     oauthRefreshToken.ifPresent(b::oauthRefreshToken);
     oauthTokenEndpoint.ifPresent(b::oauthTokenEndpoint);
+    oauthScope.ifPresent(b::oauthScope);
     return b;
   }
 
@@ -440,6 +452,10 @@ public abstract class SinkTaskConfig {
     public abstract Builder oauthRefreshToken(Password oauthRefreshToken);
 
     public abstract Builder oauthTokenEndpoint(String oauthTokenEndpoint);
+
+    public abstract Builder oauthIncludeScope(boolean oauthIncludeScope);
+
+    public abstract Builder oauthScope(String oauthScope);
 
     public abstract Builder snowflakeDatabase(String snowflakeDatabase);
 
