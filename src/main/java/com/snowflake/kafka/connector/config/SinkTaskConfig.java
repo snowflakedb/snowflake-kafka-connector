@@ -129,6 +129,13 @@ public abstract class SinkTaskConfig {
    */
   public abstract boolean isPrecommitClientRecoveryEnabled();
 
+  /**
+   * Whether client-side structural validation error messages routed to the DLQ include the target
+   * table name. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME}.
+   */
+  public abstract boolean isValidationErrorTableNameEnabled();
+
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
     return from(raw, false);
@@ -334,6 +341,14 @@ public abstract class SinkTaskConfig {
             .orElse(
                 KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT_DEFAULT);
 
+    boolean validationErrorTableNameEnabled =
+        Optional.ofNullable(
+                config.get(
+                    KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME))
+            .map(Boolean::parseBoolean)
+            .orElse(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
+
     Builder b = builder();
     b.connectorName(connectorName)
         .taskId(taskId)
@@ -367,7 +382,8 @@ public abstract class SinkTaskConfig {
         .ssv1MigrationMode(ssv1MigrationMode)
         .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName)
         .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled)
-        .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled);
+        .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled)
+        .validationErrorTableNameEnabled(validationErrorTableNameEnabled);
 
     snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
     snowflakePrivateKeyPassphrase.ifPresent(b::snowflakePrivateKeyPassphrase);
@@ -482,6 +498,9 @@ public abstract class SinkTaskConfig {
         boolean assertPartitionAssignmentEnabled);
 
     public abstract Builder precommitClientRecoveryEnabled(boolean precommitClientRecoveryEnabled);
+
+    public abstract Builder validationErrorTableNameEnabled(
+        boolean validationErrorTableNameEnabled);
 
     public abstract SinkTaskConfig build();
   }
