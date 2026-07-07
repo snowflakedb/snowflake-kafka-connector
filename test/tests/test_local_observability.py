@@ -101,52 +101,57 @@ def test_prometheus_metrics_exposed(
         name_salt=name_salt,
         rest_request_template_filename=CONFIG_FILE,
     )
-    driver.wait_for_connector_running(connector_name)
+    try:
+        driver.wait_for_connector_running(connector_name)
 
-    # Send records and wait for all of them to land in Snowflake.
-    _send_records(driver, topic, RECORDS_PER_PARTITION)
-    expected_total = RECORDS_PER_PARTITION * NUM_PARTITIONS
-    wait_for_rows(table.name, expected_total, connector_name=connector_name)
-    logger.info("No-regression check passed: %d rows in Snowflake", expected_total)
+        # Send records and wait for all of them to land in Snowflake.
+        _send_records(driver, topic, RECORDS_PER_PARTITION)
+        expected_total = RECORDS_PER_PARTITION * NUM_PARTITIONS
+        wait_for_rows(table.name, expected_total, connector_name=connector_name)
+        logger.info("No-regression check passed: %d rows in Snowflake", expected_total)
 
-    # Scrape Prometheus endpoint, retrying to allow the SDK metrics server time to bind.
-    prom_url = f"http://{PROM_HOST}:{PROM_PORT}/metrics"
-    body = None
-    last_exc = None
-    for attempt in range(10):
-        try:
-            with urllib.request.urlopen(prom_url, timeout=10) as resp:
-                body = resp.read().decode("utf-8")
-            break
-        except urllib.error.URLError as exc:
-            last_exc = exc
-            logger.info(
-                "Prometheus scrape attempt %d/10 failed (%s); retrying in 3s",
-                attempt + 1,
-                exc,
+        # Scrape Prometheus endpoint, retrying to allow the SDK metrics server time to bind.
+        prom_url = f"http://{PROM_HOST}:{PROM_PORT}/metrics"
+        body = None
+        last_exc = None
+        for attempt in range(10):
+            try:
+                with urllib.request.urlopen(prom_url, timeout=10) as resp:
+                    body = resp.read().decode("utf-8")
+                break
+            except urllib.error.URLError as exc:
+                last_exc = exc
+                logger.info(
+                    "Prometheus scrape attempt %d/10 failed (%s); retrying in 3s",
+                    attempt + 1,
+                    exc,
+                )
+                time.sleep(3)
+
+        if body is None:
+            pytest.fail(
+                f"Could not reach Prometheus endpoint at {prom_url} after 10 attempts: {last_exc}. "
+                f"The Connect-worker container enables the SDK metrics endpoint via "
+                f"SS_ENABLE_METRICS/SS_METRICS_IP/SS_METRICS_PORT (see docker-compose); verify that "
+                f"env reached the worker JVM and that {PROM_HOST}:{PROM_PORT} is on the compose network."
             )
-            time.sleep(3)
 
-    if body is None:
-        pytest.fail(
-            f"Could not reach Prometheus endpoint at {prom_url} after 10 attempts: {last_exc}. "
-            f"The Connect-worker container enables the SDK metrics endpoint via "
-            f"SS_ENABLE_METRICS/SS_METRICS_IP/SS_METRICS_PORT (see docker-compose); verify that "
-            f"env reached the worker JVM and that {PROM_HOST}:{PROM_PORT} is on the compose network."
+        logger.info("Prometheus scrape returned %d bytes from %s", len(body), prom_url)
+
+        missing = [m for m in EXPECTED_SDK_METRICS if m not in body]
+        assert not missing, (
+            f"Expected SDK metric(s) not found in Prometheus output: {missing}\n"
+            f"Scraped URL: {prom_url}\n"
+            f"First 2000 chars of body:\n{body[:2000]}"
         )
-
-    logger.info("Prometheus scrape returned %d bytes from %s", len(body), prom_url)
-
-    missing = [m for m in EXPECTED_SDK_METRICS if m not in body]
-    assert not missing, (
-        f"Expected SDK metric(s) not found in Prometheus output: {missing}\n"
-        f"Scraped URL: {prom_url}\n"
-        f"First 2000 chars of body:\n{body[:2000]}"
-    )
-    logger.info(
-        "All expected SDK metrics found in Prometheus output: %s",
-        EXPECTED_SDK_METRICS,
-    )
+        logger.info(
+            "All expected SDK metrics found in Prometheus output: %s",
+            EXPECTED_SDK_METRICS,
+        )
+    finally:
+        # Tear down our connector so it does not keep an SDK client/task running during
+        # subsequent tests in the shared Kafka Connect worker.
+        driver.closeConnector(connector_name)
 
 
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
