@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;
@@ -14,6 +15,7 @@ import java.sql.SQLException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.Test;
@@ -22,26 +24,30 @@ public class InternalUtilsTest {
   @Test
   public void testPrivateKey() {
     assert TestUtils.assertError(
-        SnowflakeErrors.ERROR_0002, () -> PrivateKeyTool.parsePrivateKey("adfsfsaff", null));
+        SnowflakeErrors.ERROR_0002,
+        () -> PrivateKeyTool.parsePrivateKey(new Password("adfsfsaff"), Optional.empty()));
 
     Map<String, String> connectorConfiguration =
         TestUtils.transformProfileFileToConnectorConfiguration(true);
-    String privateKey =
-        connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
-    String pass =
-        connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
+    Password privateKey =
+        new Password(connectorConfiguration.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
+    Optional<Password> pass =
+        Optional.ofNullable(
+                connectorConfiguration.get(
+                    KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE))
+            .map(Password::new);
     // no exception
     PrivateKeyTool.parsePrivateKey(privateKey, pass);
     StringBuilder builder = new StringBuilder();
     builder.append("-----BEGIN RSA PRIVATE KEY-----\n");
-    for (int i = 0; i < privateKey.length(); i++) {
-      builder.append(privateKey.charAt(i));
+    for (int i = 0; i < privateKey.value().length(); i++) {
+      builder.append(privateKey.value().charAt(i));
       if ((i + 1) % 64 == 0) {
         builder.append("\n");
       }
     }
     builder.append("\n-----END RSA PRIVATE KEY-----");
-    String originalKey = builder.toString();
+    Password originalKey = new Password(builder.toString());
     // no exception
     PrivateKeyTool.parsePrivateKey(originalKey, pass);
   }
@@ -160,6 +166,131 @@ public class InternalUtilsTest {
     assert InternalUtils.resultSize(resultSet) == 0;
     resultSet = new MockResultSetForSizeTest(100);
     assert InternalUtils.resultSize(resultSet) == 100;
+  }
+
+  @Test
+  public void testMakeJdbcDriverProperties_oauthMissingClientId_throws() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .snowflakeDatabase("db")
+            .snowflakeSchema("schema")
+            .snowflakeUser("user")
+            .snowflakeUrl("https://account.snowflake.com")
+            .authenticator(AuthenticatorType.OAUTH)
+            .oauthClientSecret(new Password("secret"))
+            .build();
+
+    SnowflakeURL url = new SnowflakeURL("https://account.snowflake.com");
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0026, () -> InternalUtils.makeJdbcDriverProperties(config, url));
+  }
+
+  @Test
+  public void testMakeJdbcDriverProperties_oauthMissingClientSecret_throws() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .snowflakeDatabase("db")
+            .snowflakeSchema("schema")
+            .snowflakeUser("user")
+            .snowflakeUrl("https://account.snowflake.com")
+            .authenticator(AuthenticatorType.OAUTH)
+            .oauthClientId("client_id")
+            .build();
+
+    SnowflakeURL url = new SnowflakeURL("https://account.snowflake.com");
+    assert TestUtils.assertError(
+        SnowflakeErrors.ERROR_0027, () -> InternalUtils.makeJdbcDriverProperties(config, url));
+  }
+
+  @Test
+  public void resolveOauthScope_scopeDisabled_returnsEmpty() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("MY_ROLE")
+            .oauthIncludeScope(false)
+            .oauthScope("session:role:IGNORED")
+            .build();
+
+    assertTrue(InternalUtils.resolveOauthScope(config).isEmpty());
+  }
+
+  @Test
+  public void resolveOauthScope_explicitScope_isUsedAsIs() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("MY_ROLE")
+            .oauthIncludeScope(true)
+            .oauthScope("custom scope")
+            .build();
+
+    assertEquals("custom scope", InternalUtils.resolveOauthScope(config).orElse(null));
+  }
+
+  @Test
+  public void resolveOauthScope_derivesFromRole() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("MY_ROLE")
+            .oauthIncludeScope(true)
+            .build();
+
+    assertEquals("session:role:MY_ROLE", InternalUtils.resolveOauthScope(config).orElse(null));
+  }
+
+  @Test
+  public void resolveOauthScope_urlEncodesRoleWithReservedChars() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("My Custom Role")
+            .oauthIncludeScope(true)
+            .build();
+
+    // The role is percent-encoded (spaces as %20, matching the SDK) so it doesn't split the
+    // space-delimited scope value.
+    assertEquals(
+        "session:role:My%20Custom%20Role", InternalUtils.resolveOauthScope(config).orElse(null));
+  }
+
+  @Test
+  public void resolveOauthScope_blankRoleWithoutExplicitScope_returnsEmpty() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test")
+            .taskId("0")
+            .authenticator(AuthenticatorType.OAUTH)
+            .snowflakeRole("   ")
+            .oauthIncludeScope(true)
+            .build();
+
+    assertTrue(InternalUtils.resolveOauthScope(config).isEmpty());
+  }
+
+  @Test
+  public void testMakeJdbcDriverProperties_invalidAuthenticator_throws() {
+    Map<String, String> rawConfig = new HashMap<>();
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME, "db");
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME, "schema");
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "user");
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME, "https://account.snowflake.com");
+    rawConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, "invalid_auth");
+
+    assertThrows(IllegalArgumentException.class, () -> SinkTaskConfig.from(rawConfig, true));
   }
 
   @Test

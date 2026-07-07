@@ -8,6 +8,7 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.Test;
 
 public class SinkTaskConfigTest {
@@ -181,10 +182,29 @@ public class SinkTaskConfigTest {
     SinkTaskConfig config = SinkTaskConfig.from(raw);
 
     assertEquals(AuthenticatorType.OAUTH, config.getAuthenticator());
-    assertEquals("my_client_id", config.getOauthClientId());
-    assertEquals("my_client_secret", config.getOauthClientSecret().value());
-    assertEquals("my_refresh_token", config.getOauthRefreshToken().value());
-    assertEquals("https://oauth.example.com/token", config.getOauthTokenEndpoint());
+    assertEquals("my_client_id", config.getOauthClientId().orElse(null));
+    assertEquals(
+        "my_client_secret", config.getOauthClientSecret().map(Password::value).orElse(null));
+    assertEquals(
+        "my_refresh_token", config.getOauthRefreshToken().map(Password::value).orElse(null));
+    assertEquals("https://oauth.example.com/token", config.getOauthTokenEndpoint().orElse(null));
+    assertFalse(config.getOauthIncludeScope());
+    assertTrue(config.getOauthScope().isEmpty());
+  }
+
+  @Test
+  public void from_oauthScopeFields_areParsed() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTHENTICATOR, AuthenticatorType.OAUTH.toConfigValue());
+    raw.put(SNOWFLAKE_OAUTH_CLIENT_ID, "my_client_id");
+    raw.put(SNOWFLAKE_OAUTH_CLIENT_SECRET, "my_client_secret");
+    raw.put(SNOWFLAKE_OAUTH_INCLUDE_SCOPE, "true");
+    raw.put(SNOWFLAKE_OAUTH_SCOPE, "session:role:MY_ROLE");
+
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+
+    assertTrue(config.getOauthIncludeScope());
+    assertEquals("session:role:MY_ROLE", config.getOauthScope().orElse(null));
   }
 
   @Test
@@ -195,16 +215,19 @@ public class SinkTaskConfigTest {
 
     SinkTaskConfig config = SinkTaskConfig.from(raw);
 
-    assertEquals("my_private_key", config.getSnowflakePrivateKey().value());
-    assertEquals("my_passphrase", config.getSnowflakePrivateKeyPassphrase().value());
+    assertEquals(
+        "my_private_key", config.getSnowflakePrivateKey().map(Password::value).orElse(null));
+    assertEquals(
+        "my_passphrase",
+        config.getSnowflakePrivateKeyPassphrase().map(Password::value).orElse(null));
   }
 
   @Test
-  public void from_missingPrivateKey_returnsNull() {
+  public void from_missingPrivateKey_returnsEmpty() {
     SinkTaskConfig config = SinkTaskConfig.from(minimalConfig());
 
-    assertNull(config.getSnowflakePrivateKey());
-    assertNull(config.getSnowflakePrivateKeyPassphrase());
+    assertTrue(config.getSnowflakePrivateKey().isEmpty());
+    assertTrue(config.getSnowflakePrivateKeyPassphrase().isEmpty());
   }
 
   @Test
@@ -222,8 +245,10 @@ public class SinkTaskConfigTest {
 
     SinkTaskConfig config = SinkTaskConfig.from(raw);
     assertEquals(AuthenticatorType.OAUTH, config.getAuthenticator());
-    assertNull(config.getOauthRefreshToken());
-    assertNull(config.getOauthTokenEndpoint());
+    assertTrue(config.getOauthRefreshToken().isEmpty());
+    assertTrue(config.getOauthTokenEndpoint().isEmpty());
+    assertFalse(config.getOauthIncludeScope());
+    assertTrue(config.getOauthScope().isEmpty());
   }
 
   @Test

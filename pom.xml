@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>4.1.0</version>
+    <version>4.1.0-rc1</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -61,11 +61,11 @@
         <protobuf.version>3.25.5</protobuf.version>
         <guava.version>33.6.0-jre</guava.version>
 
-        <jackson.version>2.21.2</jackson.version>
+        <jackson.version>2.22.0</jackson.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
-        <snowflake-jdbc.version>4.2.0</snowflake-jdbc.version>
-        <slf4j-api.version>2.0.17</slf4j-api.version>
+        <snowflake-jdbc.version>4.3.1</snowflake-jdbc.version>
+        <slf4j-api.version>2.0.18</slf4j-api.version>
         <commons-lang3.version>3.20.0</commons-lang3.version>
         <auto-value.version>1.11.1</auto-value.version>
 
@@ -77,7 +77,7 @@
             http://mitmproxy:8080 destination at the request-builder layer.
             Tracking ticket: SNOW-3683451.
         -->
-        <snowpipe-streaming.version>1.6.0</snowpipe-streaming.version>
+        <snowpipe-streaming.version>1.6.1</snowpipe-streaming.version>
 
     </properties>
 
@@ -446,13 +446,13 @@
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
-            <version>4.2.33</version>
+            <version>4.2.39</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/io.dropwizard.metrics/metrics-jmx -->
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-jmx</artifactId>
-            <version>4.2.33</version>
+            <version>4.2.39</version>
         </dependency>
 
         <dependency>
@@ -510,7 +510,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <version>4.13.2</version>
             <scope>test</scope>
         </dependency>
 
@@ -536,7 +536,7 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-            <version>2.25.4</version>
+            <version>2.26.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>

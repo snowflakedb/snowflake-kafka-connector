@@ -50,7 +50,11 @@ def test_native_string_protobuf(
     wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row content --
-    row = table.select("record_metadata, record_content", "LIMIT 1")[0]
+    # Snowflake does not guarantee row ordering without ORDER BY, so we must
+    # select the specific record at offset 0 rather than relying on insertion order.
+    row = table.select(
+        "record_metadata, record_content", "WHERE record_metadata:offset::int = 0"
+    )[0]
 
     record_metadata = json.loads(row["RECORD_METADATA"])
     assert record_metadata == {

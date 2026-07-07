@@ -47,9 +47,8 @@ public final class SinkTaskConfigTestBuilder {
         .snowflakeUrl("")
         .snowflakeUser("")
         .snowflakeRole("")
-        .snowflakePrivateKey(null)
-        .snowflakePrivateKeyPassphrase(null)
         .authenticator(AuthenticatorType.SNOWFLAKE_JWT)
+        .oauthIncludeScope(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT)
         .snowflakeDatabase("")
         .snowflakeSchema("")
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)
@@ -58,6 +57,8 @@ public final class SinkTaskConfigTestBuilder {
         .precommitClientRecoveryEnabled(true)
         .prometheusMetricsEnabled(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT)
         .prometheusMetricsPort(KafkaConnectorConfigParams.PROMETHEUS_PORT_DEFAULT)
-        .prometheusMetricsHost(KafkaConnectorConfigParams.PROMETHEUS_HOST_DEFAULT);
+        .prometheusMetricsHost(KafkaConnectorConfigParams.PROMETHEUS_HOST_DEFAULT)
+        .validationErrorTableNameEnabled(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
   }
 }

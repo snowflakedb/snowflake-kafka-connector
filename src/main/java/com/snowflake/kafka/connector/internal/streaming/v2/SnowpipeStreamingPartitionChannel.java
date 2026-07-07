@@ -669,10 +669,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       snowflakeTelemetryChannelStatus.incValidationFailureCount();
 
       String errorMsg =
-          String.format(
-              "Structural validation error (schema evolution disabled): extraCols=%s,"
-                  + " missingNotNull=%s",
-              result.getExtraColNames(), result.getMissingNotNullColNames());
+          taskConfig.isValidationErrorTableNameEnabled()
+              ? String.format(
+                  "Structural validation error for table %s (schema evolution disabled):"
+                      + " extraCols=%s, missingNotNull=%s",
+                  tableName, result.getExtraColNames(), result.getMissingNotNullColNames())
+              : String.format(
+                  "Structural validation error (schema evolution disabled): extraCols=%s,"
+                      + " missingNotNull=%s",
+                  result.getExtraColNames(), result.getMissingNotNullColNames());
       LOGGER.info("Routing to DLQ for channel {}: {}", channelName, errorMsg);
       streamingErrorHandler.handleError(new DataException(errorMsg), originalRecordForReporting);
       snowflakeTelemetryChannelStatus.incErrorToleratedCount();
@@ -700,9 +705,16 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       snowflakeTelemetryChannelStatus.incSchemaEvolutionFailureCount();
 
       String errorMsg =
-          String.format(
-              "Schema mismatch after evolution attempt: extraCols=%s, missingNotNull=%s",
-              retryResult.getExtraColNames(), retryResult.getMissingNotNullColNames());
+          taskConfig.isValidationErrorTableNameEnabled()
+              ? String.format(
+                  "Schema mismatch after evolution attempt for table %s: extraCols=%s,"
+                      + " missingNotNull=%s",
+                  tableName,
+                  retryResult.getExtraColNames(),
+                  retryResult.getMissingNotNullColNames())
+              : String.format(
+                  "Schema mismatch after evolution attempt: extraCols=%s, missingNotNull=%s",
+                  retryResult.getExtraColNames(), retryResult.getMissingNotNullColNames());
       streamingErrorHandler.handleError(new DataException(errorMsg), originalRecordForReporting);
       snowflakeTelemetryChannelStatus.incErrorToleratedCount();
     } catch (SnowflakeKafkaConnectorException e) {

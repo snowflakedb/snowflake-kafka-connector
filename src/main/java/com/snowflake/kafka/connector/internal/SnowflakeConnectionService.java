@@ -136,7 +136,7 @@ public interface SnowflakeConnectionService {
    * Check whether the given table has ERROR_LOGGING enabled via SHOW TABLES.
    *
    * @param tableName table name
-   * @return true if error_logging is "Y", false otherwise or if the column is not present
+   * @return true if error_logging is "ON", false otherwise or if the column is not present
    */
   boolean hasErrorLoggingEnabled(String tableName);
 

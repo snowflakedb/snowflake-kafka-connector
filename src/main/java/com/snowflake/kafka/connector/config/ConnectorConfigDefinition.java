@@ -154,6 +154,36 @@ public class ConnectorConfigDefinition {
             11,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT,
+            LOW,
+            "Whether OAuth token requests include a scope parameter. Defaults to false, which sends"
+                + " no scope (matching KC v3). Set to true to send a scope: either the explicit "
+                + KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE
+                + " or, if that is unset, session:role:{role} derived from "
+                + KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME
+                + ".",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            12,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE,
+            STRING,
+            "",
+            LOW,
+            "Explicit OAuth scope to request. Only used when "
+                + KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE
+                + " is true; when it is true and this is unset, the scope defaults to"
+                + " session:role:{role}. Has no effect while "
+                + KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE
+                + " is false (no scope is sent).",
+            SNOWFLAKE_LOGIN_INFO_DOC,
+            13,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE)
         // proxy
         .define(
             KafkaConnectorConfigParams.JVM_PROXY_HOST,

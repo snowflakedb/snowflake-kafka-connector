@@ -106,6 +106,17 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
+  public SnowflakeSinkConnectorConfigBuilder withOauthIncludeScope(boolean includeScope) {
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE, String.valueOf(includeScope));
+    return this;
+  }
+
+  public SnowflakeSinkConnectorConfigBuilder withOauthScope(String scope) {
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE, scope);
+    return this;
+  }
+
   public SnowflakeSinkConnectorConfigBuilder withoutPrivateKey() {
     config.remove(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
     return this;

@@ -89,10 +89,17 @@ public class SnowflakeURL implements URL {
     return account;
   }
 
+  @Override
   public boolean sslEnabled() {
     return ssl;
   }
 
+  @Override
+  public String path() {
+    return "";
+  }
+
+  @Override
   public String getScheme() {
     if (ssl) {
       return "https";

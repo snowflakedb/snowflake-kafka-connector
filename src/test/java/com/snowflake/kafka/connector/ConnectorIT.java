@@ -22,6 +22,7 @@ import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NA
 import static com.snowflake.kafka.connector.internal.TestUtils.transformProfileFileToConnectorConfiguration;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.internal.SnowflakeDataSourceFactory;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -252,6 +253,24 @@ public class ConnectorIT {
     Map<String, ConfigValue> validateMap = toValidateMap(config);
     assertPropHasError(
         validateMap, new String[] {SNOWFLAKE_PRIVATE_KEY, SNOWFLAKE_PRIVATE_KEY_PASSPHRASE});
+  }
+
+  @Test
+  public void testValidateErrorOAuthTokenEndpointConfig() {
+    Map<String, String> config = getCorrectConfig();
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+        AuthenticatorType.OAUTH.toConfigValue());
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID, "client_id");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "client_secret");
+    // Malformed token endpoint makes OAuthURL.from throw ERROR_0033 before any network call.
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT, "@@@ not a url @@@");
+    config.remove(SNOWFLAKE_PRIVATE_KEY);
+    Map<String, ConfigValue> validateMap = toValidateMap(config);
+    assert !validateMap
+        .get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT)
+        .errorMessages()
+        .isEmpty();
   }
 
   @Test

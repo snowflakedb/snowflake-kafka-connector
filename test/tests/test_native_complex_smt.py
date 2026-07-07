@@ -41,7 +41,9 @@ def test_native_complex_smt(
     wait_for_rows(table.name, RECORD_COUNT)
 
     # -- Verify first row: key extracted, c2 dropped --
-    row = table.select("*")[0]
+    # Snowflake does not guarantee row ordering without ORDER BY, so we must
+    # select the specific record at offset 0 rather than relying on insertion order.
+    row = table.select("*", "WHERE record_metadata:offset::int = 0")[0]
 
     assert json.loads(row["RECORD_METADATA"]) == {
         "CreateTime": ANY_INT,

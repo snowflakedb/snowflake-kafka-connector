@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
@@ -34,7 +35,9 @@ import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
+import org.apache.kafka.common.config.types.Password;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 
@@ -146,9 +149,12 @@ public class StreamingClientPropertiesTest {
     expectedProps.put("application", "SnowflakeKafkaConnector/" + Utils.VERSION);
     String privateKeyStr = connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
     if (privateKeyStr != null) {
-      String passphrase =
-          connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE);
-      PrivateKey privateKey = PrivateKeyTool.parsePrivateKey(privateKeyStr, passphrase);
+      Optional<Password> passphrase =
+          Optional.ofNullable(
+                  connectorConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE))
+              .map(Password::new);
+      PrivateKey privateKey =
+          PrivateKeyTool.parsePrivateKey(new Password(privateKeyStr), passphrase);
       expectedProps.put("private_key", Base64.getEncoder().encodeToString(privateKey.getEncoded()));
     }
     String expectedClientName = STREAMING_CLIENT_V2_PREFIX_NAME + "testName";
@@ -231,5 +237,117 @@ public class StreamingClientPropertiesTest {
 
     assert !prop1.equals(prop2);
     assert prop1.hashCode() != prop2.hashCode();
+  }
+
+  @Test
+  void oAuthConfig_setsAuthorizationTypeAndCredentials() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("test_client_id")
+            .withOauthClientSecret("test_client_secret")
+            .withOauthRefreshToken("test_refresh_token")
+            .withOauthTokenEndpoint("https://oauth.example.com/token")
+            .withoutPrivateKey()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsEntry("authorization_type", AuthenticatorType.OAUTH.toConfigValue())
+        .containsEntry("oauth_client_id", "test_client_id")
+        .containsEntry("oauth_client_secret", "test_client_secret")
+        .containsEntry("oauth_refresh_token", "test_refresh_token")
+        .containsEntry("oauth_token_endpoint", "https://oauth.example.com/token")
+        // Defaults to disabling scope so the SDK doesn't derive session:role:{role}.
+        .containsEntry("oauth_include_scope", "false")
+        .doesNotContainKey("oauth_scope")
+        .doesNotContainKey("private_key");
+  }
+
+  @Test
+  void oAuthConfig_includeScopeEnabled_forwardsScope() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("test_client_id")
+            .withOauthClientSecret("test_client_secret")
+            .withOauthRefreshToken("test_refresh_token")
+            .withOauthTokenEndpoint("https://oauth.example.com/token")
+            .withOauthIncludeScope(true)
+            .withOauthScope("session:role:MY_ROLE")
+            .withoutPrivateKey()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsEntry("oauth_include_scope", "true")
+        .containsEntry("oauth_scope", "session:role:MY_ROLE");
+  }
+
+  @Test
+  void oAuthConfig_includeScopeEnabledWithoutExplicitScope_letsSdkDeriveScope() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("test_client_id")
+            .withOauthClientSecret("test_client_secret")
+            .withOauthRefreshToken("test_refresh_token")
+            .withOauthTokenEndpoint("https://oauth.example.com/token")
+            .withOauthIncludeScope(true)
+            .withoutPrivateKey()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsEntry("oauth_include_scope", "true")
+        .doesNotContainKey("oauth_scope");
+  }
+
+  @Test
+  void oAuthConfig_clientCredentials_omitsRefreshToken() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("test_client_id")
+            .withOauthClientSecret("test_client_secret")
+            .withoutPrivateKey()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsEntry("authorization_type", AuthenticatorType.OAUTH.toConfigValue())
+        .containsEntry("oauth_client_id", "test_client_id")
+        .containsEntry("oauth_client_secret", "test_client_secret")
+        .doesNotContainKey("oauth_refresh_token")
+        .doesNotContainKey("private_key");
+  }
+
+  @Test
+  void jwtConfig_setsPrivateKey_noOAuthProperties() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withPrivateKey(Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()))
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    SinkTaskConfig config = SinkTaskConfig.from(connectorConfig);
+    StreamingClientProperties properties = StreamingClientProperties.from(config);
+
+    assertThat(properties.clientProperties)
+        .containsKey("private_key")
+        .doesNotContainKey("authorization_type")
+        .doesNotContainKey("oauth_client_id");
   }
 }

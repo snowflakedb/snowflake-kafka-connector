@@ -69,25 +69,23 @@ public abstract class SinkTaskConfig {
   @Nullable
   public abstract String getSnowflakeRole();
 
-  @Nullable
-  public abstract Password getSnowflakePrivateKey();
+  public abstract Optional<Password> getSnowflakePrivateKey();
 
-  @Nullable
-  public abstract Password getSnowflakePrivateKeyPassphrase();
+  public abstract Optional<Password> getSnowflakePrivateKeyPassphrase();
 
   public abstract AuthenticatorType getAuthenticator();
 
-  @Nullable
-  public abstract String getOauthClientId();
+  public abstract Optional<String> getOauthClientId();
 
-  @Nullable
-  public abstract Password getOauthClientSecret();
+  public abstract Optional<Password> getOauthClientSecret();
 
-  @Nullable
-  public abstract Password getOauthRefreshToken();
+  public abstract Optional<Password> getOauthRefreshToken();
 
-  @Nullable
-  public abstract String getOauthTokenEndpoint();
+  public abstract Optional<String> getOauthTokenEndpoint();
+
+  public abstract boolean getOauthIncludeScope();
+
+  public abstract Optional<String> getOauthScope();
 
   @Nullable
   public abstract String getSnowflakeDatabase();
@@ -142,6 +140,13 @@ public abstract class SinkTaskConfig {
    * configured.
    */
   public abstract String getPrometheusMetricsHost();
+
+  /**
+   * Whether client-side structural validation error messages routed to the DLQ include the target
+   * table name. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME}.
+   */
+  public abstract boolean isValidationErrorTableNameEnabled();
 
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
@@ -321,23 +326,32 @@ public abstract class SinkTaskConfig {
     String snowflakeUrl = config.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
     String snowflakeUser = config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
     String snowflakeRole = config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
-    Password snowflakePrivateKey =
-        passwordOrNull(config.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
-    Password snowflakePrivateKeyPassphrase =
-        passwordOrNull(config.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE));
     String snowflakeDatabase = config.get(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME);
     String snowflakeSchema = config.get(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME);
 
     AuthenticatorType authenticator =
         AuthenticatorType.fromConfig(
             config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR));
-    String oauthClientId = config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID);
-    Password oauthClientSecret =
-        passwordOrNull(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
-    Password oauthRefreshToken =
-        passwordOrNull(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN));
-    String oauthTokenEndpoint =
-        config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT);
+
+    Optional<Password> snowflakePrivateKey =
+        optionalPassword(config.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
+    Optional<Password> snowflakePrivateKeyPassphrase =
+        optionalPassword(config.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE));
+
+    Optional<String> oauthClientId =
+        optionalString(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID));
+    Optional<Password> oauthClientSecret =
+        optionalPassword(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
+    Optional<Password> oauthRefreshToken =
+        optionalPassword(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN));
+    Optional<String> oauthTokenEndpoint =
+        optionalString(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_TOKEN_ENDPOINT));
+    boolean oauthIncludeScope =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE))
+            .map(Boolean::parseBoolean)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT);
+    Optional<String> oauthScope =
+        optionalString(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE));
 
     String proxyHost = config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST);
     String proxyPort = config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT);
@@ -354,8 +368,16 @@ public abstract class SinkTaskConfig {
             .orElse(
                 KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ASSERT_PARTITION_ASSIGNMENT_DEFAULT);
 
-    return builder()
-        .connectorName(connectorName)
+    boolean validationErrorTableNameEnabled =
+        Optional.ofNullable(
+                config.get(
+                    KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME))
+            .map(Boolean::parseBoolean)
+            .orElse(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
+
+    Builder b = builder();
+    b.connectorName(connectorName)
         .taskId(taskId)
         .topicToTableMap(topicToTableMap)
         .behaviorOnNullValues(behaviorOnNullValues)
@@ -374,13 +396,8 @@ public abstract class SinkTaskConfig {
         .snowflakeUrl(snowflakeUrl)
         .snowflakeUser(snowflakeUser)
         .snowflakeRole(snowflakeRole)
-        .snowflakePrivateKey(snowflakePrivateKey)
-        .snowflakePrivateKeyPassphrase(snowflakePrivateKeyPassphrase)
         .authenticator(authenticator)
-        .oauthClientId(oauthClientId)
-        .oauthClientSecret(oauthClientSecret)
-        .oauthRefreshToken(oauthRefreshToken)
-        .oauthTokenEndpoint(oauthTokenEndpoint)
+        .oauthIncludeScope(oauthIncludeScope)
         .snowflakeDatabase(snowflakeDatabase)
         .snowflakeSchema(snowflakeSchema)
         .proxyHost(proxyHost)
@@ -395,11 +412,26 @@ public abstract class SinkTaskConfig {
         .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled)
         .prometheusMetricsEnabled(prometheusMetricsEnabled)
         .prometheusMetricsPort(prometheusMetricsPort)
-        .prometheusMetricsHost(prometheusMetricsHost);
+        .prometheusMetricsHost(prometheusMetricsHost)
+        .validationErrorTableNameEnabled(validationErrorTableNameEnabled);
+
+    snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
+    snowflakePrivateKeyPassphrase.ifPresent(b::snowflakePrivateKeyPassphrase);
+
+    oauthClientId.ifPresent(b::oauthClientId);
+    oauthClientSecret.ifPresent(b::oauthClientSecret);
+    oauthRefreshToken.ifPresent(b::oauthRefreshToken);
+    oauthTokenEndpoint.ifPresent(b::oauthTokenEndpoint);
+    oauthScope.ifPresent(b::oauthScope);
+    return b;
   }
 
-  private static Password passwordOrNull(String value) {
-    return value == null ? null : new Password(value);
+  private static Optional<String> optionalString(String value) {
+    return Optional.ofNullable(value).filter(v -> !v.isBlank());
+  }
+
+  private static Optional<Password> optionalPassword(String value) {
+    return optionalString(value).map(Password::new);
   }
 
   /** Creates a new builder. Used by {@link #from(Map)} and by tests. */
@@ -467,6 +499,10 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder oauthTokenEndpoint(String oauthTokenEndpoint);
 
+    public abstract Builder oauthIncludeScope(boolean oauthIncludeScope);
+
+    public abstract Builder oauthScope(String oauthScope);
+
     public abstract Builder snowflakeDatabase(String snowflakeDatabase);
 
     public abstract Builder snowflakeSchema(String snowflakeSchema);
@@ -498,6 +534,9 @@ public abstract class SinkTaskConfig {
     public abstract Builder prometheusMetricsPort(int prometheusMetricsPort);
 
     public abstract Builder prometheusMetricsHost(String prometheusMetricsHost);
+
+    public abstract Builder validationErrorTableNameEnabled(
+        boolean validationErrorTableNameEnabled);
 
     public abstract SinkTaskConfig build();
   }

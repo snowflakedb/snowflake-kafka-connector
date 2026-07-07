@@ -757,6 +757,34 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
+  public void testOAuthBlankClientId() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("   ")
+            .withOauthClientSecret("client_secret")
+            .withoutPrivateKey()
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID);
+  }
+
+  @Test
+  public void testOAuthBlankClientSecret() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("   ")
+            .withoutPrivateKey()
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET);
+  }
+
+  @Test
   public void testOAuthDoesNotRequirePrivateKey() {
     Map<String, String> config =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig()
@@ -764,6 +792,38 @@ public class ConnectorConfigValidatorTest {
             .withOauthClientId("client_id")
             .withOauthClientSecret("client_secret")
             .withOauthRefreshToken("refresh_token")
+            .withoutPrivateKey()
+            .build();
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  public void testOAuthScopeWithoutIncludeScopeIsInvalid() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withOauthRefreshToken("refresh_token")
+            .withOauthScope("session:role:MY_ROLE")
+            .withoutPrivateKey()
+            .build();
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE);
+  }
+
+  @Test
+  public void testOAuthScopeWithIncludeScopeIsValid() {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.OAUTH.toConfigValue())
+            .withOauthClientId("client_id")
+            .withOauthClientSecret("client_secret")
+            .withOauthRefreshToken("refresh_token")
+            .withOauthIncludeScope(true)
+            .withOauthScope("session:role:MY_ROLE")
             .withoutPrivateKey()
             .build();
     assertThatCode(() -> connectorConfigValidator.validateConfig(config))

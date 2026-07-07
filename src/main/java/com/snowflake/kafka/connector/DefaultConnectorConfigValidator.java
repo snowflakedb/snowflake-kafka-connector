@@ -161,7 +161,7 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
   private void validateOAuthConfig(
       Map<String, String> config, Map<String, String> invalidConfigParams) {
     String clientId = config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID, "");
-    if (clientId.isEmpty()) {
+    if (clientId.isBlank()) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID,
           Utils.formatString(
@@ -171,12 +171,27 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
 
     String clientSecret =
         config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "");
-    if (clientSecret.isEmpty()) {
+    if (clientSecret.isBlank()) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
           Utils.formatString(
               "{} must be non-empty when using oauth authenticator",
               KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
+    }
+
+    boolean includeScope =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE,
+                String.valueOf(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT)));
+    String scope = config.getOrDefault(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE, "");
+    if (!scope.isBlank() && !includeScope) {
+      invalidConfigParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE,
+          Utils.formatString(
+              "{} is only used when {} is true",
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE,
+              KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE));
     }
   }
 

@@ -56,6 +56,10 @@ public class SnowflakeTelemetryServiceTest {
     Map<String, String> connectorConfig = createConnectorConfig();
     connectorConfig.put(KEY_CONVERTER, KAFKA_STRING_CONVERTER);
     connectorConfig.put(KafkaConnectorConfigParams.VALUE_CONVERTER, KAFKA_CONFLUENT_AVRO_CONVERTER);
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "test-client-secret");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN, "test-refresh-token");
     SnowflakeTelemetryService snowflakeTelemetryService =
         createSnowflakeTelemetryService(connectorConfig);
 
@@ -94,6 +98,8 @@ public class SnowflakeTelemetryServiceTest {
     // Sensitive keys must NOT be present
     assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
     assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE));
+    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
+    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN));
   }
 
   @Test

@@ -39,6 +39,7 @@ IGNORED_DEPENDENCIES = {"net.snowflake:snowflake-jdbc", "org.slf4j:slf4j-api"}
 # List of dependencies, which don't ship with a license file.
 # Only add a new record here after verifying that the dependency JAR does not contain a license!
 ADDITIONAL_LICENSES_MAP = {
+    "at.yawk.lz4:lz4-java": APACHE_LICENSE,
     "com.eclipsesource.minimal-json:minimal-json": MIT_LICENSE,
     "com.fasterxml.jackson.dataformat:jackson-dataformat-protobuf": APACHE_LICENSE,
     "com.github.ben-manes.caffeine:caffeine": APACHE_LICENSE,
