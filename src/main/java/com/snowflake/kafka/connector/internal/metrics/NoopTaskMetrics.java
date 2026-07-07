@@ -40,11 +40,6 @@ enum NoopTaskMetrics implements TaskMetrics {
   }
 
   @Override
-  public TimingContext timeAppendRow() {
-    return TimingContext.NOOP;
-  }
-
-  @Override
   public void recordStartDuration(long nanos) {}
 
   @Override

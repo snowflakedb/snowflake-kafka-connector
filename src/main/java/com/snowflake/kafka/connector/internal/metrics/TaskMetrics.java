@@ -25,8 +25,6 @@ public interface TaskMetrics {
 
   TimingContext timeOffsetFetch();
 
-  TimingContext timeAppendRow();
-
   void recordStartDuration(long nanos);
 
   void recordFlushDuration(long nanos);

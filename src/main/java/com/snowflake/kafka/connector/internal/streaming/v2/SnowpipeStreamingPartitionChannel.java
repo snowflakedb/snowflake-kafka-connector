@@ -300,9 +300,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private boolean insertRowWithFallback(Map<String, Object> row, long offset) {
     try {
       LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
-      try (TaskMetrics.TimingContext ignored = taskMetrics.timeAppendRow()) {
-        getChannel().appendRow(row, Long.toString(offset));
-      }
+      getChannel().appendRow(row, Long.toString(offset));
       offsetTracker.recordAppended(offset);
       taskMetrics.markRecordsAppended(1);
       consecutiveRecoveryCount = 0;

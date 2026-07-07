@@ -153,7 +153,10 @@ public class SnowflakeSinkTask extends SinkTask {
     // Apply SDK bootstrap knobs (log level, optional Prometheus) in the TASK JVM before any
     // streaming client is created. Distributed mode runs the task in a different JVM than the
     // connector, so this must happen here, not in SnowflakeStreamingSinkConnector.start().
-    SdkBootstrapConfig.apply(parsedConfig);
+    SdkBootstrapConfig.apply(
+        config.isPrometheusMetricsEnabled(),
+        config.getPrometheusMetricsPort(),
+        config.getPrometheusMetricsHost());
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 

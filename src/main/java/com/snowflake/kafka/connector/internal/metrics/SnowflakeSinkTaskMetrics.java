@@ -41,7 +41,6 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   static final String SDK_CLIENT_CREATE_DURATION = "sdk-client-create-duration";
   static final String PRECOMMIT_OFFSET_FETCH_DURATION = "precommit-offset-fetch-duration";
   static final String FLUSH_DURATION = "flush-duration";
-  static final String APPEND_ROW_DURATION = "append-row-duration";
 
   // Throughput
   static final String PUT_RECORDS = "put-records";
@@ -73,7 +72,6 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   private final Timer sdkClientCreateDuration;
   private final Timer preCommitOffsetFetchDuration;
   private final Timer flushDuration;
-  private final Timer appendRowDuration;
 
   // Throughput
   private final Meter putRecords;
@@ -129,8 +127,6 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
             taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, PRECOMMIT_OFFSET_FETCH_DURATION));
     this.flushDuration =
         registry.timer(taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, FLUSH_DURATION));
-    this.appendRowDuration =
-        registry.timer(taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, APPEND_ROW_DURATION));
 
     // Throughput
     this.putRecords =
@@ -204,11 +200,6 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   @Override
   public TimingContext timeOffsetFetch() {
     return wrap(preCommitOffsetFetchDuration);
-  }
-
-  @Override
-  public TimingContext timeAppendRow() {
-    return wrap(appendRowDuration);
   }
 
   @Override
@@ -311,10 +302,6 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
 
   Timer flushDuration() {
     return flushDuration;
-  }
-
-  Timer appendRowDuration() {
-    return appendRowDuration;
   }
 
   Meter putRecords() {

@@ -131,6 +131,18 @@ public abstract class SinkTaskConfig {
    */
   public abstract boolean isPrecommitClientRecoveryEnabled();
 
+  /** Whether the Snowpipe Streaming SDK Prometheus metrics endpoint is enabled. */
+  public abstract boolean isPrometheusMetricsEnabled();
+
+  /** Port for the Snowpipe Streaming SDK Prometheus metrics endpoint. -1 when not configured. */
+  public abstract int getPrometheusMetricsPort();
+
+  /**
+   * Bind address for the Snowpipe Streaming SDK Prometheus metrics endpoint. Empty when not
+   * configured.
+   */
+  public abstract String getPrometheusMetricsHost();
+
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
     return from(raw, false);
@@ -291,6 +303,21 @@ public abstract class SinkTaskConfig {
                     KafkaConnectorConfigParams
                         .SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY_DEFAULT)));
 
+    boolean prometheusMetricsEnabled =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.PROMETHEUS_ENABLE,
+                String.valueOf(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT)));
+    int prometheusMetricsPort =
+        Integer.parseInt(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.PROMETHEUS_PORT,
+                String.valueOf(KafkaConnectorConfigParams.PROMETHEUS_PORT_DEFAULT)));
+    String prometheusMetricsHost =
+        config.getOrDefault(
+            KafkaConnectorConfigParams.PROMETHEUS_HOST,
+            KafkaConnectorConfigParams.PROMETHEUS_HOST_DEFAULT);
+
     String snowflakeUrl = config.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
     String snowflakeUser = config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
     String snowflakeRole = config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
@@ -365,7 +392,10 @@ public abstract class SinkTaskConfig {
         .ssv1MigrationMode(ssv1MigrationMode)
         .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName)
         .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled)
-        .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled);
+        .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled)
+        .prometheusMetricsEnabled(prometheusMetricsEnabled)
+        .prometheusMetricsPort(prometheusMetricsPort)
+        .prometheusMetricsHost(prometheusMetricsHost);
   }
 
   private static Password passwordOrNull(String value) {
@@ -462,6 +492,12 @@ public abstract class SinkTaskConfig {
         boolean assertPartitionAssignmentEnabled);
 
     public abstract Builder precommitClientRecoveryEnabled(boolean precommitClientRecoveryEnabled);
+
+    public abstract Builder prometheusMetricsEnabled(boolean prometheusMetricsEnabled);
+
+    public abstract Builder prometheusMetricsPort(int prometheusMetricsPort);
+
+    public abstract Builder prometheusMetricsHost(String prometheusMetricsHost);
 
     public abstract SinkTaskConfig build();
   }

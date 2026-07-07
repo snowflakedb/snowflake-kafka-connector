@@ -55,6 +55,9 @@ public final class SinkTaskConfigTestBuilder {
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)
         .ssv1MigrationIncludeConnectorName(false)
         .assertPartitionAssignmentEnabled(true)
-        .precommitClientRecoveryEnabled(true);
+        .precommitClientRecoveryEnabled(true)
+        .prometheusMetricsEnabled(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT)
+        .prometheusMetricsPort(KafkaConnectorConfigParams.PROMETHEUS_PORT_DEFAULT)
+        .prometheusMetricsHost(KafkaConnectorConfigParams.PROMETHEUS_HOST_DEFAULT);
   }
 }

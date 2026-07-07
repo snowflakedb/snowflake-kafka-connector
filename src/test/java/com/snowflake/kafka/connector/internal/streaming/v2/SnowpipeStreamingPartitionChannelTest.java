@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -94,7 +93,6 @@ class SnowpipeStreamingPartitionChannelTest {
     mockErrorHandler = mock(StreamingErrorHandler.class);
     mockTaskMetrics = mock(TaskMetrics.class);
     when(mockTaskMetrics.timeChannelOpen()).thenReturn(TaskMetrics.TimingContext.NOOP);
-    when(mockTaskMetrics.timeAppendRow()).thenReturn(TaskMetrics.TimingContext.NOOP);
 
     sinkTaskContext =
         new InMemorySinkTaskContext(
@@ -721,7 +719,6 @@ class SnowpipeStreamingPartitionChannelTest {
 
     assertTrue(processed);
     verify(mockTaskMetrics, times(1)).markRecordsAppended(1L);
-    verify(mockTaskMetrics, atLeastOnce()).timeAppendRow();
   }
 
   @Test

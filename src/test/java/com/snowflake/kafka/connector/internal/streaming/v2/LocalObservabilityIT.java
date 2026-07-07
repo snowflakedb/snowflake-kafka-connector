@@ -44,8 +44,8 @@ import org.junit.jupiter.api.Test;
  *   <li>Noise logs (BatchOffsetFetcher "Fetched snowflake committed offset" and
  *       WaitForLastOffsetCommittedPolicy "retry no:") are NOT emitted at INFO level after ingest.
  *   <li>The startup log "starting task" is emitted at INFO with a non-empty task id.
- *   <li>Task-level JMX metrics {@code flush-duration}, {@code append-row-duration}, and {@code
- *       records-appended} exist and have a count &gt; 0 after ingest.
+ *   <li>Task-level JMX metrics {@code flush-duration} and {@code records-appended} exist and have a
+ *       count &gt; 0 after ingest.
  * </ol>
  *
  * <p>SUT-gating: this test calls {@link TestUtils#getConnectionServiceWithEncryptedKey()} which
@@ -228,14 +228,11 @@ public class LocalObservabilityIT {
         .isEqualTo(Level.DEBUG);
 
     // ---- 4. Assert: task-level JMX metrics exist with count > 0 ----
-    // Timers: flush-duration, append-row-duration
+    // Timers: flush-duration
     Map<String, Timer> timers = metricRegistry.getTimers();
     assertThat(timers.keySet())
         .as("MetricRegistry must contain a timer whose name ends with 'flush-duration'")
         .anyMatch(name -> name.endsWith("flush-duration"));
-    assertThat(timers.keySet())
-        .as("MetricRegistry must contain a timer whose name ends with 'append-row-duration'")
-        .anyMatch(name -> name.endsWith("append-row-duration"));
 
     Timer flushTimer =
         timers.entrySet().stream()
@@ -245,17 +242,6 @@ public class LocalObservabilityIT {
             .orElseThrow(() -> new AssertionError("flush-duration timer not found in registry"));
     assertThat(flushTimer.getCount())
         .as("flush-duration must have at least one recorded timing after ingest")
-        .isGreaterThan(0);
-
-    Timer appendRowTimer =
-        timers.entrySet().stream()
-            .filter(e -> e.getKey().endsWith("append-row-duration"))
-            .map(Map.Entry::getValue)
-            .findFirst()
-            .orElseThrow(
-                () -> new AssertionError("append-row-duration timer not found in registry"));
-    assertThat(appendRowTimer.getCount())
-        .as("append-row-duration must have at least one recorded timing after ingest")
         .isGreaterThan(0);
 
     // Meters: records-appended

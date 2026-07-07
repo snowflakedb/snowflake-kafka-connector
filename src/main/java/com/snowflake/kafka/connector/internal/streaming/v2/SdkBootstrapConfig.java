@@ -2,8 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.KCLogger;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * Applies Snowpipe Streaming SDK bootstrap knobs as JVM system properties. The SDK's FFIBootstrap
@@ -32,63 +30,41 @@ public final class SdkBootstrapConfig {
    * JVM, whichever task calls {@code apply()} first wins; a later task enabling Prometheus (or
    * setting a different log level) after the SDK has already bootstrapped will have no effect.
    */
-  public static void apply(Map<String, String> config) {
-    logLevelToSet(System.getProperty(SS_LOG_LEVEL), System.getenv(SS_LOG_LEVEL))
-        .ifPresent(
-            level -> {
-              System.setProperty(SS_LOG_LEVEL, level);
-              LOGGER.info(
-                  "Set SDK {} to default '{}' (no operator override found)", SS_LOG_LEVEL, level);
-            });
-
-    prometheusToSet(config)
-        .ifPresent(
-            port -> {
-              String host = prometheusHost(config);
-              System.setProperty(SS_ENABLE_METRICS, "true");
-              System.setProperty(SS_METRICS_PORT, String.valueOf(port));
-              System.setProperty(SS_METRICS_IP, host);
-              LOGGER.info("Enabled SDK Prometheus metrics endpoint on {}:{}", host, port);
-            });
+  public static void apply(boolean prometheusEnabled, int prometheusPort, String prometheusHost) {
+    if (shouldSetDefaultLogLevel(System.getProperty(SS_LOG_LEVEL), System.getenv(SS_LOG_LEVEL))) {
+      System.setProperty(SS_LOG_LEVEL, DEFAULT_LOG_LEVEL);
+      LOGGER.info(
+          "Set SDK {} to default '{}' (no operator override found)",
+          SS_LOG_LEVEL,
+          DEFAULT_LOG_LEVEL);
+    }
+    if (prometheusEnabled) {
+      validatePrometheus(prometheusPort, prometheusHost);
+      System.setProperty(SS_ENABLE_METRICS, "true");
+      System.setProperty(SS_METRICS_PORT, String.valueOf(prometheusPort));
+      System.setProperty(SS_METRICS_IP, prometheusHost);
+      LOGGER.info(
+          "Enabled SDK Prometheus metrics endpoint on {}:{}", prometheusHost, prometheusPort);
+    }
   }
 
-  static Optional<String> logLevelToSet(String currentSysprop, String currentEnv) {
-    if (currentSysprop == null && currentEnv == null) {
-      return Optional.of(DEFAULT_LOG_LEVEL);
-    }
-    return Optional.empty();
+  static boolean shouldSetDefaultLogLevel(String currentSysprop, String currentEnv) {
+    return currentSysprop == null && currentEnv == null;
   }
 
-  static Optional<Integer> prometheusToSet(Map<String, String> config) {
-    boolean enable =
-        Boolean.parseBoolean(
-            config.getOrDefault(
-                KafkaConnectorConfigParams.PROMETHEUS_ENABLE,
-                String.valueOf(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT)));
-    if (!enable) {
-      return Optional.empty();
-    }
-    String raw =
-        config.getOrDefault(
-            KafkaConnectorConfigParams.PROMETHEUS_PORT,
-            String.valueOf(KafkaConnectorConfigParams.PROMETHEUS_PORT_DEFAULT));
-    final int port;
-    try {
-      port = Integer.parseInt(raw.trim());
-    } catch (NumberFormatException e) {
-      throw new IllegalArgumentException(
-          "Invalid " + KafkaConnectorConfigParams.PROMETHEUS_PORT + " value: '" + raw + "'", e);
-    }
+  static void validatePrometheus(int port, String host) {
     if (port < 1 || port > 65535) {
       throw new IllegalArgumentException(
-          KafkaConnectorConfigParams.PROMETHEUS_PORT + " out of range (1-65535): " + port);
+          "Prometheus metrics enabled but "
+              + KafkaConnectorConfigParams.PROMETHEUS_PORT
+              + " is not a valid port (1-65535): "
+              + port);
     }
-    return Optional.of(port);
-  }
-
-  static String prometheusHost(java.util.Map<String, String> config) {
-    return config.getOrDefault(
-        KafkaConnectorConfigParams.PROMETHEUS_HOST,
-        KafkaConnectorConfigParams.PROMETHEUS_HOST_DEFAULT);
+    if (host == null || host.trim().isEmpty()) {
+      throw new IllegalArgumentException(
+          "Prometheus metrics enabled but "
+              + KafkaConnectorConfigParams.PROMETHEUS_HOST
+              + " is not set");
+    }
   }
 }

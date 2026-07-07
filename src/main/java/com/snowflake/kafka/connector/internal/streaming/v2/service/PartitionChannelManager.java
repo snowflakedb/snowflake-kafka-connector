@@ -289,7 +289,7 @@ public class PartitionChannelManager {
       return;
     }
 
-    LOGGER.debug("Starting parallel flush for {} channels", channelCount);
+    LOGGER.info("Starting parallel flush for {} channels", channelCount);
 
     CompletableFuture<?>[] futures =
         partitionChannels.values().stream()

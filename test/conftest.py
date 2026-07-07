@@ -146,6 +146,16 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(config, items):
+    # Run the local-observability test first: its connector must be the first SDK client created in
+    # the Kafka Connect worker JVM so that the connector's own prometheus.enable config bootstraps
+    # the SDK's Prometheus metrics server (the SDK initializes metrics once per JVM, on the first
+    # client creation). The functional suite runs sequentially, so ordering here is deterministic.
+    first = [i for i in items if "test_local_observability" in i.nodeid]
+    if first:
+        items[:] = first + [
+            i for i in items if "test_local_observability" not in i.nodeid
+        ]
+
     if config.getoption("--platform") == "confluent":
         return
     skip = pytest.mark.skip(reason="requires Confluent platform (schema registry)")
