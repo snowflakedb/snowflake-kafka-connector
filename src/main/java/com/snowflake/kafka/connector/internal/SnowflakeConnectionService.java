@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -163,6 +164,5 @@ public interface SnowflakeConnectionService {
    * Fails safe: returns an empty list on any error (old GS without the function, empty policy,
    * parse failure) — never throws.
    */
-  java.util.List<com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage>
-      getKcAdvisoryMessages(String requestJson);
+  List<AdvisoryMessage> getKcAdvisoryMessages(String requestJson);
 }

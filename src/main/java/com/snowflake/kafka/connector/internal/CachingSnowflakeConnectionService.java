@@ -5,6 +5,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -262,8 +263,7 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
-  public java.util.List<com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage>
-      getKcAdvisoryMessages(String requestJson) {
+  public List<AdvisoryMessage> getKcAdvisoryMessages(String requestJson) {
     return delegate.getKcAdvisoryMessages(requestJson);
   }
 

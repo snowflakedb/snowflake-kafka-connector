@@ -16,7 +16,6 @@
  */
 package com.snowflake.kafka.connector;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
@@ -30,7 +29,6 @@ import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -410,9 +408,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
    */
   private void logServerAdvisories() {
     try {
-      String requestJson =
-          new ObjectMapper()
-              .writeValueAsString(Collections.singletonMap("connectorVersion", Utils.VERSION));
+      String requestJson = "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
       for (AdvisoryMessage msg : conn.getKcAdvisoryMessages(requestJson)) {
         AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
       }
