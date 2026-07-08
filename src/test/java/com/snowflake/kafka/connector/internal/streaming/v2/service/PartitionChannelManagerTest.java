@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
@@ -352,7 +353,7 @@ class PartitionChannelManagerTest {
     return SinkTaskConfigTestBuilder.builder()
         .connectorName(CONNECTOR_NAME)
         .taskId(TASK_ID)
-        .topicToTableMap(topicToTableMap)
+        .topicToTableResolver(new StaticTopicToTableResolver(topicToTableMap))
         .enableSanitization(false)
         .build();
   }

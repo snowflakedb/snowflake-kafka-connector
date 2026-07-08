@@ -12,7 +12,7 @@ class TopicToTableValidator implements ConfigDef.Validator {
     if (s != null && !s.isEmpty()) // this value is optional and can be empty
     {
       try {
-        TopicToTableParser.parse(s);
+        TopicToTableParser.parseAndValidate(s);
       } catch (IllegalArgumentException e) {
         throw new ConfigException(name, value, e.getMessage());
       }

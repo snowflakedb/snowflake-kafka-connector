@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
@@ -143,7 +144,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
-            .topicToTableMap(Map.of("topic1", "table1"))
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
             .build();
 
     SnowflakeSinkServiceV2 service =
@@ -176,7 +177,9 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
-            .topicToTableMap(Map.of("topic_ok", "table_ok", "topic_bad", "table_bad"))
+            .topicToTableResolver(
+                new StaticTopicToTableResolver(
+                    Map.of("topic_ok", "table_ok", "topic_bad", "table_bad")))
             .build();
 
     SnowflakeSinkServiceV2 service =
@@ -213,7 +216,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
-            .topicToTableMap(Map.of("topic1", "table1"))
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
             .build();
 
     SnowflakeSinkServiceV2 service =
@@ -246,7 +249,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
-            .topicToTableMap(Map.of("topic1", "table1"))
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
             .build();
 
     SnowflakeSinkServiceV2 service =
@@ -275,7 +278,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
-            .topicToTableMap(Map.of("topic1", "iceberg_table"))
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "iceberg_table")))
             .build();
 
     SnowflakeSinkServiceV2 service =

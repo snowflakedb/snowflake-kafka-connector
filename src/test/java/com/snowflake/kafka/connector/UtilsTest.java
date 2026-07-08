@@ -13,13 +13,17 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 public class UtilsTest {
   @Rule public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
+
+  private static TopicToTableResolver staticResolverFrom(String input) {
+    List<TopicToTableParser.Entry> entries = TopicToTableParser.parseAndValidate(input);
+    return StaticTopicToTableResolver.from(entries);
+  }
 
   @Test
   public void testObjectIdentifier() {
@@ -36,23 +40,20 @@ public class UtilsTest {
 
   @Test
   public void testGetTableName() {
-    Map<String, String> topic2table = TopicToTableParser.parse("ab@cd:abcd, 1234:_1234");
+    TopicToTableResolver resolver = staticResolverFrom("ab@cd:abcd, 1234:_1234");
 
-    assert Utils.getTableName("ab@cd", topic2table, true).equals("ABCD");
-    assert Utils.getTableName("1234", topic2table, true).equals("_1234");
+    assert Utils.getTableName("ab@cd", resolver, true).equals("ABCD");
+    assert Utils.getTableName("1234", resolver, true).equals("_1234");
 
+    TestUtils.assertError(SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", resolver, true));
     TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName("", topic2table, true));
-    TestUtils.assertError(
-        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, topic2table, true));
+        SnowflakeErrors.ERROR_0020, () -> Utils.getTableName(null, resolver, true));
 
     String topic = "bc*def";
-    assert Utils.getTableName(topic, topic2table, true)
-        .equals("BC_DEF_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, resolver, true).equals("BC_DEF_" + Math.abs(topic.hashCode()));
 
     topic = "12345";
-    assert Utils.getTableName(topic, topic2table, true)
-        .equals("_12345_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, resolver, true).equals("_12345_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -62,20 +63,18 @@ public class UtilsTest {
     String catTopicRegex = ".*_cat";
     String dogTopicRegex = ".*_dog";
 
-    // test two different regexs
-    Map<String, String> topic2table =
-        TopicToTableParser.parse(
+    TopicToTableResolver resolver =
+        staticResolverFrom(
             Utils.formatString("{}:{},{}:{}", catTopicRegex, catTable, dogTopicRegex, dogTable));
 
-    assert Utils.getTableName("calico_cat", topic2table, true).equals("CAT_TABLE");
-    assert Utils.getTableName("orange_cat", topic2table, true).equals("CAT_TABLE");
-    assert Utils.getTableName("_cat", topic2table, true).equals("CAT_TABLE");
-    assert Utils.getTableName("corgi_dog", topic2table, true).equals("DOG_TABLE");
+    assert Utils.getTableName("calico_cat", resolver, true).equals("CAT_TABLE");
+    assert Utils.getTableName("orange_cat", resolver, true).equals("CAT_TABLE");
+    assert Utils.getTableName("_cat", resolver, true).equals("CAT_TABLE");
+    assert Utils.getTableName("corgi_dog", resolver, true).equals("DOG_TABLE");
 
     // test new topic should not have wildcard
     String topic = "bird.*";
-    assert Utils.getTableName(topic, topic2table, true)
-        .equals("BIRD_" + Math.abs(topic.hashCode()));
+    assert Utils.getTableName(topic, resolver, true).equals("BIRD_" + Math.abs(topic.hashCode()));
   }
 
   @Test
@@ -307,33 +306,33 @@ public class UtilsTest {
 
   @Test
   public void testSanitizationToggle() {
-    Map<String, String> emptyMap = new HashMap<>();
+    TopicToTableResolver emptyResolver = new StaticTopicToTableResolver(new HashMap<>());
 
     // Sanitization enabled (v3 compatible)
-    String uppercased = Utils.getTableName("MyTopic", emptyMap, true);
+    String uppercased = Utils.getTableName("MyTopic", emptyResolver, true);
     assertEquals("MYTOPIC", uppercased, "Valid identifier should be uppercased");
 
-    String sanitized = Utils.getTableName("my-topic", emptyMap, true);
+    String sanitized = Utils.getTableName("my-topic", emptyResolver, true);
     assertTrue(
         sanitized.startsWith("MY_TOPIC_"), "Invalid identifier should be sanitized+uppercased");
     assertTrue(sanitized.matches("^[A-Z_0-9]+$"), "Should be fully uppercased");
 
     // Sanitization disabled (pass through)
-    String passedThrough = Utils.getTableName("MyTopic", emptyMap, false);
+    String passedThrough = Utils.getTableName("MyTopic", emptyResolver, false);
     assertEquals("MyTopic", passedThrough, "Should pass through unchanged");
 
-    String invalid = Utils.getTableName("my-topic", emptyMap, false);
+    String invalid = Utils.getTableName("my-topic", emptyResolver, false);
     assertEquals("my-topic", invalid, "Invalid identifier should pass through");
   }
 
   @Test
   public void testMapEntriesBypassSanitization() {
-    Map<String, String> map = TopicToTableParser.parse("myTopic:\"My-Table\",otherTopic:MixedCase");
+    TopicToTableResolver resolver = staticResolverFrom("myTopic:\"My-Table\",otherTopic:MixedCase");
 
     // Quoted table names preserve case; unquoted are uppercased at parse time
-    assertEquals("My-Table", Utils.getTableName("myTopic", map, true));
-    assertEquals("My-Table", Utils.getTableName("myTopic", map, false));
-    assertEquals("MIXEDCASE", Utils.getTableName("otherTopic", map, true));
-    assertEquals("MIXEDCASE", Utils.getTableName("otherTopic", map, false));
+    assertEquals("My-Table", Utils.getTableName("myTopic", resolver, true));
+    assertEquals("My-Table", Utils.getTableName("myTopic", resolver, false));
+    assertEquals("MIXEDCASE", Utils.getTableName("otherTopic", resolver, true));
+    assertEquals("MIXEDCASE", Utils.getTableName("otherTopic", resolver, false));
   }
 }
