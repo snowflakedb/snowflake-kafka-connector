@@ -9,32 +9,27 @@ initializes its metrics server once per Kafka Connect worker JVM, on the first c
 this connector must be the first SDK client for its ``prometheus.enable`` config to take effect.
 
 The connector JMX metrics (``flush-duration``, ``records-appended``) are covered by the in-process
-Java IT ``LocalObservabilityIT``; they are not re-checked here (the Jolokia scrape file is not
-reachable from the test-runner container).
+Java IT ``LocalObservabilityIT``; they are not re-checked here.
 """
 
-import json
 import logging
 import os
 import time
 import urllib.error
 import urllib.request
-from pathlib import Path
 
 import pytest
 
+from lib.config_migration import V4_CONFIG_TEMPLATE
 from lib.utils import RecordProducer
 
 logger = logging.getLogger(__name__)
 
 NUM_RECORDS = 100
-CONFIG_FILE = "local_observability.json"
-TEMPLATE_DIR = Path("rest_request_template")
 PROM_PORT = 50000
 # The connector (and thus the SDK metrics endpoint) runs in the Connect-worker container; the
 # test-runner reaches it by service name (kafka for apache, kafka-connect for confluent).
 PROM_HOST = os.environ.get("KAFKA_CONNECT_HOST", "kafka")
-# SDK Prometheus metric names that must appear in the scraped output.
 EXPECTED_SDK_METRICS = [
     "output_payload_rows",
     "sf_api_success_latency_ms",
@@ -42,34 +37,39 @@ EXPECTED_SDK_METRICS = [
 ]
 
 
+def _connector_config(topic: str) -> dict:
+    return {
+        **V4_CONFIG_TEMPLATE,
+        "tasks.max": "1",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false",
+        "snowflake.enable.schematization": "false",
+        "topics": topic,
+        "snowflake.streaming.metrics.prometheus.enable": "true",
+        "snowflake.streaming.metrics.prometheus.port": str(PROM_PORT),
+        "snowflake.streaming.metrics.prometheus.host": "0.0.0.0",
+    }
+
+
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_prometheus_metrics_exposed(
-    driver, name_salt, create_table, create_custom_connector, wait_for_rows
+    driver, create_table, create_topics, create_connector, wait_for_rows
 ):
-    """The SDK Prometheus endpoint exposes the expected metric names after ingestion.
+    """The SDK Prometheus endpoint exposes the expected metric names after ingestion."""
+    base_name = "local_observability"
+    table = create_table(
+        base_name, columns="(record_metadata variant)", cleanup_topic=False
+    )
+    topic = create_topics([base_name], with_tables=False)[0]
 
-    1. Create a table + topic and start a connector with Prometheus enabled.
-    2. Send NUM_RECORDS records and wait for them to land in Snowflake (no-regression check).
-    3. Scrape http://{PROM_HOST}:{PROM_PORT}/metrics and assert every metric in
-       EXPECTED_SDK_METRICS appears in the response body.
-
-    Connector and table/topic teardown are handled by the fixtures.
-    """
-    unsalted_name = "local_observability"
-    table = create_table(unsalted_name, columns="(record_metadata variant)")
-    driver.createTopics(table.name, partitionNum=1, replicationNum=1)
-
-    # Load the connector config template and enable Prometheus via its config (this test runs first,
-    # so its connector is the first SDK client in the worker and bootstraps the SDK metrics server).
-    base = json.loads((TEMPLATE_DIR / CONFIG_FILE).read_text())
-    connector = create_custom_connector(unsalted_name, dict(base["config"]))
+    connector = create_connector(v4_config=_connector_config(topic))
     driver.wait_for_connector_running(connector.name)
 
-    RecordProducer(driver, table.name).send(NUM_RECORDS)
+    RecordProducer(driver, topic).send(NUM_RECORDS)
     wait_for_rows(table.name, NUM_RECORDS, connector_name=connector.name)
     logger.info("No-regression check passed: %d rows in Snowflake", NUM_RECORDS)
 
-    # Scrape the Prometheus endpoint, retrying to allow the SDK metrics server time to bind.
     prom_url = f"http://{PROM_HOST}:{PROM_PORT}/metrics"
     body = None
     last_exc = None
@@ -96,7 +96,6 @@ def test_prometheus_metrics_exposed(
         )
 
     logger.info("Prometheus scrape returned %d bytes from %s", len(body), prom_url)
-
     missing = [m for m in EXPECTED_SDK_METRICS if m not in body]
     assert not missing, (
         f"Expected SDK metric(s) not found in Prometheus output: {missing}\n"

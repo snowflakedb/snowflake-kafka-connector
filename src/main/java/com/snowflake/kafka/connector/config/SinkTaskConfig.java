@@ -132,14 +132,14 @@ public abstract class SinkTaskConfig {
   /** Whether the Snowpipe Streaming SDK Prometheus metrics endpoint is enabled. */
   public abstract boolean isPrometheusMetricsEnabled();
 
-  /** Port for the Snowpipe Streaming SDK Prometheus metrics endpoint. -1 when not configured. */
-  public abstract int getPrometheusMetricsPort();
+  /** Port for the Snowpipe Streaming SDK Prometheus metrics endpoint. Empty when not configured. */
+  public abstract Optional<Integer> getPrometheusMetricsPort();
 
   /**
    * Bind address for the Snowpipe Streaming SDK Prometheus metrics endpoint. Empty when not
    * configured.
    */
-  public abstract String getPrometheusMetricsHost();
+  public abstract Optional<String> getPrometheusMetricsHost();
 
   /**
    * Whether client-side structural validation error messages routed to the DLQ include the target
@@ -309,19 +309,14 @@ public abstract class SinkTaskConfig {
                         .SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY_DEFAULT)));
 
     boolean prometheusMetricsEnabled =
-        Boolean.parseBoolean(
-            config.getOrDefault(
-                KafkaConnectorConfigParams.PROMETHEUS_ENABLE,
-                String.valueOf(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT)));
-    int prometheusMetricsPort =
-        Integer.parseInt(
-            config.getOrDefault(
-                KafkaConnectorConfigParams.PROMETHEUS_PORT,
-                String.valueOf(KafkaConnectorConfigParams.PROMETHEUS_PORT_DEFAULT)));
-    String prometheusMetricsHost =
-        config.getOrDefault(
-            KafkaConnectorConfigParams.PROMETHEUS_HOST,
-            KafkaConnectorConfigParams.PROMETHEUS_HOST_DEFAULT);
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.PROMETHEUS_ENABLE))
+            .map(Boolean::parseBoolean)
+            .orElse(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT);
+    Optional<Integer> prometheusMetricsPort =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.PROMETHEUS_PORT))
+            .map(Integer::parseInt);
+    Optional<String> prometheusMetricsHost =
+        optionalString(config.get(KafkaConnectorConfigParams.PROMETHEUS_HOST));
 
     String snowflakeUrl = config.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
     String snowflakeUser = config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
@@ -411,8 +406,6 @@ public abstract class SinkTaskConfig {
         .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled)
         .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled)
         .prometheusMetricsEnabled(prometheusMetricsEnabled)
-        .prometheusMetricsPort(prometheusMetricsPort)
-        .prometheusMetricsHost(prometheusMetricsHost)
         .validationErrorTableNameEnabled(validationErrorTableNameEnabled);
 
     snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
@@ -423,6 +416,8 @@ public abstract class SinkTaskConfig {
     oauthRefreshToken.ifPresent(b::oauthRefreshToken);
     oauthTokenEndpoint.ifPresent(b::oauthTokenEndpoint);
     oauthScope.ifPresent(b::oauthScope);
+    prometheusMetricsPort.ifPresent(b::prometheusMetricsPort);
+    prometheusMetricsHost.ifPresent(b::prometheusMetricsHost);
     return b;
   }
 
@@ -531,7 +526,7 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder prometheusMetricsEnabled(boolean prometheusMetricsEnabled);
 
-    public abstract Builder prometheusMetricsPort(int prometheusMetricsPort);
+    public abstract Builder prometheusMetricsPort(Integer prometheusMetricsPort);
 
     public abstract Builder prometheusMetricsHost(String prometheusMetricsHost);
 

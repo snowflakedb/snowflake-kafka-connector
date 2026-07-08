@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.KCLogger;
+import java.util.Optional;
 
 /**
  * Applies Snowpipe Streaming SDK bootstrap knobs as JVM system properties. The SDK's FFIBootstrap
@@ -30,7 +31,10 @@ public final class SdkBootstrapConfig {
    * JVM, whichever task calls {@code apply()} first wins; a later task enabling Prometheus (or
    * setting a different log level) after the SDK has already bootstrapped will have no effect.
    */
-  public static void apply(boolean prometheusEnabled, int prometheusPort, String prometheusHost) {
+  public static void apply(
+      boolean prometheusEnabled,
+      Optional<Integer> prometheusPort,
+      Optional<String> prometheusHost) {
     if (shouldSetDefaultLogLevel(System.getProperty(SS_LOG_LEVEL), System.getenv(SS_LOG_LEVEL))) {
       System.setProperty(SS_LOG_LEVEL, DEFAULT_LOG_LEVEL);
       LOGGER.info(
@@ -39,12 +43,25 @@ public final class SdkBootstrapConfig {
           DEFAULT_LOG_LEVEL);
     }
     if (prometheusEnabled) {
-      validatePrometheus(prometheusPort, prometheusHost);
+      int port =
+          prometheusPort.orElseThrow(
+              () ->
+                  new IllegalArgumentException(
+                      "Prometheus metrics enabled but "
+                          + KafkaConnectorConfigParams.PROMETHEUS_PORT
+                          + " is not set"));
+      String host =
+          prometheusHost.orElseThrow(
+              () ->
+                  new IllegalArgumentException(
+                      "Prometheus metrics enabled but "
+                          + KafkaConnectorConfigParams.PROMETHEUS_HOST
+                          + " is not set"));
+      validatePrometheus(port, host);
       System.setProperty(SS_ENABLE_METRICS, "true");
-      System.setProperty(SS_METRICS_PORT, String.valueOf(prometheusPort));
-      System.setProperty(SS_METRICS_IP, prometheusHost);
-      LOGGER.info(
-          "Enabled SDK Prometheus metrics endpoint on {}:{}", prometheusHost, prometheusPort);
+      System.setProperty(SS_METRICS_PORT, String.valueOf(port));
+      System.setProperty(SS_METRICS_IP, host);
+      LOGGER.info("Enabled SDK Prometheus metrics endpoint on {}:{}", host, port);
     }
   }
 
