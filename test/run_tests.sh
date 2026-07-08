@@ -29,7 +29,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # directory basename. Prevents collisions when multiple worktrees run tests
 # concurrently (Docker Compose defaults to the parent directory name, which
 # is always "docker" here).
-export COMPOSE_PROJECT_NAME="$(basename "$PROJECT_ROOT" | tr "[:upper:]" "[:lower:]")"
+export COMPOSE_PROJECT_NAME="$(basename "$PROJECT_ROOT")"
 
 # Colors
 RED='\033[0;31m'
