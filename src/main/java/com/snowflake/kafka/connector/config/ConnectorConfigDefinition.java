@@ -529,6 +529,18 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             14,
             Width.NONE,
-            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS);
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS_EXPIRE_MS)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT_DEFAULT,
+            LOW,
+            "When true, table names in snowflake.topic2table.map support regex group replacement"
+                + " (e.g. topic(.*):table$1). Default false preserves legacy behavior (no group"
+                + " substitution), which is required for table names that contain a literal '$'.",
+            CONNECTOR_CONFIG_DOC,
+            15,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT);
   }
 }
