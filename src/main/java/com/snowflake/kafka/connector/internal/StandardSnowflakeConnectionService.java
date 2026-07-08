@@ -4,6 +4,8 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
+import com.snowflake.kafka.connector.internal.advisory.KcAdvisoryResponse;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
@@ -13,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -544,6 +547,30 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
               + ": "
               + e.getMessage(),
           e);
+    }
+  }
+
+  @Override
+  public List<AdvisoryMessage> getKcAdvisoryMessages(String requestJson) {
+    try {
+      checkConnection();
+      String query = "SELECT SYSTEM$GET_KC_ADVISORY_MESSAGES(?)";
+      try (PreparedStatement stmt = conn.prepareStatement(query)) {
+        stmt.setString(1, requestJson);
+        try (ResultSet rs = stmt.executeQuery()) {
+          if (!rs.next()) {
+            return Collections.emptyList();
+          }
+          KcAdvisoryResponse response =
+              OBJECT_MAPPER.readValue(rs.getString(1), KcAdvisoryResponse.class);
+          return response.getMessages();
+        }
+      }
+    } catch (Exception e) {
+      // Fail-safe: an old GS without the function, a disabled/empty policy, or a parse error
+      // must never disrupt the connector. Log at DEBUG only (not customer-facing).
+      LOGGER.debug("SYSTEM$GET_KC_ADVISORY_MESSAGES unavailable or failed: {}", e.getMessage());
+      return Collections.emptyList();
     }
   }
 

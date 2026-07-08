@@ -261,6 +261,12 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     return delegate.migrateSsv1ChannelOffset(tableName, ssv1ChannelName, ssv2ChannelName, pipeName);
   }
 
+  @Override
+  public java.util.List<com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage>
+      getKcAdvisoryMessages(String requestJson) {
+    return delegate.getKcAdvisoryMessages(requestJson);
+  }
+
   private void logStatsIfNeeded() {
     final long now = System.currentTimeMillis();
     final long lastLogged = lastStatsLogTimestamp.get();

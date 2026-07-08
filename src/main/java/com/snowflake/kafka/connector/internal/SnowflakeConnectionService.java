@@ -156,4 +156,13 @@ public interface SnowflakeConnectionService {
    */
   Ssv1MigrationResponse migrateSsv1ChannelOffset(
       String tableName, String ssv1ChannelName, String ssv2ChannelName, String pipeName);
+
+  /**
+   * Calls SYSTEM$GET_KC_ADVISORY_MESSAGES with the given request JSON (e.g.
+   * {@code {"connectorVersion":"4.1.0"}}) and returns the advisory messages GS wants logged.
+   * Fails safe: returns an empty list on any error (old GS without the function, empty policy,
+   * parse failure) — never throws.
+   */
+  java.util.List<com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage>
+      getKcAdvisoryMessages(String requestJson);
 }
