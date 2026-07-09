@@ -180,7 +180,7 @@ public class BatchOffsetFetcher {
             return;
           }
           long offset = channel.processChannelStatus(status, tolerateErrors);
-          LOGGER.info(
+          LOGGER.debug(
               "Fetched snowflake committed offset: [{}] for channel [{}]", offset, channelName);
           if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
             result.put(topicPartition, offset);

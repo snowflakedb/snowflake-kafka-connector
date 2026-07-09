@@ -49,4 +49,9 @@ public class StreamingSinkServiceBuilder {
     this.metricsJmxReporter = Optional.of(reporter);
     return this;
   }
+
+  public StreamingSinkServiceBuilder withTaskMetrics(TaskMetrics taskMetrics) {
+    this.taskMetrics = taskMetrics;
+    return this;
+  }
 }

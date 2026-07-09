@@ -76,6 +76,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
   private SnowflakeTelemetryService mockTelemetryService;
   private StreamingErrorHandler mockErrorHandler;
+  private TaskMetrics mockTaskMetrics;
   private ExecutorService openChannelIoExecutor;
   private TrackingIngestClientSupplier trackingClientSupplier;
   private TrackingStreamingIngestClient trackingClient;
@@ -90,6 +91,8 @@ class SnowpipeStreamingPartitionChannelTest {
 
     mockTelemetryService = mock(SnowflakeTelemetryService.class);
     mockErrorHandler = mock(StreamingErrorHandler.class);
+    mockTaskMetrics = mock(TaskMetrics.class);
+    when(mockTaskMetrics.timeChannelOpen()).thenReturn(TaskMetrics.TimingContext.NOOP);
 
     sinkTaskContext =
         new InMemorySinkTaskContext(
@@ -651,6 +654,19 @@ class SnowpipeStreamingPartitionChannelTest {
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel(
       ClientRecreator clientRecreator) {
+    return createPartitionChannel(clientRecreator, TaskMetrics.noop());
+  }
+
+  private SnowpipeStreamingPartitionChannel createPartitionChannel(TaskMetrics taskMetrics) {
+    return createPartitionChannel(
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        },
+        taskMetrics);
+  }
+
+  private SnowpipeStreamingPartitionChannel createPartitionChannel(
+      ClientRecreator clientRecreator, TaskMetrics taskMetrics) {
     final PartitionOffsetTracker offsetTracker =
         new PartitionOffsetTracker(channelName, offset -> {});
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
@@ -687,10 +703,22 @@ class SnowpipeStreamingPartitionChannelTest {
         offsetTracker,
         taskConfig,
         mockErrorHandler,
-        TaskMetrics.noop(),
+        taskMetrics,
         false,
         null,
         Optional.empty());
+  }
+
+  @Test
+  void insertRecord_successfulAppend_marksRecordsAppendedAndTimesAppendRow() {
+    SnowpipeStreamingPartitionChannel channel = createPartitionChannel(mockTaskMetrics);
+    channel.getChannel();
+
+    SinkRecord record = buildValidRecord(0);
+    boolean processed = channel.insertRecord(record);
+
+    assertTrue(processed);
+    verify(mockTaskMetrics, times(1)).markRecordsAppended(1L);
   }
 
   @Test

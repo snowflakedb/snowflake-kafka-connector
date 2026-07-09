@@ -43,6 +43,9 @@ enum NoopTaskMetrics implements TaskMetrics {
   public void recordStartDuration(long nanos) {}
 
   @Override
+  public void recordFlushDuration(long nanos) {}
+
+  @Override
   public void incOpenCount() {}
 
   @Override
@@ -59,6 +62,9 @@ enum NoopTaskMetrics implements TaskMetrics {
 
   @Override
   public void markPutRecords(long count) {}
+
+  @Override
+  public void markRecordsAppended(long count) {}
 
   @Override
   public void setAssignedPartitions(int count) {}

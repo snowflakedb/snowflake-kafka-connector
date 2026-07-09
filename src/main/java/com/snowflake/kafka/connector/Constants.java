@@ -104,6 +104,12 @@ public final class Constants {
     public static final String JMX_OPT = "jmx";
     public static final boolean JMX_OPT_DEFAULT = true;
 
+    // SDK Prometheus metrics endpoint (opt-in; off by default)
+    public static final String PROMETHEUS_ENABLE = "snowflake.streaming.metrics.prometheus.enable";
+    public static final boolean PROMETHEUS_ENABLE_DEFAULT = false;
+    public static final String PROMETHEUS_PORT = "snowflake.streaming.metrics.prometheus.port";
+    public static final String PROMETHEUS_HOST = "snowflake.streaming.metrics.prometheus.host";
+
     public static final String ERRORS_TOLERANCE_CONFIG = "errors.tolerance";
     public static final String ERRORS_TOLERANCE_DEFAULT =
         ConnectorConfigTools.ErrorTolerance.NONE.toString();

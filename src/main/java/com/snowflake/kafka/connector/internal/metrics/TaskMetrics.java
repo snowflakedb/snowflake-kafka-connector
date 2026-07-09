@@ -27,6 +27,8 @@ public interface TaskMetrics {
 
   void recordStartDuration(long nanos);
 
+  void recordFlushDuration(long nanos);
+
   // ---- counters ----
 
   void incOpenCount();
@@ -42,6 +44,8 @@ public interface TaskMetrics {
   // ---- throughput ----
 
   void markPutRecords(long count);
+
+  void markRecordsAppended(long count);
 
   // ---- gauges ----
 

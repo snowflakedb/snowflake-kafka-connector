@@ -131,6 +131,18 @@ public abstract class SinkTaskConfig {
    */
   public abstract boolean isPrecommitClientRecoveryEnabled();
 
+  /** Whether the Snowpipe Streaming SDK Prometheus metrics endpoint is enabled. */
+  public abstract boolean isPrometheusMetricsEnabled();
+
+  /** Port for the Snowpipe Streaming SDK Prometheus metrics endpoint. Empty when not configured. */
+  public abstract Optional<Integer> getPrometheusMetricsPort();
+
+  /**
+   * Bind address for the Snowpipe Streaming SDK Prometheus metrics endpoint. Empty when not
+   * configured.
+   */
+  public abstract Optional<String> getPrometheusMetricsHost();
+
   /**
    * Whether client-side structural validation error messages routed to the DLQ include the target
    * table name. See {@link
@@ -308,6 +320,16 @@ public abstract class SinkTaskConfig {
                     KafkaConnectorConfigParams
                         .SNOWFLAKE_FEATURE_PRECOMMIT_CLIENT_RECOVERY_DEFAULT)));
 
+    boolean prometheusMetricsEnabled =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.PROMETHEUS_ENABLE))
+            .map(Boolean::parseBoolean)
+            .orElse(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT);
+    Optional<Integer> prometheusMetricsPort =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.PROMETHEUS_PORT))
+            .map(Integer::parseInt);
+    Optional<String> prometheusMetricsHost =
+        optionalString(config.get(KafkaConnectorConfigParams.PROMETHEUS_HOST));
+
     String snowflakeUrl = config.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
     String snowflakeUser = config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
     String snowflakeRole = config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
@@ -395,6 +417,7 @@ public abstract class SinkTaskConfig {
         .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName)
         .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled)
         .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled)
+        .prometheusMetricsEnabled(prometheusMetricsEnabled)
         .validationErrorTableNameEnabled(validationErrorTableNameEnabled);
 
     snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
@@ -405,6 +428,8 @@ public abstract class SinkTaskConfig {
     oauthRefreshToken.ifPresent(b::oauthRefreshToken);
     oauthTokenEndpoint.ifPresent(b::oauthTokenEndpoint);
     oauthScope.ifPresent(b::oauthScope);
+    prometheusMetricsPort.ifPresent(b::prometheusMetricsPort);
+    prometheusMetricsHost.ifPresent(b::prometheusMetricsHost);
     return b;
   }
 
@@ -510,6 +535,12 @@ public abstract class SinkTaskConfig {
         boolean assertPartitionAssignmentEnabled);
 
     public abstract Builder precommitClientRecoveryEnabled(boolean precommitClientRecoveryEnabled);
+
+    public abstract Builder prometheusMetricsEnabled(boolean prometheusMetricsEnabled);
+
+    public abstract Builder prometheusMetricsPort(Integer prometheusMetricsPort);
+
+    public abstract Builder prometheusMetricsHost(String prometheusMetricsHost);
 
     public abstract Builder validationErrorTableNameEnabled(
         boolean validationErrorTableNameEnabled);

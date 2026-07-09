@@ -32,7 +32,7 @@ class WaitForLastOffsetCommittedPolicy {
             .withMaxAttempts(10) // for some reason it has to be set as well
             .onRetry(
                 event ->
-                    LOGGER.info(
+                    LOGGER.debug(
                         "Wait for the last offset to be commited retry no:{}, message:{}",
                         event.getAttemptCount(),
                         event.getLastException().getMessage()))

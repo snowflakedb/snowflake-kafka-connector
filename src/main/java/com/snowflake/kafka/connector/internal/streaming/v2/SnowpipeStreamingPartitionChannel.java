@@ -249,6 +249,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     return CompletableFuture.runAsync(
         () -> {
           LOGGER.info("Starting flush for channel: {}", this.channelName);
+          final long flushStartNanos = System.nanoTime();
 
           try {
             streamingClient.initiateFlush();
@@ -274,7 +275,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                 throw ERROR_5027.getException();
               });
 
-          LOGGER.info("Completed flush for channel: {}", this.channelName);
+          final long flushNanos = System.nanoTime() - flushStartNanos;
+          taskMetrics.recordFlushDuration(flushNanos);
+          LOGGER.info(
+              "Completed flush for channel: {} in {} ms",
+              this.channelName,
+              flushNanos / 1_000_000L);
         });
   }
 
@@ -296,6 +302,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);
       getChannel().appendRow(row, Long.toString(offset));
       offsetTracker.recordAppended(offset);
+      taskMetrics.markRecordsAppended(1);
       consecutiveRecoveryCount = 0;
       return true;
     } catch (SFException e) {

@@ -30,6 +30,7 @@ import com.snowflake.kafka.connector.internal.metrics.SnowflakeSinkTaskMetrics;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
+import com.snowflake.kafka.connector.internal.streaming.v2.SdkBootstrapConfig;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import java.util.Arrays;
 import java.util.Collection;
@@ -137,7 +138,6 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void start(final Map<String, String> parsedConfig) {
-    this.DYNAMIC_LOGGER.info("starting task...");
     final long startNanos = System.nanoTime();
 
     // Parse raw config once into typed structure; validates required fields and applies defaults
@@ -146,6 +146,17 @@ public class SnowflakeSinkTask extends SinkTask {
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
     this.taskConfigId = config.getTaskId();
+
+    // First log line now carries the task id (was logged before the id was resolved).
+    this.DYNAMIC_LOGGER.info("starting task {}...", this.taskConfigId);
+
+    // Apply SDK bootstrap knobs (log level, optional Prometheus) in the TASK JVM before any
+    // streaming client is created. Distributed mode runs the task in a different JVM than the
+    // connector, so this must happen here, not in SnowflakeStreamingSinkConnector.start().
+    SdkBootstrapConfig.apply(
+        config.isPrometheusMetricsEnabled(),
+        config.getPrometheusMetricsPort(),
+        config.getPrometheusMetricsHost());
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 
@@ -204,7 +215,7 @@ public class SnowflakeSinkTask extends SinkTask {
     this.telemetryReporter.start();
 
     DYNAMIC_LOGGER.info(
-        "task started, execution time: {} milliseconds",
+        "task {} started, execution time: {} milliseconds",
         this.taskConfigId,
         getDurationFromStartMs(this.taskStartTime));
   }

@@ -4,12 +4,11 @@
 
 package com.snowflake.kafka.connector.internal.schemaevolution;
 
+import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.util.ArrayList;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Executes schema evolution DDL (ALTER TABLE) based on validation results. Handles adding columns
@@ -17,8 +16,8 @@ import org.slf4j.LoggerFactory;
  */
 public class SnowflakeSchemaEvolutionService {
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(SnowflakeSchemaEvolutionService.class);
+  private static final KCLogger LOGGER =
+      new KCLogger(SnowflakeSchemaEvolutionService.class.getName());
 
   private final SnowflakeConnectionService conn;
   private final TableSchemaResolver tableSchemaResolver;
@@ -59,6 +58,8 @@ public class SnowflakeSchemaEvolutionService {
               record, new ArrayList<>(targetItems.getColumnsToAdd()));
       try {
         conn.appendColumnsToTable(tableName, tableSchema.getColumnInfos());
+        LOGGER.info(
+            "Added columns to table: {}, columns: {}", tableName, targetItems.getColumnsToAdd());
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             "Failure altering table to add column: {}, this could happen when multiple"
@@ -78,6 +79,10 @@ public class SnowflakeSchemaEvolutionService {
       try {
         conn.alterNonNullableColumns(
             tableName, new ArrayList<>(targetItems.getColumnsToDropNonNullability()));
+        LOGGER.info(
+            "Dropped non-nullability on table: {}, columns: {}",
+            tableName,
+            targetItems.getColumnsToDropNonNullability());
       } catch (SnowflakeKafkaConnectorException e) {
         LOGGER.warn(
             "Failure altering table to update nullability: {}, this could happen when multiple"

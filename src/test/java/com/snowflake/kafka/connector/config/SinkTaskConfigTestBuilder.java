@@ -56,6 +56,7 @@ public final class SinkTaskConfigTestBuilder {
         .ssv1MigrationIncludeConnectorName(false)
         .assertPartitionAssignmentEnabled(true)
         .precommitClientRecoveryEnabled(true)
+        .prometheusMetricsEnabled(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT)
         .validationErrorTableNameEnabled(
             KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
   }

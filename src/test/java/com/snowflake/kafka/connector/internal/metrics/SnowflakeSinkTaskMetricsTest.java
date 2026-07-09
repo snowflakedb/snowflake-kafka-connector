@@ -237,6 +237,16 @@ public class SnowflakeSinkTaskMetricsTest {
   }
 
   @Test
+  public void flushAppendAndRecordsAppendedMetricsAreRegisteredAndUpdated() {
+    createMetrics();
+    metrics.recordFlushDuration(5_000_000L);
+    metrics.markRecordsAppended(5);
+
+    assertEquals(1, metrics.flushDuration().getCount());
+    assertEquals(5, metrics.recordsAppended().getCount());
+  }
+
+  @Test
   public void testUnregisterRemovesAllMetrics() {
     createMetrics();
     assertFalse(metricRegistry.getMetrics().isEmpty());
