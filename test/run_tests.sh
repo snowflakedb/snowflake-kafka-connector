@@ -28,8 +28,12 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Unique Docker Compose project name per worktree, derived from the repo
 # directory basename. Prevents collisions when multiple worktrees run tests
 # concurrently (Docker Compose defaults to the parent directory name, which
-# is always "docker" here).
-export COMPOSE_PROJECT_NAME="$(basename "$PROJECT_ROOT")"
+# is always "docker" here). Compose project names must be lowercase, so
+# normalize the basename (worktree dirs may contain uppercase, e.g. ticket IDs)
+# and replace any remaining non-alphanumeric characters with underscores.
+# (\n is kept in the preserved set so the trailing newline isn't turned into a
+# stray underscore; command substitution then strips it.)
+export COMPOSE_PROJECT_NAME="$(basename "$PROJECT_ROOT" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9\n' '_')"
 
 # Colors
 RED='\033[0;31m'

@@ -35,7 +35,10 @@ def test_string_json(
     )
     topic = f"{FILE_NAME}{name_salt}"
 
-    create_connector_from_file(CONFIG_FILE)
+    create_connector_from_file(
+        CONFIG_FILE,
+        config_overrides={"snowflake.feature.structured.headers": "true"},
+    )
     driver.startConnectorWaitTime()
 
     # -- Send --
@@ -52,18 +55,12 @@ def test_string_json(
     rows = table.select("record_metadata", "WHERE record_metadata:offset::int = 0")
     record_metadata = json.loads(rows[0]["RECORD_METADATA"])
 
-    match connector_version:
-        case "v3":
-            expected_header2 = []
-        case "v4":
-            expected_header2 = "[]"
-
     assert record_metadata == {
         "CreateTime": ANY_INT,
         "SnowflakeConnectorPushTime": ANY_INT,
         "headers": {
             "header1": "value1",
-            "header2": expected_header2,
+            "header2": [],
         },
         "offset": 0,
         "partition": 0,

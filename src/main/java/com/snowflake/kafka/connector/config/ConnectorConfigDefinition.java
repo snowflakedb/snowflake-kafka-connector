@@ -289,6 +289,19 @@ public class ConnectorConfigDefinition {
             4,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS_DEFAULT,
+            LOW,
+            "When true, Kafka record headers are written to RECORD_METADATA:headers preserving"
+                + " their converted structured types (objects, arrays, numbers, booleans). When"
+                + " false (default), header values are flattened to strings. Enabling this is a"
+                + " breaking change for consumers that rely on the legacy string representation.",
+            SNOWFLAKE_METADATA_FLAGS_DOC,
+            5,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS)
 
         // Connector Config
         .define(

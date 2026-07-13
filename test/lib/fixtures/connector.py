@@ -87,6 +87,7 @@ def create_connector(create_custom_connector, connector_version: str, request):
         *,
         v3_config: dict[str, str] = None,
         v4_config: dict[str, str] = None,
+        name_suffix: str = "",
     ):
         assert v3_config or v4_config
         assert not (v3_config and v4_config)
@@ -102,6 +103,8 @@ def create_connector(create_custom_connector, connector_version: str, request):
                 config = v4_config
             case _:
                 raise ValueError(f"Invalid connector version: {connector_version}")
-        return create_custom_connector(test_name, config)
+        # name_suffix lets a single test create multiple connectors without name
+        # collisions (create_custom_connector otherwise names them all after the test).
+        return create_custom_connector(test_name + name_suffix, config)
 
     return _create

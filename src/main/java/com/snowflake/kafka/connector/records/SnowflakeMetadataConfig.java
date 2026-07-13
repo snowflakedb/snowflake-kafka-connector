@@ -1,5 +1,7 @@
 package com.snowflake.kafka.connector.records;
 
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS_DEFAULT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_METADATA_CREATETIME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
@@ -19,6 +21,7 @@ public class SnowflakeMetadataConfig {
   final boolean topicFlag;
   final boolean offsetAndPartitionFlag;
   final boolean allFlag;
+  final boolean structuredHeadersFlag;
 
   /** initialize with default config */
   public SnowflakeMetadataConfig() {
@@ -40,6 +43,11 @@ public class SnowflakeMetadataConfig {
         Optional.ofNullable(config.get(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME))
             .map(Boolean::parseBoolean)
             .orElse(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT);
+
+    structuredHeadersFlag =
+        Optional.ofNullable(config.get(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS))
+            .map(Boolean::parseBoolean)
+            .orElse(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS_DEFAULT);
   }
 
   public boolean shouldIncludeAllMetadata() {
@@ -62,6 +70,7 @@ public class SnowflakeMetadataConfig {
         .add("topicFlag", topicFlag)
         .add("offsetAndPartitionFlag", offsetAndPartitionFlag)
         .add("allFlag", allFlag)
+        .add("structuredHeadersFlag", structuredHeadersFlag)
         .toString();
   }
 }

@@ -83,6 +83,10 @@ public final class Constants {
         "snowflake.feature.validation.error.table.name";
     public static final boolean SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT = true;
 
+    public static final String SNOWFLAKE_FEATURE_STRUCTURED_HEADERS =
+        "snowflake.feature.structured.headers";
+    public static final boolean SNOWFLAKE_FEATURE_STRUCTURED_HEADERS_DEFAULT = false;
+
     // Caching
     public static final String CACHE_TABLE_EXISTS = "snowflake.cache.table.exists";
     public static final boolean CACHE_TABLE_EXISTS_DEFAULT = true;

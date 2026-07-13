@@ -4,6 +4,7 @@ import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -296,16 +297,69 @@ class SnowflakeSinkRecordTest {
 
     SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+        SnowflakeSinkRecord.from(
+            kafkaRecord, createMetadataConfigWithAllAndStructuredHeaders(), true, false);
 
     Map<String, Object> metadata = record.getMetadata();
     assertNotNull(metadata.get("headers"));
 
     @SuppressWarnings("unchecked")
-    Map<String, String> headersMap = (Map<String, String>) metadata.get("headers");
+    Map<String, Object> headersMap = (Map<String, Object>) metadata.get("headers");
+    assertEquals("testHeaderValue", headersMap.get("stringHeader"));
+    assertEquals(42, headersMap.get("intHeader"));
+    assertEquals(true, headersMap.get("boolHeader"));
+  }
+
+  @Test
+  void testMetadataWithHeaders_LegacyStringFlattening() {
+    // With structured headers disabled, every header value is flattened to a string (original KC v4
+    // behavior).
+    SchemaAndValue schemaAndValue = toConnectData("{\"data\": \"value\"}");
+
+    Headers headers = new ConnectHeaders();
+    headers.addString("stringHeader", "testHeaderValue");
+    headers.addInt("intHeader", 42);
+    headers.addBoolean("boolHeader", true);
+
+    SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> headersMap = (Map<String, Object>) record.getMetadata().get("headers");
     assertEquals("testHeaderValue", headersMap.get("stringHeader"));
     assertEquals("42", headersMap.get("intHeader"));
     assertEquals("true", headersMap.get("boolHeader"));
+  }
+
+  @Test
+  void testMetadataWithStructuredObjectHeader() {
+    // A structured (object) header value is preserved as a nested map, landing as a VARIANT object
+    // rather than a stringified representation.
+    SchemaAndValue schemaAndValue = toConnectData("{\"data\": \"value\"}");
+
+    Schema objectSchema =
+        SchemaBuilder.struct()
+            .field("key1", Schema.STRING_SCHEMA)
+            .field("key2", Schema.STRING_SCHEMA)
+            .build();
+    Struct objectValue = new Struct(objectSchema).put("key1", "value1").put("key2", "value2");
+
+    Headers headers = new ConnectHeaders();
+    headers.add("objectHeader", objectValue, objectSchema);
+
+    SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(
+            kafkaRecord, createMetadataConfigWithAllAndStructuredHeaders(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> headersMap = (Map<String, Object>) record.getMetadata().get("headers");
+    assertInstanceOf(Map.class, headersMap.get("objectHeader"));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> objectHeader = (Map<String, Object>) headersMap.get("objectHeader");
+    assertEquals("value1", objectHeader.get("key1"));
+    assertEquals("value2", objectHeader.get("key2"));
   }
 
   @Test
@@ -319,12 +373,13 @@ class SnowflakeSinkRecordTest {
 
     SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
     SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+        SnowflakeSinkRecord.from(
+            kafkaRecord, createMetadataConfigWithAllAndStructuredHeaders(), true, false);
 
     Map<String, Object> metadata = record.getMetadata();
 
     @SuppressWarnings("unchecked")
-    Map<String, String> headersMap = (Map<String, String>) metadata.get("headers");
+    Map<String, Object> headersMap = (Map<String, Object>) metadata.get("headers");
     assertEquals(
         "{\"key1\":\"value1\",\"key2\":\"value2\"}", headersMap.get("objectAsJsonStringHeader"));
     assertEquals("testheaderstring", headersMap.get("header2"));
@@ -772,6 +827,13 @@ class SnowflakeSinkRecordTest {
   private SnowflakeMetadataConfig createMetadataConfigWithAll() {
     Map<String, String> config = new HashMap<>();
     config.put("snowflake.metadata.all", "true");
+    return new SnowflakeMetadataConfig(config);
+  }
+
+  private SnowflakeMetadataConfig createMetadataConfigWithAllAndStructuredHeaders() {
+    Map<String, String> config = new HashMap<>();
+    config.put("snowflake.metadata.all", "true");
+    config.put("snowflake.feature.structured.headers", "true");
     return new SnowflakeMetadataConfig(config);
   }
 
