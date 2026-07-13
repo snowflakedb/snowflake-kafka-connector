@@ -1,10 +1,21 @@
-from dataclasses import asdict, dataclass
+from dataclasses import MISSING, asdict, dataclass, field
 import json
 import logging
 from pathlib import Path
 import re
 
 from lib.crypto import parse_private_key
+
+
+def _secret(default=MISSING):
+    """Mark a secret field. repr=False keeps it out of the dataclass's
+    auto-generated __repr__, so credentials can never reach logs, exception
+    messages, or f-strings. Every new secret-bearing field MUST use this.
+    Pass a default (e.g. None) for optional fields; omit it for required ones.
+    """
+    if default is MISSING:
+        return field(repr=False)
+    return field(default=default, repr=False)
 
 
 @dataclass
@@ -25,21 +36,21 @@ class Profile:
     account: str = None
     user: str = None
     role: str = None
-    private_key: str = None
+    private_key: str = _secret(None)
 
     database: str = None
     schema: str = None
     warehouse: str = None
 
     # Unused in end-to-end tests
-    password: str = None
-    encrypted_private_key: str = None
-    private_key_passphrase: str = None
+    password: str = _secret(None)
+    encrypted_private_key: str = _secret(None)
+    private_key_passphrase: str = _secret(None)
     oauth_client_id: str = None
-    oauth_client_secret: str = None
-    oauth_refresh_token: str = None
+    oauth_client_secret: str = _secret(None)
+    oauth_refresh_token: str = _secret(None)
     oauth_token_endpoint: str = None
-    des_rsa_key: str = None
+    des_rsa_key: str = _secret(None)
 
     @staticmethod
     def load(path: Path) -> "Profile":
@@ -74,7 +85,7 @@ class SnowflakeConnectorConfig:
 
     account: str
     user: str
-    private_key: bytes
+    private_key: bytes = _secret()
 
     database: str
     schema: str

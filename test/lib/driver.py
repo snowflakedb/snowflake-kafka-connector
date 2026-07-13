@@ -224,6 +224,10 @@ class KafkaDriver:
                 logger.info(f"Topic {topic} partitions created")
             except Exception as e:
                 logger.error(f"Failed to create topic partitions {topic}: {e}")
+        # Refresh the producer's cached metadata so a subsequent produce() to a
+        # just-added partition doesn't fail with _UNKNOWN_PARTITION while
+        # librdkafka waits out its metadata refresh interval.
+        self.producer.list_topics(topicName, timeout=10)
 
     def _flush_and_verify(self, producer, expected_count, delivery_errors):
         """Flush the producer and fail loudly if any record was not delivered.
@@ -756,7 +760,7 @@ class KafkaDriver:
         if not r.ok:
             logger.error(
                 f"Failed creating connector {snowflake_connector_name}: "
-                f"{r.status_code} {r.reason}, {r.text}"
+                f"{r.status_code} {r.reason}"
             )
             time.sleep(10)
             logger.info(
