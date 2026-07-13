@@ -44,7 +44,8 @@ public class StandardSnowflakeConnectionServiceAdvisoryTest {
     String json =
         "{\"messages\":[{\"level\":\"WARN\",\"code\":\"DEPRECATED_VERSION\",\"text\":\"upgrade\"}]}";
     List<AdvisoryMessage> msgs =
-        serviceWith(mockConnReturning(json)).getKcAdvisoryMessages("{\"connectorVersion\":\"4.1.0\"}");
+        serviceWith(mockConnReturning(json))
+            .getKcAdvisoryMessages("{\"connectorVersion\":\"4.1.0\"}");
     assertEquals(1, msgs.size());
     assertEquals("WARN", msgs.get(0).getLevel());
     assertEquals("DEPRECATED_VERSION", msgs.get(0).getCode());

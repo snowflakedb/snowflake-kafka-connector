@@ -3,9 +3,9 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.advisory.KcAdvisoryResponse;
+import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
