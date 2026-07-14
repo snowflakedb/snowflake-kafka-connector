@@ -137,29 +137,44 @@ def _get_partition_row_counts(driver, table_name):
     return {int(r[0]): int(r[1]) for r in rows}
 
 
-def _wait_for_partition_recovery(
-    driver, table_name, partition, count_before, timeout=120
+def _wait_for_partitions_recovery(
+    driver, table_name, counts_before, partitions, timeout=120
 ):
-    """Wait until a specific partition's row count exceeds count_before.
+    """Wait until every partition in `partitions` exceeds its own baseline.
 
-    Waiting on the *global* row count is racy when a drip-feed writes to
-    multiple partitions: the healthy partitions alone can push the total past
-    the threshold before the invalidated partition reopens, so the wait would
-    return before recovery actually happened. Poll the invalidated partition's
-    own count instead, which is exactly the post-condition under test.
+    Two independent races make a narrower wait insufficient:
 
-    Returns the per-partition counts observed once recovery is detected.
+    * Waiting on the *global* row count is racy: a drip-feed to multiple
+      partitions lets the healthy partitions alone push the total past the
+      threshold before the invalidated partition reopens.
+    * Waiting only on the *invalidated* partition is also racy. With
+      ``tasks.max=1`` a single SinkTask.put() carries records for all
+      partitions, so an invalid channel stalls the whole task — the healthy
+      partitions stop committing too. On recovery the partitions flush across
+      separate cycles, so at the instant the invalidated partition crosses its
+      baseline a healthy partition can still be one cycle behind at its
+      pre-recovery count. Snapshotting then reports it as "lost data".
+
+    Poll until all partitions under test exceed their baselines, which is
+    exactly the post-condition asserted below. Returns the per-partition counts
+    observed once every partition has grown.
     """
     deadline = time.monotonic() + timeout
     partition_counts = {}
     while time.monotonic() < deadline:
         partition_counts = _get_partition_row_counts(driver, table_name)
-        if partition_counts.get(partition, 0) > count_before:
+        if all(
+            partition_counts.get(p, 0) > counts_before.get(p, 0) for p in partitions
+        ):
             return partition_counts
         time.sleep(2)
+    stuck = [
+        p for p in partitions if partition_counts.get(p, 0) <= counts_before.get(p, 0)
+    ]
     raise AssertionError(
-        f"Partition {partition} did not recover within {timeout}s: "
-        f"before={count_before}, after={partition_counts.get(partition, 0)}"
+        f"Partition(s) {stuck} did not grow within {timeout}s: "
+        f"before={ {p: counts_before.get(p, 0) for p in partitions} }, "
+        f"after={ {p: partition_counts.get(p, 0) for p in partitions} }"
     )
 
 
@@ -311,25 +326,27 @@ def test_invalidation_all_partitions(
     # Send to each partition to trigger flush failure, then wait for stall
     for p in range(num_partitions):
         _send_to_partition(driver, topic, 50, partition=p)
-    stalled_rows = _wait_for_stall(driver, table_name, rows_before)
+    _wait_for_stall(driver, table_name, rows_before)
 
-    # Drip-feed to ALL partitions to trigger recovery on each channel
+    # Drip-feed to ALL partitions to trigger recovery on each channel, then wait
+    # until every partition exceeds its baseline. Waiting on the global row count
+    # is racy: with tasks.max=1 the channels recover across separate flush cycles,
+    # so the global count can cross stalled+50 while one partition is still at its
+    # pre-recovery baseline. See _wait_for_partitions_recovery.
     stop_event, thread = _drip_feed_to_partitions(
         driver, topic, list(range(num_partitions))
     )
-    wait_for_rows(
+    partition_counts_after = _wait_for_partitions_recovery(
+        driver,
         table_name,
-        stalled_rows + 50,
-        at_least=True,
-        connector_name=connector.name,
-        timeout=120,
+        counts_before=partition_counts_before,
+        partitions=list(range(num_partitions)),
     )
     stop_event.set()
     thread.join(timeout=5)
     _assert_task_running(driver, connector.name)
 
-    # Verify each partition has more rows than before
-    partition_counts_after = _get_partition_row_counts(driver, table_name)
+    # Defense-in-depth: the wait above already guarantees these.
     logger.info(f"Post-recovery per-partition counts: {partition_counts_after}")
     for p in range(num_partitions):
         assert partition_counts_after.get(p, 0) > partition_counts_before.get(p, 0), (
@@ -391,11 +408,13 @@ def test_invalidation_with_connector_restart(
 def test_invalidation_one_partition_others_healthy(
     driver, credentials, name_salt, create_connector, wait_for_rows
 ):
-    """Test 5: Invalidate one partition while others remain healthy.
+    """Test 5: Invalidate one partition and verify all partitions recover.
 
     Sends records to each partition explicitly, invalidates only partition 1,
-    and verifies partition 1 recovers while partitions 0 and 2 continue
-    ingesting without interruption.
+    and verifies every partition ends up with more data than before. Note: with
+    tasks.max=1 the invalidated channel stalls the whole task, so partitions 0
+    and 2 also pause until partition 1 recovers — the guarantee under test is
+    no data loss on any partition after recovery, not uninterrupted ingestion.
     """
     topic = f"test_invalidation_one_partition_others_healthy{name_salt}"
     table_name = topic
@@ -421,36 +440,38 @@ def test_invalidation_one_partition_others_healthy(
     invalidate_channel(driver, credentials, table_name, topic, partition=1)
     logger.info("Partition 1 invalidated, partitions 0 and 2 untouched")
 
-    # Send to all partitions — partitions 0,2 should ingest immediately,
-    # partition 1 will stall then recover
+    # Send to all partitions. With tasks.max=1 the invalidated partition-1
+    # channel stalls the whole SinkTask.put(), so all partitions stop committing
+    # until partition 1 recovers — they do not ingest independently.
     for p in range(num_partitions):
         _send_to_partition(driver, topic, 50, partition=p)
     rows_after_wave1 = int(driver.select_number_of_records(table_name))
 
-    # Wait for stall on partition 1, then drip-feed to ALL partitions
+    # Wait for the task to stall, then drip-feed to ALL partitions
     _wait_for_stall(driver, table_name, rows_after_wave1)
 
     stop_event, thread = _drip_feed_to_partitions(
         driver, topic, list(range(num_partitions))
     )
-    # Wait for the *invalidated* partition specifically to recover. Waiting on
-    # the global row count is racy: the two healthy partitions can push the
-    # total past the threshold before partition 1 reopens, ending the wait
-    # before recovery and failing the assertion below.
-    _wait_for_partition_recovery(
+    # Wait until every partition (invalidated + healthy) exceeds its wave-1
+    # baseline before snapshotting. See _wait_for_partitions_recovery for why a
+    # narrower wait is racy under tasks.max=1.
+    partition_counts_after = _wait_for_partitions_recovery(
         driver,
         table_name,
-        partition=1,
-        count_before=partition_counts_before.get(1, 0),
+        counts_before=partition_counts_before,
+        partitions=list(range(num_partitions)),
     )
     stop_event.set()
     thread.join(timeout=5)
     _assert_task_running(driver, connector.name)
 
-    # Verify partition 1 recovered and all partitions have more data
-    partition_counts_after = _get_partition_row_counts(driver, table_name)
     logger.info(f"Post-recovery per-partition counts: {partition_counts_after}")
 
+    # These per-partition assertions are defense-in-depth: the wait above
+    # already guarantees them. If the wait is ever narrowed, they will NOT catch
+    # a regression on their own (they read the same snapshot the wait returned) —
+    # the wait is the real guard.
     # Partition 1 (invalidated) must have recovered
     assert partition_counts_after.get(1, 0) > partition_counts_before.get(1, 0), (
         f"Partition 1 did not recover: "
@@ -623,3 +644,92 @@ def test_invalidation_during_flush(
     final_rows = int(driver.select_number_of_records(table_name))
     logger.info(f"Final row count: {final_rows} (stalled at {stalled_rows})")
     assert final_rows > stalled_rows
+
+
+# ---------------------------------------------------------------------------
+# Offline unit tests for _wait_for_partitions_recovery (no live account).
+# ---------------------------------------------------------------------------
+
+
+class _ScriptedConn:
+    """Fake snowflake_conn whose per-partition count query returns a scripted
+    sequence of {partition: count} snapshots. Each execute() advances one step;
+    the last entry repeats. Exercises the real _get_partition_row_counts parsing.
+    """
+
+    def __init__(self, sequence):
+        self._sequence = sequence
+        self.calls = 0
+        self._current = {}
+
+    def cursor(self):
+        return self
+
+    def execute(self, _sql):
+        self._current = self._sequence[min(self.calls, len(self._sequence) - 1)]
+        self.calls += 1
+        return self
+
+    def fetchall(self):
+        return [(p, c) for p, c in self._current.items()]
+
+
+class _ScriptedDriver:
+    """Driver stand-in exposing only snowflake_conn, for the recovery-wait helpers."""
+
+    def __init__(self, sequence):
+        self.snowflake_conn = _ScriptedConn(sequence)
+
+    @property
+    def calls(self):
+        return self.snowflake_conn.calls
+
+
+def test_wait_for_partitions_recovery_polls_past_lagging_healthy_partition(monkeypatch):
+    """Regression (#1512 follow-up): the snapshot must not be taken the instant the
+    invalidated partition recovers.
+
+    Replays the exact sequence observed in the failing AZURE run: at the moment
+    partition 1 (invalidated) crosses its baseline, healthy partition 2 is still
+    one flush cycle behind at its pre-recovery count. The old single-partition
+    wait returned here and the test asserted partition 2 had "lost data". The
+    multi-partition wait must keep polling until every partition exceeds baseline.
+    """
+    counts_before = {0: 100, 1: 100, 2: 100}
+    driver = _ScriptedDriver(
+        [
+            {0: 210, 1: 210, 2: 100},  # partition 1 recovered; 2 lags one cycle
+            {0: 210, 1: 210, 2: 210},  # partition 2's next flush lands
+        ]
+    )
+    # Pin the clock so the deadline can't depend on real wall-time.
+    monkeypatch.setattr(time, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+
+    result = _wait_for_partitions_recovery(
+        driver, "t", counts_before=counts_before, partitions=[0, 1, 2]
+    )
+
+    # The racy first snapshot ({2: 100}) must NOT have been accepted.
+    assert driver.calls >= 2, "returned on the first poll, before partition 2 grew"
+    for p in (0, 1, 2):
+        assert result[p] > counts_before[p]
+
+
+def test_wait_for_partitions_recovery_times_out_naming_stuck_partition(monkeypatch):
+    """If a partition genuinely never grows, the helper must fail with a clear
+    message naming the stuck partition — not hang, and not the misleading
+    'lost data' assertion the old code produced."""
+    counts_before = {0: 100, 1: 100, 2: 100}
+    driver = _ScriptedDriver([{0: 210, 1: 210, 2: 100}])  # partition 2 never moves
+
+    clock = {"t": 0.0}
+    monkeypatch.setattr(time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(
+        time, "sleep", lambda seconds: clock.__setitem__("t", clock["t"] + seconds)
+    )
+
+    with pytest.raises(AssertionError, match=r"\[2\]"):
+        _wait_for_partitions_recovery(
+            driver, "t", counts_before=counts_before, partitions=[0, 1, 2], timeout=10
+        )
