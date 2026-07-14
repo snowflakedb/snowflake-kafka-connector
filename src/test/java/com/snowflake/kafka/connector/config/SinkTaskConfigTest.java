@@ -340,4 +340,72 @@ public class SinkTaskConfigTest {
     SinkTaskConfig config = SinkTaskConfig.from(raw);
     assertThat(config.getIcebergCreateTableOptions()).isEmpty();
   }
+
+  // --- iceberg + metadata flag validation (Change 2) ---
+
+  @Test
+  void from_icebergWithDisabledTopicFlag_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_TOPIC, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_AUTOCREATE_TABLE_TYPE)
+        .hasMessageContaining("iceberg")
+        .hasMessageContaining(SNOWFLAKE_METADATA_TOPIC);
+  }
+
+  @Test
+  void from_icebergWithDisabledOffsetAndPartitionFlag_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION);
+  }
+
+  @Test
+  void from_icebergWithDisabledCreatetimeFlag_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_CREATETIME, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_METADATA_CREATETIME);
+  }
+
+  @Test
+  void from_icebergWithDisabledConnectorPushTimeFlag_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME);
+  }
+
+  @Test
+  void from_icebergWithAllMetadataEnabled_ok() {
+    // All metadata flags are enabled by default; explicit confirmation must still succeed.
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_TOPIC, "true");
+    raw.put(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "true");
+    raw.put(SNOWFLAKE_METADATA_CREATETIME, "true");
+    raw.put(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "true");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getTableType()).isEqualTo(TableType.ICEBERG);
+  }
+
+  @Test
+  void from_snowflakeTypeWithDisabledMetadata_ok() {
+    // The metadata-mandated guard is Iceberg-only; standard Snowflake tables are unaffected.
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "snowflake");
+    raw.put(SNOWFLAKE_METADATA_TOPIC, "false");
+    raw.put(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "false");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getTableType()).isEqualTo(TableType.SNOWFLAKE);
+  }
 }

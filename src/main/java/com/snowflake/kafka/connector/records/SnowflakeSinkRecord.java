@@ -41,6 +41,11 @@ public final class SnowflakeSinkRecord {
   static final List<String> ICEBERG_METADATA_FIELDS =
       List.of(OFFSET, TOPIC, PARTITION, KEY, CREATE_TIME, CONNECTOR_PUSH_TIME, HEADERS);
 
+  // Fast membership test for conformIcebergMetadata. Derived from ICEBERG_METADATA_FIELDS so the
+  // two stay in sync automatically.
+  private static final java.util.Set<String> ICEBERG_METADATA_FIELD_SET =
+      new java.util.HashSet<>(ICEBERG_METADATA_FIELDS);
+
   private final Map<String, Object> content;
   private final Map<String, Object> metadata;
   private final Schema schema;
@@ -310,14 +315,12 @@ public final class SnowflakeSinkRecord {
   }
 
   /**
-   * @param conformToIcebergMetadataSchema when true, the RECORD_METADATA value is reshaped to match
-   *     the structured {@code IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA} exactly: every
-   *     declared field present (absent ones as {@code null}), the variable timestamp-type key
-   *     normalized to "CreateTime", and any field outside the schema dropped. Managed-Iceberg
-   *     ingestion casts RECORD_METADATA into that typed OBJECT with a strict cast that throws on a
-   *     missing field, so a sparse Kafka metadata map (e.g. a keyless/headerless record) would
-   *     otherwise be rejected. FDN tables use a VARIANT RECORD_METADATA and pass {@code false}
-   *     (behavior unchanged).
+   * @param conformToIcebergMetadataSchema when true, the RECORD_METADATA value is normalized via
+   *     {@link #conformIcebergMetadata}: the timestamp field is renamed to "CreateTime", fields
+   *     outside {@code ICEBERG_METADATA_OBJECT_SCHEMA} are dropped, and the {@code key} field is
+   *     coerced to {@code String}. Full metadata presence is guaranteed by config-time validation
+   *     (see {@code SinkTaskConfig}). FDN tables use a VARIANT RECORD_METADATA and pass {@code
+   *     false} (behavior unchanged).
    */
   public Map<String, Object> getContentWithMetadata(
       boolean includeMetadata, boolean conformToIcebergMetadataSchema) {
@@ -333,35 +336,54 @@ public final class SnowflakeSinkRecord {
   }
 
   /**
-   * Reshape a Kafka metadata map to exactly the fields of {@code ICEBERG_METADATA_OBJECT_SCHEMA}.
-   * Every declared field is present (absent ones {@code null}, which the strict typed-OBJECT cast
-   * accepts because the schema fields are nullable, whereas a <em>missing</em> field is rejected);
-   * the timestamp field — emitted by Kafka under {@code TimestampType.name} — is normalized to
-   * "CreateTime"; fields outside the schema are dropped.
+   * Normalize a Kafka metadata map for ingestion into a managed-Iceberg RECORD_METADATA column.
+   *
+   * <p>The config-gated metadata fields (topic, offset, partition, createtime, connector-push-time)
+   * are guaranteed present by config-time validation ({@code
+   * snowflake.autocreate.table.type=iceberg} rejects any disabled metadata flag), so this method
+   * does not pad them. It only:
+   *
+   * <ol>
+   *   <li>Normalizes the timestamp field name: both {@code TimestampType.CREATE_TIME.name} ("
+   *       CreateTime") and {@code TimestampType.LOG_APPEND_TIME.name} ("LogAppendTime") are mapped
+   *       to the constant {@code "CreateTime"} declared in {@code ICEBERG_METADATA_OBJECT_SCHEMA}.
+   *   <li>Drops any field not in the Iceberg schema (extra fields would fail the strict
+   *       typed-OBJECT cast).
+   *   <li>Coerces the {@code key} field to {@code String}: the schema declares {@code key STRING},
+   *       but non-String-keyed topics (e.g. INT-keyed) yield a non-String key value.
+   *   <li>Pads {@code key} and {@code headers} with {@code null} when absent. Unlike the
+   *       config-gated fields, these two are record-level — a keyless topic omits {@code key} and a
+   *       record with no headers omits {@code headers} — so config cannot guarantee them, yet the
+   *       schema declares them and the strict cast rejects a missing field.
+   * </ol>
    */
   private static Map<String, Object> conformIcebergMetadata(Map<String, Object> metadata) {
     Map<String, Object> conformed = new HashMap<>();
-    for (String field : ICEBERG_METADATA_FIELDS) {
-      conformed.put(field, null);
-    }
     for (Map.Entry<String, Object> entry : metadata.entrySet()) {
       String field = entry.getKey();
       if (TimestampType.CREATE_TIME.name.equals(field)
           || TimestampType.LOG_APPEND_TIME.name.equals(field)) {
         field = CREATE_TIME;
       }
-      if (!conformed.containsKey(field)) {
-        continue;
+      if (!ICEBERG_METADATA_FIELD_SET.contains(field)) {
+        continue; // drop fields outside the Iceberg schema
       }
       Object value = entry.getValue();
       // The schema declares `key STRING`, but the record key can convert to a non-String (e.g. an
       // INT-keyed topic yields an Integer, a struct/Avro key a Map). Coerce to String so the
-      // strict typed-OBJECT cast accepts it; absent keys stay null.
+      // strict typed-OBJECT cast accepts it.
       if (KEY.equals(field) && value != null && !(value instanceof String)) {
         value = String.valueOf(value);
       }
       conformed.put(field, value);
     }
+    // KEY and HEADERS are record-level, not config-gated: a keyless topic omits `key` and a record
+    // with no headers omits `headers`, so they can be absent even when every metadata flag is on.
+    // Config-time validation guarantees the config-gated fields for Iceberg but not these two, so
+    // pad only KEY and HEADERS with null — the strict typed-OBJECT cast rejects a missing field but
+    // accepts a null one.
+    conformed.putIfAbsent(KEY, null);
+    conformed.putIfAbsent(HEADERS, null);
     return conformed;
   }
 

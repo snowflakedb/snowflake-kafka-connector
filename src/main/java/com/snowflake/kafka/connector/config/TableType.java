@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.config;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /** Connector-wide target table type for auto-creation routing. */
@@ -10,14 +11,21 @@ public enum TableType {
   ICEBERG,
   NONE;
 
-  /** Config string -> enum. Null/empty defaults to SNOWFLAKE (today's behavior). */
-  public static TableType fromConfig(String value) {
+  /**
+   * Config string -&gt; enum. Returns {@link Optional#empty()} when the value is {@code null} or
+   * blank (absent/unset config). Throws {@link IllegalArgumentException} for a non-blank value that
+   * is not a recognized type.
+   *
+   * <p>Callers should use {@code TableType.fromConfig(x).orElse(TableType.SNOWFLAKE)} to preserve
+   * the original default behavior.
+   */
+  public static Optional<TableType> fromConfig(String value) {
     if (value == null || value.trim().isEmpty()) {
-      return SNOWFLAKE;
+      return Optional.empty();
     }
     String normalized = value.trim().toUpperCase(Locale.ROOT);
     try {
-      return TableType.valueOf(normalized);
+      return Optional.of(TableType.valueOf(normalized));
     } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException(
           "Invalid snowflake.autocreate.table.type '"
