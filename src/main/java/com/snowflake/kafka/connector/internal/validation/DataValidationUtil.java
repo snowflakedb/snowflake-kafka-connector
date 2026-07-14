@@ -634,48 +634,11 @@ class DataValidationUtil {
 
     if (input instanceof String) {
       String stringInput = ((String) input).trim();
-      {
-        // First, try to parse ZonedDateTime
-        ZonedDateTime zoned = catchParsingError(() -> ZonedDateTime.parse(stringInput));
-        if (zoned != null) {
-          return zoned.toOffsetDateTime();
-        }
+      Optional<OffsetDateTime> parsed =
+          XpDateTimeFormats.tryParseTimestamp(stringInput, defaultTimezone);
+      if (parsed.isPresent()) {
+        return parsed.get();
       }
-
-      {
-        // Next, try to parse OffsetDateTime
-        OffsetDateTime offset = catchParsingError(() -> OffsetDateTime.parse(stringInput));
-        if (offset != null) {
-          return offset;
-        }
-      }
-
-      {
-        // Alternatively, try to parse LocalDateTime
-        LocalDateTime localDateTime = catchParsingError(() -> LocalDateTime.parse(stringInput));
-        if (localDateTime != null) {
-          return localDateTime.atZone(defaultTimezone).toOffsetDateTime();
-        }
-      }
-
-      {
-        // Alternatively, try to parse LocalDate
-        LocalDate localDate = catchParsingError(() -> LocalDate.parse(stringInput));
-        if (localDate != null) {
-          return localDate.atStartOfDay().atZone(defaultTimezone).toOffsetDateTime();
-        }
-      }
-
-      {
-        // Alternatively, try to parse integer-stored timestamp
-        // Just like in Snowflake, integer-stored timestamps are always in UTC
-        Instant instant = catchParsingError(() -> parseInstantGuessScale(stringInput));
-        if (instant != null) {
-          return instant.atOffset(ZoneOffset.UTC);
-        }
-      }
-
-      // Couldn't parse anything, throw an exception
       throw valueFormatNotAllowedException(
           columnName,
           typeName,
@@ -746,14 +709,6 @@ class DataValidationUtil {
     if (trimTimezone) {
       offsetDateTime = offsetDateTime.withOffsetSameLocal(ZoneOffset.UTC);
     }
-    if (offsetDateTime.getYear() < 1 || offsetDateTime.getYear() > 9999) {
-      throw new SFExceptionValidation(
-          ErrorCode.INVALID_VALUE_ROW,
-          String.format(
-              "Timestamp out of representable inclusive range of years between 1 and 9999,"
-                  + " rowIndex:%d, column:%s, value:%s",
-              insertRowIndex, columnName, offsetDateTime));
-    }
     return new TimestampWrapper(offsetDateTime, scale);
   }
 
@@ -791,14 +746,6 @@ class DataValidationUtil {
 
     if (trimTimezone) {
       offsetDateTime = offsetDateTime.withOffsetSameLocal(ZoneOffset.UTC);
-    }
-    if (offsetDateTime.getYear() < 1 || offsetDateTime.getYear() > 9999) {
-      throw new SFExceptionValidation(
-          ErrorCode.INVALID_VALUE_ROW,
-          String.format(
-              "Timestamp out of representable inclusive range of years between 1 and 9999,"
-                  + " rowIndex:%d, column:%s, value:%s",
-              insertRowIndex, columnName, offsetDateTime));
     }
     return trimTimezone ? offsetDateTime.toLocalDateTime().toString() : offsetDateTime.toString();
   }
@@ -932,15 +879,6 @@ class DataValidationUtil {
     OffsetDateTime offsetDateTime =
         inputToOffsetDateTime(columnName, "DATE", input, ZoneOffset.UTC, insertRowIndex);
 
-    if (offsetDateTime.getYear() < -9999 || offsetDateTime.getYear() > 9999) {
-      throw new SFExceptionValidation(
-          ErrorCode.INVALID_VALUE_ROW,
-          String.format(
-              "Date out of representable inclusive range of years between -9999 and 9999,"
-                  + " rowIndex:%d, column:%s, value:%s",
-              insertRowIndex, columnName, offsetDateTime));
-    }
-
     return Math.toIntExact(offsetDateTime.toLocalDate().toEpochDay());
   }
 
@@ -1016,34 +954,18 @@ class DataValidationUtil {
           columnName, ((OffsetTime) input).toLocalTime(), scale, insertRowIndex);
     } else if (input instanceof String) {
       String stringInput = ((String) input).trim();
-      {
-        // First, try to parse LocalTime
-        LocalTime localTime = catchParsingError(() -> LocalTime.parse(stringInput));
-        if (localTime != null) {
-          return validateAndParseTime(columnName, localTime, scale, insertRowIndex);
-        }
+      Optional<LocalTime> lt = XpDateTimeFormats.tryParseTime(stringInput);
+      if (lt.isPresent()) {
+        return validateAndParseTime(columnName, lt.get(), scale, insertRowIndex);
       }
-
-      {
-        // Alternatively, try to parse OffsetTime
-        OffsetTime offsetTime = catchParsingError((() -> OffsetTime.parse(stringInput)));
-        if (offsetTime != null) {
-          return validateAndParseTime(columnName, offsetTime.toLocalTime(), scale, insertRowIndex);
-        }
+      Instant parsedInstant = catchParsingError(() -> parseInstantGuessScale(stringInput));
+      if (parsedInstant != null) {
+        return validateAndParseTime(
+            columnName,
+            LocalDateTime.ofInstant(parsedInstant, ZoneOffset.UTC).toLocalTime(),
+            scale,
+            insertRowIndex);
       }
-
-      {
-        // Alternatively, try to parse integer-stored time
-        Instant parsedInstant = catchParsingError(() -> parseInstantGuessScale(stringInput));
-        if (parsedInstant != null) {
-          return validateAndParseTime(
-              columnName,
-              LocalDateTime.ofInstant(parsedInstant, ZoneOffset.UTC).toLocalTime(),
-              scale,
-              insertRowIndex);
-        }
-      }
-
       throw valueFormatNotAllowedException(
           columnName,
           "TIME",
@@ -1071,7 +993,7 @@ class DataValidationUtil {
    * @return Instant representing the input
    * @throws NumberFormatException If the input in not a valid long
    */
-  private static Instant parseInstantGuessScale(String input) {
+  static Instant parseInstantGuessScale(String input) {
     BigInteger epochNanos;
     try {
       long val = Long.parseLong(input);

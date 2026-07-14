@@ -1689,4 +1689,18 @@ public class RowValidatorTest {
     return new ColumnSchema(
         name, logicalType, ColumnPhysicalType.SB8, true, null, 9, null, null, null);
   }
+
+  // ================ XP-parity temporal tests (SNOW-3766306) ================
+
+  @Test
+  public void validateRow_timeOffsetWithoutFraction_isTypeError() {
+    java.util.Map<String, ColumnSchema> schema =
+        java.util.Collections.singletonMap(
+            "TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = new RowValidator(schema);
+    java.util.Map<String, Object> row = new java.util.HashMap<>();
+    row.put("TS", "00:00:00Z");
+    ValidationResult r = v.validateRow(row);
+    org.junit.Assert.assertFalse(r.isValid());
+  }
 }

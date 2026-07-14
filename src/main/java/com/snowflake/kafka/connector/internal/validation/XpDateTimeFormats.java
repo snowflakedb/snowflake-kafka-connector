@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
@@ -265,10 +266,15 @@ final class XpDateTimeFormats {
           dt("MM/dd/yyyy HH:mm:ss", false, OffsetStyle.NONE));
 
   // -------------------------------------------------------------------------
-  // Epoch placeholder — wired in a later task
+  // Epoch: integer-stored timestamps delegating to DataValidationUtil scale-guesser
   // -------------------------------------------------------------------------
   private static Optional<OffsetDateTime> tryEpoch(String s) {
-    return Optional.empty();
+    if (!s.matches("[+-]?\\d+")) return Optional.empty();
+    try {
+      return Optional.of(DataValidationUtil.parseInstantGuessScale(s).atOffset(ZoneOffset.UTC));
+    } catch (NumberFormatException e) {
+      return Optional.empty();
+    }
   }
 
   // -------------------------------------------------------------------------

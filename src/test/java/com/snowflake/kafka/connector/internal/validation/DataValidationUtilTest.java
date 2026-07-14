@@ -129,9 +129,14 @@ public class DataValidationUtilTest {
     assertEquals(18464, validateAndParseDate("COL", "2020-07-21T23:31:00", 0));
     assertEquals(18464, validateAndParseDate("COL", "2020-07-21T23:31:00+07:00", 0));
     assertEquals(18464, validateAndParseDate("COL", "2020-07-21T23:31:00-07:00", 0));
-    assertEquals(
-        18464, validateAndParseDate("COL", "2020-07-21T23:31:00-07:00[America/Los_Angeles]", 0));
-    assertEquals(18464, validateAndParseDate("COL", "2020-07-21T23:31:00+09:00[Asia/Tokyo]", 0));
+    // XP-parity (SNOW-3766306): ZonedDateTime strings with IANA region ID suffix (e.g.
+    // "[America/Los_Angeles]") are not in XP's format allow-list; they are now rejected.
+    expectError(
+        ErrorCode.INVALID_VALUE_ROW,
+        () -> validateAndParseDate("COL", "2020-07-21T23:31:00-07:00[America/Los_Angeles]", 0));
+    expectError(
+        ErrorCode.INVALID_VALUE_ROW,
+        () -> validateAndParseDate("COL", "2020-07-21T23:31:00+09:00[Asia/Tokyo]", 0));
 
     // Test integer-stored date
     assertEquals(19380, validateAndParseDate("COL", "1674478926", 0));
@@ -142,13 +147,10 @@ public class DataValidationUtilTest {
     // Time input is not supported
     expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseDate("COL", "20:57:01", 0));
 
-    // Test values out of range
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW,
-        () -> validateAndParseDate("COL", LocalDateTime.of(10000, 2, 2, 2, 2), 0));
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW,
-        () -> validateAndParseDate("COL", LocalDateTime.of(-10000, 2, 2, 2, 2), 0));
+    // XP-parity (SNOW-3766306): XP enforces no explicit year bound; the old ±9999 year-range
+    // guard for DATE has been dropped. LocalDateTime object inputs for out-of-range years succeed.
+    validateAndParseDate("COL", LocalDateTime.of(10000, 2, 2, 2, 2), 0);
+    validateAndParseDate("COL", LocalDateTime.of(-10000, 2, 2, 2, 2), 0);
 
     // Test forbidden values
     expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseDate("COL", new Object(), 0));
@@ -322,18 +324,11 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_VALUE_ROW,
         () -> validateAndParseTimestamp("COL", "20:57:01", 3, UTC, false, 0));
 
-    // Test values out of range
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW,
-        () ->
-            validateAndParseTimestamp(
-                "COL", LocalDateTime.of(10000, 2, 2, 2, 2), 3, UTC, false, 0));
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW,
-        () -> validateAndParseTimestamp("COL", LocalDateTime.of(0, 2, 2, 2, 2), 3, UTC, false, 0));
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW,
-        () -> validateAndParseTimestamp("COL", LocalDateTime.of(-1, 2, 2, 2, 2), 3, UTC, false, 0));
+    // XP-parity (SNOW-3766306): XP enforces no explicit year bound; the old 1–9999 year-range
+    // guard has been dropped. LocalDateTime object inputs for out-of-range years now succeed.
+    validateAndParseTimestamp("COL", LocalDateTime.of(10000, 2, 2, 2, 2), 3, UTC, false, 0);
+    validateAndParseTimestamp("COL", LocalDateTime.of(0, 2, 2, 2, 2), 3, UTC, false, 0);
+    validateAndParseTimestamp("COL", LocalDateTime.of(-1, 2, 2, 2, 2), 3, UTC, false, 0);
 
     // Test forbidden values
     expectError(
@@ -1718,5 +1713,23 @@ public class DataValidationUtilTest {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  // ================ XP-parity temporal tests (SNOW-3766306) ================
+
+  @Test
+  public void timeString_offsetWithoutFraction_isRejected() {
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "00:00:00Z", 9, 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "22:00:00Z", 9, 0));
+  }
+
+  @Test
+  public void timeString_offsetWithFraction_stillAccepted() {
+    validateAndParseTime("COL", "07:59:59.999999Z", 9, 0); // must not throw
+  }
+
+  @Test
+  public void timestampString_spaceSeparator_isAccepted() {
+    validateAndParseTimestamp("COL", "2024-01-15 10:30:00", 9, ZoneOffset.UTC, false, 0);
   }
 }
