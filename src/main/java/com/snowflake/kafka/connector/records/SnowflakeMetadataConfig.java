@@ -54,6 +54,16 @@ public class SnowflakeMetadataConfig {
     return allFlag;
   }
 
+  /**
+   * Returns {@code true} if all metadata fields that map to the managed-Iceberg {@code
+   * RECORD_METADATA} structured schema are enabled: topic, offset+partition, createtime, and
+   * connectorPushTime. Managed-Iceberg casts {@code RECORD_METADATA} to a typed OBJECT with a
+   * strict cast that fails when a declared field is absent from the map.
+   */
+  public boolean isFullIcebergMetadataEnabled() {
+    return topicFlag && offsetAndPartitionFlag && createtimeFlag && connectorPushTimeFlag;
+  }
+
   private static boolean getMetadataProperty(Map<String, String> config, String property) {
     String value =
         Optional.ofNullable(config.get(property))

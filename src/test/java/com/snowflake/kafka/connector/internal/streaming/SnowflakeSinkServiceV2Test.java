@@ -284,6 +284,48 @@ class SnowflakeSinkServiceV2Test {
     assertEquals(TOPIC, captor.getValue().get(TOPIC));
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  void startPartitions_noneType_usesDefaultPipe_noPipeExistenceCheck() {
+    // table.type=none no longer requires the pipe to pre-exist at startup; the default pipe is
+    // connector-managed (created lazily at first ingest). This test verifies that startPartitions
+    // does NOT call pipeExist for a pre-existence guard when the table already exists.
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.isClosed()).thenReturn(false);
+    when(mockConn.tableExist(TOPIC)).thenReturn(true);
+    // Named pipe does NOT exist; default pipe does NOT exist either — neither should cause a
+    // failure.
+    when(mockConn.pipeExist(TOPIC)).thenReturn(false);
+    when(mockConn.hasErrorLoggingEnabled(TOPIC)).thenReturn(true);
+
+    PartitionChannelManager channelMgr = mock(PartitionChannelManager.class);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .tableType(TableType.NONE)
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .enableSanitization(false)
+            .build();
+    SnowflakeSinkServiceV2 svc =
+        new SnowflakeSinkServiceV2(
+            mockConn,
+            config,
+            mockSinkTaskContext,
+            Optional.empty(),
+            () -> mock(BatchOffsetFetcher.class),
+            () -> channelMgr,
+            TaskMetrics.noop());
+
+    TopicPartition tp = new TopicPartition(TOPIC, 0);
+    svc.startPartitions(Set.of(tp)); // must not throw
+
+    // The default pipe (tableName + STREAMING suffix) must be chosen.
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(channelMgr).startPartitions(any(), captor.capture());
+    assertEquals(TOPIC + "-STREAMING", captor.getValue().get(TOPIC));
+  }
+
   // --- backpressure handling ---
 
   @Test

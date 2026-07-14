@@ -505,11 +505,11 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT,
             ConfigDef.ValidString.in("snowflake", "iceberg", "none"),
             MEDIUM,
-            "Controls table auto-creation. 'snowflake' (default): auto-create a standard FDN table"
-                + " if it is missing. 'iceberg': auto-create a Snowflake-managed Iceberg table if"
-                + " it is missing. 'none': never create anything; the table and its pipe must"
-                + " already exist. An existing table is always used as-is, regardless of this"
-                + " setting.",
+            "Controls table auto-creation. 'snowflake' (default): auto-create a standard Snowflake"
+                + " table if it is missing. 'iceberg': auto-create a Snowflake-managed Iceberg"
+                + " table if it is missing. 'none': never auto-create the table (fail fast if it"
+                + " is missing); the pipe is still auto-managed by the connector as usual. An"
+                + " existing table is always used as-is, regardless of this setting.",
             CONNECTOR_CONFIG_DOC,
             15,
             Width.NONE,

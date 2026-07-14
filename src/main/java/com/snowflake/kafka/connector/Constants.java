@@ -145,7 +145,10 @@ public final class Constants {
 
     // Iceberg table auto-creation (SNOW-3552261)
     public static final String SNOWFLAKE_AUTOCREATE_TABLE_TYPE = "snowflake.autocreate.table.type";
-    public static final String SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT = "snowflake";
+    // Use the canonical config value from TableType so the default stays in sync if the enum
+    // changes.
+    public static final String SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT =
+        com.snowflake.kafka.connector.config.TableType.SNOWFLAKE.configValue();
     // Optional SQL clauses spliced into the auto-created Iceberg table's CREATE statement, right
     // after the column list (e.g. "EXTERNAL_VOLUME='v' ICEBERG_VERSION=3 CLUSTER BY (id)"). Lets
     // operators set any managed-Iceberg create option without the connector exposing a knob per

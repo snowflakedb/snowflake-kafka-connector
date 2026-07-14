@@ -58,6 +58,14 @@ public final class SinkTaskConfigTestBuilder {
         .precommitClientRecoveryEnabled(true)
         .prometheusMetricsEnabled(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT)
         .validationErrorTableNameEnabled(
-            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT)
+        // Iceberg auto-creation defaults: SNOWFLAKE table type and empty create options.
+        // These were previously defaulted in SinkTaskConfig.builder(); they now live here so
+        // production builder() stays free of test-only defaults.
+        .tableType(
+            TableType.fromConfig(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT)
+                .orElse(TableType.SNOWFLAKE))
+        .icebergCreateTableOptions(
+            KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT);
   }
 }

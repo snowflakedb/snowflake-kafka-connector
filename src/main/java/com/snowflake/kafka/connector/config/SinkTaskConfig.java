@@ -388,8 +388,8 @@ public abstract class SinkTaskConfig {
                 KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
 
     TableType tableType =
-        TableType.fromConfig(
-            config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE));
+        TableType.fromConfig(config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE))
+            .orElse(TableType.SNOWFLAKE);
 
     String icebergCreateTableOptions =
         config
@@ -399,8 +399,10 @@ public abstract class SinkTaskConfig {
             .trim();
     if (!icebergCreateTableOptions.isEmpty() && tableType != TableType.ICEBERG) {
       throw new IllegalArgumentException(
-          "snowflake.iceberg.create.table.options is only valid when"
-              + " snowflake.autocreate.table.type=iceberg (got table.type="
+          KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS
+              + " is only valid when "
+              + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
+              + "=iceberg (got table.type="
               + tableType.configValue()
               + ")");
     }
@@ -414,10 +416,33 @@ public abstract class SinkTaskConfig {
         && enableSchematization
         && validation == SnowflakeValidation.CLIENT_SIDE) {
       throw new IllegalArgumentException(
-          "snowflake.validation=client_side is not supported with"
-              + " snowflake.autocreate.table.type=iceberg when schema evolution is enabled"
-              + " (snowflake.enable.schematization=true). Managed Iceberg schema evolution is"
-              + " server-side; set snowflake.validation=server_side.");
+          KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
+              + "=client_side is not supported with "
+              + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
+              + "=iceberg when schema evolution is enabled ("
+              + KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION
+              + "=true). Managed Iceberg schema evolution is server-side; set "
+              + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
+              + "=server_side.");
+    }
+
+    // Managed Iceberg RECORD_METADATA is cast to a fixed structured OBJECT schema, so every
+    // metadata flag that maps to a declared schema field must be enabled. Disabling any of them
+    // produces a sparse map that fails the strict typed-OBJECT cast at ingest time.
+    if (tableType == TableType.ICEBERG && !metadataConfig.isFullIcebergMetadataEnabled()) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
+              + "=iceberg requires all record metadata to be enabled"
+              + " (RECORD_METADATA is cast to a fixed structured schema for managed Iceberg)."
+              + " Remove any "
+              + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_TOPIC
+              + "=false, "
+              + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION
+              + "=false, "
+              + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_CREATETIME
+              + "=false, or "
+              + KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME
+              + "=false settings.");
     }
 
     Builder b = builder();
@@ -480,15 +505,15 @@ public abstract class SinkTaskConfig {
     return optionalString(value).map(Password::new);
   }
 
-  /** Creates a new builder. Used by {@link #from(Map)} and by tests. */
+  /**
+   * Creates a new builder. Used by {@link #from(Map)} (via {@code builderFrom}) and by {@code
+   * SinkTaskConfigTestBuilder} in tests. The Iceberg-related fields ({@code tableType}, {@code
+   * icebergCreateTableOptions}) have no defaults here — {@code builderFrom} always sets them from
+   * config, and tests must set them via {@code SinkTaskConfigTestBuilder} (which provides the
+   * defaults).
+   */
   public static Builder builder() {
-    // Default the Iceberg auto-creation properties here so every builder() caller (including
-    // raw-builder test helpers) gets valid values; builderFrom overrides them from config. Without
-    // this, AutoValue throws "missing required properties" because these props are non-nullable.
-    return new AutoValue_SinkTaskConfig.Builder()
-        .tableType(TableType.SNOWFLAKE)
-        .icebergCreateTableOptions(
-            KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT);
+    return new AutoValue_SinkTaskConfig.Builder();
   }
 
   /**

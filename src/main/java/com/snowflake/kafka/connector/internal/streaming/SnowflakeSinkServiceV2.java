@@ -10,7 +10,6 @@ import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
-import com.snowflake.kafka.connector.config.TableType;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -252,34 +251,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // Client-side validation only supports default pipes.
       // When validation is enabled, reject non-default pipes (pipes whose name equals the table
       // name) because validation assumptions may not hold for user-created pipes.
+      //
+      // table.type=none's only job is to NOT auto-create the TABLE — already enforced in
+      // createTableIfNotExists (which throws for NONE when the table is missing). The default pipe
+      // is always connector-managed (created lazily at first ingest), so requiring a pre-existing
+      // pipe under 'none' was wrong: the pipe does not need to exist at startup regardless of
+      // table.type.
       final String targetPipeName;
-      if (taskConfig.getTableType() == TableType.NONE) {
-        // table.type=none: the pipe must already exist (we created nothing). Fail fast if neither
-        // the default nor a named pipe is present, and name the detected table type.
-        boolean defaultPipeExists = this.conn.pipeExist(buildDefaultPipeName(tableName));
-        boolean namedPipeExists = this.conn.pipeExist(tableName);
-        if (!defaultPipeExists && !namedPipeExists) {
-          String detectedType =
-              this.conn.isIcebergTable(tableName)
-                  ? TableType.ICEBERG.configValue()
-                  : TableType.SNOWFLAKE.configValue();
-          throw SnowflakeErrors.ERROR_0034.getException(
-              "snowflake.autocreate.table.type=none and no pipe exists for table '"
-                  + tableName
-                  + "' (detected table type="
-                  + detectedType
-                  + "). Create the pipe yourself, or set snowflake.autocreate.table.type="
-                  + detectedType
-                  + " so the connector manages it.");
-        }
-        targetPipeName = namedPipeExists ? tableName : buildDefaultPipeName(tableName);
-        // Client-side validation only supports default pipes. Even under table.type=none, a
-        // pre-existing named pipe must be rejected for the same reason as the CLIENT_SIDE branch
-        // below: validation assumptions may not hold for user-created pipes.
-        if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE && namedPipeExists) {
-          throw SnowflakeErrors.ERROR_0032.getException("table: " + tableName);
-        }
-      } else if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
+      if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
         if (this.conn.pipeExist(tableName)) {
           throw SnowflakeErrors.ERROR_0032.getException("table: " + tableName);
         }
