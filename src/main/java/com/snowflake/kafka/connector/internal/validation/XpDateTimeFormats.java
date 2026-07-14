@@ -43,7 +43,7 @@ final class XpDateTimeFormats {
   private static DateTimeFormatter dt(String pattern, boolean frac, OffsetStyle off) {
     DateTimeFormatterBuilder b = new DateTimeFormatterBuilder().appendPattern(pattern);
     b.parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
-     .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0);
+        .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0);
     if (frac) {
       b.appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true);
     } else {
@@ -147,7 +147,8 @@ final class XpDateTimeFormats {
 
           // --- ISO T-separator variants ---
 
-          // ISO_DATE_T_HOUR24_MINUTE_SECOND_FRAC_TZHM (line 88): "YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM"
+          // ISO_DATE_T_HOUR24_MINUTE_SECOND_FRAC_TZHM (line 88):
+          // "YYYY-MM-DD\"T\"HH24:MI:SS.FFTZH:TZM"
           dt("yyyy-MM-dd'T'HH:mm:ss", true, OffsetStyle.COLON),
 
           // ISO_DATE_T_HOUR24_MINUTE_SECOND_FRAC (line 130): "YYYY-MM-DD\"T\"HH24:MI:SS.FF"
@@ -177,7 +178,8 @@ final class XpDateTimeFormats {
           // ISO_DATE_HOUR24_MINUTE_SECOND_FRAC_TZH (line 100): "YYYY-MM-DD HH24:MI:SS.FFTZH"
           dt("yyyy-MM-dd HH:mm:ss", true, OffsetStyle.HOURONLY),
 
-          // ISO_DATE_HOUR24_MINUTE_SECOND_FRAC_TZSHCM (line 106): "YYYY-MM-DD HH24:MI:SS.FF TZH:TZM"
+          // ISO_DATE_HOUR24_MINUTE_SECOND_FRAC_TZSHCM (line 106): "YYYY-MM-DD HH24:MI:SS.FF
+          // TZH:TZM"
           dt("yyyy-MM-dd HH:mm:ss", true, OffsetStyle.SPACE_COLON),
 
           // ISO_DATE_HOUR24_MINUTE_SECOND_FRAC_TZSHM (line 112): "YYYY-MM-DD HH24:MI:SS.FF TZHTZM"
@@ -219,10 +221,12 @@ final class XpDateTimeFormats {
           // RFC_DATE_HOUR24_MINUTE_SECOND_TZ (line 220): "DY, DD MON YYYY HH24:MI:SS TZHTZM"
           rfc("EEE, dd MMM yyyy HH:mm:ss", false, true),
 
-          // RFC_DATE_HOUR24_MINUTE_SECOND_FRAC_TZ (line 226): "DY, DD MON YYYY HH24:MI:SS.FF TZHTZM"
+          // RFC_DATE_HOUR24_MINUTE_SECOND_FRAC_TZ (line 226): "DY, DD MON YYYY HH24:MI:SS.FF
+          // TZHTZM"
           rfc("EEE, dd MMM yyyy HH:mm:ss", true, true),
 
-          // RFC_DATE_HOUR12_MINUTE_SECOND_MERIDIEM_TZ (line 232): "DY, DD MON YYYY HH12:MI:SS AM TZHTZM"
+          // RFC_DATE_HOUR12_MINUTE_SECOND_MERIDIEM_TZ (line 232): "DY, DD MON YYYY HH12:MI:SS AM
+          // TZHTZM"
           new DateTimeFormatterBuilder()
               .appendPattern("EEE, dd MMM yyyy hh:mm:ss a")
               .appendLiteral(' ')
@@ -248,7 +252,8 @@ final class XpDateTimeFormats {
           // RFC_DATE_HOUR12_MINUTE_SECOND_MERIDIEM (line 256): "DY, DD MON YYYY HH12:MI:SS AM"
           DateTimeFormatter.ofPattern("EEE, dd MMM yyyy hh:mm:ss a", Locale.ENGLISH),
 
-          // RFC_DATE_HOUR12_MINUTE_SECOND_FRAC_MERIDIEM (line 262): "DY, DD MON YYYY HH12:MI:SS.FF AM"
+          // RFC_DATE_HOUR12_MINUTE_SECOND_FRAC_MERIDIEM (line 262): "DY, DD MON YYYY HH12:MI:SS.FF
+          // AM"
           new DateTimeFormatterBuilder()
               .appendPattern("EEE, dd MMM yyyy hh:mm:ss")
               .appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true)
@@ -320,5 +325,4 @@ final class XpDateTimeFormats {
     }
     return Optional.empty();
   }
-
 }

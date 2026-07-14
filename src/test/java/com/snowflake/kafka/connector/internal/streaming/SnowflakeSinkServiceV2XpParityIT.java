@@ -58,8 +58,7 @@ public class SnowflakeSinkServiceV2XpParityIT extends SnowflakeSinkServiceV2Base
 
     // Offset 0: time without fractional seconds — XP rejects this, client-side validation must
     // catch it and route to DLQ rather than silently dropping it.
-    SinkRecord invalidRecord =
-        createKafkaRecordWithoutSchema("{\"COL_TIMETZ\":\"00:00:00Z\"}", 0);
+    SinkRecord invalidRecord = createKafkaRecordWithoutSchema("{\"COL_TIMETZ\":\"00:00:00Z\"}", 0);
     service.insert(invalidRecord);
 
     // Offset 1: time with fractional seconds — valid per XP, must be ingested.
@@ -89,8 +88,7 @@ public class SnowflakeSinkServiceV2XpParityIT extends SnowflakeSinkServiceV2Base
 
     InMemoryKafkaRecordErrorReporter errorReporter = startService();
 
-    SinkRecord record =
-        createKafkaRecordWithoutSchema("{\"COL_TS\":\"2024-01-15 10:30:00\"}", 0);
+    SinkRecord record = createKafkaRecordWithoutSchema("{\"COL_TS\":\"2024-01-15 10:30:00\"}", 0);
     service.insert(record);
 
     Assertions.assertEquals(
@@ -108,8 +106,8 @@ public class SnowflakeSinkServiceV2XpParityIT extends SnowflakeSinkServiceV2Base
   /**
    * Builds and starts the streaming sink service with client-side validation enabled and error
    * tolerance on. The caller must have already created (and optionally altered) the target table.
-   * The built service is stored in {@link #service} for teardown; the returned
-   * {@link InMemoryKafkaRecordErrorReporter} can be inspected after inserts.
+   * The built service is stored in {@link #service} for teardown; the returned {@link
+   * InMemoryKafkaRecordErrorReporter} can be inspected after inserts.
    */
   private InMemoryKafkaRecordErrorReporter startService() throws Exception {
     Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
