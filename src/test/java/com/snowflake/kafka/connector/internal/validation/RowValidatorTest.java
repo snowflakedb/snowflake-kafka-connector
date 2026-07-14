@@ -1561,6 +1561,32 @@ public class RowValidatorTest {
     assertEquals("BIN_COL", result.getColumnName());
   }
 
+  // ================ SNOW-3766306: TIME/DATE normalization ================
+
+  @Test
+  public void validateRow_timeOffset_isNormalizedAndValid() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = new RowValidator(schema);
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "00:00:00Z");
+    ValidationResult r = v.validateRow(row);
+    assertTrue(r.isValid());
+    assertEquals("00:00", row.get("TS")); // normalized in place
+  }
+
+  @Test
+  public void validateRow_isostringZDate_landsAsDate() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("D", ColumnSchema.fromDescribeTableFields("D", "DATE", "Y"));
+    RowValidator v = new RowValidator(schema);
+    Map<String, Object> row = new HashMap<>();
+    row.put("D", "2017-09-15Z");
+    ValidationResult r = v.validateRow(row);
+    assertTrue(r.isValid());
+    assertEquals("2017-09-15", row.get("D"));
+  }
+
   // ================ Timestamp normalization Tests ================
 
   /**

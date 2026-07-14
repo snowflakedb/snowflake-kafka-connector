@@ -217,20 +217,23 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
-        DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
-        break;
+        // SNOW-3766306: normalize to canonical date string (strips offset, supports trailing-Z)
+        return DataValidationUtil.validateAndFormatDate(col.getName(), value, insertRowIndex);
 
       case TIME:
-        DataValidationUtil.validateAndParseTime(
-            col.getName(), value, col.getScale() != null ? col.getScale() : 9, insertRowIndex);
-        break;
+        // SNOW-3766306: normalize to canonical local-time string (strips offset)
+        return DataValidationUtil.validateAndFormatTime(col.getName(), value, insertRowIndex);
 
       case TIMESTAMP_NTZ:
-        return validateAndNormalizeTimestamp(col, value, /* trimTimezone= */ true, insertRowIndex);
+        // SNOW-3766306: all inputs normalized to ISO string (not just Integer/Long)
+        return DataValidationUtil.validateAndFormatTimestamp(
+            col.getName(), value, defaultTimezone, /* trimTimezone= */ true, insertRowIndex);
 
       case TIMESTAMP_LTZ:
       case TIMESTAMP_TZ:
-        return validateAndNormalizeTimestamp(col, value, /* trimTimezone= */ false, insertRowIndex);
+        // SNOW-3766306: all inputs normalized to ISO string (not just Integer/Long)
+        return DataValidationUtil.validateAndFormatTimestamp(
+            col.getName(), value, defaultTimezone, /* trimTimezone= */ false, insertRowIndex);
 
       case VARIANT:
         // When input is a String, the SSv2 SDK stores it as a JSON-quoted string (e.g.
@@ -265,27 +268,6 @@ public class RowValidator {
         throw new SFExceptionValidation(
             ErrorCode.UNKNOWN_DATA_TYPE, col.getName(), col.getLogicalType());
     }
-    return value;
-  }
-
-  /**
-   * Validate and optionally normalize a timestamp value. Integer/Long epoch values are converted to
-   * ISO strings so the SSv2 SDK interprets them correctly; other types are validated in place.
-   */
-  private Object validateAndNormalizeTimestamp(
-      ColumnSchema col, Object value, boolean trimTimezone, long insertRowIndex)
-      throws SFExceptionValidation {
-    if (value instanceof Integer || value instanceof Long) {
-      return DataValidationUtil.validateAndFormatTimestamp(
-          col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
-    }
-    DataValidationUtil.validateAndParseTimestamp(
-        col.getName(),
-        value,
-        col.getScale() != null ? col.getScale() : 9,
-        defaultTimezone,
-        trimTimezone,
-        insertRowIndex);
     return value;
   }
 

@@ -763,8 +763,13 @@ class DataValidationUtil {
    * serialization), this method returns a human-readable ISO string suitable for passing to the
    * SSv2 SDK.
    *
-   * <p>This is used by RowValidator to normalize Integer/Long epoch values into unambiguous ISO
-   * strings, so the Snowflake backend interprets them correctly regardless of channel timezone.
+   * <p>This is used by RowValidator to normalize all temporal inputs (String, Integer/Long epoch,
+   * java.time.*) into unambiguous ISO strings, so the Snowflake backend interprets them correctly
+   * regardless of channel timezone.
+   *
+   * <p>For String inputs ending with a trailing 'Z' that cannot otherwise be parsed (e.g. an
+   * ISO-8601 bare date with a UTC 'Z' like "2017-09-15Z"), the trailing 'Z' is stripped and parsing
+   * is retried once.
    *
    * <p>Note: Unlike {@link #validateAndParseTimestamp}, this method omits the {@code scale}
    * parameter because it only handles Integer/Long epoch inputs which have no fractional seconds.
@@ -786,8 +791,32 @@ class DataValidationUtil {
       input = input.toString();
     }
 
-    OffsetDateTime offsetDateTime =
-        inputToOffsetDateTime(columnName, "TIMESTAMP", input, defaultTimezone, insertRowIndex);
+    // Trailing-Z fallback for ISO-8601 values with a UTC 'Z' on a bare date (e.g. "2017-09-15Z"):
+    // if the string doesn't parse normally but ends with 'Z', strip the Z and retry.
+    OffsetDateTime offsetDateTime;
+    if (input instanceof String) {
+      String s = (String) input;
+      try {
+        offsetDateTime =
+            inputToOffsetDateTime(columnName, "TIMESTAMP", s, defaultTimezone, insertRowIndex);
+      } catch (SFExceptionValidation e) {
+        if (s.endsWith("Z")) {
+          // Retry without trailing Z — covers "2017-09-15Z" → "2017-09-15"
+          offsetDateTime =
+              inputToOffsetDateTime(
+                  columnName,
+                  "TIMESTAMP",
+                  s.substring(0, s.length() - 1),
+                  defaultTimezone,
+                  insertRowIndex);
+        } else {
+          throw e;
+        }
+      }
+    } else {
+      offsetDateTime =
+          inputToOffsetDateTime(columnName, "TIMESTAMP", input, defaultTimezone, insertRowIndex);
+    }
 
     if (trimTimezone) {
       offsetDateTime = offsetDateTime.withOffsetSameLocal(ZoneOffset.UTC);
@@ -801,6 +830,123 @@ class DataValidationUtil {
               insertRowIndex, columnName, offsetDateTime));
     }
     return trimTimezone ? offsetDateTime.toLocalDateTime().toString() : offsetDateTime.toString();
+  }
+
+  /**
+   * Validates a TIME value and returns a canonical ISO local-time string suitable for passing to
+   * the SSv2 SDK (e.g. "00:00", "07:59:59.999999"). Any timezone/offset information in the input is
+   * stripped (matching KC v3 behavior where OffsetTime.parse discarded the offset).
+   *
+   * <p>Accept/reject behavior is identical to {@link #validateAndParseTime}: String inputs are
+   * tried as LocalTime, then OffsetTime, then integer-stored epoch. LocalTime and OffsetTime
+   * objects are accepted directly; all other types produce a type error.
+   *
+   * @param columnName Column name, used in error messages
+   * @param input TIME value (String, LocalTime, or OffsetTime)
+   * @param insertRowIndex Row index for error messages
+   * @return Canonical ISO local-time string (e.g. "00:00", "13:02:06.123456789")
+   */
+  static String validateAndFormatTime(String columnName, Object input, long insertRowIndex) {
+    LocalTime localTime;
+    if (input instanceof LocalTime) {
+      localTime = (LocalTime) input;
+    } else if (input instanceof OffsetTime) {
+      localTime = ((OffsetTime) input).toLocalTime();
+    } else if (input instanceof String) {
+      String stringInput = ((String) input).trim();
+      {
+        LocalTime lt = catchParsingError(() -> LocalTime.parse(stringInput));
+        if (lt != null) {
+          localTime = lt;
+          return localTime.toString();
+        }
+      }
+      {
+        OffsetTime ot = catchParsingError(() -> OffsetTime.parse(stringInput));
+        if (ot != null) {
+          localTime = ot.toLocalTime();
+          return localTime.toString();
+        }
+      }
+      {
+        Instant parsedInstant = catchParsingError(() -> parseInstantGuessScale(stringInput));
+        if (parsedInstant != null) {
+          localTime = LocalDateTime.ofInstant(parsedInstant, ZoneOffset.UTC).toLocalTime();
+          return localTime.toString();
+        }
+      }
+      throw valueFormatNotAllowedException(
+          columnName,
+          "TIME",
+          "Not a valid time, see"
+              + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview"
+              + " for the list of supported formats",
+          insertRowIndex);
+    } else {
+      throw typeNotAllowedException(
+          columnName,
+          input.getClass(),
+          "TIME",
+          new String[] {"String", "LocalTime", "OffsetTime"},
+          insertRowIndex);
+    }
+    return localTime.toString();
+  }
+
+  /**
+   * Validates a DATE value and returns a canonical ISO date string ("yyyy-MM-dd") suitable for
+   * passing to the SSv2 SDK.
+   *
+   * <p>Accept/reject behavior mirrors {@link #validateAndParseDate}. Additionally, String inputs
+   * ending with a trailing 'Z' that cannot otherwise be parsed (e.g. an ISO-8601 bare date with a
+   * UTC 'Z' like "2017-09-15Z") are retried once with the trailing 'Z' stripped.
+   *
+   * @param columnName Column name, used in error messages
+   * @param input DATE value (String, LocalDate, LocalDateTime, OffsetDateTime, ZonedDateTime,
+   *     Instant, or integer-stored epoch as String)
+   * @param insertRowIndex Row index for error messages
+   * @return ISO date string ("yyyy-MM-dd")
+   */
+  static String validateAndFormatDate(String columnName, Object input, long insertRowIndex) {
+    LocalDate localDate;
+    if (input instanceof String) {
+      String s = (String) input;
+      try {
+        OffsetDateTime odt =
+            inputToOffsetDateTime(columnName, "DATE", s, ZoneOffset.UTC, insertRowIndex);
+        localDate = odt.toLocalDate();
+      } catch (SFExceptionValidation e) {
+        if (s.endsWith("Z")) {
+          // Trailing-Z fallback: strip the Z and retry (ISO-8601 bare date + UTC 'Z',
+          // "2017-09-15Z")
+          OffsetDateTime odt =
+              inputToOffsetDateTime(
+                  columnName,
+                  "DATE",
+                  s.substring(0, s.length() - 1),
+                  ZoneOffset.UTC,
+                  insertRowIndex);
+          localDate = odt.toLocalDate();
+        } else {
+          throw e;
+        }
+      }
+    } else {
+      OffsetDateTime odt =
+          inputToOffsetDateTime(columnName, "DATE", input, ZoneOffset.UTC, insertRowIndex);
+      localDate = odt.toLocalDate();
+    }
+
+    if (localDate.getYear() < -9999 || localDate.getYear() > 9999) {
+      throw new SFExceptionValidation(
+          ErrorCode.INVALID_VALUE_ROW,
+          String.format(
+              "Date out of representable inclusive range of years between -9999 and 9999,"
+                  + " rowIndex:%d, column:%s, value:%s",
+              insertRowIndex, columnName, localDate));
+    }
+
+    return localDate.toString();
   }
 
   /**

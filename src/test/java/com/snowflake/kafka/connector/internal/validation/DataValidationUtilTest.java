@@ -15,6 +15,9 @@ package com.snowflake.kafka.connector.internal.validation;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_16_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndFormatDate;
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndFormatTime;
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndFormatTimestamp;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArray;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArrayNew;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseBigDecimal;
@@ -1710,6 +1713,32 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_VALUE_ROW,
         () ->
             DataValidationUtil.validateAndFormatTimestamp("COL", "not_a_timestamp", UTC, true, 0));
+  }
+
+  // ================ SNOW-3766306: validateAndFormatTime / Date / Timestamp ================
+
+  @Test
+  public void formatTime_stripsOffset_toCanonical() {
+    assertEquals("00:00", validateAndFormatTime("COL", "00:00:00Z", 0));
+    assertEquals("22:00", validateAndFormatTime("COL", "22:00:00Z", 0));
+    assertEquals("07:59:59.999999", validateAndFormatTime("COL", "07:59:59.999999Z", 0));
+    assertEquals("10:30", validateAndFormatTime("COL", "10:30:00+05:00", 0));
+    assertEquals("10:30", validateAndFormatTime("COL", java.time.LocalTime.of(10, 30), 0));
+  }
+
+  @Test
+  public void formatDate_supportsIsostringZ() {
+    assertEquals("2017-09-15", validateAndFormatDate("COL", "2017-09-15Z", 0));
+    assertEquals("2017-09-15", validateAndFormatDate("COL", "2017-09-15", 0));
+    assertEquals("2017-09-15", validateAndFormatDate("COL", "2017-09-15T10:30:00Z", 0));
+  }
+
+  @Test
+  public void formatTimestamp_supportsIsostringZ_and_iso() {
+    // bare date-with-Z into timestamp -> midnight; existing forms unchanged
+    org.junit.Assert.assertNotNull(validateAndFormatTimestamp("COL", "2017-09-15Z", UTC, true, 0));
+    org.junit.Assert.assertNotNull(
+        validateAndFormatTimestamp("COL", "2024-01-15T10:30:00Z", UTC, false, 0));
   }
 
   private JsonNode readTree(String value) {
