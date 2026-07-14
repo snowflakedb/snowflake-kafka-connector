@@ -54,21 +54,7 @@ public class SnowflakeSinkServiceV2XpParityIT extends SnowflakeSinkServiceV2Base
     conn.createTableWithOnlyMetadataColumn(table);
     conn.executeQueryWithParameters("ALTER TABLE \"" + table + "\" ADD COLUMN COL_TIMETZ TIME(9)");
 
-    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "client_side");
-
-    SinkTaskConfig sinkTaskConfig =
-        SinkTaskConfig.builderFrom(config).tolerateErrors(true).dlqTopicName("dlq").build();
-
-    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
-
-    service =
-        StreamingSinkServiceBuilder.builder(conn, sinkTaskConfig)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withErrorReporter(errorReporter)
-            .build();
-    service.startPartition(topicPartition);
-    service.awaitInitialization();
+    InMemoryKafkaRecordErrorReporter errorReporter = startService();
 
     // Offset 0: time without fractional seconds — XP rejects this, client-side validation must
     // catch it and route to DLQ rather than silently dropping it.
@@ -101,21 +87,7 @@ public class SnowflakeSinkServiceV2XpParityIT extends SnowflakeSinkServiceV2Base
     conn.executeQueryWithParameters(
         "ALTER TABLE \"" + table + "\" ADD COLUMN COL_TS TIMESTAMP_NTZ(9)");
 
-    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
-    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "client_side");
-
-    SinkTaskConfig sinkTaskConfig =
-        SinkTaskConfig.builderFrom(config).tolerateErrors(true).dlqTopicName("dlq").build();
-
-    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
-
-    service =
-        StreamingSinkServiceBuilder.builder(conn, sinkTaskConfig)
-            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
-            .withErrorReporter(errorReporter)
-            .build();
-    service.startPartition(topicPartition);
-    service.awaitInitialization();
+    InMemoryKafkaRecordErrorReporter errorReporter = startService();
 
     SinkRecord record =
         createKafkaRecordWithoutSchema("{\"COL_TS\":\"2024-01-15 10:30:00\"}", 0);
@@ -132,6 +104,31 @@ public class SnowflakeSinkServiceV2XpParityIT extends SnowflakeSinkServiceV2Base
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
+
+  /**
+   * Builds and starts the streaming sink service with client-side validation enabled and error
+   * tolerance on. The caller must have already created (and optionally altered) the target table.
+   * The built service is stored in {@link #service} for teardown; the returned
+   * {@link InMemoryKafkaRecordErrorReporter} can be inspected after inserts.
+   */
+  private InMemoryKafkaRecordErrorReporter startService() throws Exception {
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "client_side");
+
+    SinkTaskConfig sinkTaskConfig =
+        SinkTaskConfig.builderFrom(config).tolerateErrors(true).dlqTopicName("dlq").build();
+
+    InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
+
+    service =
+        StreamingSinkServiceBuilder.builder(conn, sinkTaskConfig)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(errorReporter)
+            .build();
+    service.startPartition(topicPartition);
+    service.awaitInitialization();
+    return errorReporter;
+  }
 
   private SinkRecord createKafkaRecordWithoutSchema(String jsonPayload, long offset) {
     JsonConverter jsonConverter = new JsonConverter();

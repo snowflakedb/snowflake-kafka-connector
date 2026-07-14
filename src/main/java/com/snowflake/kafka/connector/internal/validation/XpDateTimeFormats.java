@@ -42,7 +42,13 @@ final class XpDateTimeFormats {
 
   private static DateTimeFormatter dt(String pattern, boolean frac, OffsetStyle off) {
     DateTimeFormatterBuilder b = new DateTimeFormatterBuilder().appendPattern(pattern);
-    if (frac) b.appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true);
+    b.parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+     .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0);
+    if (frac) {
+      b.appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true);
+    } else {
+      b.parseDefaulting(ChronoField.NANO_OF_SECOND, 0);
+    }
     switch (off) {
       case COLON:
         b.appendOffset("+HH:MM", "Z");
@@ -74,7 +80,7 @@ final class XpDateTimeFormats {
           new DateTimeFormatterBuilder()
               .appendPattern("HH:mm:ss")
               .appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true)
-              .appendOffsetId()
+              .appendOffset("+HH:MM", "Z")
               .toFormatter(Locale.ROOT),
           // ISO_HOUR24_MINUTE_SECOND_FRAC     "HH24:MI:SS.FF" (line 278)
           new DateTimeFormatterBuilder()
@@ -103,9 +109,6 @@ final class XpDateTimeFormats {
   //
   // UNMAPPED entries (cannot be expressed in java.time):
   //   SNOWFLAKE_SDL_TIMESTAMPTZ (line 70): uses internal "Ztz=TZIDX" TZ-index encoding
-  //   RFC_DATE_HOUR24_MINUTE_SECOND_TZ (line 220): "DY, DD MON YYYY HH24:MI:SS TZHTZM"
-  //     — abbreviated day-of-week + comma is parseable in theory, but the server's "DY"
-  //       (e.g. "Mon") is locale-specific and the comma is structural; included below.
   //   TWITTER_DATE_HOUR24_MIN_SEC_TZ_YEAR (line 267): "DY MON DD HH24:MI:SS TZHTZM YYYY"
   //     — year at end; java.time parseBest cannot easily handle year-at-end reordering;
   //       excluded. See UNMAPPED comment below.
@@ -270,9 +273,14 @@ final class XpDateTimeFormats {
   // -------------------------------------------------------------------------
   private static Optional<OffsetDateTime> tryEpoch(String s) {
     if (!s.matches("[+-]?\\d+")) return Optional.empty();
+    // Reject values beyond Long.MAX_VALUE range (19 digits max for a positive long).
+    // parseInstantGuessScale interprets huge values as nanoseconds via BigInteger, which
+    // silently produces absurd far-future/past dates; reject early instead.
+    String digits = s.startsWith("+") || s.startsWith("-") ? s.substring(1) : s;
+    if (digits.length() > 19) return Optional.empty();
     try {
       return Optional.of(DataValidationUtil.parseInstantGuessScale(s).atOffset(ZoneOffset.UTC));
-    } catch (NumberFormatException e) {
+    } catch (NumberFormatException | java.time.DateTimeException e) {
       return Optional.empty();
     }
   }
@@ -313,8 +321,4 @@ final class XpDateTimeFormats {
     return Optional.empty();
   }
 
-  static Optional<OffsetDateTime> tryParseDate(String input, ZoneId defaultTz) {
-    // Delegate to tryParseTimestamp; caller retains only the date part as needed.
-    return tryParseTimestamp(input, defaultTz);
-  }
 }

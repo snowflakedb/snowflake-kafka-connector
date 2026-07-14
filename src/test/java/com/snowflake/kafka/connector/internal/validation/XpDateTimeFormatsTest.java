@@ -46,9 +46,9 @@ public class XpDateTimeFormatsTest {
   @Test
   public void date_acceptsIsoAndDatetime() {
     java.time.ZoneId utc = java.time.ZoneOffset.UTC;
-    assertTrue(XpDateTimeFormats.tryParseDate("2024-01-15", utc).isPresent());
-    assertTrue(XpDateTimeFormats.tryParseDate("2024-01-15T10:30:00Z", utc).isPresent());
-    assertTrue(XpDateTimeFormats.tryParseDate("2024-01-15 10:30:00", utc).isPresent());
+    assertTrue(XpDateTimeFormats.tryParseTimestamp("2024-01-15", utc).isPresent());
+    assertTrue(XpDateTimeFormats.tryParseTimestamp("2024-01-15T10:30:00Z", utc).isPresent());
+    assertTrue(XpDateTimeFormats.tryParseTimestamp("2024-01-15 10:30:00", utc).isPresent());
   }
 
   @Test
@@ -62,5 +62,27 @@ public class XpDateTimeFormatsTest {
   @Test
   public void formatCountMatchesServerList() {
     assertEquals(XpDateTimeFormats.EXPECTED_TS_FORMAT_COUNT, XpDateTimeFormats.tsFormatCount());
+  }
+
+  @Test
+  public void time_rejectsNonColonOffset() {
+    assertTrue(XpDateTimeFormats.tryParseTime("07:59:59.999999Z").isPresent());
+    assertTrue(XpDateTimeFormats.tryParseTime("07:59:59.999999+05:30").isPresent());
+    assertFalse(XpDateTimeFormats.tryParseTime("07:59:59.999999+0530").isPresent());
+  }
+
+  @Test
+  public void timestamp_hugeNumericString_isRejectedNotThrown() {
+    // 25-digit all-digit string: must return empty (rejected), NOT throw.
+    assertFalse(XpDateTimeFormats.tryParseTimestamp("9999999999999999999999999",
+        java.time.ZoneOffset.UTC).isPresent());
+  }
+
+  @Test
+  public void timestamp_partialTime_keepsHourMinute() {
+    java.time.OffsetDateTime odt =
+        XpDateTimeFormats.tryParseTimestamp("2024-01-15 10:30", java.time.ZoneOffset.UTC).get();
+    assertEquals(10, odt.getHour());
+    assertEquals(30, odt.getMinute());
   }
 }
