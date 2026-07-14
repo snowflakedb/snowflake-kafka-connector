@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
@@ -1001,38 +1002,22 @@ class SnowflakeSinkRecordTest {
   }
 
   @Test
-  void testIcebergMetadata_extraFieldIsDropped() {
-    // Fields outside ICEBERG_METADATA_FIELDS must be dropped by conformIcebergMetadata. We inject
-    // one via a custom metadata config that enables all standard flags; the "extra" field comes
-    // from a header that we deliberately do NOT put on the record — instead we verify that if the
-    // raw metadata happened to contain an unknown key it would be absent from the conformed map.
-    // The simplest way to test this is via a record whose raw metadata contains a field that is
-    // NOT in the Iceberg schema. We pass the raw metadata through the public API.
-    //
-    // Strategy: a record whose topic is one of the real field names but the *key* value comes
-    // from an INT schema — so the raw metadata will have "key"=Integer. After conform, "key" must
-    // be a String. No extra fields may survive.
-    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
-    SinkRecord kafkaRecord =
-        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
-            .withKeySchema(Schema.STRING_SCHEMA)
-            .withKey("k1")
-            .withSchemaAndValue(schemaAndValue)
-            .withTimestamp(42L, TimestampType.CREATE_TIME)
-            .build();
+  void testIcebergMetadata_unknownFieldThrows() {
+    // buildMetadata only ever emits fields declared in ICEBERG_METADATA_FIELDS, so an out-of-schema
+    // field means KC metadata emission and the Iceberg RECORD_METADATA schema have drifted apart.
+    // conformIcebergMetadata surfaces that loudly (IllegalStateException) rather than silently
+    // dropping the field. No public path can inject a top-level metadata field outside the schema,
+    // so we call the (package-private) method directly with a crafted map.
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("topic", TOPIC);
+    raw.put("unexpectedField", "x");
 
-    SnowflakeSinkRecord record =
-        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
-
-    @SuppressWarnings("unchecked")
-    Map<String, Object> metadata =
-        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
-
-    // All present fields must be within the declared Iceberg schema.
+    IllegalStateException ex =
+        assertThrows(
+            IllegalStateException.class, () -> SnowflakeSinkRecord.conformIcebergMetadata(raw));
     assertTrue(
-        SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS.containsAll(metadata.keySet()),
-        "Conformed map must not contain fields outside ICEBERG_METADATA_FIELDS; got: "
-            + metadata.keySet());
+        ex.getMessage().contains("unexpectedField"),
+        "message should name the offending field; got: " + ex.getMessage());
   }
 
   @Test

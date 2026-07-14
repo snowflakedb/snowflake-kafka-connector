@@ -347,8 +347,11 @@ public final class SnowflakeSinkRecord {
    *   <li>Normalizes the timestamp field name: both {@code TimestampType.CREATE_TIME.name} ("
    *       CreateTime") and {@code TimestampType.LOG_APPEND_TIME.name} ("LogAppendTime") are mapped
    *       to the constant {@code "CreateTime"} declared in {@code ICEBERG_METADATA_OBJECT_SCHEMA}.
-   *   <li>Drops any field not in the Iceberg schema (extra fields would fail the strict
-   *       typed-OBJECT cast).
+   *   <li>Throws {@link IllegalStateException} if it encounters a field outside the Iceberg schema.
+   *       {@code buildMetadata} only ever emits schema fields, so this never fires in normal
+   *       operation — it fires only if KC metadata emission and the Iceberg schema drift apart (a
+   *       new field added on one side but not the other), which we want to surface loudly rather
+   *       than silently drop.
    *   <li>Coerces the {@code key} field to {@code String}: the schema declares {@code key STRING},
    *       but non-String-keyed topics (e.g. INT-keyed) yield a non-String key value.
    *   <li>Pads {@code key} and {@code headers} with {@code null} when absent. Unlike the
@@ -357,7 +360,8 @@ public final class SnowflakeSinkRecord {
    *       schema declares them and the strict cast rejects a missing field.
    * </ol>
    */
-  private static Map<String, Object> conformIcebergMetadata(Map<String, Object> metadata) {
+  // Package-private for testing.
+  static Map<String, Object> conformIcebergMetadata(Map<String, Object> metadata) {
     Map<String, Object> conformed = new HashMap<>();
     for (Map.Entry<String, Object> entry : metadata.entrySet()) {
       String field = entry.getKey();
@@ -366,7 +370,13 @@ public final class SnowflakeSinkRecord {
         field = CREATE_TIME;
       }
       if (!ICEBERG_METADATA_FIELD_SET.contains(field)) {
-        continue; // drop fields outside the Iceberg schema
+        throw new IllegalStateException(
+            "Unexpected metadata field '"
+                + field
+                + "' not in the managed-Iceberg RECORD_METADATA schema (ICEBERG_METADATA_FIELDS)."
+                + " KC metadata emission and the Iceberg schema have drifted: add the field to"
+                + " ICEBERG_METADATA_OBJECT_SCHEMA (GS) and ICEBERG_METADATA_FIELDS, or stop"
+                + " emitting it for managed Iceberg.");
       }
       Object value = entry.getValue();
       // The schema declares `key STRING`, but the record key can convert to a non-String (e.g. an
