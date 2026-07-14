@@ -1061,19 +1061,19 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type VARIANT, rowIndex:0, reason:"
-            + " Variant too long: length=18874376 maxLength=16777152",
+            + " Variant too long: length=18874376 maxLength=16777216",
         () -> validateAndParseVariant("COL", m, 0));
     expectErrorCodeAndMessage(
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type ARRAY, rowIndex:0, reason:"
-            + " Array too large. length=18874378 maxLength=16777152",
+            + " Array too large. length=18874378 maxLength=16777216",
         () -> validateAndParseArray("COL", m, 0));
     expectErrorCodeAndMessage(
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type OBJECT, rowIndex:0, reason:"
-            + " Object too large. length=18874376 maxLength=16777152",
+            + " Object too large. length=18874376 maxLength=16777216",
         () -> validateAndParseObject("COL", m, 0));
   }
 
@@ -1713,6 +1713,24 @@ public class DataValidationUtilTest {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  // ================ XP-parity scalar/semi-structured tests (SNOW-3766306) ================
+
+  @Test
+  public void real_acceptsServerInfNanSpellings() {
+    assertEquals(Double.POSITIVE_INFINITY, validateAndParseReal("COL", "+inf", 0), 0.0);
+    assertEquals(Double.POSITIVE_INFINITY, validateAndParseReal("COL", "infinity", 0), 0.0);
+    assertEquals(Double.POSITIVE_INFINITY, validateAndParseReal("COL", "INFINITY", 0), 0.0);
+    assertEquals(Double.NEGATIVE_INFINITY, validateAndParseReal("COL", "-inf", 0), 0.0);
+    Assert.assertTrue(Double.isNaN(validateAndParseReal("COL", "+nan", 0)));
+  }
+
+  @Test
+  public void variant_acceptsUpToServerLimit() {
+    // A minified JSON string just under 16MB (previously rejected by the 64-byte margin).
+    String almost = "\"" + buildString("a", DataValidationUtil.BYTES_16_MB - 2) + "\"";
+    validateAndParseVariant("COL", almost, 0); // must not throw
   }
 
   // ================ XP-parity temporal tests (SNOW-3766306) ================

@@ -74,9 +74,10 @@ class DataValidationUtil {
   public static final int BYTES_8_MB = 8 * 1024 * 1024;
   public static final int BYTES_16_MB = 2 * BYTES_8_MB;
 
-  // TODO SNOW-664249: There is a few-byte mismatch between the value sent by the user and its
-  // server-side representation. Validation leaves a small buffer for this difference.
-  static final int MAX_SEMI_STRUCTURED_LENGTH = BYTES_16_MB - 64;
+  // Aligned to XP DEFAULT_MAX_LOB_LENGTH (16,777,216). NOTE: the client measures the minified
+  // JSON-string byte length while XP limits the ObjectData binary encoding — different quantities,
+  // so this is a close proxy, not a byte-perfect match (SNOW-664249, SNOW-3766306).
+  static final int MAX_SEMI_STRUCTURED_LENGTH = BYTES_16_MB;
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -1038,14 +1039,17 @@ class DataValidationUtil {
       try {
         return Double.parseDouble(stringInput);
       } catch (NumberFormatException err) {
-        stringInput = stringInput.toLowerCase();
-        switch (stringInput) {
+        String v = stringInput.toLowerCase();
+        boolean neg = v.startsWith("-");
+        if (v.startsWith("+") || v.startsWith("-")) {
+          v = v.substring(1);
+        }
+        switch (v) {
           case "nan":
             return Double.NaN;
           case "inf":
-            return Double.POSITIVE_INFINITY;
-          case "-inf":
-            return Double.NEGATIVE_INFINITY;
+          case "infinity":
+            return neg ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY;
           default:
             throw valueFormatNotAllowedException(
                 columnName, "REAL", "Not a valid decimal number", insertRowIndex);
