@@ -51,7 +51,7 @@ public abstract class SinkTaskConfig {
 
   public abstract TableType getTableType();
 
-  public abstract String getIcebergCreateTableOptions();
+  public abstract Optional<String> getIcebergCreateTableOptions();
 
   public abstract boolean isEnableColumnIdentifierNormalization();
 
@@ -391,13 +391,12 @@ public abstract class SinkTaskConfig {
         TableType.fromConfig(config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE))
             .orElse(TableType.SNOWFLAKE);
 
-    String icebergCreateTableOptions =
-        config
-            .getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS,
-                KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT)
-            .trim();
-    if (!icebergCreateTableOptions.isEmpty() && tableType != TableType.ICEBERG) {
+    Optional<String> icebergCreateTableOptions =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty());
+    if (icebergCreateTableOptions.isPresent() && tableType != TableType.ICEBERG) {
       throw new IllegalArgumentException(
           KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS
               + " is only valid when "
@@ -544,7 +543,7 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder tableType(TableType tableType);
 
-    public abstract Builder icebergCreateTableOptions(String icebergCreateTableOptions);
+    public abstract Builder icebergCreateTableOptions(Optional<String> icebergCreateTableOptions);
 
     public abstract Builder enableColumnIdentifierNormalization(
         boolean enableColumnIdentifierNormalization);

@@ -554,7 +554,7 @@ class SnowflakeSinkServiceV2Test {
         .connectorName(CONNECTOR_NAME)
         .taskId("0")
         .tableType(type)
-        .icebergCreateTableOptions(createTableOptions)
+        .icebergCreateTableOptions(Optional.ofNullable(createTableOptions))
         .build();
   }
 
@@ -662,7 +662,7 @@ class SnowflakeSinkServiceV2Test {
             .taskId("0")
             .tableType(TableType.ICEBERG)
             .enableSchematization(false)
-            .icebergCreateTableOptions("EXTERNAL_VOLUME='v'")
+            .icebergCreateTableOptions(Optional.of("EXTERNAL_VOLUME='v'"))
             .build();
     SnowflakeSinkServiceV2 svc = newService(conn, config);
 
@@ -682,7 +682,7 @@ class SnowflakeSinkServiceV2Test {
             .taskId("0")
             .tableType(TableType.ICEBERG)
             .enableSchematization(false)
-            .icebergCreateTableOptions("ICEBERG_VERSION=3")
+            .icebergCreateTableOptions(Optional.of("ICEBERG_VERSION=3"))
             .build();
     SnowflakeSinkServiceV2 svc = newService(conn, config);
 

@@ -296,7 +296,7 @@ public class SinkTaskConfigTest {
     SinkTaskConfig config = SinkTaskConfig.from(raw);
     assertThat(config.getTableType()).isEqualTo(TableType.ICEBERG);
     assertThat(config.getIcebergCreateTableOptions())
-        .isEqualTo("EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3");
+        .contains("EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3");
   }
 
   @Test
