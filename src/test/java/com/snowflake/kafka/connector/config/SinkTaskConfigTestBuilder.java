@@ -65,8 +65,6 @@ public final class SinkTaskConfigTestBuilder {
         // production builder() stays free of test-only defaults.
         .tableType(
             TableType.fromConfig(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT)
-                .orElse(TableType.SNOWFLAKE))
-        .icebergCreateTableOptions(
-            KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT);
+                .orElse(TableType.SNOWFLAKE));
   }
 }

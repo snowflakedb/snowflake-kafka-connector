@@ -296,6 +296,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         if (!taskConfig.isEnableSchematization()
             && !taskConfig
                 .getIcebergCreateTableOptions()
+                .orElse("")
                 .matches("(?is).*ICEBERG_VERSION\\s*=\\s*3(?!\\d).*")) {
           throw SnowflakeErrors.ERROR_0034.getException(
               "Auto-creating Iceberg table '"
@@ -307,9 +308,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         LOGGER.info(
             "Creating new Iceberg table {} (createTableOptions='{}').",
             tableName,
-            taskConfig.getIcebergCreateTableOptions());
+            taskConfig.getIcebergCreateTableOptions().orElse(""));
         this.conn.createIcebergTableWithOnlyMetadataColumn(
-            tableName, taskConfig.getIcebergCreateTableOptions());
+            tableName, taskConfig.getIcebergCreateTableOptions().orElse(""));
         break;
       case NONE:
         // Missing table + none: fail loudly and tell the operator their two ways out.
