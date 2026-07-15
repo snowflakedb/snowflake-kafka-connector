@@ -1,7 +1,7 @@
 """Iceberg schema evolution E2E tests — JSON format.
 
 Tests client-side SE (RowValidator-driven ``ALTER ICEBERG TABLE ADD COLUMN``)
-and documents the server-side SE limitation (xfail).
+and server-side SE (``ENABLE_SCHEMA_EVOLUTION`` on the table, validation=false).
 
 v4-only: v3 iceberg support was removed in v4.
 """
@@ -186,17 +186,6 @@ def test_iceberg_se_multi_wave(
 
 @pytest.mark.iceberg
 @pytest.mark.schema_evolution
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Server-side SE (ENABLE_SCHEMA_EVOLUTION on the table, validation=false) "
-        "silently discards typed (non-VARIANT) column additions on iceberg tables. "
-        "Client-side SE (validation=true) does work after fixing the connector to "
-        "issue ALTER ICEBERG TABLE ADD COLUMN, but this test exercises the HT path "
-        "(validation=false) where server-side SE is the only mechanism.  Remove "
-        "this xfail once Snowflake server-side SE supports typed columns on iceberg."
-    ),
-)
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
 def test_iceberg_se_json_server_side(
     driver: KafkaDriver,
