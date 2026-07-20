@@ -243,11 +243,12 @@ def test_iceberg_autocreate_multi_topic(
     record_count = initial_batch + flush_batch
 
     base = f"iceberg_se_autocreate_multi{name_salt}"
-    # Default topic->table mapping (no topic2table.map): the connector creates the
-    # table under the topic's exact (mixed) case, so query by `base`, NOT base.upper()
-    # (uppercasing would miss the case-sensitive table and select_number_of_records
-    # returns None). base already carries name_salt, so it's unique per run.
-    table_name = base
+    # This test routes both topics into one table via snowflake.topic2table.map (see
+    # _multi_topic_iceberg_config). The connector resolves the map target as an
+    # unquoted identifier -> UPPERCASES it, so the auto-created table is base.upper();
+    # query by that name. (Contrast the default-mapping tests below, which keep the
+    # topic's exact case and query by `base`.)
+    table_name = base.upper()
     topics = [f"{base}{i}" for i in range(2)]
     for t in topics:
         driver.createTopics(t, partitionNum=1, replicationNum=1)
