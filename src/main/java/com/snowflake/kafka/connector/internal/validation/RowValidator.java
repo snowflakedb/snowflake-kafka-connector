@@ -35,6 +35,7 @@ public class RowValidator {
   private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private final Map<String, ColumnSchema> columnSchemaMap;
+  private final boolean normalizeTime;
 
   /**
    * Default timezone for timestamp parsing, matching SSv1 SDK behavior.
@@ -47,7 +48,25 @@ public class RowValidator {
    */
   private final ZoneId defaultTimezone = ZoneId.of("America/Los_Angeles");
 
+  /**
+   * Creates a RowValidator with TIME normalization enabled (default).
+   *
+   * @param columnSchemaMap schema describing the target table columns
+   */
   public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
+    this(columnSchemaMap, true);
+  }
+
+  /**
+   * Creates a RowValidator.
+   *
+   * @param columnSchemaMap schema describing the target table columns
+   * @param normalizeTime when {@code true}, TIME strings with UTC offsets (e.g. {@code
+   *     "00:00:00Z"}) are normalized to {@link java.time.LocalTime} before passing to the SDK,
+   *     matching KC v3 behaviour (SNOW-3766306). When {@code false}, TIME values are passed through
+   *     raw. Controlled by {@code snowflake.feature.normalize.time}.
+   */
+  public RowValidator(Map<String, ColumnSchema> columnSchemaMap, boolean normalizeTime) {
     // Input validation
     Objects.requireNonNull(columnSchemaMap, "columnSchemaMap cannot be null");
     if (columnSchemaMap.isEmpty()) {
@@ -56,6 +75,7 @@ public class RowValidator {
 
     // Defensive copy for thread safety
     this.columnSchemaMap = Collections.unmodifiableMap(new HashMap<>(columnSchemaMap));
+    this.normalizeTime = normalizeTime;
   }
 
   /**
@@ -221,9 +241,13 @@ public class RowValidator {
         break;
 
       case TIME:
-        // SNOW-3766306: normalize to canonical local-time string (offset stripped) so values that
-        // pass client validation also land on the SSv2 server, matching KC v3.
-        return DataValidationUtil.validateAndFormatTime(col.getName(), value, insertRowIndex);
+        // SNOW-3766306: when normalizeTime is enabled (default), normalize offset-bearing TIME
+        // strings to LocalTime so they land on the SSv2 server rather than being silently dropped,
+        // matching KC v3 accept-and-strip behaviour. When disabled, pass through raw.
+        if (normalizeTime) {
+          return DataValidationUtil.validateAndFormatTime(col.getName(), value, insertRowIndex);
+        }
+        break;
 
       case TIMESTAMP_NTZ:
         return validateAndNormalizeTimestamp(col, value, /* trimTimezone= */ true, insertRowIndex);

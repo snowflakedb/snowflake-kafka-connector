@@ -302,6 +302,19 @@ public class ConnectorConfigDefinition {
             5,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT,
+            LOW,
+            "When true (default), TIME strings with a UTC offset (e.g. \"00:00:00Z\") are"
+                + " normalized to canonical LocalTime before passing to the SDK, matching KC v3"
+                + " accept-and-strip behaviour (SNOW-3766306). Set to false to disable"
+                + " normalization and pass TIME values through raw.",
+            SNOWFLAKE_METADATA_FLAGS_DOC,
+            6,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME)
 
         // Connector Config
         .define(

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalTime;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -1563,17 +1564,53 @@ public class RowValidatorTest {
 
   // ================ TIME normalization (SNOW-3766306) ================
 
+  /**
+   * With normalization enabled (default), a TIME string with a UTC offset is stripped to LocalTime.
+   * The row value must be a LocalTime after validation so the SSv2 SDK can serialize it correctly.
+   */
   @Test
   public void validateRow_timeOffset_isNormalized() {
-    java.util.Map<String, ColumnSchema> schema =
-        java.util.Collections.singletonMap(
-            "TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
     RowValidator v = new RowValidator(schema);
-    java.util.Map<String, Object> row = new java.util.HashMap<>();
+    Map<String, Object> row = new HashMap<>();
     row.put("TS", "00:00:00Z");
     ValidationResult r = v.validateRow(row);
-    org.junit.jupiter.api.Assertions.assertTrue(r.isValid());
-    org.junit.jupiter.api.Assertions.assertEquals("00:00", row.get("TS"));
+    assertTrue(r.isValid());
+    assertEquals(LocalTime.of(0, 0), row.get("TS"));
+  }
+
+  /**
+   * normalizeTime=true (explicit) — offset is stripped to LocalTime, same as the default
+   * constructor.
+   */
+  @Test
+  public void validateRow_timeOffset_normalizeEnabled_returnsLocalTime() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = new RowValidator(schema, /* normalizeTime= */ true);
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "13:02:06.123456789+05:00");
+    ValidationResult r = v.validateRow(row);
+    assertTrue(r.isValid());
+    assertEquals(LocalTime.of(13, 2, 6, 123456789), row.get("TS"));
+  }
+
+  /**
+   * normalizeTime=false — TIME validation is skipped; the raw String value is passed through
+   * unchanged. This is the pre-PR (kill-switch) behaviour.
+   */
+  @Test
+  public void validateRow_timeOffset_normalizeDisabled_rawValuePassedThrough() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = new RowValidator(schema, /* normalizeTime= */ false);
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "00:00:00Z");
+    ValidationResult r = v.validateRow(row);
+    // Validation is skipped; the row is structurally valid, but the raw String is untouched
+    assertTrue(r.isValid());
+    assertEquals("00:00:00Z", row.get("TS"));
   }
 
   // ================ Timestamp normalization Tests ================

@@ -150,6 +150,12 @@ public abstract class SinkTaskConfig {
    */
   public abstract boolean isValidationErrorTableNameEnabled();
 
+  /**
+   * Whether TIME strings with a UTC offset are normalized to {@link java.time.LocalTime} before
+   * passing to the SDK. See {@link KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_NORMALIZE_TIME}.
+   */
+  public abstract boolean isNormalizeTimeEnabled();
+
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
     return from(raw, false);
@@ -383,6 +389,11 @@ public abstract class SinkTaskConfig {
             .orElse(
                 KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
 
+    boolean normalizeTimeEnabled =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME))
+            .map(Boolean::parseBoolean)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT);
+
     Builder b = builder();
     b.connectorName(connectorName)
         .taskId(taskId)
@@ -418,7 +429,8 @@ public abstract class SinkTaskConfig {
         .assertPartitionAssignmentEnabled(assertPartitionAssignmentEnabled)
         .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled)
         .prometheusMetricsEnabled(prometheusMetricsEnabled)
-        .validationErrorTableNameEnabled(validationErrorTableNameEnabled);
+        .validationErrorTableNameEnabled(validationErrorTableNameEnabled)
+        .normalizeTimeEnabled(normalizeTimeEnabled);
 
     snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
     snowflakePrivateKeyPassphrase.ifPresent(b::snowflakePrivateKeyPassphrase);
@@ -544,6 +556,8 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder validationErrorTableNameEnabled(
         boolean validationErrorTableNameEnabled);
+
+    public abstract Builder normalizeTimeEnabled(boolean normalizeTimeEnabled);
 
     public abstract SinkTaskConfig build();
   }

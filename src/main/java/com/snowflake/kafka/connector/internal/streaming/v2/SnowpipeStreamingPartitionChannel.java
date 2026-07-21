@@ -600,7 +600,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
       RowValidator.validateSchema(this.tableSchema);
 
-      this.rowValidator = new RowValidator(this.tableSchema);
+      this.rowValidator = new RowValidator(this.tableSchema, taskConfig.isNormalizeTimeEnabled());
       this.schemaEvolutionService = new SnowflakeSchemaEvolutionService(conn);
 
       LOGGER.info(
