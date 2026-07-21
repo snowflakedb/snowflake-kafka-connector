@@ -86,14 +86,14 @@ class IcebergTable(Table):
     ``BASE_LOCATION``, ``ICEBERG_VERSION``) are appended automatically.
     """
 
-    def create(self, columns: str):
+    def create(self, columns: str, iceberg_version: int = 3):
         self.driver.snowflake_conn.cursor().execute(
             f"CREATE OR REPLACE ICEBERG TABLE {quote_name(self.name)} "
             f"{columns} "
             f"EXTERNAL_VOLUME = '{ICEBERG_EXTERNAL_VOLUME}' "
             f"CATALOG = 'SNOWFLAKE' "
             f"BASE_LOCATION = '{self.name}' "
-            f"ICEBERG_VERSION = 3"
+            f"ICEBERG_VERSION = {iceberg_version}"
         )
 
     def drop(self):
@@ -155,12 +155,16 @@ def create_iceberg_table(
     topics_to_cleanup: List[str] = []
 
     def _create(
-        unsalted_name: str = None, *, columns: str, cleanup_topic: bool = True
+        unsalted_name: str = None,
+        *,
+        columns: str,
+        cleanup_topic: bool = True,
+        iceberg_version: int = 3,
     ) -> IcebergTable:
         unsalted_name = unsalted_name or request.node.originalname
         table_name = unsalted_name + name_salt
         table = IcebergTable(driver, table_name)
-        table.create(columns)
+        table.create(columns, iceberg_version=iceberg_version)
         created_tables.append(table)
         if cleanup_topic:
             topics_to_cleanup.append(table.name)
