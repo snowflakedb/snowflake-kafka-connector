@@ -389,7 +389,7 @@ public abstract class SinkTaskConfig {
 
     TableType autocreatedTableType =
         TableType.fromConfig(config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE))
-            .orElse(TableType.SNOWFLAKE);
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT);
 
     Optional<String> icebergCreateTableOptions =
         Optional.ofNullable(
