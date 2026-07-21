@@ -413,10 +413,10 @@ public abstract class SinkTaskConfig {
         && validation == SnowflakeValidation.CLIENT_SIDE) {
       throw new IllegalArgumentException(
           KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
-              + "=client_side is not supported with "
-              + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
-              + "=iceberg. Managed Iceberg uses a structured RECORD_METADATA column that the"
-              + " client-side RowValidator cannot model. Set "
+              + "=client_side is not supported for managed Iceberg tables."
+              + " RECORD_METADATA is a structured OBJECT handled server-side;"
+              + " client-side validation cannot model it."
+              + " Set "
               + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
               + "=server_side.");
     }

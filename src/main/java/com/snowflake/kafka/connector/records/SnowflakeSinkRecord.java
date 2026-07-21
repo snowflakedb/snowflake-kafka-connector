@@ -32,7 +32,8 @@ public final class SnowflakeSinkRecord {
 
   // The managed-Iceberg metadata schema declares BOTH timestamp fields. A Kafka record carries
   // exactly one timestamp type per topic, so at most one of the two is ever populated for a given
-  // record; the other is absent from the raw metadata map and the ingest cast null-fills it.
+  // record; the other is absent from the raw metadata map, so conformIcebergMetadata pads it with
+  // null (the v2 structured-OBJECT cast rejects a missing declared field).
   static final String CREATE_TIME = "CreateTime";
   static final String LOG_APPEND_TIME = "LogAppendTime";
 
@@ -395,7 +396,15 @@ public final class SnowflakeSinkRecord {
       // The schema declares `headers MAP(VARCHAR, VARCHAR)`. When structured headers are enabled
       // convertHeaders keeps native (non-String) values; coerce each to String so the strict cast
       // accepts them (v3/VARIANT tables never reach here and keep headers as nested VARIANT).
-      if (HEADERS.equals(field) && value instanceof Map) {
+      // buildMetadata always produces a Map from convertHeaders, so a non-Map value is an
+      // invariant violation — fail loudly rather than silently skip the coercion.
+      if (HEADERS.equals(field) && value != null) {
+        if (!(value instanceof Map)) {
+          throw new IllegalStateException(
+              "HEADERS metadata field must be a Map when non-null, but got: "
+                  + value.getClass().getName()
+                  + ". KC metadata emission and ICEBERG_METADATA_FIELDS have drifted.");
+        }
         @SuppressWarnings("unchecked")
         Map<String, Object> headerMap = (Map<String, Object>) value;
         Map<String, String> stringified = new HashMap<>();
@@ -406,14 +415,15 @@ public final class SnowflakeSinkRecord {
       }
       conformed.put(field, value);
     }
-    // Pad every absent-able field with null so the strict v2 typed-OBJECT cast does not reject the
-    // row. A record carries exactly one timestamp type (the other is absent); key and headers are
-    // absent on keyless/headerless records. putIfAbsent is safe: it leaves already-populated fields
-    // (e.g. the present timestamp) untouched.
-    conformed.putIfAbsent(KEY, null);
-    conformed.putIfAbsent(HEADERS, null);
-    conformed.putIfAbsent(CREATE_TIME, null);
-    conformed.putIfAbsent(LOG_APPEND_TIME, null);
+    // Pad every declared OBJECT sub-field that the current record left absent. A record carries
+    // exactly one timestamp type (the other is absent); key and headers are absent on
+    // keyless/headerless records. Config-gated fields (topic, offset, partition,
+    // connector-push-time) are guaranteed present by config-time validation, so putIfAbsent
+    // is a no-op for them. Iterating ICEBERG_METADATA_FIELDS guarantees we can never miss a
+    // newly added field.
+    for (String f : ICEBERG_METADATA_FIELDS) {
+      conformed.putIfAbsent(f, null);
+    }
     return conformed;
   }
 
