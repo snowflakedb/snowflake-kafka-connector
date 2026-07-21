@@ -221,9 +221,9 @@ public class RowValidator {
         break;
 
       case TIME:
-        DataValidationUtil.validateAndParseTime(
-            col.getName(), value, col.getScale() != null ? col.getScale() : 9, insertRowIndex);
-        break;
+        // SNOW-3766306: normalize to canonical local-time string (offset stripped) so values that
+        // pass client validation also land on the SSv2 server, matching KC v3.
+        return DataValidationUtil.validateAndFormatTime(col.getName(), value, insertRowIndex);
 
       case TIMESTAMP_NTZ:
         return validateAndNormalizeTimestamp(col, value, /* trimTimezone= */ true, insertRowIndex);

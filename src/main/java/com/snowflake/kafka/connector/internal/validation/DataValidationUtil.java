@@ -1063,6 +1063,69 @@ class DataValidationUtil {
   }
 
   /**
+   * Validates a TIME input and returns the canonical local-time string with any UTC offset
+   * stripped, matching KC v3 behaviour (SNOW-3766306).
+   *
+   * <p>TIME strings that carry a UTC offset (e.g. {@code "00:00:00Z"}) are silently dropped by the
+   * SSv2 server but were accepted by KC v3 via {@link OffsetTime#parse} with the offset discarded.
+   * This method replicates that accept-and-strip behaviour so offset-bearing TIME strings land in
+   * the table instead of being silently dropped.
+   *
+   * <p>Accepted Java types: {@link String}, {@link LocalTime}, {@link OffsetTime}. Any offset is
+   * removed before returning; the result is the canonical {@link LocalTime#toString()} form (e.g.
+   * {@code "00:00"}, {@code "07:59:59.999999"}).
+   *
+   * @param columnName Column name for error messages
+   * @param input TIME value (String, LocalTime, or OffsetTime)
+   * @param insertRowIndex Row index for error messages
+   * @return Canonical local-time string (offset stripped)
+   */
+  static String validateAndFormatTime(String columnName, Object input, long insertRowIndex) {
+    if (input instanceof LocalTime) {
+      return ((LocalTime) input).toString();
+    } else if (input instanceof OffsetTime) {
+      return ((OffsetTime) input).toLocalTime().toString();
+    } else if (input instanceof String) {
+      String stringInput = ((String) input).trim();
+      {
+        // First, try to parse LocalTime
+        LocalTime parsed = catchParsingError(() -> LocalTime.parse(stringInput));
+        if (parsed != null) {
+          return parsed.toString();
+        }
+      }
+      {
+        // Alternatively, try to parse OffsetTime (handles "HH:mm:ssZ", "HH:mm:ss+05:00")
+        OffsetTime parsedOffset = catchParsingError(() -> OffsetTime.parse(stringInput));
+        if (parsedOffset != null) {
+          return parsedOffset.toLocalTime().toString();
+        }
+      }
+      {
+        // Alternatively, try to parse integer-stored time
+        Instant parsedInstant = catchParsingError(() -> parseInstantGuessScale(stringInput));
+        if (parsedInstant != null) {
+          return LocalDateTime.ofInstant(parsedInstant, ZoneOffset.UTC).toLocalTime().toString();
+        }
+      }
+      throw valueFormatNotAllowedException(
+          columnName,
+          "TIME",
+          "Not a valid time, see"
+              + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview"
+              + " for the list of supported formats",
+          insertRowIndex);
+    } else {
+      throw typeNotAllowedException(
+          columnName,
+          input.getClass(),
+          "TIME",
+          new String[] {"String", "LocalTime", "OffsetTime"},
+          insertRowIndex);
+    }
+  }
+
+  /**
    * Attempts to parse integer-stored date from string input. Tries to guess the scale according to
    * the rules documented at
    * https://docs.snowflake.com/en/user-guide/date-time-input-output.html#auto-detection-of-integer-stored-date-time-and-timestamp-values.

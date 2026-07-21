@@ -15,6 +15,7 @@ package com.snowflake.kafka.connector.internal.validation;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_16_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndFormatTime;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArray;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArrayNew;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseBigDecimal;
@@ -272,6 +273,16 @@ public class DataValidationUtilTest {
     expectError(
         ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", BigDecimal.ZERO, 3, 0));
     expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", 'c', 3, 0));
+  }
+
+  @Test
+  public void formatTime_stripsOffset_toCanonical() {
+    assertEquals("00:00", validateAndFormatTime("COL", "00:00:00Z", 0));
+    assertEquals("22:00", validateAndFormatTime("COL", "22:00:00Z", 0));
+    assertEquals("07:59:59.999999", validateAndFormatTime("COL", "07:59:59.999999Z", 0));
+    assertEquals("10:30", validateAndFormatTime("COL", "10:30:00+05:00", 0));
+    assertEquals("00:00", validateAndFormatTime("COL", "00:00:00", 0));
+    assertEquals("10:30", validateAndFormatTime("COL", java.time.LocalTime.of(10, 30), 0));
   }
 
   @Test
