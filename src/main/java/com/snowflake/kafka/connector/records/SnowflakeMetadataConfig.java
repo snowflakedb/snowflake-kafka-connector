@@ -54,11 +54,6 @@ public class SnowflakeMetadataConfig {
     return allFlag;
   }
 
-  /** Returns true when structured (native-typed) headers are enabled. */
-  public boolean isStructuredHeadersEnabled() {
-    return structuredHeadersFlag;
-  }
-
   /**
    * Returns {@code true} if all metadata fields that map to the managed-Iceberg {@code
    * RECORD_METADATA} structured schema are enabled: topic, offset+partition, createtime, and

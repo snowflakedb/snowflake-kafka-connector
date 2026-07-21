@@ -423,18 +423,18 @@ public class SinkTaskConfigTest {
     assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.SNOWFLAKE);
   }
 
-  // --- iceberg + structured headers validation ---
+  // --- structured headers ---
 
   @Test
-  void from_icebergWithStructuredHeaders_throws() {
+  void from_icebergWithStructuredHeaders_ok() {
+    // Structured headers + iceberg is allowed at config time. For v2 structured-OBJECT tables the
+    // header values are coerced to String in conformIcebergMetadata (schema is
+    // headers MAP(VARCHAR,VARCHAR)); v3/VARIANT keeps them nested. No config-time rejection.
     Map<String, String> raw = minimalConfig();
     raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
     raw.put(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS, "true");
-    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS)
-        .hasMessageContaining(SNOWFLAKE_AUTOCREATE_TABLE_TYPE)
-        .hasMessageContaining("iceberg");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.ICEBERG);
   }
 
   @Test
@@ -449,7 +449,7 @@ public class SinkTaskConfigTest {
 
   @Test
   void from_snowflakeTypeWithStructuredHeaders_ok() {
-    // The guard is Iceberg-only; standard Snowflake tables may use structured headers.
+    // Structured headers are allowed for all table types (no config-time restriction).
     Map<String, String> raw = minimalConfig();
     raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "snowflake");
     raw.put(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS, "true");
