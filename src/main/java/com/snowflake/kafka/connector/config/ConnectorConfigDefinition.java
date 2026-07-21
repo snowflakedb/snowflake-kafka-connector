@@ -502,7 +502,7 @@ public class ConnectorConfigDefinition {
         .define(
             KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE,
             STRING,
-            KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT,
+            KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT.configValue(),
             ConfigDef.ValidString.in("snowflake", "iceberg", "none"),
             MEDIUM,
             "Controls table auto-creation. 'snowflake' (default): auto-create a standard Snowflake"

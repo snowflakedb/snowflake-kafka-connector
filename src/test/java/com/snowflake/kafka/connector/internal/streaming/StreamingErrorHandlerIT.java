@@ -307,6 +307,7 @@ class StreamingErrorHandlerIT {
         errorHandler,
         TaskMetrics.noop(),
         false,
+        false,
         mock(SnowflakeConnectionService.class),
         Optional.empty());
   }

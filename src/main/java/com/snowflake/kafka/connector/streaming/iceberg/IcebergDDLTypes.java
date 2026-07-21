@@ -9,6 +9,7 @@ public class IcebergDDLTypes {
           + "partition INTEGER,"
           + "key STRING,"
           + "CreateTime BIGINT,"
+          + "LogAppendTime BIGINT,"
           + "SnowflakeConnectorPushTime BIGINT,"
           + "headers MAP(VARCHAR, VARCHAR)"
           + ")";

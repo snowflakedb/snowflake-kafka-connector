@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -18,6 +19,7 @@ import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.config.TableType;
+import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
@@ -26,6 +28,8 @@ import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
+import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -303,7 +307,7 @@ class SnowflakeSinkServiceV2Test {
         SinkTaskConfigTestBuilder.builder()
             .connectorName(CONNECTOR_NAME)
             .taskId("0")
-            .tableType(TableType.NONE)
+            .autocreatedTableType(TableType.NONE)
             .validation(SnowflakeValidation.SERVER_SIDE)
             .enableSanitization(false)
             .build();
@@ -553,7 +557,7 @@ class SnowflakeSinkServiceV2Test {
     return SinkTaskConfigTestBuilder.builder()
         .connectorName(CONNECTOR_NAME)
         .taskId("0")
-        .tableType(type)
+        .autocreatedTableType(type)
         .icebergCreateTableOptions(Optional.ofNullable(createTableOptions))
         .build();
   }
@@ -660,7 +664,7 @@ class SnowflakeSinkServiceV2Test {
         SinkTaskConfigTestBuilder.builder()
             .connectorName(CONNECTOR_NAME)
             .taskId("0")
-            .tableType(TableType.ICEBERG)
+            .autocreatedTableType(TableType.ICEBERG)
             .enableSchematization(false)
             .icebergCreateTableOptions(Optional.of("EXTERNAL_VOLUME='v'"))
             .build();
@@ -680,7 +684,7 @@ class SnowflakeSinkServiceV2Test {
         SinkTaskConfigTestBuilder.builder()
             .connectorName(CONNECTOR_NAME)
             .taskId("0")
-            .tableType(TableType.ICEBERG)
+            .autocreatedTableType(TableType.ICEBERG)
             .enableSchematization(false)
             .icebergCreateTableOptions(Optional.of("ICEBERG_VERSION=3"))
             .build();
@@ -689,6 +693,132 @@ class SnowflakeSinkServiceV2Test {
     svc.createTableIfNotExists("t1");
 
     verify(conn).createIcebergTableWithOnlyMetadataColumn("t1", "ICEBERG_VERSION=3");
+  }
+
+  // --- validateStructuredObjectMetadataSchema ---
+
+  @Test
+  void validateStructuredObjectMetadataSchema_allFieldsPresent_noThrow() {
+    // All ICEBERG_METADATA_FIELDS are declared → validation passes without throwing.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
+    when(conn.describeTable("t1"))
+        .thenReturn(
+            Optional.of(List.of(metadataRow(IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA))));
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    // Must not throw.
+    svc.createTableIfNotExists("t1");
+  }
+
+  @Test
+  void validateStructuredObjectMetadataSchema_missingField_throwsError0034() {
+    // OBJECT missing LogAppendTime → ERROR_0034 naming the missing field.
+    String objectTypeWithoutLogAppendTime =
+        "OBJECT("
+            + "offset LONG,"
+            + "topic STRING,"
+            + "partition INTEGER,"
+            + "key STRING,"
+            + "CreateTime BIGINT,"
+            + "SnowflakeConnectorPushTime BIGINT,"
+            + "headers MAP(VARCHAR, VARCHAR)"
+            + ")";
+
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
+    when(conn.describeTable("t1"))
+        .thenReturn(Optional.of(List.of(metadataRow(objectTypeWithoutLogAppendTime))));
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("LogAppendTime")
+        .hasMessageContaining("0034");
+  }
+
+  @Test
+  void validateStructuredObjectMetadataSchema_extraFields_noThrow() {
+    // OBJECT with all required fields PLUS an extra field → connector's map is a subset, fine.
+    String objectTypeWithExtra =
+        "OBJECT("
+            + "offset LONG,"
+            + "topic STRING,"
+            + "partition INTEGER,"
+            + "key STRING,"
+            + "CreateTime BIGINT,"
+            + "LogAppendTime BIGINT,"
+            + "SnowflakeConnectorPushTime BIGINT,"
+            + "headers MAP(VARCHAR, VARCHAR),"
+            + "extraField STRING"
+            + ")";
+
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
+    when(conn.describeTable("t1"))
+        .thenReturn(Optional.of(List.of(metadataRow(objectTypeWithExtra))));
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    // Must not throw — extra fields are acceptable.
+    svc.createTableIfNotExists("t1");
+  }
+
+  @Test
+  void validateStructuredObjectMetadataSchema_variantColumn_noValidation_noThrow() {
+    // isRecordMetadataStructuredObject=false (VARIANT or FDN table) → no describe call, no throw.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(false);
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    svc.createTableIfNotExists("t1"); // must not throw
+
+    verify(conn, never()).describeTable(anyString());
+  }
+
+  // --- parseObjectSubfieldNames ---
+
+  @Test
+  void parseObjectSubfieldNames_fullSchema_returnsAllFieldNames() {
+    Set<String> names =
+        SnowflakeSinkServiceV2.parseObjectSubfieldNames(
+            IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA);
+    assertThat(names)
+        .containsExactlyInAnyOrderElementsOf(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS);
+  }
+
+  @Test
+  void parseObjectSubfieldNames_nestedParens_parsesCorrectly() {
+    // MAP(VARCHAR, VARCHAR) contains a nested comma — must not split there.
+    Set<String> names =
+        SnowflakeSinkServiceV2.parseObjectSubfieldNames(
+            "OBJECT(a STRING, b MAP(VARCHAR, VARCHAR), c LONG)");
+    assertThat(names).containsExactlyInAnyOrder("a", "b", "c");
+  }
+
+  @Test
+  void parseObjectSubfieldNames_emptyObject_returnsEmpty() {
+    assertThat(SnowflakeSinkServiceV2.parseObjectSubfieldNames("OBJECT()")).isEmpty();
+  }
+
+  @Test
+  void parseObjectSubfieldNames_nonObjectType_returnsEmpty() {
+    assertThat(SnowflakeSinkServiceV2.parseObjectSubfieldNames("VARIANT")).isEmpty();
+    assertThat(SnowflakeSinkServiceV2.parseObjectSubfieldNames(null)).isEmpty();
+  }
+
+  // --- helper ---
+
+  /** Builds a DescribeTableRow representing the RECORD_METADATA column with the given type. */
+  private static DescribeTableRow metadataRow(String type) {
+    return new DescribeTableRow("RECORD_METADATA", type, "", "Y");
   }
 
   private SnowflakeSinkServiceV2 buildService(

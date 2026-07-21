@@ -63,8 +63,6 @@ public final class SinkTaskConfigTestBuilder {
         // Iceberg auto-creation defaults: SNOWFLAKE table type and empty create options.
         // These were previously defaulted in SinkTaskConfig.builder(); they now live here so
         // production builder() stays free of test-only defaults.
-        .tableType(
-            TableType.fromConfig(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT)
-                .orElse(TableType.SNOWFLAKE));
+        .autocreatedTableType(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT);
   }
 }
