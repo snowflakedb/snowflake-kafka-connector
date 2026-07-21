@@ -675,6 +675,21 @@ class DataValidationUtil {
         }
       }
 
+      {
+        // SNOW-3766306: trailing-'Z' fallback for ISO-8601 values carrying a UTC 'Z' that none of
+        // the parsers above accepted — most notably a bare date like "2017-09-15Z". Strip the
+        // trailing 'Z' and retry the whole cascade once. Recursion terminates because each pass
+        // removes one character.
+        if (stringInput.endsWith("Z")) {
+          return inputToOffsetDateTime(
+              columnName,
+              typeName,
+              stringInput.substring(0, stringInput.length() - 1),
+              defaultTimezone,
+              insertRowIndex);
+        }
+      }
+
       // Couldn't parse anything, throw an exception
       throw valueFormatNotAllowedException(
           columnName,
@@ -732,6 +747,23 @@ class DataValidationUtil {
       ZoneId defaultTimezone,
       boolean trimTimezone,
       long insertRowIndex) {
+    return new TimestampWrapper(
+        inputToTimestampOffsetDateTime(
+            columnName, input, defaultTimezone, trimTimezone, insertRowIndex),
+        scale);
+  }
+
+  /**
+   * Parses a TIMESTAMP input into an {@link OffsetDateTime}, applying the accept/reject cascade,
+   * optional timezone trimming, and representable-year-range check shared by {@link
+   * #validateAndParseTimestamp} and {@link #validateAndFormatTimestamp}.
+   */
+  private static OffsetDateTime inputToTimestampOffsetDateTime(
+      String columnName,
+      Object input,
+      ZoneId defaultTimezone,
+      boolean trimTimezone,
+      long insertRowIndex) {
     // Integer/Long epoch values from Kafka JsonConverter — delegate to the same
     // scale-guessing logic used for string-encoded epochs.  Only whole numbers
     // (Integer, Long) are accepted; fractional types (float, double, BigDecimal)
@@ -754,7 +786,7 @@ class DataValidationUtil {
                   + " rowIndex:%d, column:%s, value:%s",
               insertRowIndex, columnName, offsetDateTime));
     }
-    return new TimestampWrapper(offsetDateTime, scale);
+    return offsetDateTime;
   }
 
   /**
@@ -769,10 +801,11 @@ class DataValidationUtil {
    *
    * <p>For String inputs ending with a trailing 'Z' that cannot otherwise be parsed (e.g. an
    * ISO-8601 bare date with a UTC 'Z' like "2017-09-15Z"), the trailing 'Z' is stripped and parsing
-   * is retried once.
+   * is retried once (handled in {@link #inputToOffsetDateTime}).
    *
    * <p>Note: Unlike {@link #validateAndParseTimestamp}, this method omits the {@code scale}
-   * parameter because it only handles Integer/Long epoch inputs which have no fractional seconds.
+   * parameter — fractional seconds are preserved in the ISO string and the server truncates to the
+   * column's scale.
    *
    * @param columnName Column name, used in error messages
    * @param input Timestamp value (Integer, Long, String, or java.time.* object)
@@ -787,48 +820,9 @@ class DataValidationUtil {
       ZoneId defaultTimezone,
       boolean trimTimezone,
       long insertRowIndex) {
-    if (input instanceof Integer || input instanceof Long) {
-      input = input.toString();
-    }
-
-    // Trailing-Z fallback for ISO-8601 values with a UTC 'Z' on a bare date (e.g. "2017-09-15Z"):
-    // if the string doesn't parse normally but ends with 'Z', strip the Z and retry.
-    OffsetDateTime offsetDateTime;
-    if (input instanceof String) {
-      String s = (String) input;
-      try {
-        offsetDateTime =
-            inputToOffsetDateTime(columnName, "TIMESTAMP", s, defaultTimezone, insertRowIndex);
-      } catch (SFExceptionValidation e) {
-        if (s.endsWith("Z")) {
-          // Retry without trailing Z — covers "2017-09-15Z" → "2017-09-15"
-          offsetDateTime =
-              inputToOffsetDateTime(
-                  columnName,
-                  "TIMESTAMP",
-                  s.substring(0, s.length() - 1),
-                  defaultTimezone,
-                  insertRowIndex);
-        } else {
-          throw e;
-        }
-      }
-    } else {
-      offsetDateTime =
-          inputToOffsetDateTime(columnName, "TIMESTAMP", input, defaultTimezone, insertRowIndex);
-    }
-
-    if (trimTimezone) {
-      offsetDateTime = offsetDateTime.withOffsetSameLocal(ZoneOffset.UTC);
-    }
-    if (offsetDateTime.getYear() < 1 || offsetDateTime.getYear() > 9999) {
-      throw new SFExceptionValidation(
-          ErrorCode.INVALID_VALUE_ROW,
-          String.format(
-              "Timestamp out of representable inclusive range of years between 1 and 9999,"
-                  + " rowIndex:%d, column:%s, value:%s",
-              insertRowIndex, columnName, offsetDateTime));
-    }
+    OffsetDateTime offsetDateTime =
+        inputToTimestampOffsetDateTime(
+            columnName, input, defaultTimezone, trimTimezone, insertRowIndex);
     return trimTimezone ? offsetDateTime.toLocalDateTime().toString() : offsetDateTime.toString();
   }
 
@@ -847,50 +841,9 @@ class DataValidationUtil {
    * @return Canonical ISO local-time string (e.g. "00:00", "13:02:06.123456789")
    */
   static String validateAndFormatTime(String columnName, Object input, long insertRowIndex) {
-    LocalTime localTime;
-    if (input instanceof LocalTime) {
-      localTime = (LocalTime) input;
-    } else if (input instanceof OffsetTime) {
-      localTime = ((OffsetTime) input).toLocalTime();
-    } else if (input instanceof String) {
-      String stringInput = ((String) input).trim();
-      {
-        LocalTime lt = catchParsingError(() -> LocalTime.parse(stringInput));
-        if (lt != null) {
-          localTime = lt;
-          return localTime.toString();
-        }
-      }
-      {
-        OffsetTime ot = catchParsingError(() -> OffsetTime.parse(stringInput));
-        if (ot != null) {
-          localTime = ot.toLocalTime();
-          return localTime.toString();
-        }
-      }
-      {
-        Instant parsedInstant = catchParsingError(() -> parseInstantGuessScale(stringInput));
-        if (parsedInstant != null) {
-          localTime = LocalDateTime.ofInstant(parsedInstant, ZoneOffset.UTC).toLocalTime();
-          return localTime.toString();
-        }
-      }
-      throw valueFormatNotAllowedException(
-          columnName,
-          "TIME",
-          "Not a valid time, see"
-              + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview"
-              + " for the list of supported formats",
-          insertRowIndex);
-    } else {
-      throw typeNotAllowedException(
-          columnName,
-          input.getClass(),
-          "TIME",
-          new String[] {"String", "LocalTime", "OffsetTime"},
-          insertRowIndex);
-    }
-    return localTime.toString();
+    // Scale is intentionally not applied here: unlike validateAndParseTime (which truncates to the
+    // column scale), the canonical string is passed to the SDK and the server truncates to scale.
+    return inputToLocalTime(columnName, input, insertRowIndex).toString();
   }
 
   /**
@@ -908,45 +861,7 @@ class DataValidationUtil {
    * @return ISO date string ("yyyy-MM-dd")
    */
   static String validateAndFormatDate(String columnName, Object input, long insertRowIndex) {
-    LocalDate localDate;
-    if (input instanceof String) {
-      String s = (String) input;
-      try {
-        OffsetDateTime odt =
-            inputToOffsetDateTime(columnName, "DATE", s, ZoneOffset.UTC, insertRowIndex);
-        localDate = odt.toLocalDate();
-      } catch (SFExceptionValidation e) {
-        if (s.endsWith("Z")) {
-          // Trailing-Z fallback: strip the Z and retry (ISO-8601 bare date + UTC 'Z',
-          // "2017-09-15Z")
-          OffsetDateTime odt =
-              inputToOffsetDateTime(
-                  columnName,
-                  "DATE",
-                  s.substring(0, s.length() - 1),
-                  ZoneOffset.UTC,
-                  insertRowIndex);
-          localDate = odt.toLocalDate();
-        } else {
-          throw e;
-        }
-      }
-    } else {
-      OffsetDateTime odt =
-          inputToOffsetDateTime(columnName, "DATE", input, ZoneOffset.UTC, insertRowIndex);
-      localDate = odt.toLocalDate();
-    }
-
-    if (localDate.getYear() < -9999 || localDate.getYear() > 9999) {
-      throw new SFExceptionValidation(
-          ErrorCode.INVALID_VALUE_ROW,
-          String.format(
-              "Date out of representable inclusive range of years between -9999 and 9999,"
-                  + " rowIndex:%d, column:%s, value:%s",
-              insertRowIndex, columnName, localDate));
-    }
-
-    return localDate.toString();
+    return inputToLocalDate(columnName, input, insertRowIndex).toString();
   }
 
   /**
@@ -1075,6 +990,16 @@ class DataValidationUtil {
    * </ul>
    */
   static int validateAndParseDate(String columnName, Object input, long insertRowIndex) {
+    return Math.toIntExact(inputToLocalDate(columnName, input, insertRowIndex).toEpochDay());
+  }
+
+  /**
+   * Parses a DATE input into a {@link LocalDate}, applying the accept/reject cascade and
+   * representable-year-range check shared by {@link #validateAndParseDate} and {@link
+   * #validateAndFormatDate}. Dates carry no timezone, so inputs are interpreted in UTC. Trailing-'Z'
+   * ISO-8601 values (e.g. "2017-09-15Z") are handled by {@link #inputToOffsetDateTime}.
+   */
+  private static LocalDate inputToLocalDate(String columnName, Object input, long insertRowIndex) {
     OffsetDateTime offsetDateTime =
         inputToOffsetDateTime(columnName, "DATE", input, ZoneOffset.UTC, insertRowIndex);
 
@@ -1087,7 +1012,7 @@ class DataValidationUtil {
               insertRowIndex, columnName, offsetDateTime));
     }
 
-    return Math.toIntExact(offsetDateTime.toLocalDate().toEpochDay());
+    return offsetDateTime.toLocalDate();
   }
 
   /**
@@ -1154,19 +1079,28 @@ class DataValidationUtil {
    */
   static BigInteger validateAndParseTime(
       String columnName, Object input, int scale, long insertRowIndex) {
+    LocalTime localTime = inputToLocalTime(columnName, input, insertRowIndex);
+    return BigInteger.valueOf(localTime.toNanoOfDay()).divide(Power10Util.sb16Table[9 - scale]);
+  }
+
+  /**
+   * Parses a TIME input into a {@link LocalTime}, applying the accept/reject cascade shared by
+   * {@link #validateAndParseTime} and {@link #validateAndFormatTime}. Any timezone/offset in the
+   * input is stripped (matching KC v3 behavior where {@code OffsetTime.parse} discarded the offset).
+   * Allowed Java types: String, {@link LocalTime}, {@link OffsetTime}.
+   */
+  private static LocalTime inputToLocalTime(String columnName, Object input, long insertRowIndex) {
     if (input instanceof LocalTime) {
-      LocalTime localTime = (LocalTime) input;
-      return BigInteger.valueOf(localTime.toNanoOfDay()).divide(Power10Util.sb16Table[9 - scale]);
+      return (LocalTime) input;
     } else if (input instanceof OffsetTime) {
-      return validateAndParseTime(
-          columnName, ((OffsetTime) input).toLocalTime(), scale, insertRowIndex);
+      return ((OffsetTime) input).toLocalTime();
     } else if (input instanceof String) {
       String stringInput = ((String) input).trim();
       {
         // First, try to parse LocalTime
         LocalTime localTime = catchParsingError(() -> LocalTime.parse(stringInput));
         if (localTime != null) {
-          return validateAndParseTime(columnName, localTime, scale, insertRowIndex);
+          return localTime;
         }
       }
 
@@ -1174,7 +1108,7 @@ class DataValidationUtil {
         // Alternatively, try to parse OffsetTime
         OffsetTime offsetTime = catchParsingError((() -> OffsetTime.parse(stringInput)));
         if (offsetTime != null) {
-          return validateAndParseTime(columnName, offsetTime.toLocalTime(), scale, insertRowIndex);
+          return offsetTime.toLocalTime();
         }
       }
 
@@ -1182,11 +1116,7 @@ class DataValidationUtil {
         // Alternatively, try to parse integer-stored time
         Instant parsedInstant = catchParsingError(() -> parseInstantGuessScale(stringInput));
         if (parsedInstant != null) {
-          return validateAndParseTime(
-              columnName,
-              LocalDateTime.ofInstant(parsedInstant, ZoneOffset.UTC).toLocalTime(),
-              scale,
-              insertRowIndex);
+          return LocalDateTime.ofInstant(parsedInstant, ZoneOffset.UTC).toLocalTime();
         }
       }
 
