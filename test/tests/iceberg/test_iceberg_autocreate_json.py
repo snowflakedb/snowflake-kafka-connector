@@ -317,18 +317,16 @@ def test_iceberg_config_variants(
 
     The FDN ``test_schema_evolution_config_variants`` cells collapse for managed
     Iceberg:
-      * schematization=on + client_side -> rejected by the connector guard
-        (iceberg SE is server-side only); skipped here, asserted by the unit test
-        ``SinkTaskConfigTest`` / the e2e fail-fast behavior.
+      * client_side (any schematization) -> rejected unconditionally by the connector
+        guard; skipped here and asserted by the ``SinkTaskConfigTest`` unit test /
+        the e2e fail-fast behavior.
       * schematization=on + server_side -> SE path: extra columns are added.
-      * schematization=off (either validation) -> data lands in RECORD_CONTENT
-        VARIANT; client-side validation IS permitted because the guard only blocks
-        schematization+client_side.
+      * schematization=off + server_side -> data lands in RECORD_CONTENT VARIANT.
     """
-    if schematization and validation == "client_side":
+    if validation == "client_side":
         pytest.skip(
-            "iceberg + schematization + client_side is rejected by the connector"
-            " (server-side SE only); covered by SinkTaskConfig unit test"
+            "iceberg + client_side is rejected by the connector regardless of"
+            " schematization; covered by SinkTaskConfig unit test"
         )
 
     use_client_side = validation == "client_side"

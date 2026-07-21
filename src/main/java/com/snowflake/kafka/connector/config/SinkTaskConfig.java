@@ -49,7 +49,7 @@ public abstract class SinkTaskConfig {
 
   public abstract boolean isEnableSchematization();
 
-  public abstract TableType getTableType();
+  public abstract TableType getAutocreatedTableType();
 
   public abstract Optional<String> getIcebergCreateTableOptions();
 
@@ -406,23 +406,34 @@ public abstract class SinkTaskConfig {
               + ")");
     }
 
-    // Client-side validation drives client-side schema evolution (ALTER ADD COLUMN issued by the
-    // connector). For managed Iceberg, schema evolution is performed server-side; the client-side
-    // RowValidator cannot even model the structured RECORD_METADATA column. Reject the combination
-    // loudly rather than silently producing a misleading runtime failure. Server-side SE is the
-    // supported mechanism: use snowflake.validation=server_side with Iceberg + schematization.
-    if (tableType == TableType.ICEBERG
-        && enableSchematization
-        && validation == SnowflakeValidation.CLIENT_SIDE) {
+    // client_side validation cannot model the structured RECORD_METADATA column of managed Iceberg
+    // tables; client-side schema evolution also relies on ALTER ADD COLUMN, which is a server-side
+    // concern for Iceberg. Reject unconditionally rather than only when schematization is enabled.
+    if (tableType == TableType.ICEBERG && validation == SnowflakeValidation.CLIENT_SIDE) {
       throw new IllegalArgumentException(
           KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
               + "=client_side is not supported with "
               + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
-              + "=iceberg when schema evolution is enabled ("
-              + KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION
-              + "=true). Managed Iceberg schema evolution is server-side; set "
+              + "=iceberg. Managed Iceberg uses a structured RECORD_METADATA column that the"
+              + " client-side RowValidator cannot model. Set "
               + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
               + "=server_side.");
+    }
+
+    // structured headers (SNOWFLAKE_FEATURE_STRUCTURED_HEADERS=true) keep header values in their
+    // native types. The managed-Iceberg RECORD_METADATA schema declares headers
+    // MAP(VARCHAR,VARCHAR),
+    // so a non-String header value would fail the strict typed-OBJECT cast at ingest time.
+    if (tableType == TableType.ICEBERG && metadataConfig.isStructuredHeadersEnabled()) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS
+              + "=true is not supported with "
+              + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
+              + "=iceberg. The managed-Iceberg RECORD_METADATA schema declares"
+              + " headers MAP(VARCHAR,VARCHAR); non-String header values would fail the strict"
+              + " typed-OBJECT cast. Set "
+              + KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS
+              + "=false (the default) when using managed Iceberg.");
     }
 
     // Managed Iceberg RECORD_METADATA is cast to a fixed structured OBJECT schema, so every
@@ -480,7 +491,7 @@ public abstract class SinkTaskConfig {
         .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled)
         .prometheusMetricsEnabled(prometheusMetricsEnabled)
         .validationErrorTableNameEnabled(validationErrorTableNameEnabled)
-        .tableType(tableType)
+        .autocreatedTableType(tableType)
         .icebergCreateTableOptions(icebergCreateTableOptions);
 
     snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
@@ -505,11 +516,8 @@ public abstract class SinkTaskConfig {
   }
 
   /**
-   * Creates a new builder. Used by {@link #from(Map)} (via {@code builderFrom}) and by {@code
-   * SinkTaskConfigTestBuilder} in tests. The Iceberg-related fields ({@code tableType}, {@code
-   * icebergCreateTableOptions}) have no defaults here — {@code builderFrom} always sets them from
-   * config, and tests must set them via {@code SinkTaskConfigTestBuilder} (which provides the
-   * defaults).
+   * Creates a new builder. Tests must set defaults via {@code SinkTaskConfigTestBuilder} so future
+   * changes don't re-add them here.
    */
   public static Builder builder() {
     return new AutoValue_SinkTaskConfig.Builder();
@@ -541,7 +549,7 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder enableSchematization(boolean enableSchematization);
 
-    public abstract Builder tableType(TableType tableType);
+    public abstract Builder autocreatedTableType(TableType autocreatedTableType);
 
     public abstract Builder icebergCreateTableOptions(Optional<String> icebergCreateTableOptions);
 

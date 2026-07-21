@@ -212,6 +212,9 @@ public class PartitionChannelManager {
             && shouldEvolveSchemaCache.computeIfAbsent(
                 tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
 
+    final boolean isRecordMetadataStructuredObject =
+        conn.isRecordMetadataStructuredObject(tableName);
+
     // KC v3 defaulted to V1 channel naming: {topic}_{partition}.
     // Customers who set snowflake.streaming.channel.name.include.connector.name=true
     // in KC v3 used V2 naming: {connectorName}_{topic}_{partition} (same as KC v4).
@@ -243,6 +246,7 @@ public class PartitionChannelManager {
         streamingErrorHandler,
         this.taskMetrics,
         shouldEvolveSchema,
+        isRecordMetadataStructuredObject,
         this.conn,
         ssv1ChannelName);
   }

@@ -108,12 +108,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile Map<String, ColumnSchema> tableSchema;
   private final boolean shouldEvolveSchema;
 
-  // Whether the target table's RECORD_METADATA is the structured Iceberg OBJECT (vs FDN VARIANT),
-  // resolved lazily on first use and memoized for the channel's lifetime. We probe the ACTUAL
-  // table via conn.isIcebergTable rather than trusting the configured table.type, because the
-  // config only governs auto-creation: an existing table may differ from it (e.g. table.type=none
-  // targeting a pre-existing Iceberg table). null = not yet resolved.
-  private volatile Boolean recordMetadataIsIcebergObject;
+  // Whether the target table's RECORD_METADATA is a structured OBJECT (vs FDN/v3 VARIANT).
+  // Injected at construction time (after the table has been created/verified in startPartitions)
+  // so it is cheap to query per-record. We probe the ACTUAL table rather than trusting
+  // table.type, because the config only governs auto-creation: an existing table may differ
+  // (e.g. table.type=none targeting a pre-existing Iceberg v2 table).
+  private final boolean recordMetadataIsStructuredObject;
 
   public SnowpipeStreamingPartitionChannel(
       String tableName,
@@ -129,6 +129,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       StreamingErrorHandler streamingErrorHandler,
       TaskMetrics taskMetrics,
       boolean shouldEvolveSchema,
+      boolean isRecordMetadataStructuredObject,
       SnowflakeConnectionService conn,
       Optional<String> ssv1ChannelName) {
     this.channelName = channelName;
@@ -143,6 +144,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
     this.offsetTracker = offsetTracker;
     this.shouldEvolveSchema = shouldEvolveSchema;
+    this.recordMetadataIsStructuredObject = isRecordMetadataStructuredObject;
     this.conn = conn;
     this.tableName = tableName;
     this.ssv1ChannelName = ssv1ChannelName;
@@ -213,7 +215,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         final Map<String, Object> row =
             record.getContentWithMetadata(
                 taskConfig.getMetadataConfig().shouldIncludeAllMetadata(),
-                conformMetadataToIcebergObject());
+                conformMetadataToStructuredObject());
         if (!row.isEmpty()) {
           if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE
               && rowValidator != null) {
@@ -309,15 +311,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * Whether record metadata must be conformed to the strict structured-OBJECT RECORD_METADATA
    * schema. True iff the actual target table's RECORD_METADATA column is a structured OBJECT --
    * which is only the case for managed-Iceberg v2 tables (v3 and FDN use VARIANT, which accepts the
-   * natural metadata map as-is). We probe the real column type via {@code
-   * isRecordMetadataStructuredObject} once and memoize; the configured table.type only governs
-   * auto-creation, and even an auto-created Iceberg table may be VARIANT (v3) or OBJECT (v2).
+   * natural metadata map as-is). Injected at construction time; see {@code
+   * PartitionChannelManager#buildChannel}.
    */
-  private boolean conformMetadataToIcebergObject() {
-    if (recordMetadataIsIcebergObject == null) {
-      recordMetadataIsIcebergObject = conn.isRecordMetadataStructuredObject(tableName);
-    }
-    return recordMetadataIsIcebergObject;
+  private boolean conformMetadataToStructuredObject() {
+    return recordMetadataIsStructuredObject;
   }
 
   private boolean insertRowWithFallback(Map<String, Object> row, long offset) {

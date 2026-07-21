@@ -206,6 +206,7 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
             mockErrorHandler,
             TaskMetrics.noop(),
             false,
+            false,
             mock(SnowflakeConnectionService.class),
             Optional.empty());
 

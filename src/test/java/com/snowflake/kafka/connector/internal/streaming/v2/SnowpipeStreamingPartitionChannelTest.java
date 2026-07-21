@@ -273,6 +273,7 @@ class SnowpipeStreamingPartitionChannelTest {
             mockErrorHandler,
             TaskMetrics.noop(),
             false,
+            false,
             null,
             Optional.empty());
 
@@ -705,6 +706,7 @@ class SnowpipeStreamingPartitionChannelTest {
         mockErrorHandler,
         taskMetrics,
         false,
+        false,
         mock(SnowflakeConnectionService.class),
         Optional.empty());
   }
@@ -802,6 +804,7 @@ class SnowpipeStreamingPartitionChannelTest {
         mockErrorHandler,
         TaskMetrics.noop(),
         shouldEvolveSchema,
+        false,
         mockConnService,
         Optional.empty());
   }
@@ -900,6 +903,7 @@ class SnowpipeStreamingPartitionChannelTest {
             mockErrorHandler,
             TaskMetrics.noop(),
             true,
+            false,
             mockConnService,
             Optional.empty());
 
@@ -1043,6 +1047,7 @@ class SnowpipeStreamingPartitionChannelTest {
         migrationTaskConfig,
         mockErrorHandler,
         TaskMetrics.noop(),
+        false,
         false,
         mockConn,
         migrationMode == Ssv1MigrationMode.SKIP
