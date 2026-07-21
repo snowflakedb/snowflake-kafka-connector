@@ -165,6 +165,18 @@ public interface SnowflakeConnectionService {
   boolean hasErrorLoggingEnabled(String tableName);
 
   /**
+   * Returns the names of sub-fields declared by a structured OBJECT column. Queries {@code
+   * INFORMATION_SCHEMA.FIELDS} for the given table and column within the session's current
+   * schema/database. Returns an empty list if the table or column is absent or has no declared
+   * sub-fields.
+   *
+   * @param tableName unqualified table name; the session's current database/schema are used
+   * @param columnName the structured OBJECT column name (e.g. "RECORD_METADATA")
+   * @return list of sub-field names (case as stored in INFORMATION_SCHEMA)
+   */
+  List<String> getStructuredObjectFieldNames(String tableName, String columnName);
+
+  /**
    * Calls SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET to migrate the committed offset from an SSv1 channel
    * to an SSv2 channel. The system function reads the SSv1 offset and writes it directly to the
    * SSv2 channel in FDB.

@@ -14,6 +14,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -524,6 +525,38 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
     LOGGER.debug("Table {} does not have ERROR_LOGGING enabled", tableName);
     return false;
+  }
+
+  @Override
+  public List<String> getStructuredObjectFieldNames(String tableName, String columnName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    InternalUtils.assertNotEmpty("columnName", columnName);
+    // INFORMATION_SCHEMA.FIELDS stores TABLE_NAME and COLUMN_NAME in uppercase for unquoted
+    // identifiers. UPPER(?) normalises the caller-supplied names so the match works regardless
+    // of the case in which the caller passes them in.
+    String query =
+        "SELECT FIELD_NAME FROM INFORMATION_SCHEMA.FIELDS"
+            + " WHERE TABLE_NAME = UPPER(?) AND COLUMN_NAME = UPPER(?)"
+            + " AND TABLE_SCHEMA = CURRENT_SCHEMA()";
+    List<String> fieldNames = new ArrayList<>();
+    try (PreparedStatement stmt = conn.prepareStatement(query)) {
+      stmt.setString(1, tableName);
+      stmt.setString(2, columnName);
+      try (ResultSet result = stmt.executeQuery()) {
+        while (result.next()) {
+          fieldNames.add(result.getString("FIELD_NAME"));
+        }
+      }
+      return fieldNames;
+    } catch (SQLException e) {
+      LOGGER.warn(
+          "Could not query INFORMATION_SCHEMA.FIELDS for table '{}', column '{}': {}",
+          tableName,
+          columnName,
+          e.getMessage());
+      return Collections.emptyList();
+    }
   }
 
   @Override

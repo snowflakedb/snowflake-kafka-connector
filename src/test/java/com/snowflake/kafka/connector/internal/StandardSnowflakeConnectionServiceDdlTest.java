@@ -261,6 +261,41 @@ public class StandardSnowflakeConnectionServiceDdlTest {
   }
 
   // ---------------------------------------------------------------------------
+  // getStructuredObjectFieldNames tests
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testGetStructuredObjectFieldNames_returnsFieldNames() throws SQLException {
+    PreparedStatement infoSchemaStmt = mock(PreparedStatement.class);
+    ResultSet infoSchemaRs = mock(ResultSet.class);
+    when(infoSchemaRs.next()).thenReturn(true, true, false);
+    when(infoSchemaRs.getString("FIELD_NAME")).thenReturn("OFFSET", "TOPIC");
+    when(infoSchemaStmt.executeQuery()).thenReturn(infoSchemaRs);
+
+    // Override so the SELECT query also routes to infoSchemaStmt.
+    when(mockJdbcConn.prepareStatement(
+            argThat(s -> s != null && s.startsWith("SELECT FIELD_NAME"))))
+        .thenReturn(infoSchemaStmt);
+
+    List<String> fields = service.getStructuredObjectFieldNames("MY_TABLE", "RECORD_METADATA");
+
+    assertThat(fields).containsExactly("OFFSET", "TOPIC");
+    verify(infoSchemaStmt).setString(1, "MY_TABLE");
+    verify(infoSchemaStmt).setString(2, "RECORD_METADATA");
+  }
+
+  @Test
+  public void testGetStructuredObjectFieldNames_sqlException_returnsEmpty() throws SQLException {
+    when(mockJdbcConn.prepareStatement(
+            argThat(s -> s != null && s.startsWith("SELECT FIELD_NAME"))))
+        .thenThrow(new SQLException("connection refused"));
+
+    List<String> fields = service.getStructuredObjectFieldNames("MY_TABLE", "RECORD_METADATA");
+
+    assertThat(fields).isEmpty();
+  }
+
+  // ---------------------------------------------------------------------------
   // shouldEvolveSchema tests
   // ---------------------------------------------------------------------------
 

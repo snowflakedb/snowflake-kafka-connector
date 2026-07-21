@@ -215,7 +215,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         final Map<String, Object> row =
             record.getContentWithMetadata(
                 taskConfig.getMetadataConfig().shouldIncludeAllMetadata(),
-                conformMetadataToStructuredObject());
+                recordMetadataIsStructuredObject);
         if (!row.isEmpty()) {
           if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE
               && rowValidator != null) {
@@ -307,17 +307,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    *     was NOT inserted). When this returns false, callers must NOT advance processedOffset — the
    *     recovery logic has already reset offset state.
    */
-  /**
-   * Whether record metadata must be conformed to the strict structured-OBJECT RECORD_METADATA
-   * schema. True iff the actual target table's RECORD_METADATA column is a structured OBJECT --
-   * which is only the case for managed-Iceberg v2 tables (v3 and FDN use VARIANT, which accepts the
-   * natural metadata map as-is). Injected at construction time; see {@code
-   * PartitionChannelManager#buildChannel}.
-   */
-  private boolean conformMetadataToStructuredObject() {
-    return recordMetadataIsStructuredObject;
-  }
-
   private boolean insertRowWithFallback(Map<String, Object> row, long offset) {
     try {
       LOGGER.trace("Inserting transformed record: {}, offset: {}", row, offset);

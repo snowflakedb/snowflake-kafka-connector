@@ -269,6 +269,11 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
+  public List<String> getStructuredObjectFieldNames(String tableName, String columnName) {
+    return delegate.getStructuredObjectFieldNames(tableName, columnName);
+  }
+
+  @Override
   public Ssv1MigrationResponse migrateSsv1ChannelOffset(
       String tableName, String ssv1ChannelName, String ssv2ChannelName, String pipeName) {
     return delegate.migrateSsv1ChannelOffset(tableName, ssv1ChannelName, ssv2ChannelName, pipeName);

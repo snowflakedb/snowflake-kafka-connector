@@ -12,7 +12,6 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
-import com.snowflake.kafka.connector.internal.DescribeTableRow;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -25,10 +24,9 @@ import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClien
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
-import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -357,130 +355,33 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Validates that an existing table's {@code RECORD_METADATA} structured-OBJECT schema contains
-   * every field the connector emits (i.e. every field in {@link
-   * SnowflakeSinkRecord#ICEBERG_METADATA_FIELDS}).
+   * Validates that an existing table's {@code RECORD_METADATA} structured-OBJECT schema exactly
+   * matches the connector's expected field set ({@link
+   * com.snowflake.kafka.connector.records.SnowflakeSinkRecord#ICEBERG_METADATA_FIELDS}).
    *
    * <p>Called only when {@code conn.isRecordMetadataStructuredObject(tableName)} is true (managed-
    * Iceberg v2). The v2 strict typed-OBJECT cast rejects any row whose map is missing a declared
-   * OBJECT sub-field, so a schema that omits a connector-emitted field would silently route every
-   * row to the error table. Fail fast at startup with a clear message instead.
-   *
-   * <p>A table declaring <em>extra</em> fields beyond what the connector emits is fine (the
-   * connector's map is a subset; those extra fields cast to null) and is not rejected.
+   * OBJECT sub-field, so both missing fields (rows rejected) and extra fields (connector never
+   * emits them, so always absent → rows rejected) are fatal. Delegates the comparison to {@link
+   * IcebergDDLTypes#validateRecordMetadataFields}.
    *
    * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException (ERROR_0034)
-   *     when any connector-emitted field is absent from the table's OBJECT schema
+   *     when any connector field is missing from, or any extra field is present in, the table's
+   *     OBJECT schema
    */
   @VisibleForTesting
   void validateStructuredObjectMetadataSchema(String tableName) {
-    Optional<List<DescribeTableRow>> rows = this.conn.describeTable(tableName);
-    if (rows.isEmpty()) {
-      // Cannot describe the table — skip validation rather than fail spuriously.
+    List<String> fieldNames =
+        this.conn.getStructuredObjectFieldNames(tableName, Utils.TABLE_COLUMN_METADATA);
+    if (fieldNames.isEmpty()) {
+      // INFORMATION_SCHEMA returned no rows — skip validation rather than fail spuriously.
       LOGGER.warn(
-          "Cannot validate RECORD_METADATA OBJECT schema for table '{}': describeTable returned"
-              + " empty. Proceeding without validation.",
+          "Cannot validate RECORD_METADATA OBJECT schema for table '{}': "
+              + "INFORMATION_SCHEMA.FIELDS returned no sub-fields. Proceeding without validation.",
           tableName);
       return;
     }
-
-    Optional<DescribeTableRow> metadataRow =
-        rows.get().stream()
-            .filter(r -> Utils.TABLE_COLUMN_METADATA.equalsIgnoreCase(r.getColumn()))
-            .findFirst();
-
-    if (metadataRow.isEmpty()) {
-      // No RECORD_METADATA column — nothing to validate.
-      return;
-    }
-
-    String objectTypeStr = metadataRow.get().getType();
-    Set<String> declaredFields = parseObjectSubfieldNames(objectTypeStr);
-
-    List<String> missingFields = new ArrayList<>();
-    for (String required : SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS) {
-      if (!declaredFields.contains(required)) {
-        missingFields.add(required);
-      }
-    }
-
-    if (!missingFields.isEmpty()) {
-      throw SnowflakeErrors.ERROR_0034.getException(
-          "Existing table '"
-              + tableName
-              + "' has a structured-OBJECT RECORD_METADATA column (managed-Iceberg v2) that is"
-              + " missing the following field(s) emitted by this connector: "
-              + missingFields
-              + ". The v2 strict typed-OBJECT cast rejects rows whose map is missing a declared"
-              + " field, so every row would go to the error table. Add the missing field(s) to the"
-              + " RECORD_METADATA OBJECT column definition (e.g. ALTER TABLE ... ALTER COLUMN"
-              + " RECORD_METADATA SET DATA TYPE OBJECT(...)) or re-create the table so the"
-              + " connector can auto-create it with the correct schema.");
-    }
-  }
-
-  /**
-   * Parses the top-level sub-field <em>names</em> from a Snowflake OBJECT type string such as
-   * {@code OBJECT(offset LONG, topic STRING, headers MAP(VARCHAR, VARCHAR))}.
-   *
-   * <p>Splits on top-level commas only (respects nested parentheses, e.g. {@code MAP(VARCHAR,
-   * VARCHAR)}), then extracts the first whitespace-delimited token of each clause as the field
-   * name. Returns an empty set if the string does not start with {@code OBJECT(}.
-   *
-   * <p>Type checking is intentionally omitted: Snowflake uses aliases (LONG/BIGINT, INTEGER/INT)
-   * that would require alias-normalization to compare safely. Name-presence is the critical
-   * invariant; a type mismatch produces a different, comprehensible server error.
-   */
-  // Package-private for unit testing.
-  static Set<String> parseObjectSubfieldNames(String objectTypeStr) {
-    if (objectTypeStr == null) {
-      return Collections.emptySet();
-    }
-    String trimmed = objectTypeStr.trim();
-    // Case-insensitive prefix check: "OBJECT(" or "object(" etc.
-    if (!trimmed.toUpperCase(java.util.Locale.ROOT).startsWith("OBJECT(")) {
-      return Collections.emptySet();
-    }
-    // Extract the body between the outermost parens.
-    int open = trimmed.indexOf('(');
-    int close = trimmed.lastIndexOf(')');
-    if (open < 0 || close <= open) {
-      return Collections.emptySet();
-    }
-    String body = trimmed.substring(open + 1, close);
-
-    // Split on top-level commas only (depth tracks nested parens like MAP(VARCHAR, VARCHAR)).
-    Set<String> names = new HashSet<>();
-    int depth = 0;
-    StringBuilder cur = new StringBuilder();
-    for (int i = 0; i < body.length(); i++) {
-      char c = body.charAt(i);
-      if (c == '(') {
-        depth++;
-      } else if (c == ')') {
-        depth--;
-      }
-      if (c == ',' && depth == 0) {
-        addFieldName(cur.toString(), names);
-        cur.setLength(0);
-      } else {
-        cur.append(c);
-      }
-    }
-    addFieldName(cur.toString(), names);
-    return names;
-  }
-
-  private static void addFieldName(String clause, Set<String> names) {
-    String t = clause.trim();
-    if (t.isEmpty()) {
-      return;
-    }
-    // Field name is the first whitespace-delimited token: "offset LONG" → "offset".
-    String[] parts = t.split("\\s+", 2);
-    if (parts.length > 0 && !parts[0].isEmpty()) {
-      names.add(parts[0]);
-    }
+    IcebergDDLTypes.validateRecordMetadataFields(tableName, new HashSet<>(fieldNames));
   }
 
   private Set<TopicPartition> currentlyInitializing(Collection<TopicPartition> partitions) {
