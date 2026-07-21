@@ -392,6 +392,18 @@ public final class SnowflakeSinkRecord {
       if (KEY.equals(field) && value != null && !(value instanceof String)) {
         value = String.valueOf(value);
       }
+      // The schema declares `headers MAP(VARCHAR, VARCHAR)`. When structured headers are enabled
+      // convertHeaders keeps native (non-String) values; coerce each to String so the strict cast
+      // accepts them (v3/VARIANT tables never reach here and keep headers as nested VARIANT).
+      if (HEADERS.equals(field) && value instanceof Map) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> headerMap = (Map<String, Object>) value;
+        Map<String, String> stringified = new HashMap<>();
+        for (Map.Entry<String, Object> h : headerMap.entrySet()) {
+          stringified.put(h.getKey(), h.getValue() == null ? null : String.valueOf(h.getValue()));
+        }
+        value = stringified;
+      }
       conformed.put(field, value);
     }
     // Pad every absent-able field with null so the strict v2 typed-OBJECT cast does not reject the

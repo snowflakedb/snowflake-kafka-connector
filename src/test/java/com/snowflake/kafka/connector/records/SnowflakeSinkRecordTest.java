@@ -948,6 +948,34 @@ class SnowflakeSinkRecordTest {
   }
 
   @Test
+  void testIcebergMetadata_coercesStructuredHeaderValuesToString() {
+    // With structured headers enabled, header values keep native types. The Iceberg schema declares
+    // `headers MAP(VARCHAR, VARCHAR)`, so conform must coerce each header value to String.
+    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
+    Schema objectSchema = SchemaBuilder.struct().field("k", Schema.STRING_SCHEMA).build();
+    Struct objectValue = new Struct(objectSchema).put("k", "v");
+    Headers headers = new ConnectHeaders();
+    headers.add("objectHeader", objectValue, objectSchema);
+    headers.addInt("intHeader", 7);
+
+    SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(
+            kafkaRecord, createMetadataConfigWithAllAndStructuredHeaders(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
+    @SuppressWarnings("unchecked")
+    Map<String, Object> headersMap = (Map<String, Object>) metadata.get("headers");
+    assertTrue(
+        headersMap.get("objectHeader") instanceof String,
+        "structured header value must be coerced to String for the MAP(VARCHAR,VARCHAR) cast");
+    assertTrue(headersMap.get("intHeader") instanceof String);
+    assertEquals("7", headersMap.get("intHeader"));
+  }
+
+  @Test
   void testIcebergMetadataFields_matchDdlSchema() {
     // ICEBERG_METADATA_FIELDS must exactly match the fields declared in
     // IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA — the strict typed-OBJECT cast makes this an

@@ -398,7 +398,7 @@ public abstract class SinkTaskConfig {
             .map(Boolean::parseBoolean)
             .orElse(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT);
 
-    TableType tableType =
+    TableType autocreatedTableType =
         TableType.fromConfig(config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE))
             .orElse(TableType.SNOWFLAKE);
 
@@ -407,20 +407,21 @@ public abstract class SinkTaskConfig {
                 config.get(KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS))
             .map(String::trim)
             .filter(s -> !s.isEmpty());
-    if (icebergCreateTableOptions.isPresent() && tableType != TableType.ICEBERG) {
+    if (icebergCreateTableOptions.isPresent() && autocreatedTableType != TableType.ICEBERG) {
       throw new IllegalArgumentException(
           KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS
               + " is only valid when "
               + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
               + "=iceberg (got table.type="
-              + tableType.configValue()
+              + autocreatedTableType.configValue()
               + ")");
     }
 
     // client_side validation cannot model the structured RECORD_METADATA column of managed Iceberg
     // tables; client-side schema evolution also relies on ALTER ADD COLUMN, which is a server-side
     // concern for Iceberg. Reject unconditionally rather than only when schematization is enabled.
-    if (tableType == TableType.ICEBERG && validation == SnowflakeValidation.CLIENT_SIDE) {
+    if (autocreatedTableType == TableType.ICEBERG
+        && validation == SnowflakeValidation.CLIENT_SIDE) {
       throw new IllegalArgumentException(
           KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
               + "=client_side is not supported with "
@@ -431,26 +432,11 @@ public abstract class SinkTaskConfig {
               + "=server_side.");
     }
 
-    // structured headers (SNOWFLAKE_FEATURE_STRUCTURED_HEADERS=true) keep header values in their
-    // native types. The managed-Iceberg RECORD_METADATA schema declares headers
-    // MAP(VARCHAR,VARCHAR),
-    // so a non-String header value would fail the strict typed-OBJECT cast at ingest time.
-    if (tableType == TableType.ICEBERG && metadataConfig.isStructuredHeadersEnabled()) {
-      throw new IllegalArgumentException(
-          KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS
-              + "=true is not supported with "
-              + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
-              + "=iceberg. The managed-Iceberg RECORD_METADATA schema declares"
-              + " headers MAP(VARCHAR,VARCHAR); non-String header values would fail the strict"
-              + " typed-OBJECT cast. Set "
-              + KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_HEADERS
-              + "=false (the default) when using managed Iceberg.");
-    }
-
     // Managed Iceberg RECORD_METADATA is cast to a fixed structured OBJECT schema, so every
     // metadata flag that maps to a declared schema field must be enabled. Disabling any of them
     // produces a sparse map that fails the strict typed-OBJECT cast at ingest time.
-    if (tableType == TableType.ICEBERG && !metadataConfig.isFullIcebergMetadataEnabled()) {
+    if (autocreatedTableType == TableType.ICEBERG
+        && !metadataConfig.isFullIcebergMetadataEnabled()) {
       throw new IllegalArgumentException(
           KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
               + "=iceberg requires all record metadata to be enabled"
@@ -503,7 +489,7 @@ public abstract class SinkTaskConfig {
         .prometheusMetricsEnabled(prometheusMetricsEnabled)
         .validationErrorTableNameEnabled(validationErrorTableNameEnabled)
         .normalizeTimeEnabled(normalizeTimeEnabled)
-        .autocreatedTableType(tableType)
+        .autocreatedTableType(autocreatedTableType)
         .icebergCreateTableOptions(icebergCreateTableOptions);
 
     snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
