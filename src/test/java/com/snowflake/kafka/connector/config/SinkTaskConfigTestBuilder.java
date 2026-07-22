@@ -58,6 +58,7 @@ public final class SinkTaskConfigTestBuilder {
         .precommitClientRecoveryEnabled(true)
         .prometheusMetricsEnabled(KafkaConnectorConfigParams.PROMETHEUS_ENABLE_DEFAULT)
         .validationErrorTableNameEnabled(
-            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT);
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT)
+        .normalizeTimeEnabled(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT);
   }
 }

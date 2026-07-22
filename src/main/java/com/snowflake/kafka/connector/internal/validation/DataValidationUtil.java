@@ -997,10 +997,16 @@ class DataValidationUtil {
   }
 
   /**
-   * Shared parse cascade for TIME inputs: returns the local time with any UTC offset stripped.
-   * Accepted Java types: {@link LocalTime}, {@link OffsetTime}, {@link String}.
+   * Validates a TIME input and returns a {@link LocalTime} with any UTC offset stripped, matching
+   * KC v3 behaviour (SNOW-3766306).
    *
-   * <p>For String inputs the cascade is:
+   * <p>TIME strings that carry a UTC offset (e.g. {@code "00:00:00Z"}) are silently dropped by the
+   * SSv2 server but were accepted by KC v3 via {@link OffsetTime#parse} with the offset discarded.
+   * This method replicates that accept-and-strip behaviour so offset-bearing TIME strings land in
+   * the table instead of being silently dropped.
+   *
+   * <p>Accepted Java types: {@link LocalTime}, {@link OffsetTime}, {@link String}. For String
+   * inputs the cascade is:
    *
    * <ol>
    *   <li>Try {@link LocalTime#parse} directly.
@@ -1014,7 +1020,7 @@ class DataValidationUtil {
    * @return {@link LocalTime} with any UTC offset removed
    * @throws SFExceptionValidation on unparseable or disallowed input
    */
-  private static LocalTime inputToLocalTime(String columnName, Object input, long insertRowIndex) {
+  static LocalTime validateAndParseTime(String columnName, Object input, long insertRowIndex) {
     if (input instanceof LocalTime) {
       return (LocalTime) input;
     } else if (input instanceof OffsetTime) {
@@ -1057,27 +1063,6 @@ class DataValidationUtil {
           new String[] {"String", "LocalTime", "OffsetTime"},
           insertRowIndex);
     }
-  }
-
-  /**
-   * Validates a TIME input and returns a {@link LocalTime} with any UTC offset stripped, matching
-   * KC v3 behaviour (SNOW-3766306).
-   *
-   * <p>TIME strings that carry a UTC offset (e.g. {@code "00:00:00Z"}) are silently dropped by the
-   * SSv2 server but were accepted by KC v3 via {@link OffsetTime#parse} with the offset discarded.
-   * This method replicates that accept-and-strip behaviour so offset-bearing TIME strings land in
-   * the table instead of being silently dropped.
-   *
-   * <p>Accepted Java types: {@link String}, {@link LocalTime}, {@link OffsetTime}. Any offset is
-   * removed before returning.
-   *
-   * @param columnName Column name for error messages
-   * @param input TIME value (String, LocalTime, or OffsetTime)
-   * @param insertRowIndex Row index for error messages
-   * @return {@link LocalTime} with offset stripped
-   */
-  static LocalTime validateAndFormatTime(String columnName, Object input, long insertRowIndex) {
-    return inputToLocalTime(columnName, input, insertRowIndex);
   }
 
   /**

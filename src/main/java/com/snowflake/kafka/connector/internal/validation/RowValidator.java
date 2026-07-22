@@ -241,12 +241,14 @@ public class RowValidator {
         break;
 
       case TIME:
-        // SNOW-3766306: when normalizeTime is enabled (default), normalize offset-bearing TIME
-        // strings to LocalTime so they land on the SSv2 server rather than being silently dropped,
-        // matching KC v3 accept-and-strip behaviour. When disabled, pass through raw.
+        // SNOW-3766306: always validate the TIME value (pre-PR behaviour). When normalizeTime is
+        // enabled (default), also normalize offset-bearing TIME values to LocalTime so they land on
+        // the SSv2 server rather than being silently dropped, matching KC v3 accept-and-strip
+        // behaviour. When disabled, validate but pass the value through raw (do not overwrite).
         if (normalizeTime) {
-          return DataValidationUtil.validateAndFormatTime(col.getName(), value, insertRowIndex);
+          return DataValidationUtil.validateAndParseTime(col.getName(), value, insertRowIndex);
         }
+        DataValidationUtil.validateAndParseTime(col.getName(), value, insertRowIndex);
         break;
 
       case TIMESTAMP_NTZ:

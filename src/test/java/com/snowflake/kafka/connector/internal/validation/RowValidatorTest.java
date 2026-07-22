@@ -1597,8 +1597,8 @@ public class RowValidatorTest {
   }
 
   /**
-   * normalizeTime=false — TIME validation is skipped; the raw String value is passed through
-   * unchanged. This is the pre-PR (kill-switch) behaviour.
+   * normalizeTime=false — the TIME value is still validated but NOT normalized; the raw String is
+   * passed through unchanged. This is the pre-PR (kill-switch) behaviour.
    */
   @Test
   public void validateRow_timeOffset_normalizeDisabled_rawValuePassedThrough() {
@@ -1608,9 +1608,25 @@ public class RowValidatorTest {
     Map<String, Object> row = new HashMap<>();
     row.put("TS", "00:00:00Z");
     ValidationResult r = v.validateRow(row);
-    // Validation is skipped; the row is structurally valid, but the raw String is untouched
+    // Validated (valid value), but the raw String is left untouched — no normalization.
     assertTrue(r.isValid());
     assertEquals("00:00:00Z", row.get("TS"));
+  }
+
+  /**
+   * normalizeTime=false — validation still runs, so a malformed TIME value is rejected (routed to
+   * the DLQ), exactly as pre-PR. Guards against the flag disabling validation entirely.
+   */
+  @Test
+  public void validateRow_invalidTime_normalizeDisabled_isRejected() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = new RowValidator(schema, /* normalizeTime= */ false);
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "not_a_time");
+    ValidationResult r = v.validateRow(row);
+    assertFalse(r.isValid());
+    assertEquals("TS", r.getColumnName());
   }
 
   // ================ Timestamp normalization Tests ================

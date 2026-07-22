@@ -187,14 +187,18 @@ def test_iceberg_se_multi_wave(
 @pytest.mark.iceberg
 @pytest.mark.schema_evolution
 @pytest.mark.xfail(
-    strict=True,
+    strict=False,
     reason=(
-        "Server-side SE (ENABLE_SCHEMA_EVOLUTION on the table, validation=false) "
-        "silently discards typed (non-VARIANT) column additions on iceberg tables. "
-        "Client-side SE (validation=true) does work after fixing the connector to "
-        "issue ALTER ICEBERG TABLE ADD COLUMN, but this test exercises the HT path "
-        "(validation=false) where server-side SE is the only mechanism.  Remove "
-        "this xfail once Snowflake server-side SE supports typed columns on iceberg."
+        "Server-side SE (ENABLE_SCHEMA_EVOLUTION on the table, validation=false) for "
+        "typed (non-VARIANT) column additions on iceberg tables is being rolled out "
+        "server-side. On deployments where it is not yet enabled the test xfails "
+        "(server-side SE silently discards the typed column additions); on deployments "
+        "where it is already enabled (e.g. the AWS CI account) it xpasses. Kept "
+        "non-strict so an xpass does not fail CI during the rollout. This test exercises "
+        "the HT path (validation=false) where server-side SE is the only mechanism; "
+        "client-side SE (validation=true) already works via ALTER ICEBERG TABLE ADD "
+        "COLUMN. Remove this marker once server-side SE for typed iceberg columns is "
+        "enabled on all deployments."
     ),
 )
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
