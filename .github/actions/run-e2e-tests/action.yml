@@ -35,10 +35,30 @@ inputs:
     description: "Enable JMX metrics scraping via the Jolokia javaagent (sets KAFKA_OPTS so the connector JVM exposes MBeans on port 8778)"
     required: false
     default: 'false'
+  dockerhub-username:
+    description: "Docker Hub username for authenticated image pulls (avoids anonymous pull rate limits on confluentinc/* and the maven base image). Login is skipped when empty."
+    required: false
+    default: ''
+  dockerhub-token:
+    description: "Docker Hub access token/password paired with dockerhub-username."
+    required: false
+    default: ''
 
 runs:
   using: composite
   steps:
+    - name: Log in to Docker Hub (avoids anonymous pull rate limits)
+      # Both platforms pull from Docker Hub (the maven base image for the
+      # protobuf builder, and confluentinc/cp-* for the Confluent stack).
+      # Anonymous pulls share the runner egress IP's rate limit and surface as
+      # "unauthorized: authentication required". Authenticating avoids that.
+      # Skipped (no-op) when the DOCKERHUB_* secrets are not configured.
+      if: inputs.dockerhub-username != ''
+      uses: docker/login-action@v3
+      with:
+        username: ${{ inputs.dockerhub-username }}
+        password: ${{ inputs.dockerhub-token }}
+
     - name: Log in to GHCR (for prebuilt Apache Kafka image)
       if: inputs.platform == 'apache'
       uses: docker/login-action@v3
@@ -47,11 +67,29 @@ runs:
         username: ${{ github.actor }}
         password: ${{ github.token }}
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build protobuf builder image (GitHub Actions layer cache)
+      # Prebuild the protobuf builder here so its layers (apt-get, protoc
+      # download, git clone, maven builds) are restored from the GHA cache
+      # instead of re-fetched from flaky external mirrors on every run. The
+      # loaded image is reused by run_tests.sh (PROTOBUF_BUILDER_PREBUILT).
+      uses: docker/build-push-action@v6
+      with:
+        context: test
+        file: test/docker/Dockerfile.builder
+        tags: protobuf-builder:latest
+        load: true
+        cache-from: type=gha,scope=protobuf-builder
+        cache-to: type=gha,mode=max,scope=protobuf-builder
+
     - name: Run end-to-end tests
       shell: bash
       working-directory: test
       env:
         SNOWFLAKE_CREDENTIAL_FILE: "${{ github.workspace }}/profile.json"
+        PROTOBUF_BUILDER_PREBUILT: 'true'
         PLATFORM: ${{ inputs.platform }}
         PLATFORM_VERSION: ${{ inputs['platform-version'] }}
         SNOWFLAKE_CLOUD: ${{ inputs['snowflake-cloud'] }}

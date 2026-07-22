@@ -107,6 +107,8 @@ jobs:
         java-version: ${{ matrix.java_test_version || '11' }}
         marker-filter: ${{ matrix.marker_filter }}
         test-group: ${{ matrix.test_group }}
+        dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
   fault_injection:
     # Exercises error-recovery paths using mitmproxy to inject HTTP 410 responses.
@@ -144,6 +146,8 @@ jobs:
         with-mitmproxy: 'true'
         marker-filter: 'fault_injection'
         test-group: fault-injection
+        dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
   core_legacy:
     # Runs the core e2e suite on older Kafka platform versions.
@@ -201,6 +205,8 @@ jobs:
         java-version: ${{ matrix.java_test_version || '11' }}
         marker-filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
         test-group: core
+        dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
   stress:
     if: >
@@ -240,6 +246,8 @@ jobs:
         platform-version: ${{ matrix.platform_version }}
         snowflake-cloud: ${{ matrix.snowflake_cloud }}
         pressure: 'true'
+        dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
   soak_with_chaos:
     if: >
@@ -272,3 +280,5 @@ jobs:
         marker-filter: 'soak'
         test-group: soak
         jmx: 'true'
+        dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+        dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
