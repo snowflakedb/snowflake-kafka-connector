@@ -35,6 +35,7 @@ public class RowValidator {
   private static final Logger logger = LoggerFactory.getLogger(RowValidator.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private final Map<String, ColumnSchema> columnSchemaMap;
+  private final boolean normalizeTime;
 
   /**
    * Default timezone for timestamp parsing, matching SSv1 SDK behavior.
@@ -47,7 +48,16 @@ public class RowValidator {
    */
   private final ZoneId defaultTimezone = ZoneId.of("America/Los_Angeles");
 
-  public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
+  /**
+   * Creates a RowValidator.
+   *
+   * @param columnSchemaMap schema describing the target table columns
+   * @param normalizeTime when {@code true}, TIME strings with UTC offsets (e.g. {@code
+   *     "00:00:00Z"}) are normalized to {@link java.time.LocalTime} before passing to the SDK,
+   *     matching KC v3 behaviour (SNOW-3766306). When {@code false}, TIME values are passed through
+   *     raw. Controlled by {@code snowflake.feature.normalize.time}.
+   */
+  public RowValidator(Map<String, ColumnSchema> columnSchemaMap, boolean normalizeTime) {
     // Input validation
     Objects.requireNonNull(columnSchemaMap, "columnSchemaMap cannot be null");
     if (columnSchemaMap.isEmpty()) {
@@ -56,6 +66,7 @@ public class RowValidator {
 
     // Defensive copy for thread safety
     this.columnSchemaMap = Collections.unmodifiableMap(new HashMap<>(columnSchemaMap));
+    this.normalizeTime = normalizeTime;
   }
 
   /**
@@ -221,8 +232,14 @@ public class RowValidator {
         break;
 
       case TIME:
-        DataValidationUtil.validateAndParseTime(
-            col.getName(), value, col.getScale() != null ? col.getScale() : 9, insertRowIndex);
+        // SNOW-3766306: always validate the TIME value (pre-PR behaviour). When normalizeTime is
+        // enabled (default), also normalize offset-bearing TIME values to LocalTime so they land on
+        // the SSv2 server rather than being silently dropped, matching KC v3 accept-and-strip
+        // behaviour. When disabled, validate but pass the value through raw (do not overwrite).
+        if (normalizeTime) {
+          return DataValidationUtil.validateAndParseTime(col.getName(), value, insertRowIndex);
+        }
+        DataValidationUtil.validateAndParseTime(col.getName(), value, insertRowIndex);
         break;
 
       case TIMESTAMP_NTZ:

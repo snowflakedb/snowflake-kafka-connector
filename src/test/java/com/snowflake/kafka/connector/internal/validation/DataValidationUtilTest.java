@@ -173,105 +173,99 @@ public class DataValidationUtilTest {
         () -> validateAndParseDate("COL", BigDecimal.valueOf(1.25), 0));
   }
 
+  /**
+   * Ported accept/reject cases from the former scale-based validateAndParseTime test. The
+   * scale-dependent BigInteger assertions have been dropped because validateAndParseTime now
+   * returns a {@link LocalTime} (offset stripped) rather than scaled nanos. These cases guard both
+   * the accept/reject boundary and the exact decoded {@link LocalTime} value.
+   */
   @Test
-  public void testValidateAndParseTime() {
-    // Test local time
-    assertEquals(46920, validateAndParseTime("COL", "13:02", 0, 0).longValueExact());
-    assertEquals(46920, validateAndParseTime("COL", "  13:02 \t\n", 0, 0).longValueExact());
-    assertEquals(46926, validateAndParseTime("COL", "13:02:06", 0, 0).longValueExact());
-    assertEquals(469260, validateAndParseTime("COL", "13:02:06", 1, 0).longValueExact());
-    assertEquals(46926000000000L, validateAndParseTime("COL", "13:02:06", 9, 0).longValueExact());
+  public void testValidateAndParseTime_acceptRejectCases() {
+    // Valid local-time strings — decoded to the exact LocalTime (whitespace trimmed)
+    assertEquals(LocalTime.of(13, 2), validateAndParseTime("COL", "13:02", 0));
+    assertEquals(LocalTime.of(13, 2), validateAndParseTime("COL", "  13:02 \t\n", 0));
+    assertEquals(LocalTime.of(13, 2, 6), validateAndParseTime("COL", "13:02:06", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123400000), validateAndParseTime("COL", "13:02:06.1234", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123456789), validateAndParseTime("COL", "13:02:06.123456789", 0));
 
-    assertEquals(46926, validateAndParseTime("COL", "13:02:06.1234", 0, 0).longValueExact());
-    assertEquals(469261, validateAndParseTime("COL", "13:02:06.1234", 1, 0).longValueExact());
+    // Offset-bearing strings — offset must be stripped
     assertEquals(
-        46926123400000L, validateAndParseTime("COL", "13:02:06.1234", 9, 0).longValueExact());
+        LocalTime.of(13, 2, 6, 123456789),
+        validateAndParseTime("COL", "13:02:06.123456789+09:00", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123456789),
+        validateAndParseTime("COL", "13:02:06.123456789-09:00", 0));
 
-    assertEquals(46926, validateAndParseTime("COL", "13:02:06.123456789", 0, 0).longValueExact());
-    assertEquals(469261, validateAndParseTime("COL", "13:02:06.123456789", 1, 0).longValueExact());
+    // Integer-stored time strings — scale guessed (s/ms/us/ns), decoded to the same time-of-day
+    assertEquals(LocalTime.of(13, 2, 6), validateAndParseTime("COL", "1674478926", 0));
     assertEquals(
-        46926123456789L, validateAndParseTime("COL", "13:02:06.123456789", 9, 0).longValueExact());
+        LocalTime.of(13, 2, 6, 123000000), validateAndParseTime("COL", "1674478926123", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123456000), validateAndParseTime("COL", "1674478926123456", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123456789), validateAndParseTime("COL", "1674478926123456789", 0));
 
-    // Test that offset time does not make any difference
+    // Java objects — LocalTime passed through, OffsetTime stripped to local
     assertEquals(
-        46926123456789L,
-        validateAndParseTime("COL", "13:02:06.123456789+09:00", 9, 0).longValueExact());
+        LocalTime.of(13, 2, 6, 123456789),
+        validateAndParseTime("COL", LocalTime.of(13, 2, 6, 123456789), 0));
     assertEquals(
-        46926123456789L,
-        validateAndParseTime("COL", "13:02:06.123456789-09:00", 9, 0).longValueExact());
-
-    // Test integer-stored time and scale guessing
-    assertEquals(46926L, validateAndParseTime("COL", "1674478926", 0, 0).longValueExact());
-    assertEquals(46926L, validateAndParseTime("COL", "1674478926123", 0, 0).longValueExact());
-    assertEquals(46926L, validateAndParseTime("COL", "1674478926123456", 0, 0).longValueExact());
-    assertEquals(46926L, validateAndParseTime("COL", "1674478926123456789", 0, 0).longValueExact());
-
-    assertEquals(469260L, validateAndParseTime("COL", "1674478926", 1, 0).longValueExact());
-    assertEquals(469261L, validateAndParseTime("COL", "1674478926123", 1, 0).longValueExact());
-    assertEquals(469261L, validateAndParseTime("COL", "1674478926123456", 1, 0).longValueExact());
-    assertEquals(
-        469261L, validateAndParseTime("COL", "1674478926123456789", 1, 0).longValueExact());
-
-    assertEquals(46926000000000L, validateAndParseTime("COL", "1674478926", 9, 0).longValueExact());
-    assertEquals(
-        46926123000000L, validateAndParseTime("COL", "1674478926123", 9, 0).longValueExact());
-    assertEquals(
-        46926123456000L, validateAndParseTime("COL", "1674478926123456", 9, 0).longValueExact());
-    assertEquals(
-        46926123456789L, validateAndParseTime("COL", "1674478926123456789", 9, 0).longValueExact());
-
-    // Test Java objects
-    assertEquals(
-        46926123456789L,
-        validateAndParseTime("COL", LocalTime.of(13, 2, 6, 123456789), 9, 0).longValueExact());
-    assertEquals(
-        46926123456789L,
+        LocalTime.of(13, 2, 6, 123456789),
         validateAndParseTime(
-                "COL", OffsetTime.of(13, 2, 6, 123456789, ZoneOffset.of("+09:00")), 9, 0)
-            .longValueExact());
+            "COL", OffsetTime.of(13, 2, 6, 123456789, ZoneOffset.of("+09:00")), 0));
 
     // Dates and timestamps are forbidden
-    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "2023-01-19", 9, 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "2023-01-19", 0));
     expectError(
         ErrorCode.INVALID_VALUE_ROW,
-        () -> validateAndParseTime("COL", "2023-01-19T14:23:55.878137", 9, 0));
+        () -> validateAndParseTime("COL", "2023-01-19T14:23:55.878137", 0));
 
-    // Test forbidden values
+    // Forbidden Java types
     expectError(
-        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", LocalDate.now(), 3, 0));
+        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", LocalDate.now(), 0));
     expectError(
-        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", LocalDateTime.now(), 3, 0));
+        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", LocalDateTime.now(), 0));
     expectError(
-        ErrorCode.INVALID_FORMAT_ROW,
-        () -> validateAndParseTime("COL", OffsetDateTime.now(), 3, 0));
+        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", OffsetDateTime.now(), 0));
     expectError(
-        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", ZonedDateTime.now(), 3, 0));
-    expectError(
-        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", Instant.now(), 3, 0));
-    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", new Date(), 3, 0));
-    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", 1.5f, 3, 0));
-    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", 1.5, 3, 0));
-    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "1.5", 3, 0));
-    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "1.0", 3, 0));
-    expectError(
-        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", new Object(), 3, 0));
-    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", false, 3, 0));
-    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "", 3, 0));
-    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "foo", 3, 0));
+        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", ZonedDateTime.now(), 0));
+    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", Instant.now(), 0));
+    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", new Date(), 0));
+    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", 1.5f, 0));
+    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", 1.5, 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "1.5", 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "1.0", 0));
+    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", new Object(), 0));
+    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", false, 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "", 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseTime("COL", "foo", 0));
     expectError(
         ErrorCode.INVALID_FORMAT_ROW,
-        () -> validateAndParseTime("COL", java.sql.Time.valueOf("20:57:00"), 3, 0));
+        () -> validateAndParseTime("COL", java.sql.Time.valueOf("20:57:00"), 0));
     expectError(
         ErrorCode.INVALID_FORMAT_ROW,
-        () -> validateAndParseTime("COL", java.sql.Date.valueOf("2010-11-03"), 3, 0));
+        () -> validateAndParseTime("COL", java.sql.Date.valueOf("2010-11-03"), 0));
     expectError(
         ErrorCode.INVALID_FORMAT_ROW,
-        () -> validateAndParseTime("COL", java.sql.Timestamp.valueOf("2010-11-03 20:57:00"), 3, 0));
+        () -> validateAndParseTime("COL", java.sql.Timestamp.valueOf("2010-11-03 20:57:00"), 0));
     expectError(
-        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", BigInteger.ZERO, 3, 0));
+        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", BigInteger.ZERO, 0));
     expectError(
-        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", BigDecimal.ZERO, 3, 0));
-    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", 'c', 3, 0));
+        ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", BigDecimal.ZERO, 0));
+    expectError(ErrorCode.INVALID_FORMAT_ROW, () -> validateAndParseTime("COL", 'c', 0));
+  }
+
+  @Test
+  public void formatTime_stripsOffset_toCanonical() {
+    assertEquals(LocalTime.of(0, 0), validateAndParseTime("COL", "00:00:00Z", 0));
+    assertEquals(LocalTime.of(22, 0), validateAndParseTime("COL", "22:00:00Z", 0));
+    assertEquals(
+        LocalTime.of(7, 59, 59, 999_999_000), validateAndParseTime("COL", "07:59:59.999999Z", 0));
+    assertEquals(LocalTime.of(10, 30), validateAndParseTime("COL", "10:30:00+05:00", 0));
+    assertEquals(LocalTime.of(0, 0), validateAndParseTime("COL", "00:00:00", 0));
+    assertEquals(LocalTime.of(10, 30), validateAndParseTime("COL", LocalTime.of(10, 30), 0));
   }
 
   @Test
@@ -1412,7 +1406,7 @@ public class DataValidationUtilTest {
         "The given row cannot be converted to the internal format: Object of type java.lang.Object"
             + " cannot be ingested into Snowflake column COL of type TIME, rowIndex:0. Allowed"
             + " Java types: String, LocalTime, OffsetTime",
-        () -> validateAndParseTime("COL", new Object(), 10, 0));
+        () -> validateAndParseTime("COL", new Object(), 0));
     expectErrorCodeAndMessage(
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
@@ -1420,7 +1414,7 @@ public class DataValidationUtilTest {
             + " Not a valid time, see"
             + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview for"
             + " the list of supported formats",
-        () -> validateAndParseTime("COL", "abc", 10, 0));
+        () -> validateAndParseTime("COL", "abc", 0));
 
     // DATE
     expectErrorCodeAndMessage(

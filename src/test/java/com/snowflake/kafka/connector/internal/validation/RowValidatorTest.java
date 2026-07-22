@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalTime;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -179,7 +180,7 @@ public class RowValidatorTest {
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 100));
     schema.put("COL2", createColumnSchema("COL2", ColumnLogicalType.FIXED, true, 38, 0, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "test value");
@@ -194,7 +195,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 100));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "test value");
@@ -213,7 +214,7 @@ public class RowValidatorTest {
         "COL1",
         createColumnSchema("COL1", ColumnLogicalType.TEXT, false, null, null, 100)); // NOT NULL
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     // COL1 is missing
@@ -231,7 +232,7 @@ public class RowValidatorTest {
         "COL1",
         createColumnSchema("COL1", ColumnLogicalType.TEXT, false, null, null, 100)); // NOT NULL
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", null); // Null value in NOT NULL column
@@ -247,7 +248,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "not a number"); // String in numeric column
@@ -268,7 +269,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "999999999999999999999999999999.999999999");
@@ -286,7 +287,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "123456789012345678.123456789");
@@ -302,7 +303,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 2, 1, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "9.96");
@@ -320,7 +321,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 2, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "123.456789");
@@ -335,7 +336,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "-999999999999999999999999999999.999999999");
@@ -351,7 +352,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "1E30");
@@ -368,7 +369,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 20, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", Long.MAX_VALUE); // 9223372036854775807 — 19 digits
@@ -384,7 +385,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 5, 0, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "99999");
@@ -399,7 +400,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 5, 0, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "100000");
@@ -415,7 +416,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "99999999999999999999999999999999999999"); // 38 nines
@@ -431,7 +432,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 5));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "abcdef"); // 6 characters, exceeds VARCHAR(5)
@@ -447,7 +448,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 5));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL1", "abcde"); // exactly 5 characters
@@ -464,7 +465,7 @@ public class RowValidatorTest {
     schema.put(
         "COL NAME", createColumnSchema("COL NAME", ColumnLogicalType.TEXT, true, null, null, 100));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("COL NAME", "test value"); // Raw column name (already normalized)
@@ -518,7 +519,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 100));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("", "value"); // Empty column name
@@ -535,7 +536,7 @@ public class RowValidatorTest {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("COL1", createColumnSchema("COL1", ColumnLogicalType.TEXT, true, null, null, 100));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("   ", "value"); // Whitespace-only column name
@@ -629,7 +630,7 @@ public class RowValidatorTest {
         "COL1",
         createColumnSchema("COL1", ColumnLogicalType.FIXED, false, 38, 0, null)); // NOT NULL
 
-    RowValidator validator = new RowValidator(schemaMap);
+    RowValidator validator = newRowValidator(schemaMap);
 
     // Missing COL1 entirely (not in row)
     Map<String, Object> row = new HashMap<>();
@@ -658,7 +659,7 @@ public class RowValidatorTest {
         "COL1",
         createColumnSchema("COL1", ColumnLogicalType.FIXED, false, 38, 0, null)); // NOT NULL
 
-    RowValidator validator = new RowValidator(schemaMap);
+    RowValidator validator = newRowValidator(schemaMap);
 
     // COL1 present but null
     Map<String, Object> row = new HashMap<>();
@@ -689,7 +690,7 @@ public class RowValidatorTest {
         "COL2",
         createColumnSchema("COL2", ColumnLogicalType.TEXT, true, null, null, 100)); // NULLABLE
 
-    RowValidator validator = new RowValidator(schemaMap);
+    RowValidator validator = newRowValidator(schemaMap);
 
     // Both columns present with null values (valid for nullable columns)
     Map<String, Object> row = new HashMap<>();
@@ -711,7 +712,7 @@ public class RowValidatorTest {
     schemaMap.put(
         "COL1", createColumnSchema("COL1", ColumnLogicalType.FIXED, true, 38, 0, null)); // NULLABLE
 
-    RowValidator validator = new RowValidator(schemaMap);
+    RowValidator validator = newRowValidator(schemaMap);
 
     // Nullable column with actual value
     Map<String, Object> row = new HashMap<>();
@@ -762,7 +763,7 @@ public class RowValidatorTest {
             true)); // NOT NULL, autoincrement=true
     schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("DATA", "hello"); // ID is missing — server fills it
@@ -790,7 +791,7 @@ public class RowValidatorTest {
             true,
             false)); // NOT NULL, hasDefault=true
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("DATA", "hello"); // CREATED_AT is missing — server fills it
@@ -817,7 +818,7 @@ public class RowValidatorTest {
             false,
             false)); // NOT NULL, no default, no autoincrement
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     // REQUIRED is missing — no server default, should fail
@@ -875,7 +876,7 @@ public class RowValidatorTest {
             true,
             false)); // default
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     // Only DATA provided — ID, CREATED_AT, STATUS are server-filled
     Map<String, Object> row = new HashMap<>();
@@ -906,7 +907,7 @@ public class RowValidatorTest {
             true)); // autoincrement
     schema.put("DATA", createColumnSchema("DATA", ColumnLogicalType.TEXT, true, null, null, 100));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     // User explicitly provides a value for the identity column — should still be accepted
     Map<String, Object> row = new HashMap<>();
@@ -978,7 +979,7 @@ public class RowValidatorTest {
             8388608,
             null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("BIN_COL", "FFFFFFFF");
@@ -1009,7 +1010,7 @@ public class RowValidatorTest {
             8388608,
             null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     byte[] input = new byte[] {0x01, 0x02, 0x03};
     Map<String, Object> row = new HashMap<>();
@@ -1038,7 +1039,7 @@ public class RowValidatorTest {
             8388608,
             null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("BIN_COL", "");
@@ -1066,7 +1067,7 @@ public class RowValidatorTest {
             8388608,
             null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("BIN_COL", "FFF");
@@ -1094,7 +1095,7 @@ public class RowValidatorTest {
             8388608,
             null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("BIN_COL", "ffffffff");
@@ -1120,7 +1121,7 @@ public class RowValidatorTest {
     schema.put(
         "STR_COL", createColumnSchema("STR_COL", ColumnLogicalType.TEXT, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> inputMap = new LinkedHashMap<>();
     inputMap.put("key", "value");
@@ -1140,7 +1141,7 @@ public class RowValidatorTest {
     schema.put(
         "STR_COL", createColumnSchema("STR_COL", ColumnLogicalType.TEXT, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("STR_COL", Arrays.asList(1, 2, 3));
@@ -1157,7 +1158,7 @@ public class RowValidatorTest {
     schema.put(
         "STR_COL", createColumnSchema("STR_COL", ColumnLogicalType.TEXT, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> nested = new LinkedHashMap<>();
     nested.put("b", 1);
@@ -1179,7 +1180,7 @@ public class RowValidatorTest {
     schema.put(
         "STR_COL", createColumnSchema("STR_COL", ColumnLogicalType.TEXT, true, null, null, 5));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> inputMap = new LinkedHashMap<>();
     inputMap.put("key", "value"); // {"key":"value"} = 15 chars, exceeds 5
@@ -1205,7 +1206,7 @@ public class RowValidatorTest {
         "BOOL_COL",
         createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("BOOL_COL", 0);
@@ -1222,7 +1223,7 @@ public class RowValidatorTest {
         "BOOL_COL",
         createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("BOOL_COL", 1);
@@ -1240,7 +1241,7 @@ public class RowValidatorTest {
         "BOOL_COL",
         createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     for (Object input : Arrays.asList(Boolean.TRUE, Boolean.FALSE)) {
       Map<String, Object> row = new HashMap<>();
@@ -1260,7 +1261,7 @@ public class RowValidatorTest {
         "BOOL_COL",
         createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> trueInputs = new LinkedHashMap<>();
     trueInputs.put("true", Boolean.TRUE);
@@ -1297,7 +1298,7 @@ public class RowValidatorTest {
         "BOOL_COL",
         createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     for (Object invalid : Arrays.asList(new HashMap<>(), new ArrayList<>(), "not_a_bool")) {
       Map<String, Object> row = new HashMap<>();
@@ -1323,7 +1324,7 @@ public class RowValidatorTest {
         "BOOL_COL",
         createColumnSchema("BOOL_COL", ColumnLogicalType.BOOLEAN, true, null, null, null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     for (Object input : Arrays.asList(42, -1, 999, 2L, -100L)) {
       Map<String, Object> row = new HashMap<>();
@@ -1345,7 +1346,7 @@ public class RowValidatorTest {
   public void testValidateRowVariantJsonObjectStringNormalizedToMap() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("V", createColumnSchema("V", ColumnLogicalType.VARIANT, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("V", "{\"a\":1}");
@@ -1366,7 +1367,7 @@ public class RowValidatorTest {
   public void testValidateRowVariantJsonArrayStringNormalizedToList() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("V", createColumnSchema("V", ColumnLogicalType.VARIANT, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("V", "[1,2,3]");
@@ -1383,7 +1384,7 @@ public class RowValidatorTest {
   public void testValidateRowVariantNativeObjectPassthrough() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("V", createColumnSchema("V", ColumnLogicalType.VARIANT, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> nativeMap = new HashMap<>();
     nativeMap.put("key", "value");
@@ -1400,7 +1401,7 @@ public class RowValidatorTest {
   public void testValidateRowVariantInvalidJsonStringProducesTypeError() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("V", createColumnSchema("V", ColumnLogicalType.VARIANT, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("V", "not valid json");
@@ -1421,7 +1422,7 @@ public class RowValidatorTest {
   public void testValidateRowArrayJsonStringNormalizedToList() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("A", createColumnSchema("A", ColumnLogicalType.ARRAY, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("A", "[1,2,3]");
@@ -1441,7 +1442,7 @@ public class RowValidatorTest {
   public void testValidateRowArrayNonArrayJsonStringWrappedInList() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("A", createColumnSchema("A", ColumnLogicalType.ARRAY, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("A", "\"hello\""); // JSON string (not an array)
@@ -1458,7 +1459,7 @@ public class RowValidatorTest {
   public void testValidateRowArrayNativeListPassthrough() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("A", createColumnSchema("A", ColumnLogicalType.ARRAY, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     List<Integer> nativeList = Arrays.asList(10, 20, 30);
     Map<String, Object> row = new HashMap<>();
@@ -1474,7 +1475,7 @@ public class RowValidatorTest {
   public void testValidateRowArrayInvalidJsonStringProducesTypeError() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("A", createColumnSchema("A", ColumnLogicalType.ARRAY, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("A", "not_json");
@@ -1492,7 +1493,7 @@ public class RowValidatorTest {
   public void testValidateRowObjectInvalidJsonStringProducesTypeError() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("O", createColumnSchema("O", ColumnLogicalType.OBJECT, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("O", "not_json");
@@ -1508,7 +1509,7 @@ public class RowValidatorTest {
   public void testValidateRowObjectArrayJsonStringProducesTypeError() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("O", createColumnSchema("O", ColumnLogicalType.OBJECT, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("O", "[1,2,3]");
@@ -1524,7 +1525,7 @@ public class RowValidatorTest {
   public void testValidateRowObjectValidJsonStringAccepted() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("O", createColumnSchema("O", ColumnLogicalType.OBJECT, true, null, null, null));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("O", "{\"key\":\"value\"}");
@@ -1550,7 +1551,7 @@ public class RowValidatorTest {
             8388608,
             null));
 
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("BIN_COL", "not-valid-hex!");
@@ -1559,6 +1560,73 @@ public class RowValidatorTest {
     assertFalse(result.isValid());
     assertTrue(result.hasTypeError());
     assertEquals("BIN_COL", result.getColumnName());
+  }
+
+  // ================ TIME normalization (SNOW-3766306) ================
+
+  /**
+   * With normalization enabled (default), a TIME string with a UTC offset is stripped to LocalTime.
+   * The row value must be a LocalTime after validation so the SSv2 SDK can serialize it correctly.
+   */
+  @Test
+  public void validateRow_timeOffset_isNormalized() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = newRowValidator(schema);
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "00:00:00Z");
+    ValidationResult r = v.validateRow(row);
+    assertTrue(r.isValid());
+    assertEquals(LocalTime.of(0, 0), row.get("TS"));
+  }
+
+  /**
+   * normalizeTime=true (explicit) — offset is stripped to LocalTime, same as the default
+   * constructor.
+   */
+  @Test
+  public void validateRow_timeOffset_normalizeEnabled_returnsLocalTime() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = new RowValidator(schema, /* normalizeTime= */ true);
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "13:02:06.123456789+05:00");
+    ValidationResult r = v.validateRow(row);
+    assertTrue(r.isValid());
+    assertEquals(LocalTime.of(13, 2, 6, 123456789), row.get("TS"));
+  }
+
+  /**
+   * normalizeTime=false — the TIME value is still validated but NOT normalized; the raw String is
+   * passed through unchanged. This is the pre-PR (kill-switch) behaviour.
+   */
+  @Test
+  public void validateRow_timeOffset_normalizeDisabled_rawValuePassedThrough() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = new RowValidator(schema, /* normalizeTime= */ false);
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "00:00:00Z");
+    ValidationResult r = v.validateRow(row);
+    // Validated (valid value), but the raw String is left untouched — no normalization.
+    assertTrue(r.isValid());
+    assertEquals("00:00:00Z", row.get("TS"));
+  }
+
+  /**
+   * normalizeTime=false — validation still runs, so a malformed TIME value is rejected (routed to
+   * the DLQ), exactly as pre-PR. Guards against the flag disabling validation entirely.
+   */
+  @Test
+  public void validateRow_invalidTime_normalizeDisabled_isRejected() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("TS", ColumnSchema.fromDescribeTableFields("TS", "TIME(9)", "Y"));
+    RowValidator v = new RowValidator(schema, /* normalizeTime= */ false);
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "not_a_time");
+    ValidationResult r = v.validateRow(row);
+    assertFalse(r.isValid());
+    assertEquals("TS", r.getColumnName());
   }
 
   // ================ Timestamp normalization Tests ================
@@ -1572,7 +1640,7 @@ public class RowValidatorTest {
   public void testValidateRowTimestampNtzIntegerEpochNormalized() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     // 1705312800 = 2024-01-15T10:00:00Z
     Map<String, Object> row = new HashMap<>();
@@ -1590,7 +1658,7 @@ public class RowValidatorTest {
   public void testValidateRowTimestampNtzLongEpochNormalized() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("TS", 1705312800L);
@@ -1607,7 +1675,7 @@ public class RowValidatorTest {
   public void testValidateRowTimestampNtzStringPassthrough() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("TS", "2024-01-15T13:45:30");
@@ -1622,7 +1690,7 @@ public class RowValidatorTest {
   public void testValidateRowTimestampLtzIntegerEpochNormalized() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_LTZ));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("TS", 1705312800);
@@ -1639,7 +1707,7 @@ public class RowValidatorTest {
   public void testValidateRowTimestampNtzInvalidStringRejects() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
-    RowValidator validator = new RowValidator(schema);
+    RowValidator validator = newRowValidator(schema);
 
     Map<String, Object> row = new HashMap<>();
     row.put("TS", "not_a_timestamp");
@@ -1651,6 +1719,16 @@ public class RowValidatorTest {
   }
 
   // ================ Helper Methods ================
+
+  /**
+   * Constructs a {@link RowValidator} with TIME normalization enabled — the default for the vast
+   * majority of tests, which do not exercise the normalizeTime flag. Centralizing the constructor
+   * call keeps the diff small if the constructor signature changes again. Tests that specifically
+   * exercise the flag call {@code new RowValidator(schema, normalizeTime)} directly.
+   */
+  private static RowValidator newRowValidator(Map<String, ColumnSchema> columnSchemaMap) {
+    return new RowValidator(columnSchemaMap, /* normalizeTime= */ true);
+  }
 
   private ResultSet mockDescribeTableRow(String name, String type, String nullable)
       throws SQLException {

@@ -83,6 +83,13 @@ public final class Constants {
         "snowflake.feature.validation.error.table.name";
     public static final boolean SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT = true;
 
+    // When true (default), TIME strings with a UTC offset (e.g. "00:00:00Z") are normalized to
+    // canonical LocalTime before passing to the SSv2 SDK, matching KC v3 accept-and-strip
+    // behaviour (SNOW-3766306). Set to false to disable normalization and pass values through raw.
+    public static final String SNOWFLAKE_FEATURE_NORMALIZE_TIME =
+        "snowflake.feature.normalize.time";
+    public static final boolean SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT = true;
+
     public static final String SNOWFLAKE_FEATURE_STRUCTURED_HEADERS =
         "snowflake.feature.structured.headers";
     public static final boolean SNOWFLAKE_FEATURE_STRUCTURED_HEADERS_DEFAULT = false;

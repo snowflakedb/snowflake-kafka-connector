@@ -281,6 +281,25 @@ CASES = [
         "time_end", "COL_TIME", "23:59:59", OK, expected_value=datetime.time(23, 59, 59)
     ),
     Case("time_bad", "COL_TIME", "not_a_time", ERR),
+    # Offset-bearing TIME (SNOW-3766306): v3 and v4-compat accept-and-strip the
+    # offset so the local time-of-day lands; v4-ht relies on the SSv2 server,
+    # which silently drops offset-bearing TIME. Owned by test_time_offset.
+    Case(
+        "time_offset_z",
+        "COL_TIME",
+        "00:00:00Z",
+        OK,
+        expected_value=datetime.time(0, 0, 0),
+        group="time_offset",
+    ),
+    Case(
+        "time_offset_pos",
+        "COL_TIME",
+        "13:45:30+05:00",
+        OK,
+        expected_value=datetime.time(13, 45, 30),
+        group="time_offset",
+    ),
     # ---- TIMESTAMP_NTZ ----
     Case(
         "tsntz_normal",
@@ -459,6 +478,7 @@ _SPECIAL_GROUPS = {
     "float_special",
     "bool_coercion",
     "ts_epoch",
+    "time_offset",
     "xtype",
     "null",
     "variant_bare_str",
@@ -680,6 +700,27 @@ def test_date(results):
 def test_time(results):
     """TIME: time-of-day strings + invalid string to DLQ."""
     _assert_all(results, cases_where(col="COL_TIME", exclude_groups=_SPECIAL_GROUPS))
+
+
+def test_time_offset(results):
+    """TIME with a UTC offset (e.g. "00:00:00Z", "13:45:30+05:00") must be
+    accept-and-stripped so the local time-of-day lands.
+
+    v3: SSv1 SDK parses via OffsetTime and discards the offset.
+    v4-compat: RowValidator normalizes the offset-bearing value to LocalTime
+    before handing it to the SSv2 SDK (SNOW-3766306), matching v3.
+
+    v4-ht bypasses RowValidator and relies on the SSv2 server, which silently
+    drops offset-bearing TIME — the fix does not reach that path — so this
+    parity guarantee does not apply there. Skip rather than encode the
+    server-side behaviour, which this test cannot meaningfully pin.
+    """
+    if results.mode == "v4-ht":
+        pytest.skip(
+            "offset-bearing TIME parity (SNOW-3766306) applies to the client-side"
+            " path only; v4-ht relies on the SSv2 server, which drops it"
+        )
+    _assert_all(results, cases_where(group="time_offset"))
 
 
 def test_timestamp_ntz(results):
