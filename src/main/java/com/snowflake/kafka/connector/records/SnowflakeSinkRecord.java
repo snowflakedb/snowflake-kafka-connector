@@ -389,8 +389,13 @@ public final class SnowflakeSinkRecord {
       Object value = entry.getValue();
       // The schema declares `key STRING`, but the record key can convert to a non-String (e.g. an
       // INT-keyed topic yields an Integer, a struct/Avro key a Map). Coerce to String so the
-      // strict typed-OBJECT cast accepts it.
-      if (KEY.equals(field) && value != null && !(value instanceof String)) {
+      // strict typed-OBJECT cast accepts it. Exception: a byte[] key is passed through unchanged --
+      // String.valueOf(byte[]) would produce a useless "[B@..." object id; hand the raw byte array
+      // to the SDK, which handles binary values itself.
+      if (KEY.equals(field)
+          && value != null
+          && !(value instanceof String)
+          && !(value instanceof byte[])) {
         value = String.valueOf(value);
       }
       // The schema declares `headers MAP(VARCHAR, VARCHAR)`. When structured headers are enabled

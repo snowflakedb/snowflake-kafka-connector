@@ -948,6 +948,21 @@ class SnowflakeSinkRecordTest {
   }
 
   @Test
+  void testIcebergMetadata_passesByteArrayKeyThrough() {
+    // A byte[] key must NOT be stringified: String.valueOf(byte[]) yields a useless "[B@..." object
+    // id. It is handed to the SDK unchanged, which handles binary values. Call the package-private
+    // conform directly since no public converter path produces a raw byte[] key here.
+    byte[] key = new byte[] {1, 2, 3};
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("key", key);
+
+    Map<String, Object> conformed = SnowflakeSinkRecord.conformIcebergMetadata(raw);
+
+    assertInstanceOf(byte[].class, conformed.get("key"), "byte[] key must not be stringified");
+    assertArrayEquals(key, (byte[]) conformed.get("key"));
+  }
+
+  @Test
   void testIcebergMetadata_coercesStructuredHeaderValuesToString() {
     // With structured headers enabled, header values keep native types. The Iceberg schema declares
     // `headers MAP(VARCHAR, VARCHAR)`, so conform must coerce each header value to String.
