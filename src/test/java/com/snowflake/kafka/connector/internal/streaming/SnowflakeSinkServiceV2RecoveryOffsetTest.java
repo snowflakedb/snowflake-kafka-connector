@@ -206,7 +206,8 @@ class SnowflakeSinkServiceV2RecoveryOffsetTest {
             mockErrorHandler,
             TaskMetrics.noop(),
             false,
-            null,
+            false,
+            mock(SnowflakeConnectionService.class),
             Optional.empty());
 
     realChannel.awaitInitialization();

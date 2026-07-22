@@ -108,6 +108,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile Map<String, ColumnSchema> tableSchema;
   private final boolean shouldEvolveSchema;
 
+  // Whether the target table's RECORD_METADATA is a structured OBJECT (vs FDN/v3 VARIANT).
+  // Injected at construction time (after the table has been created/verified in startPartitions)
+  // so it is cheap to query per-record. We probe the ACTUAL table rather than trusting
+  // table.type, because the config only governs auto-creation: an existing table may differ
+  // (e.g. table.type=none targeting a pre-existing Iceberg v2 table).
+  private final boolean recordMetadataIsStructuredObject;
+
   public SnowpipeStreamingPartitionChannel(
       String tableName,
       String channelName,
@@ -122,6 +129,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       StreamingErrorHandler streamingErrorHandler,
       TaskMetrics taskMetrics,
       boolean shouldEvolveSchema,
+      boolean isRecordMetadataStructuredObject,
       SnowflakeConnectionService conn,
       Optional<String> ssv1ChannelName) {
     this.channelName = channelName;
@@ -136,6 +144,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.snowflakeTelemetryChannelStatus = snowflakeTelemetryChannelStatus;
     this.offsetTracker = offsetTracker;
     this.shouldEvolveSchema = shouldEvolveSchema;
+    this.recordMetadataIsStructuredObject = isRecordMetadataStructuredObject;
     this.conn = conn;
     this.tableName = tableName;
     this.ssv1ChannelName = ssv1ChannelName;
@@ -205,7 +214,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         // If we reach here, it means we should ingest a record (possibly empty for tombstones)
         final Map<String, Object> row =
             record.getContentWithMetadata(
-                taskConfig.getMetadataConfig().shouldIncludeAllMetadata());
+                taskConfig.getMetadataConfig().shouldIncludeAllMetadata(),
+                recordMetadataIsStructuredObject);
         if (!row.isEmpty()) {
           if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE
               && rowValidator != null) {

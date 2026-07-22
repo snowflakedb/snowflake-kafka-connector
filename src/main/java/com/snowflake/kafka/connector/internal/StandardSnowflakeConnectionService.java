@@ -7,12 +7,14 @@ import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryServiceFactory;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,6 +34,11 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       "created by automatic table creation from Snowflake Kafka Connector High Performance";
 
   private static final String SHOW_ICEBERG_TABLES_QUERY = "show iceberg tables like ? limit 1";
+  // Snowflake errno for ICEBERG_DATATYPE_NOT_SUPPORTED ("Unsupported data type '...' for iceberg
+  // tables"), thrown at CREATE-time when a VARIANT column is used on an Iceberg table that does not
+  // support it (format v2, or ENABLE_ICEBERG_VARIANT_TYPE off). JDBC strips the leading zero of
+  // 091386.
+  private static final int ERR_ICEBERG_DATATYPE_NOT_SUPPORTED = 91386;
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
@@ -77,23 +84,81 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
-      // Snowflake rejects CREATE TABLE IF NOT EXISTS when the name is already taken by an
-      // ICEBERG TABLE (cross-type conflict is not suppressed by IF NOT EXISTS). KCv4 only
-      // supports pre-created Iceberg tables; error_logging is not available for them.
-      // We match on the error message text because Snowflake does not provide a stable SQL
-      // error code that distinguishes this cross-type conflict from other CREATE TABLE errors.
-      if (e.getMessage() != null && e.getMessage().contains("already exists as ICEBERG_TABLE")) {
-        LOGGER.warn(
-            "Table '{}' is a pre-created Iceberg table. Skipping auto-creation."
-                + " Error table functionality is not available for Iceberg tables.",
-            tableName);
-        return;
-      }
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
     LOGGER.info(
         "Created table {} with RECORD_METADATA column and ERROR_LOGGING enabled", tableName);
+  }
+
+  @Override
+  public void createIcebergTableWithOnlyMetadataColumn(
+      final String tableName, final String createTableOptions) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    // Operator-supplied clauses (external volume, iceberg version, cluster by, base location, ...)
+    // are spliced right after the column list so positional clauses like CLUSTER BY land correctly.
+    String optionsClause =
+        (createTableOptions == null || createTableOptions.trim().isEmpty())
+            ? ""
+            : " " + createTableOptions.trim();
+
+    // Prefer a VARIANT RECORD_METADATA: it tolerates the variable Kafka metadata map and needs no
+    // client-side conforming. VARIANT is only allowed on Iceberg format v3+ (with
+    // ENABLE_ICEBERG_VARIANT_TYPE); where it is not -- e.g. an Iceberg v2 table -- the CREATE fails
+    // at DDL compile time with errno 91386 (ICEBERG_DATATYPE_NOT_SUPPORTED), and we fall back to a
+    // structured OBJECT RECORD_METADATA (the only option on v2, which then requires conforming).
+    try {
+      executeIcebergCreate(tableName, TABLE_COLUMN_METADATA + " VARIANT", optionsClause);
+      LOGGER.info(
+          "Created Iceberg table {} (createTableOptions='{}') with VARIANT RECORD_METADATA, schema"
+              + " evolution and error logging enabled",
+          tableName,
+          createTableOptions);
+      return;
+    } catch (SQLException e) {
+      if (e.getErrorCode() != ERR_ICEBERG_DATATYPE_NOT_SUPPORTED) {
+        throw SnowflakeErrors.ERROR_2007.getException(e);
+      }
+      LOGGER.info(
+          "VARIANT RECORD_METADATA not supported for Iceberg table {} (errno {}: {}); falling back"
+              + " to a structured OBJECT RECORD_METADATA (Iceberg v2).",
+          tableName,
+          ERR_ICEBERG_DATATYPE_NOT_SUPPORTED,
+          e.getMessage());
+    }
+
+    try {
+      executeIcebergCreate(
+          tableName,
+          TABLE_COLUMN_METADATA + " " + IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA,
+          optionsClause);
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+    LOGGER.info(
+        "Created Iceberg table {} (createTableOptions='{}') with structured OBJECT RECORD_METADATA,"
+            + " schema evolution and error logging enabled",
+        tableName,
+        createTableOptions);
+  }
+
+  /** Builds and executes the managed-Iceberg CREATE with the given RECORD_METADATA column DDL. */
+  private void executeIcebergCreate(
+      String tableName, String metadataColumnDdl, String optionsClause) throws SQLException {
+    // Snowflake-managed Iceberg tables require an explicit catalog integration; the connector also
+    // owns ENABLE_SCHEMA_EVOLUTION / ERROR_LOGGING (ingestion-mandatory), so they are not exposed.
+    String createTableQuery =
+        "create iceberg table if not exists identifier(?) ("
+            + metadataColumnDdl
+            + ")"
+            + optionsClause
+            + " catalog = 'SNOWFLAKE' enable_schema_evolution = true error_logging = true";
+    try (PreparedStatement stmt = conn.prepareStatement(createTableQuery)) {
+      stmt.setString(1, quoteIdentifier(tableName));
+      stmt.execute();
+    }
   }
 
   @Override
@@ -413,6 +478,23 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
+  public boolean isRecordMetadataStructuredObject(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    return describeTable(tableName)
+        .flatMap(
+            rows ->
+                rows.stream()
+                    .filter(r -> TABLE_COLUMN_METADATA.equalsIgnoreCase(r.getColumn()))
+                    .findFirst())
+        .map(
+            r ->
+                r.getType() != null
+                    && r.getType().trim().toUpperCase(Locale.ROOT).startsWith("OBJECT"))
+        .orElse(false);
+  }
+
+  @Override
   public boolean hasErrorLoggingEnabled(String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
@@ -443,6 +525,51 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
     LOGGER.debug("Table {} does not have ERROR_LOGGING enabled", tableName);
     return false;
+  }
+
+  @Override
+  public List<String> getStructuredObjectFieldNames(String tableName, String columnName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+    InternalUtils.assertNotEmpty("columnName", columnName);
+    // INFORMATION_SCHEMA.FIELDS has no column that names the owning table column: it is keyed by
+    // OBJECT_NAME (the table) plus ROW_IDENTIFIER (the structured type instance). To restrict to a
+    // single column we join to INFORMATION_SCHEMA.COLUMNS on FIELDS.ROW_IDENTIFIER =
+    // COLUMNS.DTD_IDENTIFIER, which also excludes nested-type rows (a sub-field that is itself an
+    // OBJECT/MAP/ARRAY has its own ROW_IDENTIFIER) and other structured columns on the same table.
+    // The connector creates and describes tables with quoted (case-preserving) identifiers, and the
+    // RECORD_METADATA column is created via the uppercase TABLE_COLUMN_METADATA constant, so the
+    // catalog stores both names with the exact case the caller passes here. Match them verbatim:
+    // wrapping the bind params in UPPER(?) would miss the common non-uppercase table name
+    // (pass-through topics, most topic2table.map values), silently returning no fields.
+    String query =
+        "SELECT f.FIELD_NAME FROM INFORMATION_SCHEMA.FIELDS f"
+            + " JOIN INFORMATION_SCHEMA.COLUMNS c"
+            + " ON f.OBJECT_CATALOG = c.TABLE_CATALOG"
+            + " AND f.OBJECT_SCHEMA = c.TABLE_SCHEMA"
+            + " AND f.OBJECT_NAME = c.TABLE_NAME"
+            + " AND f.ROW_IDENTIFIER = c.DTD_IDENTIFIER"
+            + " WHERE c.TABLE_NAME = ? AND c.COLUMN_NAME = ?"
+            + " AND c.TABLE_SCHEMA = CURRENT_SCHEMA()"
+            + " ORDER BY f.ORDINAL_POSITION";
+    List<String> fieldNames = new ArrayList<>();
+    try (PreparedStatement stmt = conn.prepareStatement(query)) {
+      stmt.setString(1, tableName);
+      stmt.setString(2, columnName);
+      try (ResultSet result = stmt.executeQuery()) {
+        while (result.next()) {
+          fieldNames.add(result.getString("FIELD_NAME"));
+        }
+      }
+      return fieldNames;
+    } catch (SQLException e) {
+      LOGGER.warn(
+          "Could not query INFORMATION_SCHEMA.FIELDS for table '{}', column '{}': {}",
+          tableName,
+          columnName,
+          e.getMessage());
+      return Collections.emptyList();
+    }
   }
 
   @Override

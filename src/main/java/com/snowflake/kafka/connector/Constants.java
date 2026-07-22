@@ -90,6 +90,17 @@ public final class Constants {
         "snowflake.feature.normalize.time";
     public static final boolean SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT = true;
 
+    // Kill-switch (unregistered, default on) for the managed-Iceberg structured-OBJECT
+    // RECORD_METADATA handling: probing whether a table's RECORD_METADATA is a structured OBJECT,
+    // validating an existing structured schema at startup, and conforming the metadata map for
+    // ingestion. Set to false to revert to 4.0.x behavior (RECORD_METADATA always treated as
+    // VARIANT, no probe, no conforming) if the new handling ever misbehaves for existing workloads.
+    // Note: disabling this also disables correct ingestion into managed-Iceberg v2 (structured
+    // OBJECT) tables, since their metadata will no longer be conformed.
+    public static final String SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA =
+        "snowflake.feature.structured.record.metadata.enabled";
+    public static final boolean SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA_DEFAULT = true;
+
     public static final String SNOWFLAKE_FEATURE_STRUCTURED_HEADERS =
         "snowflake.feature.structured.headers";
     public static final boolean SNOWFLAKE_FEATURE_STRUCTURED_HEADERS_DEFAULT = false;
@@ -149,6 +160,21 @@ public final class Constants {
         SNOWFLAKE_COMPATIBILITY_ENABLE_COLUMN_IDENTIFIER_NORMALIZATION_DEFAULT = false;
     public static final String SNOWFLAKE_ENABLE_SCHEMATIZATION = "snowflake.enable.schematization";
     public static final boolean SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT = true;
+
+    // Iceberg table auto-creation (SNOW-3552261)
+    public static final String SNOWFLAKE_AUTOCREATE_TABLE_TYPE = "snowflake.autocreate.table.type";
+    public static final com.snowflake.kafka.connector.config.TableType
+        SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT =
+            com.snowflake.kafka.connector.config.TableType.SNOWFLAKE;
+    // Optional SQL clauses spliced into the auto-created Iceberg table's CREATE statement, right
+    // after the column list (e.g. "EXTERNAL_VOLUME='v' ICEBERG_VERSION=3 CLUSTER BY (id)"). Lets
+    // operators set any managed-Iceberg create option without the connector exposing a knob per
+    // option. The connector always supplies the ingestion-mandatory clauses (RECORD_METADATA
+    // column, CATALOG='SNOWFLAKE', ENABLE_SCHEMA_EVOLUTION, ERROR_LOGGING); do not repeat those
+    // here. Only valid when snowflake.autocreate.table.type=iceberg.
+    public static final String SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS =
+        "snowflake.iceberg.create.table.options";
+    public static final String SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT = "";
 
     // MDC logging header
     public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";

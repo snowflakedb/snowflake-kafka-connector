@@ -7,17 +7,21 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
@@ -186,7 +190,7 @@ class SnowflakeSinkRecordTest {
     SnowflakeSinkRecord record =
         createRecordFromJson("{\"name\": \"test\"}", createMetadataConfigWithAll());
 
-    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(true);
+    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(true, false);
 
     assertNotNull(contentWithMetadata.get(TABLE_COLUMN_METADATA));
     assertEquals("test", contentWithMetadata.get("name"));
@@ -197,7 +201,7 @@ class SnowflakeSinkRecordTest {
     // Test that metadata is NOT included when flag is false
     SnowflakeSinkRecord record = createRecordFromJson("{\"name\": \"test\"}", metadataConfig);
 
-    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(false);
+    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(false, false);
 
     assertFalse(contentWithMetadata.containsKey(TABLE_COLUMN_METADATA));
     assertEquals("test", contentWithMetadata.get("name"));
@@ -419,7 +423,7 @@ class SnowflakeSinkRecordTest {
     assertTrue(record.getContent().isEmpty());
 
     // But metadata should still be present
-    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(true);
+    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(true, false);
     assertNotNull(contentWithMetadata.get(TABLE_COLUMN_METADATA));
   }
 
@@ -433,7 +437,7 @@ class SnowflakeSinkRecordTest {
     Map<String, Object> content = record.getContent();
     assertEquals("value", content.get("key"));
 
-    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(true);
+    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(true, false);
     assertEquals("value", contentWithMetadata.get("key"));
     assertNotNull(contentWithMetadata.get(TABLE_COLUMN_METADATA));
   }
@@ -607,7 +611,7 @@ class SnowflakeSinkRecordTest {
 
     // Even when includeAllMetadata is true, no metadata column should be added because metadata is
     // empty
-    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(true);
+    Map<String, Object> contentWithMetadata = record.getContentWithMetadata(true, false);
     assertFalse(contentWithMetadata.containsKey(TABLE_COLUMN_METADATA));
     assertEquals("value", contentWithMetadata.get("data"));
   }
@@ -806,6 +810,329 @@ class SnowflakeSinkRecordTest {
     assertNotNull(normalizedSchema.field("SIMPLE"));
     assertNull(normalizedSchema.field("\"MyCol\""));
     assertNull(normalizedSchema.field("simple"));
+  }
+
+  @Test
+  void testIcebergMetadata_padsAbsentFieldsWithNull() {
+    // KEY and HEADERS are record-level (not config-gated): a keyless/headerless record omits them
+    // from buildMetadata. The v2 managed-Iceberg structured-OBJECT cast REJECTS absent declared
+    // fields, so conformIcebergMetadata must pad them with null.
+    // A CreateTime record also has LogAppendTime absent — that must be padded too.
+    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
+    SinkRecord kafkaRecord =
+        new SinkRecord(
+            TOPIC,
+            PARTITION,
+            null,
+            null,
+            schemaAndValue.schema(),
+            schemaAndValue.value(),
+            5L,
+            1609459200000L,
+            TimestampType.CREATE_TIME);
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
+
+    // Populated config-gated fields are retained with their values.
+    assertEquals(TOPIC, metadata.get("topic"));
+    assertEquals(5L, metadata.get("offset"));
+    assertEquals(PARTITION, metadata.get("partition"));
+    assertEquals(1609459200000L, metadata.get("CreateTime"));
+
+    // KEY, HEADERS, and LogAppendTime are absent from the raw record but must be present-and-null
+    // in the conformed map so the strict v2 typed-OBJECT cast does not reject the row.
+    assertTrue(metadata.containsKey("key"), "absent key must be padded with null");
+    assertNull(metadata.get("key"), "padded key must be null");
+    assertTrue(metadata.containsKey("headers"), "absent headers must be padded with null");
+    assertNull(metadata.get("headers"), "padded headers must be null");
+    assertTrue(
+        metadata.containsKey("LogAppendTime"), "unused LogAppendTime must be padded with null");
+    assertNull(metadata.get("LogAppendTime"), "padded LogAppendTime must be null");
+
+    // All fields present — the set equals ICEBERG_METADATA_FIELDS exactly.
+    assertEquals(
+        new HashSet<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS),
+        metadata.keySet(),
+        "conformed map must contain exactly ICEBERG_METADATA_FIELDS");
+  }
+
+  @Test
+  void testIcebergMetadata_logAppendTimePassthrough() {
+    // Kafka emits the timestamp under TimestampType.name ("LogAppendTime"); the Iceberg schema
+    // declares "LogAppendTime" directly, so the field passes through unchanged — no rename needed.
+    // CreateTime is the unused timestamp type and must be padded with null by
+    // conformIcebergMetadata
+    // so the strict v2 typed-OBJECT cast does not reject the row.
+    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
+    SinkRecord kafkaRecord =
+        new SinkRecord(
+            TOPIC,
+            PARTITION,
+            null,
+            null,
+            schemaAndValue.schema(),
+            schemaAndValue.value(),
+            0L,
+            123L,
+            TimestampType.LOG_APPEND_TIME);
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
+
+    assertTrue(metadata.containsKey("LogAppendTime"), "LogAppendTime must pass through");
+    assertEquals(123L, metadata.get("LogAppendTime"));
+    assertTrue(
+        metadata.containsKey("CreateTime"),
+        "CreateTime must be padded with null for a LOG_APPEND_TIME record");
+    assertNull(metadata.get("CreateTime"), "padded CreateTime must be null");
+  }
+
+  @Test
+  void testFdnMetadata_isNotConformedToIcebergSchema() {
+    // FDN path (conform=false): RECORD_METADATA is VARIANT, so the sparse map is left as-is.
+    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
+    SinkRecord kafkaRecord =
+        new SinkRecord(
+            TOPIC,
+            PARTITION,
+            null,
+            null,
+            schemaAndValue.schema(),
+            schemaAndValue.value(),
+            0L,
+            123L,
+            TimestampType.CREATE_TIME);
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, false).get(TABLE_COLUMN_METADATA);
+
+    // Absent fields stay absent (not null-filled) — FDN behavior unchanged.
+    assertFalse(metadata.containsKey("key"));
+    assertFalse(metadata.containsKey("headers"));
+  }
+
+  @Test
+  void testIcebergMetadata_coercesNonStringKeyToString() {
+    // The Iceberg schema declares `key STRING`; an INT-keyed topic yields an Integer key, which
+    // would fail the strict typed-OBJECT cast. Conform must coerce it to a String.
+    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
+    SinkRecord kafkaRecord =
+        SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+            .withKeySchema(Schema.INT32_SCHEMA)
+            .withKey(123)
+            .withSchemaAndValue(schemaAndValue)
+            .build();
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
+
+    assertTrue(metadata.get("key") instanceof String, "key must be coerced to String for Iceberg");
+    assertEquals("123", metadata.get("key"));
+  }
+
+  @Test
+  void testIcebergMetadata_passesByteArrayKeyThrough() {
+    // A byte[] key must NOT be stringified: String.valueOf(byte[]) yields a useless "[B@..." object
+    // id. It is handed to the SDK unchanged, which handles binary values. Call the package-private
+    // conform directly since no public converter path produces a raw byte[] key here.
+    byte[] key = new byte[] {1, 2, 3};
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("key", key);
+
+    Map<String, Object> conformed = SnowflakeSinkRecord.conformIcebergMetadata(raw);
+
+    assertInstanceOf(byte[].class, conformed.get("key"), "byte[] key must not be stringified");
+    assertArrayEquals(key, (byte[]) conformed.get("key"));
+  }
+
+  @Test
+  void testIcebergMetadata_coercesStructuredHeaderValuesToString() {
+    // With structured headers enabled, header values keep native types. The Iceberg schema declares
+    // `headers MAP(VARCHAR, VARCHAR)`, so conform must coerce each header value to String.
+    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
+    Schema objectSchema = SchemaBuilder.struct().field("k", Schema.STRING_SCHEMA).build();
+    Struct objectValue = new Struct(objectSchema).put("k", "v");
+    Headers headers = new ConnectHeaders();
+    headers.add("objectHeader", objectValue, objectSchema);
+    headers.addInt("intHeader", 7);
+
+    SinkRecord kafkaRecord = createSinkRecordWithHeaders(schemaAndValue, headers, "key");
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(
+            kafkaRecord, createMetadataConfigWithAllAndStructuredHeaders(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
+    @SuppressWarnings("unchecked")
+    Map<String, Object> headersMap = (Map<String, Object>) metadata.get("headers");
+    assertTrue(
+        headersMap.get("objectHeader") instanceof String,
+        "structured header value must be coerced to String for the MAP(VARCHAR,VARCHAR) cast");
+    assertTrue(headersMap.get("intHeader") instanceof String);
+    assertEquals("7", headersMap.get("intHeader"));
+  }
+
+  @Test
+  void testIcebergMetadataFields_matchDdlSchema() {
+    // ICEBERG_METADATA_FIELDS must exactly match the fields declared in
+    // IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA — the strict typed-OBJECT cast makes this an
+    // exact-match invariant, so a schema change without updating the field list would silently
+    // break ingestion. This test fails loudly on drift.
+    String schema = IcebergDDLTypes.ICEBERG_METADATA_OBJECT_SCHEMA;
+    String body = schema.substring(schema.indexOf('(') + 1, schema.lastIndexOf(')'));
+
+    // Split on top-level commas only (the `headers MAP(VARCHAR, VARCHAR)` entry has nested commas).
+    Set<String> declaredFields = new HashSet<>();
+    int depth = 0;
+    StringBuilder cur = new StringBuilder();
+    for (char c : body.toCharArray()) {
+      if (c == '(') {
+        depth++;
+      } else if (c == ')') {
+        depth--;
+      }
+      if (c == ',' && depth == 0) {
+        declaredFields.add(cur.toString().trim().split("\\s+")[0]);
+        cur.setLength(0);
+      } else {
+        cur.append(c);
+      }
+    }
+    if (cur.toString().trim().length() > 0) {
+      declaredFields.add(cur.toString().trim().split("\\s+")[0]);
+    }
+
+    assertEquals(
+        new HashSet<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS),
+        declaredFields,
+        "ICEBERG_METADATA_FIELDS is out of sync with ICEBERG_METADATA_OBJECT_SCHEMA");
+  }
+
+  // ---- conformIcebergMetadata post-Change-2 behavior tests ----
+
+  @Test
+  void testIcebergMetadata_createTimePassthrough() {
+    // A record with CREATE_TIME timestamp: CreateTime passes through with its value.
+    // LogAppendTime is the unused timestamp type and must be padded with null by
+    // conformIcebergMetadata so the strict v2 typed-OBJECT cast does not reject the row.
+    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
+    long ts = 1_609_459_200_000L;
+    SinkRecord kafkaRecord =
+        new SinkRecord(
+            TOPIC,
+            PARTITION,
+            null,
+            null,
+            schemaAndValue.schema(),
+            schemaAndValue.value(),
+            1L,
+            ts,
+            TimestampType.CREATE_TIME);
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
+
+    assertEquals(ts, metadata.get("CreateTime"), "CreateTime value must pass through");
+    assertTrue(
+        metadata.containsKey("LogAppendTime"),
+        "LogAppendTime must be padded with null for a CREATE_TIME record");
+    assertNull(metadata.get("LogAppendTime"), "padded LogAppendTime must be null");
+  }
+
+  @Test
+  void testIcebergMetadata_unknownFieldThrows() {
+    // buildMetadata only ever emits fields declared in ICEBERG_METADATA_FIELDS, so an out-of-schema
+    // field means KC metadata emission and the Iceberg RECORD_METADATA schema have drifted apart.
+    // conformIcebergMetadata surfaces that loudly (IllegalStateException) rather than silently
+    // dropping the field. No public path can inject a top-level metadata field outside the schema,
+    // so we call the (package-private) method directly with a crafted map.
+    Map<String, Object> raw = new HashMap<>();
+    raw.put("topic", TOPIC);
+    raw.put("unexpectedField", "x");
+
+    IllegalStateException ex =
+        assertThrows(
+            IllegalStateException.class, () -> SnowflakeSinkRecord.conformIcebergMetadata(raw));
+    assertTrue(
+        ex.getMessage().contains("unexpectedField"),
+        "message should name the offending field; got: " + ex.getMessage());
+  }
+
+  @Test
+  void testIcebergMetadata_fullMetadataMapPassesThroughUnchanged() {
+    // With full metadata enabled (topic, offset+partition, createtime, connectorPushTime, key),
+    // all config-gated fields plus the record's own timestamp type are present.
+    // conformIcebergMetadata
+    // pads the unused timestamp (LogAppendTime for a CREATE_TIME record) and the absent headers
+    // with null, so ALL ICEBERG_METADATA_FIELDS are present in the conformed map.
+    Map<String, String> cfg = new HashMap<>();
+    cfg.put("snowflake.metadata.all", "true");
+    cfg.put("snowflake.streaming.metadata.connectorPushTime", "true");
+    SnowflakeMetadataConfig fullConfig = new SnowflakeMetadataConfig(cfg);
+
+    SchemaAndValue schemaAndValue = toConnectData("{\"id\": 1}");
+    long ts = 1_609_459_200_000L;
+    SinkRecord kafkaRecord =
+        new SinkRecord(
+            TOPIC,
+            PARTITION,
+            Schema.STRING_SCHEMA,
+            "myKey",
+            schemaAndValue.schema(),
+            schemaAndValue.value(),
+            7L,
+            ts,
+            TimestampType.CREATE_TIME);
+
+    Instant connectorPushTime = Instant.ofEpochMilli(9_876_543_210L);
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, fullConfig, connectorPushTime, true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
+
+    assertEquals(TOPIC, metadata.get("topic"));
+    assertEquals(7L, metadata.get("offset"));
+    assertEquals(PARTITION, metadata.get("partition"));
+    assertEquals("myKey", metadata.get("key"));
+    assertEquals(ts, metadata.get("CreateTime"));
+    // LogAppendTime is the unused timestamp type — padded with null, not absent.
+    assertTrue(
+        metadata.containsKey("LogAppendTime"),
+        "LogAppendTime must be padded with null for a CREATE_TIME record");
+    assertNull(metadata.get("LogAppendTime"), "padded LogAppendTime must be null");
+    // headers is absent from this record (no headers added) — padded with null.
+    assertTrue(metadata.containsKey("headers"), "absent headers must be padded with null");
+    assertNull(metadata.get("headers"), "padded headers must be null");
+    assertEquals(connectorPushTime.toEpochMilli(), metadata.get("SnowflakeConnectorPushTime"));
+    // The conformed map contains exactly all ICEBERG_METADATA_FIELDS.
+    assertEquals(
+        new HashSet<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS),
+        metadata.keySet(),
+        "conformed map must contain exactly ICEBERG_METADATA_FIELDS");
   }
 
   private static JsonConverter createJsonConverter() {

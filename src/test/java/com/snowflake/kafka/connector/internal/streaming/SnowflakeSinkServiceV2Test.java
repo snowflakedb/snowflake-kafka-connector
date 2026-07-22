@@ -1,9 +1,11 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -15,6 +17,7 @@ import com.snowflake.kafka.connector.builder.SinkRecordBuilder;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
+import com.snowflake.kafka.connector.config.TableType;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
@@ -23,7 +26,9 @@ import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
+import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
@@ -281,6 +287,48 @@ class SnowflakeSinkServiceV2Test {
     assertEquals(TOPIC, captor.getValue().get(TOPIC));
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  void startPartitions_noneType_usesDefaultPipe_noPipeExistenceCheck() {
+    // table.type=none no longer requires the pipe to pre-exist at startup; the default pipe is
+    // connector-managed (created lazily at first ingest). This test verifies that startPartitions
+    // does NOT call pipeExist for a pre-existence guard when the table already exists.
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.isClosed()).thenReturn(false);
+    when(mockConn.tableExist(TOPIC)).thenReturn(true);
+    // Named pipe does NOT exist; default pipe does NOT exist either — neither should cause a
+    // failure.
+    when(mockConn.pipeExist(TOPIC)).thenReturn(false);
+    when(mockConn.hasErrorLoggingEnabled(TOPIC)).thenReturn(true);
+
+    PartitionChannelManager channelMgr = mock(PartitionChannelManager.class);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.NONE)
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .enableSanitization(false)
+            .build();
+    SnowflakeSinkServiceV2 svc =
+        new SnowflakeSinkServiceV2(
+            mockConn,
+            config,
+            mockSinkTaskContext,
+            Optional.empty(),
+            () -> mock(BatchOffsetFetcher.class),
+            () -> channelMgr,
+            TaskMetrics.noop());
+
+    TopicPartition tp = new TopicPartition(TOPIC, 0);
+    svc.startPartitions(Set.of(tp)); // must not throw
+
+    // The default pipe (tableName + STREAMING suffix) must be chosen.
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(channelMgr).startPartitions(any(), captor.capture());
+    assertEquals(TOPIC + "-STREAMING", captor.getValue().get(TOPIC));
+  }
+
   // --- backpressure handling ---
 
   @Test
@@ -492,6 +540,297 @@ class SnowflakeSinkServiceV2Test {
   }
 
   // --- helpers ---
+
+  private SnowflakeSinkServiceV2 newService(SnowflakeConnectionService conn, SinkTaskConfig cfg) {
+    return new SnowflakeSinkServiceV2(
+        conn,
+        cfg,
+        mockSinkTaskContext,
+        Optional.empty(),
+        () -> mock(BatchOffsetFetcher.class),
+        () -> mock(PartitionChannelManager.class),
+        TaskMetrics.noop());
+  }
+
+  private SinkTaskConfig cfg(TableType type, String createTableOptions) {
+    return SinkTaskConfigTestBuilder.builder()
+        .connectorName(CONNECTOR_NAME)
+        .taskId("0")
+        .autocreatedTableType(type)
+        .icebergCreateTableOptions(Optional.ofNullable(createTableOptions))
+        .build();
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_callsIcebergCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, "ICEBERG_VERSION=3"));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn).createIcebergTableWithOnlyMetadataColumn("t1", "ICEBERG_VERSION=3");
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_snowflakeType_callsFdnCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.SNOWFLAKE, ""));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn).createTableWithOnlyMetadataColumn("t1");
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_snowflakeType_createdTableIsIceberg_warnsButProceeds() {
+    // A bare CREATE TABLE can come out Iceberg if the schema default is
+    // DEFAULT_METADATA_WRITE_FORMAT=ICEBERG. That is a benign surprise (the connector ingests into
+    // the Iceberg table), so we create, then check and warn -- we do NOT fail.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    when(conn.isIcebergTable("t1")).thenReturn(true); // created table came out Iceberg
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.SNOWFLAKE, ""));
+
+    svc.createTableIfNotExists("t1"); // must not throw
+
+    verify(conn).createTableWithOnlyMetadataColumn("t1");
+    verify(conn).isIcebergTable("t1");
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_noneType_missingTable_throws() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.NONE, ""));
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("t1");
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_existingIcebergTable_noCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isIcebergTable("t1")).thenReturn(true);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_existingFdnTable_usedAsIs_noCreate() {
+    // table.type only governs auto-creation; an existing table is used as-is regardless of type.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isIcebergTable("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_snowflakeType_existingIcebergTable_usedAsIs_noCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isIcebergTable("t1")).thenReturn(true);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.SNOWFLAKE, ""));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_nonSchematized_withoutV3_throws() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.ICEBERG)
+            .enableSchematization(false)
+            .icebergCreateTableOptions(Optional.of("EXTERNAL_VOLUME='v'"))
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("ICEBERG_VERSION=3");
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_nonSchematized_withV3_creates() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.ICEBERG)
+            .enableSchematization(false)
+            .icebergCreateTableOptions(Optional.of("ICEBERG_VERSION=3"))
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn).createIcebergTableWithOnlyMetadataColumn("t1", "ICEBERG_VERSION=3");
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_nonSchematized_withQuotedV3_creates() {
+    // Snowflake accepts a quoted version (ICEBERG_VERSION = '3'); it must be recognized as v3 and
+    // not spuriously rejected.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.ICEBERG)
+            .enableSchematization(false)
+            .icebergCreateTableOptions(Optional.of("EXTERNAL_VOLUME='v' ICEBERG_VERSION = '3'"))
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn)
+        .createIcebergTableWithOnlyMetadataColumn(
+            "t1", "EXTERNAL_VOLUME='v' ICEBERG_VERSION = '3'");
+  }
+
+  // --- validateStructuredObjectMetadataSchema ---
+
+  @Test
+  void validateStructuredObjectMetadataSchema_allFieldsPresent_noThrow() {
+    // All ICEBERG_METADATA_FIELDS are declared → validation passes without throwing.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
+    when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA"))
+        .thenReturn(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS);
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    // Must not throw.
+    svc.createTableIfNotExists("t1");
+  }
+
+  @Test
+  void validateStructuredObjectMetadataSchema_missingField_throwsError0035() {
+    // INFORMATION_SCHEMA returns all fields except LogAppendTime → ERROR_0035.
+    List<String> fieldsWithoutLogAppendTime =
+        SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS.stream()
+            .filter(f -> !f.equals("LogAppendTime"))
+            .collect(Collectors.toList());
+
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
+    when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA"))
+        .thenReturn(fieldsWithoutLogAppendTime);
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("LogAppendTime")
+        .hasMessageContaining("0035");
+  }
+
+  @Test
+  void validateStructuredObjectMetadataSchema_extraFields_throwsError0035() {
+    // INFORMATION_SCHEMA returns all required fields PLUS an extra field → ERROR_0035.
+    // An extra field is one the connector never emits, so that field would always be absent
+    // from every row's map, causing the v2 typed-OBJECT cast to reject every row.
+    List<String> fieldsWithExtra = new ArrayList<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS);
+    fieldsWithExtra.add("extraField");
+
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
+    when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA")).thenReturn(fieldsWithExtra);
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("extraField")
+        .hasMessageContaining("0035");
+  }
+
+  @Test
+  void validateStructuredObjectMetadataSchema_emptyFields_throwsError0035() {
+    // RECORD_METADATA is a structured OBJECT but INFORMATION_SCHEMA returned no sub-fields (e.g.
+    // wrong database/schema, or a lookup error) → fail fast rather than silently proceed and route
+    // every row to the error table at ingest.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
+    when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA"))
+        .thenReturn(Collections.emptyList());
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("no sub-fields")
+        .hasMessageContaining("0035");
+  }
+
+  @Test
+  void validateStructuredObjectMetadataSchema_variantColumn_noValidation_noThrow() {
+    // isRecordMetadataStructuredObject=false (VARIANT or FDN table) → no field fetch, no throw.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(false);
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    svc.createTableIfNotExists("t1"); // must not throw
+
+    verify(conn, never()).getStructuredObjectFieldNames(anyString(), anyString());
+  }
+
+  @Test
+  void structuredRecordMetadata_featureFlagDisabled_skipsProbeAndValidation() {
+    // Kill-switch off: even for an existing table, the connector must not probe RECORD_METADATA or
+    // validate its structured schema -- it reverts to 4.0.x behavior (RECORD_METADATA as VARIANT).
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+
+    SinkTaskConfig disabled =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.ICEBERG)
+            .structuredRecordMetadataEnabled(false)
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, disabled);
+
+    svc.createTableIfNotExists("t1"); // must not throw
+
+    verify(conn, never()).isRecordMetadataStructuredObject(anyString());
+    verify(conn, never()).getStructuredObjectFieldNames(anyString(), anyString());
+  }
 
   private SnowflakeSinkServiceV2 buildService(
       SnowflakeConnectionService conn, boolean clientValidationEnabled) {

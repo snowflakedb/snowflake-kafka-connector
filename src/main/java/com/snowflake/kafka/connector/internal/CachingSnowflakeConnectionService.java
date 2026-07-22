@@ -166,6 +166,14 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
+  public void createIcebergTableWithOnlyMetadataColumn(
+      String tableName, String createTableOptions) {
+    delegate.createIcebergTableWithOnlyMetadataColumn(tableName, createTableOptions);
+    tableExistsCache.invalidate(tableName);
+    errorLoggingCache.invalidate(tableName);
+  }
+
+  @Override
   public boolean isTableCompatible(String tableName) {
     return delegate.isTableCompatible(tableName);
   }
@@ -241,6 +249,11 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
+  public boolean isRecordMetadataStructuredObject(String tableName) {
+    return delegate.isRecordMetadataStructuredObject(tableName);
+  }
+
+  @Override
   public boolean hasErrorLoggingEnabled(String tableName) {
     if (!tableExistsCacheEnabled) {
       return delegate.hasErrorLoggingEnabled(tableName);
@@ -253,6 +266,11 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
     } catch (Exception e) {
       throw new RuntimeException("Error accessing error logging cache for table: " + tableName, e);
     }
+  }
+
+  @Override
+  public List<String> getStructuredObjectFieldNames(String tableName, String columnName) {
+    return delegate.getStructuredObjectFieldNames(tableName, columnName);
   }
 
   @Override

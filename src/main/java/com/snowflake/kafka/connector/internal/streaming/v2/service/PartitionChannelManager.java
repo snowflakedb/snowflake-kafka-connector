@@ -64,6 +64,12 @@ public class PartitionChannelManager {
   private final PartitionChannelBuilder partitionChannelBuilder;
   private final Map<String, TopicPartitionChannel> partitionChannels;
   private final Map<String, Boolean> shouldEvolveSchemaCache = new ConcurrentHashMap<>();
+  // Whether a table's RECORD_METADATA is a structured OBJECT. Memoized per table (like
+  // shouldEvolveSchemaCache) because buildChannel runs once per partition, but the answer is a
+  // per-table property that does not change during the task's lifetime -- probing it per partition
+  // would issue a redundant DESCRIBE TABLE for every channel.
+  private final Map<String, Boolean> recordMetadataStructuredObjectCache =
+      new ConcurrentHashMap<>();
 
   /**
    * Offset resets submitted by channel init / recovery on the IO thread. Drained by SSV2.insert on
@@ -212,6 +218,13 @@ public class PartitionChannelManager {
             && shouldEvolveSchemaCache.computeIfAbsent(
                 tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
 
+    // Gated by a kill-switch (default on). When disabled, treat every table as VARIANT
+    // RECORD_METADATA (4.0.x behavior) and skip the probe entirely.
+    final boolean isRecordMetadataStructuredObject =
+        taskConfig.isStructuredRecordMetadataEnabled()
+            && recordMetadataStructuredObjectCache.computeIfAbsent(
+                tableName, conn::isRecordMetadataStructuredObject);
+
     // KC v3 defaulted to V1 channel naming: {topic}_{partition}.
     // Customers who set snowflake.streaming.channel.name.include.connector.name=true
     // in KC v3 used V2 naming: {connectorName}_{topic}_{partition} (same as KC v4).
@@ -243,6 +256,7 @@ public class PartitionChannelManager {
         streamingErrorHandler,
         this.taskMetrics,
         shouldEvolveSchema,
+        isRecordMetadataStructuredObject,
         this.conn,
         ssv1ChannelName);
   }

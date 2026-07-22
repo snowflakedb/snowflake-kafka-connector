@@ -82,6 +82,18 @@ public interface SnowflakeConnectionService {
   void createTableWithOnlyMetadataColumn(String tableName);
 
   /**
+   * Create a managed Iceberg table with only the RECORD_METADATA column, schema evolution and error
+   * logging enabled. No-op if the table already exists.
+   *
+   * @param tableName table name
+   * @param createTableOptions operator-supplied SQL clauses spliced after the column list (e.g.
+   *     "EXTERNAL_VOLUME='v' ICEBERG_VERSION=3 CLUSTER BY (id)"). May be empty. The connector
+   *     always supplies CATALOG='SNOWFLAKE', ENABLE_SCHEMA_EVOLUTION and ERROR_LOGGING, so callers
+   *     must not repeat those here.
+   */
+  void createIcebergTableWithOnlyMetadataColumn(String tableName, String createTableOptions);
+
+  /**
    * Calls describe table statement and returns all columns and corresponding types.
    *
    * @param tableName - table name
@@ -133,12 +145,36 @@ public interface SnowflakeConnectionService {
   boolean isIcebergTable(String tableName);
 
   /**
+   * Whether the given table's {@code RECORD_METADATA} column is a structured {@code OBJECT(...)}
+   * (as opposed to {@code VARIANT}). Managed-Iceberg v2 tables must use a structured OBJECT
+   * (VARIANT is unsupported on format v2); v3 and FDN tables use VARIANT. The connector conforms
+   * the metadata map to the strict OBJECT schema ONLY for structured-OBJECT columns. Returns false
+   * when the table or the {@code RECORD_METADATA} column is absent.
+   *
+   * @param tableName table name
+   * @return true iff {@code RECORD_METADATA} is a structured OBJECT column
+   */
+  boolean isRecordMetadataStructuredObject(String tableName);
+
+  /**
    * Check whether the given table has ERROR_LOGGING enabled via SHOW TABLES.
    *
    * @param tableName table name
    * @return true if error_logging is "ON", false otherwise or if the column is not present
    */
   boolean hasErrorLoggingEnabled(String tableName);
+
+  /**
+   * Returns the names of sub-fields declared by a structured OBJECT column. Queries {@code
+   * INFORMATION_SCHEMA.FIELDS} for the given table and column within the session's current
+   * schema/database. Returns an empty list if the table or column is absent or has no declared
+   * sub-fields.
+   *
+   * @param tableName unqualified table name; the session's current database/schema are used
+   * @param columnName the structured OBJECT column name (e.g. "RECORD_METADATA")
+   * @return list of sub-field names (case as stored in INFORMATION_SCHEMA)
+   */
+  List<String> getStructuredObjectFieldNames(String tableName, String columnName);
 
   /**
    * Calls SYSTEM$MIGRATE_SSV1_CHANNEL_OFFSET to migrate the committed offset from an SSv1 channel

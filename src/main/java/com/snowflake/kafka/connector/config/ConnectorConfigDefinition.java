@@ -500,6 +500,36 @@ public class ConnectorConfigDefinition {
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION)
         .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE,
+            STRING,
+            KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT.configValue(),
+            ConfigDef.ValidString.in("snowflake", "iceberg", "none"),
+            MEDIUM,
+            "Controls table auto-creation. 'snowflake' (default): auto-create a standard Snowflake"
+                + " table if it is missing. 'iceberg': auto-create a Snowflake-managed Iceberg"
+                + " table if it is missing. 'none': never auto-create the table (fail fast if it"
+                + " is missing); the pipe is still auto-managed by the connector as usual. An"
+                + " existing table is always used as-is, regardless of this setting.",
+            CONNECTOR_CONFIG_DOC,
+            15,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS,
+            STRING,
+            KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT,
+            LOW,
+            "SQL clauses spliced into the auto-created Iceberg table's CREATE statement after the"
+                + " column list (e.g. \"EXTERNAL_VOLUME='v' ICEBERG_VERSION=3 CLUSTER BY (id)\")."
+                + " Lets operators set any managed-Iceberg create option without a per-option knob."
+                + " Only valid when snowflake.autocreate.table.type=iceberg. Do NOT include"
+                + " CATALOG, ENABLE_SCHEMA_EVOLUTION or ERROR_LOGGING -- the"
+                + " connector always supplies those. Ignored if the table already exists.",
+            CONNECTOR_CONFIG_DOC,
+            16,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS)
+        .define(
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
             BOOLEAN,
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS_DEFAULT,

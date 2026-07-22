@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -260,6 +261,81 @@ public class StandardSnowflakeConnectionServiceDdlTest {
   }
 
   // ---------------------------------------------------------------------------
+  // getStructuredObjectFieldNames tests
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testGetStructuredObjectFieldNames_returnsFieldNames() throws SQLException {
+    PreparedStatement infoSchemaStmt = mock(PreparedStatement.class);
+    ResultSet infoSchemaRs = mock(ResultSet.class);
+    when(infoSchemaRs.next()).thenReturn(true, true, false);
+    when(infoSchemaRs.getString("FIELD_NAME")).thenReturn("OFFSET", "TOPIC");
+    when(infoSchemaStmt.executeQuery()).thenReturn(infoSchemaRs);
+
+    // Override so the SELECT query also routes to infoSchemaStmt.
+    when(mockJdbcConn.prepareStatement(
+            argThat(s -> s != null && s.startsWith("SELECT f.FIELD_NAME"))))
+        .thenReturn(infoSchemaStmt);
+
+    List<String> fields = service.getStructuredObjectFieldNames("MY_TABLE", "RECORD_METADATA");
+
+    assertThat(fields).containsExactly("OFFSET", "TOPIC");
+    verify(infoSchemaStmt).setString(1, "MY_TABLE");
+    verify(infoSchemaStmt).setString(2, "RECORD_METADATA");
+  }
+
+  @Test
+  public void testGetStructuredObjectFieldNames_sqlException_returnsEmpty() throws SQLException {
+    when(mockJdbcConn.prepareStatement(
+            argThat(s -> s != null && s.startsWith("SELECT f.FIELD_NAME"))))
+        .thenThrow(new SQLException("connection refused"));
+
+    List<String> fields = service.getStructuredObjectFieldNames("MY_TABLE", "RECORD_METADATA");
+
+    assertThat(fields).isEmpty();
+  }
+
+  @Test
+  public void testGetStructuredObjectFieldNames_matchesIdentifierCaseVerbatim()
+      throws SQLException {
+    PreparedStatement infoSchemaStmt = mock(PreparedStatement.class);
+    ResultSet infoSchemaRs = mock(ResultSet.class);
+    when(infoSchemaRs.next()).thenReturn(true, false);
+    when(infoSchemaRs.getString("FIELD_NAME")).thenReturn("OFFSET");
+    when(infoSchemaStmt.executeQuery()).thenReturn(infoSchemaRs);
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockJdbcConn.prepareStatement(
+            argThat(s -> s != null && s.startsWith("SELECT f.FIELD_NAME"))))
+        .thenReturn(infoSchemaStmt);
+
+    // A non-uppercase table name -- the common case for pass-through topics and topic2table.map
+    // values. The pre-fix query wrapped the bind params in UPPER(?), which never matched the
+    // case-preserving (quoted) identifier stored in INFORMATION_SCHEMA and silently returned no
+    // fields.
+    List<String> fields =
+        service.getStructuredObjectFieldNames("my_lower_table", "RECORD_METADATA");
+
+    assertThat(fields).containsExactly("OFFSET");
+
+    verify(mockJdbcConn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
+    String infoSchemaSql =
+        sqlCaptor.getAllValues().stream()
+            .filter(s -> s != null && s.startsWith("SELECT f.FIELD_NAME"))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("SELECT f.FIELD_NAME query was not executed"));
+    assertThat(infoSchemaSql).doesNotContain("UPPER(");
+    assertThat(infoSchemaSql).contains("TABLE_NAME = ?");
+    // FIELDS has no column identifier, so the query joins to INFORMATION_SCHEMA.COLUMNS on
+    // ROW_IDENTIFIER = DTD_IDENTIFIER to scope to the target column.
+    assertThat(infoSchemaSql).contains("INFORMATION_SCHEMA.COLUMNS");
+    assertThat(infoSchemaSql).contains("f.ROW_IDENTIFIER = c.DTD_IDENTIFIER");
+    // The identifier is passed through verbatim (not uppercased).
+    verify(infoSchemaStmt).setString(1, "my_lower_table");
+    verify(infoSchemaStmt).setString(2, "RECORD_METADATA");
+  }
+
+  // ---------------------------------------------------------------------------
   // shouldEvolveSchema tests
   // ---------------------------------------------------------------------------
 
@@ -374,25 +450,200 @@ public class StandardSnowflakeConnectionServiceDdlTest {
   }
 
   @Test
-  public void testCreateTableWithOnlyMetadataColumn_icebergTableAlreadyExists_doesNotThrow()
-      throws SQLException {
-    // Snowflake rejects CREATE TABLE IF NOT EXISTS when the name belongs to an ICEBERG TABLE.
-    // The method should swallow the error and return normally rather than propagating it.
-    SQLException icebergConflict =
-        new SQLException(
-            "SQL compilation error:\nObject 'MY_TABLE' already exists as ICEBERG_TABLE");
-    when(mockAlterStmt.execute()).thenThrow(icebergConflict);
-
-    assertDoesNotThrow(() -> service.createTableWithOnlyMetadataColumn("MY_TABLE"));
-  }
-
-  @Test
   public void testCreateTableWithOnlyMetadataColumn_otherSqlError_throws() throws SQLException {
     SQLException otherError = new SQLException("Some other SQL error");
     when(mockAlterStmt.execute()).thenThrow(otherError);
 
     assertThrows(
-        com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException.class,
+        SnowflakeKafkaConnectorException.class,
         () -> service.createTableWithOnlyMetadataColumn("MY_TABLE"));
+  }
+
+  @Test
+  public void createIcebergTable_noOptions_generatesMandatorySkeleton() throws SQLException {
+    // createIcebergTable issues exactly one prepareStatement (no SHOW probe).
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createIcebergTableWithOnlyMetadataColumn("test_table", "");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue().toLowerCase();
+
+    assertThat(sql).startsWith("create iceberg table if not exists identifier(?)");
+    assertThat(sql).contains("record_metadata");
+    // connector-mandatory clauses are always present
+    assertThat(sql).contains("catalog = 'snowflake'");
+    assertThat(sql).contains("enable_schema_evolution = true");
+    assertThat(sql).contains("error_logging = true");
+    // no operator options -> nothing extra spliced in
+    assertThat(sql).doesNotContain("iceberg_version");
+    assertThat(sql).doesNotContain("external_volume");
+    assertThat(sql).doesNotContain("cluster by");
+    verify(createStmt).setString(1, "\"test_table\"");
+    verify(createStmt).execute();
+  }
+
+  @Test
+  public void createIcebergTable_splicesOptionsAfterColumnList() throws SQLException {
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createIcebergTableWithOnlyMetadataColumn(
+        "test_table", "EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3 CLUSTER BY (id)");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue();
+
+    // options land right after the column list, before the connector-mandatory clauses so
+    // positional clauses like CLUSTER BY are valid.
+    assertThat(sql)
+        .contains(
+            ") EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3 CLUSTER BY (id) catalog = 'SNOWFLAKE'");
+    assertThat(sql.toLowerCase()).contains("enable_schema_evolution = true");
+    assertThat(sql.toLowerCase()).contains("error_logging = true");
+  }
+
+  @Test
+  public void createIcebergTable_blankOptions_treatedAsNone() throws SQLException {
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createIcebergTableWithOnlyMetadataColumn("test_table", "   ");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    // collapses the column-list paren straight into the catalog clause (single space)
+    assertThat(sqlCaptor.getValue()).contains(") catalog = 'SNOWFLAKE'");
+  }
+
+  @Test
+  public void testHasErrorLoggingEnabled_onMeansEnabled() throws Exception {
+    // SHOW TABLES renders error_logging as ON/OFF, not Y/N.
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement showStmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(rs.next()).thenReturn(true);
+    when(rs.getString("error_logging")).thenReturn("ON");
+    when(showStmt.executeQuery()).thenReturn(rs);
+    when(conn.prepareStatement("show tables like ? limit 1")).thenReturn(showStmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    assertTrue(svc.hasErrorLoggingEnabled("my_table"));
+  }
+
+  @Test
+  public void testHasErrorLoggingEnabled_offMeansDisabled() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement showStmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(rs.next()).thenReturn(true);
+    when(rs.getString("error_logging")).thenReturn("OFF");
+    when(showStmt.executeQuery()).thenReturn(rs);
+    when(conn.prepareStatement("show tables like ? limit 1")).thenReturn(showStmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    assertFalse(svc.hasErrorLoggingEnabled("my_table"));
+  }
+
+  // ---- createIcebergTableWithOnlyMetadataColumn: VARIANT-first with OBJECT fallback ----
+
+  @Test
+  public void createIcebergTable_prefersVariantMetadata() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    when(stmt.execute()).thenReturn(false);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    svc.createIcebergTableWithOnlyMetadataColumn("t", "EXTERNAL_VOLUME='v'");
+
+    ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+    verify(conn, times(1)).prepareStatement(sql.capture()); // only the VARIANT attempt
+    assertThat(sql.getValue().toLowerCase()).contains("record_metadata variant");
+    assertThat(sql.getValue()).doesNotContain("OBJECT(");
+  }
+
+  @Test
+  public void createIcebergTable_fallsBackToObjectOnVariantUnsupported() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    // First attempt (VARIANT) rejected with errno 91386; second attempt (OBJECT) succeeds.
+    when(stmt.execute())
+        .thenThrow(
+            new SQLException("Unsupported data type 'VARIANT' for iceberg tables.", "42601", 91386))
+        .thenReturn(false);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    svc.createIcebergTableWithOnlyMetadataColumn("t", "");
+
+    ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+    verify(conn, times(2)).prepareStatement(sql.capture());
+    assertThat(sql.getAllValues().get(0).toLowerCase()).contains("record_metadata variant");
+    assertThat(sql.getAllValues().get(1)).contains("OBJECT(offset"); // structured OBJECT schema
+  }
+
+  @Test
+  public void createIcebergTable_rethrowsNon91386WithoutFallback() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    // e.g. missing external volume (not the VARIANT-unsupported errno) -> must NOT fall back.
+    when(stmt.execute())
+        .thenThrow(new SQLException("External volume 'v' does not exist", "42601", 91361));
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    assertThrows(
+        RuntimeException.class, () -> svc.createIcebergTableWithOnlyMetadataColumn("t", ""));
+    verify(conn, times(1)).prepareStatement(anyString()); // no OBJECT fallback attempt
+  }
+
+  // ---- isRecordMetadataStructuredObject ----
+
+  @Test
+  public void isRecordMetadataStructuredObject_objectColumn_true() throws Exception {
+    assertTrue(
+        serviceForDescribe(
+                "RECORD_METADATA", "OBJECT(offset NUMBER(19,0), topic VARCHAR(16777216))")
+            .isRecordMetadataStructuredObject("t"));
+  }
+
+  @Test
+  public void isRecordMetadataStructuredObject_variantColumn_false() throws Exception {
+    assertFalse(
+        serviceForDescribe("RECORD_METADATA", "VARIANT").isRecordMetadataStructuredObject("t"));
+  }
+
+  @Test
+  public void isRecordMetadataStructuredObject_noMetadataColumn_false() throws Exception {
+    assertFalse(
+        serviceForDescribe("SOME_COL", "NUMBER(38,0)").isRecordMetadataStructuredObject("t"));
+  }
+
+  /** Builds a service whose DESC TABLE returns a single column with the given name/type. */
+  private static StandardSnowflakeConnectionService serviceForDescribe(
+      String columnName, String columnType) throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(rs.next()).thenReturn(true).thenReturn(false);
+    when(rs.getString("name")).thenReturn(columnName);
+    when(rs.getString("type")).thenReturn(columnType);
+    when(rs.getString("comment")).thenReturn(null);
+    when(rs.getString("null?")).thenReturn("Y");
+    when(rs.getString("default")).thenReturn(null);
+    when(rs.getString("autoincrement")).thenReturn(null);
+    when(stmt.executeQuery()).thenReturn(rs);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+    return createServiceWithMockConnection(conn);
   }
 }

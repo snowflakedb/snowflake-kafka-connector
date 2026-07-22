@@ -199,7 +199,20 @@ public enum SnowflakeErrors {
       "Non-default pipe not supported with client-side validation",
       "Client-side validation only supports default pipes ({table}-STREAMING). Either disable"
           + " client-side validation (snowflake.validation=server_side) or drop the"
-          + " existing pipe so the connector uses the default pipe.");
+          + " existing pipe so the connector uses the default pipe."),
+  ERROR_0034(
+      "0034",
+      "Table auto-creation configuration error",
+      "snowflake.autocreate.table.type is misconfigured for the target table -- e.g."
+          + " table.type=none but the table or its pipe does not exist, or an auto-created Iceberg"
+          + " table needs ICEBERG_VERSION=3. See the specific error message for details."),
+  ERROR_0035(
+      "0035",
+      "RECORD_METADATA structured-schema mismatch",
+      "An existing table's structured-OBJECT RECORD_METADATA column (managed-Iceberg v2) does not"
+          + " match the schema the connector requires: a sub-field is missing or extra, or the"
+          + " sub-fields could not be read. The strict typed-OBJECT cast would reject every row at"
+          + " ingest. See the specific error message for details.");
 
   // properties
 

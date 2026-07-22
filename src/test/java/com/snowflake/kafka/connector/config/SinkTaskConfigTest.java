@@ -1,6 +1,8 @@
 package com.snowflake.kafka.connector.config;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.snowflake.kafka.connector.ConnectorConfigTools;
@@ -275,5 +277,198 @@ public class SinkTaskConfigTest {
     Map<String, String> raw = minimalConfig();
     raw.remove(Utils.TASK_ID);
     assertThrows(IllegalArgumentException.class, () -> SinkTaskConfig.from(raw));
+  }
+
+  @Test
+  void from_defaultsTableTypeToSnowflake() {
+    SinkTaskConfig config = SinkTaskConfig.from(minimalConfig());
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.SNOWFLAKE);
+    assertThat(config.getIcebergCreateTableOptions()).isEmpty();
+  }
+
+  @Test
+  void from_parsesIcebergTableTypeAndCreateOptions() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "iceberg");
+    // client_side is always rejected for iceberg; server_side is fine.
+    raw.put("snowflake.validation", "server_side");
+    raw.put("snowflake.iceberg.create.table.options", "EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.ICEBERG);
+    assertThat(config.getIcebergCreateTableOptions())
+        .contains("EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3");
+  }
+
+  @Test
+  void from_icebergWithClientSideValidation_throws() {
+    // Rejected regardless of whether schematization is enabled or not.
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "iceberg");
+    raw.put("snowflake.enable.schematization", "true");
+    raw.put("snowflake.validation", "client_side");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("client_side")
+        .hasMessageContaining("server_side");
+  }
+
+  @Test
+  void from_icebergWithClientSideValidationNoSchematization_throws() {
+    // client_side is also rejected when schematization is disabled.
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "iceberg");
+    raw.put("snowflake.enable.schematization", "false");
+    raw.put("snowflake.validation", "client_side");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("client_side")
+        .hasMessageContaining("server_side");
+  }
+
+  @Test
+  void from_icebergWithServerSideValidationAndSchematization_ok() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "iceberg");
+    raw.put("snowflake.enable.schematization", "true");
+    raw.put("snowflake.validation", "server_side");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.ICEBERG);
+    assertThat(config.getValidation()).isEqualTo(SnowflakeValidation.SERVER_SIDE);
+  }
+
+  @Test
+  void from_createOptionsWithoutIcebergTableType_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "snowflake");
+    raw.put("snowflake.iceberg.create.table.options", "EXTERNAL_VOLUME='my_vol'");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("snowflake.iceberg.create.table.options");
+  }
+
+  @Test
+  void from_blankCreateOptionsWithoutIcebergTableType_ok() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "snowflake");
+    raw.put("snowflake.iceberg.create.table.options", "   ");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getIcebergCreateTableOptions()).isEmpty();
+  }
+
+  // --- iceberg + metadata flag validation (Change 2) ---
+
+  @Test
+  void from_icebergWithDisabledTopicFlag_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_TOPIC, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_AUTOCREATE_TABLE_TYPE)
+        .hasMessageContaining("iceberg")
+        .hasMessageContaining(SNOWFLAKE_METADATA_TOPIC);
+  }
+
+  @Test
+  void from_icebergWithDisabledOffsetAndPartitionFlag_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION);
+  }
+
+  @Test
+  void from_icebergWithDisabledCreatetimeFlag_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_CREATETIME, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_METADATA_CREATETIME);
+  }
+
+  @Test
+  void from_icebergWithDisabledConnectorPushTimeFlag_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME);
+  }
+
+  @Test
+  void from_icebergWithDisabledAllMetadataFlag_throws() {
+    // The master snowflake.metadata.createSnowflakeMetadata flag gates whether RECORD_METADATA is
+    // attached at all; disabling it produces no metadata, which the strict typed-OBJECT cast would
+    // reject. It must be caught by the same iceberg guard as the per-field flags.
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_ALL, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_AUTOCREATE_TABLE_TYPE)
+        .hasMessageContaining("iceberg")
+        .hasMessageContaining(SNOWFLAKE_METADATA_ALL);
+  }
+
+  @Test
+  void from_icebergWithAllMetadataEnabled_ok() {
+    // All metadata flags are enabled by default; explicit confirmation must still succeed.
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_TOPIC, "true");
+    raw.put(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "true");
+    raw.put(SNOWFLAKE_METADATA_CREATETIME, "true");
+    raw.put(SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME, "true");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.ICEBERG);
+  }
+
+  @Test
+  void from_snowflakeTypeWithDisabledMetadata_ok() {
+    // The metadata-mandated guard is Iceberg-only; standard Snowflake tables are unaffected.
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "snowflake");
+    raw.put(SNOWFLAKE_METADATA_TOPIC, "false");
+    raw.put(SNOWFLAKE_METADATA_OFFSET_AND_PARTITION, "false");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.SNOWFLAKE);
+  }
+
+  // --- structured headers ---
+
+  @Test
+  void from_icebergWithStructuredHeaders_ok() {
+    // Structured headers + iceberg is allowed at config time. For v2 structured-OBJECT tables the
+    // header values are coerced to String in conformIcebergMetadata (schema is
+    // headers MAP(VARCHAR,VARCHAR)); v3/VARIANT keeps them nested. No config-time rejection.
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS, "true");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.ICEBERG);
+  }
+
+  @Test
+  void from_icebergWithStructuredHeadersDisabled_ok() {
+    // Default is false; explicit false must also succeed.
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS, "false");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.ICEBERG);
+  }
+
+  @Test
+  void from_snowflakeTypeWithStructuredHeaders_ok() {
+    // Structured headers are allowed for all table types (no config-time restriction).
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "snowflake");
+    raw.put(SNOWFLAKE_FEATURE_STRUCTURED_HEADERS, "true");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.SNOWFLAKE);
   }
 }

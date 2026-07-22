@@ -8,6 +8,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
@@ -23,12 +24,14 @@ import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClien
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
+import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -172,15 +175,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           // Table doesn't exist yet — will be auto-created with ERROR_LOGGING = TRUE
           continue;
         }
-        if (conn.isIcebergTable(tableName)) {
-          LOGGER.warn(
-              "Table '{}' is an Iceberg table. Iceberg tables do not support ERROR_LOGGING."
-                  + " In v4 high-throughput mode, invalid records targeting this table will be"
-                  + " silently dropped. Error table functionality is not available for Iceberg"
-                  + " tables.",
-              tableName);
-          continue;
-        }
         if (!conn.hasErrorLoggingEnabled(tableName)) {
           LOGGER.warn(
               "Table '{}' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
@@ -260,6 +254,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // Client-side validation only supports default pipes.
       // When validation is enabled, reject non-default pipes (pipes whose name equals the table
       // name) because validation assumptions may not hold for user-created pipes.
+      //
+      // table.type=none's only job is to NOT auto-create the TABLE — already enforced in
+      // createTableIfNotExists (which throws for NONE when the table is missing). The default pipe
+      // is always connector-managed (created lazily at first ingest), so requiring a pre-existing
+      // pipe under 'none' was wrong: the pipe does not need to exist at startup regardless of
+      // table.type.
       final String targetPipeName;
       if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
         if (this.conn.pipeExist(tableName)) {
@@ -279,13 +279,119 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     channelManager.startPartitions(partitions, tableToPipeMapping);
   }
 
-  private void createTableIfNotExists(final String tableName) {
+  @VisibleForTesting
+  void createTableIfNotExists(final String tableName) {
     if (this.conn.tableExist(tableName)) {
-      LOGGER.info("Using existing table {}.", tableName);
-    } else {
-      LOGGER.info("Creating new table {}.", tableName);
-      this.conn.createTableWithOnlyMetadataColumn(tableName);
+      // Existing table: use it as-is, regardless of the configured table.type (which only governs
+      // auto-creation). (For table.type=none, pipe existence is asserted in startPartitions.)
+      LOGGER.info(
+          "Using existing table {} (snowflake.autocreate.table.type={}).",
+          tableName,
+          taskConfig.getAutocreatedTableType().configValue());
+      // Validate that the existing RECORD_METADATA structured-OBJECT schema (managed-Iceberg v2)
+      // contains all fields the connector emits. A missing declared field causes the strict v2
+      // typed-OBJECT cast to reject every row with "Typed object schema mismatch in conversion";
+      // fail fast here so the operator can fix the table rather than silently losing data.
+      if (taskConfig.isStructuredRecordMetadataEnabled()
+          && this.conn.isRecordMetadataStructuredObject(tableName)) {
+        validateStructuredObjectMetadataSchema(tableName);
+      }
+      return;
     }
+    switch (taskConfig.getAutocreatedTableType()) {
+      case ICEBERG:
+        // Non-schematized Iceberg stores the raw record in a RECORD_CONTENT VARIANT column, which
+        // is only supported on Iceberg format v3. Auto-creating without ICEBERG_VERSION=3 yields a
+        // v2 table (the default) that cannot hold RECORD_CONTENT, so fail fast at startup instead
+        // of mysteriously at ingest time.
+        // Tolerate an optionally-quoted value (ICEBERG_VERSION=3 or ICEBERG_VERSION='3'); the
+        // (?!\\d) guard still rejects 30/31/etc.
+        final boolean icebergV3Requested =
+            taskConfig
+                .getIcebergCreateTableOptions()
+                .orElse("")
+                .matches("(?is).*ICEBERG_VERSION\\s*=\\s*'?3'?(?!\\d).*");
+        if (!taskConfig.isEnableSchematization() && !icebergV3Requested) {
+          throw SnowflakeErrors.ERROR_0034.getException(
+              "Auto-creating Iceberg table '"
+                  + tableName
+                  + "' with snowflake.enable.schematization=false requires ICEBERG_VERSION=3 in"
+                  + " snowflake.iceberg.create.table.options: the raw record is stored in a"
+                  + " RECORD_CONTENT VARIANT column, supported only on Iceberg format v3.");
+        }
+        LOGGER.info(
+            "Creating new Iceberg table {} (createTableOptions='{}').",
+            tableName,
+            taskConfig.getIcebergCreateTableOptions().orElse(""));
+        this.conn.createIcebergTableWithOnlyMetadataColumn(
+            tableName, taskConfig.getIcebergCreateTableOptions().orElse(""));
+        break;
+      case NONE:
+        // Missing table + none: fail loudly and tell the operator their two ways out.
+        throw SnowflakeErrors.ERROR_0034.getException(
+            "Table '"
+                + tableName
+                + "' does not exist and snowflake.autocreate.table.type=none. Either create the"
+                + " table yourself, or set snowflake.autocreate.table.type=snowflake|iceberg so"
+                + " the connector creates the table for you.");
+      case SNOWFLAKE:
+      default:
+        LOGGER.info("Creating new table {}.", tableName);
+        this.conn.createTableWithOnlyMetadataColumn(tableName);
+        // A bare CREATE TABLE honors a schema/database/account
+        // DEFAULT_METADATA_WRITE_FORMAT=ICEBERG,
+        // which yields a managed-Iceberg table even though this config asked for a standard (FDN)
+        // table. That is a benign surprise -- the connector ingests into the Iceberg table fine --
+        // so
+        // just warn. Combos that would actually fail (Iceberg v2 rejecting the VARIANT metadata
+        // column, or a missing external volume) already fail loudly in the create above.
+        if (this.conn.isIcebergTable(tableName)) {
+          LOGGER.warn(
+              "Auto-created table '{}' is a managed-Iceberg table, not a standard (FDN) table,"
+                  + " despite snowflake.autocreate.table.type=snowflake -- most likely the target"
+                  + " schema/database/account has DEFAULT_METADATA_WRITE_FORMAT=ICEBERG. Ingestion"
+                  + " will proceed against the Iceberg table. Set snowflake.autocreate.table.type="
+                  + "iceberg to make this explicit, or unset DEFAULT_METADATA_WRITE_FORMAT.",
+              tableName);
+        }
+    }
+  }
+
+  /**
+   * Validates that an existing table's {@code RECORD_METADATA} structured-OBJECT schema exactly
+   * matches the connector's expected field set ({@link
+   * com.snowflake.kafka.connector.records.SnowflakeSinkRecord#ICEBERG_METADATA_FIELDS}).
+   *
+   * <p>Called only when {@code conn.isRecordMetadataStructuredObject(tableName)} is true (managed-
+   * Iceberg v2). The v2 strict typed-OBJECT cast rejects any row whose map is missing a declared
+   * OBJECT sub-field, so both missing fields (rows rejected) and extra fields (connector never
+   * emits them, so always absent → rows rejected) are fatal. Delegates the comparison to {@link
+   * IcebergDDLTypes#validateRecordMetadataFields}.
+   *
+   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException (ERROR_0035)
+   *     when any connector field is missing from, or any extra field is present in, the table's
+   *     OBJECT schema
+   */
+  @VisibleForTesting
+  void validateStructuredObjectMetadataSchema(String tableName) {
+    List<String> fieldNames =
+        this.conn.getStructuredObjectFieldNames(tableName, Utils.TABLE_COLUMN_METADATA);
+    if (fieldNames.isEmpty()) {
+      // This method is only called when RECORD_METADATA is confirmed to be a structured OBJECT
+      // (isRecordMetadataStructuredObject == true), so it MUST have declared sub-fields. An empty
+      // result means we could not read them (query error, or the table is not in the session's
+      // current database/schema). Do NOT proceed: the strict v2 typed-OBJECT cast would then reject
+      // every row at ingest, silently routing all data to the error table. Fail fast instead so the
+      // operator can fix it -- this is exactly the failure mode this validation exists to prevent.
+      throw SnowflakeErrors.ERROR_0035.getException(
+          "Cannot validate the structured-OBJECT RECORD_METADATA schema for table '"
+              + tableName
+              + "': INFORMATION_SCHEMA.FIELDS returned no sub-fields for the RECORD_METADATA"
+              + " column, even though the column is a structured OBJECT. This usually means the"
+              + " table is not in the connector's configured database/schema. Ensure"
+              + " snowflake.database.name and snowflake.schema.name match the table's location.");
+    }
+    IcebergDDLTypes.validateRecordMetadataFields(tableName, new HashSet<>(fieldNames));
   }
 
   private Set<TopicPartition> currentlyInitializing(Collection<TopicPartition> partitions) {

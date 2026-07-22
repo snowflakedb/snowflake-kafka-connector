@@ -49,6 +49,10 @@ public abstract class SinkTaskConfig {
 
   public abstract boolean isEnableSchematization();
 
+  public abstract TableType getAutocreatedTableType();
+
+  public abstract Optional<String> getIcebergCreateTableOptions();
+
   public abstract boolean isEnableColumnIdentifierNormalization();
 
   public abstract SnowflakeValidation getValidation();
@@ -155,6 +159,16 @@ public abstract class SinkTaskConfig {
    * passing to the SDK. See {@link KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_NORMALIZE_TIME}.
    */
   public abstract boolean isNormalizeTimeEnabled();
+
+  /**
+   * Whether the managed-Iceberg structured-OBJECT {@code RECORD_METADATA} handling is enabled:
+   * probing whether a table's {@code RECORD_METADATA} is a structured OBJECT, validating an
+   * existing structured schema at startup, and conforming the metadata map for ingestion. When
+   * {@code false}, {@code RECORD_METADATA} is always treated as VARIANT (4.0.x behavior).
+   * Kill-switch for existing workloads. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA}.
+   */
+  public abstract boolean isStructuredRecordMetadataEnabled();
 
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
@@ -394,6 +408,69 @@ public abstract class SinkTaskConfig {
             .map(Boolean::parseBoolean)
             .orElse(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT);
 
+    boolean structuredRecordMetadataEnabled =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA))
+            .map(Boolean::parseBoolean)
+            .orElse(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA_DEFAULT);
+
+    TableType autocreatedTableType =
+        TableType.fromConfig(config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE))
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT);
+
+    Optional<String> icebergCreateTableOptions =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty());
+    if (icebergCreateTableOptions.isPresent() && autocreatedTableType != TableType.ICEBERG) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS
+              + " is only valid when "
+              + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
+              + "=iceberg (got table.type="
+              + autocreatedTableType.configValue()
+              + ")");
+    }
+
+    // client_side validation cannot model the structured RECORD_METADATA column of managed Iceberg
+    // tables; client-side schema evolution also relies on ALTER ADD COLUMN, which is a server-side
+    // concern for Iceberg. Reject unconditionally rather than only when schematization is enabled.
+    if (autocreatedTableType == TableType.ICEBERG
+        && validation == SnowflakeValidation.CLIENT_SIDE) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
+              + "=client_side is not supported for managed Iceberg tables."
+              + " RECORD_METADATA is a structured OBJECT handled server-side;"
+              + " client-side validation cannot model it."
+              + " Set "
+              + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION
+              + "=server_side.");
+    }
+
+    // Managed Iceberg RECORD_METADATA is cast to a fixed structured OBJECT schema, so every
+    // metadata flag that maps to a declared schema field must be enabled. Disabling any of them
+    // produces a sparse map that fails the strict typed-OBJECT cast at ingest time.
+    if (autocreatedTableType == TableType.ICEBERG
+        && !metadataConfig.isFullIcebergMetadataEnabled()) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
+              + "=iceberg requires all record metadata to be enabled"
+              + " (RECORD_METADATA is cast to a fixed structured schema for managed Iceberg)."
+              + " Remove any "
+              + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL
+              + "=false, "
+              + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_TOPIC
+              + "=false, "
+              + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION
+              + "=false, "
+              + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_CREATETIME
+              + "=false, or "
+              + KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME
+              + "=false settings.");
+    }
+
     Builder b = builder();
     b.connectorName(connectorName)
         .taskId(taskId)
@@ -430,7 +507,10 @@ public abstract class SinkTaskConfig {
         .precommitClientRecoveryEnabled(precommitClientRecoveryEnabled)
         .prometheusMetricsEnabled(prometheusMetricsEnabled)
         .validationErrorTableNameEnabled(validationErrorTableNameEnabled)
-        .normalizeTimeEnabled(normalizeTimeEnabled);
+        .normalizeTimeEnabled(normalizeTimeEnabled)
+        .structuredRecordMetadataEnabled(structuredRecordMetadataEnabled)
+        .autocreatedTableType(autocreatedTableType)
+        .icebergCreateTableOptions(icebergCreateTableOptions);
 
     snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
     snowflakePrivateKeyPassphrase.ifPresent(b::snowflakePrivateKeyPassphrase);
@@ -453,7 +533,10 @@ public abstract class SinkTaskConfig {
     return optionalString(value).map(Password::new);
   }
 
-  /** Creates a new builder. Used by {@link #from(Map)} and by tests. */
+  /**
+   * Creates a new builder. Tests must set defaults via {@code SinkTaskConfigTestBuilder} so future
+   * changes don't re-add them here.
+   */
   public static Builder builder() {
     return new AutoValue_SinkTaskConfig.Builder();
   }
@@ -483,6 +566,10 @@ public abstract class SinkTaskConfig {
     public abstract Builder enableSanitization(boolean enableSanitization);
 
     public abstract Builder enableSchematization(boolean enableSchematization);
+
+    public abstract Builder autocreatedTableType(TableType autocreatedTableType);
+
+    public abstract Builder icebergCreateTableOptions(Optional<String> icebergCreateTableOptions);
 
     public abstract Builder enableColumnIdentifierNormalization(
         boolean enableColumnIdentifierNormalization);
@@ -558,6 +645,9 @@ public abstract class SinkTaskConfig {
         boolean validationErrorTableNameEnabled);
 
     public abstract Builder normalizeTimeEnabled(boolean normalizeTimeEnabled);
+
+    public abstract Builder structuredRecordMetadataEnabled(
+        boolean structuredRecordMetadataEnabled);
 
     public abstract SinkTaskConfig build();
   }
