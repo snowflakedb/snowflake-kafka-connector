@@ -304,11 +304,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         // is only supported on Iceberg format v3. Auto-creating without ICEBERG_VERSION=3 yields a
         // v2 table (the default) that cannot hold RECORD_CONTENT, so fail fast at startup instead
         // of mysteriously at ingest time.
+        // Tolerate an optionally-quoted value (ICEBERG_VERSION=3 or ICEBERG_VERSION='3'); the
+        // (?!\\d) guard still rejects 30/31/etc.
         final boolean icebergV3Requested =
             taskConfig
                 .getIcebergCreateTableOptions()
                 .orElse("")
-                .matches("(?is).*ICEBERG_VERSION\\s*=\\s*3(?!\\d).*");
+                .matches("(?is).*ICEBERG_VERSION\\s*=\\s*'?3'?(?!\\d).*");
         if (!taskConfig.isEnableSchematization() && !icebergV3Requested) {
           throw SnowflakeErrors.ERROR_0034.getException(
               "Auto-creating Iceberg table '"

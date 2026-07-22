@@ -694,6 +694,29 @@ class SnowflakeSinkServiceV2Test {
     verify(conn).createIcebergTableWithOnlyMetadataColumn("t1", "ICEBERG_VERSION=3");
   }
 
+  @Test
+  void createTableIfNotExists_icebergType_nonSchematized_withQuotedV3_creates() {
+    // Snowflake accepts a quoted version (ICEBERG_VERSION = '3'); it must be recognized as v3 and
+    // not spuriously rejected.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.ICEBERG)
+            .enableSchematization(false)
+            .icebergCreateTableOptions(Optional.of("EXTERNAL_VOLUME='v' ICEBERG_VERSION = '3'"))
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn)
+        .createIcebergTableWithOnlyMetadataColumn(
+            "t1", "EXTERNAL_VOLUME='v' ICEBERG_VERSION = '3'");
+  }
+
   // --- validateStructuredObjectMetadataSchema ---
 
   @Test
