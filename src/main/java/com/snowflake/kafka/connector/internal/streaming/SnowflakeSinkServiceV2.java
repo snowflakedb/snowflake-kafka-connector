@@ -248,7 +248,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     for (String topic : uniqueTopics) {
       final String tableName =
           getTableName(
-              topic, taskConfig.getTopicToTableResolver(), taskConfig.isEnableSanitization());
+              topic,
+              taskConfig.getTopicToTableResolver(),
+              taskConfig.isEnableSanitization(),
+              taskConfig.isEnableTableNameHash());
       createTableIfNotExists(tableName);
 
       // Client-side validation only supports default pipes.
