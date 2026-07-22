@@ -31,12 +31,12 @@ public class IcebergDDLTypes {
    * the table's OBJECT schema is one the connector never fills — that field would always be absent
    * in every row, causing every row to be rejected at ingest time.
    *
-   * <p>Throws {@code ERROR_0034} on any mismatch: missing field(s), extra field(s), or both.
+   * <p>Throws {@code ERROR_0035} on any mismatch: missing field(s), extra field(s), or both.
    *
    * @param tableName table name (used in the error message only)
    * @param actualFields field names from the table's RECORD_METADATA OBJECT (compared
    *     case-insensitively)
-   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException (ERROR_0034) if
+   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException (ERROR_0035) if
    *     any expected field is missing or any extra field is present
    */
   public static void validateRecordMetadataFields(String tableName, Set<String> actualFields) {
@@ -85,6 +85,6 @@ public class IcebergDDLTypes {
             + " OBJECT column definition (e.g. ALTER TABLE ... ALTER COLUMN RECORD_METADATA SET"
             + " DATA TYPE OBJECT(...)), or re-create the table so the connector can auto-create"
             + " it with the correct schema.");
-    throw SnowflakeErrors.ERROR_0034.getException(msg.toString());
+    throw SnowflakeErrors.ERROR_0035.getException(msg.toString());
   }
 }

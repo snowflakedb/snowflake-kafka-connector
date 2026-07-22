@@ -368,7 +368,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * emits them, so always absent → rows rejected) are fatal. Delegates the comparison to {@link
    * IcebergDDLTypes#validateRecordMetadataFields}.
    *
-   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException (ERROR_0034)
+   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException (ERROR_0035)
    *     when any connector field is missing from, or any extra field is present in, the table's
    *     OBJECT schema
    */
@@ -383,7 +383,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // current database/schema). Do NOT proceed: the strict v2 typed-OBJECT cast would then reject
       // every row at ingest, silently routing all data to the error table. Fail fast instead so the
       // operator can fix it -- this is exactly the failure mode this validation exists to prevent.
-      throw SnowflakeErrors.ERROR_0034.getException(
+      throw SnowflakeErrors.ERROR_0035.getException(
           "Cannot validate the structured-OBJECT RECORD_METADATA schema for table '"
               + tableName
               + "': INFORMATION_SCHEMA.FIELDS returned no sub-fields for the RECORD_METADATA"

@@ -29,24 +29,24 @@ class IcebergDDLTypesTest {
   }
 
   @Test
-  void validateRecordMetadataFields_missingField_throwsError0034NamingField() {
+  void validateRecordMetadataFields_missingField_throwsError0035NamingField() {
     Set<String> missing = new HashSet<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS);
     missing.remove("LogAppendTime");
 
     assertThatThrownBy(() -> IcebergDDLTypes.validateRecordMetadataFields("my_table", missing))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("0034")
+        .hasMessageContaining("0035")
         .hasMessageContaining("LogAppendTime");
   }
 
   @Test
-  void validateRecordMetadataFields_extraField_throwsError0034NamingField() {
+  void validateRecordMetadataFields_extraField_throwsError0035NamingField() {
     Set<String> extra = new HashSet<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS);
     extra.add("unexpectedCustomField");
 
     assertThatThrownBy(() -> IcebergDDLTypes.validateRecordMetadataFields("my_table", extra))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("0034")
+        .hasMessageContaining("0035")
         .hasMessageContaining("unexpectedCustomField");
   }
 
@@ -58,7 +58,7 @@ class IcebergDDLTypesTest {
 
     assertThatThrownBy(() -> IcebergDDLTypes.validateRecordMetadataFields("my_table", mismatched))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("0034")
+        .hasMessageContaining("0035")
         .hasMessageContaining("headers")
         .hasMessageContaining("legacyField");
   }
@@ -68,7 +68,7 @@ class IcebergDDLTypesTest {
     assertThatThrownBy(
             () -> IcebergDDLTypes.validateRecordMetadataFields("my_table", new HashSet<>()))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("0034");
+        .hasMessageContaining("0035");
 
     // All fields should be mentioned as missing.
     assertThatThrownBy(

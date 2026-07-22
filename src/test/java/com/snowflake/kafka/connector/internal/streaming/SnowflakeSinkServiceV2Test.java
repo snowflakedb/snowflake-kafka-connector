@@ -735,8 +735,8 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
-  void validateStructuredObjectMetadataSchema_missingField_throwsError0034() {
-    // INFORMATION_SCHEMA returns all fields except LogAppendTime → ERROR_0034.
+  void validateStructuredObjectMetadataSchema_missingField_throwsError0035() {
+    // INFORMATION_SCHEMA returns all fields except LogAppendTime → ERROR_0035.
     List<String> fieldsWithoutLogAppendTime =
         SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS.stream()
             .filter(f -> !f.equals("LogAppendTime"))
@@ -753,12 +753,12 @@ class SnowflakeSinkServiceV2Test {
     assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("LogAppendTime")
-        .hasMessageContaining("0034");
+        .hasMessageContaining("0035");
   }
 
   @Test
-  void validateStructuredObjectMetadataSchema_extraFields_throwsError0034() {
-    // INFORMATION_SCHEMA returns all required fields PLUS an extra field → ERROR_0034.
+  void validateStructuredObjectMetadataSchema_extraFields_throwsError0035() {
+    // INFORMATION_SCHEMA returns all required fields PLUS an extra field → ERROR_0035.
     // An extra field is one the connector never emits, so that field would always be absent
     // from every row's map, causing the v2 typed-OBJECT cast to reject every row.
     List<String> fieldsWithExtra = new ArrayList<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS);
@@ -774,11 +774,11 @@ class SnowflakeSinkServiceV2Test {
     assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("extraField")
-        .hasMessageContaining("0034");
+        .hasMessageContaining("0035");
   }
 
   @Test
-  void validateStructuredObjectMetadataSchema_emptyFields_throwsError0034() {
+  void validateStructuredObjectMetadataSchema_emptyFields_throwsError0035() {
     // RECORD_METADATA is a structured OBJECT but INFORMATION_SCHEMA returned no sub-fields (e.g.
     // wrong database/schema, or a lookup error) → fail fast rather than silently proceed and route
     // every row to the error table at ingest.
@@ -793,7 +793,7 @@ class SnowflakeSinkServiceV2Test {
     assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("no sub-fields")
-        .hasMessageContaining("0034");
+        .hasMessageContaining("0035");
   }
 
   @Test
