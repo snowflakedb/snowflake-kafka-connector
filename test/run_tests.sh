@@ -332,9 +332,17 @@ mkdir -p "$EXTRA_JARS_DIR"
 compile_protobuf_dependencies() {
     info "Building protobuf dependencies..."
     cd "$DOCKER_DIR"
-    
-    docker build -t protobuf-builder -f Dockerfile.builder ..
-    
+
+    # In CI the run-e2e-tests action prebuilds this image with a GitHub Actions
+    # layer cache (buildx --cache-to type=gha) and loads it into the local
+    # image store, so we reuse it here instead of rebuilding. Locally the env
+    # var is unset and we build as before.
+    if [ "${PROTOBUF_BUILDER_PREBUILT:-}" = "true" ] && docker image inspect protobuf-builder >/dev/null 2>&1; then
+        info "Reusing prebuilt protobuf-builder image"
+    else
+        docker build -t protobuf-builder -f Dockerfile.builder ..
+    fi
+
     info "Extracting JARs from image..."
     CONTAINER_ID=$(docker create protobuf-builder)
     docker cp "$CONTAINER_ID:/output/." "$EXTRA_JARS_DIR/"
