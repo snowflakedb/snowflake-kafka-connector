@@ -61,10 +61,10 @@
         <protobuf.version>3.25.5</protobuf.version>
         <guava.version>33.6.0-jre</guava.version>
 
-        <jackson.version>2.22.0</jackson.version>
+        <jackson.version>2.22.1</jackson.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
-        <snowflake-jdbc.version>4.3.1</snowflake-jdbc.version>
+        <snowflake-jdbc.version>4.3.2</snowflake-jdbc.version>
         <slf4j-api.version>2.0.18</slf4j-api.version>
         <commons-lang3.version>3.20.0</commons-lang3.version>
         <auto-value.version>1.11.1</auto-value.version>
@@ -77,7 +77,7 @@
             http://mitmproxy:8080 destination at the request-builder layer.
             Tracking ticket: SNOW-3683451.
         -->
-        <snowpipe-streaming.version>1.6.1</snowpipe-streaming.version>
+        <snowpipe-streaming.version>1.6.2</snowpipe-streaming.version>
 
     </properties>
 
