@@ -755,6 +755,25 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
+  void validateStructuredObjectMetadataSchema_emptyFields_throwsError0034() {
+    // RECORD_METADATA is a structured OBJECT but INFORMATION_SCHEMA returned no sub-fields (e.g.
+    // wrong database/schema, or a lookup error) → fail fast rather than silently proceed and route
+    // every row to the error table at ingest.
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
+    when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA"))
+        .thenReturn(Collections.emptyList());
+
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("no sub-fields")
+        .hasMessageContaining("0034");
+  }
+
+  @Test
   void validateStructuredObjectMetadataSchema_variantColumn_noValidation_noThrow() {
     // isRecordMetadataStructuredObject=false (VARIANT or FDN table) → no field fetch, no throw.
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);

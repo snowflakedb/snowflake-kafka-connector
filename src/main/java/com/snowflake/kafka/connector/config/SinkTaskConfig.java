@@ -442,6 +442,8 @@ public abstract class SinkTaskConfig {
               + "=iceberg requires all record metadata to be enabled"
               + " (RECORD_METADATA is cast to a fixed structured schema for managed Iceberg)."
               + " Remove any "
+              + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL
+              + "=false, "
               + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_TOPIC
               + "=false, "
               + KafkaConnectorConfigParams.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION

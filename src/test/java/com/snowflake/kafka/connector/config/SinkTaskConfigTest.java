@@ -400,6 +400,21 @@ public class SinkTaskConfigTest {
   }
 
   @Test
+  void from_icebergWithDisabledAllMetadataFlag_throws() {
+    // The master snowflake.metadata.createSnowflakeMetadata flag gates whether RECORD_METADATA is
+    // attached at all; disabling it produces no metadata, which the strict typed-OBJECT cast would
+    // reject. It must be caught by the same iceberg guard as the per-field flags.
+    Map<String, String> raw = minimalConfig();
+    raw.put(SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    raw.put(SNOWFLAKE_METADATA_ALL, "false");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(SNOWFLAKE_AUTOCREATE_TABLE_TYPE)
+        .hasMessageContaining("iceberg")
+        .hasMessageContaining(SNOWFLAKE_METADATA_ALL);
+  }
+
+  @Test
   void from_icebergWithAllMetadataEnabled_ok() {
     // All metadata flags are enabled by default; explicit confirmation must still succeed.
     Map<String, String> raw = minimalConfig();

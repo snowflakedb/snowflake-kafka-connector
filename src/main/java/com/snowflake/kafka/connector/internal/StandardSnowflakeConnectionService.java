@@ -532,12 +532,14 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     InternalUtils.assertNotEmpty("columnName", columnName);
-    // INFORMATION_SCHEMA.FIELDS stores TABLE_NAME and COLUMN_NAME in uppercase for unquoted
-    // identifiers. UPPER(?) normalises the caller-supplied names so the match works regardless
-    // of the case in which the caller passes them in.
+    // The connector creates and describes tables with quoted (case-preserving) identifiers, and the
+    // RECORD_METADATA column is created via the uppercase TABLE_COLUMN_METADATA constant, so
+    // INFORMATION_SCHEMA.FIELDS stores both names with the exact case the caller passes here. Match
+    // them verbatim: wrapping the bind params in UPPER(?) would miss the common non-uppercase table
+    // name (pass-through topics, most topic2table.map values), silently returning no fields.
     String query =
         "SELECT FIELD_NAME FROM INFORMATION_SCHEMA.FIELDS"
-            + " WHERE TABLE_NAME = UPPER(?) AND COLUMN_NAME = UPPER(?)"
+            + " WHERE TABLE_NAME = ? AND COLUMN_NAME = ?"
             + " AND TABLE_SCHEMA = CURRENT_SCHEMA()";
     List<String> fieldNames = new ArrayList<>();
     try (PreparedStatement stmt = conn.prepareStatement(query)) {

@@ -374,12 +374,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     List<String> fieldNames =
         this.conn.getStructuredObjectFieldNames(tableName, Utils.TABLE_COLUMN_METADATA);
     if (fieldNames.isEmpty()) {
-      // INFORMATION_SCHEMA returned no rows — skip validation rather than fail spuriously.
-      LOGGER.warn(
-          "Cannot validate RECORD_METADATA OBJECT schema for table '{}': "
-              + "INFORMATION_SCHEMA.FIELDS returned no sub-fields. Proceeding without validation.",
-          tableName);
-      return;
+      // This method is only called when RECORD_METADATA is confirmed to be a structured OBJECT
+      // (isRecordMetadataStructuredObject == true), so it MUST have declared sub-fields. An empty
+      // result means we could not read them (query error, or the table is not in the session's
+      // current database/schema). Do NOT proceed: the strict v2 typed-OBJECT cast would then reject
+      // every row at ingest, silently routing all data to the error table. Fail fast instead so the
+      // operator can fix it -- this is exactly the failure mode this validation exists to prevent.
+      throw SnowflakeErrors.ERROR_0034.getException(
+          "Cannot validate the structured-OBJECT RECORD_METADATA schema for table '"
+              + tableName
+              + "': INFORMATION_SCHEMA.FIELDS returned no sub-fields for the RECORD_METADATA"
+              + " column, even though the column is a structured OBJECT. This usually means the"
+              + " table is not in the connector's configured database/schema. Ensure"
+              + " snowflake.database.name and snowflake.schema.name match the table's location.");
     }
     IcebergDDLTypes.validateRecordMetadataFields(tableName, new HashSet<>(fieldNames));
   }

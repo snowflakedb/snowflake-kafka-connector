@@ -295,6 +295,42 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     assertThat(fields).isEmpty();
   }
 
+  @Test
+  public void testGetStructuredObjectFieldNames_matchesIdentifierCaseVerbatim()
+      throws SQLException {
+    PreparedStatement infoSchemaStmt = mock(PreparedStatement.class);
+    ResultSet infoSchemaRs = mock(ResultSet.class);
+    when(infoSchemaRs.next()).thenReturn(true, false);
+    when(infoSchemaRs.getString("FIELD_NAME")).thenReturn("OFFSET");
+    when(infoSchemaStmt.executeQuery()).thenReturn(infoSchemaRs);
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockJdbcConn.prepareStatement(
+            argThat(s -> s != null && s.startsWith("SELECT FIELD_NAME"))))
+        .thenReturn(infoSchemaStmt);
+
+    // A non-uppercase table name -- the common case for pass-through topics and topic2table.map
+    // values. The pre-fix query wrapped the bind params in UPPER(?), which never matched the
+    // case-preserving (quoted) identifier stored in INFORMATION_SCHEMA and silently returned no
+    // fields.
+    List<String> fields =
+        service.getStructuredObjectFieldNames("my_lower_table", "RECORD_METADATA");
+
+    assertThat(fields).containsExactly("OFFSET");
+
+    verify(mockJdbcConn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
+    String infoSchemaSql =
+        sqlCaptor.getAllValues().stream()
+            .filter(s -> s != null && s.startsWith("SELECT FIELD_NAME"))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("SELECT FIELD_NAME query was not executed"));
+    assertThat(infoSchemaSql).doesNotContain("UPPER(");
+    assertThat(infoSchemaSql).contains("TABLE_NAME = ?");
+    // The identifier is passed through verbatim (not uppercased).
+    verify(infoSchemaStmt).setString(1, "my_lower_table");
+    verify(infoSchemaStmt).setString(2, "RECORD_METADATA");
+  }
+
   // ---------------------------------------------------------------------------
   // shouldEvolveSchema tests
   // ---------------------------------------------------------------------------
