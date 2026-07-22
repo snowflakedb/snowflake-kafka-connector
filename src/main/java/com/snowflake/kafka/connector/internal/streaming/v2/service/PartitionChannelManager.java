@@ -218,9 +218,12 @@ public class PartitionChannelManager {
             && shouldEvolveSchemaCache.computeIfAbsent(
                 tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
 
+    // Gated by a kill-switch (default on). When disabled, treat every table as VARIANT
+    // RECORD_METADATA (4.0.x behavior) and skip the probe entirely.
     final boolean isRecordMetadataStructuredObject =
-        recordMetadataStructuredObjectCache.computeIfAbsent(
-            tableName, conn::isRecordMetadataStructuredObject);
+        taskConfig.isStructuredRecordMetadataEnabled()
+            && recordMetadataStructuredObjectCache.computeIfAbsent(
+                tableName, conn::isRecordMetadataStructuredObject);
 
     // KC v3 defaulted to V1 channel naming: {topic}_{partition}.
     // Customers who set snowflake.streaming.channel.name.include.connector.name=true

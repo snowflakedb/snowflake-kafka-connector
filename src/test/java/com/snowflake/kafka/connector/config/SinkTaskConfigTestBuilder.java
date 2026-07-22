@@ -60,6 +60,8 @@ public final class SinkTaskConfigTestBuilder {
         .validationErrorTableNameEnabled(
             KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_VALIDATION_ERROR_TABLE_NAME_DEFAULT)
         .normalizeTimeEnabled(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT)
+        .structuredRecordMetadataEnabled(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA_DEFAULT)
         // Iceberg auto-creation defaults: SNOWFLAKE table type and empty create options.
         // These were previously defaulted in SinkTaskConfig.builder(); they now live here so
         // production builder() stays free of test-only defaults.

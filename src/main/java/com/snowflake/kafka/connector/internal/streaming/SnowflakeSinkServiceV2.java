@@ -292,7 +292,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       // contains all fields the connector emits. A missing declared field causes the strict v2
       // typed-OBJECT cast to reject every row with "Typed object schema mismatch in conversion";
       // fail fast here so the operator can fix the table rather than silently losing data.
-      if (this.conn.isRecordMetadataStructuredObject(tableName)) {
+      if (taskConfig.isStructuredRecordMetadataEnabled()
+          && this.conn.isRecordMetadataStructuredObject(tableName)) {
         validateStructuredObjectMetadataSchema(tableName);
       }
       return;

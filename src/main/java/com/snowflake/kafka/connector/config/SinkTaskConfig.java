@@ -160,6 +160,16 @@ public abstract class SinkTaskConfig {
    */
   public abstract boolean isNormalizeTimeEnabled();
 
+  /**
+   * Whether the managed-Iceberg structured-OBJECT {@code RECORD_METADATA} handling is enabled:
+   * probing whether a table's {@code RECORD_METADATA} is a structured OBJECT, validating an
+   * existing structured schema at startup, and conforming the metadata map for ingestion. When
+   * {@code false}, {@code RECORD_METADATA} is always treated as VARIANT (4.0.x behavior).
+   * Kill-switch for existing workloads. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA}.
+   */
+  public abstract boolean isStructuredRecordMetadataEnabled();
+
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
     return from(raw, false);
@@ -398,6 +408,13 @@ public abstract class SinkTaskConfig {
             .map(Boolean::parseBoolean)
             .orElse(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_NORMALIZE_TIME_DEFAULT);
 
+    boolean structuredRecordMetadataEnabled =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA))
+            .map(Boolean::parseBoolean)
+            .orElse(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA_DEFAULT);
+
     TableType autocreatedTableType =
         TableType.fromConfig(config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE))
             .orElse(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT);
@@ -491,6 +508,7 @@ public abstract class SinkTaskConfig {
         .prometheusMetricsEnabled(prometheusMetricsEnabled)
         .validationErrorTableNameEnabled(validationErrorTableNameEnabled)
         .normalizeTimeEnabled(normalizeTimeEnabled)
+        .structuredRecordMetadataEnabled(structuredRecordMetadataEnabled)
         .autocreatedTableType(autocreatedTableType)
         .icebergCreateTableOptions(icebergCreateTableOptions);
 
@@ -627,6 +645,9 @@ public abstract class SinkTaskConfig {
         boolean validationErrorTableNameEnabled);
 
     public abstract Builder normalizeTimeEnabled(boolean normalizeTimeEnabled);
+
+    public abstract Builder structuredRecordMetadataEnabled(
+        boolean structuredRecordMetadataEnabled);
 
     public abstract SinkTaskConfig build();
   }

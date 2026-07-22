@@ -787,6 +787,28 @@ class SnowflakeSinkServiceV2Test {
     verify(conn, never()).getStructuredObjectFieldNames(anyString(), anyString());
   }
 
+  @Test
+  void structuredRecordMetadata_featureFlagDisabled_skipsProbeAndValidation() {
+    // Kill-switch off: even for an existing table, the connector must not probe RECORD_METADATA or
+    // validate its structured schema -- it reverts to 4.0.x behavior (RECORD_METADATA as VARIANT).
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+
+    SinkTaskConfig disabled =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.ICEBERG)
+            .structuredRecordMetadataEnabled(false)
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, disabled);
+
+    svc.createTableIfNotExists("t1"); // must not throw
+
+    verify(conn, never()).isRecordMetadataStructuredObject(anyString());
+    verify(conn, never()).getStructuredObjectFieldNames(anyString(), anyString());
+  }
+
   private SnowflakeSinkServiceV2 buildService(
       SnowflakeConnectionService conn, boolean clientValidationEnabled) {
     return buildService(conn, clientValidationEnabled, mock(PartitionChannelManager.class));
