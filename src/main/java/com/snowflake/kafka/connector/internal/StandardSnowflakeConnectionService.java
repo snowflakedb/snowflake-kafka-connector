@@ -532,15 +532,26 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
     InternalUtils.assertNotEmpty("columnName", columnName);
+    // INFORMATION_SCHEMA.FIELDS has no column that names the owning table column: it is keyed by
+    // OBJECT_NAME (the table) plus ROW_IDENTIFIER (the structured type instance). To restrict to a
+    // single column we join to INFORMATION_SCHEMA.COLUMNS on FIELDS.ROW_IDENTIFIER =
+    // COLUMNS.DTD_IDENTIFIER, which also excludes nested-type rows (a sub-field that is itself an
+    // OBJECT/MAP/ARRAY has its own ROW_IDENTIFIER) and other structured columns on the same table.
     // The connector creates and describes tables with quoted (case-preserving) identifiers, and the
-    // RECORD_METADATA column is created via the uppercase TABLE_COLUMN_METADATA constant, so
-    // INFORMATION_SCHEMA.FIELDS stores both names with the exact case the caller passes here. Match
-    // them verbatim: wrapping the bind params in UPPER(?) would miss the common non-uppercase table
-    // name (pass-through topics, most topic2table.map values), silently returning no fields.
+    // RECORD_METADATA column is created via the uppercase TABLE_COLUMN_METADATA constant, so the
+    // catalog stores both names with the exact case the caller passes here. Match them verbatim:
+    // wrapping the bind params in UPPER(?) would miss the common non-uppercase table name
+    // (pass-through topics, most topic2table.map values), silently returning no fields.
     String query =
-        "SELECT FIELD_NAME FROM INFORMATION_SCHEMA.FIELDS"
-            + " WHERE TABLE_NAME = ? AND COLUMN_NAME = ?"
-            + " AND TABLE_SCHEMA = CURRENT_SCHEMA()";
+        "SELECT f.FIELD_NAME FROM INFORMATION_SCHEMA.FIELDS f"
+            + " JOIN INFORMATION_SCHEMA.COLUMNS c"
+            + " ON f.OBJECT_CATALOG = c.TABLE_CATALOG"
+            + " AND f.OBJECT_SCHEMA = c.TABLE_SCHEMA"
+            + " AND f.OBJECT_NAME = c.TABLE_NAME"
+            + " AND f.ROW_IDENTIFIER = c.DTD_IDENTIFIER"
+            + " WHERE c.TABLE_NAME = ? AND c.COLUMN_NAME = ?"
+            + " AND c.TABLE_SCHEMA = CURRENT_SCHEMA()"
+            + " ORDER BY f.ORDINAL_POSITION";
     List<String> fieldNames = new ArrayList<>();
     try (PreparedStatement stmt = conn.prepareStatement(query)) {
       stmt.setString(1, tableName);

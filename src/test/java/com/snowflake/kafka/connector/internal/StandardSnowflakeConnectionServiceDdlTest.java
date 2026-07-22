@@ -274,7 +274,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
 
     // Override so the SELECT query also routes to infoSchemaStmt.
     when(mockJdbcConn.prepareStatement(
-            argThat(s -> s != null && s.startsWith("SELECT FIELD_NAME"))))
+            argThat(s -> s != null && s.startsWith("SELECT f.FIELD_NAME"))))
         .thenReturn(infoSchemaStmt);
 
     List<String> fields = service.getStructuredObjectFieldNames("MY_TABLE", "RECORD_METADATA");
@@ -287,7 +287,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
   @Test
   public void testGetStructuredObjectFieldNames_sqlException_returnsEmpty() throws SQLException {
     when(mockJdbcConn.prepareStatement(
-            argThat(s -> s != null && s.startsWith("SELECT FIELD_NAME"))))
+            argThat(s -> s != null && s.startsWith("SELECT f.FIELD_NAME"))))
         .thenThrow(new SQLException("connection refused"));
 
     List<String> fields = service.getStructuredObjectFieldNames("MY_TABLE", "RECORD_METADATA");
@@ -306,7 +306,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     when(mockJdbcConn.prepareStatement(
-            argThat(s -> s != null && s.startsWith("SELECT FIELD_NAME"))))
+            argThat(s -> s != null && s.startsWith("SELECT f.FIELD_NAME"))))
         .thenReturn(infoSchemaStmt);
 
     // A non-uppercase table name -- the common case for pass-through topics and topic2table.map
@@ -321,11 +321,15 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     verify(mockJdbcConn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
     String infoSchemaSql =
         sqlCaptor.getAllValues().stream()
-            .filter(s -> s != null && s.startsWith("SELECT FIELD_NAME"))
+            .filter(s -> s != null && s.startsWith("SELECT f.FIELD_NAME"))
             .findFirst()
-            .orElseThrow(() -> new AssertionError("SELECT FIELD_NAME query was not executed"));
+            .orElseThrow(() -> new AssertionError("SELECT f.FIELD_NAME query was not executed"));
     assertThat(infoSchemaSql).doesNotContain("UPPER(");
     assertThat(infoSchemaSql).contains("TABLE_NAME = ?");
+    // FIELDS has no column identifier, so the query joins to INFORMATION_SCHEMA.COLUMNS on
+    // ROW_IDENTIFIER = DTD_IDENTIFIER to scope to the target column.
+    assertThat(infoSchemaSql).contains("INFORMATION_SCHEMA.COLUMNS");
+    assertThat(infoSchemaSql).contains("f.ROW_IDENTIFIER = c.DTD_IDENTIFIER");
     // The identifier is passed through verbatim (not uppercased).
     verify(infoSchemaStmt).setString(1, "my_lower_table");
     verify(infoSchemaStmt).setString(2, "RECORD_METADATA");

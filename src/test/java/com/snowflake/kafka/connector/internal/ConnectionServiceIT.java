@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -159,5 +160,27 @@ class ConnectionServiceIT {
     // cleanup
     TestUtils.dropTable(testTable);
     service.close();
+  }
+
+  /**
+   * Verifies getStructuredObjectFieldNames against a real backend: a table with two distinct
+   * structured OBJECT columns. INFORMATION_SCHEMA.FIELDS has no column-name column, so the query
+   * must join FIELDS.ROW_IDENTIFIER = COLUMNS.DTD_IDENTIFIER to return only the requested column's
+   * sub-fields -- not the sibling OBJECT column's fields. A plain OBJECT_NAME (table) filter would
+   * incorrectly return the union of both columns' fields.
+   */
+  @Test
+  void testGetStructuredObjectFieldNames_scopesToRequestedColumn() {
+    TestUtils.executeQuery(
+        "create or replace table \""
+            + tableName
+            + "\" ("
+            + "OBJ_A OBJECT(field_a1 NUMBER, field_a2 STRING), "
+            + "OBJ_B OBJECT(field_b1 NUMBER, field_b2 STRING, field_b3 BOOLEAN))");
+
+    Assertions.assertThat(conn.getStructuredObjectFieldNames(tableName, "OBJ_A"))
+        .containsExactly("field_a1", "field_a2");
+    Assertions.assertThat(conn.getStructuredObjectFieldNames(tableName, "OBJ_B"))
+        .containsExactly("field_b1", "field_b2", "field_b3");
   }
 }
