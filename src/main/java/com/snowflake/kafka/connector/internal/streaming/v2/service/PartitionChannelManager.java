@@ -128,7 +128,8 @@ public class PartitionChannelManager {
     return Utils.getTableName(
         topicPartition.topic(),
         taskConfig.getTopicToTableResolver(),
-        taskConfig.isEnableSanitization());
+        taskConfig.isEnableSanitization(),
+        taskConfig.isEnableTableNameHash());
   }
 
   /**
