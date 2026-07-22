@@ -176,21 +176,21 @@ public class DataValidationUtilTest {
   /**
    * Ported accept/reject cases from the former scale-based validateAndParseTime test. The
    * scale-dependent BigInteger assertions have been dropped because validateAndParseTime now
-   * returns a {@link LocalTime} (offset stripped) rather than scaled nanos. These cases guard that
-   * the accept/reject boundary is preserved.
+   * returns a {@link LocalTime} (offset stripped) rather than scaled nanos. These cases guard both
+   * the accept/reject boundary and the exact decoded {@link LocalTime} value.
    */
   @Test
   public void testValidateAndParseTime_acceptRejectCases() {
-    // Valid local-time strings — must return a non-null LocalTime
-    Assert.assertNotNull(validateAndParseTime("COL", "13:02", 0));
-    Assert.assertNotNull(validateAndParseTime("COL", "  13:02 \t\n", 0));
-    Assert.assertNotNull(validateAndParseTime("COL", "13:02:06", 0));
-    Assert.assertNotNull(validateAndParseTime("COL", "13:02:06.1234", 0));
-    Assert.assertNotNull(validateAndParseTime("COL", "13:02:06.123456789", 0));
+    // Valid local-time strings — decoded to the exact LocalTime (whitespace trimmed)
+    assertEquals(LocalTime.of(13, 2), validateAndParseTime("COL", "13:02", 0));
+    assertEquals(LocalTime.of(13, 2), validateAndParseTime("COL", "  13:02 \t\n", 0));
+    assertEquals(LocalTime.of(13, 2, 6), validateAndParseTime("COL", "13:02:06", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123400000), validateAndParseTime("COL", "13:02:06.1234", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123456789), validateAndParseTime("COL", "13:02:06.123456789", 0));
 
     // Offset-bearing strings — offset must be stripped
-    Assert.assertNotNull(validateAndParseTime("COL", "13:02:06.123456789+09:00", 0));
-    Assert.assertNotNull(validateAndParseTime("COL", "13:02:06.123456789-09:00", 0));
     assertEquals(
         LocalTime.of(13, 2, 6, 123456789),
         validateAndParseTime("COL", "13:02:06.123456789+09:00", 0));
@@ -198,11 +198,14 @@ public class DataValidationUtilTest {
         LocalTime.of(13, 2, 6, 123456789),
         validateAndParseTime("COL", "13:02:06.123456789-09:00", 0));
 
-    // Integer-stored time strings — must be accepted
-    Assert.assertNotNull(validateAndParseTime("COL", "1674478926", 0));
-    Assert.assertNotNull(validateAndParseTime("COL", "1674478926123", 0));
-    Assert.assertNotNull(validateAndParseTime("COL", "1674478926123456", 0));
-    Assert.assertNotNull(validateAndParseTime("COL", "1674478926123456789", 0));
+    // Integer-stored time strings — scale guessed (s/ms/us/ns), decoded to the same time-of-day
+    assertEquals(LocalTime.of(13, 2, 6), validateAndParseTime("COL", "1674478926", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123000000), validateAndParseTime("COL", "1674478926123", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123456000), validateAndParseTime("COL", "1674478926123456", 0));
+    assertEquals(
+        LocalTime.of(13, 2, 6, 123456789), validateAndParseTime("COL", "1674478926123456789", 0));
 
     // Java objects — LocalTime passed through, OffsetTime stripped to local
     assertEquals(

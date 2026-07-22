@@ -49,15 +49,6 @@ public class RowValidator {
   private final ZoneId defaultTimezone = ZoneId.of("America/Los_Angeles");
 
   /**
-   * Creates a RowValidator with TIME normalization enabled (default).
-   *
-   * @param columnSchemaMap schema describing the target table columns
-   */
-  public RowValidator(Map<String, ColumnSchema> columnSchemaMap) {
-    this(columnSchemaMap, true);
-  }
-
-  /**
    * Creates a RowValidator.
    *
    * @param columnSchemaMap schema describing the target table columns

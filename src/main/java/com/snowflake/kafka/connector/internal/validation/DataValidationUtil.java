@@ -1029,18 +1029,20 @@ class DataValidationUtil {
       String stringInput = ((String) input).trim();
       {
         // First, try to parse LocalTime
-        LocalTime parsed = catchParsingError(() -> LocalTime.parse(stringInput));
-        if (parsed != null) {
-          return parsed;
+        LocalTime localTime = catchParsingError(() -> LocalTime.parse(stringInput));
+        if (localTime != null) {
+          return localTime;
         }
       }
+
       {
         // Alternatively, try to parse OffsetTime (handles "HH:mm:ssZ", "HH:mm:ss+05:00")
-        OffsetTime parsedOffset = catchParsingError(() -> OffsetTime.parse(stringInput));
-        if (parsedOffset != null) {
-          return parsedOffset.toLocalTime();
+        OffsetTime offsetTime = catchParsingError((() -> OffsetTime.parse(stringInput)));
+        if (offsetTime != null) {
+          return offsetTime.toLocalTime();
         }
       }
+
       {
         // Alternatively, try to parse integer-stored time
         Instant parsedInstant = catchParsingError(() -> parseInstantGuessScale(stringInput));
@@ -1048,6 +1050,7 @@ class DataValidationUtil {
           return LocalDateTime.ofInstant(parsedInstant, ZoneOffset.UTC).toLocalTime();
         }
       }
+
       throw valueFormatNotAllowedException(
           columnName,
           "TIME",
@@ -1055,6 +1058,7 @@ class DataValidationUtil {
               + " https://docs.snowflake.com/en/user-guide/data-load-snowpipe-streaming-overview"
               + " for the list of supported formats",
           insertRowIndex);
+
     } else {
       throw typeNotAllowedException(
           columnName,
