@@ -1,5 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -192,4 +193,12 @@ public interface SnowflakeConnectionService {
    */
   Ssv1MigrationResponse migrateSsv1ChannelOffset(
       String tableName, String ssv1ChannelName, String ssv2ChannelName, String pipeName);
+
+  /**
+   * Calls SYSTEM$GET_KC_ADVISORY_MESSAGES with the given request JSON (e.g. {@code
+   * {"connectorVersion":"4.1.0"}}) and returns the advisory messages GS wants logged. Fails safe:
+   * returns an empty list on any error (old GS without the function, empty policy, parse failure) —
+   * never throws.
+   */
+  List<AdvisoryMessage> getKcAdvisoryMessages(String requestJson);
 }

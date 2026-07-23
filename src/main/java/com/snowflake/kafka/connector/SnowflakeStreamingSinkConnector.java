@@ -24,6 +24,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryLevel;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
@@ -118,6 +120,9 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     // create a persisted connection, and validate snowflake connection
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
+
+    // Fetch and log any server-side advisories for this connector version (SNOW-3648284).
+    logServerAdvisories();
 
     telemetryClient = conn.getTelemetryClient();
 
@@ -395,6 +400,22 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
   private static boolean isConfigProviderReference(String value) {
     return value != null && CONFIG_PROVIDER_PREFIX.matcher(value).find();
+  }
+
+  /**
+   * Fetches server-side advisory messages for this connector version and logs each one at its
+   * declared level. Failures are silently swallowed so that advisory logging never affects startup.
+   */
+  private void logServerAdvisories() {
+    try {
+      String requestJson = "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
+      for (AdvisoryMessage msg : conn.getKcAdvisoryMessages(requestJson)) {
+        AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
+      }
+    } catch (Exception e) {
+      // Advisory logging must never affect connector startup.
+      LOGGER.debug("Failed to fetch server advisories: {}", e.getMessage());
+    }
   }
 
   /**
