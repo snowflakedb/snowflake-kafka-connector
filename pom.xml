@@ -77,7 +77,7 @@
             http://mitmproxy:8080 destination at the request-builder layer.
             Tracking ticket: SNOW-3683451.
         -->
-        <snowpipe-streaming.version>1.6.2</snowpipe-streaming.version>
+        <snowpipe-streaming.version>1.7.0</snowpipe-streaming.version>
 
     </properties>
 
