@@ -24,7 +24,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - run: pip install ruff
+      # Pin ruff: an unpinned install jumped to 0.16.0, which flags 170+
+      # pre-existing violations tree-wide and reddens formatting on every PR.
+      - run: pip install ruff==0.15.0
       - run: ruff check test/tests test/lib test/conftest.py
       - run: ruff format --check test/tests test/lib test/conftest.py
 
