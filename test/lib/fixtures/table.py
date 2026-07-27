@@ -84,15 +84,21 @@ class IcebergTable(Table):
 
     The iceberg-specific clauses (``EXTERNAL_VOLUME``, ``CATALOG``,
     ``BASE_LOCATION``, ``ICEBERG_VERSION``) are appended automatically.
+
+    Note: Snowflake-managed storage (``EXTERNAL_VOLUME='SNOWFLAKE_MANAGED'``)
+    rejects ``BASE_LOCATION`` ("not supported for ... Snowflake Managed
+    Storage"), so it is omitted in that case — Snowflake constructs the path.
     """
 
     def create(self, columns: str):
+        managed = ICEBERG_EXTERNAL_VOLUME.upper() == "SNOWFLAKE_MANAGED"
+        base_location = "" if managed else f"BASE_LOCATION = '{self.name}' "
         self.driver.snowflake_conn.cursor().execute(
             f"CREATE OR REPLACE ICEBERG TABLE {quote_name(self.name)} "
             f"{columns} "
             f"EXTERNAL_VOLUME = '{ICEBERG_EXTERNAL_VOLUME}' "
             f"CATALOG = 'SNOWFLAKE' "
-            f"BASE_LOCATION = '{self.name}' "
+            f"{base_location}"
             f"ICEBERG_VERSION = 3"
         )
 
@@ -104,34 +110,55 @@ class IcebergTable(Table):
 
 @pytest.fixture(scope="session")
 def iceberg_external_volume(driver: KafkaDriver):
-    """Session-scoped probe: checks whether the iceberg external volume exists.
+    """Session-scoped probe: verifies the effective ``ICEBERG_EXTERNAL_VOLUME`` can
+    actually create (and drop) an Iceberg table, otherwise calls ``pytest.skip()``.
 
-    Returns the volume name if available, otherwise calls ``pytest.skip()``.
-    Every test that uses ``create_iceberg_table`` transitively depends on this
-    fixture, so all iceberg tests are skipped in environments where the volume
-    is not provisioned (e.g. AZURE, GCP CI accounts).
+    We create-and-drop rather than ``DESC EXTERNAL VOLUME`` because:
+      * ``DESC`` needs OWNERSHIP on the volume (the CI role only has USAGE), and
+      * the reserved value ``SNOWFLAKE_MANAGED`` is not a describable volume object.
+    A create-probe validates real external volumes AND Snowflake-managed storage
+    uniformly, on any cloud (AWS has ``kafka_push_e2e_volume_aws``; AZURE supports
+    ``SNOWFLAKE_MANAGED``; GCP supports neither today → its iceberg tests skip).
+
+    Enforced for *every* ``@pytest.mark.iceberg`` test via the autouse
+    ``_require_iceberg_volume`` gate in conftest — not only those using
+    ``create_iceberg_table`` — so connector-auto-create tests can't bypass it.
+
+    Skips only when the volume is genuinely unavailable ("does not exist or not
+    authorized"). Any other probe failure (token expiry, rate limit, network) is
+    re-raised loudly via ``pytest.fail`` rather than silently skipping the whole
+    iceberg suite — the session-scoped skip is cached, so a swallowed transient
+    error would masquerade as "0 failed" for every iceberg test.
     """
+    probe = IcebergTable(driver, "KC_ICEBERG_VOLUME_PROBE")
     try:
-        rows = (
-            driver.snowflake_conn.cursor()
-            .execute(f"DESC EXTERNAL VOLUME {ICEBERG_EXTERNAL_VOLUME}")
-            .fetchall()
-        )
-        if rows:
+        probe.create("(id INT)")
+        logger.info("Iceberg external volume %s is usable", ICEBERG_EXTERNAL_VOLUME)
+        return ICEBERG_EXTERNAL_VOLUME
+    except Exception as e:
+        if "does not exist or not authorized" in str(e).lower():
             logger.info(
-                "Iceberg external volume %s is available", ICEBERG_EXTERNAL_VOLUME
+                "Iceberg external volume %s not available, skipping iceberg tests",
+                ICEBERG_EXTERNAL_VOLUME,
             )
-            return ICEBERG_EXTERNAL_VOLUME
-    except Exception:
-        logger.debug(
-            "Failed to describe external volume %s",
+            pytest.skip(
+                f"Iceberg external volume '{ICEBERG_EXTERNAL_VOLUME}' not available — "
+                f"skipping iceberg tests (set ICEBERG_EXTERNAL_VOLUME env var to override)"
+            )
+        logger.error(
+            "Iceberg external volume %s probe failed unexpectedly",
             ICEBERG_EXTERNAL_VOLUME,
             exc_info=True,
         )
-    pytest.skip(
-        f"Iceberg external volume '{ICEBERG_EXTERNAL_VOLUME}' not found — "
-        f"skipping iceberg tests (set ICEBERG_EXTERNAL_VOLUME env var to override)"
-    )
+        pytest.fail(
+            f"Iceberg external volume '{ICEBERG_EXTERNAL_VOLUME}' probe failed "
+            f"unexpectedly (not a 'volume unavailable' error): {e}"
+        )
+    finally:
+        try:
+            probe.drop()
+        except Exception:
+            pass
 
 
 @pytest.fixture()

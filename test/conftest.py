@@ -164,6 +164,21 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
+@pytest.fixture(autouse=True)
+def _require_iceberg_volume(request):
+    """Gate EVERY ``@pytest.mark.iceberg`` test on external-volume usability.
+
+    Connector-auto-create iceberg tests don't use the ``create_iceberg_table``
+    fixture, so they don't transitively depend on the ``iceberg_external_volume``
+    probe — which is exactly why they failed (instead of skipping) on clouds
+    without the volume. This autouse fixture pulls the probe for any
+    iceberg-marked test, giving a uniform skip when the volume isn't usable.
+    No effect on non-iceberg tests.
+    """
+    if request.node.get_closest_marker("iceberg"):
+        request.getfixturevalue("iceberg_external_volume")
+
+
 @pytest.fixture()
 def create_connector_from_file(
     driver: KafkaDriver,  # noqa: F811
