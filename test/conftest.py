@@ -78,7 +78,8 @@ def pytest_addoption(parser):
         default=os.environ.get("TEST_NAME_SALT"),
         help="Unique salt appended to connector and topic names (env: TEST_NAME_SALT, auto-generated if omitted)",
     )
-    # currently unused, all tests run on all clouds
+    # Consumed by the iceberg external-volume gate (lib/fixtures/table.py) to skip
+    # iceberg tests on clouds without a usable external volume (e.g. GCP).
     group.addoption(
         "--cloud",
         choices=["AWS", "GCP", "AZURE"],
