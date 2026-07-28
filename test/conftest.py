@@ -78,7 +78,8 @@ def pytest_addoption(parser):
         default=os.environ.get("TEST_NAME_SALT"),
         help="Unique salt appended to connector and topic names (env: TEST_NAME_SALT, auto-generated if omitted)",
     )
-    # currently unused, all tests run on all clouds
+    # Consumed by the iceberg external-volume gate (lib/fixtures/table.py) to skip
+    # iceberg tests on clouds without a usable external volume (e.g. GCP).
     group.addoption(
         "--cloud",
         choices=["AWS", "GCP", "AZURE"],
@@ -162,6 +163,21 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "confluent_only" in item.keywords:
             item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def _require_iceberg_volume(request):
+    """Gate EVERY ``@pytest.mark.iceberg`` test on external-volume usability.
+
+    Connector-auto-create iceberg tests don't use the ``create_iceberg_table``
+    fixture, so they don't transitively depend on the ``iceberg_external_volume``
+    probe — which is exactly why they failed (instead of skipping) on clouds
+    without the volume. This autouse fixture pulls the probe for any
+    iceberg-marked test, giving a uniform skip when the volume isn't usable.
+    No effect on non-iceberg tests.
+    """
+    if request.node.get_closest_marker("iceberg"):
+        request.getfixturevalue("iceberg_external_volume")
 
 
 @pytest.fixture()

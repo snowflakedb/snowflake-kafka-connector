@@ -56,6 +56,15 @@ runs:
         PLATFORM_VERSION: ${{ inputs['platform-version'] }}
         SNOWFLAKE_CLOUD: ${{ inputs['snowflake-cloud'] }}
         JAVA_VERSION: ${{ inputs['java-version'] }}
+        # Iceberg external volume per cloud (consumed by docker-compose -> test-runner -> pytest):
+        #   AWS   -> kafka_push_e2e_volume_aws (customer external volume, S3-backed)
+        #   AZURE -> SNOWFLAKE_MANAGED (Snowflake-provided storage; no external volume needed)
+        #   GCP   -> SNOWFLAKE_MANAGED, which is NOT available on the GCP account, so the
+        #            create-probe gate skips all iceberg tests there. Provisioning a real GCS
+        #            external volume is blocked by a GCP domain-restricted-sharing org policy
+        #            (needs ProdSec review; see #team-cloud). Switch this to the volume name if unblocked.
+        ICEBERG_EXTERNAL_VOLUME: >-
+          ${{ inputs['snowflake-cloud'] == 'AWS' && 'kafka_push_e2e_volume_aws' || 'SNOWFLAKE_MANAGED' }}
         LOGS_DIR: "${{ github.workspace }}/test-logs"
         MARKER_FILTER: ${{ inputs.pressure == 'true' && 'pressure' || inputs['marker-filter'] }}
         MITMPROXY_FLAG: ${{ inputs['with-mitmproxy'] == 'true' && '--with-mitmproxy' || '' }}
