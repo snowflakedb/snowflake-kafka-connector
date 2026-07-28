@@ -41,6 +41,8 @@ public class StandardSnowflakeConnectionServiceAdvisoryTest {
 
   @Test
   public void parsesMessages() throws Exception {
+    // "code" field is retained in the JSON to verify it is ignored (AdvisoryMessage no longer has
+    // a code field; @JsonIgnoreProperties ensures the stray field is silently discarded).
     String json =
         "{\"messages\":[{\"level\":\"WARN\",\"code\":\"DEPRECATED_VERSION\",\"text\":\"upgrade\"}]}";
     List<AdvisoryMessage> msgs =
@@ -48,7 +50,6 @@ public class StandardSnowflakeConnectionServiceAdvisoryTest {
             .getKcAdvisoryMessages("{\"connectorVersion\":\"4.1.0\"}");
     assertEquals(1, msgs.size());
     assertEquals("WARN", msgs.get(0).getLevel());
-    assertEquals("DEPRECATED_VERSION", msgs.get(0).getCode());
     assertEquals("upgrade", msgs.get(0).getText());
   }
 

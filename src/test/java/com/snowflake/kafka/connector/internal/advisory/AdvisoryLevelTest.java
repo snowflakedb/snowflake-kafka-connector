@@ -14,6 +14,13 @@ public class AdvisoryLevelTest {
   }
 
   @Test
+  public void mapsCriticalCaseInsensitively() {
+    assertEquals(AdvisoryLevel.CRITICAL, AdvisoryLevel.fromString("critical"));
+    assertEquals(AdvisoryLevel.CRITICAL, AdvisoryLevel.fromString("CRITICAL"));
+    assertEquals(AdvisoryLevel.CRITICAL, AdvisoryLevel.fromString("Critical"));
+  }
+
+  @Test
   public void unknownOrNullDefaultsToWarn() {
     assertEquals(AdvisoryLevel.WARN, AdvisoryLevel.fromString("bogus"));
     assertEquals(AdvisoryLevel.WARN, AdvisoryLevel.fromString(null));

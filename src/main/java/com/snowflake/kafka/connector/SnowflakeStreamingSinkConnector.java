@@ -403,19 +403,56 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   }
 
   /**
-   * Fetches server-side advisory messages for this connector version and logs each one at its
-   * declared level. Failures are silently swallowed so that advisory logging never affects startup.
+   * Fetches server-side advisory messages for this connector version, logs each one at its declared
+   * level, and fails startup if any are CRITICAL (unless the user has opted out).
+   *
+   * <p>Mechanism errors (old GS without the function, JDBC/parse failures) are silently swallowed
+   * and never block startup; {@link
+   * com.snowflake.kafka.connector.internal.SnowflakeConnectionService#getKcAdvisoryMessages} is
+   * already fail-safe and returns an empty list on any such error.
    */
   private void logServerAdvisories() {
+    List<AdvisoryMessage> advisories;
     try {
       String requestJson = "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
-      for (AdvisoryMessage msg : conn.getKcAdvisoryMessages(requestJson)) {
-        AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
-      }
+      advisories = conn.getKcAdvisoryMessages(requestJson); // fail-safe: [] on any error
     } catch (Exception e) {
-      // Advisory logging must never affect connector startup.
-      LOGGER.debug("Failed to fetch server advisories: {}", e.getMessage());
+      LOGGER.debug(
+          "Failed to fetch server advisories: {}", e.getMessage()); // mechanism error, never fail
+      return;
     }
+    for (AdvisoryMessage msg : advisories) {
+      AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
+    }
+    boolean failOnCritical =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY_DEFAULT)));
+    if (hasCritical(advisories) && failOnCritical) {
+      throw SnowflakeErrors.ERROR_5031.getException(
+          "Refusing to start: a critical advisory applies to Kafka Connector "
+              + Utils.VERSION
+              + ". Upgrade the connector, or to start anyway set "
+              + KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
+              + "=false (not recommended).");
+    } else if (hasCritical(advisories)) {
+      LOGGER.warn(
+          "Starting despite a critical server advisory because {}=false.",
+          KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY);
+    }
+  }
+
+  /**
+   * Returns true if any advisory in the list has level CRITICAL.
+   *
+   * <p>Package-private for testing.
+   */
+  static boolean hasCritical(List<AdvisoryMessage> advisories) {
+    return advisories.stream()
+        .anyMatch(m -> AdvisoryLevel.fromString(m.getLevel()) == AdvisoryLevel.CRITICAL);
   }
 
   /**

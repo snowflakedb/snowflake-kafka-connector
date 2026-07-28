@@ -10,26 +10,18 @@ public class AdvisoryMessage {
   @JsonProperty("level")
   String level;
 
-  @JsonProperty("code")
-  String code;
-
   @JsonProperty("text")
   String text;
 
   public AdvisoryMessage() {}
 
-  public AdvisoryMessage(String level, String code, String text) {
+  public AdvisoryMessage(String level, String text) {
     this.level = level;
-    this.code = code;
     this.text = text;
   }
 
   public String getLevel() {
     return level;
-  }
-
-  public String getCode() {
-    return code;
   }
 
   public String getText() {

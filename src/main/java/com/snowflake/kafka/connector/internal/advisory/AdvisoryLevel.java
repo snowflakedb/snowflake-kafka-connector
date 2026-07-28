@@ -7,11 +7,12 @@ import java.util.Locale;
 public enum AdvisoryLevel {
   INFO,
   WARN,
-  ERROR;
+  ERROR,
+  CRITICAL;
 
   /**
-   * Resolves a raw level string (e.g. "INFO", "warn", "Error") to the corresponding enum constant.
-   * Returns {@link #WARN} for null or unrecognised values.
+   * Resolves a raw level string (e.g. "INFO", "warn", "Error", "CRITICAL") to the corresponding
+   * enum constant. Returns {@link #WARN} for null or unrecognised values.
    */
   public static AdvisoryLevel fromString(String level) {
     if (level == null) {
@@ -22,6 +23,8 @@ public enum AdvisoryLevel {
         return INFO;
       case "ERROR":
         return ERROR;
+      case "CRITICAL":
+        return CRITICAL;
       case "WARN":
         return WARN;
       default:
@@ -36,6 +39,9 @@ public enum AdvisoryLevel {
         logger.info(text);
         break;
       case ERROR:
+        logger.error(text);
+        break;
+      case CRITICAL:
         logger.error(text);
         break;
       case WARN:
