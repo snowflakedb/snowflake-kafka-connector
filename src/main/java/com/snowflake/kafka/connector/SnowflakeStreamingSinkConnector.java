@@ -32,6 +32,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
@@ -76,6 +80,13 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
   private final ConnectorConfigValidator connectorConfigValidator =
       new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
+
+  // Periodically re-polls server advisories while the connector runs (SNOW-3648284). Unlike the
+  // one-time startup check, this is log-only and never hard-fails a running connector.
+  private ScheduledExecutorService advisoryPoller;
+
+  // test visibility: counts completed periodic poll cycles
+  private final AtomicInteger advisoryPollCount = new AtomicInteger();
 
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeStreamingSinkConnector() {
@@ -123,6 +134,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
     // Fetch and log any server-side advisories for this connector version (SNOW-3648284).
     logServerAdvisories();
+    startAdvisoryPolling();
 
     telemetryClient = conn.getTelemetryClient();
 
@@ -145,6 +157,10 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   public void stop() {
     LOGGER.info("SnowflakeStreamingSinkConnector connector stopping...");
     setupComplete = false;
+
+    if (advisoryPoller != null) {
+      advisoryPoller.shutdownNow();
+    }
 
     if (telemetryClient != null) {
       telemetryClient.reportKafkaConnectStop(connectorStartTime);
@@ -453,6 +469,62 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   static boolean hasCritical(List<AdvisoryMessage> advisories) {
     return advisories.stream()
         .anyMatch(m -> AdvisoryLevel.fromString(m.getLevel()) == AdvisoryLevel.CRITICAL);
+  }
+
+  /**
+   * Re-fetches and logs server-side advisories on a background thread while the connector is
+   * running. Unlike {@link #logServerAdvisories()}, this is log-only: a CRITICAL advisory is logged
+   * at ERROR but never stops a running connector, and any exception here is swallowed so the
+   * scheduled task keeps firing.
+   */
+  private void pollAdvisories() {
+    try {
+      String requestJson = "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
+      for (AdvisoryMessage msg : conn.getKcAdvisoryMessages(requestJson)) {
+        AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
+      }
+    } catch (Exception e) {
+      LOGGER.debug("Periodic advisory poll failed: {}", e.getMessage());
+    } finally {
+      advisoryPollCount.incrementAndGet();
+    }
+  }
+
+  /**
+   * Starts a background scheduler that periodically re-polls server advisories (SNOW-3648284). No
+   * scheduler is started when the poll interval is {@code <= 0}, which leaves advisory checking as
+   * startup-only.
+   */
+  private void startAdvisoryPolling() {
+    long intervalSeconds =
+        Long.parseLong(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS_DEFAULT)));
+    if (intervalSeconds <= 0) {
+      LOGGER.info("Server advisory polling disabled (interval <= 0).");
+      return;
+    }
+    advisoryPoller =
+        Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, "kc-advisory-poller");
+              t.setDaemon(true);
+              return t;
+            });
+    advisoryPoller.scheduleAtFixedRate(
+        this::pollAdvisories, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
+    LOGGER.info("Server advisory polling every {}s.", intervalSeconds);
+  }
+
+  /**
+   * @return the number of completed periodic advisory poll cycles.
+   *     <p>Package-private for testing.
+   */
+  int advisoryPollCountForTest() {
+    return advisoryPollCount.get();
   }
 
   /**
