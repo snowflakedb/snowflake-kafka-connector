@@ -81,8 +81,9 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   private final ConnectorConfigValidator connectorConfigValidator =
       new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
-  // Periodically re-polls server advisories while the connector runs (SNOW-3648284). Unlike the
-  // one-time startup check, this is log-only and never hard-fails a running connector.
+  // Periodically re-polls server advisories while the connector runs (SNOW-3648284). Like the
+  // one-time startup check, a CRITICAL advisory seen mid-run aborts the connector (via
+  // ConnectorContext.raiseError -> FAILED), unless the fail-on-critical opt-out is set.
   private ScheduledExecutorService advisoryPoller;
 
   // test visibility: counts completed periodic poll cycles
@@ -418,6 +419,23 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     return value != null && CONFIG_PROVIDER_PREFIX.matcher(value).find();
   }
 
+  /** Request context sent to the GS advisory function; v1 carries only the connector version. */
+  private static String advisoryRequestJson() {
+    return "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
+  }
+
+  /**
+   * @return whether a CRITICAL advisory should hard-fail the connector. Default {@code true},
+   *     user-overridable via {@code snowflake.feature.fail_on_critical_advisory}.
+   */
+  private boolean failOnCriticalAdvisory() {
+    return Boolean.parseBoolean(
+        config.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY,
+            String.valueOf(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY_DEFAULT)));
+  }
+
   /**
    * Fetches server-side advisory messages for this connector version, logs each one at its declared
    * level, and fails startup if any are CRITICAL (unless the user has opted out).
@@ -430,8 +448,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   private void logServerAdvisories() {
     List<AdvisoryMessage> advisories;
     try {
-      String requestJson = "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
-      advisories = conn.getKcAdvisoryMessages(requestJson); // fail-safe: [] on any error
+      advisories = conn.getKcAdvisoryMessages(advisoryRequestJson()); // fail-safe: [] on any error
     } catch (Exception e) {
       LOGGER.debug(
           "Failed to fetch server advisories: {}", e.getMessage()); // mechanism error, never fail
@@ -440,14 +457,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     for (AdvisoryMessage msg : advisories) {
       AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
     }
-    boolean failOnCritical =
-        Boolean.parseBoolean(
-            config.getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY,
-                String.valueOf(
-                    KafkaConnectorConfigParams
-                        .SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY_DEFAULT)));
-    if (hasCritical(advisories) && failOnCritical) {
+    if (hasCritical(advisories) && failOnCriticalAdvisory()) {
       throw SnowflakeErrors.ERROR_5031.getException(
           "Refusing to start: a critical advisory applies to Kafka Connector "
               + Utils.VERSION
@@ -473,16 +483,47 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
   /**
    * Re-fetches and logs server-side advisories on a background thread while the connector is
-   * running. Unlike {@link #logServerAdvisories()}, this is log-only: a CRITICAL advisory is logged
-   * at ERROR but never stops a running connector, and any exception here is swallowed so the
-   * scheduled task keeps firing.
+   * running. Each advisory is logged at its declared level; if any are CRITICAL the connector is
+   * aborted the same way as at startup, honoring the {@code
+   * snowflake.feature.fail_on_critical_advisory} opt-out.
+   *
+   * <p>A {@link SinkConnector} cannot pause itself, so a mid-run critical is surfaced to the
+   * framework via {@link org.apache.kafka.connect.connector.ConnectorContext#raiseError} which
+   * transitions the connector to FAILED. FAILED connectors are not auto-restarted, so this is a
+   * hard stop, not a crash loop; a manual restart re-runs the startup check and refuses again while
+   * the policy still applies. Mechanism errors (fetch/parse) are swallowed so the scheduler keeps
+   * firing.
    */
   private void pollAdvisories() {
     try {
-      String requestJson = "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
-      for (AdvisoryMessage msg : conn.getKcAdvisoryMessages(requestJson)) {
+      List<AdvisoryMessage> advisories = conn.getKcAdvisoryMessages(advisoryRequestJson());
+      for (AdvisoryMessage msg : advisories) {
         AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
       }
+      if (!hasCritical(advisories)) {
+        return;
+      }
+      if (!failOnCriticalAdvisory()) {
+        LOGGER.warn(
+            "Continuing despite a critical server advisory because {}=false.",
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY);
+        return;
+      }
+      // Abort the running connector: stop further polls, then fail it through the framework.
+      LOGGER.error(
+          "Aborting connector: a critical server advisory now applies to Kafka Connector {}."
+              + " Upgrade the connector, or to keep running set {}=false (not recommended).",
+          Utils.VERSION,
+          KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY);
+      if (advisoryPoller != null) {
+        advisoryPoller.shutdown();
+      }
+      context()
+          .raiseError(
+              SnowflakeErrors.ERROR_5031.getException(
+                  "Critical server advisory applies to running Kafka Connector "
+                      + Utils.VERSION
+                      + "; connector aborted."));
     } catch (Exception e) {
       LOGGER.debug("Periodic advisory poll failed: {}", e.getMessage());
     } finally {

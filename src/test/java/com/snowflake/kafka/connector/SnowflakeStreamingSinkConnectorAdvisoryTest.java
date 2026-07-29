@@ -4,8 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
@@ -19,6 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.kafka.connect.connector.Connector;
+import org.apache.kafka.connect.connector.ConnectorContext;
+import org.apache.kafka.connect.sink.SinkConnectorContext;
 import org.junit.jupiter.api.Test;
 import org.objenesis.Objenesis;
 import org.objenesis.ObjenesisStd;
@@ -50,6 +57,13 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
     Field field = SnowflakeStreamingSinkConnector.class.getDeclaredField(fieldName);
     field.setAccessible(true);
     field.set(target, value);
+  }
+
+  /** Wires the framework-supplied context (declared on the {@link Connector} superclass). */
+  private static void setContext(Object target, ConnectorContext ctx) throws Exception {
+    Field field = Connector.class.getDeclaredField("context");
+    field.setAccessible(true);
+    field.set(target, ctx);
   }
 
   private static Object invokePrivate(Object target, String methodName) throws Exception {
@@ -96,15 +110,38 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
   }
 
   @Test
-  public void pollAdvisories_logsCriticalButDoesNotThrow() throws Exception {
+  public void pollAdvisories_criticalWithFailOnDefault_abortsViaRaiseError() throws Exception {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.getKcAdvisoryMessages(anyString()))
         .thenReturn(Collections.singletonList(new AdvisoryMessage("CRITICAL", "you must upgrade")));
+    // Empty config => fail_on_critical defaults to true.
     SnowflakeStreamingSinkConnector connector = connectorWith(conn, new HashMap<>());
+    SinkConnectorContext ctx = mock(SinkConnectorContext.class);
+    setContext(connector, ctx);
 
-    // Mid-run polling must never throw, even when a CRITICAL advisory is returned.
+    // Never throws out of the scheduled task; instead it aborts the connector via the framework.
     invokePrivate(connector, "pollAdvisories");
 
+    verify(ctx, times(1)).raiseError(any(Exception.class));
+    assertEquals(1, connector.advisoryPollCountForTest());
+  }
+
+  @Test
+  public void pollAdvisories_criticalWithFailOff_doesNotRaise() throws Exception {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.getKcAdvisoryMessages(anyString()))
+        .thenReturn(Collections.singletonList(new AdvisoryMessage("CRITICAL", "you must upgrade")));
+    Map<String, String> config = new HashMap<>();
+    config.put(
+        Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY, "false");
+    SnowflakeStreamingSinkConnector connector = connectorWith(conn, config);
+    SinkConnectorContext ctx = mock(SinkConnectorContext.class);
+    setContext(connector, ctx);
+
+    // Opt-out: the critical is logged but the running connector is left alone.
+    invokePrivate(connector, "pollAdvisories");
+
+    verify(ctx, never()).raiseError(any(Exception.class));
     assertEquals(1, connector.advisoryPollCountForTest());
   }
 
