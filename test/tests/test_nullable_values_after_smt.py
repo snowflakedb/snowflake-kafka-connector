@@ -38,8 +38,11 @@ def test_nullable_values_after_smt(
     wait_for_rows(table.name, EXPECTED_ROWS)
 
     # -- Verify content --
+    # ORDER BY offset: Snowflake does not guarantee row order without it, and
+    # the assertion below compares against an offset-ordered expected list.
     rows = table.select(
         "index, from_optional_field, record_metadata:offset::number AS offset",
+        "ORDER BY offset",
     )
 
     parsed = [
