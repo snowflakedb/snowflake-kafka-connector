@@ -65,6 +65,13 @@ public class SnowflakeColumnTypeMapper extends ColumnTypeMapper {
           return "BINARY";
         }
       case ARRAY:
+        // Experimental override for Iceberg SE experiments (SNOW-3901852). Default remains bare
+        // ARRAY. Set env SNOWFLAKE_EXPERIMENTAL_ARRAY_COLUMN_TYPE=VARIANT or ARRAY(VARIANT).
+        String arrayDdlOverride = System.getenv("SNOWFLAKE_EXPERIMENTAL_ARRAY_COLUMN_TYPE");
+        if (arrayDdlOverride != null && !arrayDdlOverride.isBlank()) {
+          LOGGER.info("Using experimental ARRAY column DDL type override: {}", arrayDdlOverride);
+          return arrayDdlOverride.trim();
+        }
         return "ARRAY";
       default:
         // MAP and STRUCT will go here
