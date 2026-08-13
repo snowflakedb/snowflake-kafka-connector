@@ -46,7 +46,7 @@ class SnowflakeColumnTypeMapperTest {
         Arguments.of(Schema.Type.STRING, null, "VARCHAR"),
         Arguments.of(Schema.Type.BYTES, Decimal.LOGICAL_NAME, "VARCHAR"),
         Arguments.of(Schema.Type.BYTES, null, "BINARY"),
-        Arguments.of(Schema.Type.ARRAY, null, "ARRAY"),
+        Arguments.of(Schema.Type.ARRAY, null, "VARIANT"),
         Arguments.of(Schema.Type.STRUCT, null, "VARIANT"),
         Arguments.of(Schema.Type.MAP, null, "VARIANT"));
   }
