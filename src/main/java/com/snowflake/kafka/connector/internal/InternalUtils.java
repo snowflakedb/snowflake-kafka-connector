@@ -7,6 +7,7 @@ import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.oauth.OAuthAccessTokenFetcher;
 import com.snowflake.kafka.connector.internal.oauth.OAuthURL;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
@@ -92,7 +93,16 @@ public class InternalUtils {
 
     putIfNotBlank(properties, JDBC_DATABASE, config.getSnowflakeDatabase());
     putIfNotBlank(properties, JDBC_SCHEMA, config.getSnowflakeSchema());
-    putIfNotBlank(properties, JDBC_USER, config.getSnowflakeUser());
+    if (!config.getAuthenticator().suppliesAmbientIdentity()) {
+      // Deliberately NOT set when the credential identifies the user itself. Snowflake rejects a
+      // session whose asserted user differs from the token's subject:
+      //   The user you were trying to authenticate as differs from the user tied to the
+      //   access token.
+      // The connector has no way to know the generated service user's name, so it must not
+      // claim one. Verified against a live SPCS service: sending the placeholder user fails,
+      // omitting the user succeeds.
+      putIfNotBlank(properties, JDBC_USER, config.getSnowflakeUser());
+    }
     putIfNotBlank(properties, JdbcPropertyKeys.ROLE, config.getSnowflakeRole());
 
     switch (config.getAuthenticator()) {
@@ -125,6 +135,15 @@ public class InternalUtils {
                     .orElseThrow(SnowflakeErrors.ERROR_0013::getException),
                 config.getSnowflakePrivateKeyPassphrase()));
         break;
+      case SPCS:
+        // Snowflake-provided service user credentials ("ambient" authentication). The driver has
+        // no SPCS mode: as the SPCS documentation prescribes, the container connects with
+        // authenticator=oauth and the token from the file Snowflake manages. The token is read
+        // here, while properties are assembled, so every new connection uses the current one --
+        // Snowflake rewrites the file every few minutes.
+        properties.put(JdbcPropertyKeys.AUTHENTICATOR, AuthenticatorType.OAUTH.toConfigValue());
+        properties.put(JDBC_TOKEN, SpcsEnvironment.readToken());
+        break;
       default:
         throw new IllegalStateException("unhandled authenticator: " + config.getAuthenticator());
     }
@@ -142,7 +161,10 @@ public class InternalUtils {
     if (!properties.containsKey(JDBC_DATABASE)) {
       throw SnowflakeErrors.ERROR_0015.getException();
     }
-    if (!properties.containsKey(JDBC_USER)) {
+    // Not required when the credential supplies the identity: the user is deliberately omitted
+    // above, because the token identifies the user and asserting any other one is rejected.
+    if (!config.getAuthenticator().suppliesAmbientIdentity()
+        && !properties.containsKey(JDBC_USER)) {
       throw SnowflakeErrors.ERROR_0016.getException();
     }
 

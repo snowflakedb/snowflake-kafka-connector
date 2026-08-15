@@ -51,6 +51,17 @@ public class SnowflakeSinkConnectorConfigBuilder {
     return this;
   }
 
+  /**
+   * Removes the preset URL, so that a test can assert on a URL supplied from elsewhere. Needed by
+   * the ambient SPCS tests: {@code SpcsEnvironment.resolve()} fills the URL from {@code
+   * SNOWFLAKE_HOST} only when the configured value is blank, so a test that leaves the preset URL
+   * in place is asserting on its own input rather than on ambient resolution.
+   */
+  public SnowflakeSinkConnectorConfigBuilder withoutUrl() {
+    config.remove(SNOWFLAKE_URL_NAME);
+    return this;
+  }
+
   public SnowflakeSinkConnectorConfigBuilder withDatabase(String database) {
     config.put(SNOWFLAKE_DATABASE_NAME, database);
     return this;
