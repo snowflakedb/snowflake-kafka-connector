@@ -101,6 +101,8 @@ public class StreamingClientProperties {
               Base64.getEncoder().encodeToString(privateKey.getEncoded());
           clientProperties.put("private_key", privateKeyEncoded);
           break;
+        default:
+          throw new IllegalStateException("unhandled authenticator: " + config.getAuthenticator());
       }
 
       clientProperties.put("user", config.getSnowflakeUser());
