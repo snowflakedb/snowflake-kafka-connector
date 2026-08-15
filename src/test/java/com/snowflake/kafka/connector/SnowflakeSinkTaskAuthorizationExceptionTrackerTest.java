@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.TestUtils;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -182,5 +184,51 @@ class SnowflakeSinkTaskAuthorizationExceptionTrackerTest {
 
     Assertions.assertThrows(
         SnowflakeKafkaConnectorException.class, tracker::throwExceptionIfAuthorizationFailed);
+  }
+
+  /**
+   * Snowflake reports a rejected OAuth token as SQLState 08001, the generic connection class, not
+   * as class 28. Before these error codes were recognized, a task retried indefinitely against a
+   * credential the server was actively rejecting. Values measured against a live deployment.
+   */
+  @ParameterizedTest
+  @CsvSource({
+    "390303, Invalid OAuth access token.",
+    "390309, The user you were trying to authenticate as differs from the user tied to the access"
+        + " token."
+  })
+  public void shouldDetectOauthCredentialRejectionReportedAsConnectionError(
+      int errorCode, String message) {
+    SQLException ex = new SQLException(message, "08001", errorCode);
+
+    assertThat(SnowflakeSinkTaskAuthorizationExceptionTracker.isAuthorizationFailure(ex))
+        .as(
+            "error code %s under SQLState 08001 must be treated as an authorization failure",
+            errorCode)
+        .isTrue();
+  }
+
+  @Test
+  public void shouldDetectCredentialRejectionNestedInACauseChain() {
+    SQLException root = new SQLException("Invalid OAuth access token.", "08001", 390303);
+    Exception wrapped = new RuntimeException("connect failed", new IllegalStateException(root));
+
+    assertThat(SnowflakeSinkTaskAuthorizationExceptionTracker.isAuthorizationFailure(wrapped))
+        .isTrue();
+  }
+
+  /**
+   * 08001 on its own is an ordinary connection failure and must stay retryable. Only the specific
+   * credential-rejection codes are fatal, otherwise a transient network fault would kill the task.
+   */
+  @Test
+  public void shouldNotTreatOrdinaryConnectionFailuresAsAuthorizationFailures() {
+    SQLException networkFailure =
+        new SQLException("Could not connect to Snowflake", "08001", 250001);
+
+    assertThat(
+            SnowflakeSinkTaskAuthorizationExceptionTracker.isAuthorizationFailure(networkFailure))
+        .as("a generic 08001 must remain retryable")
+        .isFalse();
   }
 }
