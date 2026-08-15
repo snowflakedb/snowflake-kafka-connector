@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.TopicToTableResolver;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.CachingConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.HashMap;
@@ -200,7 +201,9 @@ public abstract class SinkTaskConfig {
     if (raw == null) {
       raw = new HashMap<>();
     }
-    Map<String, String> config = new HashMap<>(raw);
+    // Fill in the Snowflake-provided service user credentials ("ambient" SPCS auth) before
+    // anything reads the config. No-op outside SPCS, and never overrides a user-supplied value.
+    Map<String, String> config = new HashMap<>(SpcsEnvironment.resolve(raw));
 
     String connectorName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     String taskId = config.getOrDefault(Utils.TASK_ID, "");

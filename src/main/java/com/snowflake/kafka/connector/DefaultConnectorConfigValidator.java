@@ -16,6 +16,7 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,7 +33,13 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
     this.streamingConfigValidator = streamingConfigValidator;
   }
 
-  public void validateConfig(Map<String, String> config) {
+  public void validateConfig(Map<String, String> rawConfig) {
+    // Fill in the Snowflake-provided service user credentials ("ambient" SPCS auth) first, so
+    // validation sees the same effective config the connector will run with. No-op outside SPCS.
+    // This path matters for Connect's validate() REST call, which reaches the validator without
+    // going through the connector's start().
+    final Map<String, String> config = SpcsEnvironment.resolve(rawConfig);
+
     Map<String, String> invalidConfigParams = new HashMap<String, String>();
 
     // define the input parameters / keys in one place as static constants,
@@ -98,6 +105,21 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
             invalidConfigParams.put(
                 SNOWFLAKE_PRIVATE_KEY,
                 Utils.formatString("{} cannot be empty", SNOWFLAKE_PRIVATE_KEY));
+          }
+          break;
+        case SPCS:
+          // Ambient authentication validates the runtime rather than the configuration: the
+          // credential is provided by Snowflake, so there is nothing for the user to set.
+          if (!SpcsEnvironment.isInsideSpcs()) {
+            invalidConfigParams.put(
+                KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+                Utils.formatString(
+                    "{}={} requires the connector to run inside Snowpark Container Services, where"
+                        + " {} is readable and {} is set.",
+                    KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
+                    AuthenticatorType.SPCS.toConfigValue(),
+                    SpcsEnvironment.DEFAULT_TOKEN_FILE,
+                    SpcsEnvironment.ENV_HOST));
           }
           break;
         default:
