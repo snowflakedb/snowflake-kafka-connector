@@ -101,6 +101,87 @@ public class StreamingClientPropertiesTest {
     }
   }
 
+  /**
+   * Ambient SPCS mode must send only the authorization type and let the SDK default the token
+   * paths. Setting any oauth_* key here, or a spcs_*_path differing from the SDK default, would be
+   * rejected by the SDK's exclusive-field validation.
+   */
+  @Test
+  void shouldSetSpcsAuthorizationTypeAndTakeAccountFromHost(@TempDir Path tempDir)
+      throws IOException {
+    // GIVEN a container inside SPCS. SNOWFLAKE_HOST encodes the account in its first label, with
+    // underscores replaced by hyphens; measured inside a real service.
+    Path token = tempDir.resolve("token");
+    Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
+    Map<String, String> env = new HashMap<>();
+    env.put(SpcsEnvironment.ENV_HOST, "my-account.prod3.us-west-2.aws.snowflakecomputing.com");
+    SpcsEnvironment.overrideForTests(env::get, token);
+    try {
+      Map<String, String> connectorConfig =
+          SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+              .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
+              .withoutUrl()
+              .build();
+      connectorConfig.put(Utils.TASK_ID, "0");
+
+      // WHEN
+      Properties clientProperties =
+          StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+
+      // THEN
+      assertThat(clientProperties.getProperty("authorization_type")).isEqualTo("spcs");
+      // The account is the first label of the host. Both this hyphenated form and the underscored
+      // account name were verified to authenticate against a live SPCS deployment. The config
+      // carries no URL, so this asserts on ambient resolution rather than on the test's own input.
+      assertThat(clientProperties.getProperty("account")).isEqualTo("my-account");
+      assertThat(clientProperties.stringPropertyNames())
+          .doesNotContain(
+              "oauth_client_id",
+              "oauth_client_secret",
+              "oauth_refresh_token",
+              "oauth_token_endpoint",
+              "oauth_scope",
+              "oauth_include_scope",
+              "private_key",
+              "spcs_token_path",
+              "spcs_service_token_path");
+      // No user may be sent. The ambient token identifies the service user, and Snowflake
+      // rejects a session that asserts a different one. Verified against a live SPCS service:
+      // sending the placeholder user produced "The user you were trying to authenticate as
+      // differs from the user tied to the access token"; omitting it authenticated.
+      assertThat(clientProperties.stringPropertyNames()).doesNotContain("user");
+      // The role, by contrast, IS honored and must still be sent.
+      assertThat(clientProperties.getProperty("role")).isNotNull();
+    } finally {
+      SpcsEnvironment.resetForTests();
+    }
+  }
+
+  /** The account parsed from an SPCS host is normalized to lower case. */
+  @Test
+  void shouldLowerCaseAmbientAccount(@TempDir Path tempDir) throws IOException {
+    Path token = tempDir.resolve("token");
+    Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
+    Map<String, String> env = new HashMap<>();
+    env.put(SpcsEnvironment.ENV_HOST, "MyAccount.prod3.us-west-2.aws.snowflakecomputing.com");
+    SpcsEnvironment.overrideForTests(env::get, token);
+    try {
+      Map<String, String> connectorConfig =
+          SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+              .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
+              .withoutUrl()
+              .build();
+      connectorConfig.put(Utils.TASK_ID, "0");
+
+      Properties clientProperties =
+          StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+
+      assertThat(clientProperties.getProperty("account")).isEqualTo("myaccount");
+    } finally {
+      SpcsEnvironment.resetForTests();
+    }
+  }
+
   @Test
   public void testGetValidProperties() {
     String privateKeyPem = Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded());

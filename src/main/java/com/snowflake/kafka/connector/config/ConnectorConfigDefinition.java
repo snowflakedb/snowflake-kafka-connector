@@ -109,7 +109,12 @@ public class ConnectorConfigDefinition {
             AuthenticatorType.SNOWFLAKE_JWT.toConfigValue(),
             LOW,
             "Authenticator for JDBC and streaming ingest SDK."
-                + " Valid values: snowflake_jwt, oauth.",
+                + " Valid values: snowflake_jwt, oauth, spcs."
+                + " Use spcs only when the connector runs inside Snowpark Container Services:"
+                + " Snowflake then supplies the credential, so no key pair or OAuth client is"
+                + " configured, and snowflake.url.name, snowflake.user.name,"
+                + " snowflake.database.name and snowflake.schema.name are filled in from the"
+                + " service environment if not set. snowflake.role.name is still required.",
             SNOWFLAKE_LOGIN_INFO_DOC,
             7,
             Width.NONE,
