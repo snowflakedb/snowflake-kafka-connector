@@ -40,11 +40,47 @@ import java.util.Properties;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 public class StreamingClientPropertiesTest {
 
   private static final String EXAMPLE_PARAM1 = "EXAMPLE_PARAM1".toLowerCase();
   private static final String EXAMPLE_PARAM2 = "EXAMPLE_PARAM2".toLowerCase();
+
+  /**
+   * Guards the exhaustiveness of the authenticator switch in {@link
+   * StreamingClientProperties#from}. Before the explicit {@code default: throw}, an unhandled
+   * {@link AuthenticatorType} fell through silently and produced client properties with no
+   * credential material at all, surfacing later as an unrelated error inside the streaming SDK.
+   * Adding a new enum constant without handling it here now fails this test immediately.
+   */
+  @ParameterizedTest
+  @EnumSource(AuthenticatorType.class)
+  void shouldHandleEveryAuthenticatorType(AuthenticatorType authenticator) {
+    // GIVEN a config that is valid for this authenticator
+    SnowflakeSinkConnectorConfigBuilder builder =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(authenticator.toConfigValue())
+            .withPrivateKey(Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()));
+    if (authenticator == AuthenticatorType.OAUTH) {
+      builder =
+          builder
+              .withOauthClientId("testClientId")
+              .withOauthClientSecret("testClientSecret")
+              .withOauthRefreshToken("testRefreshToken");
+    }
+    Map<String, String> connectorConfig = builder.build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    // WHEN
+    Properties clientProperties =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+
+    // THEN the switch handled it and emitted this authenticator's credential material
+    assertThat(clientProperties.stringPropertyNames())
+        .containsAnyOf("authorization_type", "private_key");
+  }
 
   @Test
   public void testGetValidProperties() {
