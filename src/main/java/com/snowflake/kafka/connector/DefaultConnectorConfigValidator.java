@@ -105,20 +105,20 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       }
     }
 
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME)) {
+    if (isBlank(config.get(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME))) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
           Utils.formatString(
               "{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME));
     }
 
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME)) {
+    if (isBlank(config.get(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME))) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
           Utils.formatString("{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
     }
 
-    if (!config.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)) {
+    if (isBlank(config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME))) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
           Utils.formatString(
@@ -419,5 +419,18 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
       LOGGER.error("Invalid config: " + invalidParamsMessage);
       throw SnowflakeErrors.ERROR_0001.getException(invalidParamsMessage);
     }
+  }
+
+  /**
+   * True when a property is absent, empty, or whitespace only.
+   *
+   * <p>These three checks used to test {@code containsKey} while reporting "cannot be empty", so a
+   * property present with an empty value passed validation. That is not cosmetic: an empty {@code
+   * snowflake.url.name} was accepted here and then made {@code StreamingClientProperties.from}
+   * produce a properties map with zero entries, and the connector failed later inside the SDK with
+   * an unrelated error. The check now matches the message it has always printed.
+   */
+  private static boolean isBlank(String value) {
+    return value == null || value.trim().isEmpty();
   }
 }

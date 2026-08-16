@@ -344,7 +344,9 @@ public class InternalUtilsTest {
     SnowflakeURL url = new SnowflakeURL("https://testaccount.snowflakecomputing.com:443");
 
     SinkTaskConfig taskConfig =
-        SinkTaskConfigTestBuilder.builder()
+        // builderWithoutKey: this test specifically covers the case where no private key is
+        // configured, so the builder default key must not be present.
+        SinkTaskConfigTestBuilder.builderWithoutKey()
             .connectorName("test-connector")
             .taskId("0")
             .snowflakeDatabase("MY_DB")

@@ -65,50 +65,54 @@ public class StreamingClientProperties {
   /** Creates streaming client properties from parsed {@link SinkTaskConfig}. */
   public static StreamingClientProperties from(SinkTaskConfig config) {
     final Properties clientProperties = new Properties();
-    if (!Strings.isNullOrEmpty(config.getSnowflakeUrl())) {
-      SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
-      switch (config.getAuthenticator()) {
-        case OAUTH:
-          clientProperties.put("authorization_type", AuthenticatorType.OAUTH.toConfigValue());
-          config.getOauthClientId().ifPresent(v -> clientProperties.put("oauth_client_id", v));
-          config
-              .getOauthClientSecret()
-              .ifPresent(v -> clientProperties.put("oauth_client_secret", v.value()));
-          config
-              .getOauthRefreshToken()
-              .ifPresent(v -> clientProperties.put("oauth_refresh_token", v.value()));
-          config
-              .getOauthTokenEndpoint()
-              .ifPresent(v -> clientProperties.put("oauth_token_endpoint", v));
-          // The SDK defaults oauth_include_scope to true, which makes it derive
-          // "session:role:{role}" and send it as the scope on refresh. That breaks external OAuth /
-          // IdP refresh tokens minted without a role scope, so forward the connector's value
-          // explicitly (default false). Only send an explicit scope when scopes are enabled.
-          clientProperties.put(
-              "oauth_include_scope", String.valueOf(config.getOauthIncludeScope()));
-          if (config.getOauthIncludeScope()) {
-            config.getOauthScope().ifPresent(v -> clientProperties.put("oauth_scope", v));
-          }
-          break;
-        case SNOWFLAKE_JWT:
-          final PrivateKey privateKey =
-              PrivateKeyTool.parsePrivateKey(
-                  config
-                      .getSnowflakePrivateKey()
-                      .orElseThrow(SnowflakeErrors.ERROR_0013::getException),
-                  config.getSnowflakePrivateKeyPassphrase());
-          final String privateKeyEncoded =
-              Base64.getEncoder().encodeToString(privateKey.getEncoded());
-          clientProperties.put("private_key", privateKeyEncoded);
-          break;
-      }
-
-      clientProperties.put("user", config.getSnowflakeUser());
-      clientProperties.put("role", config.getSnowflakeRole());
-      clientProperties.put("account", url.getAccount());
-      clientProperties.put("host", url.getUrlWithoutPort());
-      clientProperties.put("application", APPLICATION_NAME);
+    if (Strings.isNullOrEmpty(config.getSnowflakeUrl())) {
+      // Without a URL there is no account or host: the authorization type and credential would be
+      // pointless on their own, and the SDK would fail with an unrelated error. Validated
+      // configurations cannot reach this branch; DefaultConnectorConfigValidator rejects a blank
+      // snowflake.url.name. Reaching here means a SinkTaskConfig was built without validation.
+      throw SnowflakeErrors.ERROR_0017.getException();
     }
+    SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
+    switch (config.getAuthenticator()) {
+      case OAUTH:
+        clientProperties.put("authorization_type", AuthenticatorType.OAUTH.toConfigValue());
+        config.getOauthClientId().ifPresent(v -> clientProperties.put("oauth_client_id", v));
+        config
+            .getOauthClientSecret()
+            .ifPresent(v -> clientProperties.put("oauth_client_secret", v.value()));
+        config
+            .getOauthRefreshToken()
+            .ifPresent(v -> clientProperties.put("oauth_refresh_token", v.value()));
+        config
+            .getOauthTokenEndpoint()
+            .ifPresent(v -> clientProperties.put("oauth_token_endpoint", v));
+        // The SDK defaults oauth_include_scope to true, which makes it derive
+        // "session:role:{role}" and send it as the scope on refresh. That breaks external OAuth /
+        // IdP refresh tokens minted without a role scope, so forward the connector's value
+        // explicitly (default false). Only send an explicit scope when scopes are enabled.
+        clientProperties.put("oauth_include_scope", String.valueOf(config.getOauthIncludeScope()));
+        if (config.getOauthIncludeScope()) {
+          config.getOauthScope().ifPresent(v -> clientProperties.put("oauth_scope", v));
+        }
+        break;
+      case SNOWFLAKE_JWT:
+        final PrivateKey privateKey =
+            PrivateKeyTool.parsePrivateKey(
+                config
+                    .getSnowflakePrivateKey()
+                    .orElseThrow(SnowflakeErrors.ERROR_0013::getException),
+                config.getSnowflakePrivateKeyPassphrase());
+        final String privateKeyEncoded =
+            Base64.getEncoder().encodeToString(privateKey.getEncoded());
+        clientProperties.put("private_key", privateKeyEncoded);
+        break;
+    }
+
+    clientProperties.put("user", config.getSnowflakeUser());
+    clientProperties.put("role", config.getSnowflakeRole());
+    clientProperties.put("account", url.getAccount());
+    clientProperties.put("host", url.getUrlWithoutPort());
+    clientProperties.put("application", APPLICATION_NAME);
 
     String clientNamePrefix =
         STREAMING_CLIENT_V2_PREFIX_NAME
