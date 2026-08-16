@@ -56,9 +56,8 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   // value is resolved per-worker at task start and is therefore not available during validate().
   private static final Pattern CONFIG_PROVIDER_PREFIX = Pattern.compile("[$][{][a-zA-Z]+:");
 
-  private Map<String, String> config; // connector configuration, provided by
-
-  // user through kafka connect framework
+  // connector configuration, provided by user through kafka connect framework
+  private Map<String, String> config;
 
   /**
    * The effective connector configuration, after the Snowflake-provided SPCS service user

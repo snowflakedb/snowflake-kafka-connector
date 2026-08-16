@@ -55,10 +55,8 @@ public class SinkTaskConfigSpcsTest {
     Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
     Map<String, String> env = new HashMap<>();
     env.put(SpcsEnvironment.ENV_HOST, HOST);
-    // Literals rather than the package-private constants: this test lives in another package and
-    // widening production visibility for a test's convenience is not worth it.
-    env.put("SNOWFLAKE_DATABASE", "AMBIENT_DB");
-    env.put("SNOWFLAKE_SCHEMA", "AMBIENT_SCHEMA");
+    env.put(SpcsEnvironment.ENV_DATABASE, "AMBIENT_DB");
+    env.put(SpcsEnvironment.ENV_SCHEMA, "AMBIENT_SCHEMA");
     SpcsEnvironment.overrideForTests(env::get, token);
   }
 
