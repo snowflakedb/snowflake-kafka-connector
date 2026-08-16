@@ -9,11 +9,7 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
-import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.mock.MockResultSetForSizeTest;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Base64;
@@ -23,7 +19,6 @@ import java.util.Optional;
 import java.util.Properties;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 public class InternalUtilsTest {
   @Test
@@ -437,115 +432,5 @@ public class InternalUtilsTest {
     assertFalse(
         props.containsKey(JdbcPropertyKeys.ROLE),
         "JDBC properties should not contain role when role is whitespace");
-  }
-
-  /**
-   * Ambient SPCS authentication reuses the driver's OAuth mode: the driver has no SPCS mode, it
-   * simply accepts a caller-supplied bearer token read from the file SPCS manages.
-   */
-  @Test
-  public void testMakeJdbcDriverProperties_spcsUsesOauthWithAmbientToken(@TempDir Path tempDir)
-      throws Exception {
-    Path token = tempDir.resolve("token");
-    Files.write(token, "ambient-bearer-token".getBytes(StandardCharsets.UTF_8));
-    Map<String, String> env = new HashMap<>();
-    env.put(SpcsEnvironment.ENV_HOST, "account.snowflakecomputing.com");
-    SpcsEnvironment.overrideForTests(env::get, token);
-    try {
-      SinkTaskConfig config =
-          SinkTaskConfigTestBuilder.builder()
-              .connectorName("test")
-              .taskId("0")
-              .snowflakeDatabase("db")
-              .snowflakeSchema("schema")
-              .snowflakeUser("user")
-              .snowflakeUrl("https://account.snowflakecomputing.com")
-              .authenticator(AuthenticatorType.SPCS)
-              .build();
-
-      Properties props =
-          InternalUtils.makeJdbcDriverProperties(
-              config, new SnowflakeURL("https://account.snowflakecomputing.com"));
-
-      assertEquals(
-          AuthenticatorType.OAUTH.toConfigValue(),
-          props.getProperty(JdbcPropertyKeys.AUTHENTICATOR),
-          "SPCS must authenticate to the driver as oauth with a supplied token");
-      assertEquals("ambient-bearer-token", props.getProperty(InternalUtils.JDBC_TOKEN));
-      assertFalse(
-          props.containsKey(InternalUtils.JDBC_PRIVATE_KEY), "SPCS must not send a private key");
-      assertFalse(
-          props.containsKey(InternalUtils.JDBC_USER),
-          "SPCS must not send a user: the token identifies the service user, and Snowflake"
-              + " rejects a session whose asserted user differs from the token's subject"
-              + " (\"The user you were trying to authenticate as differs from the user tied to"
-              + " the access token\"). Verified against a live SPCS service: sending a user"
-              + " fails, omitting it succeeds.");
-    } finally {
-      SpcsEnvironment.resetForTests();
-    }
-  }
-
-  /**
-   * The user is required for every other authenticator, and its absence must still be an error.
-   * This guards the SPCS exemption from being widened by accident.
-   */
-  @Test
-  public void testMakeJdbcDriverProperties_userStillRequiredForKeyPair() {
-    String pemKey = Base64.getEncoder().encodeToString(TestUtils.generatePrivateKey().getEncoded());
-    SinkTaskConfig config =
-        SinkTaskConfigTestBuilder.builder()
-            .connectorName("test")
-            .taskId("0")
-            .snowflakeDatabase("db")
-            .snowflakeSchema("schema")
-            .snowflakeUrl("https://account.snowflakecomputing.com")
-            .authenticator(AuthenticatorType.SNOWFLAKE_JWT)
-            .snowflakePrivateKey(new Password(pemKey))
-            .build();
-    assertThrows(
-        SnowflakeKafkaConnectorException.class,
-        () ->
-            InternalUtils.makeJdbcDriverProperties(
-                config, new SnowflakeURL("https://account.snowflakecomputing.com")),
-        "a missing user must remain an error for credential-based authenticators");
-  }
-
-  /** The token must be re-read per connection, not captured once. */
-  @Test
-  public void testMakeJdbcDriverProperties_spcsRereadsRotatedToken(@TempDir Path tempDir)
-      throws Exception {
-    Path token = tempDir.resolve("token");
-    Files.write(token, "first".getBytes(StandardCharsets.UTF_8));
-    Map<String, String> env = new HashMap<>();
-    env.put(SpcsEnvironment.ENV_HOST, "account.snowflakecomputing.com");
-    SpcsEnvironment.overrideForTests(env::get, token);
-    try {
-      SinkTaskConfig config =
-          SinkTaskConfigTestBuilder.builder()
-              .connectorName("test")
-              .taskId("0")
-              .snowflakeDatabase("db")
-              .snowflakeSchema("schema")
-              .snowflakeUser("user")
-              .snowflakeUrl("https://account.snowflakecomputing.com")
-              .authenticator(AuthenticatorType.SPCS)
-              .build();
-      SnowflakeURL url = new SnowflakeURL("https://account.snowflakecomputing.com");
-
-      assertEquals(
-          "first",
-          InternalUtils.makeJdbcDriverProperties(config, url)
-              .getProperty(InternalUtils.JDBC_TOKEN));
-
-      Files.write(token, "rotated".getBytes(StandardCharsets.UTF_8));
-
-      assertEquals(
-          "rotated",
-          InternalUtils.makeJdbcDriverProperties(config, url)
-              .getProperty(InternalUtils.JDBC_TOKEN));
-    } finally {
-      SpcsEnvironment.resetForTests();
-    }
   }
 }

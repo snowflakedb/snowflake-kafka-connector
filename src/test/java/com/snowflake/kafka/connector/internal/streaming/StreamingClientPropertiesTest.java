@@ -39,11 +39,13 @@ import java.nio.file.Path;
 import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.Assert;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -51,8 +53,13 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 public class StreamingClientPropertiesTest {
 
-  private static final String EXAMPLE_PARAM1 = "EXAMPLE_PARAM1".toLowerCase();
-  private static final String EXAMPLE_PARAM2 = "EXAMPLE_PARAM2".toLowerCase();
+  private static final String EXAMPLE_PARAM1 = "EXAMPLE_PARAM1".toLowerCase(Locale.ROOT);
+  private static final String EXAMPLE_PARAM2 = "EXAMPLE_PARAM2".toLowerCase(Locale.ROOT);
+
+  @AfterEach
+  void resetSpcsOverride() {
+    SpcsEnvironment.resetForTests();
+  }
 
   /**
    * Guards the exhaustiveness of the authenticator switch in {@link
@@ -88,98 +95,90 @@ public class StreamingClientPropertiesTest {
     Map<String, String> connectorConfig = builder.build();
     connectorConfig.put(Utils.TASK_ID, "0");
 
-    try {
-      // WHEN
-      Properties clientProperties =
-          StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+    // WHEN
+    Properties clientProperties =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
 
-      // THEN the switch handled it and emitted this authenticator's credential material
-      assertThat(clientProperties.stringPropertyNames())
-          .containsAnyOf("authorization_type", "private_key");
-    } finally {
-      SpcsEnvironment.resetForTests();
-    }
+    // THEN the switch handled it and emitted this authenticator's credential material
+    assertThat(clientProperties.stringPropertyNames())
+        .containsAnyOf("authorization_type", "private_key");
   }
 
   /**
    * Ambient SPCS mode must send only the authorization type and let the SDK default the token
    * paths. Setting any oauth_* key here, or a spcs_*_path differing from the SDK default, would be
    * rejected by the SDK's exclusive-field validation.
+   *
+   * <p>The account comes from SNOWFLAKE_ACCOUNT, not from parsing the host. The host format is
+   * undocumented and was verified on one deployment; SNOWFLAKE_ACCOUNT is the canonical identifier
+   * published by every SPCS runtime and is how the Snowflake CLI establishes its account.
    */
   @Test
-  void shouldSetSpcsAuthorizationTypeAndTakeAccountFromHost(@TempDir Path tempDir)
-      throws IOException {
-    // GIVEN a container inside SPCS. SNOWFLAKE_HOST encodes the account in its first label, with
-    // underscores replaced by hyphens; measured inside a real service.
+  void shouldSetSpcsAuthorizationTypeAndUseAccountEnvVar(@TempDir Path tempDir) throws IOException {
     Path token = tempDir.resolve("token");
     Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
     Map<String, String> env = new HashMap<>();
     env.put(SpcsEnvironment.ENV_HOST, "my-account.prod3.us-west-2.aws.snowflakecomputing.com");
+    env.put(SpcsEnvironment.ENV_ACCOUNT, "MY_ACCOUNT_FROM_ENV");
     SpcsEnvironment.overrideForTests(env::get, token);
-    try {
-      Map<String, String> connectorConfig =
-          SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-              .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
-              .withoutUrl()
-              .build();
-      connectorConfig.put(Utils.TASK_ID, "0");
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
+            .withoutUrl()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
 
-      // WHEN
-      Properties clientProperties =
-          StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+    // WHEN
+    Properties clientProperties =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
 
-      // THEN
-      assertThat(clientProperties.getProperty("authorization_type")).isEqualTo("spcs");
-      // The account is the first label of the host. Both this hyphenated form and the underscored
-      // account name were verified to authenticate against a live SPCS deployment. The config
-      // carries no URL, so this asserts on ambient resolution rather than on the test's own input.
-      assertThat(clientProperties.getProperty("account")).isEqualTo("my-account");
-      assertThat(clientProperties.stringPropertyNames())
-          .doesNotContain(
-              "oauth_client_id",
-              "oauth_client_secret",
-              "oauth_refresh_token",
-              "oauth_token_endpoint",
-              "oauth_scope",
-              "oauth_include_scope",
-              "private_key",
-              "spcs_token_path",
-              "spcs_service_token_path");
-      // No user may be sent. The ambient token identifies the service user, and Snowflake
-      // rejects a session that asserts a different one. Verified against a live SPCS service:
-      // sending the placeholder user produced "The user you were trying to authenticate as
-      // differs from the user tied to the access token"; omitting it authenticated.
-      assertThat(clientProperties.stringPropertyNames()).doesNotContain("user");
-      // The role, by contrast, IS honored and must still be sent.
-      assertThat(clientProperties.getProperty("role")).isNotNull();
-    } finally {
-      SpcsEnvironment.resetForTests();
-    }
+    // THEN: account comes from SNOWFLAKE_ACCOUNT, not from parsing the host
+    assertThat(clientProperties.getProperty("authorization_type")).isEqualTo("spcs");
+    assertThat(clientProperties.getProperty("account"))
+        .as("account from SNOWFLAKE_ACCOUNT, case-normalized to lower case")
+        .isEqualTo("my_account_from_env");
+    assertThat(clientProperties.stringPropertyNames())
+        .doesNotContain(
+            "oauth_client_id",
+            "oauth_client_secret",
+            "oauth_refresh_token",
+            "oauth_token_endpoint",
+            "oauth_scope",
+            "oauth_include_scope",
+            "private_key",
+            "spcs_token_path",
+            "spcs_service_token_path");
+    assertThat(clientProperties.stringPropertyNames()).doesNotContain("user");
+    assertThat(clientProperties.getProperty("role")).isNotNull();
   }
 
-  /** The account parsed from an SPCS host is normalized to lower case. */
+  /**
+   * When SNOWFLAKE_ACCOUNT is absent, fall back to parsing the first label of the host URL. This is
+   * the pre-existing behavior and is kept so that any SPCS deployment that does not publish
+   * SNOWFLAKE_ACCOUNT still works.
+   */
   @Test
-  void shouldLowerCaseAmbientAccount(@TempDir Path tempDir) throws IOException {
+  void shouldFallBackToHostParsingWhenAccountEnvVarIsAbsent(@TempDir Path tempDir)
+      throws IOException {
     Path token = tempDir.resolve("token");
     Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
     Map<String, String> env = new HashMap<>();
-    env.put(SpcsEnvironment.ENV_HOST, "MyAccount.prod3.us-west-2.aws.snowflakecomputing.com");
+    // No ENV_ACCOUNT: only host is present, simulating an older SPCS deployment.
+    env.put(SpcsEnvironment.ENV_HOST, "my-account.prod3.us-west-2.aws.snowflakecomputing.com");
     SpcsEnvironment.overrideForTests(env::get, token);
-    try {
-      Map<String, String> connectorConfig =
-          SnowflakeSinkConnectorConfigBuilder.streamingConfig()
-              .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
-              .withoutUrl()
-              .build();
-      connectorConfig.put(Utils.TASK_ID, "0");
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
+            .withoutUrl()
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
 
-      Properties clientProperties =
-          StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+    Properties clientProperties =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
 
-      assertThat(clientProperties.getProperty("account")).isEqualTo("myaccount");
-    } finally {
-      SpcsEnvironment.resetForTests();
-    }
+    assertThat(clientProperties.getProperty("account"))
+        .as("falls back to the first label of the host when SNOWFLAKE_ACCOUNT is absent")
+        .isEqualTo("my-account");
   }
 
   @Test

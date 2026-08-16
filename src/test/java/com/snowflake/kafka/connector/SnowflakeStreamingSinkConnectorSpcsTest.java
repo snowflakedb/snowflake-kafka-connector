@@ -27,6 +27,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.kafka.common.config.Config;
+import org.apache.kafka.common.config.ConfigValue;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -59,8 +61,8 @@ public class SnowflakeStreamingSinkConnectorSpcsTest {
     Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
     Map<String, String> env = new HashMap<>();
     env.put(SpcsEnvironment.ENV_HOST, "myaccount.dep.us-west-2.aws.snowflakecomputing.com");
-    env.put("SNOWFLAKE_DATABASE", "AMBIENT_DB");
-    env.put("SNOWFLAKE_SCHEMA", "AMBIENT_SCHEMA");
+    env.put(SpcsEnvironment.ENV_DATABASE, "AMBIENT_DB");
+    env.put(SpcsEnvironment.ENV_SCHEMA, "AMBIENT_SCHEMA");
     SpcsEnvironment.overrideForTests(env::get, token);
 
     // AND a configuration carrying no credential and no connection coordinates at all
@@ -154,8 +156,8 @@ public class SnowflakeStreamingSinkConnectorSpcsTest {
     Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
     Map<String, String> env = new HashMap<>();
     env.put(SpcsEnvironment.ENV_HOST, "my-account.dep.us-west-2.aws.snowflakecomputing.com");
-    env.put("SNOWFLAKE_DATABASE", "AMBIENT_DB");
-    env.put("SNOWFLAKE_SCHEMA", "AMBIENT_SCHEMA");
+    env.put(SpcsEnvironment.ENV_DATABASE, "AMBIENT_DB");
+    env.put(SpcsEnvironment.ENV_SCHEMA, "AMBIENT_SCHEMA");
     SpcsEnvironment.overrideForTests(env::get, token);
 
     // A credential-free configuration, exactly as a Kafka Connect user would write it in SPCS.
@@ -163,10 +165,9 @@ public class SnowflakeStreamingSinkConnectorSpcsTest {
     raw.put(KafkaConnectorConfigParams.TOPICS, "t1");
     raw.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "SOME_ROLE");
 
-    org.apache.kafka.common.config.Config result =
-        new SnowflakeStreamingSinkConnector().validate(raw);
+    Config result = new SnowflakeStreamingSinkConnector().validate(raw);
 
-    for (org.apache.kafka.common.config.ConfigValue value : result.configValues()) {
+    for (ConfigValue value : result.configValues()) {
       assertThat(value.errorMessages())
           .as(
               "%s must be filled in from the SPCS runtime during validate(), because Kafka Connect"

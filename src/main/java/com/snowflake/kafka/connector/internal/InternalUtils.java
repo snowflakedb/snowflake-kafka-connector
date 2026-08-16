@@ -142,7 +142,15 @@ public class InternalUtils {
         // here, while properties are assembled, so every new connection uses the current one --
         // Snowflake rewrites the file every few minutes.
         properties.put(JdbcPropertyKeys.AUTHENTICATOR, AuthenticatorType.OAUTH.toConfigValue());
-        properties.put(JDBC_TOKEN, SpcsEnvironment.readToken());
+        try {
+          properties.put(JDBC_TOKEN, SpcsEnvironment.readToken());
+        } catch (IllegalStateException e) {
+          // readToken() throws IllegalStateException for an empty or unreadable token. This is an
+          // operator-fixable condition (wrong service spec), so wrap it so the caller can handle
+          // it as a structured connector error rather than an uncaught runtime exception. The full
+          // message from readToken() already explains the cause and the fix.
+          throw SnowflakeErrors.ERROR_1001.getException(e);
+        }
         break;
       default:
         throw new IllegalStateException("unhandled authenticator: " + config.getAuthenticator());

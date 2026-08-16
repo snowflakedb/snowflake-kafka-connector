@@ -25,6 +25,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
@@ -127,7 +128,29 @@ public class StreamingClientProperties {
       clientProperties.put("user", config.getSnowflakeUser());
     }
     clientProperties.put("role", config.getSnowflakeRole());
-    clientProperties.put("account", url.getAccount());
+    // For ambient SPCS authentication, use SNOWFLAKE_ACCOUNT from the environment
+    // rather than parsing the first label of the host URL.  The host is an undocumented
+    // format verified on one deployment; SNOWFLAKE_ACCOUNT is the canonical identifier
+    // published by every SPCS runtime and is how the Snowflake CLI establishes its account.
+    // If the environment variable is absent (not inside SPCS) the parsed value is kept.
+    String account = url.getAccount();
+    if (config.getAuthenticator().suppliesAmbientIdentity()) {
+      account =
+          SpcsEnvironment.account()
+              .orElseGet(
+                  () -> {
+                    // SNOWFLAKE_ACCOUNT is published by SPCS runtimes at release 8.35 and later.
+                    // Fall back to parsing the first label of the host URL for older deployments.
+                    LOGGER.warn(
+                        "SNOWFLAKE_ACCOUNT environment variable is absent; parsing account from"
+                            + " host '{}'. If the connector is running in SPCS, upgrade the"
+                            + " service runtime to 8.35 or later to supply the canonical account"
+                            + " identifier.",
+                        url.getUrlWithoutPort());
+                    return url.getAccount();
+                  });
+    }
+    clientProperties.put("account", account);
     clientProperties.put("host", url.getUrlWithoutPort());
     clientProperties.put("application", APPLICATION_NAME);
 

@@ -120,6 +120,45 @@ public class ConnectorConfigValidatorTest {
   }
 
   /**
+   * R6: the {@code DefaultConnectorConfigValidator.validateConfig} entry point resolves ambient
+   * values, so a credential-free SPCS configuration is accepted when the validator runs during
+   * Kafka Connect's {@code validate()} REST call, before {@code start()} is ever invoked.
+   *
+   * <p>This test passes no URL and no user in the config. Without resolution, both omissions would
+   * cause the validator to throw. They are filled in from the simulated SPCS environment, which
+   * proves that resolution happens inside the validator (not only in {@code start()}).
+   */
+  @Test
+  public void validateConfigResolvesAmbientValuesForSpcsAuthenticator(@TempDir Path tempDir)
+      throws IOException {
+    Path token = tempDir.resolve("token");
+    Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
+    Map<String, String> env = new HashMap<>();
+    env.put(SpcsEnvironment.ENV_HOST, "myaccount.us-east-1.snowflakecomputing.com");
+    env.put(SpcsEnvironment.ENV_ACCOUNT, "myaccount");
+    env.put(SpcsEnvironment.ENV_DATABASE, "AMBIENT_DB");
+    env.put(SpcsEnvironment.ENV_SCHEMA, "AMBIENT_SCHEMA");
+    SpcsEnvironment.overrideForTests(env::get, token);
+    try {
+      // Deliberately no URL and no user: both would be rejected unless resolution fills them in.
+      Map<String, String> config =
+          SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+              .withoutUrl()
+              .withoutPrivateKey()
+              .build();
+      // Remove user explicitly in case the builder sets a default.
+      config.remove(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
+
+      // If resolution did not happen inside validateConfig, this would throw:
+      // "snowflake.url.name must be provided" and "snowflake.user.name must be provided".
+      assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+          .doesNotThrowAnyException();
+    } finally {
+      SpcsEnvironment.resetForTests();
+    }
+  }
+
+  /**
    * Ambient resolution must not weaken validation for anyone outside SPCS. These properties remain
    * required for the credential-based authenticators.
    */
@@ -135,6 +174,7 @@ public class ConnectorConfigValidatorTest {
             .build();
     config.remove(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
     config.remove(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
+    config.remove(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
 
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class);
