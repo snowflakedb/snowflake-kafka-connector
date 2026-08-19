@@ -4,10 +4,13 @@ import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.internal.CachingConfig;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
+import org.apache.kafka.common.config.types.Password;
 
 /**
  * Test-only builder for {@link SinkTaskConfig}. Provides a builder with default values for all
@@ -25,6 +28,21 @@ public final class SinkTaskConfigTestBuilder {
    * and taskId before build().
    */
   public static SinkTaskConfig.Builder builder() {
+    return builderWithoutKey()
+        // A generated private key is needed for the SNOWFLAKE_JWT authenticator because
+        // StreamingClientProperties.from tries to load it when building the streaming client
+        // properties. Tests that call from() now reach that case; setting a key avoids ERROR_0013.
+        .snowflakePrivateKey(
+            new Password(
+                Base64.getEncoder().encodeToString(TestUtils.generatePrivateKey().getEncoded())));
+  }
+
+  /**
+   * Same as {@link #builder()} but without a private key. Use when the test specifically exercises
+   * behavior that requires the key to be absent, such as testing ERROR_0013 from {@code
+   * makeJdbcDriverProperties}.
+   */
+  public static SinkTaskConfig.Builder builderWithoutKey() {
     return SinkTaskConfig.builder()
         .topicToTableResolver(new StaticTopicToTableResolver(Map.of()))
         .behaviorOnNullValues(ConnectorConfigTools.BehaviorOnNullValues.DEFAULT)
@@ -45,7 +63,11 @@ public final class SinkTaskConfigTestBuilder {
         .streamingClientProviderOverrideMap("")
         .cachingConfig(CachingConfig.fromConfig(Collections.emptyMap()))
         .metadataConfig(new SnowflakeMetadataConfig())
-        .snowflakeUrl("")
+        // A non-blank URL is required because StreamingClientProperties.from now rejects a blank
+        // URL rather than silently returning an empty property map. Tests that do not connect to
+        // Snowflake still need a syntactically valid host so the URL parses. No real connection is
+        // made, so the exact value does not matter as long as it is not blank.
+        .snowflakeUrl("testaccount.snowflakecomputing.com:443")
         .snowflakeUser("")
         .snowflakeRole("")
         .authenticator(AuthenticatorType.SNOWFLAKE_JWT)
