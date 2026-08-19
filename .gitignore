@@ -19,6 +19,7 @@ venv
 *.iml
 target
 docker-setup
+*.core
 
 *.log
 *.log.*
