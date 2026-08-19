@@ -186,7 +186,10 @@ class KafkaDriver:
             raise NonRetryableError()
 
     def createTopics(self, topicName, partitionNum=1, replicationNum=1):
-        self.adminClient.create_topics(
+        # create_topics is asynchronous: it returns a {topic: Future} dict and
+        # the broker may not have created the topic by the time this returns.
+        # Callers that must produce immediately should await the futures.
+        return self.adminClient.create_topics(
             [NewTopic(topicName, partitionNum, replicationNum)]
         )
 
