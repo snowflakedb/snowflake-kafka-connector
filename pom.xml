@@ -131,6 +131,7 @@
                 <configuration>
                     <skipTests>${skipUnitTests}</skipTests>
                     <useModulePath>false</useModulePath>
+                    <workingDirectory>${project.build.directory}</workingDirectory>
                     <argLine>--add-opens java.base/java.util=ALL-UNNAMED</argLine>
                 </configuration>
             </plugin>
