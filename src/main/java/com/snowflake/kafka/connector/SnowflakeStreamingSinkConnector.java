@@ -24,12 +24,18 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryLevel;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
@@ -75,6 +81,14 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   private final ConnectorConfigValidator connectorConfigValidator =
       new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
+  // Periodically re-polls server advisories while the connector runs (SNOW-3648284). Like the
+  // one-time startup check, a CRITICAL advisory seen mid-run aborts the connector (via
+  // ConnectorContext.raiseError -> FAILED), unless the fail-on-critical opt-out is set.
+  private ScheduledExecutorService advisoryPoller;
+
+  // test visibility: counts completed periodic poll cycles
+  private final AtomicInteger advisoryPollCount = new AtomicInteger();
+
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeStreamingSinkConnector() {
     setupComplete = false;
@@ -119,6 +133,10 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
+    // Fetch and log any server-side advisories for this connector version (SNOW-3648284).
+    logServerAdvisories();
+    startAdvisoryPolling();
+
     telemetryClient = conn.getTelemetryClient();
 
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
@@ -140,6 +158,10 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   public void stop() {
     LOGGER.info("SnowflakeStreamingSinkConnector connector stopping...");
     setupComplete = false;
+
+    if (advisoryPoller != null) {
+      advisoryPoller.shutdownNow();
+    }
 
     if (telemetryClient != null) {
       telemetryClient.reportKafkaConnectStop(connectorStartTime);
@@ -395,6 +417,155 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
   private static boolean isConfigProviderReference(String value) {
     return value != null && CONFIG_PROVIDER_PREFIX.matcher(value).find();
+  }
+
+  /** Request context sent to the GS advisory function; v1 carries only the connector version. */
+  private static String advisoryRequestJson() {
+    return "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
+  }
+
+  /**
+   * @return whether a CRITICAL advisory should hard-fail the connector. Default {@code true},
+   *     user-overridable via {@code snowflake.feature.fail_on_critical_advisory}.
+   */
+  private boolean failOnCriticalAdvisory() {
+    return Boolean.parseBoolean(
+        config.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY,
+            String.valueOf(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY_DEFAULT)));
+  }
+
+  /**
+   * Fetches server-side advisory messages for this connector version, logs each one at its declared
+   * level, and fails startup if any are CRITICAL (unless the user has opted out).
+   *
+   * <p>Mechanism errors (old GS without the function, JDBC/parse failures) are silently swallowed
+   * and never block startup; {@link
+   * com.snowflake.kafka.connector.internal.SnowflakeConnectionService#getKcAdvisoryMessages} is
+   * already fail-safe and returns an empty list on any such error.
+   */
+  private void logServerAdvisories() {
+    List<AdvisoryMessage> advisories;
+    try {
+      advisories = conn.getKcAdvisoryMessages(advisoryRequestJson()); // fail-safe: [] on any error
+    } catch (Exception e) {
+      LOGGER.debug(
+          "Failed to fetch server advisories: {}", e.getMessage()); // mechanism error, never fail
+      return;
+    }
+    for (AdvisoryMessage msg : advisories) {
+      AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
+    }
+    if (hasCritical(advisories) && failOnCriticalAdvisory()) {
+      throw SnowflakeErrors.ERROR_5031.getException(
+          "Refusing to start: a critical advisory applies to Kafka Connector "
+              + Utils.VERSION
+              + ". Upgrade the connector, or to start anyway set "
+              + KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
+              + "=false (not recommended).");
+    } else if (hasCritical(advisories)) {
+      LOGGER.warn(
+          "Starting despite a critical server advisory because {}=false.",
+          KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY);
+    }
+  }
+
+  /**
+   * Returns true if any advisory in the list has level CRITICAL.
+   *
+   * <p>Package-private for testing.
+   */
+  static boolean hasCritical(List<AdvisoryMessage> advisories) {
+    return advisories.stream()
+        .anyMatch(m -> AdvisoryLevel.fromString(m.getLevel()) == AdvisoryLevel.CRITICAL);
+  }
+
+  /**
+   * Re-fetches and logs server-side advisories on a background thread while the connector is
+   * running. Each advisory is logged at its declared level; if any are CRITICAL the connector is
+   * aborted the same way as at startup, honoring the {@code
+   * snowflake.feature.fail_on_critical_advisory} opt-out.
+   *
+   * <p>A {@link SinkConnector} cannot pause itself, so a mid-run critical is surfaced to the
+   * framework via {@link org.apache.kafka.connect.connector.ConnectorContext#raiseError} which
+   * transitions the connector to FAILED. FAILED connectors are not auto-restarted, so this is a
+   * hard stop, not a crash loop; a manual restart re-runs the startup check and refuses again while
+   * the policy still applies. Mechanism errors (fetch/parse) are swallowed so the scheduler keeps
+   * firing.
+   */
+  private void pollAdvisories() {
+    try {
+      List<AdvisoryMessage> advisories = conn.getKcAdvisoryMessages(advisoryRequestJson());
+      for (AdvisoryMessage msg : advisories) {
+        AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
+      }
+      if (!hasCritical(advisories)) {
+        return;
+      }
+      if (!failOnCriticalAdvisory()) {
+        LOGGER.warn(
+            "Continuing despite a critical server advisory because {}=false.",
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY);
+        return;
+      }
+      // Abort the running connector: stop further polls, then fail it through the framework.
+      LOGGER.error(
+          "Aborting connector: a critical server advisory now applies to Kafka Connector {}."
+              + " Upgrade the connector, or to keep running set {}=false (not recommended).",
+          Utils.VERSION,
+          KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY);
+      if (advisoryPoller != null) {
+        advisoryPoller.shutdown();
+      }
+      context()
+          .raiseError(
+              SnowflakeErrors.ERROR_5031.getException(
+                  "Critical server advisory applies to running Kafka Connector "
+                      + Utils.VERSION
+                      + "; connector aborted."));
+    } catch (Exception e) {
+      LOGGER.debug("Periodic advisory poll failed: {}", e.getMessage());
+    } finally {
+      advisoryPollCount.incrementAndGet();
+    }
+  }
+
+  /**
+   * Starts a background scheduler that periodically re-polls server advisories (SNOW-3648284). No
+   * scheduler is started when the poll interval is {@code <= 0}, which leaves advisory checking as
+   * startup-only.
+   */
+  private void startAdvisoryPolling() {
+    long intervalSeconds =
+        Long.parseLong(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS_DEFAULT)));
+    if (intervalSeconds <= 0) {
+      LOGGER.info("Server advisory polling disabled (interval <= 0).");
+      return;
+    }
+    advisoryPoller =
+        Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, "kc-advisory-poller");
+              t.setDaemon(true);
+              return t;
+            });
+    advisoryPoller.scheduleAtFixedRate(
+        this::pollAdvisories, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
+    LOGGER.info("Server advisory polling every {}s.", intervalSeconds);
+  }
+
+  /**
+   * @return the number of completed periodic advisory poll cycles.
+   *     <p>Package-private for testing.
+   */
+  int advisoryPollCountForTest() {
+    return advisoryPollCount.get();
   }
 
   /**
