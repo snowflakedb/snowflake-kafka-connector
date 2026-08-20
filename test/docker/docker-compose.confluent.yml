@@ -71,7 +71,11 @@ services:
       CONNECT_LOG4J_LOGGERS: com.snowflake=INFO
       CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %X{connector.context}%m (%c:%L)%n"
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx6g"
-      KAFKA_OPTS: "${KAFKA_OPTS:-}"
+      # snowflake-jdbc-native eagerly initializes its bundled Apache Arrow off-heap allocator,
+      # whose MemoryUtil needs reflective java.nio access on Java 9+. Without this flag connector
+      # creation fails: "Failed to initialize MemoryUtil. You must start Java with
+      # `--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED`".
+      KAFKA_OPTS: "--add-opens=java.base/java.nio=ALL-UNNAMED ${KAFKA_OPTS:-}"
       SS_LOG_LEVEL: warn
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/opt/kafka-connect/plugins/snowflake-connector
