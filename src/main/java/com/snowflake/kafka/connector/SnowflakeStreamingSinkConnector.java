@@ -16,6 +16,7 @@
  */
 package com.snowflake.kafka.connector;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
@@ -24,6 +25,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.ArrayList;
@@ -54,8 +56,19 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   // value is resolved per-worker at task start and is therefore not available during validate().
   private static final Pattern CONFIG_PROVIDER_PREFIX = Pattern.compile("[$][{][a-zA-Z]+:");
 
-  private Map<String, String> config; // connector configuration, provided by
-  // user through kafka connect framework
+  // connector configuration, provided by user through kafka connect framework
+  private Map<String, String> config;
+
+  /**
+   * The effective connector configuration, after the Snowflake-provided SPCS service user
+   * credentials have been filled in. Exposed only so a test can assert that resolution happens at
+   * this entry point: {@code taskConfigs()} cannot be used for that, because it polls for setup
+   * completion for ten minutes before failing.
+   */
+  @VisibleForTesting
+  Map<String, String> effectiveConfigForTests() {
+    return config;
+  }
 
   // SnowflakeJDBCWrapper provides methods to interact with user's snowflake
   // account and executes queries
@@ -96,7 +109,10 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
     setupComplete = false;
     connectorStartTime = System.currentTimeMillis();
-    config = new HashMap<>(parsedConfig);
+    // Fill in the Snowflake-provided service user credentials ("ambient" SPCS authentication) once,
+    // at the entry point, so the connector's own config, its validation, the connection it builds,
+    // and the configs handed to tasks all agree. No-op outside SPCS.
+    config = new HashMap<>(SpcsEnvironment.resolve(parsedConfig));
 
     ConnectorConfigTools.setDefaultValues(config);
 
@@ -205,6 +221,14 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   @Override
   public Config validate(Map<String, String> connectorConfigs) {
     LOGGER.debug("Validating connector Config: Start");
+    // Fill in the Snowflake-provided service user credentials before anything inspects the
+    // configuration. Kafka Connect calls validate() *before* start(), so without this the
+    // ambient values are still missing here and the single-field checks below reject a
+    // legitimate SPCS configuration with "snowflake.url.name must be provided" and friends.
+    // Outside SPCS resolve() returns the very same map instance, so non-SPCS behavior,
+    // including the mutation of the caller's map further down, is unchanged.
+    connectorConfigs = SpcsEnvironment.resolve(connectorConfigs);
+
     // cross-fields validation here
     Config result = super.validate(connectorConfigs);
 

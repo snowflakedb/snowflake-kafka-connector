@@ -9,8 +9,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.apache.log4j.AppenderSkeleton;
+import org.apache.log4j.Logger;
+import org.apache.log4j.spi.LoggingEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -28,12 +33,15 @@ public class SpcsEnvironmentTest {
     SpcsEnvironment.resetForTests();
   }
 
+  private static final String ACCOUNT = "myaccount";
+
   /** Simulates a container running inside SPCS, with a token file and the runtime env vars. */
   private Path simulateSpcs(String tokenValue) throws IOException {
     Path token = tempDir.resolve("token");
     Files.write(token, tokenValue.getBytes(StandardCharsets.UTF_8));
     Map<String, String> env = new HashMap<>();
     env.put(SpcsEnvironment.ENV_HOST, HOST);
+    env.put(SpcsEnvironment.ENV_ACCOUNT, ACCOUNT);
     env.put(SpcsEnvironment.ENV_DATABASE, "AMBIENT_DB");
     env.put(SpcsEnvironment.ENV_SCHEMA, "AMBIENT_SCHEMA");
     SpcsEnvironment.overrideForTests(env::get, token);
@@ -355,5 +363,91 @@ public class SpcsEnvironmentTest {
     assertThatThrownBy(SpcsEnvironment::readToken)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("is empty");
+  }
+
+  /**
+   * An empty token throws locally with an actionable message rather than sending the token to
+   * Snowflake and waiting for its generic '390303 Invalid OAuth access token' rejection. The
+   * message must name the cause ('enableCustomCredentials') so an operator can fix it without
+   * reading source code. R19.
+   */
+  @Test
+  void shouldRejectEmptyTokenLocallyWithActionableMessage() throws IOException {
+    simulateSpcs("");
+
+    assertThatThrownBy(SpcsEnvironment::readToken)
+        .isInstanceOf(IllegalStateException.class)
+        .as("message must name the Snowflake error so the operator knows what Snowflake would say")
+        .hasMessageContaining("390303")
+        .as("message must name the fix so the operator does not need to read the source")
+        .hasMessageContaining("enableCustomCredentials");
+  }
+
+  /**
+   * Security pin (R20): the bearer token must not leak into the resolved configuration map. The
+   * token is read and used to build properties, but it must never appear as a config value -- doing
+   * so would expose it to any code that logs or serializes the configuration map.
+   */
+  @Test
+  void tokenMustNotAppearInResolvedConfigurationMap() throws IOException {
+    String secret = "VERY-SECRET-TOKEN-" + System.nanoTime();
+    simulateSpcs(secret);
+
+    Map<String, String> raw = new HashMap<>();
+    raw.put(KafkaConnectorConfigParams.NAME, "testConnector");
+    raw.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "MY_ROLE");
+    Map<String, String> resolved = SpcsEnvironment.resolve(raw);
+
+    assertThat(resolved.values())
+        .as("the bearer token value must not appear in any entry of the resolved config")
+        .doesNotContain(secret);
+  }
+
+  /**
+   * Security pin (R20): the bearer token must not appear in log output during resolution. A log
+   * line that includes the token value would expose it to anyone with access to the log file.
+   */
+  @Test
+  void tokenMustNotAppearInLogsDuringResolution() throws IOException {
+    String secret = "VERY-SECRET-LOG-TOKEN-" + System.nanoTime();
+    simulateSpcs(secret);
+
+    Logger rootLogger = Logger.getRootLogger();
+    CapturingAppender appender = new CapturingAppender();
+    rootLogger.addAppender(appender);
+    try {
+      Map<String, String> raw = new HashMap<>();
+      raw.put(KafkaConnectorConfigParams.NAME, "testConnector");
+      raw.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "MY_ROLE");
+      SpcsEnvironment.resolve(raw);
+    } finally {
+      rootLogger.removeAppender(appender);
+    }
+
+    List<String> messages = appender.getMessages();
+    assertThat(messages)
+        .as("the bearer token value must not appear in any log record emitted during resolution")
+        .noneMatch(msg -> msg.contains(secret));
+  }
+
+  private static class CapturingAppender extends AppenderSkeleton {
+    private final List<String> messages = new ArrayList<>();
+
+    @Override
+    protected void append(LoggingEvent event) {
+      messages.add(event.getRenderedMessage());
+    }
+
+    @Override
+    public void close() {}
+
+    @Override
+    public boolean requiresLayout() {
+      return false;
+    }
+
+    List<String> getMessages() {
+      return new ArrayList<>(messages);
+    }
   }
 }
