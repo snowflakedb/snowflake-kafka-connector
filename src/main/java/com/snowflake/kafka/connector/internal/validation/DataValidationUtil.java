@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -74,14 +75,35 @@ class DataValidationUtil {
   public static final int BYTES_8_MB = 8 * 1024 * 1024;
   public static final int BYTES_16_MB = 2 * BYTES_8_MB;
 
+  /**
+   * Largest LOB accepted for VARCHAR, VARIANT, OBJECT and ARRAY columns. Snowflake raised the LOB
+   * ceiling from 16MB to 128MB; accounts without large LOBs enabled still get their oversized
+   * values rejected server-side, so validating against the higher tier only widens what the client
+   * lets through.
+   */
+  public static final int BYTES_128_MB = 8 * BYTES_16_MB;
+
   // TODO SNOW-664249: There is a few-byte mismatch between the value sent by the user and its
   // server-side representation. Validation leaves a small buffer for this difference.
-  static final int MAX_SEMI_STRUCTURED_LENGTH = BYTES_16_MB - 64;
+  static final int MAX_SEMI_STRUCTURED_LENGTH = BYTES_128_MB - 64;
 
-  private static final ObjectMapper objectMapper = new ObjectMapper();
+  /**
+   * Jackson refuses to read a single string value longer than 20MB by default, well below the LOB
+   * limit. The cap is raised to twice the LOB limit so that an oversized value is reported by the
+   * size checks in this class — naming the column and the actual length — rather than surfacing as
+   * a generic "not a valid JSON" parse failure.
+   */
+  private static final StreamReadConstraints STREAM_READ_CONSTRAINTS =
+      StreamReadConstraints.builder().maxStringLength(2 * BYTES_128_MB).build();
+
+  private static final ObjectMapper objectMapper =
+      new ObjectMapper(
+          JsonFactory.builder().streamReadConstraints(STREAM_READ_CONSTRAINTS).build());
 
   private static final JsonFactory factory =
-      new JsonFactory()
+      JsonFactory.builder()
+          .streamReadConstraints(STREAM_READ_CONSTRAINTS)
+          .build()
           // Handle duplicate fields in JSON objects by ourselves
           .configure(JsonGenerator.Feature.STRICT_DUPLICATE_DETECTION, false);
 
@@ -840,13 +862,14 @@ class DataValidationUtil {
     }
     byte[] utf8Bytes = output.getBytes(StandardCharsets.UTF_8);
 
-    // Strings can never be larger than 16MB
-    if (utf8Bytes.length > BYTES_16_MB) {
+    // Strings can never be larger than 128MB
+    if (utf8Bytes.length > BYTES_128_MB) {
       throw valueFormatNotAllowedException(
           columnName,
           "STRING",
           String.format(
-              "String too long: length=%d bytes maxLength=%d bytes", utf8Bytes.length, BYTES_16_MB),
+              "String too long: length=%d bytes maxLength=%d bytes",
+              utf8Bytes.length, BYTES_128_MB),
           insertRowIndex);
     }
 

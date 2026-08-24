@@ -15,14 +15,14 @@ import java.sql.SQLException;
  */
 public class ColumnSchema {
   /**
-   * Maximum byte length for TEXT/VARCHAR columns, matching SSv1 SDK's BYTES_16_MB limit. SSv1 SDK
-   * enforces that strings can never be larger than 16MB bytes, even if the VARCHAR character length
-   * would theoretically allow more (e.g., VARCHAR(16777216) with 4-byte UTF-8 chars could be 64MB,
-   * but is capped at 16MB).
+   * Maximum byte length for TEXT/VARCHAR columns, matching {@link DataValidationUtil#BYTES_128_MB}.
+   * Strings can never be larger than that many bytes, even if the VARCHAR character length would
+   * theoretically allow more (e.g., VARCHAR(134217728) with 4-byte UTF-8 chars could be 512MB, but
+   * is capped at 128MB).
    *
    * @see DataValidationUtil line 721 in SSv1 SDK
    */
-  private static final int MAX_LOB_SIZE_BYTES = 16 * 1024 * 1024; // 16,777,216 bytes
+  private static final int MAX_LOB_SIZE_BYTES = DataValidationUtil.BYTES_128_MB;
 
   private final String name;
   private final ColumnLogicalType logicalType;
@@ -266,13 +266,13 @@ public class ColumnSchema {
             throw new IllegalArgumentException(
                 "Invalid length parameter in type string: " + typeStr, e);
           }
-          // Cap at MAX_LOB_SIZE_BYTES (SSv1 SDK limit: strings never exceed 16MB bytes)
+          // Cap at MAX_LOB_SIZE_BYTES (SDK limit: strings never exceed that many bytes)
           // Use long to prevent integer overflow if length is corrupted/malformed
           long byteLengthLong = (long) info.length * 4;
           info.byteLength = (int) Math.min(MAX_LOB_SIZE_BYTES, byteLengthLong);
         } else {
           info.length = 16777216; // Default VARCHAR max
-          // Cap at MAX_LOB_SIZE_BYTES (SSv1 SDK limit: strings never exceed 16MB bytes)
+          // Cap at MAX_LOB_SIZE_BYTES (SDK limit: strings never exceed that many bytes)
           // Use long to prevent integer overflow if length is corrupted/malformed
           long byteLengthLong = (long) info.length * 4;
           info.byteLength = (int) Math.min(MAX_LOB_SIZE_BYTES, byteLengthLong);

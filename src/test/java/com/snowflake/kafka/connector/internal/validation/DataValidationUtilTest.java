@@ -12,6 +12,7 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_128_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_16_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
@@ -526,11 +527,11 @@ public class DataValidationUtilTest {
     assertEquals("honk", validateAndParseString("COL", "honk", Optional.empty(), 0));
 
     // Check max byte length
-    String maxString = buildString("a", BYTES_16_MB);
+    String maxString = buildString("a", BYTES_128_MB);
     assertEquals(maxString, validateAndParseString("COL", maxString, Optional.empty(), 0));
 
     // max byte length - 1 should also succeed
-    String maxStringMinusOne = buildString("a", BYTES_16_MB - 1);
+    String maxStringMinusOne = buildString("a", BYTES_128_MB - 1);
     assertEquals(
         maxStringMinusOne, validateAndParseString("COL", maxStringMinusOne, Optional.empty(), 0));
 
@@ -912,7 +913,7 @@ public class DataValidationUtilTest {
 
     final String tooLargeObject =
         objectMapper.writeValueAsString(
-            Collections.singletonMap("key", StringUtils.repeat('a', 20000000)));
+            Collections.singletonMap("key", StringUtils.repeat('a', BYTES_128_MB + 1)));
     expectError(
         ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseObject("COL", tooLargeObject, 0));
     expectError(
@@ -1036,7 +1037,7 @@ public class DataValidationUtilTest {
 
   @Test
   public void testTooLargeVariant() {
-    char[] stringContent = new char[16 * 1024 * 1024 - 16]; // {"a":"11","b":""}
+    char[] stringContent = new char[BYTES_128_MB - 16]; // {"a":"11","b":""}
     Arrays.fill(stringContent, 'c');
 
     // {"a":"11","b":""}
@@ -1048,10 +1049,31 @@ public class DataValidationUtilTest {
     expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseObject("COL", m, 0));
   }
 
+  /**
+   * A value above the old 16MB LOB limit is accepted, including when it arrives as a JSON string —
+   * that path also has to get past Jackson's default 20MB cap on a single string value.
+   */
+  @Test
+  public void testSemiStructuredAboveOldLobLimitIsAccepted() throws Exception {
+    char[] stringContent = new char[BYTES_16_MB + 1];
+    Arrays.fill(stringContent, 'c');
+    Map<String, Object> input = Collections.singletonMap("a", new String(stringContent));
+
+    // {"a":"ccc...ccc"} — the object wrapper adds 8 characters
+    int expectedLength = BYTES_16_MB + 1 + 8;
+    assertEquals(expectedLength, validateAndParseVariant("COL", input, 0).length());
+    assertEquals(expectedLength, validateAndParseObject("COL", input, 0).length());
+
+    String jsonInput = objectMapper.writeValueAsString(input);
+    assertEquals(expectedLength, validateAndParseVariantNew("COL", jsonInput, 0).length());
+    assertEquals(expectedLength, validateAndParseObjectNew("COL", jsonInput, 0).length());
+  }
+
   @Test
   public void testTooLargeMultiByteSemiStructuredValues() {
-    // Variant max size is not in characters, but in bytes
-    char[] stringContent = new char[9 * 1024 * 1024]; // 8MB < value < 16MB
+    // Variant max size is not in characters, but in bytes: the character count stays below the
+    // limit while the two-byte-per-character UTF-8 encoding exceeds it.
+    char[] stringContent = new char[65 * 1024 * 1024];
     Arrays.fill(stringContent, 'Č');
 
     Map<String, Object> m = new HashMap<>();
@@ -1060,19 +1082,19 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type VARIANT, rowIndex:0, reason:"
-            + " Variant too long: length=18874376 maxLength=16777152",
+            + " Variant too long: length=136314888 maxLength=134217664",
         () -> validateAndParseVariant("COL", m, 0));
     expectErrorCodeAndMessage(
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type ARRAY, rowIndex:0, reason:"
-            + " Array too large. length=18874378 maxLength=16777152",
+            + " Array too large. length=136314890 maxLength=134217664",
         () -> validateAndParseArray("COL", m, 0));
     expectErrorCodeAndMessage(
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type OBJECT, rowIndex:0, reason:"
-            + " Object too large. length=18874376 maxLength=16777152",
+            + " Object too large. length=136314888 maxLength=134217664",
         () -> validateAndParseObject("COL", m, 0));
   }
 
