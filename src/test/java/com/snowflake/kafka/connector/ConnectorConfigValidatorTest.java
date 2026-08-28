@@ -28,7 +28,13 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -38,10 +44,12 @@ import java.util.stream.Stream;
 import org.apache.kafka.connect.storage.Converter;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class ConnectorConfigValidatorTest {
 
@@ -71,6 +79,105 @@ public class ConnectorConfigValidatorTest {
   public void testConfig() {
     Map<String, String> config = SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
     connectorConfigValidator.validateConfig(config);
+  }
+
+  @Test
+  public void shouldRejectSpcsAuthenticatorOutsideSpcs() {
+    SpcsEnvironment.overrideForTests(name -> null, Paths.get("/nonexistent/spcs/token"));
+    try {
+      Map<String, String> config =
+          SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+              .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
+              .build();
+
+      assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+          .isInstanceOf(SnowflakeKafkaConnectorException.class)
+          .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR);
+    } finally {
+      SpcsEnvironment.resetForTests();
+    }
+  }
+
+  @Test
+  public void shouldAcceptSpcsAuthenticatorInsideSpcs(@TempDir Path tempDir) throws IOException {
+    Path token = tempDir.resolve("token");
+    Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
+    Map<String, String> env = new HashMap<>();
+    env.put(SpcsEnvironment.ENV_HOST, "myaccount.us-east-1.snowflakecomputing.com");
+    SpcsEnvironment.overrideForTests(env::get, token);
+    try {
+      Map<String, String> config =
+          SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+              .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
+              .withoutPrivateKey()
+              .build();
+
+      // no exception thrown: the credential comes from the SPCS runtime, not the config
+      connectorConfigValidator.validateConfig(config);
+    } finally {
+      SpcsEnvironment.resetForTests();
+    }
+  }
+
+  /**
+   * R6: the {@code DefaultConnectorConfigValidator.validateConfig} entry point resolves ambient
+   * values, so a credential-free SPCS configuration is accepted when the validator runs during
+   * Kafka Connect's {@code validate()} REST call, before {@code start()} is ever invoked.
+   *
+   * <p>This test passes no URL and no user in the config. Without resolution, both omissions would
+   * cause the validator to throw. They are filled in from the simulated SPCS environment, which
+   * proves that resolution happens inside the validator (not only in {@code start()}).
+   */
+  @Test
+  public void validateConfigResolvesAmbientValuesForSpcsAuthenticator(@TempDir Path tempDir)
+      throws IOException {
+    Path token = tempDir.resolve("token");
+    Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
+    Map<String, String> env = new HashMap<>();
+    env.put(SpcsEnvironment.ENV_HOST, "myaccount.us-east-1.snowflakecomputing.com");
+    env.put(SpcsEnvironment.ENV_ACCOUNT, "myaccount");
+    env.put(SpcsEnvironment.ENV_DATABASE, "AMBIENT_DB");
+    env.put(SpcsEnvironment.ENV_SCHEMA, "AMBIENT_SCHEMA");
+    SpcsEnvironment.overrideForTests(env::get, token);
+    try {
+      // Deliberately no URL and no user: both would be rejected unless resolution fills them in.
+      Map<String, String> config =
+          SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+              .withoutUrl()
+              .withoutPrivateKey()
+              .build();
+      // Remove user explicitly in case the builder sets a default.
+      config.remove(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
+
+      // If resolution did not happen inside validateConfig, this would throw:
+      // "snowflake.url.name must be provided" and "snowflake.user.name must be provided".
+      assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+          .doesNotThrowAnyException();
+    } finally {
+      SpcsEnvironment.resetForTests();
+    }
+  }
+
+  /**
+   * Ambient resolution must not weaken validation for anyone outside SPCS. These properties remain
+   * required for the credential-based authenticators.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"snowflake_jwt", "oauth"})
+  public void shouldStillRequireUserUrlAndRoleForCredentialAuthenticators(String authenticator) {
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(authenticator)
+            .withOauthClientId("id")
+            .withOauthClientSecret("secret")
+            .withOauthRefreshToken("token")
+            .build();
+    config.remove(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME);
+    config.remove(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME);
+    config.remove(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
+
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class);
   }
 
   @Test

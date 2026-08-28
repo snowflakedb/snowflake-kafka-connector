@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -53,8 +54,16 @@ public final class SpcsEnvironment {
 
   public static final String ENV_HOST = "SNOWFLAKE_HOST";
 
-  static final String ENV_DATABASE = "SNOWFLAKE_DATABASE";
-  static final String ENV_SCHEMA = "SNOWFLAKE_SCHEMA";
+  /**
+   * Account identifier published by SPCS. It is the account locator, matching the first label of
+   * {@link #ENV_HOST} after hyphens are substituted for underscores. Using it explicitly is more
+   * robust than parsing the hostname, and is how every other SPCS client (including the Snowflake
+   * CLI) establishes its account.
+   */
+  public static final String ENV_ACCOUNT = "SNOWFLAKE_ACCOUNT";
+
+  public static final String ENV_DATABASE = "SNOWFLAKE_DATABASE";
+  public static final String ENV_SCHEMA = "SNOWFLAKE_SCHEMA";
 
   /**
    * Placeholder written to {@code snowflake.user.name} in ambient mode. The effective identity is
@@ -74,10 +83,23 @@ public final class SpcsEnvironment {
    */
   public static final String AMBIENT_USER_PLACEHOLDER = "spcs-service-user";
 
-  /** Environment lookup. Overridable so tests can simulate an SPCS container. */
+  /**
+   * Environment lookup. Overridable through {@link #overrideForTests} so tests can simulate an SPCS
+   * container.
+   *
+   * <p><b>Threading note:</b> this is a static mutable field shared across all test classes. It is
+   * safe with the default surefire configuration (no parallel test classes), because every test
+   * class that touches it resets it in an {@code @AfterEach} method, so classes run sequentially.
+   * If {@code forkCount > 1} or {@code parallel=classes} is ever enabled, two classes calling
+   * {@link #overrideForTests} in the same JVM will race. Address this by making the seam injectable
+   * rather than static before enabling parallelism.
+   */
   private static Function<String, String> envReader = System::getenv;
 
-  /** Token file location. Overridable so tests can point at a temporary file. */
+  /**
+   * Token file location. Overridable through {@link #overrideForTests} so tests can point at a
+   * temporary file. See the threading note on {@link #envReader}.
+   */
   private static Path tokenPath = Paths.get(DEFAULT_TOKEN_FILE);
 
   private SpcsEnvironment() {}
@@ -91,6 +113,14 @@ public final class SpcsEnvironment {
 
   public static Optional<String> host() {
     return env(ENV_HOST);
+  }
+
+  /**
+   * Account identifier published by SPCS, lowercased and trimmed to match the form expected by the
+   * streaming SDK and the JDBC driver.
+   */
+  public static Optional<String> account() {
+    return env(ENV_ACCOUNT).map(a -> a.toLowerCase(Locale.ROOT));
   }
 
   public static Optional<String> database() {
@@ -162,7 +192,11 @@ public final class SpcsEnvironment {
       // as the SPCS service user instead, which is a different identity with different grants.
       // So only adopt when there is no credential at all to ignore.
       if (hasConfiguredCredential(raw)) {
-        LOGGER.info(
+        // A credential is present but no authenticator was named.  Adopting ambient auth here
+        // would silently ignore that credential and connect as a different identity.  Stay out of
+        // the way, but warn loudly rather than staying silent, because the operator may not realize
+        // their credential is being bypassed inside SPCS.
+        LOGGER.warn(
             "Running inside Snowpark Container Services, but a credential is configured, so the"
                 + " existing authentication method is kept. Set '{}' to '{}' to use ambient SPCS"
                 + " authentication instead.",
@@ -197,11 +231,25 @@ public final class SpcsEnvironment {
         KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
         Optional.of(AMBIENT_USER_PLACEHOLDER));
 
-    if (!isBlank(resolved.get(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY))) {
-      LOGGER.warn(
-          "'{}' is set but will be ignored: ambient SPCS authentication uses the token supplied by"
-              + " the SPCS runtime.",
-          KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY);
+    // Warn for every credential field that is being ignored, not only private.key.  An operator
+    // who explicitly set snowflake.authenticator=spcs has made the choice knowingly, but they may
+    // still have leftover OAuth or key-pair fields from a previous configuration.
+    // Note: resolve() is called at four entry points and is idempotent, so this loop may fire
+    // multiple times at startup for the same credential. That is acceptable: the warning is per
+    // connector start, not per day, and deduplication would require a stateful sentinel.
+    for (String credKey :
+        new String[] {
+          KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_ID,
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN
+        }) {
+      if (!isBlank(resolved.get(credKey))) {
+        LOGGER.warn(
+            "'{}' is set but will be ignored: ambient SPCS authentication uses the token supplied"
+                + " by the SPCS runtime.",
+            credKey);
+      }
     }
 
     return resolved;
@@ -233,6 +281,14 @@ public final class SpcsEnvironment {
     return value == null || value.trim().isEmpty();
   }
 
+  /**
+   * Test seam: overrides the environment reader and token path for the duration of a test class.
+   * Must be paired with a call to {@link #resetForTests()} in an {@code AfterEach} method.
+   *
+   * <p><b>Do not use this seam with parallel test classes.</b> {@code envReader} and {@code
+   * tokenPath} are statics shared across all classes in the same JVM. Two classes overriding them
+   * concurrently will race silently. See the field Javadoc for details.
+   */
   @VisibleForTesting
   public static void overrideForTests(Function<String, String> env, Path token) {
     envReader = env;
