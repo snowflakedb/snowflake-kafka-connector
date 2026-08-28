@@ -31,6 +31,11 @@ import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
@@ -40,6 +45,7 @@ import java.util.Properties;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -57,7 +63,8 @@ public class StreamingClientPropertiesTest {
    */
   @ParameterizedTest
   @EnumSource(AuthenticatorType.class)
-  void shouldHandleEveryAuthenticatorType(AuthenticatorType authenticator) {
+  void shouldHandleEveryAuthenticatorType(AuthenticatorType authenticator, @TempDir Path tempDir)
+      throws IOException {
     // GIVEN a config that is valid for this authenticator
     SnowflakeSinkConnectorConfigBuilder builder =
         SnowflakeSinkConnectorConfigBuilder.streamingConfig()
@@ -70,16 +77,28 @@ public class StreamingClientPropertiesTest {
               .withOauthClientSecret("testClientSecret")
               .withOauthRefreshToken("testRefreshToken");
     }
+    if (authenticator == AuthenticatorType.SPCS) {
+      // ambient auth is only valid inside SPCS, so simulate that runtime
+      Path token = tempDir.resolve("token");
+      Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
+      Map<String, String> env = new HashMap<>();
+      env.put(SpcsEnvironment.ENV_HOST, "myaccount.us-east-1.snowflakecomputing.com");
+      SpcsEnvironment.overrideForTests(env::get, token);
+    }
     Map<String, String> connectorConfig = builder.build();
     connectorConfig.put(Utils.TASK_ID, "0");
 
-    // WHEN
-    Properties clientProperties =
-        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+    try {
+      // WHEN
+      Properties clientProperties =
+          StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
 
-    // THEN the switch handled it and emitted this authenticator's credential material
-    assertThat(clientProperties.stringPropertyNames())
-        .containsAnyOf("authorization_type", "private_key");
+      // THEN the switch handled it and emitted this authenticator's credential material
+      assertThat(clientProperties.stringPropertyNames())
+          .containsAnyOf("authorization_type", "private_key");
+    } finally {
+      SpcsEnvironment.resetForTests();
+    }
   }
 
   @Test

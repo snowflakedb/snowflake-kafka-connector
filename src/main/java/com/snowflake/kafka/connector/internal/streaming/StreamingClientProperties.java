@@ -106,11 +106,26 @@ public class StreamingClientProperties {
             Base64.getEncoder().encodeToString(privateKey.getEncoded());
         clientProperties.put("private_key", privateKeyEncoded);
         break;
+      case SPCS:
+        // Snowflake-provided service user credentials ("ambient" authentication). Deliberately
+        // sets no spcs_* keys: the SDK already defaults spcs_token_path and
+        // spcs_service_token_path to the standard SPCS locations, and its exclusive-field check
+        // treats them as user-set only when they differ from those defaults. Leaving them alone
+        // also keeps the connector clear of the config-key injection path tracked in
+        // SNOW-3686036. Note no oauth_* key may be set here, including oauth_include_scope, which
+        // the SDK counts as set when false.
+        clientProperties.put("authorization_type", AuthenticatorType.SPCS.toConfigValue());
+        break;
       default:
         throw new IllegalStateException("unhandled authenticator: " + config.getAuthenticator());
     }
 
-    clientProperties.put("user", config.getSnowflakeUser());
+    if (!config.getAuthenticator().suppliesAmbientIdentity()) {
+      // See the note in InternalUtils.makeJdbcDriverProperties: when the credential itself
+      // identifies the user, asserting any other user is rejected. The connector cannot know
+      // the generated service user's name, so it must not send one.
+      clientProperties.put("user", config.getSnowflakeUser());
+    }
     clientProperties.put("role", config.getSnowflakeRole());
     clientProperties.put("account", url.getAccount());
     clientProperties.put("host", url.getUrlWithoutPort());
