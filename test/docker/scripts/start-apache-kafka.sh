@@ -34,6 +34,16 @@ if [ -n "${CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS:-}" ]; then
   fi
 fi
 
+# snowflake-jdbc-native bundles Apache Arrow, whose off-heap MemoryUtil needs reflective
+# access to java.nio.Buffer on Java 9+. Unlike the classic pure-JVM snowflake-jdbc (which the
+# connector only exercised on the control plane, never triggering Arrow's off-heap allocator),
+# the native driver initializes its Arrow-backed result path eagerly, so the Connect worker JVM
+# must be started with this flag or connector creation fails with:
+#   "Failed to initialize MemoryUtil. You must start Java with
+#    `--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED`"
+# connect-distributed.sh forwards $KAFKA_OPTS to the worker JVM.
+export KAFKA_OPTS="--add-opens=java.base/java.nio=ALL-UNNAMED ${KAFKA_OPTS:-}"
+
 if [ "${KRAFT_MODE:-false}" = "true" ]; then
     #######################################################################
     # KRaft mode (Kafka 4.x+)
