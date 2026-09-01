@@ -15,14 +15,14 @@ import java.sql.SQLException;
  */
 public class ColumnSchema {
   /**
-   * Maximum byte length for TEXT/VARCHAR columns, matching {@link DataValidationUtil#BYTES_128_MB}.
-   * Strings can never be larger than that many bytes, even if the VARCHAR character length would
-   * theoretically allow more (e.g., VARCHAR(134217728) with 4-byte UTF-8 chars could be 512MB, but
-   * is capped at 128MB).
+   * Maximum byte length for TEXT/VARCHAR columns, matching {@link
+   * DataValidationUtil#LOB_CEILING_MB}. Strings can never be larger than that many bytes, even if
+   * the VARCHAR character length would theoretically allow more (e.g., VARCHAR(134217728) with
+   * 4-byte UTF-8 chars could be 512MB, but is capped at 128MB).
    *
    * @see DataValidationUtil line 721 in SSv1 SDK
    */
-  private static final int MAX_LOB_SIZE_BYTES = DataValidationUtil.BYTES_128_MB;
+  private static final int MAX_LOB_SIZE_BYTES = DataValidationUtil.LOB_CEILING_MB;
 
   private final String name;
   private final ColumnLogicalType logicalType;

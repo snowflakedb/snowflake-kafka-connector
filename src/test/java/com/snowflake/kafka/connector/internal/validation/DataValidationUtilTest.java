@@ -12,7 +12,7 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
-import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_128_MB;
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.LOB_CEILING_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_16_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
@@ -527,11 +527,11 @@ public class DataValidationUtilTest {
     assertEquals("honk", validateAndParseString("COL", "honk", Optional.empty(), 0));
 
     // Check max byte length
-    String maxString = buildString("a", BYTES_128_MB);
+    String maxString = buildString("a", LOB_CEILING_MB);
     assertEquals(maxString, validateAndParseString("COL", maxString, Optional.empty(), 0));
 
     // max byte length - 1 should also succeed
-    String maxStringMinusOne = buildString("a", BYTES_128_MB - 1);
+    String maxStringMinusOne = buildString("a", LOB_CEILING_MB - 1);
     assertEquals(
         maxStringMinusOne, validateAndParseString("COL", maxStringMinusOne, Optional.empty(), 0));
 
@@ -913,7 +913,7 @@ public class DataValidationUtilTest {
 
     final String tooLargeObject =
         objectMapper.writeValueAsString(
-            Collections.singletonMap("key", StringUtils.repeat('a', BYTES_128_MB + 1)));
+            Collections.singletonMap("key", StringUtils.repeat('a', LOB_CEILING_MB + 1)));
     expectError(
         ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseObject("COL", tooLargeObject, 0));
     expectError(
@@ -1037,7 +1037,7 @@ public class DataValidationUtilTest {
 
   @Test
   public void testTooLargeVariant() {
-    char[] stringContent = new char[BYTES_128_MB - 16]; // {"a":"11","b":""}
+    char[] stringContent = new char[LOB_CEILING_MB - 16]; // {"a":"11","b":""}
     Arrays.fill(stringContent, 'c');
 
     // {"a":"11","b":""}
@@ -1050,17 +1050,18 @@ public class DataValidationUtilTest {
   }
 
   /**
-   * A value above the old 16MB LOB limit is accepted, including when it arrives as a JSON string —
-   * that path also has to get past Jackson's default 20MB cap on a single string value.
+   * A value above both the old 16MB LOB ceiling and Jackson's default 20MB single-string cap is
+   * still accepted, including when it arrives as a JSON string.
    */
   @Test
   public void testSemiStructuredAboveOldLobLimitIsAccepted() throws Exception {
-    char[] stringContent = new char[BYTES_16_MB + 1];
+    int contentLength = BYTES_16_MB + BYTES_8_MB;
+    char[] stringContent = new char[contentLength];
     Arrays.fill(stringContent, 'c');
     Map<String, Object> input = Collections.singletonMap("a", new String(stringContent));
 
     // {"a":"ccc...ccc"} — the object wrapper adds 8 characters
-    int expectedLength = BYTES_16_MB + 1 + 8;
+    int expectedLength = contentLength + 8;
     assertEquals(expectedLength, validateAndParseVariant("COL", input, 0).length());
     assertEquals(expectedLength, validateAndParseObject("COL", input, 0).length());
 

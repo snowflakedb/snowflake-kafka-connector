@@ -33,7 +33,12 @@ import org.junit.jupiter.api.Test;
  */
 public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
 
-  private static final int ONE_MB = 1024 * 1024;
+  private static final int BYTES_1_MB = 1024 * 1024;
+
+  // Chunk counts, not serialized VARIANT size. Each chunk is 1MB of ASCII inside {"chunks":[...]};
+  // JSON quotes, commas and the wrapper push 128 chunks over the 128MB ceiling.
+  private static final int CHUNKS_UNDER_CEILING = 127;
+  private static final int CHUNKS_OVER_CEILING = 129;
 
   /** VARIANT so that the semi-structured branch of the size check is the one being exercised. */
   private static final String PAYLOAD_COLUMN = "PAYLOAD";
@@ -62,7 +67,7 @@ public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
 
   @Test
   public void variantJustUnder128Mb_isIngested() throws Exception {
-    int chunks = 127;
+    int chunks = CHUNKS_UNDER_CEILING;
     SnowflakeSinkService service = startService(new InMemoryKafkaRecordErrorReporter());
 
     service.insert(payloadRecord(chunks, 0));
@@ -73,9 +78,9 @@ public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
     // Whole payload landed, not a truncated prefix.
     int ingestedBytes = payloadByteLength();
     assertTrue(
-        ingestedBytes > chunks * ONE_MB,
+        ingestedBytes > chunks * BYTES_1_MB,
         "expected more than "
-            + chunks * ONE_MB
+            + chunks * BYTES_1_MB
             + " bytes in "
             + PAYLOAD_COLUMN
             + ", got "
@@ -90,7 +95,7 @@ public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     SnowflakeSinkService service = startService(errorReporter);
 
-    service.insert(payloadRecord(129, 0));
+    service.insert(payloadRecord(CHUNKS_OVER_CEILING, 0));
 
     TestUtils.assertWithRetry(() -> errorReporter.getReportedRecords().size() == 1, 5, 20);
     assertEquals(0, TestUtils.tableSize(table), "oversized record must not be ingested");
@@ -118,7 +123,7 @@ public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
   private SinkRecord payloadRecord(int chunks, long offset) {
     List<String> parts = new ArrayList<>(chunks);
     for (int chunk = 0; chunk < chunks; chunk++) {
-      char[] content = new char[ONE_MB];
+      char[] content = new char[BYTES_1_MB];
       Arrays.fill(content, (char) ('a' + chunk % 26));
       parts.add(new String(content));
     }

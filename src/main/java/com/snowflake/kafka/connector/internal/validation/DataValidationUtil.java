@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -72,7 +73,8 @@ class DataValidationUtil {
    */
   private static final long MICROSECONDS_LIMIT_FOR_EPOCH = SECONDS_LIMIT_FOR_EPOCH * 1000000L;
 
-  public static final int BYTES_8_MB = 8 * 1024 * 1024;
+  public static final int BYTES_1_MB = 1024 * 1024;
+  public static final int BYTES_8_MB = 8 * BYTES_1_MB;
   public static final int BYTES_16_MB = 2 * BYTES_8_MB;
 
   /**
@@ -81,20 +83,15 @@ class DataValidationUtil {
    * values rejected server-side, so validating against the higher tier only widens what the client
    * lets through.
    */
-  public static final int BYTES_128_MB = 8 * BYTES_16_MB;
+  public static final int LOB_CEILING_MB = 128 * BYTES_1_MB;
 
   // TODO SNOW-664249: There is a few-byte mismatch between the value sent by the user and its
   // server-side representation. Validation leaves a small buffer for this difference.
-  static final int MAX_SEMI_STRUCTURED_LENGTH = BYTES_128_MB - 64;
+  static final int MAX_SEMI_STRUCTURED_LENGTH = LOB_CEILING_MB - 64;
 
-  /**
-   * Jackson refuses to read a single string value longer than 20MB by default, well below the LOB
-   * limit. The cap is raised to twice the LOB limit so that an oversized value is reported by the
-   * size checks in this class — naming the column and the actual length — rather than surfacing as
-   * a generic "not a valid JSON" parse failure.
-   */
+  // Allow JSON construction to handle all available Snowflake object sizes.
   private static final StreamReadConstraints STREAM_READ_CONSTRAINTS =
-      StreamReadConstraints.builder().maxStringLength(2 * BYTES_128_MB).build();
+      StreamReadConstraints.builder().maxStringLength(LOB_CEILING_MB).build();
 
   private static final ObjectMapper objectMapper =
       new ObjectMapper(
@@ -222,7 +219,7 @@ class DataValidationUtil {
             generator.copyCurrentEvent(parser);
           }
         }
-      } catch (JsonParseException e) {
+      } catch (JsonParseException | StreamConstraintsException e) {
         throw valueFormatNotAllowedException(
             columnName, snowflakeType, "Not a valid JSON", insertRowIndex);
       } catch (IOException e) {
@@ -862,14 +859,13 @@ class DataValidationUtil {
     }
     byte[] utf8Bytes = output.getBytes(StandardCharsets.UTF_8);
 
-    // Strings can never be larger than 128MB
-    if (utf8Bytes.length > BYTES_128_MB) {
+    if (utf8Bytes.length > LOB_CEILING_MB) {
       throw valueFormatNotAllowedException(
           columnName,
           "STRING",
           String.format(
               "String too long: length=%d bytes maxLength=%d bytes",
-              utf8Bytes.length, BYTES_128_MB),
+              utf8Bytes.length, LOB_CEILING_MB),
           insertRowIndex);
     }
 
