@@ -27,7 +27,6 @@ public class SnowflakeTelemetryService {
   private static final String KAFKA_CONNECTOR = "kafka_connector";
   static final String INGESTION_METHOD = "snowflake.ingestion.method";
   private static final String DATA = "data";
-  private static final String MAX_TASKS = "max_tasks";
   private static final String START_TIME = "start_time";
   private static final String END_TIME = "end_time";
   private static final String APP_NAME = "app_name";
@@ -39,7 +38,7 @@ public class SnowflakeTelemetryService {
   private static final String IS_CHANNEL_CLOSING = "is_channel_closing";
   public static final String JDK_VERSION = "jdk_version";
   public static final String JDK_DISTRIBUTION = "jdk_distribution";
-  private static final String TOPICS = "topics";
+  private static final String TASKS_MAX = "tasks.max";
 
   // Telemetry instance fetched from JDBC
   private final Telemetry telemetry;
@@ -229,28 +228,47 @@ public class SnowflakeTelemetryService {
     return taskID;
   }
 
-  // IMPORTANT: update this set when adding new credential/secret config params.
-  private static final Set<String> SENSITIVE_KEYS =
+  /**
+   * kafka_start keys that may be copied from user-provided connector config. Unknown keys are
+   * dropped. Historical names used by older connector versions are not listed here. Add a key only
+   * after the server-side persist allowlist already includes it; if we stop collecting a key,
+   * remove it there too.
+   */
+  private static final Set<String> KAFKA_START_ALLOWED_DATA_KEYS =
       Set.of(
-          KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
-          KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
-          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
-          KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN,
-          KafkaConnectorConfigParams.JVM_PROXY_USERNAME,
-          KafkaConnectorConfigParams.JVM_PROXY_PASSWORD,
-          KafkaConnectorConfigParams.HTTPS_PROXY_USER,
-          KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD,
-          KafkaConnectorConfigParams.HTTP_PROXY_USER,
-          KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD);
+          APP_NAME,
+          TASK_ID,
+          START_TIME,
+          KAFKA_VERSION,
+          JDK_VERSION,
+          JDK_DISTRIBUTION,
+          TASKS_MAX,
+          KafkaConnectorConfigParams.TOPICS,
+          KafkaConnectorConfigParams.KEY_CONVERTER,
+          KafkaConnectorConfigParams.VALUE_CONVERTER,
+          KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE,
+          KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
+          KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG,
+          KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
+          INGESTION_METHOD,
+          KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
+          KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+          KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,
+          KafkaConnectorConfigParams.JMX_OPT,
+          KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
+          KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
+          KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
+          KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
+          KafkaConnectorConfigParams.CACHE_PIPE_EXISTS);
 
   /**
-   * Adds all user-provided connector config to the telemetry payload, excluding sensitive keys
-   * (credentials, passwords). Future config additions are automatically included.
+   * Copies allowlisted user-provided connector config into the kafka_start telemetry payload.
+   * Unlisted keys are omitted.
    */
   private void addUserConnectorPropertiesToDataNode(
       final Map<String, String> userProvidedConfig, final ObjectNode dataObjectNode) {
     for (Map.Entry<String, String> entry : userProvidedConfig.entrySet()) {
-      if (!SENSITIVE_KEYS.contains(entry.getKey())) {
+      if (KAFKA_START_ALLOWED_DATA_KEYS.contains(entry.getKey())) {
         dataObjectNode.put(entry.getKey(), entry.getValue());
       }
     }
