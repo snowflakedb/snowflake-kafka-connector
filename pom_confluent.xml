@@ -70,13 +70,13 @@
         <!--Compatible protobuf version https://github.com/confluentinc/common/blob/v7.7.0/pom.xml#L91 -->
         <protobuf.version>3.25.5</protobuf.version>
         <guava.version>33.6.0-jre</guava.version>
+        <gson.version>2.13.2</gson.version>
 
-        <jackson.version>2.22.1</jackson.version>
+        <jackson.version>2.22.2</jackson.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
-        <snowflake-jdbc.version>4.3.2</snowflake-jdbc.version>
+        <snowflake-jdbc.version>4.3.3</snowflake-jdbc.version>
         <slf4j-api.version>2.0.18</slf4j-api.version>
-        <parquet.version>1.14.4</parquet.version>
         <commons-lang3.version>3.20.0</commons-lang3.version>
         <auto-value.version>1.11.1</auto-value.version>
 
@@ -88,7 +88,7 @@
             http://mitmproxy:8080 destination at the request-builder layer.
             Tracking ticket: SNOW-3683451.
         -->
-        <snowpipe-streaming.version>1.6.2</snowpipe-streaming.version>
+        <snowpipe-streaming.version>1.8.0</snowpipe-streaming.version>
 
     </properties>
 
@@ -409,7 +409,7 @@
             <!-- This dependency won't be present in the kafka connect runtime, hence we are packaging this in an uber jar -->
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-fips</artifactId>
-            <version>2.1.11</version>
+            <version>2.1.12</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
@@ -474,6 +474,11 @@
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java-util</artifactId>
             <version>${protobuf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
         </dependency>
 
         <dependency>
@@ -628,12 +633,6 @@
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
             <version>3.3.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-column</artifactId>
-            <version>${parquet.version}</version>
         </dependency>
 
         <!--junit for unit test-->
