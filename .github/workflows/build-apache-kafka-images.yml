@@ -28,6 +28,13 @@ jobs:
           - kafka_version: '4.1.1'
             scala_version: '2.13'
             java_version: '17'
+          # Java 21 runtime coverage for the connector. Kafka 4.x supports 17, 21 and 25;
+          # this image backs the Java 21 end-to-end lane. run_tests.sh falls back to a
+          # local build if the tag is absent, so the e2e lane degrades to a slower build
+          # rather than failing outright.
+          - kafka_version: '4.1.1'
+            scala_version: '2.13'
+            java_version: '21'
     steps:
       - uses: actions/checkout@v4
 

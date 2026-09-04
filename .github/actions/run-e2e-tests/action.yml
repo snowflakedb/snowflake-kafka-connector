@@ -12,7 +12,7 @@ inputs:
     description: "Snowflake cloud provider: 'AWS', 'GCP', or 'AZURE'"
     required: true
   java-version:
-    description: "Java version for Apache Kafka (e.g. '11', '17'). Ignored for Confluent."
+    description: "Java version for Apache Kafka (e.g. '11', '17', '21'). Kafka 4.x requires 17 or newer. Ignored for Confluent."
     required: false
     default: '11'
   marker-filter:

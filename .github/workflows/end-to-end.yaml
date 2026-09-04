@@ -71,6 +71,22 @@ jobs:
             test_group: core
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
 
+          # ── Java 21 runtime coverage ──────────────────────────────────────
+          # The connector is compiled to Java 11 bytecode but is increasingly run on
+          # newer Connect workers. Kafka 4.x supports Java 17, 21 and 25, so this lane
+          # exercises the shipped artifact on a Java 21 JVM without changing the compile
+          # target. Only the core group runs here to bound CI cost; the 17 lanes above
+          # remain the full-coverage matrix.
+          # test_group must stay distinct from the Java 17 'core' lane above, because the
+          # failure-log artifact name is derived from it and upload-artifact rejects
+          # duplicate names.
+          - platform: apache
+            platform_version: '4.1.1'
+            snowflake_cloud: 'AWS'
+            java_test_version: '21'
+            test_group: core_java21
+            marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
+
           - platform: confluent
             platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
