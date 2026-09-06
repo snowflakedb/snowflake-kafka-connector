@@ -145,8 +145,8 @@ public final class SpcsEnvironment {
       throw new IllegalStateException(
           "Failed to read the SPCS session token at "
               + tokenPath
-              + ". This file is provided by the SPCS runtime; ambient authentication is only"
-              + " available to a connector running inside Snowpark Container Services.",
+              + ". This file is provided by the SPCS runtime; workload-identity authentication is"
+              + " only available to a connector running inside Snowpark Container Services.",
           e);
     }
     if (token.isEmpty()) {
@@ -198,15 +198,15 @@ public final class SpcsEnvironment {
         // their credential is being bypassed inside SPCS.
         LOGGER.warn(
             "Running inside Snowpark Container Services, but a credential is configured, so the"
-                + " existing authentication method is kept. Set '{}' to '{}' to use ambient SPCS"
-                + " authentication instead.",
+                + " existing authentication method is kept. Set '{}' to '{}' to use SPCS"
+                + " workload-identity authentication instead.",
             KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR,
             AuthenticatorType.SPCS.toConfigValue());
         return raw;
       }
       LOGGER.info(
-          "Running inside Snowpark Container Services and '{}' was not configured; using ambient"
-              + " SPCS authentication.",
+          "Running inside Snowpark Container Services and '{}' was not configured; using SPCS"
+              + " workload-identity authentication.",
           KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR);
     } else if (!AuthenticatorType.SPCS
         .toConfigValue()
@@ -246,8 +246,8 @@ public final class SpcsEnvironment {
         }) {
       if (!isBlank(resolved.get(credKey))) {
         LOGGER.warn(
-            "'{}' is set but will be ignored: ambient SPCS authentication uses the token supplied"
-                + " by the SPCS runtime.",
+            "'{}' is set but will be ignored: SPCS workload-identity authentication uses the"
+                + " token supplied by the SPCS runtime.",
             credKey);
       }
     }
