@@ -430,6 +430,55 @@ public class SpcsEnvironmentTest {
         .noneMatch(msg -> msg.contains(secret));
   }
 
+  /**
+   * The configured role is silently overridden by the service owner role, so it must warn. An
+   * ignored credential already warns; an ignored role changes which tables are visible.
+   */
+  @Test
+  void shouldWarnThatAConfiguredRoleIsOverriddenUnderSpcs() throws IOException {
+    simulateSpcs("token");
+
+    Logger rootLogger = Logger.getRootLogger();
+    CapturingAppender appender = new CapturingAppender();
+    rootLogger.addAppender(appender);
+    try {
+      Map<String, String> raw = new HashMap<>();
+      raw.put(KafkaConnectorConfigParams.NAME, "testConnector");
+      raw.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "MY_ROLE");
+      SpcsEnvironment.resolve(raw);
+    } finally {
+      rootLogger.removeAppender(appender);
+    }
+
+    assertThat(appender.getMessages())
+        .as("a configured role must be reported as overridden")
+        .anyMatch(
+            msg ->
+                msg.contains(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)
+                    && msg.contains("overridden"));
+  }
+
+  /** No role configured, so there is nothing to warn about. */
+  @Test
+  void shouldNotWarnAboutTheRoleWhenNoneIsConfigured() throws IOException {
+    simulateSpcs("token");
+
+    Logger rootLogger = Logger.getRootLogger();
+    CapturingAppender appender = new CapturingAppender();
+    rootLogger.addAppender(appender);
+    try {
+      Map<String, String> raw = new HashMap<>();
+      raw.put(KafkaConnectorConfigParams.NAME, "testConnector");
+      SpcsEnvironment.resolve(raw);
+    } finally {
+      rootLogger.removeAppender(appender);
+    }
+
+    assertThat(appender.getMessages())
+        .as("no role configured, so no role warning")
+        .noneMatch(msg -> msg.contains(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
+  }
+
   private static class CapturingAppender extends AppenderSkeleton {
     private final List<String> messages = new ArrayList<>();
 
