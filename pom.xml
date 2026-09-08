@@ -45,10 +45,13 @@
         <url>https://github.com/snowflakedb/snowflake-kafka-connector</url>
     </scm>
 
-    <!-- Set our Language Level to Java 11 -->
+    <!--
+        Set our Language Level to Java 11. Use `release`, not `source`/`target`: the latter
+        does not link against the Java 11 API, so building on a newer JDK silently accepts
+        APIs absent from 11 and fails at runtime with NoSuchMethodError.
+    -->
     <properties>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
         <skipTests>false</skipTests>
         <skipUnitTests>${skipTests}</skipUnitTests>
         <skipIntegrationTests>${skipTests}</skipIntegrationTests>
