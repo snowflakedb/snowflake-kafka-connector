@@ -252,6 +252,15 @@ public final class SpcsEnvironment {
       }
     }
 
+    // The role is overridden rather than ignored: the session runs as the service user, whose
+    // default role is the service owner role.
+    if (!isBlank(resolved.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME))) {
+      LOGGER.warn(
+          "'{}' is set but will be overridden: SPCS workload-identity authentication uses the"
+              + " service owner's role. Assign the role when you run CREATE SERVICE.",
+          KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME);
+    }
+
     return resolved;
   }
 
