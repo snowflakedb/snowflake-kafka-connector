@@ -6,6 +6,37 @@ The Snowflake Kafka Connector is a plugin for Apache Kafka Connect. It ingests d
 
 [Official documentation](https://docs.snowflake.com/en/user-guide/kafka-connector) for the Snowflake Kafka Connector
 
+## Proxy configuration for Kafka Connector v4
+
+Kafka Connector v4 uses two networking stacks:
+
+- Java and JDBC traffic uses JVM proxy settings configured by `jvm.proxy.*` connector
+  properties or equivalent Java system properties such as `https.proxyHost`.
+- Streaming data traffic uses the native Rust Snowpipe Streaming SDK. This includes
+  file-mode uploads to Snowflake-managed cloud storage. The native SDK does not read
+  Java system properties.
+
+Consequently, setting `KAFKA_OPTS=-Dhttps.proxyHost=...` configures the JVM but
+does not configure native SDK traffic.
+
+To route Snowpipe Streaming SDK traffic through a system proxy, configure standard
+proxy environment variables on every Kafka Connect worker before its JVM starts:
+
+```bash
+HTTP_PROXY=http://proxy.example.com:3128
+HTTPS_PROXY=http://proxy.example.com:3128
+NO_PROXY=localhost,127.0.0.1,.svc.cluster.local
+```
+
+`ALL_PROXY` is also supported as a fallback. Restart the Kafka Connect worker after
+changing these variables. Restarting only a connector or task might not recreate all
+native SDK clients in that worker.
+
+The worker must be able to reach both Snowflake service endpoints and the cloud-storage
+stage endpoints returned by Snowflake. Configure `NO_PROXY` according to which
+destinations should bypass the proxy. `NO_PROXY` entries are comma-separated; Java's
+`http.nonProxyHosts` uses a different, pipe-separated format.
+
 ## Contributing
 
 ### Guidelines
