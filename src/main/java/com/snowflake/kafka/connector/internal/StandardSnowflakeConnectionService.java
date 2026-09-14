@@ -176,7 +176,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     boolean exist;
     try {
       stmt = conn.prepareStatement(query);
-      stmt.setString(1, pipeName);
+      stmt.setString(1, quoteIdentifier(pipeName));
       stmt.execute();
       exist = true;
     } catch (SQLException e) {
