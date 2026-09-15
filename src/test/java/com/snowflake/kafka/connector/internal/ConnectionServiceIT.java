@@ -192,7 +192,9 @@ class ConnectionServiceIT {
   void testPipeExist_dottedAndHyphenNames() {
     String table = "pipe.exist-test_" + System.nanoTime();
     String pipe = table;
-    String missingPipe = table + ".missing-pipe";
+    // Unquoted-legal characters only: a dotted/hyphen missing name would fail DESC PIPE
+    // with 001003 and pipeExist() would still return false.
+    String missingPipe = table.replace('.', '_').replace('-', '_') + "_absent";
     String stage = table + "_stage";
     try {
       TestUtils.createTableWithMetadataColumn(table);
