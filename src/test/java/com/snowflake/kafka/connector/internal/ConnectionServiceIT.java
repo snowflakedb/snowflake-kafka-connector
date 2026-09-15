@@ -185,10 +185,9 @@ class ConnectionServiceIT {
   }
 
   /**
-   * Creates a pipe named with both {@code .} and {@code -}, then checks {@code pipeExist}. That is
-   * the 001003 regression: unquoted IDENTIFIER('pipe.exist-test_...') fails DESC PIPE. The missing
-   * name is a separate identifier with only letters, digits, and underscores so a false result is
-   * object-not-found, not another syntax error.
+   * A pipe name containing {@code .} or {@code -} only compiles in DESC PIPE when bound as a quoted
+   * identifier; unquoted it fails with 001003. {@code pipeExist} reports any SQLException as
+   * not-found, so the negative case uses a name that always compiles.
    */
   @Test
   void testPipeExist_dottedAndHyphenNames() {
