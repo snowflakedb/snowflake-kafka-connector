@@ -185,16 +185,17 @@ class ConnectionServiceIT {
   }
 
   /**
-   * SNOW-4104678: DESC PIPE IDENTIFIER(?) must bind a quoted name so dots and hyphens are not
-   * parsed as identifier separators.
+   * Creates a pipe named with both {@code .} and {@code -}, then checks {@code pipeExist}. That is
+   * the 001003 regression: unquoted IDENTIFIER('pipe.exist-test_...') fails DESC PIPE. The missing
+   * name is a separate identifier with only letters, digits, and underscores so a false result is
+   * object-not-found, not another syntax error.
    */
   @Test
   void testPipeExist_dottedAndHyphenNames() {
-    String table = "pipe.exist-test_" + System.nanoTime();
+    String suffix = String.valueOf(System.nanoTime());
+    String table = "pipe.exist-test_" + suffix;
     String pipe = table;
-    // Unquoted-legal characters only: a dotted/hyphen missing name would fail DESC PIPE
-    // with 001003 and pipeExist() would still return false.
-    String missingPipe = table.replace('.', '_').replace('-', '_') + "_absent";
+    String missingPipe = "pipe_absent_" + suffix;
     String stage = table + "_stage";
     try {
       TestUtils.createTableWithMetadataColumn(table);

@@ -646,7 +646,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       // TODO(SNOW-3360048): Remove once the backend fix is rolled out.
       stmt.setString(2, ssv1ChannelName.toUpperCase(Locale.ROOT));
       stmt.setString(3, ssv2ChannelName);
-      stmt.setString(4, pipeName);
+      stmt.setString(4, quoteIdentifier(pipeName));
       try (ResultSet rs = stmt.executeQuery()) {
         if (!rs.next()) {
           throw new RuntimeException(

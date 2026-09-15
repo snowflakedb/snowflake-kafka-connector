@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,19 @@ public class StandardSnowflakeConnectionServicePipeExistTest {
 
     assertThat(service.pipeExist("my-pipe.name")).isFalse();
     verify(mockStmt).setString(1, "\"my-pipe.name\"");
+  }
+
+  @Test
+  public void testMigrateSsv1ChannelOffset_bindsQuotedPipeName() throws SQLException {
+    ResultSet mockRs = mock(ResultSet.class);
+    when(mockRs.next()).thenReturn(true);
+    when(mockRs.getString(1)).thenReturn("{\"ssv1_channel_found\":false}");
+    when(mockStmt.executeQuery()).thenReturn(mockRs);
+
+    service.migrateSsv1ChannelOffset("my.table", "ssv1", "ssv2", "my-pipe.name");
+
+    verify(mockStmt).setString(1, "\"my.table\"");
+    verify(mockStmt).setString(4, "\"my-pipe.name\"");
   }
 
   private static StandardSnowflakeConnectionService createServiceWithMockConnection(
