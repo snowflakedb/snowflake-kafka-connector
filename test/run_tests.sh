@@ -65,7 +65,7 @@ usage() {
     echo ""
     echo "Options:"
     echo "  --cloud=CLOUD        Snowflake cloud platform: AWS, GCP, or AZURE"
-    echo "  --java-version=VER   Java version for Apache Kafka (default: 11)"
+    echo "  --java-version=VER   Java version for Apache Kafka (default: 11; 17 for Kafka 4.x)"
     echo "  --jmx                Enable JMX metrics scraping via Jolokia"
     echo "  --profile            Enable JVM profiling (JFR, GC logs, JMX, async-profiler)"
     echo "  --with-mitmproxy     Enable mitmproxy for fault injection tests (410 injection)"
@@ -98,6 +98,10 @@ usage() {
 PLATFORM="confluent"
 PLATFORM_VERSION="7.8.0"
 JAVA_VERSION="11"
+# Tracks whether --java-version was given explicitly. Platform defaults below must
+# not clobber an explicit choice, otherwise a caller asking for one JDK silently
+# gets another and the run reports a Java version it never exercised.
+JAVA_VERSION_EXPLICIT="false"
 JMX_ENABLED="false"
 PROFILE_ENABLED="false"
 MITMPROXY_ENABLED="false"
@@ -123,6 +127,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --java-version=*)
             JAVA_VERSION="${1#*=}"
+            JAVA_VERSION_EXPLICIT="true"
             shift
             ;;
         --jmx)
@@ -171,6 +176,15 @@ done
 if [ -z "$PLATFORM" ]; then
     error_exit "Missing required argument: --platform=<confluent|apache>"
 fi
+
+# JAVA_VERSION feeds the Apache image tag (apache-kafka:<kafka>-java<java>) and the
+# platform floor check below, so it must be a bare major version. Reject anything else
+# here rather than letting it through to produce an unresolvable image tag.
+case $JAVA_VERSION in
+    ''|*[!0-9]*)
+        error_exit "--java-version must be a major version number (e.g. 11, 17, 21); got '$JAVA_VERSION'"
+        ;;
+esac
 
 if [ -z "$PLATFORM_VERSION" ]; then
     error_exit "Missing required argument: --platform-version=<version>"
@@ -221,13 +235,24 @@ case $PLATFORM in
 
         case $PLATFORM_VERSION in
             4.*)
-                info "Platform: Apache Kafka $PLATFORM_VERSION (KRaft mode)"
                 SCALA_VERSION="2.13"
                 KRAFT_MODE="true"
-                JAVA_VERSION="17"
+                # Kafka 4.x requires Java 17 or newer for brokers, Connect and tools
+                # (KIP-1013 / KIP-1032), so 11 is not a valid floor here. Only apply 17
+                # as a default; respect an explicit --java-version so newer JDKs can be
+                # exercised.
+                if [ "$JAVA_VERSION_EXPLICIT" != "true" ]; then
+                    JAVA_VERSION="17"
+                elif [ "$JAVA_VERSION" -lt 17 ]; then
+                    # Fail loudly rather than silently substituting 17. A caller asking
+                    # for an unsupported JDK has a broken assumption, and quietly running
+                    # a different one produces a green result for a version never tested.
+                    error_exit "Apache Kafka $PLATFORM_VERSION requires Java 17 or newer (got $JAVA_VERSION). Kafka 4.x dropped Java 11 for brokers, Connect and tools."
+                fi
+                info "Platform: Apache Kafka $PLATFORM_VERSION (KRaft mode), Java $JAVA_VERSION"
                 ;;
             *)
-                info "Platform: Apache Kafka $PLATFORM_VERSION (official tarball)"
+                info "Platform: Apache Kafka $PLATFORM_VERSION (official tarball), Java $JAVA_VERSION"
                 ;;
         esac
         ;;
