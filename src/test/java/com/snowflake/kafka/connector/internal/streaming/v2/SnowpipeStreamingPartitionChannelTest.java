@@ -448,29 +448,20 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void channelInvalidation_failsTaskAfterMaxConsecutiveRecoveries() {
-    // If the channel is permanently broken (every appendRow fails), the count-based recovery
-    // circuit breaker should trip and throw ConnectException to kill the task — rather than
-    // silently dropping records forever.
+  void channelInvalidation_keepsReopeningWithoutFailingTheTask() {
+    // Permanently broken channel: each insert recovers (rewind + reopen) and does not fail the task.
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
     partitionChannel.getChannel();
     assertEquals(1, trackingClientSupplier.getTotalChannelsCreated());
 
-    // Every appendRow throws — channel is permanently invalid.
     trackingClientSupplier.setThrowOnAppendRow(true);
 
-    ConnectException thrown =
-        assertThrows(
-            ConnectException.class,
-            () -> {
-              for (int i = 0; i < 1000; i++) {
-                partitionChannel.insertRecord(buildValidRecord(i));
-              }
-            });
+    for (int i = 0; i < 10; i++) {
+      assertFalse(partitionChannel.insertRecord(buildValidRecord(i)));
+    }
 
-    assertTrue(
-        thrown.getMessage().contains("failed after"),
-        "Expected count-based budget message, got: " + thrown.getMessage());
+    // 1 initial open + 10 reopens
+    assertEquals(11, trackingClientSupplier.getTotalChannelsCreated());
   }
 
   @Test

@@ -65,14 +65,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   // are cumulative and don't reset when a channel is reopened.
   private long initialErrorCount = 0;
 
-  /** Max consecutive channel recoveries before giving up and letting the task fail. */
-  private static final int MAX_CONSECUTIVE_RECOVERIES = 5;
-
-  /**
-   * Consecutive recovery counter. Incremented each time the fallback reopens the channel, reset to
-   * zero on every successful appendRow. If this reaches {@link #MAX_CONSECUTIVE_RECOVERIES} the
-   * fallback re-throws to let the KC framework kill the task.
-   */
+  /** Consecutive reopen count; reset on a successful appendRow. Used only for logging. */
   private int consecutiveRecoveryCount = 0;
 
   private final String channelName;
@@ -329,31 +322,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   /**
-   * Handles a non-retryable {@link SFException} from appendRow by reopening the channel after a
-   * short delay with jitter. Throws {@link ConnectException} if the circuit breaker ({@link
-   * #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded, which causes Kafka Connect to kill and restart
-   * the task.
-   *
-   * <p>This circuit breaker only covers channel-side failures. Patience for SDK client recreation
-   * (pipe failover, HTTP 410) lives in {@link
-   * com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools#recreateClient}
-   * — its Failsafe retry policy absorbs multi-minute failover windows, so this loop does not need
-   * its own large budget.
+   * Reopens the channel after a short delay with jitter. Does not fail the task; the insert loop
+   * rewinds the partition and the next {@code put} retries.
    */
   private void handleNonRetryableAppendRowFailure(SFException cause) {
-    consecutiveRecoveryCount++;
-    if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
-      LOGGER.error(
-          "Channel {} exceeded max consecutive recoveries ({}), giving up",
-          this.channelName,
-          MAX_CONSECUTIVE_RECOVERIES);
-      throw new ConnectException(
-          String.format(
-              "Channel %s failed after %d consecutive recovery attempts",
-              this.channelName, MAX_CONSECUTIVE_RECOVERIES),
-          cause);
-    }
-
     final long recoveryDelayMs = 500;
     final long recoveryJitterMaxMs = 200;
     long delayMs = recoveryDelayMs + (long) (Math.random() * recoveryJitterMaxMs);
@@ -364,11 +336,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       Thread.currentThread().interrupt();
     }
 
+    consecutiveRecoveryCount++;
     LOGGER.warn(
-        "Channel {} recovery attempt {}/{}",
+        "Channel {} recovery attempt {} ({})",
         this.channelName,
         consecutiveRecoveryCount,
-        MAX_CONSECUTIVE_RECOVERIES);
+        cause.getErrorCodeName());
     reopenChannel("APPEND_ROW_FALLBACK");
     snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
   }
