@@ -19,6 +19,8 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -71,17 +73,34 @@ class DataValidationUtil {
    */
   private static final long MICROSECONDS_LIMIT_FOR_EPOCH = SECONDS_LIMIT_FOR_EPOCH * 1000000L;
 
-  public static final int BYTES_8_MB = 8 * 1024 * 1024;
+  public static final int BYTES_1_MB = 1024 * 1024;
+  public static final int BYTES_8_MB = 8 * BYTES_1_MB;
   public static final int BYTES_16_MB = 2 * BYTES_8_MB;
+
+  /**
+   * Largest LOB accepted for VARCHAR, VARIANT, OBJECT and ARRAY columns. Snowflake raised the LOB
+   * ceiling from 16MB to 128MB; accounts without large LOBs enabled still get their oversized
+   * values rejected server-side, so validating against the higher tier only widens what the client
+   * lets through.
+   */
+  public static final int LOB_CEILING_MB = 128 * BYTES_1_MB;
 
   // TODO SNOW-664249: There is a few-byte mismatch between the value sent by the user and its
   // server-side representation. Validation leaves a small buffer for this difference.
-  static final int MAX_SEMI_STRUCTURED_LENGTH = BYTES_16_MB - 64;
+  static final int MAX_SEMI_STRUCTURED_LENGTH = LOB_CEILING_MB - 64;
 
-  private static final ObjectMapper objectMapper = new ObjectMapper();
+  // Allow JSON construction to handle all available Snowflake object sizes.
+  private static final StreamReadConstraints STREAM_READ_CONSTRAINTS =
+      StreamReadConstraints.builder().maxStringLength(LOB_CEILING_MB).build();
+
+  private static final ObjectMapper objectMapper =
+      new ObjectMapper(
+          JsonFactory.builder().streamReadConstraints(STREAM_READ_CONSTRAINTS).build());
 
   private static final JsonFactory factory =
-      new JsonFactory()
+      JsonFactory.builder()
+          .streamReadConstraints(STREAM_READ_CONSTRAINTS)
+          .build()
           // Handle duplicate fields in JSON objects by ourselves
           .configure(JsonGenerator.Feature.STRICT_DUPLICATE_DETECTION, false);
 
@@ -200,7 +219,7 @@ class DataValidationUtil {
             generator.copyCurrentEvent(parser);
           }
         }
-      } catch (JsonParseException e) {
+      } catch (JsonParseException | StreamConstraintsException e) {
         throw valueFormatNotAllowedException(
             columnName, snowflakeType, "Not a valid JSON", insertRowIndex);
       } catch (IOException e) {
@@ -840,13 +859,13 @@ class DataValidationUtil {
     }
     byte[] utf8Bytes = output.getBytes(StandardCharsets.UTF_8);
 
-    // Strings can never be larger than 16MB
-    if (utf8Bytes.length > BYTES_16_MB) {
+    if (utf8Bytes.length > LOB_CEILING_MB) {
       throw valueFormatNotAllowedException(
           columnName,
           "STRING",
           String.format(
-              "String too long: length=%d bytes maxLength=%d bytes", utf8Bytes.length, BYTES_16_MB),
+              "String too long: length=%d bytes maxLength=%d bytes",
+              utf8Bytes.length, LOB_CEILING_MB),
           insertRowIndex);
     }
 

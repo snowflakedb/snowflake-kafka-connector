@@ -43,8 +43,8 @@ public class RowValidatorTest {
     assertEquals(ColumnPhysicalType.LOB, schema.getPhysicalType());
     assertFalse(schema.isNullable());
     assertEquals(16777216, schema.getLength());
-    // byteLength capped at 16MB (SSv1 SDK limit), not 16777216 * 4 = 64MB
-    assertEquals(16777216, schema.getByteLength());
+    // 16777216 * 4 = 64MB, below the 128MB cap, so it is kept as is
+    assertEquals(67108864, schema.getByteLength());
   }
 
   @Test
@@ -737,8 +737,8 @@ public class RowValidatorTest {
 
     ColumnSchema schema = ColumnSchema.fromDescribeTableRow(rs);
 
-    // Should not overflow - byteLength should be capped at MAX_LOB_SIZE_BYTES (16MB)
-    assertEquals(16777216, schema.getByteLength()); // 16MB cap
+    // Should not overflow - byteLength should be capped at MAX_LOB_SIZE_BYTES (128MB)
+    assertEquals(134217728, schema.getByteLength()); // 128MB cap
     assertEquals(largeLength, schema.getLength()); // Original length preserved
   }
 
