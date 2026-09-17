@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -145,10 +146,17 @@ public class StreamingClientPools {
                           streamingClientProperties,
                           taskMetrics));
     } catch (FailsafeException e) {
-      // Retries exhausted — wrap as ClientRecreationException so the batch
-      // loop can rewind offsets instead of crashing the task.
+      // Retries exhausted. Client-invalid errors stay wrapped so callers can
+      // treat them as a failed recreation. Transient 404s are not client-invalid,
+      // so rethrow the original SFException.
       Throwable cause = e.getCause() != null ? e.getCause() : e;
-      throw ClientRecreationException.wrap(cause);
+      if (ClientRecreationException.isClientInvalidError(cause)) {
+        throw ClientRecreationException.wrap(cause);
+      }
+      if (cause instanceof RuntimeException) {
+        throw (RuntimeException) cause;
+      }
+      throw e;
     }
   }
 
@@ -175,8 +183,10 @@ public class StreamingClientPools {
 
   /**
    * Retries replacement-client creation when the SDK reports a client-invalid error (e.g., pipe
-   * failover still in flight). The pool evicts the failed entry on each attempt, so the retry
-   * creates a fresh client. Non-client-invalid errors fall through immediately.
+   * failover still in flight) or a body-less HTTP 404 (Envoy NR / no-route during a routing
+   * cutover). The pool evicts the failed entry on each attempt, so the retry creates a fresh
+   * client. Other errors, including a 404 with a Snowflake error code or message, fall through
+   * immediately.
    *
    * <p>{@link #recreateClient} can be called concurrently by multiple {@link
    * com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel}s on the
@@ -188,7 +198,9 @@ public class StreamingClientPools {
       String pipeName) {
     return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
         .handleIf(
-            e -> e instanceof RuntimeException && ClientRecreationException.isClientInvalidError(e))
+            e ->
+                ClientRecreationException.isClientInvalidError(e)
+                    || isTransientNoRoute404(e))
         .withBackoff(CLIENT_CREATION_BASE_DELAY, CLIENT_CREATION_MAX_DELAY, 2.0)
         .withJitter(CLIENT_CREATION_JITTER_FACTOR)
         .withMaxAttempts(-1)
@@ -196,7 +208,7 @@ public class StreamingClientPools {
         .onRetry(
             event ->
                 LOGGER.warn(
-                    "Replacement client for pipe {} failed with client-invalid error"
+                    "Replacement client for pipe {} failed with a retryable error"
                         + " (attempt {}, elapsed {}s / {}s budget): {}",
                     pipeName,
                     event.getAttemptCount(),
@@ -238,5 +250,17 @@ public class StreamingClientPools {
           }
           return pool;
         });
+  }
+
+  /**
+   * Envoy NR 404s have HTTP 404 and no Snowflake error payload. A 404 with an error code or
+   * message is a real not-found and is not retried.
+   */
+  private static boolean isTransientNoRoute404(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    SFException sfException = (SFException) e;
+    return sfException.getHttpStatusCode() == 404 && isNullOrEmpty(sfException.getMessage());
   }
 }
