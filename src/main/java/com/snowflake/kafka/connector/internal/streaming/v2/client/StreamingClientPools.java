@@ -218,17 +218,14 @@ public class StreamingClientPools {
 
   /**
    * Creates an ingest client, retrying client-invalid errors (including body-less 404) up to {@code
-   * maxDuration}. {@link Duration#ZERO} means a single attempt so recreate's outer Failsafe is the
-   * only retry loop.
+   * maxDuration}. Recreate uses the one-shot {@link StreamingClientFactory#createClient} path so
+   * this method is not nested under {@link #recreateClient}'s Failsafe loop.
    */
   static SnowflakeStreamingIngestClient createClientWithRetry(
       final String pipeName,
       final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties,
       final Duration maxDuration) {
-    if (maxDuration.isZero() || maxDuration.isNegative()) {
-      return StreamingClientFactory.createClient(pipeName, config, streamingClientProperties);
-    }
     return Failsafe.with(clientRetryPolicy(pipeName, maxDuration))
         .get(() -> StreamingClientFactory.createClient(pipeName, config, streamingClientProperties));
   }

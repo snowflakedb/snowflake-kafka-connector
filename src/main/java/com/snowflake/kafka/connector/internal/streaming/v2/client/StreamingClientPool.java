@@ -8,6 +8,7 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingClientPropertie
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.time.Duration;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,6 +47,10 @@ public class StreamingClientPool {
     final CompletableFuture<SnowflakeStreamingIngestClient> clientFuture;
     private final Set<String> taskIds = ConcurrentHashMap.newKeySet();
 
+    /**
+     * One-shot client create. Used by recreate so {@link StreamingClientPools#recreateClient}'s
+     * Failsafe policy is the only retry loop.
+     */
     RefCountedClient(
         String pipeName,
         String connectorName,
@@ -56,13 +61,19 @@ public class StreamingClientPool {
       this(
           pipeName,
           connectorName,
-          config,
-          streamingClientProperties,
-          taskMetrics,
           executor,
-          Duration.ZERO);
+          () -> {
+            try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
+              return StreamingClientFactory.createClient(
+                  pipeName, config, streamingClientProperties);
+            }
+          });
     }
 
+    /**
+     * First-create path: retries client-invalid errors (including body-less 404) for {@code
+     * createRetryBudget}. Recreate uses the one-shot constructor so this budget is not nested.
+     */
     RefCountedClient(
         String pipeName,
         String connectorName,
@@ -71,17 +82,26 @@ public class StreamingClientPool {
         TaskMetrics taskMetrics,
         ExecutorService executor,
         Duration createRetryBudget) {
+      this(
+          pipeName,
+          connectorName,
+          executor,
+          () -> {
+            try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
+              return StreamingClientPools.createClientWithRetry(
+                  pipeName, config, streamingClientProperties, createRetryBudget);
+            }
+          });
+    }
+
+    private RefCountedClient(
+        String pipeName,
+        String connectorName,
+        ExecutorService executor,
+        Supplier<SnowflakeStreamingIngestClient> createClient) {
       LOGGER.info(
           "Creating new streaming client for pipe: {}, connector: {}", pipeName, connectorName);
-      this.clientFuture =
-          CompletableFuture.supplyAsync(
-              () -> {
-                try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
-                  return StreamingClientPools.createClientWithRetry(
-                      pipeName, config, streamingClientProperties, createRetryBudget);
-                }
-              },
-              executor);
+      this.clientFuture = CompletableFuture.supplyAsync(createClient::get, executor);
     }
 
     void addTask(String taskId) {
@@ -296,10 +316,12 @@ public class StreamingClientPool {
   }
 
   /**
-   * Creates a new {@link RefCountedClient} for the given pipe, inheriting task registrations from
-   * {@code previous} if non-null, and always registering {@code taskId}. Centralizing this logic
-   * ensures the calling task is always registered so the pool does not prematurely evict a
-   * freshly-created entry during subsequent task-local cleanup.
+   * Creates a new one-shot {@link RefCountedClient} for the given pipe, inheriting task
+   * registrations from {@code previous} if non-null, and always registering {@code taskId}. The
+   * one-shot constructor is required so {@link StreamingClientPools#recreateClient}'s Failsafe
+   * policy is the only retry loop. Centralizing this logic also keeps the calling task registered
+   * so the pool does not prematurely evict a freshly-created entry during subsequent task-local
+   * cleanup.
    */
   private RefCountedClient createReplacement(
       final String taskId,
