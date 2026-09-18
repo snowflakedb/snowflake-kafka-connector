@@ -16,11 +16,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 /**
  * End-to-end coverage for the 128MB LOB limit enforced by client-side validation: a payload far
@@ -30,15 +33,22 @@ import org.junit.jupiter.api.Test;
  * <p>The payload is assembled as an array of 1MB strings rather than one huge string because
  * Kafka's JsonConverter refuses to deserialize a single string value larger than 20MB. The record
  * is built from a plain Java Map so that no converter sits between the test and the connector.
+ *
+ * <p>Skipped in default CI: a ~127MB row is TRACE-logged by the connector and has twice cancelled
+ * the 6-hour AWS integration job. Set {@code SNOWFLAKE_RUN_LARGE_LOB_IT=true} to run it, as on
+ * sfctest0.
  */
+@Timeout(value = 15, unit = TimeUnit.MINUTES)
+@EnabledIfEnvironmentVariable(named = "SNOWFLAKE_RUN_LARGE_LOB_IT", matches = "true")
 public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
 
   private static final int BYTES_1_MB = 1024 * 1024;
 
-  // Chunk counts, not serialized VARIANT size. Each chunk is 1MB of ASCII inside {"chunks":[...]};
-  // JSON quotes, commas and the wrapper push 128 chunks over the 128MB ceiling.
-  private static final int CHUNKS_UNDER_CEILING = 127;
-  private static final int CHUNKS_OVER_CEILING = 129;
+  // Chunk counts, not serialized VARIANT size. Each chunk is 1MB of ASCII inside {"chunks":[...]}.
+  // JSON quotes, commas and the wrapper push a full-ceiling chunk count over the 128MB LOB limit.
+  private static final int LOB_CEILING_CHUNKS = 128;
+  private static final int CHUNKS_UNDER_CEILING = LOB_CEILING_CHUNKS - 1;
+  private static final int CHUNKS_OVER_CEILING = LOB_CEILING_CHUNKS + 1;
 
   /** VARIANT so that the semi-structured branch of the size check is the one being exercised. */
   private static final String PAYLOAD_COLUMN = "PAYLOAD";

@@ -12,9 +12,9 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
-import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.LOB_CEILING_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_16_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.LOB_CEILING_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArray;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArrayNew;
