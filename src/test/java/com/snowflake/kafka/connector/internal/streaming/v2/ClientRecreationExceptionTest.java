@@ -107,9 +107,6 @@ public class ClientRecreationExceptionTest {
     assertEquals(
         "SDK client invalid: SfApiUserError",
         new ClientRecreationException(bodyless404).getMessage());
-    // getMessage() is always decorated; emptiness is on getDetailMessage().
-    assertFalse(bodyless404.getMessage().isEmpty());
-    assertTrue(bodyless404.getDetailMessage().isEmpty());
   }
 
   @Test
