@@ -6,6 +6,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
+import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -52,14 +53,32 @@ public class StreamingClientPool {
         StreamingClientProperties streamingClientProperties,
         TaskMetrics taskMetrics,
         ExecutorService executor) {
+      this(
+          pipeName,
+          connectorName,
+          config,
+          streamingClientProperties,
+          taskMetrics,
+          executor,
+          Duration.ZERO);
+    }
+
+    RefCountedClient(
+        String pipeName,
+        String connectorName,
+        SinkTaskConfig config,
+        StreamingClientProperties streamingClientProperties,
+        TaskMetrics taskMetrics,
+        ExecutorService executor,
+        Duration createRetryBudget) {
       LOGGER.info(
           "Creating new streaming client for pipe: {}, connector: {}", pipeName, connectorName);
       this.clientFuture =
           CompletableFuture.supplyAsync(
               () -> {
                 try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
-                  return StreamingClientFactory.createClient(
-                      pipeName, config, streamingClientProperties);
+                  return StreamingClientPools.createClientWithRetry(
+                      pipeName, config, streamingClientProperties, createRetryBudget);
                 }
               },
               executor);
@@ -126,7 +145,8 @@ public class StreamingClientPool {
                         config,
                         streamingClientProperties,
                         taskMetrics,
-                        ioExecutor);
+                        ioExecutor,
+                        StreamingClientPools.CLIENT_CREATE_MAX_DURATION);
               }
               current.addTask(taskId);
               return current;

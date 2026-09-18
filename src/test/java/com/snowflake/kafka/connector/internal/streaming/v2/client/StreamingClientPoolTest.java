@@ -10,14 +10,13 @@ import static org.mockito.Mockito.verify;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
+import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
-import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.io.IOException;
 import java.net.URLClassLoader;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -37,8 +36,8 @@ class StreamingClientPoolTest {
 
   @BeforeEach
   void setUp() {
-    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
-    connectorConfig = SinkTaskConfig.from(config);
+    connectorConfig =
+        SinkTaskConfigTestBuilder.builder().connectorName("test-connector").taskId("0").build();
     streamingClientProperties = StreamingClientProperties.from(connectorConfig);
   }
 
@@ -316,6 +315,43 @@ class StreamingClientPoolTest {
 
       assertThat(result).isSameAs(mockClient);
       assertThat(callCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    void getClient_retries_on_bodyless_404() {
+      SnowflakeStreamingIngestClient mockClient = mock(SnowflakeStreamingIngestClient.class);
+      AtomicInteger callCount = new AtomicInteger();
+
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, props) -> {
+            if (callCount.incrementAndGet() == 1) {
+              throw new SFException("SfApiUserError", "", 404, "");
+            }
+            return mockClient;
+          });
+
+      SnowflakeStreamingIngestClient result = getClient("task-0", "pipe-A");
+
+      assertThat(result).isSameAs(mockClient);
+      assertThat(callCount.get()).isEqualTo(2);
+    }
+
+    @Test
+    void getClient_does_not_retry_404_with_error_message() {
+      AtomicInteger callCount = new AtomicInteger();
+      SFException notFound =
+          new SFException("SfApiUserError", "pipe not found", 404, "Not Found");
+
+      StreamingClientFactory.setStreamingClientSupplier(
+          (clientName, dbName, schemaName, pipeName, props) -> {
+            callCount.incrementAndGet();
+            throw notFound;
+          });
+
+      assertThatThrownBy(() -> getClient("task-0", "pipe-A"))
+          .isInstanceOf(CompletionException.class)
+          .hasCause(notFound);
+      assertThat(callCount.get()).isEqualTo(1);
     }
 
     @Test

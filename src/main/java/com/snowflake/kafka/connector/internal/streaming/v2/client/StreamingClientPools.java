@@ -2,7 +2,6 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
-import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -146,17 +145,8 @@ public class StreamingClientPools {
                           streamingClientProperties,
                           taskMetrics));
     } catch (FailsafeException e) {
-      // Retries exhausted. Client-invalid errors stay wrapped so callers can
-      // treat them as a failed recreation. Transient 404s are not client-invalid,
-      // so rethrow the original SFException.
       Throwable cause = e.getCause() != null ? e.getCause() : e;
-      if (ClientRecreationException.isClientInvalidError(cause)) {
-        throw ClientRecreationException.wrap(cause);
-      }
-      if (cause instanceof RuntimeException) {
-        throw (RuntimeException) cause;
-      }
-      throw e;
+      throw ClientRecreationException.wrap(cause);
     }
   }
 
@@ -174,56 +164,73 @@ public class StreamingClientPools {
   private static final double CLIENT_CREATION_JITTER_FACTOR = 0.2;
 
   /**
-   * Total wall-clock budget for recreate retries before giving up. Sized for real SSv2
-   * pipe-failover propagation windows (observed 2–4 min) plus headroom. {@link #recreateClient}
-   * throws {@link ClientRecreationException} when exhausted; callers are expected to convert that
-   * to a {@link ConnectException} so Kafka Connect fails and restarts the task.
+   * Wall-clock budget for first-time client creation ({@link #getClient} / {@link #getClientAsync}).
+   * Covers a short Envoy NR window without waiting as long as recreate. Exhaustion fails the
+   * create so a permanently unknown account does not retry forever.
    */
-  private static final Duration CLIENT_CREATION_MAX_DURATION = Duration.ofMinutes(6);
+  static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(6);
 
   /**
-   * Retries replacement-client creation when the SDK reports a client-invalid error (e.g., pipe
-   * failover still in flight) or a body-less HTTP 404 (Envoy NR / no-route during a routing
-   * cutover). The pool evicts the failed entry on each attempt, so the retry creates a fresh
-   * client. Other errors, including a 404 with a Snowflake error code or message, fall through
-   * immediately.
-   *
-   * <p>{@link #recreateClient} can be called concurrently by multiple {@link
-   * com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel}s on the
-   * same pipe. The pool's CAS dedupes to a single fresh client per round, but each caller runs its
-   * own Failsafe retry schedule. When reading logs, expect overlapping retry schedules across
-   * channels on the same pipe during a failover event.
+   * Wall-clock budget for replacement-client creation. Sized for observed NR / pipe-failover
+   * windows plus headroom. {@link #recreateClient} throws {@link ClientRecreationException} when
+   * exhausted; callers convert that to a {@link ConnectException} so Kafka Connect restarts the
+   * task.
    */
-  private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
-      String pipeName) {
+  static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(30);
+
+  /**
+   * Retries client creation when the SDK reports a client-invalid error, including body-less HTTP
+   * 404 (Envoy NR). A 404 with a Snowflake error message is not retried.
+   */
+  private static RetryPolicy<SnowflakeStreamingIngestClient> clientRetryPolicy(
+      String pipeName, Duration maxDuration) {
     return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
-        .handleIf(
-            e ->
-                ClientRecreationException.isClientInvalidError(e)
-                    || isTransientNoRoute404(e))
+        .handleIf(ClientRecreationException::isClientInvalidError)
         .withBackoff(CLIENT_CREATION_BASE_DELAY, CLIENT_CREATION_MAX_DELAY, 2.0)
         .withJitter(CLIENT_CREATION_JITTER_FACTOR)
         .withMaxAttempts(-1)
-        .withMaxDuration(CLIENT_CREATION_MAX_DURATION)
+        .withMaxDuration(maxDuration)
         .onRetry(
             event ->
                 LOGGER.warn(
-                    "Replacement client for pipe {} failed with a retryable error"
+                    "Streaming client for pipe {} failed with a retryable error"
                         + " (attempt {}, elapsed {}s / {}s budget): {}",
                     pipeName,
                     event.getAttemptCount(),
                     event.getElapsedTime().toSeconds(),
-                    CLIENT_CREATION_MAX_DURATION.toSeconds(),
+                    maxDuration.toSeconds(),
                     event.getLastException().getMessage()))
         .onRetriesExceeded(
             event ->
                 LOGGER.error(
-                    "Replacement client for pipe {} failed after {} attempts ({}s elapsed): {}",
+                    "Streaming client for pipe {} failed after {} attempts ({}s elapsed): {}",
                     pipeName,
                     event.getAttemptCount(),
                     event.getElapsedTime().toSeconds(),
                     event.getException().getMessage()))
         .build();
+  }
+
+  private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
+      String pipeName) {
+    return clientRetryPolicy(pipeName, CLIENT_RECREATE_MAX_DURATION);
+  }
+
+  /**
+   * Creates an ingest client, retrying client-invalid errors (including body-less 404) up to {@code
+   * maxDuration}. {@link Duration#ZERO} means a single attempt so recreate's outer Failsafe is the
+   * only retry loop.
+   */
+  static SnowflakeStreamingIngestClient createClientWithRetry(
+      final String pipeName,
+      final SinkTaskConfig config,
+      final StreamingClientProperties streamingClientProperties,
+      final Duration maxDuration) {
+    if (maxDuration.isZero() || maxDuration.isNegative()) {
+      return StreamingClientFactory.createClient(pipeName, config, streamingClientProperties);
+    }
+    return Failsafe.with(clientRetryPolicy(pipeName, maxDuration))
+        .get(() -> StreamingClientFactory.createClient(pipeName, config, streamingClientProperties));
   }
 
   /**
@@ -250,17 +257,5 @@ public class StreamingClientPools {
           }
           return pool;
         });
-  }
-
-  /**
-   * Envoy NR 404s have HTTP 404 and no Snowflake error payload. A 404 with an error code or
-   * message is a real not-found and is not retried.
-   */
-  private static boolean isTransientNoRoute404(Throwable e) {
-    if (!(e instanceof SFException)) {
-      return false;
-    }
-    SFException sfException = (SFException) e;
-    return sfException.getHttpStatusCode() == 404 && isNullOrEmpty(sfException.getMessage());
   }
 }
