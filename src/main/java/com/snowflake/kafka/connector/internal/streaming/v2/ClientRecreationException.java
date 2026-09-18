@@ -85,23 +85,14 @@ public class ClientRecreationException extends RuntimeException {
   }
 
   /**
-   * Envoy NR 404s have HTTP 404 and no Snowflake error payload. SDK 1.4 exposes that as an empty
-   * {@link SFException#getMessage()}; 1.8 decorates it as {@code ErrorCode: (HTTP 404 ...)}.
+   * Envoy NR 404s have HTTP 404 and no Snowflake error payload. SSv2 1.4 leaves {@link
+   * SFException#getMessage()} empty; 1.8 decorates that as {@code ErrorCode: (HTTP 404 ...)}.
    */
   private static boolean isBodyless404(SFException sfException) {
-    if (sfException.getHttpStatusCode() != 404) {
-      return false;
-    }
     String message = sfException.getMessage();
-    if (message == null || message.isEmpty()) {
-      return true;
-    }
-    String prefix = sfException.getErrorCodeName() + ": ";
-    String httpPart = " (HTTP " + sfException.getHttpStatusCode();
-    if (!message.startsWith(prefix)) {
-      return false;
-    }
-    int httpIdx = message.indexOf(httpPart, prefix.length());
-    return httpIdx >= 0 && message.substring(prefix.length(), httpIdx).isEmpty();
+    return sfException.getHttpStatusCode() == 404
+        && (message == null
+            || message.isEmpty()
+            || message.startsWith(sfException.getErrorCodeName() + ":  (HTTP 404"));
   }
 }
