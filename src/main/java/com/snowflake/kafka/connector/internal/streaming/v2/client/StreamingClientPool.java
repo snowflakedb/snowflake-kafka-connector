@@ -45,10 +45,6 @@ public class StreamingClientPool {
     final CompletableFuture<SnowflakeStreamingIngestClient> clientFuture;
     private final Set<String> taskIds = ConcurrentHashMap.newKeySet();
 
-    /**
-     * One-shot SDK client create. Retry budgets live on {@link StreamingClientPools#getClientAsync}
-     * and {@link StreamingClientPools#recreateClient}, not here.
-     */
     RefCountedClient(
         String pipeName,
         String connectorName,
@@ -282,8 +278,8 @@ public class StreamingClientPool {
   /**
    * Creates a new {@link RefCountedClient} for the given pipe, inheriting task registrations from
    * {@code previous} if non-null, and always registering {@code taskId}. Centralizing this logic
-   * keeps the calling task registered so the pool does not prematurely evict a freshly-created
-   * entry during subsequent task-local cleanup.
+   * ensures the calling task is always registered so the pool does not prematurely evict a
+   * freshly-created entry during subsequent task-local cleanup.
    */
   private RefCountedClient createReplacement(
       final String taskId,

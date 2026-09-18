@@ -19,8 +19,10 @@ import java.util.Set;
  *       failover (409 Conflict)
  *   <li>{@code SfApiPipeFailedOverError} - HTTP 410 on any API call triggers client invalidation
  *   <li>{@code ClosedClientError} - client has been closed and cannot be reused (409 Conflict)
- *   <li>Body-less HTTP 404 - Envoy NR / no-route (empty {@link SFException#getDetailMessage()}). A
- *       404 with a Snowflake error detail is a real not-found and is not treated as client-invalid.
+ *   <li>Body-less HTTP 404 - Envoy NR / no-route (empty {@link SFException#getDetailMessage()}).
+ *       T1 also returns this for an invalid account, so it may be a real config error; we treat it
+ *       as client-invalid and let the create/recreate budget expire. A 404 with a Snowflake error
+ *       detail is a real not-found and is not treated as client-invalid.
  * </ul>
  */
 public class ClientRecreationException extends RuntimeException {
