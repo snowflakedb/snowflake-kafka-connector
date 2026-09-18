@@ -12,7 +12,7 @@
     "snowflake.role.name": "SNOWFLAKE_ROLE",
     "snowflake.enable.schematization": "false",
     "snowflake.streaming.validate.compatibility.with.classic": "false",
-    "snowflake.streaming.client.provider.override.map": "scheme:http,host:mitmproxy,port:8080",
+    "snowflake.streaming.client.provider.override.map": "scheme:https,host:mitmproxy,port:8080",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",

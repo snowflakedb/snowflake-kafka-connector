@@ -39,7 +39,7 @@ CONNECTOR_CONFIG = {
     "snowflake.compatibility.enable.column.identifier.normalization": "true",
     # Route the SDK's streaming traffic through mitmproxy so the e2e can inject
     # HTTP 404 on :bulk-channel-status (the customer's exact envoy error).
-    "snowflake.streaming.client.provider.override.map": "scheme:http,host:mitmproxy,port:8080",
+    "snowflake.streaming.client.provider.override.map": "scheme:https,host:mitmproxy,port:8080",
 }
 
 

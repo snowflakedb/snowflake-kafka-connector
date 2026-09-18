@@ -8,11 +8,8 @@ inputs:
   snowpipe-streaming-version:
     description: >
       Optional override for the snowpipe-streaming SDK version. Leave empty
-      to use the POM default. Set to a specific version (e.g. '1.4.0') only
-      for jobs that require an older SDK — currently the mitmproxy
-      fault-injection job, which depends on plain-HTTP requests being
-      allowed by the SDK. Setting this also skips test compilation because
-      test sources track the SDK API surface of the default version.
+      to use the POM default. Setting this also skips test compilation
+      because test sources track the SDK API surface of the default version.
     required: false
     default: ''
 
