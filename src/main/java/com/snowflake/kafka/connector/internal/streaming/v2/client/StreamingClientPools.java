@@ -72,7 +72,8 @@ public class StreamingClientPools {
 
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
-   * future completes when the client is ready.
+   * future completes when the client is ready. Client-invalid errors (including body-less 404) are
+   * retried for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
@@ -92,8 +93,12 @@ public class StreamingClientPools {
       throw new IllegalArgumentException("pipeName cannot be null or empty");
     }
 
-    return getPool(connectorName)
-        .getClientAsync(taskId, pipeName, config, streamingClientProperties, taskMetrics);
+    return Failsafe.with(clientRetryPolicy(pipeName, CLIENT_CREATE_MAX_DURATION))
+        .getStageAsync(
+            () ->
+                getPool(connectorName)
+                    .getClientAsync(
+                        taskId, pipeName, config, streamingClientProperties, taskMetrics));
   }
 
   private static StreamingClientPool getPool(final String connectorName) {
@@ -214,20 +219,6 @@ public class StreamingClientPools {
   private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
       String pipeName) {
     return clientRetryPolicy(pipeName, CLIENT_RECREATE_MAX_DURATION);
-  }
-
-  /**
-   * Creates an ingest client, retrying client-invalid errors (including body-less 404) up to {@code
-   * maxDuration}. Recreate uses the one-shot {@link StreamingClientFactory#createClient} path so
-   * this method is not nested under {@link #recreateClient}'s Failsafe loop.
-   */
-  static SnowflakeStreamingIngestClient createClientWithRetry(
-      final String pipeName,
-      final SinkTaskConfig config,
-      final StreamingClientProperties streamingClientProperties,
-      final Duration maxDuration) {
-    return Failsafe.with(clientRetryPolicy(pipeName, maxDuration))
-        .get(() -> StreamingClientFactory.createClient(pipeName, config, streamingClientProperties));
   }
 
   /**

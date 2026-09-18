@@ -6,9 +6,7 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
-import java.time.Duration;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,8 +46,8 @@ public class StreamingClientPool {
     private final Set<String> taskIds = ConcurrentHashMap.newKeySet();
 
     /**
-     * One-shot client create. Used by recreate so {@link StreamingClientPools#recreateClient}'s
-     * Failsafe policy is the only retry loop.
+     * One-shot SDK client create. Retry budgets live on {@link StreamingClientPools#getClientAsync}
+     * and {@link StreamingClientPools#recreateClient}, not here.
      */
     RefCountedClient(
         String pipeName,
@@ -58,50 +56,17 @@ public class StreamingClientPool {
         StreamingClientProperties streamingClientProperties,
         TaskMetrics taskMetrics,
         ExecutorService executor) {
-      this(
-          pipeName,
-          connectorName,
-          executor,
-          () -> {
-            try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
-              return StreamingClientFactory.createClient(
-                  pipeName, config, streamingClientProperties);
-            }
-          });
-    }
-
-    /**
-     * First-create path: retries client-invalid errors (including body-less 404) for {@code
-     * createRetryBudget}. Recreate uses the one-shot constructor so this budget is not nested.
-     */
-    RefCountedClient(
-        String pipeName,
-        String connectorName,
-        SinkTaskConfig config,
-        StreamingClientProperties streamingClientProperties,
-        TaskMetrics taskMetrics,
-        ExecutorService executor,
-        Duration createRetryBudget) {
-      this(
-          pipeName,
-          connectorName,
-          executor,
-          () -> {
-            try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
-              return StreamingClientPools.createClientWithRetry(
-                  pipeName, config, streamingClientProperties, createRetryBudget);
-            }
-          });
-    }
-
-    private RefCountedClient(
-        String pipeName,
-        String connectorName,
-        ExecutorService executor,
-        Supplier<SnowflakeStreamingIngestClient> createClient) {
       LOGGER.info(
           "Creating new streaming client for pipe: {}, connector: {}", pipeName, connectorName);
-      this.clientFuture = CompletableFuture.supplyAsync(createClient::get, executor);
+      this.clientFuture =
+          CompletableFuture.supplyAsync(
+              () -> {
+                try (TaskMetrics.TimingContext ignored = taskMetrics.timeSdkClientCreate()) {
+                  return StreamingClientFactory.createClient(
+                      pipeName, config, streamingClientProperties);
+                }
+              },
+              executor);
     }
 
     void addTask(String taskId) {
@@ -165,8 +130,7 @@ public class StreamingClientPool {
                         config,
                         streamingClientProperties,
                         taskMetrics,
-                        ioExecutor,
-                        StreamingClientPools.CLIENT_CREATE_MAX_DURATION);
+                        ioExecutor);
               }
               current.addTask(taskId);
               return current;
@@ -316,12 +280,10 @@ public class StreamingClientPool {
   }
 
   /**
-   * Creates a new one-shot {@link RefCountedClient} for the given pipe, inheriting task
-   * registrations from {@code previous} if non-null, and always registering {@code taskId}. The
-   * one-shot constructor is required so {@link StreamingClientPools#recreateClient}'s Failsafe
-   * policy is the only retry loop. Centralizing this logic also keeps the calling task registered
-   * so the pool does not prematurely evict a freshly-created entry during subsequent task-local
-   * cleanup.
+   * Creates a new {@link RefCountedClient} for the given pipe, inheriting task registrations from
+   * {@code previous} if non-null, and always registering {@code taskId}. Centralizing this logic
+   * keeps the calling task registered so the pool does not prematurely evict a freshly-created
+   * entry during subsequent task-local cleanup.
    */
   private RefCountedClient createReplacement(
       final String taskId,
