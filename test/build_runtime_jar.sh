@@ -26,11 +26,9 @@ if [[ -z "${BUILD_METHOD}" ]]; then
     BUILD_METHOD="verify"
 fi
 
-# Optional override for the snowpipe-streaming SDK version. Used by the
-# mitmproxy fault-injection job to pin to a version compatible with its
-# http:// reverse proxy. Empty -> POM default applies. When set, we also
-# skip test compilation because the test sources track the SDK API surface
-# of the default (latest) version.
+# Optional override for the snowpipe-streaming SDK version. Empty -> POM
+# default. When set, skip test compilation because the test sources track
+# the default SDK API surface.
 SDK_OVERRIDE_OPTS=()
 if [[ -n "${SNOWPIPE_STREAMING_VERSION_OVERRIDE}" ]]; then
     SDK_OVERRIDE_OPTS=(
