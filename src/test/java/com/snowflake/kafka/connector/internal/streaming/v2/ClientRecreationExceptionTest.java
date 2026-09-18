@@ -98,4 +98,22 @@ public class ClientRecreationExceptionTest {
 
     assertThrows(IllegalArgumentException.class, () -> new ClientRecreationException(backpressure));
   }
+
+  @Test
+  void shouldRecognizeBodyless404AsClientInvalid() {
+    SFException bodyless404 = new SFException("SfApiUserError", "", 404, "");
+
+    assertTrue(ClientRecreationException.isClientInvalidError(bodyless404));
+    assertEquals(
+        "SDK client invalid: SfApiUserError",
+        new ClientRecreationException(bodyless404).getMessage());
+  }
+
+  @Test
+  void shouldNotRecognize404WithErrorMessageAsClientInvalid() {
+    SFException notFound = new SFException("SfApiUserError", "pipe not found", 404, "Not Found");
+
+    assertFalse(ClientRecreationException.isClientInvalidError(notFound));
+    assertThrows(IllegalArgumentException.class, () -> new ClientRecreationException(notFound));
+  }
 }
