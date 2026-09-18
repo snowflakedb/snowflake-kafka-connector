@@ -10,13 +10,14 @@ import static org.mockito.Mockito.verify;
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
-import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.io.IOException;
 import java.net.URLClassLoader;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -36,8 +37,8 @@ class StreamingClientPoolTest {
 
   @BeforeEach
   void setUp() {
-    connectorConfig =
-        SinkTaskConfigTestBuilder.builder().connectorName("test-connector").taskId("0").build();
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    connectorConfig = SinkTaskConfig.from(config);
     streamingClientProperties = StreamingClientProperties.from(connectorConfig);
   }
 
@@ -314,72 +315,6 @@ class StreamingClientPoolTest {
       SnowflakeStreamingIngestClient result = getClient("task-0", "pipe-A");
 
       assertThat(result).isSameAs(mockClient);
-      assertThat(callCount.get()).isEqualTo(2);
-    }
-
-    @Test
-    void recreateClient_retries_on_bodyless_404() {
-      SnowflakeStreamingIngestClient oldClient = mock(SnowflakeStreamingIngestClient.class);
-      SnowflakeStreamingIngestClient newClient = mock(SnowflakeStreamingIngestClient.class);
-      AtomicInteger callCount = new AtomicInteger();
-
-      StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, props) -> {
-            int count = callCount.incrementAndGet();
-            if (count == 1) {
-              return oldClient;
-            }
-            if (count == 2) {
-              throw new SFException("SfApiUserError", "", 404, "");
-            }
-            return newClient;
-          });
-
-      getClient("task-0", "pipe-A");
-
-      SnowflakeStreamingIngestClient result =
-          StreamingClientPools.recreateClient(
-              connectorName,
-              "task-0",
-              "pipe-A",
-              oldClient,
-              connectorConfig,
-              streamingClientProperties,
-              TaskMetrics.noop());
-
-      assertThat(result).isSameAs(newClient);
-      assertThat(callCount.get()).isEqualTo(3);
-    }
-
-    @Test
-    void recreateClient_does_not_retry_404_with_error_message() {
-      SnowflakeStreamingIngestClient oldClient = mock(SnowflakeStreamingIngestClient.class);
-      AtomicInteger callCount = new AtomicInteger();
-      SFException notFound =
-          new SFException("SfApiUserError", "pipe not found", 404, "Not Found");
-
-      StreamingClientFactory.setStreamingClientSupplier(
-          (clientName, dbName, schemaName, pipeName, props) -> {
-            int count = callCount.incrementAndGet();
-            if (count == 1) {
-              return oldClient;
-            }
-            throw notFound;
-          });
-
-      getClient("task-0", "pipe-A");
-
-      assertThatThrownBy(
-              () ->
-                  StreamingClientPools.recreateClient(
-                      connectorName,
-                      "task-0",
-                      "pipe-A",
-                      oldClient,
-                      connectorConfig,
-                      streamingClientProperties,
-                      TaskMetrics.noop()))
-          .isSameAs(notFound);
       assertThat(callCount.get()).isEqualTo(2);
     }
 

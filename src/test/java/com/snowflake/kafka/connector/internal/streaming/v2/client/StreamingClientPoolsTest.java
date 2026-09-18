@@ -52,6 +52,18 @@ class StreamingClientPoolsTest {
         TaskMetrics.noop());
   }
 
+  private SnowflakeStreamingIngestClient recreateClient(
+      String pipeName, SnowflakeStreamingIngestClient invalidClient) {
+    return StreamingClientPools.recreateClient(
+        connectorName,
+        TASK_ID,
+        pipeName,
+        invalidClient,
+        sinkTaskConfig,
+        streamingClientProperties,
+        TaskMetrics.noop());
+  }
+
   @Test
   void getClient_unwraps_CompletionException_and_throws_original_RuntimeException() {
     SnowflakeKafkaConnectorException originalException =
@@ -96,5 +108,52 @@ class StreamingClientPoolsTest {
 
     assertThatThrownBy(() -> getClient("pipe-A")).isSameAs(notFound);
     assertThat(callCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  void recreateClient_retries_on_bodyless_404() {
+    SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient newClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    AtomicInteger callCount = new AtomicInteger();
+
+    StreamingClientFactory.setStreamingClientSupplier(
+        (clientName, dbName, schemaName, pipeName, props) -> {
+          int count = callCount.incrementAndGet();
+          if (count == 1) {
+            return oldClient;
+          }
+          if (count == 2) {
+            throw new SFException("SfApiUserError", "", 404, "");
+          }
+          return newClient;
+        });
+
+    getClient("pipe-A");
+
+    SnowflakeStreamingIngestClient result = recreateClient("pipe-A", oldClient);
+
+    assertThat(result).isSameAs(newClient);
+    assertThat(callCount.get()).isEqualTo(3);
+  }
+
+  @Test
+  void recreateClient_does_not_retry_404_with_error_message() {
+    SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    AtomicInteger callCount = new AtomicInteger();
+    SFException notFound = new SFException("SfApiUserError", "pipe not found", 404, "Not Found");
+
+    StreamingClientFactory.setStreamingClientSupplier(
+        (clientName, dbName, schemaName, pipeName, props) -> {
+          int count = callCount.incrementAndGet();
+          if (count == 1) {
+            return oldClient;
+          }
+          throw notFound;
+        });
+
+    getClient("pipe-A");
+
+    assertThatThrownBy(() -> recreateClient("pipe-A", oldClient)).isSameAs(notFound);
+    assertThat(callCount.get()).isEqualTo(2);
   }
 }
