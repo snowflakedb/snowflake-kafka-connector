@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
-import com.snowflake.kafka.connector.internal.FailedTaskRestarter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -29,10 +28,17 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
@@ -56,6 +62,8 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   // Matches a Kafka Connect config-provider reference such as ${vault:...} or ${file:...}, whose
   // value is resolved per-worker at task start and is therefore not available during validate().
   private static final Pattern CONFIG_PROVIDER_PREFIX = Pattern.compile("[$][{][a-zA-Z]+:");
+  private static final String CONNECT_REST_URL = "http://localhost:8083";
+  private static final HttpClient CONNECT_REST_CLIENT = HttpClient.newHttpClient();
 
   // connector configuration, provided by user through kafka connect framework
   private Map<String, String> config;
@@ -86,7 +94,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
-  private FailedTaskRestarter failedTaskRestarter;
+  private ScheduledExecutorService failedTaskRestarter;
 
   private final ConnectorConfigValidator connectorConfigValidator =
       new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
@@ -144,7 +152,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
     setupComplete = true;
 
-    failedTaskRestarter = FailedTaskRestarter.maybeStart(config);
+    startFailedTaskRestarter();
 
     LOGGER.info("SnowflakeStreamingSinkConnector:started");
   }
@@ -162,14 +170,57 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     LOGGER.info("SnowflakeStreamingSinkConnector connector stopping...");
     setupComplete = false;
 
-    if (failedTaskRestarter != null) {
-      failedTaskRestarter.stop();
-      failedTaskRestarter = null;
-    }
+    stopFailedTaskRestarter();
 
     if (telemetryClient != null) {
       telemetryClient.reportKafkaConnectStop(connectorStartTime);
     }
+  }
+
+  private void startFailedTaskRestarter() {
+    String connectorName = config.get(KafkaConnectorConfigParams.NAME);
+    failedTaskRestarter =
+        Executors.newSingleThreadScheduledExecutor(
+            runnable -> {
+              Thread thread = new Thread(runnable, "kc-failed-task-restarter-" + connectorName);
+              thread.setDaemon(true);
+              return thread;
+            });
+    failedTaskRestarter.scheduleAtFixedRate(
+        () -> restartFailedTasks(connectorName), 1, 1, TimeUnit.HOURS);
+    LOGGER.info(
+        "Restarting FAILED tasks for {} every hour via {}", connectorName, CONNECT_REST_URL);
+  }
+
+  private void restartFailedTasks(String connectorName) {
+    URI uri =
+        URI.create(
+            CONNECT_REST_URL
+                + "/connectors/"
+                + connectorName
+                + "/restart?includeTasks=true&onlyFailed=true");
+    try {
+      HttpResponse<Void> response =
+          CONNECT_REST_CLIENT.send(
+              HttpRequest.newBuilder(uri).POST(HttpRequest.BodyPublishers.noBody()).build(),
+              HttpResponse.BodyHandlers.discarding());
+      LOGGER.info(
+          "Requested restart of FAILED tasks for {} (HTTP {})",
+          connectorName,
+          response.statusCode());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (Exception e) {
+      LOGGER.warn("Failed to restart crashed tasks for {}: {}", connectorName, e.getMessage());
+    }
+  }
+
+  private void stopFailedTaskRestarter() {
+    if (failedTaskRestarter == null) {
+      return;
+    }
+    failedTaskRestarter.shutdownNow();
+    failedTaskRestarter = null;
   }
 
   /**

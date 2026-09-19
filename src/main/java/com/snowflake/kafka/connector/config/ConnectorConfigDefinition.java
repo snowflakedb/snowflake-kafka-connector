@@ -589,31 +589,6 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             15,
             Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT)
-        .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_TASK_RESTART_FAILED_INTERVAL_MS,
-            LONG,
-            KafkaConnectorConfigParams.SNOWFLAKE_TASK_RESTART_FAILED_INTERVAL_MS_DEFAULT,
-            atLeast(KafkaConnectorConfigParams.SNOWFLAKE_TASK_RESTART_FAILED_INTERVAL_MS_MIN),
-            LOW,
-            "How often the connector asks Kafka Connect to restart FAILED tasks, in milliseconds."
-                + " Kafka Connect does not restart crashed tasks on its own. Set to 0 to disable."
-                + " Default is one hour.",
-            CONNECTOR_CONFIG_DOC,
-            17,
-            Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_TASK_RESTART_FAILED_INTERVAL_MS)
-        .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_CONNECT_REST_URL,
-            STRING,
-            KafkaConnectorConfigParams.SNOWFLAKE_CONNECT_REST_URL_DEFAULT,
-            LOW,
-            "Base URL of the Kafka Connect REST API used to restart FAILED tasks (GET"
-                + " /connectors/{name}/status and POST /connectors/{name}/tasks/{id}/restart)."
-                + " Default is http://localhost:8083.",
-            CONNECTOR_CONFIG_DOC,
-            18,
-            Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_CONNECT_REST_URL);
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT);
   }
 }
