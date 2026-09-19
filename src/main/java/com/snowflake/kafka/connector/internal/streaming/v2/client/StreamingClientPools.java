@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -10,6 +11,7 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingClientPropertie
 import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationException;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
+import dev.failsafe.FailsafeExecutor;
 import dev.failsafe.RetryPolicy;
 import java.time.Duration;
 import java.util.Map;
@@ -73,7 +75,8 @@ public class StreamingClientPools {
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
    * future completes when the client is ready. Client-invalid errors (including body-less 404) are
-   * retried for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
+   * retried for {@link #clientCreateMaxDuration} without blocking the caller. If that burst is
+   * exhausted, the same create is retried every {@link #hourlyRetryDelay}.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
@@ -93,7 +96,7 @@ public class StreamingClientPools {
       throw new IllegalArgumentException("pipeName cannot be null or empty");
     }
 
-    return Failsafe.with(clientRetryPolicy(pipeName, CLIENT_CREATE_MAX_DURATION))
+    return clientRetryExecutor(pipeName, clientCreateMaxDuration)
         .getStageAsync(
             () ->
                 getPool(connectorName)
@@ -138,7 +141,7 @@ public class StreamingClientPools {
       final StreamingClientProperties streamingClientProperties,
       final TaskMetrics taskMetrics) {
     try {
-      return Failsafe.with(recreateClientRetryPolicy(pipeName))
+      return clientRetryExecutor(pipeName, clientRecreateMaxDuration)
           .get(
               () ->
                   getPool(connectorName)
@@ -168,20 +171,41 @@ public class StreamingClientPools {
   /** Jitter factor (±, 0.0–1.0) applied to each recreate retry delay. */
   private static final double CLIENT_CREATION_JITTER_FACTOR = 0.2;
 
-  /**
-   * Wall-clock budget for first-time client creation ({@link #getClient} / {@link
-   * #getClientAsync}). Covers a short Envoy NR window without waiting as long as recreate.
-   * Exhaustion fails the create so a permanently unknown account does not retry forever.
-   */
-  static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(6);
+  /** Failsafe: {@code -1} means no attempt cap. */
+  private static final int UNLIMITED_ATTEMPTS = -1;
+
+  private static final Duration DEFAULT_CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(6);
+  private static final Duration DEFAULT_CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(30);
+  private static final Duration DEFAULT_HOURLY_RETRY_DELAY = Duration.ofHours(1);
 
   /**
-   * Wall-clock budget for replacement-client creation. Sized for observed NR / pipe-failover
-   * windows plus headroom. {@link #recreateClient} throws {@link ClientRecreationException} when
-   * exhausted; callers convert that to a {@link ConnectException} so Kafka Connect restarts the
-   * task.
+   * Wall-clock budget for the first-time create burst ({@link #getClient} / {@link
+   * #getClientAsync}). Covers a short Envoy NR window.
    */
-  static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(30);
+  static Duration clientCreateMaxDuration = DEFAULT_CLIENT_CREATE_MAX_DURATION;
+
+  /**
+   * Wall-clock budget for the replacement-client burst. Sized for observed NR / pipe-failover
+   * windows plus headroom.
+   */
+  static Duration clientRecreateMaxDuration = DEFAULT_CLIENT_RECREATE_MAX_DURATION;
+
+  /**
+   * Delay between create/recreate bursts after the inner Failsafe budget is exhausted. Keeps the
+   * task out of {@code FAILED} for a retryable client-invalid error, including a body-less 404.
+   */
+  static Duration hourlyRetryDelay = DEFAULT_HOURLY_RETRY_DELAY;
+
+  /** When unlimited, the burst is bounded by {@code maxDuration} instead of attempt count. */
+  static int clientBurstMaxAttempts = UNLIMITED_ATTEMPTS;
+
+  /**
+   * Outer hourly policy wrapping an inner burst. Used for both first-time create and recreate.
+   */
+  private static FailsafeExecutor<SnowflakeStreamingIngestClient> clientRetryExecutor(
+      String pipeName, Duration burstMaxDuration) {
+    return Failsafe.with(hourlyRetryPolicy(pipeName), clientRetryPolicy(pipeName, burstMaxDuration));
+  }
 
   /**
    * Retries client creation when the SDK reports a client-invalid error, including body-less HTTP
@@ -193,7 +217,7 @@ public class StreamingClientPools {
         .handleIf(ClientRecreationException::isClientInvalidError)
         .withBackoff(CLIENT_CREATION_BASE_DELAY, CLIENT_CREATION_MAX_DELAY, 2.0)
         .withJitter(CLIENT_CREATION_JITTER_FACTOR)
-        .withMaxAttempts(-1)
+        .withMaxAttempts(clientBurstMaxAttempts)
         .withMaxDuration(maxDuration)
         .onRetry(
             event ->
@@ -208,17 +232,69 @@ public class StreamingClientPools {
         .onRetriesExceeded(
             event ->
                 LOGGER.error(
-                    "Streaming client for pipe {} failed after {} attempts ({}s elapsed): {}",
+                    "Streaming client for pipe {} burst budget exhausted after {} attempts"
+                        + " ({}s elapsed); next attempt in {}: {}",
                     pipeName,
                     event.getAttemptCount(),
                     event.getElapsedTime().toSeconds(),
+                    hourlyRetryDelay,
                     event.getException().getMessage()))
         .build();
   }
 
-  private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
-      String pipeName) {
-    return clientRetryPolicy(pipeName, CLIENT_RECREATE_MAX_DURATION);
+  /**
+   * Outer policy: after a burst budget expires, wait {@link #hourlyRetryDelay} and run another
+   * burst. No attempt cap — a wrong account will keep retrying; a routing blip will eventually
+   * succeed.
+   */
+  private static RetryPolicy<SnowflakeStreamingIngestClient> hourlyRetryPolicy(String pipeName) {
+    return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
+        .handleIf(StreamingClientPools::isRetryableAfterBurst)
+        .withDelay(hourlyRetryDelay)
+        .withMaxAttempts(UNLIMITED_ATTEMPTS)
+        .onRetry(
+            event ->
+                LOGGER.warn(
+                    "Retrying streaming client for pipe {} after {} (hourly attempt {})",
+                    pipeName,
+                    hourlyRetryDelay,
+                    event.getAttemptCount()))
+        .build();
+  }
+
+  /**
+   * Failsafe wraps the last burst failure (often as {@link FailsafeException}). Walk the cause
+   * chain so the hourly policy sees the original SDK error.
+   */
+  private static boolean isRetryableAfterBurst(Throwable e) {
+    for (Throwable current = e; current != null; current = current.getCause()) {
+      if (ClientRecreationException.isClientInvalidError(current)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @VisibleForTesting
+  static void setRetryDurationsForTest(
+      Duration createMax, Duration recreateMax, Duration hourlyDelay) {
+    clientCreateMaxDuration = createMax;
+    clientRecreateMaxDuration = recreateMax;
+    hourlyRetryDelay = hourlyDelay;
+  }
+
+  @VisibleForTesting
+  static void setBurstMaxAttemptsForTest(int maxAttempts) {
+    clientBurstMaxAttempts = maxAttempts;
+  }
+
+  @VisibleForTesting
+  static void resetRetryDurations() {
+    setRetryDurationsForTest(
+        DEFAULT_CLIENT_CREATE_MAX_DURATION,
+        DEFAULT_CLIENT_RECREATE_MAX_DURATION,
+        DEFAULT_HOURLY_RETRY_DELAY);
+    clientBurstMaxAttempts = UNLIMITED_ATTEMPTS;
   }
 
   /**
