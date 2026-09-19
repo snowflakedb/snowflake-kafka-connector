@@ -201,5 +201,14 @@ public final class Constants {
     public static final String HTTPS_PROXY_PASSWORD = "https.proxyPassword";
     public static final String HTTP_PROXY_USER = "http.proxyUser";
     public static final String HTTP_PROXY_PASSWORD = "http.proxyPassword";
+
+    // Kafka Connect does not restart FAILED tasks. The connector polls Connect REST and POSTs
+    // /tasks/{id}/restart for each crashed task. Interval 0 disables the restarter.
+    public static final String SNOWFLAKE_TASK_RESTART_FAILED_INTERVAL_MS =
+        "snowflake.task.restart.failed.interval.ms";
+    public static final long SNOWFLAKE_TASK_RESTART_FAILED_INTERVAL_MS_DEFAULT = 60 * 60 * 1000L;
+    public static final long SNOWFLAKE_TASK_RESTART_FAILED_INTERVAL_MS_MIN = 0L;
+    public static final String SNOWFLAKE_CONNECT_REST_URL = "snowflake.connect.rest.url";
+    public static final String SNOWFLAKE_CONNECT_REST_URL_DEFAULT = "http://localhost:8083";
   }
 }

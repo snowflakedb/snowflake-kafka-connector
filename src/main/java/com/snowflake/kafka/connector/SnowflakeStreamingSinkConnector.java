@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
+import com.snowflake.kafka.connector.internal.FailedTaskRestarter;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
@@ -85,6 +86,8 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   // Using setupComplete to synchronize
   private boolean setupComplete;
 
+  private FailedTaskRestarter failedTaskRestarter;
+
   private final ConnectorConfigValidator connectorConfigValidator =
       new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
@@ -141,6 +144,8 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
     setupComplete = true;
 
+    failedTaskRestarter = FailedTaskRestarter.maybeStart(config);
+
     LOGGER.info("SnowflakeStreamingSinkConnector:started");
   }
 
@@ -156,6 +161,11 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   public void stop() {
     LOGGER.info("SnowflakeStreamingSinkConnector connector stopping...");
     setupComplete = false;
+
+    if (failedTaskRestarter != null) {
+      failedTaskRestarter.stop();
+      failedTaskRestarter = null;
+    }
 
     if (telemetryClient != null) {
       telemetryClient.reportKafkaConnectStop(connectorStartTime);
