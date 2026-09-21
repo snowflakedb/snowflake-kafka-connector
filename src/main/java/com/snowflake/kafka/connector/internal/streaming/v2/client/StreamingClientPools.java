@@ -72,8 +72,8 @@ public class StreamingClientPools {
 
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
-   * future completes when the client is ready. Client-invalid errors (including body-less 404) are
-   * retried for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
+   * future completes when the client is ready. Client-invalid errors and body-less 404s on {@code
+   * .build()} are retried for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
@@ -151,7 +151,14 @@ public class StreamingClientPools {
                           taskMetrics));
     } catch (FailsafeException e) {
       Throwable cause = e.getCause() != null ? e.getCause() : e;
-      throw ClientRecreationException.wrap(cause);
+      if (ClientRecreationException.isClientInvalidError(cause)) {
+        throw ClientRecreationException.wrap(cause);
+      }
+      if (cause instanceof RuntimeException) {
+        throw (RuntimeException) cause;
+      }
+      throw new ConnectException(
+          "Unexpected error recreating streaming client for pipe: " + pipeName, cause);
     }
   }
 
@@ -170,27 +177,29 @@ public class StreamingClientPools {
 
   /**
    * Wall-clock budget for first-time client creation ({@link #getClient} / {@link
-   * #getClientAsync}). Covers a short Envoy NR window without waiting as long as recreate.
-   * Exhaustion fails the create so a permanently unknown account does not retry forever.
+   * #getClientAsync}). Sized to observed T1 NR windows (tens of seconds, longest timed ~6 min is
+   * an outlier). Exhaustion fails the create so a permanently unknown account does not retry
+   * forever.
    */
-  static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(6);
+  static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(2);
 
   /**
-   * Wall-clock budget for replacement-client creation. Sized for observed NR / pipe-failover
-   * windows plus headroom. {@link #recreateClient} throws {@link ClientRecreationException} when
-   * exhausted; callers convert that to a {@link ConnectException} so Kafka Connect restarts the
-   * task.
+   * Wall-clock budget for replacement-client creation. Same order as create, with extra room for
+   * a failover plus a hostname NR on the replacement {@code .build()}. {@link #recreateClient}
+   * throws {@link ClientRecreationException} when exhausted on a client-invalid error; a body-less
+   * 404 exhausted here is rethrown as the original {@link
+   * com.snowflake.ingest.streaming.SFException}.
    */
-  static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(30);
+  static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(6);
 
   /**
-   * Retries client creation when the SDK reports a client-invalid error, including body-less HTTP
-   * 404 (Envoy NR). A 404 with a Snowflake error message is not retried.
+   * Retries {@code .build()} on client-invalid errors and body-less HTTP 404 (Envoy NR on {@code
+   * get_subdomain_name}). A 404 with a Snowflake error message is not retried.
    */
   private static RetryPolicy<SnowflakeStreamingIngestClient> clientRetryPolicy(
       String pipeName, Duration maxDuration) {
     return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
-        .handleIf(ClientRecreationException::isClientInvalidError)
+        .handleIf(ClientRecreationException::isRetryableClientConstructionError)
         .withBackoff(CLIENT_CREATION_BASE_DELAY, CLIENT_CREATION_MAX_DELAY, 2.0)
         .withJitter(CLIENT_CREATION_JITTER_FACTOR)
         .withMaxAttempts(-1)

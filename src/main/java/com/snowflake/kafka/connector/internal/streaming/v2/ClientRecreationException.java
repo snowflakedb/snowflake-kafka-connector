@@ -19,11 +19,12 @@ import java.util.Set;
  *       failover (409 Conflict)
  *   <li>{@code SfApiPipeFailedOverError} - HTTP 410 on any API call triggers client invalidation
  *   <li>{@code ClosedClientError} - client has been closed and cannot be reused (409 Conflict)
- *   <li>Body-less HTTP 404 - Envoy NR / no-route (empty {@link SFException#getDetailMessage()}). T1
- *       also returns this for an invalid account, so it may be a real config error; we treat it as
- *       client-invalid and let the create/recreate budget expire. A 404 with a Snowflake error
- *       detail is a real not-found and is not treated as client-invalid.
  * </ul>
+ *
+ * <p>A body-less HTTP 404 (Envoy NR / invalid account) is not client-invalid. On 1.8.0 the SDK
+ * already retries those on live APIs; if one reaches KC it is treated as terminal. Create/recreate
+ * {@code .build()} ({@code get_subdomain_name}) is the exception: see {@link
+ * #isRetryableClientConstructionError}.
  */
 public class ClientRecreationException extends RuntimeException {
 
@@ -73,15 +74,22 @@ public class ClientRecreationException extends RuntimeException {
    *
    * @param e the exception to check (may be null)
    * @return {@code true} if {@code e} is an {@link SFException} with a client-invalid error code
-   *     name, or a body-less HTTP 404; {@code false} otherwise
+   *     name; {@code false} otherwise
    */
   public static boolean isClientInvalidError(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
-    SFException sfException = (SFException) e;
-    return CLIENT_INVALID_ERROR_CODE_NAMES.contains(sfException.getErrorCodeName())
-        || isBodyless404(sfException);
+    return CLIENT_INVALID_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
+  }
+
+  /**
+   * Errors that {@code StreamingClientPools} may retry around SDK {@code .build()} ({@code
+   * get_subdomain_name}). The SDK does not retry hostname 404s, so a body-less 404 is included
+   * here even though it is not {@link #isClientInvalidError}.
+   */
+  public static boolean isRetryableClientConstructionError(Throwable e) {
+    return isClientInvalidError(e) || isBodyless404(e);
   }
 
   /**
@@ -89,7 +97,11 @@ public class ClientRecreationException extends RuntimeException {
    * always decorated with the error code and HTTP status, so emptiness is checked on the original
    * detail.
    */
-  private static boolean isBodyless404(SFException sfException) {
+  private static boolean isBodyless404(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    SFException sfException = (SFException) e;
     String detail = sfException.getDetailMessage();
     return sfException.getHttpStatusCode() == 404 && (detail == null || detail.isEmpty());
   }
