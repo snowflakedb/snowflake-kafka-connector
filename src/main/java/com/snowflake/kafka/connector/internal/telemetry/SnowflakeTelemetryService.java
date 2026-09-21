@@ -38,7 +38,7 @@ public class SnowflakeTelemetryService {
   private static final String IS_CHANNEL_CLOSING = "is_channel_closing";
   public static final String JDK_VERSION = "jdk_version";
   public static final String JDK_DISTRIBUTION = "jdk_distribution";
-  private static final String TASKS_MAX = "tasks.max";
+  static final String TASKS_MAX = "tasks.max";
 
   // Telemetry instance fetched from JDBC
   private final Telemetry telemetry;
@@ -229,19 +229,15 @@ public class SnowflakeTelemetryService {
   }
 
   /**
-   * kafka_start keys that may be copied from user-provided connector config. Unknown keys are
-   * dropped. Historical names used by older connector versions are not listed here. Add a key only
-   * after the server-side persist allowlist already includes it; if we stop collecting a key,
-   * remove it there too.
+   * User-provided connector config keys that may be copied into kafka_start. Service-owned fields
+   * ({@code app_name}, {@code task_id}, {@code start_time}, JDK/Kafka versions, ingestion method)
+   * are written separately and are not listed here so a colliding config key cannot overwrite them.
+   * Unknown keys are dropped. Historical names used by older connector versions are not listed
+   * here. Add a key only after the server-side persist allowlist already includes it; if we stop
+   * collecting a key, remove it there too.
    */
   private static final Set<String> KAFKA_START_ALLOWED_DATA_KEYS =
       Set.of(
-          APP_NAME,
-          TASK_ID,
-          START_TIME,
-          KAFKA_VERSION,
-          JDK_VERSION,
-          JDK_DISTRIBUTION,
           TASKS_MAX,
           KafkaConnectorConfigParams.TOPICS,
           KafkaConnectorConfigParams.KEY_CONVERTER,
@@ -250,7 +246,6 @@ public class SnowflakeTelemetryService {
           KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
           KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG,
           KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
-          INGESTION_METHOD,
           KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
           KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
           KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,

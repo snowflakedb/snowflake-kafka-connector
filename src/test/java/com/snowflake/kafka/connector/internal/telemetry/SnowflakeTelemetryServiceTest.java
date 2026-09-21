@@ -3,6 +3,9 @@ package com.snowflake.kafka.connector.internal.telemetry;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.KEY_CONVERTER;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
 import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.INGESTION_METHOD;
+import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.JDK_DISTRIBUTION;
+import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.JDK_VERSION;
+import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.TASKS_MAX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -19,6 +22,7 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.internal.jdbc.telemetry.Telemetry;
 import net.snowflake.client.internal.jdbc.telemetry.TelemetryData;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import org.apache.kafka.common.utils.AppInfoParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -57,7 +62,7 @@ public class SnowflakeTelemetryServiceTest {
     connectorConfig.put(KEY_CONVERTER, KAFKA_STRING_CONVERTER);
     connectorConfig.put(KafkaConnectorConfigParams.VALUE_CONVERTER, KAFKA_CONFLUENT_AVRO_CONVERTER);
     connectorConfig.put(KafkaConnectorConfigParams.TOPICS, "topic-a,topic-b");
-    connectorConfig.put("tasks.max", "4");
+    connectorConfig.put(TASKS_MAX, "4");
     connectorConfig.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE, "true");
     connectorConfig.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "all");
     connectorConfig.put(KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG, "true");
@@ -108,7 +113,7 @@ public class SnowflakeTelemetryServiceTest {
 
     // Allowlisted user-config keys must be copied through
     assertTrue(dataNode.has(KafkaConnectorConfigParams.TOPICS));
-    assertTrue(dataNode.has("tasks.max"));
+    assertTrue(dataNode.has(TASKS_MAX));
     assertTrue(dataNode.has(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE));
     assertTrue(dataNode.has(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG));
     assertTrue(dataNode.has(KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG));
@@ -135,6 +140,36 @@ public class SnowflakeTelemetryServiceTest {
     assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN));
     assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP));
     assertFalse(dataNode.has("ssl.keystore.password"));
+  }
+
+  @Test
+  public void testReportKafkaConnectStart_serviceOwnedKeysNotOverwrittenByConfig() {
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put("app_name", "attacker-app");
+    connectorConfig.put("task_id", "999");
+    connectorConfig.put(TelemetryConstants.START_TIME, "0");
+    connectorConfig.put("kafka_version", "bogus-kafka");
+    connectorConfig.put(JDK_VERSION, "bogus-jdk");
+    connectorConfig.put(JDK_DISTRIBUTION, "bogus-vendor");
+    connectorConfig.put(INGESTION_METHOD, "snowpipe");
+
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    long reportedStart = System.currentTimeMillis();
+    snowflakeTelemetryService.reportKafkaConnectStart(reportedStart, connectorConfig);
+
+    JsonNode dataNode =
+        this.mockTelemetryClient.getSentTelemetryData().get(0).getMessage().get("data");
+    assertEquals("TEST_APP", dataNode.get("app_name").asText());
+    assertEquals("1", dataNode.get("task_id").asText());
+    assertEquals(reportedStart, dataNode.get(TelemetryConstants.START_TIME).asLong());
+    assertEquals(AppInfoParser.getVersion(), dataNode.get("kafka_version").asText());
+    assertEquals(System.getProperty("java.version"), dataNode.get(JDK_VERSION).asText());
+    assertEquals(System.getProperty("java.vendor"), dataNode.get(JDK_DISTRIBUTION).asText());
+    assertEquals(
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString(),
+        dataNode.get(INGESTION_METHOD).asText());
   }
 
   @Test
