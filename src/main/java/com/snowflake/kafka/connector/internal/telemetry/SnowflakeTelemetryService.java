@@ -38,7 +38,6 @@ public class SnowflakeTelemetryService {
   private static final String IS_CHANNEL_CLOSING = "is_channel_closing";
   public static final String JDK_VERSION = "jdk_version";
   public static final String JDK_DISTRIBUTION = "jdk_distribution";
-  static final String TASKS_MAX = "tasks.max";
 
   // Telemetry instance fetched from JDBC
   private final Telemetry telemetry;
@@ -238,7 +237,7 @@ public class SnowflakeTelemetryService {
    */
   private static final Set<String> KAFKA_START_ALLOWED_DATA_KEYS =
       Set.of(
-          TASKS_MAX,
+          KafkaConnectorConfigParams.TASKS_MAX,
           KafkaConnectorConfigParams.TOPICS,
           KafkaConnectorConfigParams.KEY_CONVERTER,
           KafkaConnectorConfigParams.VALUE_CONVERTER,

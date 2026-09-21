@@ -5,7 +5,7 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.INGESTION_METHOD;
 import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.JDK_DISTRIBUTION;
 import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.JDK_VERSION;
-import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.TASKS_MAX;
+import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -62,7 +62,7 @@ public class SnowflakeTelemetryServiceTest {
     connectorConfig.put(KEY_CONVERTER, KAFKA_STRING_CONVERTER);
     connectorConfig.put(KafkaConnectorConfigParams.VALUE_CONVERTER, KAFKA_CONFLUENT_AVRO_CONVERTER);
     connectorConfig.put(KafkaConnectorConfigParams.TOPICS, "topic-a,topic-b");
-    connectorConfig.put(TASKS_MAX, "4");
+    connectorConfig.put(TASKS_MAX_CONFIG, "4");
     connectorConfig.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE, "true");
     connectorConfig.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "all");
     connectorConfig.put(KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG, "true");
@@ -113,7 +113,7 @@ public class SnowflakeTelemetryServiceTest {
 
     // Allowlisted user-config keys must be copied through
     assertTrue(dataNode.has(KafkaConnectorConfigParams.TOPICS));
-    assertTrue(dataNode.has(TASKS_MAX));
+    assertTrue(dataNode.has(TASKS_MAX_CONFIG));
     assertTrue(dataNode.has(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE));
     assertTrue(dataNode.has(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG));
     assertTrue(dataNode.has(KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG));

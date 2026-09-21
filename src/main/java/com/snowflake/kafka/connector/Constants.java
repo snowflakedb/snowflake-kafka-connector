@@ -8,6 +8,7 @@ public final class Constants {
     // connector parameter list
     public static final String NAME = "name";
     public static final String TOPICS = "topics";
+    public static final String TASKS_MAX = "tasks.max";
     public static final String SNOWFLAKE_TOPICS2TABLE_MAP = "snowflake.topic2table.map";
     public static final String SNOWFLAKE_TOPIC2TABLE_MAP_REGEX_REPLACEMENT =
         "snowflake.topic2table.map.regex.replacement";
