@@ -19,6 +19,10 @@ import java.util.Set;
  *       failover (409 Conflict)
  *   <li>{@code SfApiPipeFailedOverError} - HTTP 410 on any API call triggers client invalidation
  *   <li>{@code ClosedClientError} - client has been closed and cannot be reused (409 Conflict)
+ *   <li>Body-less HTTP 404 - Envoy NR / no-route (empty {@link SFException#getDetailMessage()}).
+ *       T1 also returns this for an invalid account, so it may be a real config error; we treat it
+ *       as client-invalid and let the create/recreate budget expire. A 404 with a Snowflake error
+ *       detail is a real not-found and is not treated as client-invalid.
  * </ul>
  */
 public class ClientRecreationException extends RuntimeException {
@@ -69,12 +73,24 @@ public class ClientRecreationException extends RuntimeException {
    *
    * @param e the exception to check (may be null)
    * @return {@code true} if {@code e} is an {@link SFException} with a client-invalid error code
-   *     name; {@code false} otherwise
+   *     name, or a body-less HTTP 404; {@code false} otherwise
    */
   public static boolean isClientInvalidError(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
-    return CLIENT_INVALID_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
+    SFException sfException = (SFException) e;
+    return CLIENT_INVALID_ERROR_CODE_NAMES.contains(sfException.getErrorCodeName())
+        || isBodyless404(sfException);
+  }
+
+  /**
+   * Envoy NR 404s have HTTP 404 and no Snowflake error payload. {@link SFException#getMessage()} is
+   * always decorated with the error code and HTTP status, so emptiness is checked on the original
+   * detail.
+   */
+  private static boolean isBodyless404(SFException sfException) {
+    String detail = sfException.getDetailMessage();
+    return sfException.getHttpStatusCode() == 404 && (detail == null || detail.isEmpty());
   }
 }
