@@ -167,6 +167,25 @@ class BatchOffsetFetcherTest {
     verify(channels.get(tp2), never()).triggerReopenForInvalidClient();
   }
 
+  @Test
+  void bodyless404TriggersChannelRecovery() {
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+    TopicPartition tp1 = new TopicPartition("topicB", 0);
+
+    registerChannel(tp0, "pipeA", "chA0", 10L);
+    registerChannel(tp1, "pipeB", "chB0", 30L);
+
+    clientSupplier.setBodyless404Pipe("pipeA");
+
+    Map<TopicPartition, Long> result =
+        fetcher.getCommittedOffsets(Set.of(tp0, tp1), channelLookup());
+
+    assertEquals(1, result.size());
+    assertEquals(31L, result.get(tp1));
+    verify(channels.get(tp0)).triggerReopenForInvalidClient();
+    verify(channels.get(tp1), never()).triggerReopenForInvalidClient();
+  }
+
   // SNOW-3670537 kill-switch: with snowflake.feature.precommit.client.recovery=false an invalid
   // client must NOT trigger a preCommit reopen -- legacy behavior (recovery deferred to appendRow).
   @Test
@@ -286,6 +305,7 @@ class BatchOffsetFetcherTest {
     private final Map<String, Map<String, String>> pipeChannelOffsets = new ConcurrentHashMap<>();
     private volatile String failingPipe = null;
     private volatile String clientInvalidPipe = null;
+    private volatile String bodyless404Pipe = null;
 
     void setChannelOffset(String channelName, String pipeName, String offsetToken) {
       pipeChannelOffsets
@@ -300,6 +320,11 @@ class BatchOffsetFetcherTest {
     /** Makes {@code getChannelStatus} throw a client-invalid SFException for the given pipe. */
     void setClientInvalidPipe(String pipeName) {
       this.clientInvalidPipe = pipeName;
+    }
+
+    /** Makes {@code getChannelStatus} throw a body-less HTTP 404 for the given pipe. */
+    void setBodyless404Pipe(String pipeName) {
+      this.bodyless404Pipe = pipeName;
     }
 
     int getBatchCallCount() {
@@ -321,6 +346,9 @@ class BatchOffsetFetcherTest {
                 if (pipeName.equals(clientInvalidPipe)) {
                   throw new SFException(
                       "InvalidClientError", "Simulated client invalidation", 409, "Conflict");
+                }
+                if (pipeName.equals(bodyless404Pipe)) {
+                  throw new SFException("SfApiUserError", "", 404, "");
                 }
                 if (pipeName.equals(failingPipe)) {
                   throw new SFException(
