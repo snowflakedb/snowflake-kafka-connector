@@ -14,9 +14,9 @@ import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
-import org.mockito.Mockito;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class StreamingClientPoolsTest {
 
