@@ -25,5 +25,5 @@ openssl x509 -req -in leaf.csr -CA mitmproxy-ca.crt -CAkey ca.key -CAcreateseria
   -out mitmproxy.crt
 
 cat mitmproxy.crt leaf.key > mitmproxy.pem
-rm -f leaf.csr leaf.key ca.key mitmproxy-ca.srl
+rm -f leaf.csr leaf.key ca.key mitmproxy-ca.srl mitmproxy.crt
 ```
