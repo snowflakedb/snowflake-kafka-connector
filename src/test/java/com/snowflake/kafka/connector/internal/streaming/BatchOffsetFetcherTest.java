@@ -168,7 +168,7 @@ class BatchOffsetFetcherTest {
   }
 
   @Test
-  void bodyless404TriggersChannelRecovery() {
+  void bodyless404DoesNotTriggerChannelRecovery() {
     TopicPartition tp0 = new TopicPartition("topicA", 0);
     TopicPartition tp1 = new TopicPartition("topicB", 0);
 
@@ -182,7 +182,7 @@ class BatchOffsetFetcherTest {
 
     assertEquals(1, result.size());
     assertEquals(31L, result.get(tp1));
-    verify(channels.get(tp0)).triggerReopenForInvalidClient();
+    verify(channels.get(tp0), never()).triggerReopenForInvalidClient();
     verify(channels.get(tp1), never()).triggerReopenForInvalidClient();
   }
 
