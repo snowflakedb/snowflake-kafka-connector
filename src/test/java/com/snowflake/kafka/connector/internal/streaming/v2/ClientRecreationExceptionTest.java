@@ -27,6 +27,7 @@ public class ClientRecreationExceptionTest {
         new SFException("InvalidClientError", "Client is invalid", 409, "Conflict");
 
     assertTrue(ClientRecreationException.isClientInvalidError(sfException));
+    assertTrue(ClientRecreationException.isRetryableClientConstructionError(sfException));
   }
 
   @Test
@@ -100,13 +101,13 @@ public class ClientRecreationExceptionTest {
   }
 
   @Test
-  void shouldRecognizeBodyless404AsClientInvalid() {
+  void shouldNotRecognizeBodyless404AsClientInvalid() {
     SFException bodyless404 = new SFException("SfApiUserError", "", 404, "");
 
-    assertTrue(ClientRecreationException.isClientInvalidError(bodyless404));
-    assertEquals(
-        "SDK client invalid: SfApiUserError",
-        new ClientRecreationException(bodyless404).getMessage());
+    assertFalse(ClientRecreationException.isClientInvalidError(bodyless404));
+    assertTrue(ClientRecreationException.isRetryableClientConstructionError(bodyless404));
+    assertThrows(
+        IllegalArgumentException.class, () -> new ClientRecreationException(bodyless404));
     // getMessage() is always decorated; emptiness is on getDetailMessage().
     assertFalse(bodyless404.getMessage().isEmpty());
     assertTrue(bodyless404.getDetailMessage().isEmpty());
@@ -117,6 +118,7 @@ public class ClientRecreationExceptionTest {
     SFException notFound = new SFException("SfApiUserError", "pipe not found", 404, "Not Found");
 
     assertFalse(ClientRecreationException.isClientInvalidError(notFound));
+    assertFalse(ClientRecreationException.isRetryableClientConstructionError(notFound));
     assertThrows(IllegalArgumentException.class, () -> new ClientRecreationException(notFound));
   }
 }
