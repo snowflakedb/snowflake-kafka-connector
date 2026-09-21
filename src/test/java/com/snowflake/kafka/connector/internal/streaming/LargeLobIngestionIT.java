@@ -10,11 +10,9 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.data.Schema;
@@ -26,29 +24,29 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 /**
- * End-to-end coverage for the 128MB LOB limit enforced by client-side validation: a payload far
- * beyond the old 16MB ceiling reaches Snowflake intact, while one past 128MB is rejected locally
- * and routed to the DLQ.
+ * End-to-end coverage for the 128MB LOB limit: a VARIANT just under the ceiling is ingested, and
+ * one byte past it is rejected locally and routed to the DLQ.
  *
- * <p>The payload is assembled as an array of 1MB strings rather than one huge string because
- * Kafka's JsonConverter refuses to deserialize a single string value larger than 20MB. The record
- * is built from a plain Java Map so that no converter sits between the test and the connector.
+ * <p>The record is a Java Map so no converter sits between the test and the connector. Payload
+ * size is the serialized VARIANT ({@code {"a":"..."}}) relative to the 128MB ceiling minus the
+ * 64-byte server-skew buffer.
  *
- * <p>Skipped in default CI: a ~127MB row is TRACE-logged by the connector and has twice cancelled
- * the 6-hour AWS integration job. Set {@code SNOWFLAKE_RUN_LARGE_LOB_IT=true} to run it, as on
- * sfctest0.
+ * <p>Skipped in default CI: a ~128MB row is TRACE-logged by the connector and has twice cancelled
+ * the 6-hour AWS integration job. Set {@code SNOWFLAKE_RUN_LARGE_LOB_IT=true} to run it.
  */
 @Timeout(value = 15, unit = TimeUnit.MINUTES)
 @EnabledIfEnvironmentVariable(named = "SNOWFLAKE_RUN_LARGE_LOB_IT", matches = "true")
 public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
 
   private static final int BYTES_1_MB = 1024 * 1024;
-
-  // Chunk counts, not serialized VARIANT size. Each chunk is 1MB of ASCII inside {"chunks":[...]}.
-  // JSON quotes, commas and the wrapper push a full-ceiling chunk count over the 128MB LOB limit.
-  private static final int LOB_CEILING_CHUNKS = 128;
-  private static final int CHUNKS_UNDER_CEILING = LOB_CEILING_CHUNKS - 1;
-  private static final int CHUNKS_OVER_CEILING = LOB_CEILING_CHUNKS + 1;
+  private static final int LOB_CEILING_BYTES = 128 * BYTES_1_MB;
+  // Matches DataValidationUtil.MAX_SEMI_STRUCTURED_LENGTH (package-private from this IT).
+  private static final int SERVER_SKEW_BYTES = 64;
+  // Serialized form is {"a":"<n chars>"}, which adds 8 bytes around the string.
+  private static final int JSON_WRAPPER_BYTES = 8;
+  private static final int BYTES_AT_CEILING =
+      LOB_CEILING_BYTES - SERVER_SKEW_BYTES - JSON_WRAPPER_BYTES;
+  private static final int BYTES_OVER_CEILING = BYTES_AT_CEILING + 1;
 
   /** VARIANT so that the semi-structured branch of the size check is the one being exercised. */
   private static final String PAYLOAD_COLUMN = "PAYLOAD";
@@ -76,21 +74,19 @@ public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void variantJustUnder128Mb_isIngested() throws Exception {
-    int chunks = CHUNKS_UNDER_CEILING;
+  public void variantAtLobCeiling_isIngested() throws Exception {
     SnowflakeSinkService service = startService(new InMemoryKafkaRecordErrorReporter());
 
-    service.insert(payloadRecord(chunks, 0));
+    service.insert(payloadRecord(BYTES_AT_CEILING, 0));
 
     TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == 1, 5, 60);
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 5, 60);
 
-    // Whole payload landed, not a truncated prefix.
     int ingestedBytes = payloadByteLength();
     assertTrue(
-        ingestedBytes > chunks * BYTES_1_MB,
-        "expected more than "
-            + chunks * BYTES_1_MB
+        ingestedBytes >= BYTES_AT_CEILING,
+        "expected at least "
+            + BYTES_AT_CEILING
             + " bytes in "
             + PAYLOAD_COLUMN
             + ", got "
@@ -100,12 +96,12 @@ public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
   }
 
   @Test
-  public void variantAbove128Mb_isRoutedToDlq() throws Exception {
+  public void variantOneByteOverLobCeiling_isRoutedToDlq() throws Exception {
     configBuilder.tolerateErrors(true).dlqTopicName("DLQ_TOPIC").errorsLogEnable(true);
     InMemoryKafkaRecordErrorReporter errorReporter = new InMemoryKafkaRecordErrorReporter();
     SnowflakeSinkService service = startService(errorReporter);
 
-    service.insert(payloadRecord(CHUNKS_OVER_CEILING, 0));
+    service.insert(payloadRecord(BYTES_OVER_CEILING, 0));
 
     TestUtils.assertWithRetry(() -> errorReporter.getReportedRecords().size() == 1, 5, 20);
     assertEquals(0, TestUtils.tableSize(table), "oversized record must not be ingested");
@@ -129,17 +125,12 @@ public class LargeLobIngestionIT extends SnowflakeSinkServiceV2BaseIT {
     return service;
   }
 
-  /** Builds a record whose {@code PAYLOAD} column holds {@code chunks} MB of JSON. */
-  private SinkRecord payloadRecord(int chunks, long offset) {
-    List<String> parts = new ArrayList<>(chunks);
-    for (int chunk = 0; chunk < chunks; chunk++) {
-      char[] content = new char[BYTES_1_MB];
-      Arrays.fill(content, (char) ('a' + chunk % 26));
-      parts.add(new String(content));
-    }
-
+  /** Builds a record whose {@code PAYLOAD} is {@code {"a":"<contentBytes ASCII>"}}. */
+  private SinkRecord payloadRecord(int contentBytes, long offset) {
+    char[] content = new char[contentBytes];
+    Arrays.fill(content, 'a');
     Map<String, Object> payload = new HashMap<>();
-    payload.put("chunks", parts);
+    payload.put("a", new String(content));
     Map<String, Object> value = new HashMap<>();
     value.put(PAYLOAD_COLUMN, payload);
 

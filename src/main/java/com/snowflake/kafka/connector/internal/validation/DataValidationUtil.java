@@ -89,9 +89,12 @@ class DataValidationUtil {
   // server-side representation. Validation leaves a small buffer for this difference.
   static final int MAX_SEMI_STRUCTURED_LENGTH = LOB_CEILING_MB - 64;
 
-  // Allow JSON construction to handle all available Snowflake object sizes.
+  // Parse up to 2x the LOB ceiling so a just-oversized string can be measured and
+  // rejected as too long (column + actual length), and so JSON wrapping around a
+  // near-ceiling string does not fail the parse. 2x is a parse bound. The ingest
+  // limit remains LOB_CEILING_MB.
   private static final StreamReadConstraints STREAM_READ_CONSTRAINTS =
-      StreamReadConstraints.builder().maxStringLength(LOB_CEILING_MB).build();
+      StreamReadConstraints.builder().maxStringLength(2 * LOB_CEILING_MB).build();
 
   private static final ObjectMapper objectMapper =
       new ObjectMapper(

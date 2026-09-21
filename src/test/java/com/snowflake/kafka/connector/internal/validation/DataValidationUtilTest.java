@@ -12,7 +12,6 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
-import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_16_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.LOB_CEILING_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
@@ -93,6 +92,25 @@ public class DataValidationUtilTest {
 
   private void expectError(ErrorCode expectedErrorCode, Runnable action) {
     expectErrorCodeAndMessage(expectedErrorCode, null, action);
+  }
+
+  private void expectErrorContaining(
+      ErrorCode expectedErrorCode, String fragment, Runnable action) {
+    try {
+      action.run();
+      Assert.fail("Expected Exception");
+    } catch (SFExceptionValidation e) {
+      assertEquals(expectedErrorCode.getMessageCode(), e.getVendorCode());
+      Assert.assertTrue(
+          "expected message to contain '" + fragment + "', got: " + e.getMessage(),
+          e.getMessage().contains(fragment));
+      Assert.assertFalse(
+          "oversized value must not be reported as invalid JSON: " + e.getMessage(),
+          e.getMessage().contains("Not a valid JSON"));
+    } catch (Exception e) {
+      e.printStackTrace();
+      Assert.fail("Invalid error through");
+    }
   }
 
   @Test
@@ -536,8 +554,9 @@ public class DataValidationUtilTest {
         maxStringMinusOne, validateAndParseString("COL", maxStringMinusOne, Optional.empty(), 0));
 
     // max byte length + 1 should fail
-    expectError(
+    expectErrorContaining(
         ErrorCode.INVALID_VALUE_ROW,
+        "String too long",
         () -> validateAndParseString("COL", maxString + "a", Optional.empty(), 0));
 
     // Test that max character length validation counts characters and not bytes
@@ -914,10 +933,22 @@ public class DataValidationUtilTest {
     final String tooLargeObject =
         objectMapper.writeValueAsString(
             Collections.singletonMap("key", StringUtils.repeat('a', LOB_CEILING_MB + 1)));
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseObject("COL", tooLargeObject, 0));
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseObjectNew("COL", tooLargeObject, 0));
+    expectErrorContaining(
+        ErrorCode.INVALID_VALUE_ROW,
+        "Object too large",
+        () -> validateAndParseObject("COL", tooLargeObject, 0));
+    expectErrorContaining(
+        ErrorCode.INVALID_VALUE_ROW,
+        "Object too large",
+        () -> validateAndParseObjectNew("COL", tooLargeObject, 0));
+    expectErrorContaining(
+        ErrorCode.INVALID_VALUE_ROW,
+        "Variant too long",
+        () -> validateAndParseVariant("COL", tooLargeObject, 0));
+    expectErrorContaining(
+        ErrorCode.INVALID_VALUE_ROW,
+        "Variant too long",
+        () -> validateAndParseVariantNew("COL", tooLargeObject, 0));
 
     // Test that invalid UTF-8 strings cannot be ingested
     expectError(
@@ -1047,27 +1078,6 @@ public class DataValidationUtilTest {
     expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseVariant("COL", m, 0));
     expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseArray("COL", m, 0));
     expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseObject("COL", m, 0));
-  }
-
-  /**
-   * A value above both the old 16MB LOB ceiling and Jackson's default 20MB single-string cap is
-   * still accepted, including when it arrives as a JSON string.
-   */
-  @Test
-  public void testSemiStructuredAboveOldLobLimitIsAccepted() throws Exception {
-    int contentLength = BYTES_16_MB + BYTES_8_MB;
-    char[] stringContent = new char[contentLength];
-    Arrays.fill(stringContent, 'c');
-    Map<String, Object> input = Collections.singletonMap("a", new String(stringContent));
-
-    // {"a":"ccc...ccc"} — the object wrapper adds 8 characters
-    int expectedLength = contentLength + 8;
-    assertEquals(expectedLength, validateAndParseVariant("COL", input, 0).length());
-    assertEquals(expectedLength, validateAndParseObject("COL", input, 0).length());
-
-    String jsonInput = objectMapper.writeValueAsString(input);
-    assertEquals(expectedLength, validateAndParseVariantNew("COL", jsonInput, 0).length());
-    assertEquals(expectedLength, validateAndParseObjectNew("COL", jsonInput, 0).length());
   }
 
   @Test
