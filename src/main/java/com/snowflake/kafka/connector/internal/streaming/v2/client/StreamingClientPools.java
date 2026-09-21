@@ -169,9 +169,9 @@ public class StreamingClientPools {
   private static final double CLIENT_CREATION_JITTER_FACTOR = 0.2;
 
   /**
-   * Wall-clock budget for first-time client creation ({@link #getClient} / {@link #getClientAsync}).
-   * Covers a short Envoy NR window without waiting as long as recreate. Exhaustion fails the
-   * create so a permanently unknown account does not retry forever.
+   * Wall-clock budget for first-time client creation ({@link #getClient} / {@link
+   * #getClientAsync}). Covers a short Envoy NR window without waiting as long as recreate.
+   * Exhaustion fails the create so a permanently unknown account does not retry forever.
    */
   static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(6);
 
