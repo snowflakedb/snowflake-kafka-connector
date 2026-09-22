@@ -73,9 +73,9 @@ public class StreamingClientPools {
 
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
-   * future completes when the client is ready. Body-less 404s on {@code .build()} are retried for
-   * {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller. Client-invalid errors (409 /
-   * 410) are not retried on create.
+   * future completes when the client is ready. Unenveloped NR 404s on {@code .build()} are retried
+   * for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller. Client-invalid errors (409
+   * / 410) are not retried on create.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
@@ -223,19 +223,19 @@ public class StreamingClientPools {
   }
 
   /**
-   * Create retries body-less HTTP 404s only. Client-invalid errors (409 / 410) are not retried:
+   * Create retries unenveloped NR 404s only. Client-invalid errors (409 / 410) are not retried:
    * there is no client yet.
    */
   private static RetryPolicy<SnowflakeStreamingIngestClient> createClientRetryPolicy(
       String pipeName) {
     return clientRetryPolicy(
-        pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isBodyless404);
+        pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isUnenvelopedNr404);
   }
 
   /**
-   * Recreation retries client-invalid errors (409 / 410) only. A body-less 404 is terminal: the
-   * account already resolved, so a no-route hostname is not the first-lookup race {@link
-   * ClientRecreationException#isBodyless404} exists for.
+   * Recreation retries client-invalid errors (409 / 410) only. An unenveloped NR 404 is terminal:
+   * the account already resolved, so a no-route hostname is not the first-lookup race {@link
+   * ClientRecreationException#isUnenvelopedNr404} exists for.
    */
   private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
       String pipeName) {
