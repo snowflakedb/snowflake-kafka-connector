@@ -36,8 +36,8 @@ public class ClientRecreationException extends RuntimeException {
           // Client was closed
           "ClosedClientError");
 
-  /** GS fields as the Rust SDK prints them when Envoy left the JSON envelope empty. */
-  private static final String UNENVELOPED_404_GS_FIELDS = "error_code=, message=,";
+  /** Detail marker the Rust SDK prints when Envoy returned HTTP 404 without a GS JSON envelope. */
+  private static final String UNENVELOPED_404_DETAIL_MARKER = "HTTP 404, error_code=, message=,";
 
   /**
    * Constructs a new {@code ClientRecreationException} wrapping the given {@link SFException}.
@@ -86,20 +86,23 @@ public class ClientRecreationException extends RuntimeException {
   }
 
   /**
-   * HTTP 404 with empty GS {@code error_code}/{@code message}. Matches empty {@link
-   * SFException#getDetailMessage()} (unit tests) and the live FFI sentence {@code "... HTTP 404,
-   * error_code=, message=, ..."}. A 404 with a GS message is not NR. Uses the original detail
-   * because {@link SFException#getMessage()} is always decorated.
+   * HTTP 404 with empty GS {@code error_code}/{@code message}. Matches an empty {@link
+   * SFException#getDetailMessage()} and the live FFI sentence {@code "... HTTP 404, error_code=,
+   * message=, ..."}. SDK 1.8.0 exports the latter as {@code SfApiUserError} with the generic
+   * structured status 400, so the upstream status must be read from the detail. A response with a
+   * GS error code or message is not NR.
    */
   public static boolean isBodyless404(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
     SFException sfException = (SFException) e;
-    if (sfException.getHttpStatusCode() != 404) {
-      return false;
-    }
     String detail = sfException.getDetailMessage();
-    return detail == null || detail.isEmpty() || detail.contains(UNENVELOPED_404_GS_FIELDS);
+    if (detail == null || detail.isEmpty()) {
+      return sfException.getHttpStatusCode() == 404;
+    }
+    return "SfApiUserError".equals(sfException.getErrorCodeName())
+        && (sfException.getHttpStatusCode() == 400 || sfException.getHttpStatusCode() == 404)
+        && detail.contains(UNENVELOPED_404_DETAIL_MARKER);
   }
 }
