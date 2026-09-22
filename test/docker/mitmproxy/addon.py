@@ -92,6 +92,9 @@ fault_state = FaultState()
 # Separate state for 404-on-bulk-channel-status injection (SNOW-3670537)
 fault_state_404_bcs = FaultState()
 
+# Separate state for body-less 404 on /v2/streaming/hostname (first-create NR)
+fault_state_404_hostname = FaultState()
+
 
 class FaultAddon:
     """mitmproxy addon that injects faults and manages hostname routing."""
@@ -114,8 +117,13 @@ class FaultAddon:
             self._rewrite_oauth_scope(flow)
             return
 
-        # Never intercept the hostname endpoint — must work for client recreation
+        # Hostname 404 (first-create NR) must run before the "never intercept
+        # hostname" return, or 410 tests would also lose discovery.
         if "/v2/streaming/hostname" in path:
+            if fault_state_404_hostname.enabled:
+                flow.response = http.Response.make(404, b"", {})
+                fault_state_404_hostname.inc_injected()
+                log(f"Injected 404 (hostname) on {flow.request.method} {path}")
             return
 
         # Streaming API calls must be routed to the real subdomain (the scoped
@@ -212,6 +220,7 @@ class ControlHandler(BaseHTTPRequestHandler):
         elif self.path == "/reset-counters":
             fault_state.reset_counters()
             fault_state_404_bcs.reset_counters()
+            fault_state_404_hostname.reset_counters()
             self._respond(200, {"status": "reset"})
         elif self.path == "/enable-404-bcs":
             fault_state_404_bcs.enabled = True
@@ -221,6 +230,14 @@ class ControlHandler(BaseHTTPRequestHandler):
             fault_state_404_bcs.enabled = False
             log("404-bulk-channel-status injection DISABLED")
             self._respond(200, {"status": "disabled"})
+        elif self.path == "/enable-404-hostname":
+            fault_state_404_hostname.enabled = True
+            log("404-hostname injection ENABLED")
+            self._respond(200, {"status": "enabled"})
+        elif self.path == "/disable-404-hostname":
+            fault_state_404_hostname.enabled = False
+            log("404-hostname injection DISABLED")
+            self._respond(200, {"status": "disabled"})
         else:
             self._respond(404, {"error": "not found"})
 
@@ -228,6 +245,9 @@ class ControlHandler(BaseHTTPRequestHandler):
         if self.path == "/status":
             status = fault_state.to_dict()
             status["injected_404_bcs_count"] = fault_state_404_bcs.injected_count
+            status["injected_404_hostname_count"] = (
+                fault_state_404_hostname.injected_count
+            )
             self._respond(200, status)
         else:
             self._respond(404, {"error": "not found"})
