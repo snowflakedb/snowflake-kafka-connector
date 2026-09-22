@@ -22,6 +22,12 @@ class StreamingClientPoolsTest {
 
   private static final String TASK_ID = "test-task";
 
+  /** Live FFI detail for T1 NR: Rust sentence, empty GS fields. */
+  private static final String LIVE_FFI_UNENVELOPED_404_DETAIL =
+      "HTTP request failed with a non-retryable error for API get_subdomain_name. HTTP"
+          + " 404, error_code=, message=,"
+          + " url=https://example.snowflakecomputing.com/v2/streaming/hostname?requestId=abc";
+
   private SinkTaskConfig sinkTaskConfig;
   private StreamingClientProperties streamingClientProperties;
   private String connectorName;
@@ -96,6 +102,26 @@ class StreamingClientPoolsTest {
   }
 
   @Test
+  void getClient_retries_on_unenveloped_html_404() {
+    SnowflakeStreamingIngestClient mockClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    AtomicInteger callCount = new AtomicInteger();
+
+    StreamingClientFactory.setStreamingClientSupplier(
+        (clientName, dbName, schemaName, pipeName, props) -> {
+          if (callCount.incrementAndGet() == 1) {
+            throw new SFException(
+                "SfApiUserError", LIVE_FFI_UNENVELOPED_404_DETAIL, 404, "Not Found");
+          }
+          return mockClient;
+        });
+
+    SnowflakeStreamingIngestClient result = getClient("pipe-A");
+
+    assertThat(result).isSameAs(mockClient);
+    assertThat(callCount.get()).isEqualTo(2);
+  }
+
+  @Test
   void getClient_does_not_retry_404_with_error_message() {
     AtomicInteger callCount = new AtomicInteger();
     SFException notFound = new SFException("SfApiUserError", "pipe not found", 404, "Not Found");
@@ -111,7 +137,43 @@ class StreamingClientPoolsTest {
   }
 
   @Test
-  void recreateClient_retries_on_bodyless_404() {
+  void getClient_does_not_retry_client_invalid_error() {
+    AtomicInteger callCount = new AtomicInteger();
+    SFException invalid = new SFException("InvalidClientError", "client invalid", 409, "Conflict");
+
+    StreamingClientFactory.setStreamingClientSupplier(
+        (clientName, dbName, schemaName, pipeName, props) -> {
+          callCount.incrementAndGet();
+          throw invalid;
+        });
+
+    assertThatThrownBy(() -> getClient("pipe-A")).isSameAs(invalid);
+    assertThat(callCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  void recreateClient_does_not_retry_bodyless_404() {
+    SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    AtomicInteger callCount = new AtomicInteger();
+    SFException bodyless404 = new SFException("SfApiUserError", "", 404, "");
+
+    StreamingClientFactory.setStreamingClientSupplier(
+        (clientName, dbName, schemaName, pipeName, props) -> {
+          int count = callCount.incrementAndGet();
+          if (count == 1) {
+            return oldClient;
+          }
+          throw bodyless404;
+        });
+
+    getClient("pipe-A");
+
+    assertThatThrownBy(() -> recreateClient("pipe-A", oldClient)).isSameAs(bodyless404);
+    assertThat(callCount.get()).isEqualTo(2);
+  }
+
+  @Test
+  void recreateClient_retries_on_client_invalid_error() {
     SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     SnowflakeStreamingIngestClient newClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     AtomicInteger callCount = new AtomicInteger();
@@ -123,7 +185,7 @@ class StreamingClientPoolsTest {
             return oldClient;
           }
           if (count == 2) {
-            throw new SFException("SfApiUserError", "", 404, "");
+            throw new SFException("InvalidClientError", "client invalid", 409, "Conflict");
           }
           return newClient;
         });

@@ -1,12 +1,11 @@
 """
 E2E tests for first-create getClient when GET /v2/streaming/hostname
-returns a body-less HTTP 404 (T1 Envoy NR).
+returns a T1 Envoy NR 404 (HTTP 404, branded HTML, empty GS fields).
 
-SDK 1.8.0 does not retry get_subdomain_name 404s. KC Failsafe on
-StreamingClientPools.getClient / getClientAsync retries body-less 404s
-for CLIENT_CREATE_MAX_DURATION (2 minutes).
-
-This is not a recreate test. No 410. No recreateClient.
+The addon injects the production T1 shape so the SDK surfaces
+HTTP 404, error_code=, message= (not an empty-body 404, which 1.8.0
+reports as HTTP 400). KC Failsafe retries those unenveloped 404s for
+CLIENT_CREATE_MAX_DURATION (2 minutes). This is not a recreate test.
 
 Requires: --with-mitmproxy flag when running run_tests.sh.
 """
