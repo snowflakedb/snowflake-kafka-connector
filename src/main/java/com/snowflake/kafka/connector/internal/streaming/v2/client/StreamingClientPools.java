@@ -74,8 +74,7 @@ public class StreamingClientPools {
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
    * future completes when the client is ready. Unenveloped NR 404s on {@code .build()} are retried
-   * for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller. Client-invalid errors (409
-   * / 410) are not retried on create.
+   * for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
@@ -194,13 +193,13 @@ public class StreamingClientPools {
    * Shared backoff / budget for {@code .build()} retries. {@code retryOn} is call-site specific.
    */
   private static RetryPolicy<SnowflakeStreamingIngestClient> clientRetryPolicy(
-      String pipeName, Duration maxDuration, CheckedPredicate<Throwable> retryOn) {
+      String pipeName, Duration retryBudget, CheckedPredicate<Throwable> retryOn) {
     return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
         .handleIf(retryOn)
         .withBackoff(CLIENT_CREATION_BASE_DELAY, CLIENT_CREATION_MAX_DELAY, 2.0)
         .withJitter(CLIENT_CREATION_JITTER_FACTOR)
         .withMaxAttempts(-1)
-        .withMaxDuration(maxDuration)
+        .withMaxDuration(retryBudget)
         .onRetry(
             event ->
                 LOGGER.warn(
@@ -209,7 +208,7 @@ public class StreamingClientPools {
                     pipeName,
                     event.getAttemptCount(),
                     event.getElapsedTime().toSeconds(),
-                    maxDuration.toSeconds(),
+                    retryBudget.toSeconds(),
                     event.getLastException().getMessage()))
         .onRetriesExceeded(
             event ->
