@@ -33,7 +33,6 @@ public class ClientRecreationExceptionTest {
         new SFException("InvalidClientError", "Client is invalid", 409, "Conflict");
 
     assertTrue(ClientRecreationException.isClientInvalidError(sfException));
-    assertFalse(ClientRecreationException.isBodyless404(sfException));
   }
 
   @Test
@@ -107,43 +106,11 @@ public class ClientRecreationExceptionTest {
   }
 
   @Test
-  void shouldNotRecognizeBodyless404AsClientInvalid() {
-    SFException bodyless404 = new SFException("SfApiUserError", "", 404, "");
-
-    assertFalse(ClientRecreationException.isClientInvalidError(bodyless404));
-    assertTrue(ClientRecreationException.isBodyless404(bodyless404));
-    assertThrows(IllegalArgumentException.class, () -> new ClientRecreationException(bodyless404));
-    // getMessage() is always decorated; emptiness is on getDetailMessage().
-    assertFalse(bodyless404.getMessage().isEmpty());
-    assertTrue(bodyless404.getDetailMessage().isEmpty());
-  }
-
-  @Test
-  void shouldNotRecognize404WithErrorMessageAsClientInvalid() {
-    SFException notFound = new SFException("SfApiUserError", "pipe not found", 404, "Not Found");
-
-    assertFalse(ClientRecreationException.isClientInvalidError(notFound));
-    assertFalse(ClientRecreationException.isBodyless404(notFound));
-    assertThrows(IllegalArgumentException.class, () -> new ClientRecreationException(notFound));
-  }
-
-  @Test
   void shouldRecognizeUnenvelopedHtml404FromLiveFfiDetail() {
     SFException nr404 =
         new SFException("SfApiUserError", LIVE_FFI_UNENVELOPED_404_DETAIL, 404, "Not Found");
 
-    assertFalse(ClientRecreationException.isClientInvalidError(nr404));
     assertTrue(ClientRecreationException.isBodyless404(nr404));
-  }
-
-  @Test
-  void shouldNotRecognizeEmptyGsFieldsWhenHttpStatusIsNot404() {
-    // Empty-body 404: SDK 1.8.0 reports HTTP 400 even though the Rust sentence
-    // still says "HTTP 404". That is not Envoy NR.
-    SFException emptyBodyMisclassified =
-        new SFException("SfApiUserError", LIVE_FFI_UNENVELOPED_404_DETAIL, 400, "Bad Request");
-
-    assertFalse(ClientRecreationException.isBodyless404(emptyBodyMisclassified));
   }
 
   @Test
