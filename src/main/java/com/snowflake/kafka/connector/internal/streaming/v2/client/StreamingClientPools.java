@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationExcep
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
+import dev.failsafe.function.CheckedPredicate;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -72,8 +73,9 @@ public class StreamingClientPools {
 
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
-   * future completes when the client is ready. Client-invalid errors and body-less 404s on {@code
-   * .build()} are retried for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
+   * future completes when the client is ready. Body-less 404s on {@code .build()} are retried for
+   * {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller. Client-invalid errors (409 /
+   * 410) are not retried on create.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
@@ -93,7 +95,7 @@ public class StreamingClientPools {
       throw new IllegalArgumentException("pipeName cannot be null or empty");
     }
 
-    return Failsafe.with(clientRetryPolicy(pipeName, CLIENT_CREATE_MAX_DURATION))
+    return Failsafe.with(createClientRetryPolicy(pipeName))
         .getStageAsync(
             () ->
                 getPool(connectorName)
@@ -183,21 +185,18 @@ public class StreamingClientPools {
   static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(2);
 
   /**
-   * Wall-clock budget for replacement-client creation. Same order as create, with extra room for a
-   * failover plus a hostname NR on the replacement {@code .build()}. {@link #recreateClient} throws
-   * {@link ClientRecreationException} when exhausted on a client-invalid error; a body-less 404
-   * exhausted here is rethrown as the original {@link com.snowflake.ingest.streaming.SFException}.
+   * Wall-clock budget for replacement-client creation, sized to absorb a pipe-failover window.
+   * {@link #recreateClient} throws {@link ClientRecreationException} when exhausted.
    */
   static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(6);
 
   /**
-   * Retries {@code .build()} on client-invalid errors and body-less HTTP 404 (Envoy NR on {@code
-   * get_subdomain_name}). A 404 with a Snowflake error message is not retried.
+   * Shared backoff / budget for {@code .build()} retries. {@code retryOn} is call-site specific.
    */
   private static RetryPolicy<SnowflakeStreamingIngestClient> clientRetryPolicy(
-      String pipeName, Duration maxDuration) {
+      String pipeName, Duration maxDuration, CheckedPredicate<Throwable> retryOn) {
     return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
-        .handleIf(ClientRecreationException::isRetryableClientConstructionError)
+        .handleIf(retryOn)
         .withBackoff(CLIENT_CREATION_BASE_DELAY, CLIENT_CREATION_MAX_DELAY, 2.0)
         .withJitter(CLIENT_CREATION_JITTER_FACTOR)
         .withMaxAttempts(-1)
@@ -223,9 +222,25 @@ public class StreamingClientPools {
         .build();
   }
 
+  /**
+   * Create retries body-less HTTP 404s only. Client-invalid errors (409 / 410) are not retried:
+   * there is no client yet.
+   */
+  private static RetryPolicy<SnowflakeStreamingIngestClient> createClientRetryPolicy(
+      String pipeName) {
+    return clientRetryPolicy(
+        pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isBodyless404);
+  }
+
+  /**
+   * Recreation retries client-invalid errors (409 / 410) only. A body-less 404 is terminal: the
+   * account already resolved, so a no-route hostname is not the first-lookup race {@link
+   * ClientRecreationException#isBodyless404} exists for.
+   */
   private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
       String pipeName) {
-    return clientRetryPolicy(pipeName, CLIENT_RECREATE_MAX_DURATION);
+    return clientRetryPolicy(
+        pipeName, CLIENT_RECREATE_MAX_DURATION, ClientRecreationException::isClientInvalidError);
   }
 
   /**
