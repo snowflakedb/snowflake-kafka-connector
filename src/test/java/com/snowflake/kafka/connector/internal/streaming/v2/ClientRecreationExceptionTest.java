@@ -111,8 +111,7 @@ public class ClientRecreationExceptionTest {
 
   @Test
   void shouldRecognizeT1EnvoyNr404() {
-    SFException nr404 =
-        new SFException("SfApiUserError", T1_ENVOY_NR_404, 400, "Bad Request");
+    SFException nr404 = new SFException("SfApiUserError", T1_ENVOY_NR_404, 400, "Bad Request");
 
     assertTrue(ClientRecreationException.isUnenvelopedNr404(nr404));
   }
@@ -126,8 +125,7 @@ public class ClientRecreationExceptionTest {
 
   @Test
   void shouldNotRecognizeAccessor404EvenWithNrDetail() {
-    SFException accessor404 =
-        new SFException("SfApiUserError", T1_ENVOY_NR_404, 404, "Not Found");
+    SFException accessor404 = new SFException("SfApiUserError", T1_ENVOY_NR_404, 404, "Not Found");
 
     assertFalse(ClientRecreationException.isUnenvelopedNr404(accessor404));
   }
