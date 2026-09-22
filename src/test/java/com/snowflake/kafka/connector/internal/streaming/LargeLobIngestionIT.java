@@ -27,9 +27,9 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
  * End-to-end coverage for the 128MB LOB limit: a VARIANT just under the ceiling is ingested, and
  * one byte past it is rejected locally and routed to the DLQ.
  *
- * <p>The record is a Java Map so no converter sits between the test and the connector. Payload
- * size is the serialized VARIANT ({@code {"a":"..."}}) relative to the 128MB ceiling minus the
- * 64-byte server-skew buffer.
+ * <p>The record is a Java Map so no converter sits between the test and the connector. Payload size
+ * is the serialized VARIANT ({@code {"a":"..."}}) relative to the 128MB ceiling minus the 64-byte
+ * server-skew buffer.
  *
  * <p>Skipped in default CI: a ~128MB row is TRACE-logged by the connector and has twice cancelled
  * the 6-hour AWS integration job. Set {@code SNOWFLAKE_RUN_LARGE_LOB_IT=true} to run it.
