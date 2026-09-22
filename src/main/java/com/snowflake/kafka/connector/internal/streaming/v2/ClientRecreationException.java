@@ -20,9 +20,6 @@ import java.util.Set;
  *   <li>{@code SfApiPipeFailedOverError} - HTTP 410 on any API call triggers client invalidation
  *   <li>{@code ClosedClientError} - client has been closed and cannot be reused (409 Conflict)
  * </ul>
- *
- * <p>An Envoy NR HTTP 404 is not client-invalid. The SDK already retries those on live APIs; if one
- * reaches KC it is terminal except on first-time {@code .build()}: see {@link #isUnenvelopedNr404}.
  */
 public class ClientRecreationException extends RuntimeException {
 
