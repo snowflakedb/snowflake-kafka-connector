@@ -12,8 +12,8 @@
 
 package com.snowflake.kafka.connector.internal.validation;
 
-import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_16_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.LOB_CEILING_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArray;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArrayNew;
@@ -92,6 +92,25 @@ public class DataValidationUtilTest {
 
   private void expectError(ErrorCode expectedErrorCode, Runnable action) {
     expectErrorCodeAndMessage(expectedErrorCode, null, action);
+  }
+
+  private void expectErrorContaining(
+      ErrorCode expectedErrorCode, String fragment, Runnable action) {
+    try {
+      action.run();
+      Assert.fail("Expected Exception");
+    } catch (SFExceptionValidation e) {
+      assertEquals(expectedErrorCode.getMessageCode(), e.getVendorCode());
+      Assert.assertTrue(
+          "expected message to contain '" + fragment + "', got: " + e.getMessage(),
+          e.getMessage().contains(fragment));
+      Assert.assertFalse(
+          "oversized value must not be reported as invalid JSON: " + e.getMessage(),
+          e.getMessage().contains("Not a valid JSON"));
+    } catch (Exception e) {
+      e.printStackTrace();
+      Assert.fail("Invalid error through");
+    }
   }
 
   @Test
@@ -526,17 +545,18 @@ public class DataValidationUtilTest {
     assertEquals("honk", validateAndParseString("COL", "honk", Optional.empty(), 0));
 
     // Check max byte length
-    String maxString = buildString("a", BYTES_16_MB);
+    String maxString = buildString("a", LOB_CEILING_MB);
     assertEquals(maxString, validateAndParseString("COL", maxString, Optional.empty(), 0));
 
     // max byte length - 1 should also succeed
-    String maxStringMinusOne = buildString("a", BYTES_16_MB - 1);
+    String maxStringMinusOne = buildString("a", LOB_CEILING_MB - 1);
     assertEquals(
         maxStringMinusOne, validateAndParseString("COL", maxStringMinusOne, Optional.empty(), 0));
 
     // max byte length + 1 should fail
-    expectError(
+    expectErrorContaining(
         ErrorCode.INVALID_VALUE_ROW,
+        "String too long",
         () -> validateAndParseString("COL", maxString + "a", Optional.empty(), 0));
 
     // Test that max character length validation counts characters and not bytes
@@ -912,11 +932,23 @@ public class DataValidationUtilTest {
 
     final String tooLargeObject =
         objectMapper.writeValueAsString(
-            Collections.singletonMap("key", StringUtils.repeat('a', 20000000)));
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseObject("COL", tooLargeObject, 0));
-    expectError(
-        ErrorCode.INVALID_VALUE_ROW, () -> validateAndParseObjectNew("COL", tooLargeObject, 0));
+            Collections.singletonMap("key", StringUtils.repeat('a', LOB_CEILING_MB + 1)));
+    expectErrorContaining(
+        ErrorCode.INVALID_VALUE_ROW,
+        "Object too large",
+        () -> validateAndParseObject("COL", tooLargeObject, 0));
+    expectErrorContaining(
+        ErrorCode.INVALID_VALUE_ROW,
+        "Object too large",
+        () -> validateAndParseObjectNew("COL", tooLargeObject, 0));
+    expectErrorContaining(
+        ErrorCode.INVALID_VALUE_ROW,
+        "Variant too long",
+        () -> validateAndParseVariant("COL", tooLargeObject, 0));
+    expectErrorContaining(
+        ErrorCode.INVALID_VALUE_ROW,
+        "Variant too long",
+        () -> validateAndParseVariantNew("COL", tooLargeObject, 0));
 
     // Test that invalid UTF-8 strings cannot be ingested
     expectError(
@@ -1036,7 +1068,7 @@ public class DataValidationUtilTest {
 
   @Test
   public void testTooLargeVariant() {
-    char[] stringContent = new char[16 * 1024 * 1024 - 16]; // {"a":"11","b":""}
+    char[] stringContent = new char[LOB_CEILING_MB - 16]; // {"a":"11","b":""}
     Arrays.fill(stringContent, 'c');
 
     // {"a":"11","b":""}
@@ -1050,8 +1082,9 @@ public class DataValidationUtilTest {
 
   @Test
   public void testTooLargeMultiByteSemiStructuredValues() {
-    // Variant max size is not in characters, but in bytes
-    char[] stringContent = new char[9 * 1024 * 1024]; // 8MB < value < 16MB
+    // Variant max size is not in characters, but in bytes: the character count stays below the
+    // limit while the two-byte-per-character UTF-8 encoding exceeds it.
+    char[] stringContent = new char[65 * 1024 * 1024];
     Arrays.fill(stringContent, 'Č');
 
     Map<String, Object> m = new HashMap<>();
@@ -1060,19 +1093,19 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type VARIANT, rowIndex:0, reason:"
-            + " Variant too long: length=18874376 maxLength=16777152",
+            + " Variant too long: length=136314888 maxLength=134217664",
         () -> validateAndParseVariant("COL", m, 0));
     expectErrorCodeAndMessage(
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type ARRAY, rowIndex:0, reason:"
-            + " Array too large. length=18874378 maxLength=16777152",
+            + " Array too large. length=136314890 maxLength=134217664",
         () -> validateAndParseArray("COL", m, 0));
     expectErrorCodeAndMessage(
         ErrorCode.INVALID_VALUE_ROW,
         "The given row cannot be converted to the internal format due to invalid value: Value"
             + " cannot be ingested into Snowflake column COL of type OBJECT, rowIndex:0, reason:"
-            + " Object too large. length=18874376 maxLength=16777152",
+            + " Object too large. length=136314888 maxLength=134217664",
         () -> validateAndParseObject("COL", m, 0));
   }
 
