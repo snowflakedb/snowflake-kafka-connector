@@ -21,10 +21,9 @@ import java.util.Set;
  *   <li>{@code ClosedClientError} - client has been closed and cannot be reused (409 Conflict)
  * </ul>
  *
- * <p>A body-less HTTP 404 (Envoy NR / invalid account) is not client-invalid. On 1.8.0 the SDK
- * already retries those on live APIs; if one reaches KC it is treated as terminal. Create/recreate
- * {@code .build()} ({@code get_subdomain_name}) is the exception: see {@link
- * #isRetryableClientConstructionError}.
+ * <p>An Envoy NR HTTP 404 (empty GS {@code error_code}/{@code message}) is not client-invalid. The
+ * SDK already retries those on live APIs; if one reaches KC it is terminal except on first-time
+ * {@code .build()}: see {@link #isBodyless404}.
  */
 public class ClientRecreationException extends RuntimeException {
 
@@ -36,6 +35,9 @@ public class ClientRecreationException extends RuntimeException {
           "SfApiPipeFailedOverError",
           // Client was closed
           "ClosedClientError");
+
+  /** GS fields as the Rust SDK prints them when Envoy left the JSON envelope empty. */
+  private static final String UNENVELOPED_404_GS_FIELDS = "error_code=, message=,";
 
   /**
    * Constructs a new {@code ClientRecreationException} wrapping the given {@link SFException}.
@@ -84,25 +86,20 @@ public class ClientRecreationException extends RuntimeException {
   }
 
   /**
-   * Errors that {@code StreamingClientPools} may retry around SDK {@code .build()} ({@code
-   * get_subdomain_name}). The SDK does not retry hostname 404s, so a body-less 404 is included here
-   * even though it is not {@link #isClientInvalidError}.
+   * HTTP 404 with empty GS {@code error_code}/{@code message}. Matches empty {@link
+   * SFException#getDetailMessage()} (unit tests) and the live FFI sentence {@code "... HTTP 404,
+   * error_code=, message=, ..."}. A 404 with a GS message is not NR. Uses the original detail
+   * because {@link SFException#getMessage()} is always decorated.
    */
-  public static boolean isRetryableClientConstructionError(Throwable e) {
-    return isClientInvalidError(e) || isBodyless404(e);
-  }
-
-  /**
-   * Envoy NR 404s have HTTP 404 and no Snowflake error payload. {@link SFException#getMessage()} is
-   * always decorated with the error code and HTTP status, so emptiness is checked on the original
-   * detail.
-   */
-  private static boolean isBodyless404(Throwable e) {
+  public static boolean isBodyless404(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
     SFException sfException = (SFException) e;
+    if (sfException.getHttpStatusCode() != 404) {
+      return false;
+    }
     String detail = sfException.getDetailMessage();
-    return sfException.getHttpStatusCode() == 404 && (detail == null || detail.isEmpty());
+    return detail == null || detail.isEmpty() || detail.contains(UNENVELOPED_404_GS_FIELDS);
   }
 }

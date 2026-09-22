@@ -68,7 +68,7 @@ class MitmproxyControl:
         return self.get_status()["injected_404_bcs_count"]
 
     def enable_404_hostname(self):
-        """Activate empty-body HTTP 404 on /v2/streaming/hostname."""
+        """Activate T1 Envoy NR 404 (HTML body, x-envoy-response-flags=NR) on hostname."""
         resp = requests.post(f"{self.base_url}/enable-404-hostname", timeout=5)
         resp.raise_for_status()
         logger.info("404 hostname injection enabled")
