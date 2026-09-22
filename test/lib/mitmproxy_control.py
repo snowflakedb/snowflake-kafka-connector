@@ -67,6 +67,22 @@ class MitmproxyControl:
         """Return the number of 404 responses injected on :bulk-channel-status."""
         return self.get_status()["injected_404_bcs_count"]
 
+    def enable_404_hostname(self):
+        """Activate empty-body HTTP 404 on /v2/streaming/hostname."""
+        resp = requests.post(f"{self.base_url}/enable-404-hostname", timeout=5)
+        resp.raise_for_status()
+        logger.info("404 hostname injection enabled")
+
+    def disable_404_hostname(self):
+        """Deactivate hostname 404 injection; resume normal forwarding."""
+        resp = requests.post(f"{self.base_url}/disable-404-hostname", timeout=5)
+        resp.raise_for_status()
+        logger.info("404 hostname injection disabled")
+
+    def get_404_hostname_injected_count(self) -> int:
+        """Return the number of 404 responses injected on /v2/streaming/hostname."""
+        return self.get_status()["injected_404_hostname_count"]
+
     def is_reachable(self) -> bool:
         """Check if the control API is reachable."""
         try:
