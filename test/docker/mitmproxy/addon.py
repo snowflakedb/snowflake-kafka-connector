@@ -13,7 +13,7 @@ Usage:
   mitmdump --mode reverse:https://$UPSTREAM_HOST/ --listen-port 8080 \
            --certs /certs/mitmproxy.pem \
            --set keep_host_header=false --set upstream_cert=false \
-           -s /addon/addon_410.py
+           -s /addon/addon.py
 """
 
 import json
@@ -32,7 +32,7 @@ PROXY_SUBDOMAIN_ALIAS = os.environ.get("PROXY_SUBDOMAIN_ALIAS", "mitmproxy-subdo
 
 def log(msg: str) -> None:
     """Print to stderr so mitmdump and Docker capture it."""
-    print(f"[addon_410] {msg}", file=sys.stderr, flush=True)
+    print(f"[addon] {msg}", file=sys.stderr, flush=True)
 
 
 class FaultState:
@@ -93,8 +93,8 @@ fault_state = FaultState()
 fault_state_404_bcs = FaultState()
 
 
-class Addon410:
-    """mitmproxy addon that injects HTTP 410 and manages hostname routing."""
+class FaultAddon:
+    """mitmproxy addon that injects faults and manages hostname routing."""
 
     def request(self, flow: http.HTTPFlow) -> None:
         """Inject 410 on streaming API paths when fault mode is active.
@@ -250,7 +250,7 @@ def start_control_server():
     server.serve_forever()
 
 
-addons = [Addon410()]
+addons = [FaultAddon()]
 
 # Start control server in a daemon thread so it doesn't block mitmproxy
 control_thread = threading.Thread(target=start_control_server, daemon=True)
