@@ -21,9 +21,8 @@ import java.util.Set;
  *   <li>{@code ClosedClientError} - client has been closed and cannot be reused (409 Conflict)
  * </ul>
  *
- * <p>An Envoy NR HTTP 404 (empty GS {@code error_code}/{@code message}) is not client-invalid. The
- * SDK already retries those on live APIs; if one reaches KC it is terminal except on first-time
- * {@code .build()}: see {@link #isBodyless404}.
+ * <p>An Envoy NR HTTP 404 is not client-invalid. The SDK already retries those on live APIs; if one
+ * reaches KC it is terminal except on first-time {@code .build()}: see {@link #isUnenvelopedNr404}.
  */
 public class ClientRecreationException extends RuntimeException {
 
@@ -36,8 +35,8 @@ public class ClientRecreationException extends RuntimeException {
           // Client was closed
           "ClosedClientError");
 
-  /** GS fields as the Rust SDK prints them when Envoy left the JSON envelope empty. */
-  private static final String UNENVELOPED_404_GS_FIELDS = "error_code=, message=,";
+  /** Needle in {@link SFException#getDetailMessage()} for an Envoy NR 404 (empty GS envelope). */
+  private static final String UNENVELOPED_NR_404_DETAIL = "HTTP 404, error_code=, message=,";
 
   /**
    * Constructs a new {@code ClientRecreationException} wrapping the given {@link SFException}.
@@ -86,20 +85,20 @@ public class ClientRecreationException extends RuntimeException {
   }
 
   /**
-   * HTTP 404 with empty GS {@code error_code}/{@code message}. Matches empty {@link
-   * SFException#getDetailMessage()} (unit tests) and the live FFI sentence {@code "... HTTP 404,
-   * error_code=, message=, ..."}. A 404 with a GS message is not NR. Uses the original detail
-   * because {@link SFException#getMessage()} is always decorated.
+   * True for an {@link SFException} with accessor HTTP 400 and a {@link
+   * SFException#getDetailMessage()} containing {@code HTTP 404, error_code=, message=,}. {@code
+   * SfApiUserError} is serialized as {@code BAD_REQUEST}; use the original detail because {@link
+   * SFException#getMessage()} is decorated with the accessor status. A genuine GS 404 has a
+   * non-empty {@code error_code}/{@code message}.
    */
-  public static boolean isBodyless404(Throwable e) {
+  public static boolean isUnenvelopedNr404(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
     SFException sfException = (SFException) e;
-    if (sfException.getHttpStatusCode() != 404) {
-      return false;
-    }
     String detail = sfException.getDetailMessage();
-    return detail == null || detail.isEmpty() || detail.contains(UNENVELOPED_404_GS_FIELDS);
+    return sfException.getHttpStatusCode() == 400
+        && detail != null
+        && detail.contains(UNENVELOPED_NR_404_DETAIL);
   }
 }

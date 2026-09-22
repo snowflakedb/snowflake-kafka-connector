@@ -2,10 +2,11 @@
 E2E tests for first-create getClient when GET /v2/streaming/hostname
 returns a T1 Envoy NR 404 (HTTP 404, branded HTML, empty GS fields).
 
-The addon injects the production T1 shape so the SDK surfaces
-HTTP 404, error_code=, message= (not an empty-body 404, which 1.8.0
-reports as HTTP 400). KC Failsafe retries those unenveloped 404s for
-CLIENT_CREATE_MAX_DURATION (2 minutes). This is not a recreate test.
+The addon injects the production T1 shape. SDK 1.8.0 surfaces that as
+SfApiUserError with accessor HTTP 400 and detail
+"HTTP 404, error_code=, message=". KC Failsafe retries that unenveloped
+NR 404 for CLIENT_CREATE_MAX_DURATION (2 minutes). This is not a recreate
+test.
 
 Requires: --with-mitmproxy flag when running run_tests.sh.
 """
@@ -50,7 +51,7 @@ CONNECTOR_CONFIG = {
     reason="requires --with-mitmproxy (MITMPROXY_CONTROL_URL not set)",
 )
 @pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_getclient_retries_bodyless_hostname_404_then_recovers(
+def test_getclient_retries_unenveloped_nr_404_then_recovers(
     driver,
     name_salt,
     create_connector,
@@ -66,7 +67,7 @@ def test_getclient_retries_bodyless_hostname_404_then_recovers(
     if mitmproxy is None:
         pytest.skip("mitmproxy control API not reachable")
 
-    topic = f"test_getclient_retries_bodyless_hostname_404_then_recovers{name_salt}"
+    topic = f"test_getclient_retries_unenveloped_nr_404_then_recovers{name_salt}"
     table_name = topic.upper()
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
