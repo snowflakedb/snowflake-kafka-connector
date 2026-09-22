@@ -85,8 +85,8 @@ public class ClientRecreationException extends RuntimeException {
 
   /**
    * Errors that {@code StreamingClientPools} may retry around SDK {@code .build()} ({@code
-   * get_subdomain_name}). The SDK does not retry hostname 404s, so a body-less 404 is included
-   * here even though it is not {@link #isClientInvalidError}.
+   * get_subdomain_name}). The SDK does not retry hostname 404s, so a body-less 404 is included here
+   * even though it is not {@link #isClientInvalidError}.
    */
   public static boolean isRetryableClientConstructionError(Throwable e) {
     return isClientInvalidError(e) || isBodyless404(e);

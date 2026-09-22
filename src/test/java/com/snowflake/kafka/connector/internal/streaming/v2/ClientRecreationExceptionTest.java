@@ -106,8 +106,7 @@ public class ClientRecreationExceptionTest {
 
     assertFalse(ClientRecreationException.isClientInvalidError(bodyless404));
     assertTrue(ClientRecreationException.isRetryableClientConstructionError(bodyless404));
-    assertThrows(
-        IllegalArgumentException.class, () -> new ClientRecreationException(bodyless404));
+    assertThrows(IllegalArgumentException.class, () -> new ClientRecreationException(bodyless404));
     // getMessage() is always decorated; emptiness is on getDetailMessage().
     assertFalse(bodyless404.getMessage().isEmpty());
     assertTrue(bodyless404.getDetailMessage().isEmpty());
