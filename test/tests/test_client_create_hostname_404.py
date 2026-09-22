@@ -115,9 +115,7 @@ def test_getclient_fails_after_create_budget_when_hostname_404_persists(
     if mitmproxy is None:
         pytest.skip("mitmproxy control API not reachable")
 
-    topic = (
-        f"test_getclient_fails_after_create_budget_when_hostname_404_persists{name_salt}"
-    )
+    topic = f"test_getclient_fails_after_create_budget_when_hostname_404_persists{name_salt}"
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 
     mitmproxy.reset_counters()
