@@ -168,14 +168,14 @@ class BatchOffsetFetcherTest {
   }
 
   @Test
-  void bodyless404DoesNotTriggerChannelRecovery() {
+  void unenvelopedNr404DoesNotTriggerChannelRecovery() {
     TopicPartition tp0 = new TopicPartition("topicA", 0);
     TopicPartition tp1 = new TopicPartition("topicB", 0);
 
     registerChannel(tp0, "pipeA", "chA0", 10L);
     registerChannel(tp1, "pipeB", "chB0", 30L);
 
-    clientSupplier.setBodyless404Pipe("pipeA");
+    clientSupplier.setUnenvelopedNr404Pipe("pipeA");
 
     Map<TopicPartition, Long> result =
         fetcher.getCommittedOffsets(Set.of(tp0, tp1), channelLookup());
@@ -305,7 +305,7 @@ class BatchOffsetFetcherTest {
     private final Map<String, Map<String, String>> pipeChannelOffsets = new ConcurrentHashMap<>();
     private volatile String failingPipe = null;
     private volatile String clientInvalidPipe = null;
-    private volatile String bodyless404Pipe = null;
+    private volatile String unenvelopedNr404Pipe = null;
 
     void setChannelOffset(String channelName, String pipeName, String offsetToken) {
       pipeChannelOffsets
@@ -322,9 +322,9 @@ class BatchOffsetFetcherTest {
       this.clientInvalidPipe = pipeName;
     }
 
-    /** Makes {@code getChannelStatus} throw a body-less HTTP 404 for the given pipe. */
-    void setBodyless404Pipe(String pipeName) {
-      this.bodyless404Pipe = pipeName;
+    /** Makes {@code getChannelStatus} throw an unenveloped NR 404 for the given pipe. */
+    void setUnenvelopedNr404Pipe(String pipeName) {
+      this.unenvelopedNr404Pipe = pipeName;
     }
 
     int getBatchCallCount() {
@@ -347,8 +347,9 @@ class BatchOffsetFetcherTest {
                   throw new SFException(
                       "InvalidClientError", "Simulated client invalidation", 409, "Conflict");
                 }
-                if (pipeName.equals(bodyless404Pipe)) {
-                  throw new SFException("SfApiUserError", "", 404, "");
+                if (pipeName.equals(unenvelopedNr404Pipe)) {
+                  throw new SFException(
+                      "SfApiUserError", "HTTP 404, error_code=, message=,", 400, "Bad Request");
                 }
                 if (pipeName.equals(failingPipe)) {
                   throw new SFException(
