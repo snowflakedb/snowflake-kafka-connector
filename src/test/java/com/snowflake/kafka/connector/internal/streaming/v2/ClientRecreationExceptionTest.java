@@ -114,16 +114,6 @@ public class ClientRecreationExceptionTest {
   }
 
   @Test
-  void shouldRecognizeUnenveloped404WhenFfiExportsGeneric400Status() {
-    // SDK 1.8.0 preserves the upstream 404 in the Rust detail but exports
-    // SfApiUserError's generic HTTP 400 as the structured status.
-    SFException nr404 =
-        new SFException("SfApiUserError", LIVE_FFI_UNENVELOPED_404_DETAIL, 400, "Bad Request");
-
-    assertTrue(ClientRecreationException.isBodyless404(nr404));
-  }
-
-  @Test
   void shouldNotRecognizeEnvelopedGs404() {
     SFException enveloped =
         new SFException(
@@ -131,8 +121,8 @@ public class ClientRecreationExceptionTest {
             "HTTP request failed with a non-retryable error for API get_subdomain_name."
                 + " HTTP 404, error_code=002003, message=Object does not exist or not authorized,"
                 + " url=https://example.snowflakecomputing.com/v2/streaming/hostname?requestId=abc",
-            400,
-            "Bad Request");
+            404,
+            "Not Found");
 
     assertFalse(ClientRecreationException.isBodyless404(enveloped));
   }

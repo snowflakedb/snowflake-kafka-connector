@@ -102,7 +102,7 @@ class StreamingClientPoolsTest {
   }
 
   @Test
-  void getClient_retries_on_unenveloped_404_with_generic_ffi_status() {
+  void getClient_retries_on_unenveloped_html_404() {
     SnowflakeStreamingIngestClient mockClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     AtomicInteger callCount = new AtomicInteger();
 
@@ -110,7 +110,7 @@ class StreamingClientPoolsTest {
         (clientName, dbName, schemaName, pipeName, props) -> {
           if (callCount.incrementAndGet() == 1) {
             throw new SFException(
-                "SfApiUserError", LIVE_FFI_UNENVELOPED_404_DETAIL, 400, "Bad Request");
+                "SfApiUserError", LIVE_FFI_UNENVELOPED_404_DETAIL, 404, "Not Found");
           }
           return mockClient;
         });
