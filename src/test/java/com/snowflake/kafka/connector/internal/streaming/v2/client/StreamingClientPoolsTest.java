@@ -119,8 +119,7 @@ class StreamingClientPoolsTest {
   void recreateClient_does_not_retry_unenveloped_nr_404() {
     SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     AtomicInteger callCount = new AtomicInteger();
-    SFException nr404 =
-        new SFException("SfApiUserError", T1_ENVOY_NR_404, 400, "Bad Request");
+    SFException nr404 = new SFException("SfApiUserError", T1_ENVOY_NR_404, 400, "Bad Request");
 
     StreamingClientFactory.setStreamingClientSupplier(
         (clientName, dbName, schemaName, pipeName, props) -> {
