@@ -177,18 +177,16 @@ public class StreamingClientPools {
 
   /**
    * Wall-clock budget for first-time client creation ({@link #getClient} / {@link
-   * #getClientAsync}). Sized to observed T1 NR windows (tens of seconds, longest timed ~6 min is
-   * an outlier). Exhaustion fails the create so a permanently unknown account does not retry
-   * forever.
+   * #getClientAsync}). Sized to observed T1 NR windows (tens of seconds, longest timed ~6 min is an
+   * outlier). Exhaustion fails the create so a permanently unknown account does not retry forever.
    */
   static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(2);
 
   /**
-   * Wall-clock budget for replacement-client creation. Same order as create, with extra room for
-   * a failover plus a hostname NR on the replacement {@code .build()}. {@link #recreateClient}
-   * throws {@link ClientRecreationException} when exhausted on a client-invalid error; a body-less
-   * 404 exhausted here is rethrown as the original {@link
-   * com.snowflake.ingest.streaming.SFException}.
+   * Wall-clock budget for replacement-client creation. Same order as create, with extra room for a
+   * failover plus a hostname NR on the replacement {@code .build()}. {@link #recreateClient} throws
+   * {@link ClientRecreationException} when exhausted on a client-invalid error; a body-less 404
+   * exhausted here is rethrown as the original {@link com.snowflake.ingest.streaming.SFException}.
    */
   static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(6);
 
