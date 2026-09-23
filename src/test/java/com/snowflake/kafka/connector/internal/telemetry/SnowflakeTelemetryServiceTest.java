@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -111,35 +112,42 @@ public class SnowflakeTelemetryServiceTest {
 
     validateKeyAndValueConverter(dataNode);
 
-    // Allowlisted user-config keys must be copied through
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.TOPICS));
-    assertTrue(dataNode.has(TASKS_MAX_CONFIG));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.JMX_OPT));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.CACHE_TABLE_EXISTS));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.CACHE_PIPE_EXISTS));
-
-    // Sensitive/untrusted keys must NOT be present
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP));
-    assertFalse(dataNode.has("ssl.keystore.password"));
+    List<String> allowedKeys =
+        List.of(
+            KafkaConnectorConfigParams.TOPICS,
+            TASKS_MAX_CONFIG,
+            KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE,
+            KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
+            KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG,
+            KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
+            KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+            KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,
+            KafkaConnectorConfigParams.JMX_OPT,
+            KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
+            KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
+            KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS);
+    List<String> omittedKeys =
+        List.of(
+            KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+            KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN,
+            KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP,
+            "ssl.keystore.password");
+    for (String key : allowedKeys) {
+      assertTrue(dataNode.has(key), () -> "expected allowlisted key to be copied through: " + key);
+    }
+    for (String key : omittedKeys) {
+      assertFalse(dataNode.has(key), () -> "expected sensitive/untrusted key to be omitted: " + key);
+    }
   }
 
   @Test
