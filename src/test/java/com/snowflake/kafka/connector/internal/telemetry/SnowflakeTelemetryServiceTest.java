@@ -3,6 +3,9 @@ package com.snowflake.kafka.connector.internal.telemetry;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.KEY_CONVERTER;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.VALUE_CONVERTER;
 import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.INGESTION_METHOD;
+import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.JDK_DISTRIBUTION;
+import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService.JDK_VERSION;
+import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -19,7 +22,9 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -29,6 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import net.snowflake.client.internal.jdbc.telemetry.Telemetry;
 import net.snowflake.client.internal.jdbc.telemetry.TelemetryData;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import org.apache.kafka.common.utils.AppInfoParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,10 +62,27 @@ public class SnowflakeTelemetryServiceTest {
     Map<String, String> connectorConfig = createConnectorConfig();
     connectorConfig.put(KEY_CONVERTER, KAFKA_STRING_CONVERTER);
     connectorConfig.put(KafkaConnectorConfigParams.VALUE_CONVERTER, KAFKA_CONFLUENT_AVRO_CONVERTER);
+    connectorConfig.put(KafkaConnectorConfigParams.TOPICS, "topic-a,topic-b");
+    connectorConfig.put(TASKS_MAX_CONFIG, "4");
+    connectorConfig.put(KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE, "true");
+    connectorConfig.put(KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG, "all");
+    connectorConfig.put(KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG, "true");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq");
+    connectorConfig.put(KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES, "IGNORE");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP, "topic-a:table_a");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL, "true");
+    connectorConfig.put(KafkaConnectorConfigParams.JMX_OPT, "true");
+    connectorConfig.put(KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG, "true");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS, "true");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
     connectorConfig.put(
         KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "test-client-secret");
     connectorConfig.put(
         KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN, "test-refresh-token");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP, "password=should-not-leak");
+    connectorConfig.put("ssl.keystore.password", "should-not-leak");
     SnowflakeTelemetryService snowflakeTelemetryService =
         createSnowflakeTelemetryService(connectorConfig);
 
@@ -89,17 +112,73 @@ public class SnowflakeTelemetryServiceTest {
 
     validateKeyAndValueConverter(dataNode);
 
-    // All non-sensitive config keys from the map should be present
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
-    assertTrue(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME));
+    List<String> allowedKeys =
+        List.of(
+            KafkaConnectorConfigParams.TOPICS,
+            TASKS_MAX_CONFIG,
+            KafkaConnectorConfigParams.VALUE_CONVERTER_SCHEMAS_ENABLE,
+            KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
+            KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG,
+            KafkaConnectorConfigParams.ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG,
+            KafkaConnectorConfigParams.BEHAVIOR_ON_NULL_VALUES,
+            KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP,
+            KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,
+            KafkaConnectorConfigParams.JMX_OPT,
+            KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
+            KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
+            KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS);
+    List<String> omittedKeys =
+        List.of(
+            KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+            KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET,
+            KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN,
+            KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP,
+            "ssl.keystore.password");
+    for (String key : allowedKeys) {
+      assertTrue(dataNode.has(key), () -> "expected allowlisted key to be copied through: " + key);
+    }
+    for (String key : omittedKeys) {
+      assertFalse(
+          dataNode.has(key), () -> "expected sensitive/untrusted key to be omitted: " + key);
+    }
+  }
 
-    // Sensitive keys must NOT be present
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET));
-    assertFalse(dataNode.has(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_REFRESH_TOKEN));
+  @Test
+  public void testReportKafkaConnectStart_serviceOwnedKeysNotOverwrittenByConfig() {
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put("app_name", "attacker-app");
+    connectorConfig.put("task_id", "999");
+    connectorConfig.put(TelemetryConstants.START_TIME, "0");
+    connectorConfig.put("kafka_version", "bogus-kafka");
+    connectorConfig.put(JDK_VERSION, "bogus-jdk");
+    connectorConfig.put(JDK_DISTRIBUTION, "bogus-vendor");
+    connectorConfig.put(INGESTION_METHOD, "snowpipe");
+
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    long reportedStart = System.currentTimeMillis();
+    snowflakeTelemetryService.reportKafkaConnectStart(reportedStart, connectorConfig);
+
+    JsonNode dataNode =
+        this.mockTelemetryClient.getSentTelemetryData().get(0).getMessage().get("data");
+    assertEquals("TEST_APP", dataNode.get("app_name").asText());
+    assertEquals("1", dataNode.get("task_id").asText());
+    assertEquals(reportedStart, dataNode.get(TelemetryConstants.START_TIME).asLong());
+    assertEquals(AppInfoParser.getVersion(), dataNode.get("kafka_version").asText());
+    assertEquals(System.getProperty("java.version"), dataNode.get(JDK_VERSION).asText());
+    assertEquals(System.getProperty("java.vendor"), dataNode.get(JDK_DISTRIBUTION).asText());
+    assertEquals(
+        IngestionMethodConfig.SNOWPIPE_STREAMING.toString(),
+        dataNode.get(INGESTION_METHOD).asText());
   }
 
   @Test
