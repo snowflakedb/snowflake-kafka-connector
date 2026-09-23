@@ -183,4 +183,37 @@ class ConnectionServiceIT {
     Assertions.assertThat(conn.getStructuredObjectFieldNames(tableName, "OBJ_B"))
         .containsExactly("field_b1", "field_b2", "field_b3");
   }
+
+  /**
+   * A pipe name containing {@code .} or {@code -} only compiles in DESC PIPE when bound as a quoted
+   * identifier; unquoted it fails with 001003. {@code pipeExist} reports any SQLException as
+   * not-found, so the negative case uses a name that always compiles.
+   */
+  @Test
+  void testPipeExist_dottedAndHyphenNames() {
+    String suffix = String.valueOf(System.nanoTime());
+    String table = "pipe.exist-test_" + suffix;
+    String pipe = table;
+    String missingPipe = "pipe_absent_" + suffix;
+    String stage = table + "_stage";
+    try {
+      TestUtils.createTableWithMetadataColumn(table);
+      TestUtils.executeQuery("create stage if not exists \"" + stage + "\"");
+      TestUtils.executeQuery(
+          "create pipe \""
+              + pipe
+              + "\" as copy into \""
+              + table
+              + "\" from @\""
+              + stage
+              + "\" file_format = (type = 'json')");
+
+      assertThat(conn.pipeExist(pipe)).isTrue();
+      assertThat(conn.pipeExist(missingPipe)).isFalse();
+    } finally {
+      TestUtils.executeQuery("drop pipe if exists \"" + pipe + "\"");
+      TestUtils.executeQuery("drop stage if exists \"" + stage + "\"");
+      TestUtils.dropTable(table);
+    }
+  }
 }
