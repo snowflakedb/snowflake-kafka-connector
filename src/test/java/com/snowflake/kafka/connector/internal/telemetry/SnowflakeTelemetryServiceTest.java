@@ -146,7 +146,8 @@ public class SnowflakeTelemetryServiceTest {
       assertTrue(dataNode.has(key), () -> "expected allowlisted key to be copied through: " + key);
     }
     for (String key : omittedKeys) {
-      assertFalse(dataNode.has(key), () -> "expected sensitive/untrusted key to be omitted: " + key);
+      assertFalse(
+          dataNode.has(key), () -> "expected sensitive/untrusted key to be omitted: " + key);
     }
   }
 
