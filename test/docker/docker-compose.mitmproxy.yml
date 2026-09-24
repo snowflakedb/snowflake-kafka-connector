@@ -33,7 +33,8 @@ services:
       timeout: 5s
       retries: 15
 
-  # fault_injection runs on Apache; the SDK process lives in this container.
+  # Overlay on Apache's kafka service (already defined in docker-compose.apache.yml).
+  # The connector/SDK runs in that container, so it must trust the test CA.
   kafka:
     depends_on:
       mitmproxy:
