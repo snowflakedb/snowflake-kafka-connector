@@ -1,21 +1,21 @@
 FROM mitmproxy/mitmproxy:11
 
-# Copy the addon script
+# Copy the addon script and the test-only leaf cert (SAN: mitmproxy,
+# mitmproxy-subdomain). The Connect worker trusts mitmproxy-ca.crt via SSL_CERT_FILE.
 COPY addon_410.py /addon/addon_410.py
+COPY certs/mitmproxy.pem /certs/mitmproxy.pem
 
-# Expose: 8080 = HTTP reverse proxy, 9080 = control API
+# Expose: 8080 = HTTPS reverse proxy, 9080 = control API (plain HTTP)
 EXPOSE 8080 9080
 
-# Run in reverse proxy mode: accept plain HTTP on port 8080, forward to the
-# real Snowflake host over HTTPS. No TLS on the frontend means no certificate
-# issues with the Rust SDK's compiled-in CA roots.
-#
-# keep_host_header=false ensures the upstream Host header is set to UPSTREAM_HOST
-# (not the Docker alias the SDK used to reach us).
+# Reverse proxy: TLS on the listen port, HTTPS to the real Snowflake host.
+# mitmproxy autodetects client TLS; --certs supplies the leaf for both Docker
+# aliases. keep_host_header=false sets the upstream Host to UPSTREAM_HOST.
 ENTRYPOINT ["sh", "-c", "\
     exec mitmdump \
         --mode reverse:https://${UPSTREAM_HOST}/ \
         --listen-port 8080 \
+        --certs /certs/mitmproxy.pem \
         --set keep_host_header=false \
         --set upstream_cert=false \
         -s /addon/addon_410.py \

@@ -11,6 +11,7 @@ Responsibilities:
 
 Usage:
   mitmdump --mode reverse:https://$UPSTREAM_HOST/ --listen-port 8080 \
+           --certs /certs/mitmproxy.pem \
            --set keep_host_header=false --set upstream_cert=false \
            -s /addon/addon_410.py
 """

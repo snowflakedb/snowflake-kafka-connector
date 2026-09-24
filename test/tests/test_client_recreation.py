@@ -80,10 +80,9 @@ def test_client_recreation_on_pipe_failover(
     )
     driver.createTopics(topic, partitionNum=NUM_PARTITIONS, replicationNum=1)
 
-    # The connector uses the normal SNOWFLAKE_HOST from credentials. When
-    # --with-mitmproxy is active, Kafka Connect is configured with
-    # HTTPS_PROXY=http://mitmproxy:8080 so both the JVM (JDBC) and the Rust
-    # FFI SDK route their HTTPS traffic through the proxy transparently.
+    # Streaming traffic is routed to https://mitmproxy:8080 via
+    # snowflake.streaming.client.provider.override.map in the connector config.
+    # The Connect worker trusts the test CA through SSL_CERT_FILE (compose overlay).
     driver.createConnector(
         name_salt=name_salt,
         rest_request_template_filename=CONFIG_FILE,

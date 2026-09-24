@@ -1,11 +1,10 @@
 # Overlay for mitmproxy-based fault injection tests.
 # Compose with: -f docker-compose.base.yml -f docker-compose.confluent.yml -f docker-compose.mitmproxy.yml
 #
-# The proxy runs in reverse mode: plain HTTP on port 8080, forwarding HTTPS to
-# the real Snowflake host. The SDK is configured (via connector overrides) to
-# use scheme=http, host=mitmproxy, port=8080, so no TLS exists between the SDK
-# and the proxy — eliminating the need for a patched native library or CA cert
-# injection.
+# The proxy runs in reverse mode: TLS on port 8080, forwarding HTTPS to the
+# real Snowflake host. The SDK is configured (via connector overrides) to use
+# scheme=https, host=mitmproxy, port=8080. The Connect worker trusts the
+# test-only CA through SSL_CERT_FILE (SSv2 SDK 1.7+).
 #
 # The addon rewrites the /v2/streaming/hostname response to "mitmproxy-subdomain"
 # (a Docker network alias for the same container). This ensures all subsequent
@@ -33,6 +32,17 @@ services:
       interval: 2s
       timeout: 5s
       retries: 15
+
+  # Overlay on Apache's kafka service (already defined in docker-compose.apache.yml).
+  # The connector/SDK runs in that container, so it must trust the test CA.
+  kafka:
+    depends_on:
+      mitmproxy:
+        condition: service_healthy
+    environment:
+      SSL_CERT_FILE: /certs/mitmproxy-ca.crt
+    volumes:
+      - ./mitmproxy/certs/mitmproxy-ca.crt:/certs/mitmproxy-ca.crt:ro
 
   test-runner:
     environment:
