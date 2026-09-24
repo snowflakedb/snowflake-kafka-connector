@@ -15,6 +15,7 @@ package com.snowflake.kafka.connector.internal.validation;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.BYTES_8_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.LOB_CEILING_MB;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.isAllowedSemiStructuredType;
+import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndFormatDate;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArray;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseArrayNew;
 import static com.snowflake.kafka.connector.internal.validation.DataValidationUtil.validateAndParseBigDecimal;
@@ -147,6 +148,16 @@ public class DataValidationUtilTest {
     assertEquals(18464, validateAndParseDate("COL", "2020-07-21", 0));
     assertEquals(18464, validateAndParseDate("COL", "2020-07-21T23:31:00", 0));
     assertEquals(18464, validateAndParseDate("COL", "2020-07-21T23:31:00+07:00", 0));
+    // SNOW-3819217: bare ISO-8601 date with trailing UTC 'Z'
+    assertEquals(
+        (int) LocalDate.of(2017, 9, 15).toEpochDay(),
+        validateAndParseDate("COL", "2017-09-15Z", 0));
+    assertEquals(
+        (int) LocalDate.of(2017, 9, 15).toEpochDay(),
+        validateAndParseDate("COL", "  2017-09-15Z \t\n", 0));
+    assertEquals(
+        (int) LocalDate.of(2017, 9, 15).toEpochDay(),
+        validateAndParseDate("COL", "2017-09-15ZZ", 0));
     assertEquals(18464, validateAndParseDate("COL", "2020-07-21T23:31:00-07:00", 0));
     assertEquals(
         18464, validateAndParseDate("COL", "2020-07-21T23:31:00-07:00[America/Los_Angeles]", 0));
@@ -329,6 +340,11 @@ public class DataValidationUtilTest {
         BigInteger.valueOf(df.parse("1971-01-01 00:00:00.000").getTime())
             .multiply(BigInteger.valueOf(1000000)),
         validateAndParseTimestamp("COL", "31536000000000000", 9, UTC, true, 0).toBinary(false));
+
+    // SNOW-3819217: bare ISO-8601 date with trailing UTC 'Z' is midnight
+    TimestampWrapper zDate = validateAndParseTimestamp("COL", "2017-09-15Z", 9, UTC, true, 0);
+    assertEquals(LocalDate.of(2017, 9, 15).toEpochDay() * 86400L, zDate.getEpochSecond());
+    assertEquals(0, zDate.getFraction());
 
     // Time input is not supported
     expectError(
@@ -1737,6 +1753,41 @@ public class DataValidationUtilTest {
         ErrorCode.INVALID_VALUE_ROW,
         () ->
             DataValidationUtil.validateAndFormatTimestamp("COL", "not_a_timestamp", UTC, true, 0));
+  }
+
+  // ================ SNOW-3819217: trailing-Z DATE / TIMESTAMP ================
+
+  @Test
+  public void formatDate_supportsIsostringZ() {
+    assertEquals("2017-09-15", validateAndFormatDate("COL", "2017-09-15Z", 0));
+    assertEquals("2017-09-15", validateAndFormatDate("COL", "2017-09-15", 0));
+    assertEquals("2017-09-15", validateAndFormatDate("COL", "2017-09-15T10:30:00Z", 0));
+    assertEquals("2017-09-15", validateAndFormatDate("COL", "  2017-09-15Z  ", 0));
+    assertEquals("2017-09-15", validateAndFormatDate("COL", "2017-09-15ZZ", 0));
+  }
+
+  @Test
+  public void formatDate_rejectsInvalidEvenWithTrailingZ() {
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndFormatDate("COL", "not_a_dateZ", 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndFormatDate("COL", "ZZZZ", 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndFormatDate("COL", "Z", 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndFormatDate("COL", "2017-13-01Z", 0));
+    // Compact digits + Z is not ISO-8601; must not be reinterpreted as an integer-stored epoch.
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndFormatDate("COL", "20170915Z", 0));
+    expectError(ErrorCode.INVALID_VALUE_ROW, () -> validateAndFormatDate("COL", "123Z", 0));
+  }
+
+  @Test
+  public void formatTimestamp_supportsIsostringZ() {
+    assertEquals(
+        "2017-09-15T00:00",
+        DataValidationUtil.validateAndFormatTimestamp("COL", "2017-09-15Z", UTC, true, 0));
+    assertEquals(
+        "2017-09-15T00:00Z",
+        DataValidationUtil.validateAndFormatTimestamp("COL", "2017-09-15Z", UTC, false, 0));
+    assertEquals(
+        "2024-01-15T10:30",
+        DataValidationUtil.validateAndFormatTimestamp("COL", "2024-01-15T10:30:00Z", UTC, true, 0));
   }
 
   private JsonNode readTree(String value) {

@@ -228,8 +228,9 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
-        DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
-        break;
+        // SNOW-3819217: normalize to canonical yyyy-MM-dd so a trailing UTC 'Z' on a bare
+        // ISO-8601 date (e.g. "2017-09-15Z") is stripped before the SSv2 SDK sees it.
+        return DataValidationUtil.validateAndFormatDate(col.getName(), value, insertRowIndex);
 
       case TIME:
         // SNOW-3766306: always validate the TIME value (pre-PR behaviour). When normalizeTime is
@@ -286,13 +287,22 @@ public class RowValidator {
   }
 
   /**
-   * Validate and optionally normalize a timestamp value. Integer/Long epoch values are converted to
-   * ISO strings so the SSv2 SDK interprets them correctly; other types are validated in place.
+   * Validate and optionally normalize a timestamp value. Integer/Long epoch values and ISO-8601
+   * literals whose only extra is a trailing UTC {@code 'Z'} (e.g. {@code "2017-09-15Z"}) are
+   * converted to ISO strings so the SSv2 SDK interprets them correctly; other types are validated
+   * in place.
    */
   private Object validateAndNormalizeTimestamp(
       ColumnSchema col, Object value, boolean trimTimezone, long insertRowIndex)
       throws SFExceptionValidation {
     if (value instanceof Integer || value instanceof Long) {
+      return DataValidationUtil.validateAndFormatTimestamp(
+          col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
+    }
+    // Bare ISO-8601 date + trailing 'Z' fails SSv2 parsing; format it (Z stripped) so it lands
+    // (SNOW-3819217). Full timestamps that already carry a 'Z' (e.g. "2024-01-15T10:30:00Z")
+    // also format cleanly — same accept/reject, canonical ISO string to the SDK.
+    if (value instanceof String && ((String) value).trim().endsWith("Z")) {
       return DataValidationUtil.validateAndFormatTimestamp(
           col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
     }
