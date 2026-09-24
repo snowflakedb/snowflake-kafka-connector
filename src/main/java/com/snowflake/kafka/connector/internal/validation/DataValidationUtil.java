@@ -697,6 +697,21 @@ class DataValidationUtil {
         }
       }
 
+      {
+        // SNOW-3819217: trailing-'Z' fallback for ISO-8601 values carrying a UTC 'Z' that none of
+        // the parsers above accepted — most notably a bare date like "2017-09-15Z". Strip every
+        // trailing 'Z' in one pass and retry only the ISO date/datetime parsers. Do not fall
+        // through to integer-stored timestamps: "20170915Z" must stay rejected (it is not an
+        // ISO-8601 date) rather than being silently reinterpreted as epoch seconds.
+        if (stringInput.endsWith("Z")) {
+          OffsetDateTime stripped =
+              tryParseIsoDateTimeAfterStrippingZ(stringInput, defaultTimezone);
+          if (stripped != null) {
+            return stripped;
+          }
+        }
+      }
+
       // Couldn't parse anything, throw an exception
       throw valueFormatNotAllowedException(
           columnName,
@@ -722,6 +737,53 @@ class DataValidationUtil {
     } catch (DateTimeParseException | NumberFormatException e) {
       return null;
     }
+  }
+
+  /** Strips every trailing ASCII 'Z' from {@code input} in a single pass. */
+  private static String stripTrailingZs(String input) {
+    int end = input.length();
+    while (end > 0 && input.charAt(end - 1) == 'Z') {
+      end--;
+    }
+    return input.substring(0, end);
+  }
+
+  /**
+   * After stripping trailing {@code 'Z'} characters, try ISO date/datetime parsers only.
+   *
+   * @return parsed value, or {@code null} if the remainder is not an ISO date/datetime
+   */
+  private static OffsetDateTime tryParseIsoDateTimeAfterStrippingZ(
+      String stringInput, ZoneId defaultTimezone) {
+    String withoutTrailingZ = stripTrailingZs(stringInput);
+    if (withoutTrailingZ.isEmpty()) {
+      return null;
+    }
+    {
+      LocalDate localDate = catchParsingError(() -> LocalDate.parse(withoutTrailingZ));
+      if (localDate != null) {
+        return localDate.atStartOfDay().atZone(defaultTimezone).toOffsetDateTime();
+      }
+    }
+    {
+      LocalDateTime localDateTime = catchParsingError(() -> LocalDateTime.parse(withoutTrailingZ));
+      if (localDateTime != null) {
+        return localDateTime.atZone(defaultTimezone).toOffsetDateTime();
+      }
+    }
+    {
+      OffsetDateTime offset = catchParsingError(() -> OffsetDateTime.parse(withoutTrailingZ));
+      if (offset != null) {
+        return offset;
+      }
+    }
+    {
+      ZonedDateTime zoned = catchParsingError(() -> ZonedDateTime.parse(withoutTrailingZ));
+      if (zoned != null) {
+        return zoned.toOffsetDateTime();
+      }
+    }
+    return null;
   }
 
   /**
@@ -754,6 +816,24 @@ class DataValidationUtil {
       ZoneId defaultTimezone,
       boolean trimTimezone,
       long insertRowIndex) {
+    return new TimestampWrapper(
+        inputToTimestampOffsetDateTime(
+            columnName, input, defaultTimezone, trimTimezone, insertRowIndex),
+        scale);
+  }
+
+  /**
+   * Parses a TIMESTAMP input into an {@link OffsetDateTime}, applying the accept/reject cascade,
+   * optional timezone trimming, and representable-year-range check shared by {@link
+   * #validateAndParseTimestamp} and {@link #validateAndFormatTimestamp}. Trailing-'Z' ISO-8601
+   * values (e.g. {@code "2017-09-15Z"}) are handled by {@link #inputToOffsetDateTime}.
+   */
+  private static OffsetDateTime inputToTimestampOffsetDateTime(
+      String columnName,
+      Object input,
+      ZoneId defaultTimezone,
+      boolean trimTimezone,
+      long insertRowIndex) {
     // Integer/Long epoch values from Kafka JsonConverter — delegate to the same
     // scale-guessing logic used for string-encoded epochs.  Only whole numbers
     // (Integer, Long) are accepted; fractional types (float, double, BigDecimal)
@@ -776,7 +856,7 @@ class DataValidationUtil {
                   + " rowIndex:%d, column:%s, value:%s",
               insertRowIndex, columnName, offsetDateTime));
     }
-    return new TimestampWrapper(offsetDateTime, scale);
+    return offsetDateTime;
   }
 
   /**
@@ -785,11 +865,13 @@ class DataValidationUtil {
    * serialization), this method returns a human-readable ISO string suitable for passing to the
    * SSv2 SDK.
    *
-   * <p>This is used by RowValidator to normalize Integer/Long epoch values into unambiguous ISO
-   * strings, so the Snowflake backend interprets them correctly regardless of channel timezone.
+   * <p>This is used by RowValidator to normalize Integer/Long epoch values and ISO-8601
+   * trailing-'Z' date/timestamp literals into unambiguous ISO strings, so the Snowflake backend
+   * interprets them correctly regardless of channel timezone.
    *
    * <p>Note: Unlike {@link #validateAndParseTimestamp}, this method omits the {@code scale}
-   * parameter because it only handles Integer/Long epoch inputs which have no fractional seconds.
+   * parameter — fractional seconds are preserved in the ISO string and the server truncates to the
+   * column's scale.
    *
    * @param columnName Column name, used in error messages
    * @param input Timestamp value (Integer, Long, String, or java.time.* object)
@@ -804,25 +886,29 @@ class DataValidationUtil {
       ZoneId defaultTimezone,
       boolean trimTimezone,
       long insertRowIndex) {
-    if (input instanceof Integer || input instanceof Long) {
-      input = input.toString();
-    }
-
     OffsetDateTime offsetDateTime =
-        inputToOffsetDateTime(columnName, "TIMESTAMP", input, defaultTimezone, insertRowIndex);
-
-    if (trimTimezone) {
-      offsetDateTime = offsetDateTime.withOffsetSameLocal(ZoneOffset.UTC);
-    }
-    if (offsetDateTime.getYear() < 1 || offsetDateTime.getYear() > 9999) {
-      throw new SFExceptionValidation(
-          ErrorCode.INVALID_VALUE_ROW,
-          String.format(
-              "Timestamp out of representable inclusive range of years between 1 and 9999,"
-                  + " rowIndex:%d, column:%s, value:%s",
-              insertRowIndex, columnName, offsetDateTime));
-    }
+        inputToTimestampOffsetDateTime(
+            columnName, input, defaultTimezone, trimTimezone, insertRowIndex);
     return trimTimezone ? offsetDateTime.toLocalDateTime().toString() : offsetDateTime.toString();
+  }
+
+  /**
+   * Validates a DATE value and returns a canonical ISO date string ({@code "yyyy-MM-dd"}) suitable
+   * for passing to the SSv2 SDK.
+   *
+   * <p>Accept/reject behavior mirrors {@link #validateAndParseDate}. Additionally, String inputs
+   * ending with a trailing {@code 'Z'} that cannot otherwise be parsed (e.g. an ISO-8601 bare date
+   * with a UTC {@code 'Z'} like {@code "2017-09-15Z"}) are accepted by stripping the trailing
+   * {@code 'Z'} (SNOW-3819217).
+   *
+   * @param columnName Column name, used in error messages
+   * @param input DATE value (String, LocalDate, LocalDateTime, OffsetDateTime, ZonedDateTime,
+   *     Instant, or integer-stored epoch as String)
+   * @param insertRowIndex Row index for error messages
+   * @return ISO date string ({@code "yyyy-MM-dd"})
+   */
+  static String validateAndFormatDate(String columnName, Object input, long insertRowIndex) {
+    return inputToLocalDate(columnName, input, insertRowIndex).toString();
   }
 
   /**
@@ -951,6 +1037,17 @@ class DataValidationUtil {
    * </ul>
    */
   static int validateAndParseDate(String columnName, Object input, long insertRowIndex) {
+    return Math.toIntExact(inputToLocalDate(columnName, input, insertRowIndex).toEpochDay());
+  }
+
+  /**
+   * Parses a DATE input into a {@link LocalDate}, applying the accept/reject cascade and
+   * representable-year-range check shared by {@link #validateAndParseDate} and {@link
+   * #validateAndFormatDate}. Dates carry no timezone, so inputs are interpreted in UTC.
+   * Trailing-'Z' ISO-8601 values (e.g. {@code "2017-09-15Z"}) are handled by {@link
+   * #inputToOffsetDateTime}.
+   */
+  private static LocalDate inputToLocalDate(String columnName, Object input, long insertRowIndex) {
     OffsetDateTime offsetDateTime =
         inputToOffsetDateTime(columnName, "DATE", input, ZoneOffset.UTC, insertRowIndex);
 
@@ -963,7 +1060,7 @@ class DataValidationUtil {
               insertRowIndex, columnName, offsetDateTime));
     }
 
-    return Math.toIntExact(offsetDateTime.toLocalDate().toEpochDay());
+    return offsetDateTime.toLocalDate();
   }
 
   /**

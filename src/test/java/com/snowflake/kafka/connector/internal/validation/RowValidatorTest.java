@@ -1702,6 +1702,103 @@ public class RowValidatorTest {
     assertEquals("2024-01-15T10:00Z", normalized);
   }
 
+  // ================ DATE / TIMESTAMP trailing-Z (SNOW-3819217) ================
+
+  /**
+   * A DATE string that is a bare ISO-8601 date with a trailing UTC 'Z' is accepted and rewritten to
+   * the canonical yyyy-MM-dd form before the SDK sees it.
+   */
+  @Test
+  public void validateRow_isostringZDate_isNormalized() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("D", ColumnSchema.fromDescribeTableFields("D", "DATE", "Y"));
+    RowValidator v = newRowValidator(schema);
+    Map<String, Object> row = new HashMap<>();
+    row.put("D", "2017-09-15Z");
+    ValidationResult r = v.validateRow(row);
+    assertTrue(r.isValid());
+    assertEquals("2017-09-15", row.get("D"));
+  }
+
+  /** Already-valid DATE strings stay accepted; canonical form is yyyy-MM-dd. */
+  @Test
+  public void validateRow_plainDate_isUnchangedCanonical() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("D", ColumnSchema.fromDescribeTableFields("D", "DATE", "Y"));
+    RowValidator v = newRowValidator(schema);
+    Map<String, Object> row = new HashMap<>();
+    row.put("D", "2017-09-15");
+    ValidationResult r = v.validateRow(row);
+    assertTrue(r.isValid());
+    assertEquals("2017-09-15", row.get("D"));
+  }
+
+  /** Invalid DATE strings (including ones that merely end with Z) are still rejected. */
+  @Test
+  public void validateRow_invalidDateWithTrailingZ_isRejected() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("D", ColumnSchema.fromDescribeTableFields("D", "DATE", "Y"));
+    RowValidator v = newRowValidator(schema);
+    Map<String, Object> row = new HashMap<>();
+    row.put("D", "not_a_dateZ");
+    ValidationResult r = v.validateRow(row);
+    assertFalse(r.isValid());
+    assertTrue(r.hasTypeError());
+    assertEquals("D", r.getColumnName());
+  }
+
+  /**
+   * Compact digit dates with a trailing Z are not ISO-8601 and must stay rejected (not treated as
+   * an integer-stored epoch).
+   */
+  @Test
+  public void validateRow_compactDigitDateWithZ_isRejected() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("D", ColumnSchema.fromDescribeTableFields("D", "DATE", "Y"));
+    RowValidator v = newRowValidator(schema);
+    Map<String, Object> row = new HashMap<>();
+    row.put("D", "20170915Z");
+    ValidationResult r = v.validateRow(row);
+    assertFalse(r.isValid());
+    assertEquals("D", r.getColumnName());
+  }
+
+  /**
+   * A TIMESTAMP_NTZ string that is a bare date with a trailing 'Z' is formatted to midnight so the
+   * SSv2 SDK can ingest it.
+   */
+  @Test
+  public void validateRow_isostringZTimestampNtz_isNormalized() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
+    RowValidator validator = newRowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "2017-09-15Z");
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    assertEquals("2017-09-15T00:00", row.get("TS"));
+  }
+
+  /**
+   * A full ISO-8601 timestamp with a trailing 'Z' still lands; the formatted NTZ string drops the
+   * offset (same instant-local wall time).
+   */
+  @Test
+  public void validateRow_isostringZTimestampNtzFull_isNormalized() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
+    RowValidator validator = newRowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "2024-01-15T10:30:00Z");
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    assertEquals("2024-01-15T10:30", row.get("TS"));
+  }
+
   /** Invalid string for TIMESTAMP_NTZ produces a type error. */
   @Test
   public void testValidateRowTimestampNtzInvalidStringRejects() {
