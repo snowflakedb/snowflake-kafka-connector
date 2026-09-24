@@ -11,6 +11,7 @@ import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationExcep
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
+import dev.failsafe.function.CheckedPredicate;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -72,7 +73,8 @@ public class StreamingClientPools {
 
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
-   * future completes when the client is ready.
+   * future completes when the client is ready. Unenveloped NR 404s on {@code .build()} are retried
+   * for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
@@ -92,8 +94,12 @@ public class StreamingClientPools {
       throw new IllegalArgumentException("pipeName cannot be null or empty");
     }
 
-    return getPool(connectorName)
-        .getClientAsync(taskId, pipeName, config, streamingClientProperties, taskMetrics);
+    return Failsafe.with(createClientRetryPolicy(pipeName))
+        .getStageAsync(
+            () ->
+                getPool(connectorName)
+                    .getClientAsync(
+                        taskId, pipeName, config, streamingClientProperties, taskMetrics));
   }
 
   private static StreamingClientPool getPool(final String connectorName) {
@@ -145,10 +151,15 @@ public class StreamingClientPools {
                           streamingClientProperties,
                           taskMetrics));
     } catch (FailsafeException e) {
-      // Retries exhausted — wrap as ClientRecreationException so the batch
-      // loop can rewind offsets instead of crashing the task.
       Throwable cause = e.getCause() != null ? e.getCause() : e;
-      throw ClientRecreationException.wrap(cause);
+      if (ClientRecreationException.isClientInvalidError(cause)) {
+        throw ClientRecreationException.wrap(cause);
+      }
+      if (cause instanceof RuntimeException) {
+        throw (RuntimeException) cause;
+      }
+      throw new ConnectException(
+          "Unexpected error recreating streaming client for pipe: " + pipeName, cause);
     }
   }
 
@@ -166,52 +177,69 @@ public class StreamingClientPools {
   private static final double CLIENT_CREATION_JITTER_FACTOR = 0.2;
 
   /**
-   * Total wall-clock budget for recreate retries before giving up. Sized for real SSv2
-   * pipe-failover propagation windows (observed 2–4 min) plus headroom. {@link #recreateClient}
-   * throws {@link ClientRecreationException} when exhausted; callers are expected to convert that
-   * to a {@link ConnectException} so Kafka Connect fails and restarts the task.
+   * Wall-clock budget for first-time client creation ({@link #getClient} / {@link
+   * #getClientAsync}). Sized to observed T1 NR windows (tens of seconds, longest timed ~6 min is an
+   * outlier). Exhaustion fails the create so a permanently unknown account does not retry forever.
    */
-  private static final Duration CLIENT_CREATION_MAX_DURATION = Duration.ofMinutes(6);
+  static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(2);
 
   /**
-   * Retries replacement-client creation when the SDK reports a client-invalid error (e.g., pipe
-   * failover still in flight). The pool evicts the failed entry on each attempt, so the retry
-   * creates a fresh client. Non-client-invalid errors fall through immediately.
-   *
-   * <p>{@link #recreateClient} can be called concurrently by multiple {@link
-   * com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel}s on the
-   * same pipe. The pool's CAS dedupes to a single fresh client per round, but each caller runs its
-   * own Failsafe retry schedule. When reading logs, expect overlapping retry schedules across
-   * channels on the same pipe during a failover event.
+   * Wall-clock budget for replacement-client creation, sized to absorb a pipe-failover window.
+   * {@link #recreateClient} throws {@link ClientRecreationException} when exhausted.
    */
-  private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
-      String pipeName) {
+  static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(6);
+
+  /**
+   * Shared backoff / budget for {@code .build()} retries. {@code retryOn} is call-site specific.
+   */
+  private static RetryPolicy<SnowflakeStreamingIngestClient> clientRetryPolicy(
+      String pipeName, Duration retryBudget, CheckedPredicate<Throwable> retryOn) {
     return RetryPolicy.<SnowflakeStreamingIngestClient>builder()
-        .handleIf(
-            e -> e instanceof RuntimeException && ClientRecreationException.isClientInvalidError(e))
+        .handleIf(retryOn)
         .withBackoff(CLIENT_CREATION_BASE_DELAY, CLIENT_CREATION_MAX_DELAY, 2.0)
         .withJitter(CLIENT_CREATION_JITTER_FACTOR)
         .withMaxAttempts(-1)
-        .withMaxDuration(CLIENT_CREATION_MAX_DURATION)
+        .withMaxDuration(retryBudget)
         .onRetry(
             event ->
                 LOGGER.warn(
-                    "Replacement client for pipe {} failed with client-invalid error"
+                    "Streaming client for pipe {} failed with a retryable error"
                         + " (attempt {}, elapsed {}s / {}s budget): {}",
                     pipeName,
                     event.getAttemptCount(),
                     event.getElapsedTime().toSeconds(),
-                    CLIENT_CREATION_MAX_DURATION.toSeconds(),
+                    retryBudget.toSeconds(),
                     event.getLastException().getMessage()))
         .onRetriesExceeded(
             event ->
                 LOGGER.error(
-                    "Replacement client for pipe {} failed after {} attempts ({}s elapsed): {}",
+                    "Streaming client for pipe {} failed after {} attempts ({}s elapsed): {}",
                     pipeName,
                     event.getAttemptCount(),
                     event.getElapsedTime().toSeconds(),
                     event.getException().getMessage()))
         .build();
+  }
+
+  /**
+   * Create retries unenveloped NR 404s only. Client-invalid errors (409 / 410) are not retried:
+   * there is no client yet.
+   */
+  private static RetryPolicy<SnowflakeStreamingIngestClient> createClientRetryPolicy(
+      String pipeName) {
+    return clientRetryPolicy(
+        pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isUnenvelopedNr404);
+  }
+
+  /**
+   * Recreation retries client-invalid errors (409 / 410) only. An unenveloped NR 404 is terminal:
+   * the account already resolved, so a no-route hostname is not the first-lookup race {@link
+   * ClientRecreationException#isUnenvelopedNr404} exists for.
+   */
+  private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
+      String pipeName) {
+    return clientRetryPolicy(
+        pipeName, CLIENT_RECREATE_MAX_DURATION, ClientRecreationException::isClientInvalidError);
   }
 
   /**
