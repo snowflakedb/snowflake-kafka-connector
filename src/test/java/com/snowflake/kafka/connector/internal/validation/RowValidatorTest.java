@@ -1728,7 +1728,9 @@ public class RowValidatorTest {
   @Test
   public void validateRow_timestampWithTrailingZDate_isAcceptedAsDate() {
     for (ColumnLogicalType type :
-        new ColumnLogicalType[] {ColumnLogicalType.TIMESTAMP_NTZ, ColumnLogicalType.TIMESTAMP_LTZ}) {
+        new ColumnLogicalType[] {
+          ColumnLogicalType.TIMESTAMP_NTZ, ColumnLogicalType.TIMESTAMP_LTZ
+        }) {
       Map<String, ColumnSchema> schema = new HashMap<>();
       schema.put("TS", createTimestampColumnSchema("TS", type));
       Map<String, Object> row = new HashMap<>();
