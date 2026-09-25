@@ -7,8 +7,7 @@
 # test-only CA through SSL_CERT_FILE (SSv2 SDK 1.7+).
 #
 # The mitmproxy entrypoint generates a CA + leaf into the mitmproxy-certs
-# volume before mitmdump starts. kafka depends_on service_healthy, so the
-# CA is on the volume before Connect reads SSL_CERT_FILE.
+# volume before mitmdump starts.
 #
 # The addon rewrites the /v2/streaming/hostname response to "mitmproxy-subdomain"
 # (a Docker network alias for the same container). This ensures all subsequent
