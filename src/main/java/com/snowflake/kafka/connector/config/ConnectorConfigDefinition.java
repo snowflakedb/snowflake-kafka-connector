@@ -195,7 +195,10 @@ public class ConnectorConfigDefinition {
             STRING,
             "",
             LOW,
-            "JVM option: https.proxyHost",
+            "Java/JDBC proxy host (JVM option: https.proxyHost). This does not configure the"
+                + " native Snowpipe Streaming SDK used by Kafka Connector v4 for streaming data"
+                + " and file-mode cloud-storage uploads. Configure HTTPS_PROXY in the Kafka"
+                + " Connect worker environment for native SDK traffic.",
             PROXY_INFO_DOC,
             0,
             Width.NONE,
@@ -205,7 +208,9 @@ public class ConnectorConfigDefinition {
             STRING,
             "",
             LOW,
-            "JVM option: https.proxyPort",
+            "Java/JDBC proxy port (JVM option: https.proxyPort). This does not configure the"
+                + " native Snowpipe Streaming SDK; include the port in the Kafka Connect worker's"
+                + " HTTP_PROXY or HTTPS_PROXY environment variable.",
             PROXY_INFO_DOC,
             1,
             Width.NONE,
@@ -215,7 +220,9 @@ public class ConnectorConfigDefinition {
             STRING,
             "",
             LOW,
-            "JVM option: http.nonProxyHosts",
+            "Java/JDBC proxy bypass list (JVM option: http.nonProxyHosts). This does not configure"
+                + " the native Snowpipe Streaming SDK; configure NO_PROXY in the Kafka Connect"
+                + " worker environment for native SDK traffic.",
             PROXY_INFO_DOC,
             2,
             Width.NONE,
@@ -225,7 +232,8 @@ public class ConnectorConfigDefinition {
             STRING,
             "",
             LOW,
-            "JVM proxy username",
+            "Java/JDBC proxy username. This does not configure proxy authentication for the native"
+                + " Snowpipe Streaming SDK.",
             PROXY_INFO_DOC,
             3,
             Width.NONE,
@@ -235,7 +243,8 @@ public class ConnectorConfigDefinition {
             PASSWORD,
             "",
             LOW,
-            "JVM proxy password",
+            "Java/JDBC proxy password. This does not configure proxy authentication for the native"
+                + " Snowpipe Streaming SDK.",
             PROXY_INFO_DOC,
             4,
             Width.NONE,
