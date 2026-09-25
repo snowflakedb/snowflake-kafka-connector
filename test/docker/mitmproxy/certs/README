@@ -1,29 +1,7 @@
-Test-only TLS material for the mitmproxy fault-injection e2e.
+The mitmproxy e2e CA and leaf are generated at container start by
+`generate_certs.py` into the `mitmproxy-certs` compose volume. They are not
+stored in git.
 
-Not a production secret.
-
-- `mitmproxy-ca.crt` — CA the Connect worker trusts via `SSL_CERT_FILE`
-- `mitmproxy.crt` / `mitmproxy.pem` — leaf for `mitmproxy` and `mitmproxy-subdomain`
-  (`pem` is leaf + private key, which mitmproxy `--certs` expects)
-
-Regenerate:
-
-```
-openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
-  -keyout ca.key -out mitmproxy-ca.crt \
-  -subj "/CN=mitmproxy-e2e-ca" \
-  -addext "basicConstraints=critical,CA:TRUE" \
-  -addext "keyUsage=critical,keyCertSign,cRLSign"
-
-openssl req -newkey rsa:2048 -sha256 -nodes \
-  -keyout leaf.key -out leaf.csr \
-  -subj "/CN=mitmproxy-e2e"
-
-openssl x509 -req -in leaf.csr -CA mitmproxy-ca.crt -CAkey ca.key -CAcreateserial \
-  -days 3650 -sha256 \
-  -extfile <(printf "subjectAltName=DNS:mitmproxy,DNS:mitmproxy-subdomain\n") \
-  -out mitmproxy.crt
-
-cat mitmproxy.crt leaf.key > mitmproxy.pem
-rm -f leaf.csr leaf.key ca.key mitmproxy-ca.srl mitmproxy.crt
-```
+- `/certs/mitmproxy-ca.crt` — CA the Connect worker trusts via `SSL_CERT_FILE`
+- `/certs/mitmproxy.pem` — leaf (SAN: mitmproxy, mitmproxy-subdomain) plus
+  private key, which mitmproxy `--certs` expects
