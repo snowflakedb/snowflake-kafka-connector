@@ -8,6 +8,7 @@ import static com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetr
 import static org.apache.kafka.connect.runtime.ConnectorConfig.TASKS_MAX_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -15,6 +16,7 @@ import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.TestUtils;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
@@ -38,6 +40,7 @@ import org.apache.kafka.common.utils.AppInfoParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 public class SnowflakeTelemetryServiceTest {
@@ -196,6 +199,171 @@ public class SnowflakeTelemetryServiceTest {
     JsonNode dataNode = sentData.get(0).getMessage().get("data");
     assertEquals(
         "server_side", dataNode.get(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION).asText());
+  }
+
+  @Test
+  public void testReportKafkaConnectStart_authenticatorTypeDefaultsToKeyPair() {
+    // given: no authenticator configured, which is the documented default
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.remove(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR);
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then: the default is reported explicitly rather than left absent
+    assertEquals(
+        AuthenticatorType.SNOWFLAKE_JWT.toConfigValue(),
+        sentTelemetryDataField(SnowflakeTelemetryService.AUTHENTICATOR_TYPE));
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      value = {
+        // No space after the comma: ignoreLeadingAndTrailingWhitespace is false, so any space
+        // would become part of the argument.
+        "snowflake_jwt,snowflake_jwt",
+        "SNOWFLAKE_JWT,snowflake_jwt",
+        "Snowflake_Jwt,snowflake_jwt",
+        "oauth,oauth",
+        "OAUTH,oauth",
+        "OAuth,oauth",
+        "spcs,spcs",
+        "SPCS,spcs",
+        // Whitespace is trimmed, and blank is treated as unset. The flag must stay false, or JUnit
+        // trims these arguments and the cases silently test nothing.
+        "'  oauth  ',oauth",
+        "'\t spcs ',spcs",
+        "'   ',snowflake_jwt",
+      },
+      ignoreLeadingAndTrailingWhitespace = false)
+  public void testReportKafkaConnectStart_authenticatorTypeIsNormalized(
+      String configuredValue, String expectedReportedValue) {
+    // given
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, configuredValue);
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then: case and whitespace variants collapse to the enum's config value
+    assertEquals(
+        expectedReportedValue,
+        sentTelemetryDataField(SnowflakeTelemetryService.AUTHENTICATOR_TYPE));
+  }
+
+  @Test
+  public void testReportKafkaConnectStart_emptyAuthenticatorIsTreatedAsUnset() {
+    // given
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, "");
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then: an empty value means the key-pair default, not unknown
+    assertEquals(
+        AuthenticatorType.SNOWFLAKE_JWT.toConfigValue(),
+        sentTelemetryDataField(SnowflakeTelemetryService.AUTHENTICATOR_TYPE));
+  }
+
+  /**
+   * Totality: every {@link AuthenticatorType} must be reportable. A future ambient authenticator
+   * (for example workload identity federation) added to that enum is then covered without touching
+   * the telemetry code, and this test fails if it ever stops round-tripping.
+   */
+  @ParameterizedTest
+  @EnumSource(value = AuthenticatorType.class)
+  public void testReportKafkaConnectStart_everyAuthenticatorTypeRoundTrips(
+      AuthenticatorType authenticatorType) {
+    // given
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, authenticatorType.toConfigValue());
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then
+    assertEquals(
+        authenticatorType.toConfigValue(),
+        sentTelemetryDataField(SnowflakeTelemetryService.AUTHENTICATOR_TYPE));
+  }
+
+  /**
+   * The {@code unknown} sentinel must stay distinct from every real authenticator, otherwise a
+   * parsed value and a parse failure would be indistinguishable in telemetry. This is the invariant
+   * the round-trip test above relies on, pinned once here rather than re-asserted per constant.
+   */
+  @Test
+  public void testUnknownAuthenticatorTypeSentinelDoesNotCollideWithAnyEnumValue() {
+    for (AuthenticatorType authenticatorType : AuthenticatorType.values()) {
+      assertNotEquals(
+          SnowflakeTelemetryService.UNKNOWN_AUTHENTICATOR_TYPE, authenticatorType.toConfigValue());
+    }
+  }
+
+  @Test
+  public void testReportKafkaConnectStart_unrecognizedAuthenticatorIsReportedAsUnknown() {
+    // given: a value config validation rejects; telemetry must not be what fails
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, "not_an_authenticator");
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then: reported as unknown, and the rejected input appears nowhere in the payload
+    assertEquals(
+        SnowflakeTelemetryService.UNKNOWN_AUTHENTICATOR_TYPE,
+        sentTelemetryDataField(SnowflakeTelemetryService.AUTHENTICATOR_TYPE));
+    LinkedList<TelemetryData> sentData = this.mockTelemetryClient.getSentTelemetryData();
+    assertEquals(1, sentData.size());
+    assertFalse(sentData.get(0).getMessage().toString().contains("not_an_authenticator"));
+  }
+
+  /**
+   * {@code authenticator_type} is service-owned: it must not be copyable from connector config,
+   * because a value chosen by the operator would misreport the authentication method actually in
+   * use. Today the copy allowlist is what enforces this. If this test ever fails because the key
+   * was added to that allowlist, the write ordering in {@code reportKafkaConnectStart} becomes the
+   * only thing keeping the resolved value authoritative, and it then needs a test of its own that
+   * fails when the ordering is inverted.
+   */
+  @Test
+  public void testAuthenticatorTypeIsNotCopyableFromConnectorConfig() {
+    assertFalse(
+        SnowflakeTelemetryService.KAFKA_START_ALLOWED_DATA_KEYS.contains(
+            SnowflakeTelemetryService.AUTHENTICATOR_TYPE));
+  }
+
+  @Test
+  public void testReportKafkaConnectStart_configCannotSupplyAuthenticatorType() {
+    // given: config carrying the telemetry field name itself, alongside a real authenticator
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, "oauth");
+    connectorConfig.put(SnowflakeTelemetryService.AUTHENTICATOR_TYPE, "spoofed");
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then: the resolved value is reported and the supplied value never reaches the payload
+    assertEquals(
+        AuthenticatorType.OAUTH.toConfigValue(),
+        sentTelemetryDataField(SnowflakeTelemetryService.AUTHENTICATOR_TYPE));
+    LinkedList<TelemetryData> sentData = this.mockTelemetryClient.getSentTelemetryData();
+    assertEquals(1, sentData.size());
+    assertFalse(sentData.get(0).getMessage().toString().contains("spoofed"));
   }
 
   @ParameterizedTest
