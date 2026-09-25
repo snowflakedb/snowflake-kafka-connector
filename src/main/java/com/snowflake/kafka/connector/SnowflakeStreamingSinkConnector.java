@@ -78,6 +78,17 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   private SnowflakeTelemetryService telemetryClient;
   private long connectorStartTime;
 
+  /**
+   * Wires up the connection and its telemetry client exactly as {@code start()} does, so a test can
+   * exercise {@code stop()}. {@code start()} itself cannot be used for that: it builds a real
+   * Snowflake connection, which no unit test can satisfy.
+   */
+  @VisibleForTesting
+  void injectConnectionForTests(SnowflakeConnectionService connection) {
+    this.conn = connection;
+    this.telemetryClient = connection.getTelemetryClient();
+  }
+
   // Kafka Connect starts sink tasks without waiting for setup in
   // SnowflakeStreamingSinkConnector to finish.
   // This causes race conditions for: config validation, tables and stages
@@ -159,6 +170,20 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
     if (telemetryClient != null) {
       telemetryClient.reportKafkaConnectStop(connectorStartTime);
+    }
+
+    // Closed after the stop telemetry is reported, never before: the report travels over this very
+    // connection. A telemetry client that buffers instead of sending per event also relies on the
+    // close itself to flush, so reversing the order would drop the kafka_stop event entirely.
+    if (conn != null) {
+      try {
+        conn.close();
+      } catch (Exception e) {
+        // Best-effort: the connector is shutting down and there is nothing left to salvage. Not
+        // narrowed to SnowflakeKafkaConnectorException because close() reports its own failure
+        // through the connection that just failed, so the surfacing type is not guaranteed.
+        LOGGER.warn("Failed to close the Snowflake connection on stop: {}", e.getMessage());
+      }
     }
   }
 
