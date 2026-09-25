@@ -110,11 +110,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         v.toString().startsWith("00:00:00"), "TIME value should be 00:00:00, got: " + v);
   }
 
-  /**
-   * SNOW-3819217: A DATE string that is a bare ISO-8601 date with a trailing UTC 'Z' (e.g.
-   * "2017-09-15Z") must be normalized to 2017-09-15 and land — not routed to the DLQ — when
-   * client-side validation is enabled.
-   */
+  /** DATE "2017-09-15Z" lands as 2017-09-15 (client-side validation). */
   @Test
   public void dateColumnWithTrailingZ_landsAsDate() throws Exception {
     conn.createTableWithOnlyMetadataColumn(table);
@@ -140,7 +136,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     Assertions.assertEquals(
         0,
         reporter.getReportedRecords().size(),
-        "DLQ must be empty: 2017-09-15Z should normalize and land (SNOW-3819217)");
+        "DLQ must be empty: 2017-09-15Z should land as a date");
 
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 5, 20);
 
@@ -152,10 +148,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         v.toString().startsWith("2017-09-15"), "DATE value should be 2017-09-15, got: " + v);
   }
 
-  /**
-   * SNOW-3819217: A TIMESTAMP_NTZ string that is a bare ISO-8601 date with a trailing UTC 'Z' must
-   * land (as midnight) rather than being routed to the DLQ.
-   */
+  /** TIMESTAMP_NTZ "2017-09-15Z" lands as midnight on 2017-09-15 (client-side validation). */
   @Test
   public void timestampColumnWithTrailingZDate_lands() throws Exception {
     conn.createTableWithOnlyMetadataColumn(table);
