@@ -1778,16 +1778,19 @@ public class DataValidationUtilTest {
   }
 
   @Test
-  public void formatTimestamp_supportsIsostringZ() {
+  public void bareIsoDateAfterStrippingZ_onlyBareDate() {
     assertEquals(
-        "2017-09-15T00:00",
-        DataValidationUtil.validateAndFormatTimestamp("COL", "2017-09-15Z", UTC, true, 0));
+        Optional.of("2017-09-15"), DataValidationUtil.bareIsoDateAfterStrippingZ("2017-09-15Z"));
     assertEquals(
-        "2017-09-15T00:00Z",
-        DataValidationUtil.validateAndFormatTimestamp("COL", "2017-09-15Z", UTC, false, 0));
+        Optional.of("2017-09-15"),
+        DataValidationUtil.bareIsoDateAfterStrippingZ("  2017-09-15Z  "));
     assertEquals(
-        "2024-01-15T10:30",
-        DataValidationUtil.validateAndFormatTimestamp("COL", "2024-01-15T10:30:00Z", UTC, true, 0));
+        Optional.of("2017-09-15"), DataValidationUtil.bareIsoDateAfterStrippingZ("2017-09-15ZZ"));
+    assertEquals(Optional.empty(), DataValidationUtil.bareIsoDateAfterStrippingZ("2017-09-15"));
+    assertEquals(
+        Optional.empty(), DataValidationUtil.bareIsoDateAfterStrippingZ("2017-09-15T10:30:00Z"));
+    assertEquals(Optional.empty(), DataValidationUtil.bareIsoDateAfterStrippingZ("20170915Z"));
+    assertEquals(Optional.empty(), DataValidationUtil.bareIsoDateAfterStrippingZ("not_a_dateZ"));
   }
 
   private JsonNode readTree(String value) {

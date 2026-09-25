@@ -746,7 +746,8 @@ def test_date_trailing_z(results):
     """Bare ISO-8601 DATE/TIMESTAMP with a trailing UTC Z (e.g. "2017-09-15Z").
 
     New capability beyond KC v3 parity (v3 rejected these). v4-compat
-    RowValidator strips the trailing Z before the SSv2 SDK (SNOW-3819217).
+    RowValidator rewrites the value to YYYY-MM-DD before the SSv2 SDK
+    (SNOW-3819217).
 
     v4-ht bypasses RowValidator and relies on the SSv2 server, which does not
     accept a bare date+'Z', so this guarantee does not apply there.
