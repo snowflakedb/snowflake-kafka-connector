@@ -262,8 +262,7 @@ CASES = [
         expected_value=datetime.date(2099, 12, 31),
     ),
     Case("date_bad", "COL_DATE", "not_a_date", ERR),
-    # Bare ISO-8601 date + trailing UTC Z (SNOW-3819217): new v4-compat capability
-    # (v3 rejected these). Owned by test_date_trailing_z.
+    # Bare date + trailing Z. New v4-compat capability (v3 rejected these).
     Case(
         "date_trailing_z",
         "COL_DATE",
@@ -743,24 +742,15 @@ def test_time_offset(results):
 
 
 def test_date_trailing_z(results):
-    """Bare ISO-8601 DATE/TIMESTAMP with a trailing UTC Z (e.g. "2017-09-15Z").
+    """DATE/TIMESTAMP "2017-09-15Z" is accepted as 2017-09-15 on v4-compat.
 
-    New capability beyond KC v3 parity (v3 rejected these). v4-compat
-    RowValidator rewrites the value to YYYY-MM-DD before the SSv2 SDK
-    (SNOW-3819217).
-
-    v4-ht bypasses RowValidator and relies on the SSv2 server, which does not
-    accept a bare date+'Z', so this guarantee does not apply there.
+    v3 rejected these. v4-ht talks to the SSv2 server, which does not accept
+    a bare date with a trailing Z.
     """
     if results.mode == "v3":
-        pytest.skip(
-            "trailing-Z DATE/TIMESTAMP is a new v4 capability; v3 rejected these literals"
-        )
+        pytest.skip("v3 rejected a trailing Z on a bare date")
     if results.mode == "v4-ht":
-        pytest.skip(
-            "trailing-Z DATE/TIMESTAMP normalization (SNOW-3819217) applies to the"
-            " client-side path only; v4-ht relies on the SSv2 server"
-        )
+        pytest.skip("v4-ht uses the SSv2 server, which rejects a bare date with Z")
     _assert_all(results, cases_where(group="date_trailing_z"))
 
 

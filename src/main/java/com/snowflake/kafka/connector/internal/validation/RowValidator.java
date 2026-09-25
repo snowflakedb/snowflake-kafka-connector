@@ -11,7 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -228,14 +230,9 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
-        // SNOW-3819217: "2017-09-15Z" → "2017-09-15". Same canonical string as TIMESTAMP.
-        Optional<String> dateAfterStrippingZ = DataValidationUtil.bareIsoDateAfterStrippingZ(value);
-        if (dateAfterStrippingZ.isPresent()) {
-          DataValidationUtil.validateAndParseDate(
-              col.getName(), dateAfterStrippingZ.get(), insertRowIndex);
-          return dateAfterStrippingZ.get();
-        }
-        return DataValidationUtil.validateAndFormatDate(col.getName(), value, insertRowIndex);
+        value = stripZIfBareDate(value);
+        DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
+        break;
 
       case TIME:
         // SNOW-3766306: always validate the TIME value (pre-PR behaviour). When normalizeTime is
@@ -292,10 +289,8 @@ public class RowValidator {
   }
 
   /**
-   * Validate and optionally normalize a timestamp value. Integer/Long epoch values become ISO
-   * strings. A bare date with a trailing {@code 'Z'} (e.g. {@code "2017-09-15Z"}) is rewritten to
-   * {@code YYYY-MM-DD} — the same string DATE uses — so the SSv2 SDK sees a Snowflake AUTO date
-   * (SNOW-3819217). Other values are validated in place.
+   * Validate and optionally normalize a timestamp value. Integer/Long epoch values are converted to
+   * ISO strings so the SSv2 SDK interprets them correctly; other types are validated in place.
    */
   private Object validateAndNormalizeTimestamp(
       ColumnSchema col, Object value, boolean trimTimezone, long insertRowIndex)
@@ -304,17 +299,7 @@ public class RowValidator {
       return DataValidationUtil.validateAndFormatTimestamp(
           col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
     }
-    Optional<String> dateAfterStrippingZ = DataValidationUtil.bareIsoDateAfterStrippingZ(value);
-    if (dateAfterStrippingZ.isPresent()) {
-      DataValidationUtil.validateAndParseTimestamp(
-          col.getName(),
-          dateAfterStrippingZ.get(),
-          col.getScale() != null ? col.getScale() : 9,
-          defaultTimezone,
-          trimTimezone,
-          insertRowIndex);
-      return dateAfterStrippingZ.get();
-    }
+    value = stripZIfBareDate(value);
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),
         value,
@@ -323,6 +308,24 @@ public class RowValidator {
         trimTimezone,
         insertRowIndex);
     return value;
+  }
+
+  /** {@code "2017-09-15Z"} → {@code "2017-09-15"}. Anything else is returned unchanged. */
+  private static Object stripZIfBareDate(Object value) {
+    if (!(value instanceof String)) {
+      return value;
+    }
+    String s = ((String) value).trim();
+    if (!s.endsWith("Z")) {
+      return value;
+    }
+    String withoutZ = s.substring(0, s.length() - 1);
+    try {
+      LocalDate.parse(withoutZ);
+      return withoutZ;
+    } catch (DateTimeParseException e) {
+      return value;
+    }
   }
 
   /** Detect columns in the row that don't exist in the table schema. */
