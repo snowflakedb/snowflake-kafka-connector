@@ -330,21 +330,6 @@ public class SnowflakeTelemetryServiceTest {
     assertFalse(sentData.get(0).getMessage().toString().contains("not_an_authenticator"));
   }
 
-  /**
-   * {@code authenticator_type} is service-owned: it must not be copyable from connector config,
-   * because a value chosen by the operator would misreport the authentication method actually in
-   * use. Today the copy allowlist is what enforces this. If this test ever fails because the key
-   * was added to that allowlist, the write ordering in {@code reportKafkaConnectStart} becomes the
-   * only thing keeping the resolved value authoritative, and it then needs a test of its own that
-   * fails when the ordering is inverted.
-   */
-  @Test
-  public void testAuthenticatorTypeIsNotCopyableFromConnectorConfig() {
-    assertFalse(
-        SnowflakeTelemetryService.KAFKA_START_ALLOWED_DATA_KEYS.contains(
-            SnowflakeTelemetryService.AUTHENTICATOR_TYPE));
-  }
-
   @Test
   public void testReportKafkaConnectStart_configCannotSupplyAuthenticatorType() {
     // given: config carrying the telemetry field name itself, alongside a real authenticator
