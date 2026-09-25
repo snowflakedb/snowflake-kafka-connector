@@ -242,7 +242,7 @@ public class SnowflakeTelemetryService {
    * here. Add a key only after the server-side persist allowlist already includes it; if we stop
    * collecting a key, remove it there too.
    */
-  static final Set<String> KAFKA_START_ALLOWED_DATA_KEYS =
+  private static final Set<String> KAFKA_START_ALLOWED_DATA_KEYS =
       Set.of(
           KafkaConnectorConfigParams.TASKS_MAX,
           KafkaConnectorConfigParams.TOPICS,
