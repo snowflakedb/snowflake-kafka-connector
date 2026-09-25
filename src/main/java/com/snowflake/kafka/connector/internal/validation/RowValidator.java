@@ -11,7 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -228,6 +230,7 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
+        value = stripZIfBareDate(value);
         DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
         break;
 
@@ -296,6 +299,7 @@ public class RowValidator {
       return DataValidationUtil.validateAndFormatTimestamp(
           col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
     }
+    value = stripZIfBareDate(value);
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),
         value,
@@ -304,6 +308,24 @@ public class RowValidator {
         trimTimezone,
         insertRowIndex);
     return value;
+  }
+
+  /** {@code "2017-09-15Z"} → {@code "2017-09-15"}. Anything else is returned unchanged. */
+  private static Object stripZIfBareDate(Object value) {
+    if (!(value instanceof String)) {
+      return value;
+    }
+    String s = ((String) value).trim();
+    if (!s.endsWith("Z")) {
+      return value;
+    }
+    String withoutZ = s.substring(0, s.length() - 1);
+    try {
+      LocalDate.parse(withoutZ);
+      return withoutZ;
+    } catch (DateTimeParseException e) {
+      return value;
+    }
   }
 
   /** Detect columns in the row that don't exist in the table schema. */

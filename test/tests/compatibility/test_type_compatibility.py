@@ -262,6 +262,23 @@ CASES = [
         expected_value=datetime.date(2099, 12, 31),
     ),
     Case("date_bad", "COL_DATE", "not_a_date", ERR),
+    # Bare date + trailing Z. New v4-compat capability (v3 rejected these).
+    Case(
+        "date_trailing_z",
+        "COL_DATE",
+        "2017-09-15Z",
+        OK,
+        expected_value=datetime.date(2017, 9, 15),
+        group="date_trailing_z",
+    ),
+    Case(
+        "tsntz_trailing_z_date",
+        "COL_TS_NTZ",
+        "2017-09-15Z",
+        OK,
+        expected_value=datetime.datetime(2017, 9, 15, 0, 0, 0),
+        group="date_trailing_z",
+    ),
     # ---- TIME ----
     Case(
         "time_normal",
@@ -479,6 +496,7 @@ _SPECIAL_GROUPS = {
     "bool_coercion",
     "ts_epoch",
     "time_offset",
+    "date_trailing_z",
     "xtype",
     "null",
     "variant_bare_str",
@@ -721,6 +739,19 @@ def test_time_offset(results):
             " path only; v4-ht relies on the SSv2 server, which drops it"
         )
     _assert_all(results, cases_where(group="time_offset"))
+
+
+def test_date_trailing_z(results):
+    """DATE/TIMESTAMP "2017-09-15Z" is accepted as 2017-09-15 on v4-compat.
+
+    v3 rejected these. v4-ht talks to the SSv2 server, which does not accept
+    a bare date with a trailing Z.
+    """
+    if results.mode == "v3":
+        pytest.skip("v3 rejected a trailing Z on a bare date")
+    if results.mode == "v4-ht":
+        pytest.skip("v4-ht uses the SSv2 server, which rejects a bare date with Z")
+    _assert_all(results, cases_where(group="date_trailing_z"))
 
 
 def test_timestamp_ntz(results):

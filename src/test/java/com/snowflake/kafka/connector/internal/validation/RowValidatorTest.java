@@ -1702,6 +1702,54 @@ public class RowValidatorTest {
     assertEquals("2024-01-15T10:00Z", normalized);
   }
 
+  @Test
+  public void validateRow_dateWithTrailingZ_isAcceptedAsDate() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("D", ColumnSchema.fromDescribeTableFields("D", "DATE", "Y"));
+    Map<String, Object> row = new HashMap<>();
+    row.put("D", "2017-09-15Z");
+    assertTrue(newRowValidator(schema).validateRow(row).isValid());
+    assertEquals("2017-09-15", row.get("D"));
+  }
+
+  @Test
+  public void validateRow_invalidOrCompactDateWithZ_isRejected() {
+    Map<String, ColumnSchema> schema =
+        Collections.singletonMap("D", ColumnSchema.fromDescribeTableFields("D", "DATE", "Y"));
+    for (String bad : new String[] {"not_a_dateZ", "20170915Z"}) {
+      Map<String, Object> row = new HashMap<>();
+      row.put("D", bad);
+      ValidationResult r = newRowValidator(schema).validateRow(row);
+      assertFalse(r.isValid());
+      assertEquals("D", r.getColumnName());
+    }
+  }
+
+  @Test
+  public void validateRow_timestampWithTrailingZDate_isAcceptedAsDate() {
+    for (ColumnLogicalType type :
+        new ColumnLogicalType[] {
+          ColumnLogicalType.TIMESTAMP_NTZ, ColumnLogicalType.TIMESTAMP_LTZ
+        }) {
+      Map<String, ColumnSchema> schema = new HashMap<>();
+      schema.put("TS", createTimestampColumnSchema("TS", type));
+      Map<String, Object> row = new HashMap<>();
+      row.put("TS", "2017-09-15Z");
+      assertTrue(newRowValidator(schema).validateRow(row).isValid());
+      assertEquals("2017-09-15", row.get("TS"));
+    }
+  }
+
+  @Test
+  public void validateRow_fullTimestampWithZ_isUnchanged() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "2024-01-15T10:30:00Z");
+    assertTrue(newRowValidator(schema).validateRow(row).isValid());
+    assertEquals("2024-01-15T10:30:00Z", row.get("TS"));
+  }
+
   /** Invalid string for TIMESTAMP_NTZ produces a type error. */
   @Test
   public void testValidateRowTimestampNtzInvalidStringRejects() {

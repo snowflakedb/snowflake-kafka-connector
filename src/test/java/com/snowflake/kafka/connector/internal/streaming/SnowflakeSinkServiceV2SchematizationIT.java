@@ -110,6 +110,84 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         v.toString().startsWith("00:00:00"), "TIME value should be 00:00:00, got: " + v);
   }
 
+  /** DATE "2017-09-15Z" lands as 2017-09-15 (client-side validation). */
+  @Test
+  public void dateColumnWithTrailingZ_landsAsDate() throws Exception {
+    conn.createTableWithOnlyMetadataColumn(table);
+    conn.executeQueryWithParameters("ALTER TABLE \"" + table + "\" ADD COLUMN COL_D DATE");
+
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "client_side");
+    SinkTaskConfig taskConfig =
+        SinkTaskConfig.builderFrom(config).tolerateErrors(true).dlqTopicName("dlq").build();
+
+    InMemoryKafkaRecordErrorReporter reporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, taskConfig)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(reporter)
+            .build();
+    service.startPartition(topicPartition);
+    service.awaitInitialization();
+
+    SinkRecord record = createKafkaRecordWithoutSchema("{\"COL_D\":\"2017-09-15Z\"}", 0);
+    service.insert(record);
+
+    Assertions.assertEquals(
+        0,
+        reporter.getReportedRecords().size(),
+        "DLQ must be empty: 2017-09-15Z should land as a date");
+
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 5, 20);
+
+    List<Map<String, Object>> rows = TestUtils.getTableRows(table);
+    Assertions.assertEquals(1, rows.size());
+    Object v = rows.get(0).get("COL_D");
+    Assertions.assertNotNull(v, "COL_D should not be null");
+    Assertions.assertTrue(
+        v.toString().startsWith("2017-09-15"), "DATE value should be 2017-09-15, got: " + v);
+  }
+
+  /** TIMESTAMP_NTZ "2017-09-15Z" lands as midnight on 2017-09-15 (client-side validation). */
+  @Test
+  public void timestampColumnWithTrailingZDate_lands() throws Exception {
+    conn.createTableWithOnlyMetadataColumn(table);
+    conn.executeQueryWithParameters(
+        "ALTER TABLE \"" + table + "\" ADD COLUMN COL_TS TIMESTAMP_NTZ(9)");
+
+    Map<String, String> config = TestUtils.getConnectorConfigurationForStreaming(false);
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "client_side");
+    SinkTaskConfig taskConfig =
+        SinkTaskConfig.builderFrom(config).tolerateErrors(true).dlqTopicName("dlq").build();
+
+    InMemoryKafkaRecordErrorReporter reporter = new InMemoryKafkaRecordErrorReporter();
+    service =
+        StreamingSinkServiceBuilder.builder(conn, taskConfig)
+            .withSinkTaskContext(new InMemorySinkTaskContext(Collections.singleton(topicPartition)))
+            .withErrorReporter(reporter)
+            .build();
+    service.startPartition(topicPartition);
+    service.awaitInitialization();
+
+    SinkRecord record = createKafkaRecordWithoutSchema("{\"COL_TS\":\"2017-09-15Z\"}", 0);
+    service.insert(record);
+
+    Assertions.assertEquals(
+        0,
+        reporter.getReportedRecords().size(),
+        "DLQ must be empty: 2017-09-15Z should normalize and land on TIMESTAMP_NTZ");
+
+    TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 5, 20);
+
+    List<Map<String, Object>> rows = TestUtils.getTableRows(table);
+    Assertions.assertEquals(1, rows.size());
+    Object v = rows.get(0).get("COL_TS");
+    Assertions.assertNotNull(v, "COL_TS should not be null");
+    Assertions.assertTrue(
+        v.toString().startsWith("2017-09-15"),
+        "TIMESTAMP_NTZ value should start with 2017-09-15, got: " + v);
+  }
+
   /** Helper method to create a Kafka record from JSON string */
   private SinkRecord createKafkaRecord(String jsonWithSchema, long offset, boolean withSchema) {
     JsonConverter jsonConverter = new JsonConverter();
