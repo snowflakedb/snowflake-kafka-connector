@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Generate the test-only mitmproxy CA and leaf into /certs.
+"""Generate the test-only mitmproxy CA and leaf.
 
 The leaf SAN covers both Docker aliases (mitmproxy, mitmproxy-subdomain).
 mitmdump --certs wants the leaf cert and private key concatenated as PEM.
-The Connect worker trusts the CA via SSL_CERT_FILE on the shared volume.
+The Connect worker trusts the CA via SSL_CERT_FILE on a CA-only volume so it
+never sees the leaf private key.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -14,9 +15,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-CERTS_DIR = Path("/certs")
-CA_CERT_PATH = CERTS_DIR / "mitmproxy-ca.crt"
-LEAF_PEM_PATH = CERTS_DIR / "mitmproxy.pem"
+# Separate mount points: leaf volume is mitmproxy-only; CA volume is shared
+# with the Connect worker (see docker-compose.mitmproxy.yml).
+CA_DIR = Path("/certs-ca")
+LEAF_DIR = Path("/certs")
+CA_CERT_PATH = CA_DIR / "mitmproxy-ca.crt"
+LEAF_PEM_PATH = LEAF_DIR / "mitmproxy.pem"
 VALIDITY = timedelta(days=3650)
 
 
@@ -37,8 +41,10 @@ def _key_usage(**kwargs):
 
 
 def main():
-    CERTS_DIR.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc)
+    CA_DIR.mkdir(parents=True, exist_ok=True)
+    LEAF_DIR.mkdir(parents=True, exist_ok=True)
+    not_before = datetime.now(timezone.utc) - timedelta(minutes=5)
+    not_after = not_before + VALIDITY
 
     ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "mitmproxy-e2e-ca")])
@@ -48,8 +54,8 @@ def main():
         .issuer_name(ca_name)
         .public_key(ca_key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(now)
-        .not_valid_after(now + VALIDITY)
+        .not_valid_before(not_before)
+        .not_valid_after(not_after)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .add_extension(_key_usage(key_cert_sign=True, crl_sign=True), critical=True)
         .sign(ca_key, hashes.SHA256())
@@ -63,8 +69,8 @@ def main():
         .issuer_name(ca_name)
         .public_key(leaf_key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(now)
-        .not_valid_after(now + VALIDITY)
+        .not_valid_before(not_before)
+        .not_valid_after(not_after)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(_key_usage(digital_signature=True, key_encipherment=True), critical=True)
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)

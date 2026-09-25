@@ -1,7 +1,7 @@
 FROM mitmproxy/mitmproxy:11
 
-# Test CA + leaf are generated at container start into /certs (compose volume).
-# The Connect worker mounts the same volume and trusts the CA via SSL_CERT_FILE.
+# Test CA + leaf are generated at container start into separate volumes
+# (/certs-ca and /certs). The Connect worker mounts only the CA volume.
 COPY addon_410.py /addon/addon_410.py
 COPY generate_certs.py /addon/generate_certs.py
 
