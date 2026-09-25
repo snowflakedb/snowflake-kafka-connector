@@ -787,6 +787,33 @@ class DataValidationUtil {
   }
 
   /**
+   * If {@code input} is a bare calendar date whose only extra is a trailing {@code 'Z'} (e.g.
+   * {@code "2017-09-15Z"}), return the canonical {@code YYYY-MM-DD} form. Full datetimes ({@code
+   * "2017-09-15T10:30:00Z"}) and compact digits ({@code "20170915Z"}) return empty.
+   *
+   * <p>This is the string to send to the SSv2 SDK for both DATE and TIMESTAMP (SNOW-3819217).
+   * Snowflake AUTO accepts {@code YYYY-MM-DD}; it rejects a date with a trailing {@code Z}.
+   */
+  static Optional<String> bareIsoDateAfterStrippingZ(Object input) {
+    if (!(input instanceof String)) {
+      return Optional.empty();
+    }
+    String trimmed = ((String) input).trim();
+    if (!trimmed.endsWith("Z")) {
+      return Optional.empty();
+    }
+    String withoutTrailingZ = stripTrailingZs(trimmed);
+    if (withoutTrailingZ.isEmpty()) {
+      return Optional.empty();
+    }
+    LocalDate date = catchParsingError(() -> LocalDate.parse(withoutTrailingZ));
+    if (date == null) {
+      return Optional.empty();
+    }
+    return Optional.of(date.toString());
+  }
+
+  /**
    * Validates and parses input for TIMESTAMP_NTZ, TIMESTAMP_LTZ and TIMEATAMP_TZ Snowflake types.
    * Allowed Java types:
    *

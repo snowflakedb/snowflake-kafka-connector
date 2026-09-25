@@ -228,8 +228,13 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
-        // SNOW-3819217: normalize to canonical yyyy-MM-dd so a trailing UTC 'Z' on a bare
-        // ISO-8601 date (e.g. "2017-09-15Z") is stripped before the SSv2 SDK sees it.
+        // SNOW-3819217: "2017-09-15Z" → "2017-09-15". Same canonical string as TIMESTAMP.
+        Optional<String> dateAfterStrippingZ = DataValidationUtil.bareIsoDateAfterStrippingZ(value);
+        if (dateAfterStrippingZ.isPresent()) {
+          DataValidationUtil.validateAndParseDate(
+              col.getName(), dateAfterStrippingZ.get(), insertRowIndex);
+          return dateAfterStrippingZ.get();
+        }
         return DataValidationUtil.validateAndFormatDate(col.getName(), value, insertRowIndex);
 
       case TIME:
@@ -287,10 +292,10 @@ public class RowValidator {
   }
 
   /**
-   * Validate and optionally normalize a timestamp value. Integer/Long epoch values and ISO-8601
-   * literals whose only extra is a trailing UTC {@code 'Z'} (e.g. {@code "2017-09-15Z"}) are
-   * converted to ISO strings so the SSv2 SDK interprets them correctly; other types are validated
-   * in place.
+   * Validate and optionally normalize a timestamp value. Integer/Long epoch values become ISO
+   * strings. A bare date with a trailing {@code 'Z'} (e.g. {@code "2017-09-15Z"}) is rewritten to
+   * {@code YYYY-MM-DD} — the same string DATE uses — so the SSv2 SDK sees a Snowflake AUTO date
+   * (SNOW-3819217). Other values are validated in place.
    */
   private Object validateAndNormalizeTimestamp(
       ColumnSchema col, Object value, boolean trimTimezone, long insertRowIndex)
@@ -299,12 +304,16 @@ public class RowValidator {
       return DataValidationUtil.validateAndFormatTimestamp(
           col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
     }
-    // Bare ISO-8601 date + trailing 'Z' fails SSv2 parsing; format it (Z stripped) so it lands
-    // (SNOW-3819217). Full timestamps that already carry a 'Z' (e.g. "2024-01-15T10:30:00Z")
-    // also format cleanly — same accept/reject, canonical ISO string to the SDK.
-    if (value instanceof String && ((String) value).trim().endsWith("Z")) {
-      return DataValidationUtil.validateAndFormatTimestamp(
-          col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
+    Optional<String> dateAfterStrippingZ = DataValidationUtil.bareIsoDateAfterStrippingZ(value);
+    if (dateAfterStrippingZ.isPresent()) {
+      DataValidationUtil.validateAndParseTimestamp(
+          col.getName(),
+          dateAfterStrippingZ.get(),
+          col.getScale() != null ? col.getScale() : 9,
+          defaultTimezone,
+          trimTimezone,
+          insertRowIndex);
+      return dateAfterStrippingZ.get();
     }
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),

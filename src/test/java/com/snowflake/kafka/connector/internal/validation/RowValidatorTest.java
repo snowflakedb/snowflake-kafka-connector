@@ -1764,8 +1764,8 @@ public class RowValidatorTest {
   }
 
   /**
-   * A TIMESTAMP_NTZ string that is a bare date with a trailing 'Z' is formatted to midnight so the
-   * SSv2 SDK can ingest it.
+   * A TIMESTAMP_NTZ string that is a bare date with a trailing 'Z' is rewritten to YYYY-MM-DD — the
+   * same string DATE uses — so the SSv2 SDK sees a Snowflake AUTO date.
    */
   @Test
   public void validateRow_isostringZTimestampNtz_isNormalized() {
@@ -1778,15 +1778,30 @@ public class RowValidatorTest {
     ValidationResult result = validator.validateRow(row);
 
     assertTrue(result.isValid());
-    assertEquals("2017-09-15T00:00", row.get("TS"));
+    assertEquals("2017-09-15", row.get("TS"));
+  }
+
+  /** TIMESTAMP_LTZ gets the same YYYY-MM-DD rewrite; Z is not treated as UTC. */
+  @Test
+  public void validateRow_isostringZTimestampLtz_isNormalizedToDate() {
+    Map<String, ColumnSchema> schema = new HashMap<>();
+    schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_LTZ));
+    RowValidator validator = newRowValidator(schema);
+
+    Map<String, Object> row = new HashMap<>();
+    row.put("TS", "2017-09-15Z");
+    ValidationResult result = validator.validateRow(row);
+
+    assertTrue(result.isValid());
+    assertEquals("2017-09-15", row.get("TS"));
   }
 
   /**
-   * A full ISO-8601 timestamp with a trailing 'Z' still lands; the formatted NTZ string drops the
-   * offset (same instant-local wall time).
+   * A full ISO-8601 timestamp with a trailing 'Z' already parses; it is left unchanged so we do not
+   * rewrite a real UTC datetime into a naive date.
    */
   @Test
-  public void validateRow_isostringZTimestampNtzFull_isNormalized() {
+  public void validateRow_isostringZTimestampNtzFull_isPassedThrough() {
     Map<String, ColumnSchema> schema = new HashMap<>();
     schema.put("TS", createTimestampColumnSchema("TS", ColumnLogicalType.TIMESTAMP_NTZ));
     RowValidator validator = newRowValidator(schema);
@@ -1796,7 +1811,7 @@ public class RowValidatorTest {
     ValidationResult result = validator.validateRow(row);
 
     assertTrue(result.isValid());
-    assertEquals("2024-01-15T10:30", row.get("TS"));
+    assertEquals("2024-01-15T10:30:00Z", row.get("TS"));
   }
 
   /** Invalid string for TIMESTAMP_NTZ produces a type error. */
