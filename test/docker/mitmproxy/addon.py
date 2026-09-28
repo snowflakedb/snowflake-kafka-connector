@@ -92,33 +92,9 @@ fault_state = FaultState()
 # Separate state for 404-on-bulk-channel-status injection (SNOW-3670537)
 fault_state_404_bcs = FaultState()
 
-# T1 Envoy NR 404 on /v2/streaming/hostname (first-create). An empty body is a
-# different path: SDK 1.8.0 reports that as HTTP 400, not HTTP 404 + empty GS fields.
+# 404 on /v2/streaming/hostname (first-create). After ingest-sdk #1081 the SDK
+# reports this as SfApiNoRoute; KC retries on that name.
 fault_state_404_hostname = FaultState()
-
-
-def _envoy_nr_404_html(target_bytes: int) -> bytes:
-    """T1 branded HTML padded to the observed NR BYTES_TX (~14,838)."""
-    prefix = (
-        b"<!DOCTYPE html>\n"
-        b"<html><head><title>Error 404 Not Found</title></head>\n"
-        b"<body><h1>Error 404 Not Found</h1>\n"
-        b"<p>The requested URL was not found on this server.</p>\n"
-        b"<!--"
-    )
-    suffix = b"--></body></html>\n"
-    pad = max(0, target_bytes - len(prefix) - len(suffix))
-    return prefix + (b"x" * pad) + suffix
-
-
-# Observed T1 NR BYTES_TX on get_subdomain_name / get_pipe_info / insert_rows.
-ENVOY_NR_404_TARGET_BYTES = 14838
-ENVOY_NR_404_BODY = _envoy_nr_404_html(ENVOY_NR_404_TARGET_BYTES)
-ENVOY_NR_404_HEADERS = {
-    "Content-Type": "text/html; charset=utf-8",
-    "server": "envoy",
-    "x-envoy-response-flags": "NR",
-}
 
 
 class FaultAddon:
@@ -147,10 +123,10 @@ class FaultAddon:
         if "/v2/streaming/hostname" in path:
             if fault_state_404_hostname.enabled:
                 flow.response = http.Response.make(
-                    404, ENVOY_NR_404_BODY, ENVOY_NR_404_HEADERS
+                    404, b"Not Found", {"Content-Type": "text/plain"}
                 )
                 fault_state_404_hostname.inc_injected()
-                log(f"Injected Envoy NR 404 (hostname) on {flow.request.method} {path}")
+                log(f"Injected 404 (hostname) on {flow.request.method} {path}")
             return
 
         # Streaming API calls must be routed to the real subdomain (the scoped
