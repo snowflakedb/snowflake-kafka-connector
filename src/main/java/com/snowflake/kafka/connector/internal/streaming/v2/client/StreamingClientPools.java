@@ -152,14 +152,7 @@ public class StreamingClientPools {
                           taskMetrics));
     } catch (FailsafeException e) {
       Throwable cause = e.getCause() != null ? e.getCause() : e;
-      if (ClientRecreationException.isClientInvalidError(cause)) {
-        throw ClientRecreationException.wrap(cause);
-      }
-      if (cause instanceof RuntimeException) {
-        throw (RuntimeException) cause;
-      }
-      throw new ConnectException(
-          "Unexpected error recreating streaming client for pipe: " + pipeName, cause);
+      throw ClientRecreationException.wrap(cause);
     }
   }
 
@@ -178,8 +171,8 @@ public class StreamingClientPools {
 
   /**
    * Wall-clock budget for first-time client creation ({@link #getClient} / {@link
-   * #getClientAsync}). Sized to observed T1 NR windows (tens of seconds, longest timed ~6 min is an
-   * outlier). Exhaustion fails the create so a permanently unknown account does not retry forever.
+   * #getClientAsync}). Sized to observed T1 NR windows. Exhaustion fails the create so a
+   * permanently unknown account does not retry forever.
    */
   static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(2);
 
@@ -221,21 +214,12 @@ public class StreamingClientPools {
         .build();
   }
 
-  /**
-   * Create retries unenveloped NR 404s only. Client-invalid errors (409 / 410) are not retried:
-   * there is no client yet.
-   */
   private static RetryPolicy<SnowflakeStreamingIngestClient> createClientRetryPolicy(
       String pipeName) {
     return clientRetryPolicy(
         pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isUnenvelopedNr404);
   }
 
-  /**
-   * Recreation retries client-invalid errors (409 / 410) only. An unenveloped NR 404 is terminal:
-   * the account already resolved, so a no-route hostname is not the first-lookup race {@link
-   * ClientRecreationException#isUnenvelopedNr404} exists for.
-   */
   private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
       String pipeName) {
     return clientRetryPolicy(
