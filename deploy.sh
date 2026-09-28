@@ -27,11 +27,24 @@ fi
 
 CENTRAL_DEPLOY_SETTINGS_XML="$THIS_DIR/mvn_settings_central_deploy.xml"
 
+# Mirror Maven Central through Artifactory so Releng MavenPush does not hit
+# repo.maven.apache.org (HTTP 429). Use development-maven-clean-virtual, not
+# development-maven-virtual: the latter 404s on cache miss for new versions.
+# mirrorOf=central leaves the pom's confluent/cloudera repos untouched.
+# Mirror id must not be `central` — that id is the Sonatype publish credential.
 cat > $CENTRAL_DEPLOY_SETTINGS_XML << SETTINGS.XML
 <?xml version="1.0" encoding="UTF-8"?>
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
      xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <mirrors>
+    <mirror>
+      <id>artifactory-central-mirror</id>
+      <name>Internal Artifactory mirror of Maven Central</name>
+      <url>https://artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/artifactory/development-maven-clean-virtual</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
   <servers>
     <server>
       <id>central</id>
