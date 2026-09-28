@@ -237,6 +237,7 @@ def mitmproxy():
     if ctrl is not None:
         # Ensure clean state at session start
         ctrl.disable_410()
+        ctrl.disable_404_hostname()
     return ctrl
 
 
