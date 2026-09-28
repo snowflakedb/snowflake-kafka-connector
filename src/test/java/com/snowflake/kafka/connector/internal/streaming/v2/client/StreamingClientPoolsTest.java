@@ -22,11 +22,6 @@ class StreamingClientPoolsTest {
 
   private static final String TASK_ID = "test-task";
 
-  private static final String T1_ENVOY_NR_404 =
-      "HTTP request failed with a non-retryable error for API get_subdomain_name."
-          + " HTTP 404, error_code=, message=,"
-          + " url=https://example.snowflakecomputing.com/v2/streaming/hostname?requestId=abc";
-
   private SinkTaskConfig sinkTaskConfig;
   private StreamingClientProperties streamingClientProperties;
   private String connectorName;
@@ -82,14 +77,14 @@ class StreamingClientPoolsTest {
   }
 
   @Test
-  void getClient_retries_on_unenveloped_nr_404() {
+  void getClient_retries_on_sf_api_no_route() {
     SnowflakeStreamingIngestClient mockClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     AtomicInteger callCount = new AtomicInteger();
 
     StreamingClientFactory.setStreamingClientSupplier(
         (clientName, dbName, schemaName, pipeName, props) -> {
           if (callCount.incrementAndGet() == 1) {
-            throw new SFException("SfApiUserError", T1_ENVOY_NR_404, 400, "Bad Request");
+            throw new SFException("SfApiNoRoute", "no route", 404, "Not Found");
           }
           return mockClient;
         });
@@ -116,10 +111,10 @@ class StreamingClientPoolsTest {
   }
 
   @Test
-  void recreateClient_does_not_retry_unenveloped_nr_404() {
+  void recreateClient_does_not_retry_sf_api_no_route() {
     SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     AtomicInteger callCount = new AtomicInteger();
-    SFException nr404 = new SFException("SfApiUserError", T1_ENVOY_NR_404, 400, "Bad Request");
+    SFException noRoute = new SFException("SfApiNoRoute", "no route", 404, "Not Found");
 
     StreamingClientFactory.setStreamingClientSupplier(
         (clientName, dbName, schemaName, pipeName, props) -> {
@@ -127,12 +122,12 @@ class StreamingClientPoolsTest {
           if (count == 1) {
             return oldClient;
           }
-          throw nr404;
+          throw noRoute;
         });
 
     getClient("pipe-A");
 
-    assertThatThrownBy(() -> recreateClient("pipe-A", oldClient)).isSameAs(nr404);
+    assertThatThrownBy(() -> recreateClient("pipe-A", oldClient)).isSameAs(noRoute);
     assertThat(callCount.get()).isEqualTo(2);
   }
 

@@ -32,8 +32,7 @@ public class ClientRecreationException extends RuntimeException {
           // Client was closed
           "ClosedClientError");
 
-  /** Needle in {@link SFException#getDetailMessage()} for an Envoy NR 404 (empty GS envelope). */
-  private static final String UNENVELOPED_NR_404_DETAIL = "HTTP 404, error_code=, message=,";
+  private static final String SF_API_NO_ROUTE = "SfApiNoRoute";
 
   /**
    * Constructs a new {@code ClientRecreationException} wrapping the given {@link SFException}.
@@ -82,20 +81,13 @@ public class ClientRecreationException extends RuntimeException {
   }
 
   /**
-   * True for an {@link SFException} with accessor HTTP 400 and a {@link
-   * SFException#getDetailMessage()} containing {@code HTTP 404, error_code=, message=,}. {@code
-   * SfApiUserError} is serialized as {@code BAD_REQUEST}; use the original detail because {@link
-   * SFException#getMessage()} is decorated with the accessor status. A genuine GS 404 has a
-   * non-empty {@code error_code}/{@code message}.
+   * True when the SDK reports {@code SfApiNoRoute}. Distinct from {@link #isClientInvalidError}:
+   * first create retries this, recreate does not.
    */
-  public static boolean isUnenvelopedNr404(Throwable e) {
+  public static boolean isSfApiNoRoute(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
     }
-    SFException sfException = (SFException) e;
-    String detail = sfException.getDetailMessage();
-    return sfException.getHttpStatusCode() == 400
-        && detail != null
-        && detail.contains(UNENVELOPED_NR_404_DETAIL);
+    return SF_API_NO_ROUTE.equals(((SFException) e).getErrorCodeName());
   }
 }

@@ -73,7 +73,7 @@ public class StreamingClientPools {
 
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
-   * future completes when the client is ready. Unenveloped NR 404s on {@code .build()} are retried
+   * future completes when the client is ready. {@code SfApiNoRoute} on {@code .build()} is retried
    * for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
@@ -217,7 +217,7 @@ public class StreamingClientPools {
   private static RetryPolicy<SnowflakeStreamingIngestClient> createClientRetryPolicy(
       String pipeName) {
     return clientRetryPolicy(
-        pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isUnenvelopedNr404);
+        pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isSfApiNoRoute);
   }
 
   private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(
