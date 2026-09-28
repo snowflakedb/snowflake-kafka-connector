@@ -1,10 +1,8 @@
 """
 E2E tests for first-create getClient when GET /v2/streaming/hostname
-returns a T1 Envoy NR 404 (HTTP 404, branded HTML, empty GS fields).
-
-The addon injects the production T1 shape. After ingest-sdk #1081 the SDK
-surfaces that as SfApiNoRoute. KC Failsafe retries that name for
-CLIENT_CREATE_MAX_DURATION (2 minutes). This is not a recreate test.
+returns HTTP 404. After ingest-sdk #1081 the SDK surfaces that as
+SfApiNoRoute; KC Failsafe retries that name for CLIENT_CREATE_MAX_DURATION
+(2 minutes). This is not a recreate test.
 
 Requires: --with-mitmproxy flag when running run_tests.sh.
 """
