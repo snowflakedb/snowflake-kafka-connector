@@ -11,16 +11,6 @@ import org.junit.jupiter.api.Test;
 
 public class ClientRecreationExceptionTest {
 
-  private static final String T1_ENVOY_NR_404 =
-      "HTTP request failed with a non-retryable error for API get_subdomain_name."
-          + " HTTP 404, error_code=, message=,"
-          + " url=https://example.snowflakecomputing.com/v2/streaming/hostname?requestId=abc";
-
-  private static final String OTHER_404 =
-      "HTTP request failed with a non-retryable error for API get_subdomain_name."
-          + " HTTP 404, error_code=002003, message=Object does not exist or not authorized,"
-          + " url=https://example.snowflakecomputing.com/v2/streaming/hostname?requestId=abc";
-
   @Test
   void shouldWrapSFExceptionWithCorrectMessage() {
     SFException cause = new SFException("InvalidClientError", "Client is invalid", 409, "Conflict");
@@ -110,30 +100,18 @@ public class ClientRecreationExceptionTest {
   }
 
   @Test
-  void shouldRecognizeT1EnvoyNr404() {
-    SFException nr404 = new SFException("SfApiUserError", T1_ENVOY_NR_404, 400, "Bad Request");
+  void shouldRecognizeSfApiNoRoute() {
+    SFException noRoute = new SFException("SfApiNoRoute", "no route", 404, "Not Found");
 
-    assertTrue(ClientRecreationException.isUnenvelopedNr404(nr404));
+    assertTrue(ClientRecreationException.isSfApiNoRoute(noRoute));
+    assertFalse(ClientRecreationException.isClientInvalidError(noRoute));
   }
 
   @Test
-  void shouldNotRecognizeOther404() {
-    SFException other404 = new SFException("SfApiUserError", OTHER_404, 400, "Bad Request");
+  void shouldNotTreatSfApiUserErrorAsNoRoute() {
+    SFException userError =
+        new SFException("SfApiUserError", "HTTP 404, error_code=, message=,", 400, "Bad Request");
 
-    assertFalse(ClientRecreationException.isUnenvelopedNr404(other404));
-  }
-
-  @Test
-  void shouldNotRecognizeAccessor404EvenWithNrDetail() {
-    SFException accessor404 = new SFException("SfApiUserError", T1_ENVOY_NR_404, 404, "Not Found");
-
-    assertFalse(ClientRecreationException.isUnenvelopedNr404(accessor404));
-  }
-
-  @Test
-  void shouldNotRecognizeAccessor400WithEmptyDetail() {
-    SFException empty400 = new SFException("SfApiUserError", "", 400, "Bad Request");
-
-    assertFalse(ClientRecreationException.isUnenvelopedNr404(empty400));
+    assertFalse(ClientRecreationException.isSfApiNoRoute(userError));
   }
 }

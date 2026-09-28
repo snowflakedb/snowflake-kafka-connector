@@ -168,14 +168,14 @@ class BatchOffsetFetcherTest {
   }
 
   @Test
-  void unenvelopedNr404DoesNotTriggerChannelRecovery() {
+  void sfApiNoRouteDoesNotTriggerChannelRecovery() {
     TopicPartition tp0 = new TopicPartition("topicA", 0);
     TopicPartition tp1 = new TopicPartition("topicB", 0);
 
     registerChannel(tp0, "pipeA", "chA0", 10L);
     registerChannel(tp1, "pipeB", "chB0", 30L);
 
-    clientSupplier.setUnenvelopedNr404Pipe("pipeA");
+    clientSupplier.setSfApiNoRoutePipe("pipeA");
 
     Map<TopicPartition, Long> result =
         fetcher.getCommittedOffsets(Set.of(tp0, tp1), channelLookup());
@@ -305,7 +305,7 @@ class BatchOffsetFetcherTest {
     private final Map<String, Map<String, String>> pipeChannelOffsets = new ConcurrentHashMap<>();
     private volatile String failingPipe = null;
     private volatile String clientInvalidPipe = null;
-    private volatile String unenvelopedNr404Pipe = null;
+    private volatile String sfApiNoRoutePipe = null;
 
     void setChannelOffset(String channelName, String pipeName, String offsetToken) {
       pipeChannelOffsets
@@ -322,9 +322,9 @@ class BatchOffsetFetcherTest {
       this.clientInvalidPipe = pipeName;
     }
 
-    /** Makes {@code getChannelStatus} throw an unenveloped NR 404 for the given pipe. */
-    void setUnenvelopedNr404Pipe(String pipeName) {
-      this.unenvelopedNr404Pipe = pipeName;
+    /** Makes {@code getChannelStatus} throw {@code SfApiNoRoute} for the given pipe. */
+    void setSfApiNoRoutePipe(String pipeName) {
+      this.sfApiNoRoutePipe = pipeName;
     }
 
     int getBatchCallCount() {
@@ -347,9 +347,8 @@ class BatchOffsetFetcherTest {
                   throw new SFException(
                       "InvalidClientError", "Simulated client invalidation", 409, "Conflict");
                 }
-                if (pipeName.equals(unenvelopedNr404Pipe)) {
-                  throw new SFException(
-                      "SfApiUserError", "HTTP 404, error_code=, message=,", 400, "Bad Request");
+                if (pipeName.equals(sfApiNoRoutePipe)) {
+                  throw new SFException("SfApiNoRoute", "no route", 404, "Not Found");
                 }
                 if (pipeName.equals(failingPipe)) {
                   throw new SFException(
