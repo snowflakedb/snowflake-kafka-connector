@@ -30,6 +30,18 @@ on:
         description: 'soak + chaos tests'
         type: boolean
         default: false
+      run_spcs:
+        description: 'SPCS release test (SNOW-4202412)'
+        type: boolean
+        default: false
+      override_spcs_gate:
+        description: 'Override a failing SPCS release gate (needs SSv2 on-call sign-off)'
+        type: boolean
+        default: false
+      override_reason:
+        description: 'Required with override_spcs_gate: reason + SSv2 on-call approver'
+        type: string
+        default: ''
 
 jobs:
   functional:
@@ -284,3 +296,71 @@ jobs:
         marker-filter: 'soak'
         test-group: soak
         jmx: 'true'
+
+  # SNOW-4202412: KC v4 inside SPCS with ambient auth, cells A/B/C.
+  # See test/spcs/README.md. Release gate: the publish path must `needs:` this
+  # job (publishing is not in this repo today; see README "Release gate").
+  spcs-release:
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref_name, 'release-')) ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.run_spcs || inputs.override_spcs_gate))
+    runs-on: ubuntu-22.04
+    name: spcs-release
+    timeout-minutes: 75
+    concurrency:
+      # Cells change the test account's network policy: never run two at once.
+      group: spcs-release-account
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+    - name: SPCS gate override
+      if: github.event_name == 'workflow_dispatch' && inputs.override_spcs_gate
+      env:
+        OVERRIDE_REASON: ${{ inputs.override_reason }}
+        ACTOR: ${{ github.actor }}
+      run: |
+        if [ -z "$(printf '%s' "$OVERRIDE_REASON" | tr -d '[:space:]')" ]; then
+          echo "::error::override_spcs_gate requires a non-empty override_reason"
+          exit 1
+        fi
+        echo "::warning::SPCS release gate OVERRIDDEN by $ACTOR: $OVERRIDE_REASON"
+        {
+          echo "## SPCS release gate OVERRIDDEN"
+          echo "- actor: $ACTOR"
+          echo "- reason: $OVERRIDE_REASON"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - uses: actions/checkout@v4
+      if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.override_spcs_gate) }}
+
+    - name: Oracle unit tests
+      if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.override_spcs_gate) }}
+      run: python3 -m unittest test/spcs/test_oracle.py -v
+
+    - name: Build connector
+      if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.override_spcs_gate) }}
+      uses: ./.github/actions/build-connector
+      with:
+        platform: apache
+
+    - name: Run SPCS release cells A/B/C
+      if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.override_spcs_gate) }}
+      env:
+        SPCS_ACCOUNT: ${{ secrets.SPCS_RELEASE_ACCOUNT }}
+        SPCS_USER: ${{ secrets.SPCS_RELEASE_USER }}
+        SPCS_PRIVATE_KEY: ${{ secrets.SPCS_RELEASE_PRIVATE_KEY }}
+        SPCS_HOST: ${{ secrets.SPCS_RELEASE_HOST }}
+        SPCS_IMAGE: ${{ secrets.SPCS_RELEASE_IMAGE }}
+        KAFKA_VERSION: '4.1.1'
+      run: |
+        set -euo pipefail
+        pip install --quiet snowflake-connector-python cryptography
+        KC_JAR=$(ls target/snowflake-kafka-connector-*.jar | grep -vE 'sources|javadoc|original' | head -1)
+        curl -fsSL -o "$RUNNER_TEMP/kafka.tgz" \
+          "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz"
+        umask 077
+        printf '%s\n' "$SPCS_PRIVATE_KEY" > "$RUNNER_TEMP/spcs_key.p8"
+        SPCS_PRIVATE_KEY_FILE="$RUNNER_TEMP/spcs_key.p8" KC_JAR="$KC_JAR" \
+          KAFKA_TGZ="$RUNNER_TEMP/kafka.tgz" python3 test/spcs/run_spcs_release.py
