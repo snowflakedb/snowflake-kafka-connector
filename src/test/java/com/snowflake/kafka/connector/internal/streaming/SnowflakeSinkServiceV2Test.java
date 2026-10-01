@@ -573,7 +573,7 @@ class SnowflakeSinkServiceV2Test {
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining("0036")
         .hasMessageContaining("ERROR_LOGGING")
-        .hasMessageContaining("snowflake.validation.require.error.logging=false");
+        .hasMessageContaining("snowflake.validation.require.error.table=false");
   }
 
   @Test
@@ -585,7 +585,7 @@ class SnowflakeSinkServiceV2Test {
         SinkTaskConfigTestBuilder.builder()
             .connectorName(CONNECTOR_NAME)
             .taskId("0")
-            .requireErrorLogging(false)
+            .requireErrorTable(false)
             .build();
     SnowflakeSinkServiceV2 svc = newService(conn, config);
 

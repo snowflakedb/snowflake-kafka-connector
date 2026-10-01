@@ -23,9 +23,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Live-account coverage for {@code snowflake.validation.require.error.logging}. Creates a real
- * table without ERROR_LOGGING and asserts the connector fails closed by default, then succeeds
- * after {@code ALTER TABLE ... SET ERROR_LOGGING = TRUE}.
+ * Live-account coverage for {@code snowflake.validation.require.error.table}. Creates a real table
+ * without ERROR_LOGGING and asserts the connector fails closed by default, then succeeds after
+ * {@code ALTER TABLE ... SET ERROR_LOGGING = TRUE}.
  */
 public class ErrorLoggingRequiredIT {
 
@@ -35,7 +35,7 @@ public class ErrorLoggingRequiredIT {
   @BeforeEach
   public void setup() {
     table = TestUtils.randomTableName();
-    TestUtils.createTableWithMetadataColumn(table, true);
+    TestUtils.createTableWithMetadataColumn(table, true, false);
   }
 
   @AfterEach
@@ -47,7 +47,7 @@ public class ErrorLoggingRequiredIT {
   public void existingTableWithoutErrorLogging_constructorFailsWithError0036() {
     assertFalse(conn.hasErrorLoggingEnabled(table));
 
-    assertThatThrownBy(() -> newService(requireErrorLoggingConfig(true)))
+    assertThatThrownBy(() -> newService(requireErrorTableConfig(true)))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining("0036")
         .hasMessageContaining(table)
@@ -69,7 +69,7 @@ public class ErrorLoggingRequiredIT {
   public void optOut_allowsExistingTableWithoutErrorLogging() {
     assertFalse(conn.hasErrorLoggingEnabled(table));
 
-    SnowflakeSinkServiceV2 service = newService(requireErrorLoggingConfig(false));
+    SnowflakeSinkServiceV2 service = newService(requireErrorTableConfig(false));
     service.createTableIfNotExists(table);
   }
 
@@ -78,16 +78,16 @@ public class ErrorLoggingRequiredIT {
     conn.executeQueryWithParameters("alter table identifier(?) set error_logging = true", table);
     assertTrue(conn.hasErrorLoggingEnabled(table));
 
-    SnowflakeSinkServiceV2 service = newService(requireErrorLoggingConfig(true));
+    SnowflakeSinkServiceV2 service = newService(requireErrorTableConfig(true));
     service.createTableIfNotExists(table);
   }
 
-  private SinkTaskConfig requireErrorLoggingConfig(boolean require) {
+  private SinkTaskConfig requireErrorTableConfig(boolean require) {
     return SinkTaskConfigTestBuilder.builder()
         .connectorName(TestUtils.TEST_CONNECTOR_NAME)
         .taskId("0")
         .validation(SnowflakeValidation.SERVER_SIDE)
-        .requireErrorLogging(require)
+        .requireErrorTable(require)
         .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", table)))
         .build();
   }
@@ -97,7 +97,7 @@ public class ErrorLoggingRequiredIT {
         .connectorName(TestUtils.TEST_CONNECTOR_NAME)
         .taskId("0")
         .validation(SnowflakeValidation.SERVER_SIDE)
-        .requireErrorLogging(require)
+        .requireErrorTable(require)
         .build();
   }
 

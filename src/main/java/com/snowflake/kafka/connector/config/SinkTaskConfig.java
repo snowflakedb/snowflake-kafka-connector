@@ -61,9 +61,9 @@ public abstract class SinkTaskConfig {
   /**
    * When {@code snowflake.validation=server_side}, whether startup fails if an existing target
    * table does not have {@code ERROR_LOGGING} enabled. See {@link
-   * KafkaConnectorConfigParams#SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING}.
+   * KafkaConnectorConfigParams#SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE}.
    */
-  public abstract boolean isRequireErrorLogging();
+  public abstract boolean isRequireErrorTable();
 
   public abstract int getOpenChannelIoThreads();
 
@@ -316,11 +316,11 @@ public abstract class SinkTaskConfig {
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT));
 
-    boolean requireErrorLogging =
+    boolean requireErrorTable =
         Optional.ofNullable(
-                config.get(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING))
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE))
             .map(Boolean::parseBoolean)
-            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING_DEFAULT);
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE_DEFAULT);
 
     int openChannelIoThreads =
         Optional.ofNullable(
@@ -500,7 +500,7 @@ public abstract class SinkTaskConfig {
         .enableSchematization(enableSchematization)
         .enableColumnIdentifierNormalization(enableColumnIdentifierNormalization)
         .validation(validation)
-        .requireErrorLogging(requireErrorLogging)
+        .requireErrorTable(requireErrorTable)
         .openChannelIoThreads(openChannelIoThreads)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
         .cachingConfig(cachingConfig)
@@ -593,7 +593,7 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder validation(SnowflakeValidation validation);
 
-    public abstract Builder requireErrorLogging(boolean requireErrorLogging);
+    public abstract Builder requireErrorTable(boolean requireErrorTable);
 
     public abstract Builder openChannelIoThreads(int openChannelIoThreads);
 

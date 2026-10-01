@@ -137,7 +137,7 @@ class StreamingManualModeIT {
           format(
               "create or replace table %s (record_metadata variant, city varchar, age number,"
                   + " married boolean, \"has cat\" boolean , \"! @&$#* has Łułósżź\" boolean,"
-                  + " skills variant, family variant)",
+                  + " skills variant, family variant) error_logging = true",
               tableName));
     }
 

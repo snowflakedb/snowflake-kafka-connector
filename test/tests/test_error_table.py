@@ -2,7 +2,7 @@
 
 Verifies:
 1. Table WITHOUT error logging + v4-ht → connector fails startup (ERROR_0036)
-2. Same, with snowflake.validation.require.error.logging=false → connector starts, errors dropped
+2. Same, with snowflake.validation.require.error.table=false → connector starts, errors dropped
 3. Table WITH error logging + v4-ht → connector starts, invalid data captured in error table
 4. Schema mismatch (extra columns, no schema evolution) + v4-ht → rows captured in error table
 5. Same bad record: v4-compat routes to DLQ, v4-ht routes to error table
@@ -68,6 +68,7 @@ def test_error_table_without_error_logging(
     table: Table = create_table(
         "et_no_logging",
         columns="(ID VARCHAR NOT NULL, VAL NUMBER, RECORD_METADATA VARIANT)",
+        error_table=False,
     )
     driver.createTopics(table.name, partitionNum=1, replicationNum=1)
 
@@ -84,7 +85,7 @@ def test_error_table_without_error_logging(
 
     assert failed, (
         "Expected at least one FAILED task within 120s when the existing table "
-        "has no ERROR_LOGGING and snowflake.validation.require.error.logging defaults to true"
+        "has no ERROR_LOGGING and snowflake.validation.require.error.table defaults to true"
     )
     trace = failed[0].get("trace", "")
     assert "0036" in trace, f"Expected ERROR_0036 in task trace, got:\n{trace}"
@@ -99,15 +100,16 @@ def test_error_table_without_error_logging_opt_out(
     create_table: Callable,
     create_custom_connector: Callable,
 ):
-    """Opt-out: require.error.logging=false → connector starts, errors silently dropped."""
+    """Opt-out: require.error.table=false → connector starts, errors silently dropped."""
     table: Table = create_table(
         "et_no_logging_opt",
         columns="(ID VARCHAR NOT NULL, VAL NUMBER, RECORD_METADATA VARIANT)",
+        error_table=False,
     )
     driver.createTopics(table.name, partitionNum=1, replicationNum=1)
 
     config = _v4_ht_config()
-    config["snowflake.validation.require.error.logging"] = "false"
+    config["snowflake.validation.require.error.table"] = "false"
     connector = create_custom_connector("et_no_logging_opt", config)
     driver.startConnectorWaitTime()
 

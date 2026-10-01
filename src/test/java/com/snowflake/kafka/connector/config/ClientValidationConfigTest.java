@@ -2,8 +2,8 @@ package com.snowflake.kafka.connector.config;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING_DEFAULT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE_DEFAULT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -81,25 +81,25 @@ public class ClientValidationConfigTest {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
 
     assertNotNull(
-        configDef.configKeys().get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING),
-        "snowflake.validation.require.error.logging should be defined in config");
+        configDef.configKeys().get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE),
+        "snowflake.validation.require.error.table should be defined in config");
     assertEquals(
-        SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING_DEFAULT,
-        configDef.configKeys().get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING).defaultValue,
+        SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE_DEFAULT,
+        configDef.configKeys().get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE).defaultValue,
         "Default value should be true");
 
     Map<String, Object> parsed = configDef.parse(new HashMap<>());
-    assertEquals(true, parsed.get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING));
+    assertEquals(true, parsed.get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE));
   }
 
   @Test
   public void testRequireErrorLoggingCanBeDisabled() {
     ConfigDef configDef = ConnectorConfigDefinition.getConfig();
     Map<String, String> props = new HashMap<>();
-    props.put(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING, "false");
+    props.put(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE, "false");
 
     Map<String, Object> parsed = configDef.parse(props);
 
-    assertEquals(false, parsed.get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING));
+    assertEquals(false, parsed.get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE));
   }
 }

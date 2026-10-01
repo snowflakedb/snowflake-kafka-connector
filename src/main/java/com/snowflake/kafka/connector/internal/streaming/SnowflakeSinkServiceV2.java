@@ -151,11 +151,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * properly configured to prevent silent data loss or task crashes.
    *
    * <p>Safety checks: - If validation is server-side: require ERROR_LOGGING on existing tables
-   * (fail by default; warn if {@code snowflake.validation.require.error.logging=false}) - If
+   * (fail by default; warn if {@code snowflake.validation.require.error.table=false}) - If
    * validation is client-side: Verify DLQ or tolerance=none for safe error handling
    *
    * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException if an existing
-   *     table is missing ERROR_LOGGING and the require-error-logging flag is on
+   *     table is missing ERROR_LOGGING and the require-error-table flag is on
    */
   private void logValidationConfiguration() {
     String errorsTolerance =
@@ -362,7 +362,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    *
    * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException (ERROR_0036)
    *     when the table lacks ERROR_LOGGING and {@code
-   *     snowflake.validation.require.error.logging=true} (the default)
+   *     snowflake.validation.require.error.table=true} (the default)
    */
   private void checkErrorLoggingOnExistingTable(String tableName) {
     if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
@@ -380,9 +380,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
             + tableName
             + "\" SET ERROR_LOGGING = TRUE. To restore the previous warn-and-continue"
             + " behavior, set "
-            + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING
+            + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE
             + "=false.";
-    if (taskConfig.isRequireErrorLogging()) {
+    if (taskConfig.isRequireErrorTable()) {
       throw SnowflakeErrors.ERROR_0036.getException(message);
     }
     LOGGER.warn(message);

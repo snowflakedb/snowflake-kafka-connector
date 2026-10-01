@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from typing import List
 
 import pytest
@@ -7,6 +8,14 @@ from lib.driver import KafkaDriver, quote_name
 from snowflake.connector import DictCursor
 
 logger = logging.getLogger(__name__)
+
+
+def with_error_table(columns: str, enabled: bool = True) -> str:
+    """Append ERROR_LOGGING = TRUE unless already present or explicitly disabled."""
+    if not enabled or re.search(r"ERROR_LOGGING", columns, re.IGNORECASE):
+        return columns
+    return f"{columns} ERROR_LOGGING = TRUE"
+
 
 ICEBERG_EXTERNAL_VOLUME = os.environ.get(
     "ICEBERG_EXTERNAL_VOLUME", "kafka_push_e2e_volume_aws"
@@ -37,9 +46,10 @@ class Table:
         self.driver = driver
         self.name = name
 
-    def create(self, columns: str):
+    def create(self, columns: str, *, error_table: bool = True):
         self.driver.snowflake_conn.cursor().execute(
-            f"CREATE OR REPLACE TABLE {quote_name(self.name)} {columns}"
+            f"CREATE OR REPLACE TABLE {quote_name(self.name)} "
+            f"{with_error_table(columns, error_table)}"
         )
 
     def select(self, projections: str, extra_clauses: str = ""):
@@ -90,12 +100,12 @@ class IcebergTable(Table):
     Storage"), so it is omitted in that case — Snowflake constructs the path.
     """
 
-    def create(self, columns: str):
+    def create(self, columns: str, *, error_table: bool = True):
         managed = ICEBERG_EXTERNAL_VOLUME.upper() == "SNOWFLAKE_MANAGED"
         base_location = "" if managed else f"BASE_LOCATION = '{self.name}' "
         self.driver.snowflake_conn.cursor().execute(
             f"CREATE OR REPLACE ICEBERG TABLE {quote_name(self.name)} "
-            f"{columns} "
+            f"{with_error_table(columns, error_table)} "
             f"EXTERNAL_VOLUME = '{ICEBERG_EXTERNAL_VOLUME}' "
             f"CATALOG = 'SNOWFLAKE' "
             f"{base_location}"
@@ -173,12 +183,16 @@ def create_iceberg_table(
     topics_to_cleanup: List[str] = []
 
     def _create(
-        unsalted_name: str = None, *, columns: str, cleanup_topic: bool = True
+        unsalted_name: str = None,
+        *,
+        columns: str,
+        cleanup_topic: bool = True,
+        error_table: bool = True,
     ) -> IcebergTable:
         unsalted_name = unsalted_name or request.node.originalname
         table_name = unsalted_name + name_salt
         table = IcebergTable(driver, table_name)
-        table.create(columns)
+        table.create(columns, error_table=error_table)
         created_tables.append(table)
         if cleanup_topic:
             topics_to_cleanup.append(table.name)
@@ -200,6 +214,10 @@ def create_table(driver: KafkaDriver, name_salt: str, request: pytest.FixtureReq
     `columns` can also be followed with table options, e.g.
     ``"(col1 TYPE, col2 TYPE) ENABLE_SCHEMA_EVOLUTION = TRUE"``.
 
+    ERROR_LOGGING is enabled by default so v4-ht server-side validation can
+    start. Pass ``error_table=False`` for fail-closed tests that assert
+    ERROR_0036.
+
     The Kafka topic is cleaned up after the test.  The Snowflake table
     (and associated stage/pipe) is left for the session-scoped
     `test_schema` teardown (`DROP SCHEMA ... CASCADE`) to remove.
@@ -209,12 +227,16 @@ def create_table(driver: KafkaDriver, name_salt: str, request: pytest.FixtureReq
     topics_to_cleanup: List[str] = []
 
     def _create(
-        unsalted_name: str = None, *, columns: str, cleanup_topic: bool = True
+        unsalted_name: str = None,
+        *,
+        columns: str,
+        cleanup_topic: bool = True,
+        error_table: bool = True,
     ) -> Table:
         unsalted_name = unsalted_name or request.node.originalname
         table_name = unsalted_name + name_salt
         table = Table(driver, table_name)
-        table.create(columns)
+        table.create(columns, error_table=error_table)
         created_tables.append(table)
         if cleanup_topic:
             topics_to_cleanup.append(table.name)

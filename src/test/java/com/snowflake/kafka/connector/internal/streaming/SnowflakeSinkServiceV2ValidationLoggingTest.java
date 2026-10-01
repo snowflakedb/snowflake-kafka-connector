@@ -168,7 +168,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   /**
    * Test: Validation disabled, multiple tables — one enabled, one disabled.
    *
-   * <p>Default require-error-logging=true fails startup on the table that is missing ERROR_LOGGING.
+   * <p>Default require-error-table=true fails startup on the table that is missing ERROR_LOGGING.
    */
   @Test
   public void testValidationDisabledMultipleTablesPartialErrorLogging() {
@@ -201,7 +201,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   /**
    * Test: Validation disabled WITHOUT ERROR_LOGGING on existing table.
    *
-   * <p>Default require-error-logging=true fails startup with ERROR_0036 and the ALTER TABLE hint.
+   * <p>Default require-error-table=true fails startup with ERROR_0036 and the ALTER TABLE hint.
    */
   @Test
   public void testValidationDisabledWithoutErrorLogging() {
@@ -227,7 +227,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
     assertTrue(thrown.getMessage().contains("table1"), thrown.getMessage());
     assertTrue(thrown.getMessage().contains("ALTER TABLE"), thrown.getMessage());
     assertTrue(
-        thrown.getMessage().contains("snowflake.validation.require.error.logging=false"),
+        thrown.getMessage().contains("snowflake.validation.require.error.table=false"),
         thrown.getMessage());
   }
 
@@ -239,7 +239,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
-            .requireErrorLogging(false)
+            .requireErrorTable(false)
             .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
             .build();
 
@@ -262,7 +262,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   }
 
   /**
-   * Client-side validation ignores the require-error-logging flag: existing tables without
+   * Client-side validation ignores the require-error-table flag: existing tables without
    * ERROR_LOGGING do not fail startup (errors go to DLQ / abort, not the Snowflake error table).
    */
   @Test
