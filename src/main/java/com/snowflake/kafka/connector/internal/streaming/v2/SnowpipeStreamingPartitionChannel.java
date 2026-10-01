@@ -945,6 +945,22 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     return channelName;
   }
 
+  @Override
+  public long getInflightAppendedBytes() {
+    CompletableFuture<SnowflakeStreamingIngestChannel> future = this.channel;
+    if (future == null
+        || !future.isDone()
+        || future.isCompletedExceptionally()
+        || future.isCancelled()) {
+      return 0L;
+    }
+    try {
+      return InflightAppendedBytes.from(future.getNow(null));
+    } catch (RuntimeException e) {
+      return 0L;
+    }
+  }
+
   /**
    * Blocks until the channel initialization future completes and returns the underlying SDK
    * channel.

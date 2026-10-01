@@ -435,6 +435,18 @@ public class PartitionChannelManager {
     return partitionChannels;
   }
 
+  /**
+   * Sum of inflight appended bytes across every channel owned by this task, including channels on
+   * different SDK clients (different pipes).
+   */
+  public long sumInflightAppendedBytes() {
+    long sum = 0L;
+    for (TopicPartitionChannel channel : partitionChannels.values()) {
+      sum += channel.getInflightAppendedBytes();
+    }
+    return sum;
+  }
+
   @VisibleForTesting
   void submitPendingOffsetReset(TopicPartition topicPartition, long offset) {
     pendingOffsetResets.put(topicPartition, offset);
