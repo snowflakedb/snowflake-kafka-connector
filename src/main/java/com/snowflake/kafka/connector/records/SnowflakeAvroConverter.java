@@ -3,13 +3,15 @@ package com.snowflake.kafka.connector.records;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import io.confluent.connect.avro.AvroConverter;
-import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClientFactory;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
@@ -59,8 +61,17 @@ public class SnowflakeAvroConverter implements Converter {
   @Override
   public void configure(Map<String, ?> configs, boolean isKey) {
     List<String> registryUrls = parseSchemaRegistryUrls(configs);
+    // Built the same way AvroConverter builds its own client, rather than via a hardcoded
+    // `new CachedSchemaRegistryClient(...)`, so a `mock://` scoped test URL (or any other
+    // non-default SchemaRegistryClient the factory knows how to produce) resolves the same way
+    // here as it does for AvroConverter itself.
     this.schemaRegistryClient =
-        new CachedSchemaRegistryClient(registryUrls, DEFAULT_IDENTITY_MAP_CAPACITY, configs);
+        SchemaRegistryClientFactory.newClient(
+            registryUrls,
+            DEFAULT_IDENTITY_MAP_CAPACITY,
+            Collections.singletonList(new AvroSchemaProvider()),
+            configs,
+            null);
     // AvroConverter is given this same client instance rather than building its own, so its
     // internal re-resolution of the schema id we already looked up below is a cache hit, not a
     // second registry round trip.
@@ -87,10 +98,12 @@ public class SnowflakeAvroConverter implements Converter {
    * Returns the real Avro {@link Schema} most recently resolved for {@code topic}, or {@code null}
    * if no record for that topic has been converted yet.
    *
-   * <p>This holds a single schema per topic, not per record: if records for the same topic can
-   * carry different schema versions (e.g. interleaved partitions on different versions), callers
-   * must read this immediately after converting a given record, before converting another record
-   * for the same topic, or they risk reading a schema that belongs to a different record.
+   * <p>Intended caller: the sink task, once per {@code SinkRecord}, immediately after passing that
+   * same record's value through {@link #toConnectData}. This holds a single schema per topic, not
+   * per record, so it is only safe to read in that call-immediately-after-converting pattern. If
+   * records for the same topic can carry different schema versions (e.g. interleaved partitions on
+   * different versions), reading this for one record after converting a later record for the same
+   * topic risks observing the later record's schema instead.
    */
   public Schema getLatestAvroSchema(String topic) {
     return latestAvroSchemaByTopic.get(topic);
