@@ -1,10 +1,11 @@
 """E2E tests for Snowflake Error Table support in v4 high-throughput mode.
 
 Verifies:
-1. Table WITHOUT error logging + v4-ht → connector starts, invalid data silently dropped
-2. Table WITH error logging + v4-ht → connector starts, invalid data captured in error table
-3. Schema mismatch (extra columns, no schema evolution) + v4-ht → rows captured in error table
-4. Same bad record: v4-compat routes to DLQ, v4-ht routes to error table
+1. Table WITHOUT error logging + v4-ht → connector fails startup (ERROR_0036)
+2. Same, with snowflake.validation.require.error.logging=false → connector starts, errors dropped
+3. Table WITH error logging + v4-ht → connector starts, invalid data captured in error table
+4. Schema mismatch (extra columns, no schema evolution) + v4-ht → rows captured in error table
+5. Same bad record: v4-compat routes to DLQ, v4-ht routes to error table
 """
 
 import json
@@ -63,7 +64,7 @@ def test_error_table_without_error_logging(
     create_table: Callable,
     create_custom_connector: Callable,
 ):
-    """v4-ht targeting a table WITHOUT ERROR_LOGGING — connector starts, errors silently dropped."""
+    """v4-ht targeting a table WITHOUT ERROR_LOGGING — task fails with ERROR_0036."""
     table: Table = create_table(
         "et_no_logging",
         columns="(ID VARCHAR NOT NULL, VAL NUMBER, RECORD_METADATA VARIANT)",
@@ -71,6 +72,43 @@ def test_error_table_without_error_logging(
     driver.createTopics(table.name, partitionNum=1, replicationNum=1)
 
     connector = create_custom_connector("et_no_logging", _v4_ht_config())
+    driver.startConnectorWaitTime()
+
+    deadline = time.monotonic() + 120
+    failed = []
+    while time.monotonic() < deadline:
+        failed = driver.get_failed_tasks(connector.name)
+        if failed:
+            break
+        time.sleep(3)
+
+    assert failed, (
+        "Expected at least one FAILED task within 120s when the existing table "
+        "has no ERROR_LOGGING and snowflake.validation.require.error.logging defaults to true"
+    )
+    trace = failed[0].get("trace", "")
+    assert "0036" in trace, f"Expected ERROR_0036 in task trace, got:\n{trace}"
+    assert "ERROR_LOGGING" in trace, (
+        f"Expected ERROR_LOGGING hint in task trace, got:\n{trace}"
+    )
+
+
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
+def test_error_table_without_error_logging_opt_out(
+    driver: KafkaDriver,
+    create_table: Callable,
+    create_custom_connector: Callable,
+):
+    """Opt-out: require.error.logging=false → connector starts, errors silently dropped."""
+    table: Table = create_table(
+        "et_no_logging_opt",
+        columns="(ID VARCHAR NOT NULL, VAL NUMBER, RECORD_METADATA VARIANT)",
+    )
+    driver.createTopics(table.name, partitionNum=1, replicationNum=1)
+
+    config = _v4_ht_config()
+    config["snowflake.validation.require.error.logging"] = "false"
+    connector = create_custom_connector("et_no_logging_opt", config)
     driver.startConnectorWaitTime()
 
     records = [

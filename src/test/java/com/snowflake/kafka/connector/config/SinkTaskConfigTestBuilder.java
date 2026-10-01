@@ -59,6 +59,8 @@ public final class SinkTaskConfigTestBuilder {
         .enableSchematization(KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION_DEFAULT)
         .validation(
             SnowflakeValidation.fromConfig(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT))
+        .requireErrorLogging(
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING_DEFAULT)
         .openChannelIoThreads(KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT)
         .streamingClientProviderOverrideMap("")
         .cachingConfig(CachingConfig.fromConfig(Collections.emptyMap()))

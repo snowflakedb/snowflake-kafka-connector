@@ -343,11 +343,27 @@ public class ConnectorConfigDefinition {
             "Data validation mode. 'client_side' enables client-side data validation and schema"
                 + " evolution before sending to Snowflake. 'server_side' defers validation and"
                 + " schema evolution to the backend for maximum throughput; requires that error"
-                + " logging is enabled on the target table.",
+                + " logging is enabled on the target table (see "
+                + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING
+                + ").",
             CONNECTOR_CONFIG_DOC,
             2,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING,
+            BOOLEAN,
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING_DEFAULT,
+            HIGH,
+            "When snowflake.validation=server_side, fail startup if an existing target table does"
+                + " not have ERROR_LOGGING enabled. Auto-created tables already enable"
+                + " ERROR_LOGGING. Set to false to restore the previous warn-and-continue"
+                + " behavior (invalid records are silently dropped). Ignored for"
+                + " snowflake.validation=client_side.",
+            CONNECTOR_CONFIG_DOC,
+            2,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING)
         .define(
             KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION,
             STRING,

@@ -274,6 +274,7 @@ class SnowflakeSinkServiceV2Test {
     when(mockConn.isClosed()).thenReturn(false);
     when(mockConn.tableExist(TOPIC)).thenReturn(true);
     when(mockConn.pipeExist(TOPIC)).thenReturn(true);
+    when(mockConn.hasErrorLoggingEnabled(TOPIC)).thenReturn(true);
 
     PartitionChannelManager channelMgr = mock(PartitionChannelManager.class);
     SnowflakeSinkServiceV2 svc =
@@ -562,6 +563,38 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
+  void createTableIfNotExists_existingTable_missingErrorLogging_throwsError0036() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.SNOWFLAKE, ""));
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining("0036")
+        .hasMessageContaining("ERROR_LOGGING")
+        .hasMessageContaining("snowflake.validation.require.error.logging=false");
+  }
+
+  @Test
+  void createTableIfNotExists_existingTable_missingErrorLogging_optOutWarns() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .requireErrorLogging(false)
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    svc.createTableIfNotExists("t1"); // must not throw
+
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+  }
+
+  @Test
   void createTableIfNotExists_icebergType_callsIcebergCreate() {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(false);
@@ -619,6 +652,7 @@ class SnowflakeSinkServiceV2Test {
   void createTableIfNotExists_icebergType_existingIcebergTable_noCreate() {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
     when(conn.isIcebergTable("t1")).thenReturn(true);
     SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
 
@@ -633,6 +667,7 @@ class SnowflakeSinkServiceV2Test {
     // table.type only governs auto-creation; an existing table is used as-is regardless of type.
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
     when(conn.isIcebergTable("t1")).thenReturn(false);
     SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
 
@@ -646,6 +681,7 @@ class SnowflakeSinkServiceV2Test {
   void createTableIfNotExists_snowflakeType_existingIcebergTable_usedAsIs_noCreate() {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
     when(conn.isIcebergTable("t1")).thenReturn(true);
     SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.SNOWFLAKE, ""));
 
@@ -724,6 +760,7 @@ class SnowflakeSinkServiceV2Test {
     // All ICEBERG_METADATA_FIELDS are declared → validation passes without throwing.
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
     when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
     when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA"))
         .thenReturn(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS);
@@ -744,6 +781,7 @@ class SnowflakeSinkServiceV2Test {
 
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
     when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
     when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA"))
         .thenReturn(fieldsWithoutLogAppendTime);
@@ -766,6 +804,7 @@ class SnowflakeSinkServiceV2Test {
 
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
     when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
     when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA")).thenReturn(fieldsWithExtra);
 
@@ -784,6 +823,7 @@ class SnowflakeSinkServiceV2Test {
     // every row to the error table at ingest.
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
     when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(true);
     when(conn.getStructuredObjectFieldNames("t1", "RECORD_METADATA"))
         .thenReturn(Collections.emptyList());
@@ -801,6 +841,7 @@ class SnowflakeSinkServiceV2Test {
     // isRecordMetadataStructuredObject=false (VARIANT or FDN table) → no field fetch, no throw.
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
     when(conn.isRecordMetadataStructuredObject("t1")).thenReturn(false);
 
     SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.ICEBERG, ""));
@@ -816,6 +857,7 @@ class SnowflakeSinkServiceV2Test {
     // validate its structured schema -- it reverts to 4.0.x behavior (RECORD_METADATA as VARIANT).
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(true);
+    when(conn.hasErrorLoggingEnabled("t1")).thenReturn(true);
 
     SinkTaskConfig disabled =
         SinkTaskConfigTestBuilder.builder()

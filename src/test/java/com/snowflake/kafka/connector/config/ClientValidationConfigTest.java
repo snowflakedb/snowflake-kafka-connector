@@ -2,6 +2,8 @@ package com.snowflake.kafka.connector.config;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING_DEFAULT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -72,5 +74,32 @@ public class ClientValidationConfigTest {
         "server_side",
         parsed.get(SNOWFLAKE_VALIDATION),
         "Should default to server_side when not specified");
+  }
+
+  @Test
+  public void testRequireErrorLoggingConfigExistsAndDefaultsTrue() {
+    ConfigDef configDef = ConnectorConfigDefinition.getConfig();
+
+    assertNotNull(
+        configDef.configKeys().get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING),
+        "snowflake.validation.require.error.logging should be defined in config");
+    assertEquals(
+        SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING_DEFAULT,
+        configDef.configKeys().get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING).defaultValue,
+        "Default value should be true");
+
+    Map<String, Object> parsed = configDef.parse(new HashMap<>());
+    assertEquals(true, parsed.get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING));
+  }
+
+  @Test
+  public void testRequireErrorLoggingCanBeDisabled() {
+    ConfigDef configDef = ConnectorConfigDefinition.getConfig();
+    Map<String, String> props = new HashMap<>();
+    props.put(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING, "false");
+
+    Map<String, Object> parsed = configDef.parse(props);
+
+    assertEquals(false, parsed.get(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING));
   }
 }

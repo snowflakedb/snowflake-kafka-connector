@@ -8,6 +8,7 @@ import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import java.util.ArrayList;
 import java.util.List;
@@ -167,8 +168,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
   /**
    * Test: Validation disabled, multiple tables — one enabled, one disabled.
    *
-   * <p>Verifies per-table iteration: only the disabled table gets a warning; the enabled table gets
-   * an INFO confirmation.
+   * <p>Default require-error-logging=true fails startup on the table that is missing ERROR_LOGGING.
    */
   @Test
   public void testValidationDisabledMultipleTablesPartialErrorLogging() {
@@ -182,32 +182,26 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
                     Map.of("topic_ok", "table_ok", "topic_bad", "table_bad")))
             .build();
 
-    SnowflakeSinkServiceV2 service =
-        createServiceWithConfig(
-            config,
-            mockConn -> {
-              when(mockConn.tableExist("table_ok")).thenReturn(true);
-              when(mockConn.hasErrorLoggingEnabled("table_ok")).thenReturn(true);
-              when(mockConn.tableExist("table_bad")).thenReturn(true);
-              when(mockConn.hasErrorLoggingEnabled("table_bad")).thenReturn(false);
-            });
-    assertNotNull(service);
-
-    assertTrue(
-        testAppender.containsMessage(Level.WARN, "table_bad"),
-        "Should warn about the table missing ERROR_LOGGING");
-    assertFalse(
-        testAppender.containsMessage(Level.WARN, "table_ok"),
-        "Should NOT warn about the table that has ERROR_LOGGING enabled");
-    assertTrue(
-        testAppender.containsMessage(Level.INFO, "table_ok"),
-        "Should log INFO confirmation for the table with ERROR_LOGGING enabled");
+    SnowflakeKafkaConnectorException thrown =
+        assertThrows(
+            SnowflakeKafkaConnectorException.class,
+            () ->
+                createServiceWithConfig(
+                    config,
+                    mockConn -> {
+                      when(mockConn.tableExist("table_ok")).thenReturn(true);
+                      when(mockConn.hasErrorLoggingEnabled("table_ok")).thenReturn(true);
+                      when(mockConn.tableExist("table_bad")).thenReturn(true);
+                      when(mockConn.hasErrorLoggingEnabled("table_bad")).thenReturn(false);
+                    }));
+    assertTrue(thrown.getMessage().contains("0036"), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains("table_bad"), thrown.getMessage());
   }
 
   /**
    * Test: Validation disabled WITHOUT ERROR_LOGGING on existing table.
    *
-   * <p>Should warn about the specific table and suggest ALTER TABLE.
+   * <p>Default require-error-logging=true fails startup with ERROR_0036 and the ALTER TABLE hint.
    */
   @Test
   public void testValidationDisabledWithoutErrorLogging() {
@@ -216,6 +210,36 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
+            .build();
+
+    SnowflakeKafkaConnectorException thrown =
+        assertThrows(
+            SnowflakeKafkaConnectorException.class,
+            () ->
+                createServiceWithConfig(
+                    config,
+                    mockConn -> {
+                      when(mockConn.tableExist("table1")).thenReturn(true);
+                      when(mockConn.hasErrorLoggingEnabled("table1")).thenReturn(false);
+                    }));
+    assertTrue(thrown.getMessage().contains("0036"), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains("table1"), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains("ALTER TABLE"), thrown.getMessage());
+    assertTrue(
+        thrown.getMessage().contains("snowflake.validation.require.error.logging=false"),
+        thrown.getMessage());
+  }
+
+  /** Test: Opt out of the fail-fast default. Existing table without ERROR_LOGGING only warns. */
+  @Test
+  public void testValidationDisabledWithoutErrorLogging_optOutWarns() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .requireErrorLogging(false)
             .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
             .build();
 
@@ -235,6 +259,30 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
     assertTrue(
         testAppender.containsMessage(Level.WARN, "ALTER TABLE"),
         "Should suggest ALTER TABLE command");
+  }
+
+  /**
+   * Client-side validation ignores the require-error-logging flag: existing tables without
+   * ERROR_LOGGING do not fail startup (errors go to DLQ / abort, not the Snowflake error table).
+   */
+  @Test
+  public void testClientSideValidationIgnoresMissingErrorLogging() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.CLIENT_SIDE)
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
+            .build();
+
+    SnowflakeSinkServiceV2 service =
+        createServiceWithConfig(
+            config,
+            mockConn -> {
+              when(mockConn.tableExist("table1")).thenReturn(true);
+              when(mockConn.hasErrorLoggingEnabled("table1")).thenReturn(false);
+            });
+    assertNotNull(service);
   }
 
   /**
@@ -319,6 +367,8 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
           null, // sinkTaskContext
           java.util.Optional.empty(), // metricsJmxReporter
           mockMetrics);
+    } catch (SnowflakeKafkaConnectorException e) {
+      throw e;
     } catch (Exception e) {
       System.err.println("Failed to create service: " + e.getMessage());
       e.printStackTrace();

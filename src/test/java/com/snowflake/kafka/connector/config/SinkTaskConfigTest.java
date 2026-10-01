@@ -42,6 +42,7 @@ public class SinkTaskConfigTest {
     assertFalse(config.isEnableSanitization());
     assertTrue(config.isEnableSchematization());
     assertEquals(SnowflakeValidation.SERVER_SIDE, config.getValidation());
+    assertTrue(config.isRequireErrorLogging());
     assertEquals(50, config.getOpenChannelIoThreads());
     assertNotNull(config.getCachingConfig());
     assertNotNull(config.getMetadataConfig());
@@ -84,6 +85,7 @@ public class SinkTaskConfigTest {
     config.put(ERRORS_DEAD_LETTER_QUEUE_TOPIC_NAME_CONFIG, "dlq-topic");
     config.put(SNOWFLAKE_OPEN_CHANNEL_IO_THREADS, "10");
     config.put(SNOWFLAKE_ENABLE_SCHEMATIZATION, "false");
+    config.put(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING, "false");
 
     SinkTaskConfig parsed = SinkTaskConfig.from(config);
 
@@ -94,6 +96,7 @@ public class SinkTaskConfigTest {
     assertEquals("dlq-topic", parsed.getDlqTopicName());
     assertEquals(10, parsed.getOpenChannelIoThreads());
     assertFalse(parsed.isEnableSchematization());
+    assertFalse(parsed.isRequireErrorLogging());
   }
 
   @Test

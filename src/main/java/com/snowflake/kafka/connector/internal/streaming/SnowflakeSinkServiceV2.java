@@ -150,10 +150,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * Perform pre-flight safety checks on validation configuration. Verifies that error handling is
    * properly configured to prevent silent data loss or task crashes.
    *
-   * <p>Safety checks: - If validation disabled: Warn that SSv2 Error Table is required to prevent
-   * task crashes - If validation enabled: Verify DLQ or tolerance=none for safe error handling
+   * <p>Safety checks: - If validation is server-side: require ERROR_LOGGING on existing tables
+   * (fail by default; warn if {@code snowflake.validation.require.error.logging=false}) - If
+   * validation is client-side: Verify DLQ or tolerance=none for safe error handling
    *
-   * @throws IllegalStateException if configuration is unsafe and would cause data loss
+   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException if an existing
+   *     table is missing ERROR_LOGGING and the require-error-logging flag is on
    */
   private void logValidationConfiguration() {
     String errorsTolerance =
@@ -166,25 +168,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     boolean tolerateAll = "all".equalsIgnoreCase(errorsTolerance);
 
     if (taskConfig.getValidation() != SnowflakeValidation.CLIENT_SIDE) {
-      // Check each target table for ERROR_LOGGING.
-      // Note: makes up to 3 network calls per table (tableExist + isIcebergTable +
-      // hasErrorLoggingEnabled). Acceptable at startup; only runs once per task constructor.
+      // Check each statically known target table for ERROR_LOGGING.
+      // Tables not enumerable here (no topic2table.map, or regex group templates) are checked
+      // later in createTableIfNotExists when the topic is assigned.
+      // Note: makes up to 2 network calls per table (tableExist + hasErrorLoggingEnabled).
+      // Acceptable at startup; only runs once per task constructor.
       Set<String> uniqueTables = new HashSet<>(taskConfig.getTopicToTableResolver().tableNames());
       for (String tableName : uniqueTables) {
         if (!conn.tableExist(tableName)) {
           // Table doesn't exist yet — will be auto-created with ERROR_LOGGING = TRUE
           continue;
         }
-        if (!conn.hasErrorLoggingEnabled(tableName)) {
-          LOGGER.warn(
-              "Table '{}' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
-                  + " invalid records will be silently dropped. Run: ALTER TABLE \"{}\" SET"
-                  + " ERROR_LOGGING = TRUE",
-              tableName,
-              tableName);
-        } else {
-          LOGGER.info("Table '{}' has ERROR_LOGGING enabled — error table is active.", tableName);
-        }
+        checkErrorLoggingOnExistingTable(tableName);
       }
       return;
     }
@@ -288,6 +283,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           "Using existing table {} (snowflake.autocreate.table.type={}).",
           tableName,
           taskConfig.getAutocreatedTableType().configValue());
+      checkErrorLoggingOnExistingTable(tableName);
       // Validate that the existing RECORD_METADATA structured-OBJECT schema (managed-Iceberg v2)
       // contains all fields the connector emits. A missing declared field causes the strict v2
       // typed-OBJECT cast to reject every row with "Typed object schema mismatch in conversion";
@@ -355,6 +351,41 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               tableName);
         }
     }
+  }
+
+  /**
+   * Ensures an existing table has ERROR_LOGGING when using server-side validation.
+   *
+   * <p>Missing error logging on an existing table is silent data loss in high-throughput mode:
+   * rejected rows never reach a DLQ or an error table. Auto-created tables already include {@code
+   * ERROR_LOGGING = TRUE}, so this only applies to tables the connector did not create.
+   *
+   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException (ERROR_0036)
+   *     when the table lacks ERROR_LOGGING and {@code
+   *     snowflake.validation.require.error.logging=true} (the default)
+   */
+  private void checkErrorLoggingOnExistingTable(String tableName) {
+    if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
+      return;
+    }
+    if (conn.hasErrorLoggingEnabled(tableName)) {
+      LOGGER.info("Table '{}' has ERROR_LOGGING enabled — error table is active.", tableName);
+      return;
+    }
+    String message =
+        "Table '"
+            + tableName
+            + "' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
+            + " invalid records will be silently dropped. Run: ALTER TABLE \""
+            + tableName
+            + "\" SET ERROR_LOGGING = TRUE. To restore the previous warn-and-continue"
+            + " behavior, set "
+            + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_LOGGING
+            + "=false.";
+    if (taskConfig.isRequireErrorLogging()) {
+      throw SnowflakeErrors.ERROR_0036.getException(message);
+    }
+    LOGGER.warn(message);
   }
 
   /**
