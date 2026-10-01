@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.records;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -11,9 +12,14 @@ import static org.mockito.Mockito.when;
 
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +39,14 @@ public class SnowflakeAvroConverterTest {
   public void toConnectData_resolvesAndStashesRealAvroSchema_thenDelegates() throws Exception {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
-    Schema avroSchema = SchemaBuilder.record("MyRecord").fields().name("a").type().stringType().noDefault().endRecord();
+    Schema avroSchema =
+        SchemaBuilder.record("MyRecord")
+            .fields()
+            .name("a")
+            .type()
+            .stringType()
+            .noDefault()
+            .endRecord();
     byte[] wireBytes = wireBytesFor(42, (byte) 1, (byte) 2);
     SchemaAndValue expected = new SchemaAndValue(null, "converted");
 
@@ -49,7 +62,8 @@ public class SnowflakeAvroConverterTest {
   }
 
   @Test
-  public void toConnectData_registryLookupFails_stillDelegatesAndLeavesSchemaUnset() throws Exception {
+  public void toConnectData_registryLookupFails_stillDelegatesAndLeavesSchemaUnset()
+      throws Exception {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
     byte[] wireBytes = wireBytesFor(7);
@@ -70,7 +84,7 @@ public class SnowflakeAvroConverterTest {
   public void toConnectData_valueTooShortForHeader_skipsLookupAndDelegates() throws Exception {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
-    byte[] tooShort = new byte[]{0, 1, 2};
+    byte[] tooShort = new byte[] {0, 1, 2};
     SchemaAndValue expected = new SchemaAndValue(null, "converted");
 
     when(delegate.toConnectData(eq(TOPIC), any(byte[].class))).thenReturn(expected);
@@ -85,10 +99,48 @@ public class SnowflakeAvroConverterTest {
   }
 
   @Test
+  public void toConnectData_wrongMagicByte_skipsLookupAndDelegates() throws Exception {
+    SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
+    AvroConverter delegate = mock(AvroConverter.class);
+    byte[] wrongMagicByte = wireBytesFor(42, (byte) 1, (byte) 2);
+    wrongMagicByte[0] = (byte) 5;
+    SchemaAndValue expected = new SchemaAndValue(null, "converted");
+
+    when(delegate.toConnectData(eq(TOPIC), any(byte[].class))).thenReturn(expected);
+
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter(registryClient, delegate);
+    SchemaAndValue actual = converter.toConnectData(TOPIC, wrongMagicByte);
+
+    assertSame(expected, actual);
+    assertNull(converter.getLatestAvroSchema(TOPIC));
+    verify(registryClient, never()).getById(any(Integer.class));
+    verify(delegate).toConnectData(TOPIC, wrongMagicByte);
+  }
+
+  @Test
+  public void configure_schemaRegistryUrlListContainsNonString_throwsConfigException() {
+    Map<String, Object> configs = new HashMap<>();
+    configs.put(
+        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+        Arrays.asList("http://good:8081", 42));
+
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+
+    assertThrows(ConfigException.class, () -> converter.configure(configs, false));
+  }
+
+  @Test
+  public void configure_schemaRegistryUrlMissing_throwsConfigException() {
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
+
+    assertThrows(ConfigException.class, () -> converter.configure(new HashMap<>(), false));
+  }
+
+  @Test
   public void fromConnectData_delegatesDirectly() {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
-    byte[] expected = new byte[]{9, 9, 9};
+    byte[] expected = new byte[] {9, 9, 9};
 
     when(delegate.fromConnectData(eq(TOPIC), any(), any())).thenReturn(expected);
 
