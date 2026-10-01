@@ -98,6 +98,15 @@ public interface TopicPartitionChannel {
    */
   default void incRecoverySkipConflictCount() {}
 
+  /**
+   * Uncompressed NDJSON bytes currently buffered in this partition's SDK channel. Used as a
+   * per-channel memory proxy; the task sums this across all assigned partitions. Returns 0 if the
+   * channel is not yet open, is closed, or the bundled SDK does not expose the counter.
+   */
+  default long getInflightAppendedBytes() {
+    return 0L;
+  }
+
   @VisibleForTesting
   SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus();
 }
