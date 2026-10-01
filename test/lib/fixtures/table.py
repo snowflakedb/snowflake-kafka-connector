@@ -11,7 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 def with_error_table(columns: str, enabled: bool = True) -> str:
-    """Append ERROR_LOGGING = TRUE unless already present or explicitly disabled."""
+    """Append ERROR_LOGGING = TRUE unless already present or explicitly disabled.
+
+    File-based Snowpipe (COPY INTO) cannot target a table with ERROR_LOGGING.
+    """
     if not enabled or re.search(r"ERROR_LOGGING", columns, re.IGNORECASE):
         return columns
     return f"{columns} ERROR_LOGGING = TRUE"
@@ -216,7 +219,8 @@ def create_table(driver: KafkaDriver, name_salt: str, request: pytest.FixtureReq
 
     ERROR_LOGGING is enabled by default so v4-ht server-side validation can
     start. Pass ``error_table=False`` for fail-closed tests that assert
-    ERROR_0036.
+    ERROR_0036, and for file-based Snowpipe (COPY INTO cannot target a table
+    with ERROR_LOGGING).
 
     The Kafka topic is cleaned up after the test.  The Snowflake table
     (and associated stage/pipe) is left for the session-scoped
