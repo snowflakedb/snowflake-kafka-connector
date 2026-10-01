@@ -8,6 +8,7 @@ import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Width;
+import org.apache.kafka.common.config.ConfigException;
 
 /** This class is a placeholder for config definition in Apache Kafka specific format */
 public class ConnectorConfigDefinition {
@@ -23,6 +24,16 @@ public class ConnectorConfigDefinition {
   private static final ConfigDef.Validator TOPIC_TO_TABLE_VALIDATOR = new TopicToTableValidator();
   private static final ConfigDef.Validator STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR =
       new CommaSeparatedKeyValueValidator();
+  private static final ConfigDef.Validator MAX_MEMORY_LIMIT_BYTES_VALIDATOR =
+      (name, value) -> {
+        if (value == null) {
+          return;
+        }
+        long parsed = (Long) value;
+        if (parsed != -1L && parsed <= 0L) {
+          throw new ConfigException(name, value, "Must be -1 (disabled) or a positive byte count");
+        }
+      };
 
   public static ConfigDef getConfig() {
     return new ConfigDef()
@@ -408,6 +419,21 @@ public class ConnectorConfigDefinition {
             6,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES,
+            LONG,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES_DEFAULT,
+            MAX_MEMORY_LIMIT_BYTES_VALIDATOR,
+            LOW,
+            "Task-level cap on summed per-channel inflight appended bytes (uncompressed NDJSON in"
+                + " the Streaming SDK input buffer). -1 disables the limit. When the sum across"
+                + " this task's channels (which may span multiple SDK clients) reaches the cap, the"
+                + " task rewinds the current poll and backs off. Requires snowpipe-streaming with"
+                + " SnowflakeStreamingIngestChannel.getInflightAppendedBytes().",
+            CONNECTOR_CONFIG_DOC,
+            7,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES)
         .define(
             KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
             STRING,

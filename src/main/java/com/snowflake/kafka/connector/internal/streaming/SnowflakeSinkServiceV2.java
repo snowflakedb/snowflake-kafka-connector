@@ -76,6 +76,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /** Cooldown duration after a backpressure event before retrying inserts. */
   static final Duration BACKPRESSURE_COOLDOWN = Duration.ofSeconds(1);
 
+  /**
+   * How many successful inserts to allow between re-reads of summed inflight appended bytes when a
+   * task memory limit is set. The start-of-put check always runs.
+   */
+  static final int MEMORY_CHECK_INTERVAL = 32;
+
   /** Timestamp until which all inserts are skipped due to backpressure. */
   @VisibleForTesting Instant backpressureUntil = Instant.MIN;
 
@@ -477,7 +483,26 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       skipAllPartitions = true;
     }
 
+    // Task-level memory proxy: sum SDK inflight appended bytes across this task's channels
+    // (they may belong to different clients/pipes). Re-check every MEMORY_CHECK_INTERVAL
+    // successful inserts so a single large poll cannot run far past the cap.
+    final long memoryLimitBytes = taskConfig.getMaxMemoryLimitBytes();
+    final boolean memoryLimitEnabled = memoryLimitBytes > 0;
+    int insertsSinceMemoryCheck = 0;
     boolean newBackpressure = false;
+    if (memoryLimitEnabled && !skipAllPartitions) {
+      long inflight = channelManager.sumInflightAppendedBytes();
+      if (inflight >= memoryLimitBytes) {
+        LOGGER.warn(
+            "Task memory limit exceeded before insert: inflight appended bytes {} >= limit {}",
+            inflight,
+            memoryLimitBytes);
+        skipAllPartitions = true;
+        newBackpressure = true;
+        taskMetrics.incBackpressureRewindCount();
+      }
+    }
+
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
@@ -498,9 +523,29 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         continue;
       }
 
+      if (memoryLimitEnabled && insertsSinceMemoryCheck >= MEMORY_CHECK_INTERVAL) {
+        long inflight = channelManager.sumInflightAppendedBytes();
+        insertsSinceMemoryCheck = 0;
+        if (inflight >= memoryLimitBytes) {
+          LOGGER.warn(
+              "Task memory limit exceeded mid-batch on partition {}: inflight appended bytes {} >="
+                  + " limit {}",
+              tp,
+              inflight,
+              memoryLimitBytes);
+          taskMetrics.incBackpressureRewindCount();
+          offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
+          skipAllPartitions = true;
+          newBackpressure = true;
+          continue;
+        }
+      }
+
       try {
         if (!insert(record)) {
           offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
+        } else if (memoryLimitEnabled) {
+          insertsSinceMemoryCheck++;
         }
       } catch (BackpressureException e) {
         LOGGER.warn(
