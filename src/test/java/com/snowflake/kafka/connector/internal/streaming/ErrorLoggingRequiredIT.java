@@ -23,9 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Live-account coverage for {@code snowflake.validation.require.error.table}. Creates a real table
- * without ERROR_LOGGING and asserts the connector fails closed by default, then succeeds after
- * {@code ALTER TABLE ... SET ERROR_LOGGING = TRUE}.
+ * Live-account coverage for {@code snowflake.validation.require.error.table}. Existing tables
+ * without ERROR_LOGGING fail startup; tables the connector creates already have ERROR_LOGGING.
  */
 public class ErrorLoggingRequiredIT {
 
@@ -35,7 +34,6 @@ public class ErrorLoggingRequiredIT {
   @BeforeEach
   public void setup() {
     table = TestUtils.randomTableName();
-    TestUtils.createTableWithMetadataColumn(table, true, false);
   }
 
   @AfterEach
@@ -45,9 +43,10 @@ public class ErrorLoggingRequiredIT {
 
   @Test
   public void existingTableWithoutErrorLogging_constructorFailsWithError0036() {
+    TestUtils.createTableWithMetadataColumn(table, true, false);
     assertFalse(conn.hasErrorLoggingEnabled(table));
 
-    assertThatThrownBy(() -> newService(requireErrorTableConfig(true)))
+    assertThatThrownBy(() -> newService(mappedServerSideConfig(true)))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining("0036")
         .hasMessageContaining(table)
@@ -55,34 +54,35 @@ public class ErrorLoggingRequiredIT {
   }
 
   @Test
-  public void existingTableWithoutErrorLogging_createTableIfNotExistsFailsWithError0036() {
-    assertFalse(conn.hasErrorLoggingEnabled(table));
-    SnowflakeSinkServiceV2 service = newService(unmappedServerSideConfig(true));
+  public void missingTable_isCreatedWithErrorLogging() {
+    assertFalse(conn.tableExist(table));
 
-    assertThatThrownBy(() -> service.createTableIfNotExists(table))
-        .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining("0036")
-        .hasMessageContaining(table);
+    SnowflakeSinkServiceV2 service = newService(unmappedServerSideConfig(true));
+    service.createTableIfNotExists(table);
+
+    assertTrue(conn.tableExist(table));
+    assertTrue(conn.hasErrorLoggingEnabled(table));
   }
 
   @Test
-  public void optOut_allowsExistingTableWithoutErrorLogging() {
+  public void existingTableWithoutErrorLogging_startsWhenCheckDisabled() {
+    TestUtils.createTableWithMetadataColumn(table, true, false);
     assertFalse(conn.hasErrorLoggingEnabled(table));
 
-    SnowflakeSinkServiceV2 service = newService(requireErrorTableConfig(false));
+    SnowflakeSinkServiceV2 service = newService(mappedServerSideConfig(false));
     service.createTableIfNotExists(table);
   }
 
   @Test
   public void existingTableWithErrorLogging_starts() {
-    conn.executeQueryWithParameters("alter table identifier(?) set error_logging = true", table);
+    TestUtils.createTableWithMetadataColumn(table, true, true);
     assertTrue(conn.hasErrorLoggingEnabled(table));
 
-    SnowflakeSinkServiceV2 service = newService(requireErrorTableConfig(true));
+    SnowflakeSinkServiceV2 service = newService(mappedServerSideConfig(true));
     service.createTableIfNotExists(table);
   }
 
-  private SinkTaskConfig requireErrorTableConfig(boolean require) {
+  private SinkTaskConfig mappedServerSideConfig(boolean require) {
     return SinkTaskConfigTestBuilder.builder()
         .connectorName(TestUtils.TEST_CONNECTOR_NAME)
         .taskId("0")
