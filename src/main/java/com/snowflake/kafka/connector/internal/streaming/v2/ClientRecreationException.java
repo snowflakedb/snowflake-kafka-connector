@@ -32,6 +32,8 @@ public class ClientRecreationException extends RuntimeException {
           // Client was closed
           "ClosedClientError");
 
+  private static final String SF_API_NO_ROUTE = "SfApiNoRoute";
+
   /**
    * Constructs a new {@code ClientRecreationException} wrapping the given {@link SFException}.
    *
@@ -76,5 +78,16 @@ public class ClientRecreationException extends RuntimeException {
       return false;
     }
     return CLIENT_INVALID_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
+  }
+
+  /**
+   * True when the SDK reports {@code SfApiNoRoute}. Distinct from {@link #isClientInvalidError}:
+   * first create retries this, recreate does not.
+   */
+  public static boolean isSfApiNoRoute(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    return SF_API_NO_ROUTE.equals(((SFException) e).getErrorCodeName());
   }
 }
