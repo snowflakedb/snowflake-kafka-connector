@@ -742,7 +742,7 @@ def test_time_offset(results):
 
 
 def test_date_trailing_z(results):
-    """DATE/TIMESTAMP "2017-09-15Z" is accepted as 2017-09-15 on v4-compat.
+    """DATE "2017-09-15Z" is 2017-09-15. TIMESTAMP "2017-09-15Z" is UTC midnight.
 
     v3 rejected these. v4-ht talks to the SSv2 server, which does not accept
     a bare date with a trailing Z.
