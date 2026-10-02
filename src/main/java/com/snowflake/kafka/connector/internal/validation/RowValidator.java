@@ -11,7 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -228,6 +230,7 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
+        value = rewriteBareDateZ(value, false);
         DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
         break;
 
@@ -296,6 +299,7 @@ public class RowValidator {
       return DataValidationUtil.validateAndFormatTimestamp(
           col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
     }
+    value = rewriteBareDateZ(value, true);
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),
         value,
@@ -304,6 +308,27 @@ public class RowValidator {
         trimTimezone,
         insertRowIndex);
     return value;
+  }
+
+  /**
+   * Bare {@code YYYY-MM-DDZ} only. DATE cannot store a timezone, so drop {@code Z}. TIMESTAMP is an
+   * instant, so send UTC midnight. Anything else is returned unchanged.
+   */
+  private static Object rewriteBareDateZ(Object value, boolean asUtcTimestamp) {
+    if (!(value instanceof String)) {
+      return value;
+    }
+    String s = ((String) value).trim();
+    if (!s.endsWith("Z")) {
+      return value;
+    }
+    String withoutZ = s.substring(0, s.length() - 1);
+    try {
+      LocalDate.parse(withoutZ);
+      return asUtcTimestamp ? withoutZ + "T00:00:00Z" : withoutZ;
+    } catch (DateTimeParseException e) {
+      return value;
+    }
   }
 
   /** Detect columns in the row that don't exist in the table schema. */
