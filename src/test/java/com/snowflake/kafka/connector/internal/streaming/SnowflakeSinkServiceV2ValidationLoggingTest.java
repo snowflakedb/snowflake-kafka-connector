@@ -224,8 +224,9 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
                       when(mockConn.hasErrorLoggingEnabled("table1")).thenReturn(false);
                     }));
     assertTrue(thrown.getMessage().contains("0036"), thrown.getMessage());
-    assertTrue(thrown.getMessage().contains("table1"), thrown.getMessage());
-    assertTrue(thrown.getMessage().contains("ALTER TABLE"), thrown.getMessage());
+    assertTrue(
+        thrown.getMessage().contains("ALTER TABLE \"table1\" SET ERROR_LOGGING = TRUE"),
+        thrown.getMessage());
     assertTrue(
         thrown.getMessage().contains("snowflake.validation.require.error.table=false"),
         thrown.getMessage());
@@ -252,13 +253,12 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             });
     assertNotNull(service);
 
-    assertTrue(testAppender.containsMessage(Level.WARN, "table1"), "Should mention the table name");
     assertTrue(
-        testAppender.containsMessage(Level.WARN, "does not have ERROR_LOGGING"),
-        "Should warn about missing error logging");
+        testAppender.containsMessage(Level.WARN, "\"table1\" has no error table"),
+        "Should mention the table and missing error table");
     assertTrue(
-        testAppender.containsMessage(Level.WARN, "ALTER TABLE"),
-        "Should suggest ALTER TABLE command");
+        testAppender.containsMessage(Level.WARN, "ALTER TABLE \"table1\" SET ERROR_LOGGING = TRUE"),
+        "Should suggest the ALTER TABLE command");
   }
 
   /**

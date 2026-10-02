@@ -215,12 +215,9 @@ public enum SnowflakeErrors {
           + " ingest. See the specific error message for details."),
   ERROR_0036(
       "0036",
-      "ERROR_LOGGING is not enabled on the target table",
-      "Server-side validation requires ERROR_LOGGING on existing tables so rejected rows are"
-          + " captured in the error table instead of being silently dropped. Run ALTER TABLE"
-          + " <table> SET ERROR_LOGGING = TRUE, or set "
-          + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE
-          + "=false to start anyway.");
+      "ERROR_LOGGING is not enabled",
+      "Rejected rows are silently dropped. Enable error logging on the table, or disable this"
+          + " check.");
 
   // properties
 

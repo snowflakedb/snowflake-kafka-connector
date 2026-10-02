@@ -372,20 +372,19 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Table '{}' has ERROR_LOGGING enabled — error table is active.", tableName);
       return;
     }
-    String message =
-        "Table '"
-            + tableName
-            + "' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
-            + " invalid records will be silently dropped. Run: ALTER TABLE \""
-            + tableName
-            + "\" SET ERROR_LOGGING = TRUE. To restore the previous warn-and-continue"
-            + " behavior, set "
-            + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE
-            + "=false.";
+    String quotedTable = "\"" + tableName.replace("\"", "\"\"") + "\"";
+    String alterSql = "ALTER TABLE " + quotedTable + " SET ERROR_LOGGING = TRUE";
     if (taskConfig.isRequireErrorTable()) {
-      throw SnowflakeErrors.ERROR_0036.getException(message);
+      throw SnowflakeErrors.ERROR_0036.getException(
+          alterSql
+              + "\nTo start anyway (rejected rows will be dropped): "
+              + KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE
+              + "=false");
     }
-    LOGGER.warn(message);
+    LOGGER.warn(
+        "Table {} has no error table; rejected rows will be dropped. Enable with: {}",
+        quotedTable,
+        alterSql);
   }
 
   /**

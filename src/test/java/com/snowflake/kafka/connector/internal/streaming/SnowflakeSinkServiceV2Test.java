@@ -572,7 +572,7 @@ class SnowflakeSinkServiceV2Test {
     assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
         .hasMessageContaining("0036")
-        .hasMessageContaining("ERROR_LOGGING")
+        .hasMessageContaining("ALTER TABLE \"t1\" SET ERROR_LOGGING = TRUE")
         .hasMessageContaining("snowflake.validation.require.error.table=false");
   }
 
