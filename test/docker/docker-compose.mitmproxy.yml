@@ -6,6 +6,11 @@
 # scheme=https, host=mitmproxy, port=8080. The Connect worker trusts the
 # test-only CA through SSL_CERT_FILE (SSv2 SDK 1.7+).
 #
+# The mitmproxy entrypoint generates a CA + leaf before mitmdump starts.
+# CA and leaf use separate volumes so kafka only mounts the CA (not the leaf
+# private key). kafka depends_on service_healthy, so the CA is on the volume
+# before Connect reads SSL_CERT_FILE.
+#
 # The addon rewrites the /v2/streaming/hostname response to "mitmproxy-subdomain"
 # (a Docker network alias for the same container). This ensures all subsequent
 # SDK streaming API calls also route through the proxy. The addon fixes up the
@@ -13,6 +18,10 @@
 #
 # Required env vars:
 #   UPSTREAM_HOST - real Snowflake host without port (e.g., sfctest0.snowflakecomputing.com)
+
+volumes:
+  mitmproxy-ca:
+  mitmproxy-leaf:
 
 services:
   mitmproxy:
@@ -27,6 +36,9 @@ services:
     environment:
       UPSTREAM_HOST: "${UPSTREAM_HOST}"
       PROXY_SUBDOMAIN_ALIAS: "mitmproxy-subdomain"
+    volumes:
+      - mitmproxy-ca:/certs-ca
+      - mitmproxy-leaf:/certs
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9080/status')"]
       interval: 2s
@@ -42,7 +54,7 @@ services:
     environment:
       SSL_CERT_FILE: /certs/mitmproxy-ca.crt
     volumes:
-      - ./mitmproxy/certs/mitmproxy-ca.crt:/certs/mitmproxy-ca.crt:ro
+      - mitmproxy-ca:/certs:ro
 
   test-runner:
     environment:

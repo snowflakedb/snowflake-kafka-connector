@@ -10,6 +10,7 @@ Responsibilities:
 4. Expose control API on port 9080 (enable/disable 410, status, counters)
 
 Usage:
+  python3 /addon/generate_certs.py
   mitmdump --mode reverse:https://$UPSTREAM_HOST/ --listen-port 8080 \
            --certs /certs/mitmproxy.pem \
            --set keep_host_header=false --set upstream_cert=false \
