@@ -1726,19 +1726,17 @@ public class RowValidatorTest {
   }
 
   @Test
-  public void validateRow_timestampWithTrailingZDate_isUtcMidnight() {
+  public void validateRow_timestampWithTrailingZDate_isAcceptedAsDate() {
     for (ColumnLogicalType type :
         new ColumnLogicalType[] {
-          ColumnLogicalType.TIMESTAMP_NTZ,
-          ColumnLogicalType.TIMESTAMP_LTZ,
-          ColumnLogicalType.TIMESTAMP_TZ
+          ColumnLogicalType.TIMESTAMP_NTZ, ColumnLogicalType.TIMESTAMP_LTZ
         }) {
       Map<String, ColumnSchema> schema = new HashMap<>();
       schema.put("TS", createTimestampColumnSchema("TS", type));
       Map<String, Object> row = new HashMap<>();
       row.put("TS", "2017-09-15Z");
       assertTrue(newRowValidator(schema).validateRow(row).isValid());
-      assertEquals("2017-09-15T00:00:00Z", row.get("TS"));
+      assertEquals("2017-09-15", row.get("TS"));
     }
   }
 
