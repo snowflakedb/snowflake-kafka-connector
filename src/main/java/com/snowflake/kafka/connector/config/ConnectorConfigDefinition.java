@@ -357,9 +357,8 @@ public class ConnectorConfigDefinition {
             HIGH,
             "When snowflake.validation=server_side, fail startup if an existing target table does"
                 + " not have ERROR_LOGGING enabled. Auto-created tables already enable"
-                + " ERROR_LOGGING. Set to false to restore the previous warn-and-continue"
-                + " behavior (invalid records are silently dropped). Ignored for"
-                + " snowflake.validation=client_side.",
+                + " ERROR_LOGGING. Set to false to start without an error table; rejected rows"
+                + " are dropped. Ignored for snowflake.validation=client_side.",
             CONNECTOR_CONFIG_DOC,
             2,
             Width.NONE,

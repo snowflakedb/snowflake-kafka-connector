@@ -55,9 +55,9 @@ public final class Constants {
     public static final String SNOWFLAKE_VALIDATION = "snowflake.validation";
     public static final String SNOWFLAKE_VALIDATION_DEFAULT = "server_side";
 
-    // Fail startup when server-side validation targets an existing table without an error table.
-    // Auto-created tables already include ERROR_LOGGING = TRUE. Set to false to restore the
-    // previous warn-and-continue behavior (invalid records are silently dropped).
+    // When true, server-side validation fails startup if an existing table does not have
+    // ERROR_LOGGING. Auto-created tables already set ERROR_LOGGING = TRUE. Set to false to
+    // start without an error table; rejected rows are dropped. Ignored for client-side validation.
     public static final String SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE =
         "snowflake.validation.require.error.table";
     public static final boolean SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE_DEFAULT = true;
