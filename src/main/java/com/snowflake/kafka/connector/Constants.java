@@ -55,6 +55,13 @@ public final class Constants {
     public static final String SNOWFLAKE_VALIDATION = "snowflake.validation";
     public static final String SNOWFLAKE_VALIDATION_DEFAULT = "server_side";
 
+    // When true, server-side validation fails startup if an existing table does not have
+    // ERROR_LOGGING. Auto-created tables already set ERROR_LOGGING = TRUE. Set to false to
+    // start without an error table; rejected rows are dropped. Ignored for client-side validation.
+    public static final String SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE =
+        "snowflake.validation.require.error.table";
+    public static final boolean SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE_DEFAULT = true;
+
     // Snowpipe Streaming Classic (SSv1) offset migration
     public static final String SNOWFLAKE_SSV1_OFFSET_MIGRATION =
         "snowflake.streaming.classic.offset.migration";

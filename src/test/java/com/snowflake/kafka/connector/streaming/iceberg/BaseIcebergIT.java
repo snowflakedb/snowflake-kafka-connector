@@ -30,6 +30,7 @@ public class BaseIcebergIT {
         "create or replace iceberg table identifier(?) ("
             + columnClause
             + ") "
+            + "error_logging = true "
             + "external_volume = 'test_exvol' "
             + "catalog = 'SNOWFLAKE' "
             + "base_location = 'it' iceberg_version = "

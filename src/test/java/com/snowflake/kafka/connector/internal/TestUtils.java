@@ -427,10 +427,21 @@ public class TestUtils {
    *     exists"
    */
   public static void createTableWithMetadataColumn(String tableName, boolean overwrite) {
+    createTableWithMetadataColumn(tableName, overwrite, true);
+  }
+
+  /**
+   * @param errorTable when true (the default), enable ERROR_LOGGING so v4-ht ITs satisfy the
+   *     require-error-table check. Fail-closed tests pass false.
+   */
+  public static void createTableWithMetadataColumn(
+      String tableName, boolean overwrite, boolean errorTable) {
+    String extra = errorTable ? " error_logging = true" : "";
     String ddl =
-        overwrite
-            ? "create or replace table \"" + tableName + "\" (record_metadata variant)"
-            : "create table if not exists \"" + tableName + "\" (record_metadata variant)";
+        (overwrite
+                ? "create or replace table \"" + tableName + "\" (record_metadata variant)"
+                : "create table if not exists \"" + tableName + "\" (record_metadata variant)")
+            + extra;
     executeQuery(ddl);
   }
 

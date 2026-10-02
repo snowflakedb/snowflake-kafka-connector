@@ -45,7 +45,7 @@ def test_se_nonnullable_json(
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {table_name} "
         f"(RECORD_METADATA VARIANT, PERFORMANCE_STRING STRING NOT NULL) "
-        f"ENABLE_SCHEMA_EVOLUTION = TRUE"
+        f"ENABLE_SCHEMA_EVOLUTION = TRUE ERROR_LOGGING = TRUE"
     )
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 

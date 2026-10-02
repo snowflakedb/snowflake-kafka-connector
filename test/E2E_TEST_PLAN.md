@@ -205,8 +205,9 @@ Auto table creation requires the connector to infer column types from the incomi
 
 | Status | Test | Scenario | Notes |
 |:------:|------|----------|-------|
-| 🟢 | No Error Table configured -> startup warning logged, connector runs | validation=false, no Error Table | `test_error_table_without_error_logging` |
-| 🟢 | Error Table configured -> startup succeeds, errors captured | validation=false, Error Table present | `test_error_table_with_error_logging` |
+| 🟢 | No Error Table configured -> startup fails (ERROR_0036) | validation=server_side, require.error.table=true (default) | `test_error_table_without_error_logging` |
+| 🟢 | No Error Table + opt-out -> startup warning, connector runs | require.error.table=false | `test_error_table_without_error_logging_opt_out` |
+| 🟢 | Error Table configured -> startup succeeds, errors captured | validation=server_side, Error Table present | `test_error_table_with_error_logging` |
 
 #### 3.1.9 Case Sensitivity
 

@@ -45,7 +45,7 @@ class TombstoneRecordIngestionIT {
         .executeQueryWithParameters(
             format(
                 "create or replace table %s (record_metadata variant, gender varchar, regionid"
-                    + " varchar)",
+                    + " varchar) error_logging = true",
                 table));
 
     this.jsonConverter = new JsonConverter();
