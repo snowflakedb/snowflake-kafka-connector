@@ -742,11 +742,7 @@ def test_time_offset(results):
 
 
 def test_date_trailing_z(results):
-    """DATE/TIMESTAMP "2017-09-15Z" is accepted as 2017-09-15 on v4-compat.
-
-    v3 rejected these. v4-ht talks to the SSv2 server, which does not accept
-    a bare date with a trailing Z.
-    """
+    """DATE drops Z. TIMESTAMP becomes UTC midnight. v3 and v4-ht reject these."""
     if results.mode == "v3":
         pytest.skip("v3 rejected a trailing Z on a bare date")
     if results.mode == "v4-ht":

@@ -148,7 +148,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         v.toString().startsWith("2017-09-15"), "DATE value should be 2017-09-15, got: " + v);
   }
 
-  /** TIMESTAMP_NTZ "2017-09-15Z" lands as 2017-09-15 00:00:00. */
+  /** TIMESTAMP_NTZ "2017-09-15Z" is sent as UTC midnight and stores 2017-09-15 00:00:00. */
   @Test
   public void timestampColumnWithTrailingZDate_lands() throws Exception {
     conn.createTableWithOnlyMetadataColumn(table);
