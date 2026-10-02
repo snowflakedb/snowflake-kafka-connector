@@ -148,7 +148,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
         v.toString().startsWith("2017-09-15"), "DATE value should be 2017-09-15, got: " + v);
   }
 
-  /** TIMESTAMP_NTZ "2017-09-15Z" lands as UTC midnight 2017-09-15 00:00:00. */
+  /** TIMESTAMP_NTZ "2017-09-15Z" lands as 2017-09-15 00:00:00. */
   @Test
   public void timestampColumnWithTrailingZDate_lands() throws Exception {
     conn.createTableWithOnlyMetadataColumn(table);
@@ -175,7 +175,7 @@ public class SnowflakeSinkServiceV2SchematizationIT extends SnowflakeSinkService
     Assertions.assertEquals(
         0,
         reporter.getReportedRecords().size(),
-        "DLQ must be empty: 2017-09-15Z should land as UTC midnight on TIMESTAMP_NTZ");
+        "DLQ must be empty: 2017-09-15Z should land on TIMESTAMP_NTZ");
 
     TestUtils.assertWithRetry(() -> TestUtils.tableSize(table) == 1, 5, 20);
 

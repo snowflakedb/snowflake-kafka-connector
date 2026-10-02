@@ -230,7 +230,7 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
-        value = rewriteBareDateZ(value, false);
+        value = stripZIfBareDate(value);
         DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
         break;
 
@@ -299,7 +299,7 @@ public class RowValidator {
       return DataValidationUtil.validateAndFormatTimestamp(
           col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
     }
-    value = rewriteBareDateZ(value, true);
+    value = stripZIfBareDate(value);
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),
         value,
@@ -310,11 +310,8 @@ public class RowValidator {
     return value;
   }
 
-  /**
-   * {@code "2017-09-15Z"} is a date plus UTC. DATE has no timezone, so send {@code "2017-09-15"}.
-   * TIMESTAMP is an instant, so send {@code "2017-09-15T00:00:00Z"}. Anything else is unchanged.
-   */
-  private static Object rewriteBareDateZ(Object value, boolean asUtcTimestamp) {
+  /** {@code "2017-09-15Z"} → {@code "2017-09-15"}. Anything else is returned unchanged. */
+  private static Object stripZIfBareDate(Object value) {
     if (!(value instanceof String)) {
       return value;
     }
@@ -325,7 +322,7 @@ public class RowValidator {
     String withoutZ = s.substring(0, s.length() - 1);
     try {
       LocalDate.parse(withoutZ);
-      return asUtcTimestamp ? withoutZ + "T00:00:00Z" : withoutZ;
+      return withoutZ;
     } catch (DateTimeParseException e) {
       return value;
     }
