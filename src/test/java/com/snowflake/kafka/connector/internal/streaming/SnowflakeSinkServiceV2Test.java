@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -466,6 +467,59 @@ class SnowflakeSinkServiceV2Test {
 
   @Test
   @SuppressWarnings("unchecked")
+  void insertRewindsWhenTaskInFlightBytesAlreadyAtLimit() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInFlightBytes(50);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.sumInFlightBytes()).thenReturn(50L);
+
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 100)));
+
+    verify(channel0, never()).insertRecord(any());
+    verify(mockSinkTaskContext).offset(Map.of(tp0, 100L));
+    assertTrue(limited.backpressureUntil.isAfter(Instant.now().minusSeconds(1)));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void insertAllowsRecordsWhenInFlightBytesUnderLimit() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInFlightBytes(1_000);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.sumInFlightBytes()).thenReturn(10L);
+
+    SinkRecord record = recordFor(TOPIC, 0, 5);
+    limited.insert(Collections.singletonList(record));
+
+    verify(channel0).insertRecord(record);
+    verify(mockSinkTaskContext, never()).offset(any(Map.class));
+  }
+
+  @Test
+  void insertStopsMidBatchWhenInFlightBytesReachLimit() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInFlightBytes(50);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    // First read is the start-of-put check (under limit). After IN_FLIGHT_CHECK_INTERVAL
+    // successful inserts the next read is over the limit.
+    when(mockChannelManager.sumInFlightBytes()).thenReturn(0L, 100L);
+
+    List<SinkRecord> records = new ArrayList<>();
+    for (int i = 0; i <= SnowflakeSinkServiceV2.IN_FLIGHT_CHECK_INTERVAL; i++) {
+      records.add(recordFor(TOPIC, 0, i));
+    }
+    limited.insert(records);
+
+    verify(channel0, times(SnowflakeSinkServiceV2.IN_FLIGHT_CHECK_INTERVAL)).insertRecord(any());
+    verify(mockSinkTaskContext)
+        .offset(Map.of(tp0, (long) SnowflakeSinkServiceV2.IN_FLIGHT_CHECK_INTERVAL));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   void insertResumesNormallyAfterCooldownExpires() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
@@ -858,6 +912,23 @@ class SnowflakeSinkServiceV2Test {
         Optional.empty(),
         () -> mock(BatchOffsetFetcher.class),
         () -> channelManager,
+        TaskMetrics.noop());
+  }
+
+  private SnowflakeSinkServiceV2 serviceWithTaskInFlightBytes(long limitBytes) {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.isClosed()).thenReturn(false);
+    return new SnowflakeSinkServiceV2(
+        mockConn,
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .maxTaskInFlightBytes(limitBytes)
+            .build(),
+        mockSinkTaskContext,
+        Optional.empty(),
+        () -> mockBatchOffsetFetcher,
+        () -> mockChannelManager,
         TaskMetrics.noop());
   }
 

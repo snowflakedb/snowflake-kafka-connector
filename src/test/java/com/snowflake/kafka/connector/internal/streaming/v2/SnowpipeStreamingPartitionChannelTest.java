@@ -167,6 +167,21 @@ class SnowpipeStreamingPartitionChannelTest {
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
   }
 
+  @Test
+  void getInFlightBytesDoesNotBlockWhenChannelNotYetOpen() throws Exception {
+    CountDownLatch blockExecutor = new CountDownLatch(1);
+    openChannelIoExecutor.submit(
+        () -> {
+          blockExecutor.await();
+          return null;
+        });
+
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    assertEquals(0L, partitionChannel.getInFlightBytes());
+
+    blockExecutor.countDown();
+  }
+
   /**
    * Reproduces SNOW-3647384: an {@code openChannel} that is still in-flight when the partition is
    * revoked completes <b>after</b> {@code PartitionChannelManager.close()} has already removed the
