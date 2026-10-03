@@ -99,11 +99,11 @@ public interface TopicPartitionChannel {
   default void incRecoverySkipConflictCount() {}
 
   /**
-   * Uncompressed NDJSON bytes currently buffered in this partition's SDK channel. Used as a
-   * per-channel memory proxy; the task sums this across all assigned partitions. Returns 0 if the
-   * channel is not yet open, is closed, or the bundled SDK does not expose the counter.
+   * In-flight bytes currently buffered in this partition's SDK channel. The task sums this across
+   * all assigned partitions. Returns 0 if the channel is not yet open, is closed, or the bundled
+   * SDK does not expose {@code getInFlightBytes()}.
    */
-  default long getInflightAppendedBytes() {
+  default long getInFlightBytes() {
     return 0L;
   }
 
