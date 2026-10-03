@@ -168,7 +168,7 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void getInflightAppendedBytesDoesNotBlockWhenChannelNotYetOpen() throws Exception {
+  void getInFlightBytesDoesNotBlockWhenChannelNotYetOpen() throws Exception {
     CountDownLatch blockExecutor = new CountDownLatch(1);
     openChannelIoExecutor.submit(
         () -> {
@@ -177,7 +177,7 @@ class SnowpipeStreamingPartitionChannelTest {
         });
 
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
-    assertEquals(0L, partitionChannel.getInflightAppendedBytes());
+    assertEquals(0L, partitionChannel.getInFlightBytes());
 
     blockExecutor.countDown();
   }

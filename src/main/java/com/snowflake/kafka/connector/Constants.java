@@ -49,14 +49,14 @@ public final class Constants {
         "snowflake.streaming.client.provider.override.map";
 
     /**
-     * Task-level cap on summed per-channel inflight appended bytes (SDK input buffer). {@code -1}
-     * disables the limit. When the sum across this task's channels reaches the cap, the task
-     * applies the same rewind/cooldown path as SDK {@code ReceiverSaturated}.
+     * Task-level cap on summed per-channel in-flight bytes. {@code -1} disables the limit. When the
+     * sum across this task's channels reaches the cap, the task applies the same rewind/cooldown
+     * path as SDK {@code ReceiverSaturated}.
      */
-    public static final String SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES =
-        "snowflake.streaming.max.memory.limit.bytes";
+    public static final String SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES =
+        "snowflake.streaming.max.task.in.flight.bytes";
 
-    public static final long SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES_DEFAULT = -1L;
+    public static final long SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES_DEFAULT = -1L;
     public static final String SNOWFLAKE_OPEN_CHANNEL_IO_THREADS =
         "snowflake.open.channel.io.threads";
     public static final int SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT = 50;

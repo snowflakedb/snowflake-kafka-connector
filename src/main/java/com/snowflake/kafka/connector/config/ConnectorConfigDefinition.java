@@ -24,7 +24,7 @@ public class ConnectorConfigDefinition {
   private static final ConfigDef.Validator TOPIC_TO_TABLE_VALIDATOR = new TopicToTableValidator();
   private static final ConfigDef.Validator STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR =
       new CommaSeparatedKeyValueValidator();
-  private static final ConfigDef.Validator MAX_MEMORY_LIMIT_BYTES_VALIDATOR =
+  private static final ConfigDef.Validator MAX_TASK_IN_FLIGHT_BYTES_VALIDATOR =
       (name, value) -> {
         if (value == null) {
           return;
@@ -420,20 +420,19 @@ public class ConnectorConfigDefinition {
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
         .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES,
             LONG,
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES_DEFAULT,
-            MAX_MEMORY_LIMIT_BYTES_VALIDATOR,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES_DEFAULT,
+            MAX_TASK_IN_FLIGHT_BYTES_VALIDATOR,
             LOW,
-            "Task-level cap on summed per-channel inflight appended bytes (uncompressed NDJSON in"
-                + " the Streaming SDK input buffer). -1 disables the limit. When the sum across"
-                + " this task's channels (which may span multiple SDK clients) reaches the cap, the"
-                + " task rewinds the current poll and backs off. Requires snowpipe-streaming with"
-                + " SnowflakeStreamingIngestChannel.getInflightAppendedBytes().",
+            "Task-level cap on summed per-channel in-flight bytes"
+                + " (SnowflakeStreamingIngestChannel.getInFlightBytes()). -1 disables the limit."
+                + " When the sum across this task's channels (which may span multiple SDK clients)"
+                + " reaches the cap, the task rewinds the current poll and backs off.",
             CONNECTOR_CONFIG_DOC,
             7,
             Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES)
+            "Max Task In-Flight Bytes")
         .define(
             KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
             STRING,

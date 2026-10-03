@@ -436,13 +436,13 @@ public class PartitionChannelManager {
   }
 
   /**
-   * Sum of inflight appended bytes across every channel owned by this task, including channels on
-   * different SDK clients (different pipes).
+   * Sum of in-flight bytes across every channel owned by this task, including channels on different
+   * SDK clients (different pipes).
    */
-  public long sumInflightAppendedBytes() {
+  public long sumInFlightBytes() {
     long sum = 0L;
     for (TopicPartitionChannel channel : partitionChannels.values()) {
-      sum += channel.getInflightAppendedBytes();
+      sum += channel.getInFlightBytes();
     }
     return sum;
   }
