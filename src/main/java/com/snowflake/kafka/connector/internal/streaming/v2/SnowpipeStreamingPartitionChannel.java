@@ -945,7 +945,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
-  public long getInflightAppendedBytes() {
+  public long getInFlightBytes() {
     CompletableFuture<SnowflakeStreamingIngestChannel> future = this.channel;
     if (future == null
         || !future.isDone()
@@ -954,7 +954,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       return 0L;
     }
     try {
-      return InflightAppendedBytes.from(future.getNow(null));
+      return InFlightBytes.from(future.getNow(null));
     } catch (RuntimeException e) {
       return 0L;
     }
