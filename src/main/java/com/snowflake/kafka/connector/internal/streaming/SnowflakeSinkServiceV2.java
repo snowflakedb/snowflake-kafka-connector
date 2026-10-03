@@ -77,10 +77,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   static final Duration BACKPRESSURE_COOLDOWN = Duration.ofSeconds(1);
 
   /**
-   * How many successful inserts to allow between re-reads of summed inflight appended bytes when a
-   * task memory limit is set. The start-of-put check always runs.
+   * How many successful inserts to allow between re-reads of summed in-flight bytes when a task
+   * in-flight cap is set. The start-of-put check always runs.
    */
-  static final int MEMORY_CHECK_INTERVAL = 32;
+  static final int IN_FLIGHT_CHECK_INTERVAL = 32;
 
   /** Timestamp until which all inserts are skipped due to backpressure. */
   @VisibleForTesting Instant backpressureUntil = Instant.MIN;
@@ -483,20 +483,20 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       skipAllPartitions = true;
     }
 
-    // Task-level memory proxy: sum SDK inflight appended bytes across this task's channels
-    // (they may belong to different clients/pipes). Re-check every MEMORY_CHECK_INTERVAL
-    // successful inserts so a single large poll cannot run far past the cap.
-    final long memoryLimitBytes = taskConfig.getMaxMemoryLimitBytes();
-    final boolean memoryLimitEnabled = memoryLimitBytes > 0;
-    int insertsSinceMemoryCheck = 0;
+    // Task-level cap: sum SDK in-flight bytes across this task's channels (they may belong to
+    // different clients/pipes). Re-check every IN_FLIGHT_CHECK_INTERVAL successful inserts so a
+    // single large poll cannot run far past the cap.
+    final long maxTaskInFlightBytes = taskConfig.getMaxTaskInFlightBytes();
+    final boolean inFlightLimitEnabled = maxTaskInFlightBytes > 0;
+    int insertsSinceInFlightCheck = 0;
     boolean newBackpressure = false;
-    if (memoryLimitEnabled && !skipAllPartitions) {
-      long inflight = channelManager.sumInflightAppendedBytes();
-      if (inflight >= memoryLimitBytes) {
+    if (inFlightLimitEnabled && !skipAllPartitions) {
+      long inFlightBytes = channelManager.sumInFlightBytes();
+      if (inFlightBytes >= maxTaskInFlightBytes) {
         LOGGER.warn(
-            "Task memory limit exceeded before insert: inflight appended bytes {} >= limit {}",
-            inflight,
-            memoryLimitBytes);
+            "Task in-flight bytes exceeded before insert: in-flight bytes {} >= limit {}",
+            inFlightBytes,
+            maxTaskInFlightBytes);
         skipAllPartitions = true;
         newBackpressure = true;
         taskMetrics.incBackpressureRewindCount();
@@ -523,16 +523,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         continue;
       }
 
-      if (memoryLimitEnabled && insertsSinceMemoryCheck >= MEMORY_CHECK_INTERVAL) {
-        long inflight = channelManager.sumInflightAppendedBytes();
-        insertsSinceMemoryCheck = 0;
-        if (inflight >= memoryLimitBytes) {
+      if (inFlightLimitEnabled && insertsSinceInFlightCheck >= IN_FLIGHT_CHECK_INTERVAL) {
+        long inFlightBytes = channelManager.sumInFlightBytes();
+        insertsSinceInFlightCheck = 0;
+        if (inFlightBytes >= maxTaskInFlightBytes) {
           LOGGER.warn(
-              "Task memory limit exceeded mid-batch on partition {}: inflight appended bytes {} >="
+              "Task in-flight bytes exceeded mid-batch on partition {}: in-flight bytes {} >="
                   + " limit {}",
               tp,
-              inflight,
-              memoryLimitBytes);
+              inFlightBytes,
+              maxTaskInFlightBytes);
           taskMetrics.incBackpressureRewindCount();
           offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
           skipAllPartitions = true;
@@ -544,8 +544,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       try {
         if (!insert(record)) {
           offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
-        } else if (memoryLimitEnabled) {
-          insertsSinceMemoryCheck++;
+        } else if (inFlightLimitEnabled) {
+          insertsSinceInFlightCheck++;
         }
       } catch (BackpressureException e) {
         LOGGER.warn(
