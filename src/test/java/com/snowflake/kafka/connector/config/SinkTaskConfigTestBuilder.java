@@ -64,8 +64,8 @@ public final class SinkTaskConfigTestBuilder {
                 .SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES_DEFAULT)
         .openChannelIoThreads(KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT)
         .streamingClientProviderOverrideMap("")
-        .maxMemoryLimitBytes(
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_MEMORY_LIMIT_BYTES_DEFAULT)
+        .maxTaskInFlightBytes(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES_DEFAULT)
         .cachingConfig(CachingConfig.fromConfig(Collections.emptyMap()))
         .metadataConfig(new SnowflakeMetadataConfig())
         // A non-blank URL is required because StreamingClientProperties.from now rejects a blank
