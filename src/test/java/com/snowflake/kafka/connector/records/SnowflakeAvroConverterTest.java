@@ -1,8 +1,10 @@
 package com.snowflake.kafka.connector.records;
 
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -17,10 +19,12 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.Test;
 
 public class SnowflakeAvroConverterTest {
@@ -35,8 +39,50 @@ public class SnowflakeAvroConverterTest {
     return buffer.array();
   }
 
+  private static org.apache.kafka.connect.data.Schema connectStructSchema() {
+    return org.apache.kafka.connect.data.SchemaBuilder.struct()
+        .name("MyRecord")
+        .field("a", org.apache.kafka.connect.data.Schema.STRING_SCHEMA)
+        .build();
+  }
+
   @Test
-  public void toConnectData_resolvesAndStashesRealAvroSchema_thenDelegates() throws Exception {
+  public void toConnectData_resolvesRealAvroSchema_attachesItToTheConnectSchemaAndStruct()
+      throws Exception {
+    SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
+    AvroConverter delegate = mock(AvroConverter.class);
+    Schema avroSchema =
+        SchemaBuilder.record("MyRecord")
+            .fields()
+            .name("a")
+            .type()
+            .stringType()
+            .noDefault()
+            .endRecord();
+    byte[] wireBytes = wireBytesFor(42, (byte) 1, (byte) 2);
+    org.apache.kafka.connect.data.Schema connectSchema = connectStructSchema();
+    Struct struct = new Struct(connectSchema).put("a", "hello");
+    SchemaAndValue expected = new SchemaAndValue(connectSchema, struct);
+
+    when(registryClient.getById(42)).thenReturn(avroSchema);
+    when(delegate.toConnectData(eq(TOPIC), any(byte[].class))).thenReturn(expected);
+
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter(registryClient, delegate);
+    SchemaAndValue actual = converter.toConnectData(TOPIC, wireBytes);
+
+    Optional<Schema> extracted = SnowflakeAvroConverter.extractAvroSchema(actual.schema());
+    assertTrue(extracted.isPresent());
+    assertEquals(avroSchema, extracted.get());
+    // The attached Struct's own schema must be the same object as the record's valueSchema, so
+    // struct.schema() and SinkRecord.valueSchema() agree.
+    Struct actualStruct = (Struct) actual.value();
+    assertSame(actual.schema(), actualStruct.schema());
+    assertEquals("hello", actualStruct.get("a"));
+    verify(delegate).toConnectData(TOPIC, wireBytes);
+  }
+
+  @Test
+  public void toConnectData_noConnectSchema_resolvesButHasNothingToAttachTo() throws Exception {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
     Schema avroSchema =
@@ -57,17 +103,19 @@ public class SnowflakeAvroConverterTest {
     SchemaAndValue actual = converter.toConnectData(TOPIC, wireBytes);
 
     assertSame(expected, actual);
-    assertSame(avroSchema, converter.getLatestAvroSchema(TOPIC));
+    assertFalse(SnowflakeAvroConverter.extractAvroSchema(actual.schema()).isPresent());
     verify(delegate).toConnectData(TOPIC, wireBytes);
   }
 
   @Test
-  public void toConnectData_registryLookupFails_stillDelegatesAndLeavesSchemaUnset()
+  public void toConnectData_registryLookupFails_stillDelegatesAndAttachesNothing()
       throws Exception {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
     byte[] wireBytes = wireBytesFor(7);
-    SchemaAndValue expected = new SchemaAndValue(null, "converted");
+    org.apache.kafka.connect.data.Schema connectSchema = connectStructSchema();
+    SchemaAndValue expected =
+        new SchemaAndValue(connectSchema, new Struct(connectSchema).put("a", "hello"));
 
     when(registryClient.getById(7)).thenThrow(new java.io.IOException("boom"));
     when(delegate.toConnectData(eq(TOPIC), any(byte[].class))).thenReturn(expected);
@@ -76,7 +124,7 @@ public class SnowflakeAvroConverterTest {
     SchemaAndValue actual = converter.toConnectData(TOPIC, wireBytes);
 
     assertSame(expected, actual);
-    assertNull(converter.getLatestAvroSchema(TOPIC));
+    assertFalse(SnowflakeAvroConverter.extractAvroSchema(actual.schema()).isPresent());
     verify(delegate).toConnectData(TOPIC, wireBytes);
   }
 
@@ -93,7 +141,6 @@ public class SnowflakeAvroConverterTest {
     SchemaAndValue actual = converter.toConnectData(TOPIC, tooShort);
 
     assertSame(expected, actual);
-    assertNull(converter.getLatestAvroSchema(TOPIC));
     verify(registryClient, never()).getById(any(Integer.class));
     verify(delegate).toConnectData(TOPIC, tooShort);
   }
@@ -112,9 +159,13 @@ public class SnowflakeAvroConverterTest {
     SchemaAndValue actual = converter.toConnectData(TOPIC, wrongMagicByte);
 
     assertSame(expected, actual);
-    assertNull(converter.getLatestAvroSchema(TOPIC));
     verify(registryClient, never()).getById(any(Integer.class));
     verify(delegate).toConnectData(TOPIC, wrongMagicByte);
+  }
+
+  @Test
+  public void extractAvroSchema_nullSchema_returnsEmpty() {
+    assertFalse(SnowflakeAvroConverter.extractAvroSchema(null).isPresent());
   }
 
   @Test

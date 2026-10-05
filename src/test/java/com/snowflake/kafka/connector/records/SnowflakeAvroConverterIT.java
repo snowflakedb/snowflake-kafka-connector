@@ -8,6 +8,7 @@ import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -56,27 +57,34 @@ class SnowflakeAvroConverterIT {
 
     SchemaAndValue converted = converter.toConnectData(TOPIC, wireBytes);
 
-    assertEquals(SCHEMA_V1, converter.getLatestAvroSchema(TOPIC));
+    assertEquals(
+        Optional.of(SCHEMA_V1), SnowflakeAvroConverter.extractAvroSchema(converted.schema()));
     assertEquals("widget-a", ((Struct) converted.value()).getString("name"));
   }
 
   @Test
-  void toConnectData_schemaChangesBetweenRecordsOnSameTopic_latestAvroSchemaTracksMostRecentRecord() {
+  void toConnectData_schemaChangesBetweenRecordsOnSameTopic_eachRecordKeepsItsOwnSchema() {
     SchemaRegistryClient registryClient = MockSchemaRegistry.getClientForScope(SCHEMA_REGISTRY_SCOPE);
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
     converter.configure(converterConfig(), false);
 
-    converter.toConnectData(TOPIC, serialize(registryClient, widgetRecord(SCHEMA_V1, "widget-a")));
-    assertEquals(SCHEMA_V1, converter.getLatestAvroSchema(TOPIC));
+    SchemaAndValue v1Converted =
+        converter.toConnectData(
+            TOPIC, serialize(registryClient, widgetRecord(SCHEMA_V1, "widget-a")));
 
     GenericRecord v2Record = new GenericData.Record(SCHEMA_V2);
     v2Record.put("name", "widget-b");
     v2Record.put("quantity", 5);
+    SchemaAndValue v2Converted = converter.toConnectData(TOPIC, serialize(registryClient, v2Record));
 
-    SchemaAndValue converted = converter.toConnectData(TOPIC, serialize(registryClient, v2Record));
-
-    assertEquals(SCHEMA_V2, converter.getLatestAvroSchema(TOPIC));
-    assertEquals(5, ((Struct) converted.value()).getInt32("quantity"));
+    // Converting the v2 record after v1 must not change what's already attached to the v1 record
+    // -- unlike a converter-side cache keyed only by topic, each SchemaAndValue carries its own
+    // schema.
+    assertEquals(
+        Optional.of(SCHEMA_V1), SnowflakeAvroConverter.extractAvroSchema(v1Converted.schema()));
+    assertEquals(
+        Optional.of(SCHEMA_V2), SnowflakeAvroConverter.extractAvroSchema(v2Converted.schema()));
+    assertEquals(5, ((Struct) v2Converted.value()).getInt32("quantity"));
   }
 
   private static GenericRecord widgetRecord(Schema schema, String name) {
