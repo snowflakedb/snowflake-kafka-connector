@@ -1,6 +1,5 @@
 package com.snowflake.kafka.connector.records;
 
-import com.snowflake.kafka.connector.internal.KCLogger;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -21,25 +20,24 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.storage.Converter;
 
 /**
  * A {@code value.converter} that wraps Confluent's {@link AvroConverter} to additionally resolve
  * the real Avro {@link Schema} for each record and attach it to the Connect {@code Schema} this
  * converter returns, as a {@link org.apache.kafka.connect.data.Schema#parameters()} entry under
- * {@link #AVRO_SCHEMA_PARAMETER_KEY}. The wire format is unchanged (magic byte + 4-byte schema id
- * + Avro payload), so this reads the same schema id {@code AvroConverter} already resolves
+ * {@link #AVRO_SCHEMA_PARAMETER_KEY}. The wire format is unchanged (magic byte + 4-byte schema id +
+ * Avro payload), so this reads the same schema id {@code AvroConverter} already resolves
  * internally, then delegates to a real {@code AvroConverter} for the actual Struct conversion.
  *
- * <p>The schema rides on the record itself (via {@code SinkRecord.valueSchema()}, recoverable
- * with {@link #extractAvroSchema}) rather than a converter-side cache keyed by topic, so it stays
+ * <p>The schema rides on the record itself (via {@code SinkRecord.valueSchema()}, recoverable with
+ * {@link #extractAvroSchema}) rather than a converter-side cache keyed by topic, so it stays
  * correct per record even when interleaved records on the same topic carry different schema
  * versions, and doesn't require whoever reads it (e.g. the sink task) to hold a reference to this
  * converter instance.
  */
 public class SnowflakeAvroConverter implements Converter {
-
-  private static final KCLogger LOGGER = new KCLogger(SnowflakeAvroConverter.class.getName());
 
   private static final byte CONFLUENT_MAGIC_BYTE = 0x0;
   private static final int MAGIC_BYTE_AND_SCHEMA_ID_BYTES = 5;
@@ -79,9 +77,6 @@ public class SnowflakeAvroConverter implements Converter {
             Collections.singletonList(new AvroSchemaProvider()),
             configs,
             null);
-    // AvroConverter is given this same client instance rather than building its own, so its
-    // internal re-resolution of the schema id we already looked up below is a cache hit, not a
-    // second registry round trip.
     this.delegate = new AvroConverter(schemaRegistryClient);
     this.delegate.configure(configs, isKey);
   }
@@ -100,10 +95,10 @@ public class SnowflakeAvroConverter implements Converter {
   }
 
   /**
-   * Recovers the Avro {@link Schema} that {@link #toConnectData} attached to {@code
-   * connectSchema}, if any. Returns {@link Optional#empty} if {@code connectSchema} is {@code
-   * null}, carries no such parameter (e.g. it wasn't produced by this converter, or schema
-   * resolution failed for that record), or the attached text isn't a parsable Avro schema.
+   * Recovers the Avro {@link Schema} that {@link #toConnectData} attached to {@code connectSchema},
+   * if any. Returns {@link Optional#empty} if {@code connectSchema} is {@code null}, carries no
+   * such parameter (e.g. it wasn't produced by this converter, or schema resolution failed for that
+   * record), or the attached text isn't a parsable Avro schema.
    */
   public static Optional<Schema> extractAvroSchema(
       org.apache.kafka.connect.data.Schema connectSchema) {
@@ -183,11 +178,12 @@ public class SnowflakeAvroConverter implements Converter {
     try {
       return schemaRegistryClient.getById(schemaId);
     } catch (IOException | RestClientException e) {
-      LOGGER.warn(
-          "Failed to resolve Avro schema id {} from the schema registry: {}",
-          schemaId,
-          e.getMessage());
-      return null;
+      // Fail loudly rather than silently converting the record without the Avro schema attached
+      // -- a registry lookup failure here means delegate.toConnectData's own resolution of the
+      // same id is likely to fail too, so swallowing this would just defer to a less informative
+      // error (or none at all, if the delegate's resolution happens to succeed on a retry).
+      throw new DataException(
+          "Failed to resolve Avro schema id " + schemaId + " from the schema registry", e);
     }
   }
 

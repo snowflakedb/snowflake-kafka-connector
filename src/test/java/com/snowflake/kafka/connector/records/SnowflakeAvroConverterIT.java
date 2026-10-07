@@ -18,10 +18,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Exercises {@link SnowflakeAvroConverter} end to end against a mock schema registry: a real
- * {@link KafkaAvroSerializer} produces the wire bytes, and the converter is driven through its
- * real {@link SnowflakeAvroConverter#configure} entry point rather than the test-only
- * constructor, so both schema resolution and the delegate Avro-to-Struct conversion run for real.
+ * Exercises {@link SnowflakeAvroConverter} end to end against a mock schema registry: a real {@link
+ * KafkaAvroSerializer} produces the wire bytes, and the converter is driven through its real {@link
+ * SnowflakeAvroConverter#configure} entry point rather than the test-only constructor, so both
+ * schema resolution and the delegate Avro-to-Struct conversion run for real.
  */
 class SnowflakeAvroConverterIT {
 
@@ -49,7 +49,8 @@ class SnowflakeAvroConverterIT {
 
   @Test
   void toConnectData_resolvesRealSchemaFromMockRegistry_andDelegatesRealConversion() {
-    SchemaRegistryClient registryClient = MockSchemaRegistry.getClientForScope(SCHEMA_REGISTRY_SCOPE);
+    SchemaRegistryClient registryClient =
+        MockSchemaRegistry.getClientForScope(SCHEMA_REGISTRY_SCOPE);
     byte[] wireBytes = serialize(registryClient, widgetRecord(SCHEMA_V1, "widget-a"));
 
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
@@ -64,7 +65,8 @@ class SnowflakeAvroConverterIT {
 
   @Test
   void toConnectData_schemaChangesBetweenRecordsOnSameTopic_eachRecordKeepsItsOwnSchema() {
-    SchemaRegistryClient registryClient = MockSchemaRegistry.getClientForScope(SCHEMA_REGISTRY_SCOPE);
+    SchemaRegistryClient registryClient =
+        MockSchemaRegistry.getClientForScope(SCHEMA_REGISTRY_SCOPE);
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter();
     converter.configure(converterConfig(), false);
 
@@ -75,7 +77,8 @@ class SnowflakeAvroConverterIT {
     GenericRecord v2Record = new GenericData.Record(SCHEMA_V2);
     v2Record.put("name", "widget-b");
     v2Record.put("quantity", 5);
-    SchemaAndValue v2Converted = converter.toConnectData(TOPIC, serialize(registryClient, v2Record));
+    SchemaAndValue v2Converted =
+        converter.toConnectData(TOPIC, serialize(registryClient, v2Record));
 
     // Converting the v2 record after v1 must not change what's already attached to the v1 record
     // -- unlike a converter-side cache keyed only by topic, each SchemaAndValue carries its own

@@ -108,24 +108,19 @@ public class SnowflakeAvroConverterTest {
   }
 
   @Test
-  public void toConnectData_registryLookupFails_stillDelegatesAndAttachesNothing()
-      throws Exception {
+  public void toConnectData_registryLookupFails_throwsAndNeverDelegates() throws Exception {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
     byte[] wireBytes = wireBytesFor(7);
-    org.apache.kafka.connect.data.Schema connectSchema = connectStructSchema();
-    SchemaAndValue expected =
-        new SchemaAndValue(connectSchema, new Struct(connectSchema).put("a", "hello"));
 
     when(registryClient.getById(7)).thenThrow(new java.io.IOException("boom"));
-    when(delegate.toConnectData(eq(TOPIC), any(byte[].class))).thenReturn(expected);
 
     SnowflakeAvroConverter converter = new SnowflakeAvroConverter(registryClient, delegate);
-    SchemaAndValue actual = converter.toConnectData(TOPIC, wireBytes);
 
-    assertSame(expected, actual);
-    assertFalse(SnowflakeAvroConverter.extractAvroSchema(actual.schema()).isPresent());
-    verify(delegate).toConnectData(TOPIC, wireBytes);
+    assertThrows(
+        org.apache.kafka.connect.errors.DataException.class,
+        () -> converter.toConnectData(TOPIC, wireBytes));
+    verify(delegate, never()).toConnectData(any(String.class), any(byte[].class));
   }
 
   @Test
