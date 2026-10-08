@@ -183,7 +183,16 @@ public class StreamingClientPools {
   static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(6);
 
   /**
-   * Shared backoff / budget for {@code .build()} retries. {@code retryOn} is call-site specific.
+    * Shared backoff for client creation retries. First-time create retries {@code SfApiNoRoute};
+    * replacement-client creation retries a client-invalid error (e.g., pipe failover still in
+    * flight). The pool evicts the failed entry on each attempt, so the retry creates a fresh client.
+    * Errors that do not match {@code retryOn} fall through immediately.
+    *
+    * <p>{@link #recreateClient} can be called concurrently by multiple {@link
+    * com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel}s on the
+    * same pipe. The pool's CAS dedupes to a single fresh client per round, but each caller runs its
+    * own Failsafe retry schedule. When reading logs, expect overlapping retry schedules across
+    * channels on the same pipe during a failover event.
    */
   private static RetryPolicy<SnowflakeStreamingIngestClient> clientRetryPolicy(
       String pipeName, Duration retryBudget, CheckedPredicate<Throwable> retryOn) {
