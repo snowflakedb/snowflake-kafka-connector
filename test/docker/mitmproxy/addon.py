@@ -92,8 +92,7 @@ fault_state = FaultState()
 # Separate state for 404-on-bulk-channel-status injection (SNOW-3670537)
 fault_state_404_bcs = FaultState()
 
-# 404 on /v2/streaming/hostname (first-create). After ingest-sdk #1081 the SDK
-# reports this as SfApiNoRoute; KC retries on that name.
+# 404 on /v2/streaming/hostname (first-create).
 fault_state_404_hostname = FaultState()
 
 
