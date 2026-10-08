@@ -32,8 +32,6 @@ public class ClientRecreationException extends RuntimeException {
           // Client was closed
           "ClosedClientError");
 
-  private static final String SF_API_NO_ROUTE = "SfApiNoRoute";
-
   /**
    * Constructs a new {@code ClientRecreationException} wrapping the given {@link SFException}.
    *
@@ -84,6 +82,6 @@ public class ClientRecreationException extends RuntimeException {
     if (!(e instanceof SFException)) {
       return false;
     }
-    return SF_API_NO_ROUTE.equals(((SFException) e).getErrorCodeName());
+      return "SfApiNoRoute".equals(((SFException) e).getErrorCodeName());
   }
 }
