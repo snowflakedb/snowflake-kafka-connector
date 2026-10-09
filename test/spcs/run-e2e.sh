@@ -13,7 +13,8 @@
 #   E2E_ERR <code>=<n>     occurrences of 390422 / 395090 in connect.log
 #   E2E_EXIT=<rc>          0 = offsets reached NRECORDS, nonzero otherwise
 
-set -u
+set -eu
+umask 077
 log() { echo "E2E| $*"; }
 
 WORK=${WORK:-/work}
@@ -22,17 +23,37 @@ TOPIC=${TOPIC:-kc_spcs_release_topic}
 TABLE=${TABLE:?TABLE is required}
 NRECORDS=${NRECORDS:-1000}
 TIMEOUT_SECS=${TIMEOUT_SECS:-600}
-ROLE=${ROLE:-SYSADMIN}
 CONNECTOR=snowflake_spcs_release_sink
+BROKER_PID=
+CONNECT_PID=
+WATCHDOG_PID=
+cleanup() {
+  saved_rc=$?
+  trap - EXIT TERM INT
+  for pid in "$CONNECT_PID" "$BROKER_PID" "$WATCHDOG_PID"; do
+    [ -z "$pid" ] || kill "$pid" 2>/dev/null || true
+  done
+  exit "$saved_rc"
+}
+trap cleanup EXIT
+trap 'exit 2' TERM INT
+case "$NRECORDS:$TIMEOUT_SECS" in *[!0-9:]*|:*|*:) exit 2;; esac
+[ "$NRECORDS" -gt 0 ] && [ "$TIMEOUT_SECS" -gt 0 ] || exit 2
+case "$TABLE" in ''|*[!A-Z0-9_]*) exit 2;; esac
+# Coreutils timeout is an explicit Linux image dependency, not a host assumption.
+# A whole-process deadline also bounds extraction and producer/startup hangs.
+PARENT=$$
+(sleep "$((TIMEOUT_SECS + 30))"; kill -TERM "$PARENT") &
+WATCHDOG_PID=$!
 
 finish() {
   rc=$1
   for code in 390422 395090; do
-    n=$(grep -c "$code" "$WORK/connect.log" 2>/dev/null || true)
+    n=$(grep -c "$code" "$WORK/connect.log" 2>/dev/null) || n=0
     echo "E2E_ERR $code=${n:-0}"
   done
   log "---- connect.log: errors (last 40) ----"
-  grep -E "ERROR|390422|395090" "$WORK/connect.log" 2>/dev/null | tail -40 | sed 's/^/E2E| /'
+  grep -E "ERROR|390422|395090" "$WORK/connect.log" 2>/dev/null | tail -40 | sed 's/^/E2E| /' || true
   echo "E2E_EXIT=$rc"
   exit "$rc"
 }
@@ -49,7 +70,7 @@ cat > "$WORK/kraft.properties" <<PROPS
 node.id=1
 process.roles=broker,controller
 controller.quorum.voters=1@localhost:9093
-listeners=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+listeners=PLAINTEXT://127.0.0.1:9092,CONTROLLER://127.0.0.1:9093
 advertised.listeners=PLAINTEXT://localhost:9092
 controller.listener.names=CONTROLLER
 listener.security.protocol.map=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
@@ -68,10 +89,11 @@ CLUSTER_ID=$("$K/bin/kafka-storage.sh" random-uuid)
 
 KAFKA_HEAP_OPTS="-Xmx512M -Xms256M" \
   "$K/bin/kafka-server-start.sh" "$WORK/kraft.properties" > "$WORK/broker.log" 2>&1 &
+BROKER_PID=$!
 
 ok=0; i=0
 while [ $i -lt 60 ]; do
-  if "$K/bin/kafka-topics.sh" --bootstrap-server localhost:9092 --list > /dev/null 2>&1; then
+  if timeout 10 "$K/bin/kafka-topics.sh" --bootstrap-server localhost:9092 --list > /dev/null 2>&1; then
     ok=1; break
   fi
   i=$((i+1)); sleep 2
@@ -80,7 +102,7 @@ done
 log "broker is up"
 
 # ---------------------------------------------------------------- topic + data
-"$K/bin/kafka-topics.sh" --bootstrap-server localhost:9092 --create --topic "$TOPIC" \
+timeout 30 "$K/bin/kafka-topics.sh" --bootstrap-server localhost:9092 --create --topic "$TOPIC" \
   --partitions 1 --replication-factor 1 > "$WORK/topic.log" 2>&1
 i=1
 : > "$WORK/records.ndjson"
@@ -88,7 +110,7 @@ while [ $i -le "$NRECORDS" ]; do
   echo "{\"id\":$i,\"name\":\"spcs-release-$i\"}" >> "$WORK/records.ndjson"
   i=$((i+1))
 done
-"$K/bin/kafka-console-producer.sh" --bootstrap-server localhost:9092 --topic "$TOPIC" \
+timeout 30 "$K/bin/kafka-console-producer.sh" --bootstrap-server localhost:9092 --topic "$TOPIC" \
   < "$WORK/records.ndjson" > "$WORK/producer.log" 2>&1 || { log "FATAL producer failed"; finish 2; }
 log "produced $NRECORDS records"
 
@@ -107,14 +129,14 @@ plugin.path=$WORK/plugins
 plugin.discovery=hybrid_warn
 PROPS
 
-# No credential and no authenticator: ambient SPCS auth must be auto-detected.
+# Explicit workload-identity authentication; no supplied user or key.
 cat > "$WORK/connector.properties" <<PROPS
 name=$CONNECTOR
 connector.class=com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector
 tasks.max=1
 topics=$TOPIC
 snowflake.topic2table.map=$TOPIC:$TABLE
-snowflake.role.name=$ROLE
+snowflake.authenticator=spcs
 snowflake.streaming.validate.compatibility.with.classic=false
 key.converter=org.apache.kafka.connect.storage.StringConverter
 value.converter=org.apache.kafka.connect.json.JsonConverter
@@ -124,6 +146,7 @@ PROPS
 KAFKA_HEAP_OPTS="-Xmx1G -Xms512M" \
   "$K/bin/connect-standalone.sh" "$WORK/worker.properties" "$WORK/connector.properties" \
   > "$WORK/connect.log" 2>&1 &
+CONNECT_PID=$!
 log "Kafka Connect started"
 
 # ---------------------------------------------------------------- wait for commit
@@ -133,7 +156,8 @@ log "Kafka Connect started"
 DEADLINE=$((START + TIMEOUT_SECS))
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
   sleep 10
-  committed=$("$K/bin/kafka-consumer-groups.sh" --bootstrap-server localhost:9092 \
+  kill -0 "$BROKER_PID" && kill -0 "$CONNECT_PID" || finish 2
+  committed=$(timeout 20 "$K/bin/kafka-consumer-groups.sh" --bootstrap-server localhost:9092 \
       --describe --group "connect-$CONNECTOR" 2>/dev/null \
     | awk -v t="$TOPIC" '$2 == t && $4 ~ /^[0-9]+$/ { s += $4 } END { print s + 0 }')
   log "committed offset=$committed / $NRECORDS"

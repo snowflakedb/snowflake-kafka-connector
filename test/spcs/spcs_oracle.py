@@ -22,6 +22,8 @@ class Observation:
     rows: int
     job_status: Optional[str]  # DONE / FAILED / RUNNING / ... (None = unknown)
     logs: str = ""
+    distinct_ids: Optional[int] = None
+    invalid_rows: Optional[int] = None
 
 
 @dataclass
@@ -38,11 +40,11 @@ def parse_logs(logs: str) -> Dict[str, Optional[int]]:
     in the text, so a missing summary (container killed) cannot hide errors.
     """
     out: Dict[str, Optional[int]] = {"exit": None}
-    m = re.findall(r"E2E_EXIT=(-?\d+)", logs)
+    m = re.findall(r"^E2E_EXIT=(-?\d+)$", logs, re.MULTILINE)
     if m:
         out["exit"] = int(m[-1])
     for code in ERR_CODES:
-        summary = [int(n) for n in re.findall(r"E2E_ERR %s=(\d+)" % code, logs)]
+        summary = [int(n) for n in re.findall(r"^E2E_ERR %s=(\d+)$" % code, logs, re.MULTILINE)]
         raw = len(re.findall(r"(?<!E2E_ERR )%s(?!=)" % code, logs))
         out[code] = max(summary + [raw])
     return out
@@ -53,15 +55,22 @@ def evaluate(obs: Observation, nrecords: int) -> Verdict:
     expect = CELL_EXPECTATIONS.get(obs.cell)
     if expect is None:
         return Verdict(obs.cell, False, ["unknown cell %r" % obs.cell])
+    if nrecords <= 0:
+        return Verdict(obs.cell, False, ["expected record count must be positive"])
     p = parse_logs(obs.logs)
     status = (obs.job_status or "UNKNOWN").upper()
     reasons: List[str] = []
-    if status in NON_TERMINAL:
-        reasons.append("job status %s is not terminal" % status)
+    if status not in ("DONE", "FAILED"):
+        reasons.append("job status %s is not a known terminal state" % status)
+    for code in ERR_CODES:
+        if len(re.findall(r"^E2E_ERR %s=\d+$" % code, obs.logs, re.MULTILINE)) != 1:
+            reasons.append("missing or ambiguous error summary: " + code)
+    if len(re.findall(r"^E2E_EXIT=-?\d+$", obs.logs, re.MULTILINE)) != 1:
+        reasons.append("missing or ambiguous exit summary")
 
     if expect == EXPECT_ROWS:
-        if obs.rows < nrecords:
-            reasons.append("rows %d < %d" % (obs.rows, nrecords))
+        if obs.rows != nrecords or obs.distinct_ids != nrecords or obs.invalid_rows != 0:
+            reasons.append("expected exact count, unique IDs and matching values")
         for code in ERR_CODES:
             if p[code]:
                 reasons.append("%s seen %d times" % (code, p[code]))
@@ -70,6 +79,8 @@ def evaluate(obs: Observation, nrecords: int) -> Verdict:
         if status not in NON_TERMINAL and status != "DONE":
             reasons.append("job status %s (want DONE)" % status)
     else:
+        if status != "FAILED" or p["exit"] != 1 or p["395090"]:
+            reasons.append("negative cell requires failed ingestion, exit 1, and no 395090")
         if obs.rows != 0:
             reasons.append("rows %d (want 0): possible GS behavior change" % obs.rows)
         if not p["390422"]:

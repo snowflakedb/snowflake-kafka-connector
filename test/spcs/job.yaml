@@ -1,6 +1,6 @@
 # SPCS job spec for the KC release test (SNOW-4202412).
 # Rendered by run_spcs_release.py (string.Template: ${IMAGE}, ${STAGE}, ${TABLE},
-# ${NRECORDS}, ${TIMEOUT_SECS}, ${ROLE}) and run with EXECUTE JOB SERVICE.
+# ${NRECORDS}, ${TIMEOUT_SECS}) and run with EXECUTE JOB SERVICE.
 #
 # Finite: the container exits with the harness's return code, so the job ends
 # DONE (rc 0) or FAILED (rc != 0). No credentials are supplied: auth is ambient.
@@ -18,7 +18,6 @@ spec:
         TABLE: ${TABLE}
         NRECORDS: "${NRECORDS}"
         TIMEOUT_SECS: "${TIMEOUT_SECS}"
-        ROLE: ${ROLE}
       volumeMounts:
         - name: harness
           mountPath: /mnt/harness
@@ -31,12 +30,13 @@ spec:
           memory: 5Gi
   volumes:
     - name: harness
-      source: "${STAGE}"
+      source: stage
+      stageConfig:
+        name: "${STAGE}"
     - name: work
       source: local
 capabilities:
   securityContext:
-    # Required: without it ingest rejects the ambient session with 395090.
-    # Side effect: the session is SPCS_CUSTOM_CREDS, so it does NOT get the
-    # SPCS_NATIVE network-policy bypass. See README "Network policy pitfall".
+    # Required for this workload-identity path. The dedicated fixture tests
+    # the effective network policy with and without its compute-pool rule.
     enableCustomCredentials: true

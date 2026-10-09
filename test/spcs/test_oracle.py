@@ -31,7 +31,7 @@ class ParseLogsTest(unittest.TestCase):
 class EvaluateTest(unittest.TestCase):
     def test_a_b_pass(self):
         for cell in ("A", "B"):
-            self.assertTrue(evaluate(Observation(cell, N, "DONE", OK_LOGS), N).passed)
+            self.assertTrue(evaluate(Observation(cell, N, "DONE", OK_LOGS, N, 0), N).passed)
 
     def test_running_never_passes(self):
         for cell in ("A", "B", "C"):
@@ -52,7 +52,7 @@ class EvaluateTest(unittest.TestCase):
 
     def test_c_pass_requires_zero_rows_and_390422(self):
         self.assertTrue(evaluate(Observation("C", 0, "FAILED", C_LOGS), N).passed)
-        self.assertTrue(evaluate(Observation("C", 0, "DONE", C_LOGS), N).passed)
+        self.assertFalse(evaluate(Observation("C", 0, "DONE", C_LOGS), N).passed)
 
     def test_c_rows_appear_fails(self):
         self.assertFalse(evaluate(Observation("C", 5, "FAILED", C_LOGS), N).passed)
@@ -60,6 +60,23 @@ class EvaluateTest(unittest.TestCase):
     def test_c_without_390422_fails(self):
         logs = "E2E_ERR 390422=0\nE2E_ERR 395090=3\nE2E_EXIT=1\n"
         self.assertFalse(evaluate(Observation("C", 0, "FAILED", logs), N).passed)
+
+    def test_missing_or_duplicate_records_fail(self):
+        for count, unique, invalid in ((N + 1, N, 0), (N, N - 1, 0), (N, N, 1)):
+            with self.subTest(count=count, unique=unique, invalid=invalid):
+                self.assertFalse(evaluate(Observation("A", count, "DONE", OK_LOGS,
+                                                       unique, invalid), N).passed)
+
+    def test_negative_unknown_status_or_incomplete_evidence_fails(self):
+        for status, logs in (("BOGUS", C_LOGS), (None, C_LOGS),
+                             ("FAILED", "ERROR 390422"),
+                             ("FAILED", C_LOGS + "ERROR 395090"),
+                             ("FAILED", C_LOGS + "E2E_EXIT=0\n")):
+            with self.subTest(status=status, logs=logs):
+                self.assertFalse(evaluate(Observation("C", 0, status, logs), N).passed)
+
+    def test_nonpositive_expected_count_fails(self):
+        self.assertFalse(evaluate(Observation("A", 0, "DONE", OK_LOGS, 0, 0), 0).passed)
 
     def test_unknown_cell(self):
         self.assertFalse(evaluate(Observation("Z", N, "DONE", OK_LOGS), N).passed)
