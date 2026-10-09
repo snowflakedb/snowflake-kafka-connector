@@ -12,7 +12,7 @@
 
     <groupId>com.snowflake</groupId>
     <artifactId>snowflake-kafka-connector</artifactId>
-    <version>4.2.0</version>
+    <version>4.2.1</version>
     <packaging>jar</packaging>
     <name>Snowflake Kafka Connector</name>
     <description>Snowflake Kafka Connect Sink Connector</description>
@@ -83,7 +83,7 @@
         <commons-lang3.version>3.20.0</commons-lang3.version>
         <auto-value.version>1.11.1</auto-value.version>
 
-        <snowpipe-streaming.version>1.8.0</snowpipe-streaming.version>
+        <snowpipe-streaming.version>1.8.1</snowpipe-streaming.version>
 
     </properties>
 
@@ -111,50 +111,43 @@
 
     <build>
         <plugins>
-            <!--
-            Copy all project dependencies to target/dependency-jars directory. License processing Python script will check
-            only this directory for the license files of SDK dependencies.
-            -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.6.0</version>
-                <executions>
-                    <execution>
-                        <id>copy-dependencies</id>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <outputDirectory>${license.processing.dependencyJarsDir}</outputDirectory>
-                            <overWriteReleases>false</overWriteReleases>
-                            <overWriteSnapshots>false</overWriteSnapshots>
-                            <overWriteIfNewer>true</overWriteIfNewer>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <!--
-            Compile the list of SDK dependencies in 'compile' and 'runtime' scopes.
-            This list is an entry point for the license processing python script.
-            -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.6.0</version>
-                <configuration>
-                    <includeScope>runtime</includeScope>
-                    <outputFile>${license.processing.dependencyListFile}</outputFile>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>list</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                    </execution>
-                </executions>
+            <!--                                                                                                                  
+              Copy all project dependencies to target/dependency-jars directory, and compile the list of SDK                        
+              dependencies in 'compile' and 'runtime' scopes. License processing Python script will check only                      
+              the dependency-jars directory for the license files of SDK dependencies, using the dependency list                    
+              as its entry point. Both executions belong to maven-dependency-plugin, so they must live under one                    
+              <plugin> declaration: Maven rejects duplicate top-level plugin declarations for the same groupId:artifactId.          
+              -->                                                                                                                   
+            <plugin>                                                                                                              
+                <groupId>org.apache.maven.plugins</groupId>                                                                       
+                <artifactId>maven-dependency-plugin</artifactId>                                                                  
+                <version>3.6.0</version>                                                                                          
+                <executions>                                                                                                      
+                    <execution>                                                                                                   
+                        <id>copy-dependencies</id>                                                                                
+                        <goals>                                                                                                   
+                            <goal>copy-dependencies</goal>                                                                        
+                        </goals>                                                                                                  
+                        <phase>generate-resources</phase>                                                                         
+                        <configuration>                                                                                           
+                            <outputDirectory>${license.processing.dependencyJarsDir}</outputDirectory>                            
+                            <overWriteReleases>false</overWriteReleases>                                                          
+                            <overWriteSnapshots>false</overWriteSnapshots>                                                        
+                            <overWriteIfNewer>true</overWriteIfNewer>                                                             
+                        </configuration>                                                                                          
+                    </execution>                                                                                                  
+                    <execution>                                                                                                   
+                        <id>list-dependencies</id>                                                                                
+                        <goals>                                                                                                   
+                            <goal>list</goal>                                                                                     
+                        </goals>                                                                                                  
+                        <phase>generate-resources</phase>                                                                         
+                        <configuration>                                                                                           
+                            <includeScope>runtime</includeScope>                                                                  
+                            <outputFile>${license.processing.dependencyListFile}</outputFile>                                     
+                        </configuration>                                                                                          
+                    </execution>                                                                                                  
+                </executions>                                                                                                     
             </plugin>
             <!--
             Plugin executes license processing Python script, which copies third party license files into the "license"
