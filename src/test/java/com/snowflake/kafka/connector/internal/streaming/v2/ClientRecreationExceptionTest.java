@@ -98,4 +98,20 @@ public class ClientRecreationExceptionTest {
 
     assertThrows(IllegalArgumentException.class, () -> new ClientRecreationException(backpressure));
   }
+
+  @Test
+  void shouldRecognizeSfApiNoRoute() {
+    SFException noRoute = new SFException("SfApiNoRoute", "no route", 404, "Not Found");
+
+    assertTrue(ClientRecreationException.isSfApiNoRoute(noRoute));
+    assertFalse(ClientRecreationException.isClientInvalidError(noRoute));
+  }
+
+  @Test
+  void shouldNotTreatSfApiUserErrorAsNoRoute() {
+    SFException userError =
+        new SFException("SfApiUserError", "HTTP 404, error_code=, message=,", 400, "Bad Request");
+
+    assertFalse(ClientRecreationException.isSfApiNoRoute(userError));
+  }
 }

@@ -77,4 +77,11 @@ public class ClientRecreationException extends RuntimeException {
     }
     return CLIENT_INVALID_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
   }
+
+  public static boolean isSfApiNoRoute(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+      return "SfApiNoRoute".equals(((SFException) e).getErrorCodeName());
+  }
 }
