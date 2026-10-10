@@ -48,6 +48,12 @@ def pytest_addoption(parser):
     """
     group = parser.getgroup("kafka-e2e", "Kafka connector end-to-end test options")
     group.addoption(
+        "--spcs",
+        action="store_true",
+        default=False,
+        help="Explicitly run the SPCS-only smoke test inside its job container",
+    )
+    group.addoption(
         "--kafka-address",
         default=os.environ.get("KAFKA_BOOTSTRAP_SERVERS"),
         help="Kafka bootstrap server address (env: KAFKA_BOOTSTRAP_SERVERS)",
@@ -147,6 +153,15 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(config, items):
+    if config.getoption("--spcs"):
+        if any("spcs" not in item.keywords for item in items):
+            raise pytest.UsageError("--spcs requires selecting tests/spcs only")
+    else:
+        selected = [item for item in items if "spcs" not in item.keywords]
+        config.hook.pytest_deselected(
+            items=[item for item in items if "spcs" in item.keywords]
+        )
+        items[:] = selected
     # Run the local-observability test first: its connector must be the first SDK client created in
     # the Kafka Connect worker JVM so that the connector's own prometheus.enable config bootstraps
     # the SDK's Prometheus metrics server (the SDK initializes metrics once per JVM, on the first

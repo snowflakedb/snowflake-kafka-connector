@@ -284,3 +284,19 @@ jobs:
         marker-filter: 'soak'
         test-group: soak
         jmx: 'true'
+
+  # Observer contracts run without secrets or a live SPCS fixture.
+  spcs-contracts:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install observer contract dependencies
+      run: >-
+        pip install requests certifi 'confluent-kafka[avro,json,protobuf]==2.13.0'
+        avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0' 'pytest==8.3.5'
+    - run: python3 test/spcs/observer_contract.py
