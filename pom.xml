@@ -65,14 +65,17 @@
         <guava.version>33.6.0-jre</guava.version>
         <gson.version>2.13.2</gson.version>
 
-        <jackson.version>2.22.2</jackson.version>
+        <jackson.version>2.22.3</jackson.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
-        <snowflake-jdbc.version>4.3.3</snowflake-jdbc.version>
+        <snowflake-jdbc.version>4.4.0</snowflake-jdbc.version>
         <slf4j-api.version>2.0.18</slf4j-api.version>
         <commons-lang3.version>3.20.0</commons-lang3.version>
         <auto-value.version>1.11.1</auto-value.version>
 
+        <!-- TODO: Bump to the next snowpipe-streaming release once
+             https://github.com/snowflake-eng/snowflake-ingest-sdk/pull/1099 is published.
+             1.8.1 still shades Jackson 2.18.10. -->
         <snowpipe-streaming.version>1.8.1</snowpipe-streaming.version>
 
     </properties>
