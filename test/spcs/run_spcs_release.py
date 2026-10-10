@@ -1,285 +1,441 @@
 #!/usr/bin/env python3
-"""Opt-in SPCS release validation on an owner-provisioned, dedicated test account.
+"""Run one finite KC v4 smoke job against an existing SPCS fixture."""
 
-Never run on a shared account. SPCS_EXPECTED_ACCOUNT is the CURRENT_ACCOUNT()
-locator, not a hostname. A fixture marker and a driver-specific network policy
-must be provisioned first. Journal recovery obligations before any mutation.
-"""
 import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import shutil
-from string import Template
+import signal
+import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import uuid
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-from spcs_oracle import Observation, evaluate
-
-DB, SCHEMA = "KC_TEST", "KC"
-STAGE = "KC_TEST.KC.HARNESS_STAGE"
-POOL, ROLE, WAREHOUSE = "KC_POOL", "KC_SPCS_TEST", "KC_WH"
-POLICY_FOR_CELL = {"A": None, "B": "KC_NP_WITH_POOL", "C": "KC_NP_WITHOUT_POOL"}
-LOCK = "KC_TEST.KC.RELEASE_RUN_LOCK"
+TEST = HERE.parent
 
 
-def quoted_identifier(value):
-    if not isinstance(value, str) or not value or "\x00" in value:
-        raise ValueError("invalid identifier")
-    return '"' + value.replace('"', '""') + '"'
+def identifier(value):
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+        raise ValueError(f"Expected an unquoted Snowflake identifier: {value!r}")
+    return value.upper()
 
 
-def connect():
-    import snowflake.connector
-    from cryptography.hazmat.primitives import serialization
+def qualified(value):
+    parts = value.split(".")
+    if len(parts) != 3:
+        raise ValueError("Expected DATABASE.SCHEMA.OBJECT")
+    return ".".join(identifier(part) for part in parts)
 
-    password = os.environ.get("SPCS_PRIVATE_KEY_PASSPHRASE")
-    key = serialization.load_pem_private_key(
-        Path(os.environ["SPCS_PRIVATE_KEY_FILE"]).read_bytes(),
-        password.encode() if password else None,
+
+def error_summary(error):
+    # Never copy arbitrary CLI/log text into the CI-uploaded evidence.
+    return {
+        "type": type(error).__name__,
+        "sql_codes": sorted(
+            set(re.findall(r"\b\d{6}(?= \([A-Z0-9]{5}\))", str(error)))
+        ),
+    }
+
+
+def sql(args, statement, *, timeout=90):
+    result = subprocess.run(
+        [
+            "snow",
+            "sql",
+            "-c",
+            args.connection,
+            "--role",
+            args.role,
+            "--warehouse",
+            args.warehouse,
+            "--secondary-roles",
+            "NONE",
+            "--format",
+            "JSON",
+            "-q",
+            statement,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
-    options = dict(
-        account=os.environ["SPCS_ACCOUNT"], user=os.environ["SPCS_USER"],
-        private_key=key.private_bytes(serialization.Encoding.DER,
-                                     serialization.PrivateFormat.PKCS8,
-                                     serialization.NoEncryption()),
-        role=ROLE, warehouse=WAREHOUSE, database=DB, schema=SCHEMA,
-        login_timeout=30, network_timeout=60,
-        session_parameters={"STATEMENT_TIMEOUT_IN_SECONDS": 60,
-                            "STATEMENT_QUEUED_TIMEOUT_IN_SECONDS": 30,
-                            "QUERY_TAG": "SNOW-4202412"},
-    )
-    if os.environ.get("SPCS_HOST"):
-        options["host"] = os.environ["SPCS_HOST"]
-    return snowflake.connector.connect(**options)
+    if result.returncode:
+        raise RuntimeError(result.stderr.strip() or "Snowflake CLI failed")
+    return json.loads(result.stdout)
 
 
-def query(conn, sql, params=None, admin=False, dictionaries=False):
-    with conn.cursor() as cur:
-        try:
-            if admin:
-                cur.execute("USE ROLE ACCOUNTADMIN", timeout=30)
-            cur.execute(sql, params, timeout=60)
-            rows = cur.fetchall()
-            if dictionaries:
-                columns = [column[0].lower() for column in cur.description]
-                return [dict(zip(columns, row)) for row in rows]
-            return rows
-        finally:
-            if admin:
-                cur.execute("USE ROLE " + ROLE, timeout=30)
-
-
-def account_policy(conn):
-    rows = query(conn, "SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN ACCOUNT",
-                 admin=True, dictionaries=True)
-    if len(rows) != 1 or "value" not in rows[0] or "level" not in rows[0]:
-        raise RuntimeError("unrecognized account policy result")
-    row = rows[0]
-    if row["value"] and str(row["level"]).upper() != "ACCOUNT":
-        raise RuntimeError("cannot safely restore inherited network policy")
-    return row["value"] or None
-
-
-def set_policy(conn, policy):
-    sql = ("ALTER ACCOUNT SET NETWORK_POLICY = " + quoted_identifier(policy)
-           if policy else "ALTER ACCOUNT UNSET NETWORK_POLICY")
-    query(conn, sql, admin=True)
-    if account_policy(conn) != policy:
-        raise RuntimeError("network policy readback mismatch")
-
-
-def preflight(conn, expected):
-    actual = str(query(conn, "SELECT CURRENT_ACCOUNT()")[0][0])
-    if actual.upper() != expected.upper():
-        raise RuntimeError("refusing unexpected account")
-    marker = query(conn, "SELECT ACCOUNT_LOCATOR, PURPOSE FROM KC_TEST.KC.FIXTURE_IDENTITY")
-    if marker != [(actual, "SNOW-4202412_DEDICATED")]:
-        raise RuntimeError("dedicated fixture marker missing or mismatched")
-    rows = query(conn, "SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN USER " +
-                 quoted_identifier(os.environ["SPCS_USER"]), admin=True, dictionaries=True)
-    if (len(rows) != 1 or rows[0].get("value") != "KC_NP_DRIVER"
-            or str(rows[0].get("level", "")).upper() != "USER"):
-        raise RuntimeError("driver needs its own KC_NP_DRIVER policy before testing")
-
-
-class Journal:
-    def __init__(self, path, account, run_id):
-        self.path = Path(path)
-        self.state = dict(account=account, run_id=run_id, phase="preflight", results=[])
-        # Exclusive creation prevents overwriting earlier recovery evidence.
-        with self.path.open("x") as stream:
-            os.chmod(self.path, 0o600)
-            json.dump(self.state, stream)
-            stream.flush()
-            os.fsync(stream.fileno())
-
-    def save(self, **changes):
-        self.state.update(changes)
-        temporary = self.path.with_suffix(self.path.suffix + ".new")
-        with temporary.open("w") as stream:
-            os.chmod(temporary, 0o600)
-            json.dump(self.state, stream, indent=2)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, self.path)
-
-
-def verify_artifact(path, expected):
-    if not re.fullmatch(r"[a-fA-F0-9]{64}", expected):
-        raise ValueError("a pinned SHA256 is required")
-    with Path(path).open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    if digest.lower() != expected.lower():
-        raise ValueError("artifact checksum mismatch: " + Path(path).name)
-
-
-def upload_harness(conn, run_id):
-    scratch = HERE / ".scratch"
-    scratch.mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=scratch) as directory:
-        for source, name in ((os.environ["KC_JAR"], "kc.jar"),
-                             (os.environ["KAFKA_TGZ"], "kafka.tgz"),
-                             (HERE / "run-e2e.sh", "run-e2e.sh")):
-            destination = Path(directory) / name
-            shutil.copyfile(source, destination)
-            uri = destination.as_uri().replace("'", "''")
-            query(conn, f"PUT '{uri}' @{STAGE}/{run_id}/ AUTO_COMPRESS=FALSE OVERWRITE=FALSE")
-
-
-def run_cell(conn, cell, attempt, args, run_id, journal):
-    suffix = f"{run_id}_{cell}_{attempt}"
-    table = "KC_SPCS_REL_" + suffix
-    job = f"{DB}.{SCHEMA}.KC_SPCS_JOB_{suffix}"
-    journal.save(phase="cell_pending", cell=cell, job=job, table=table,
-                 intended_policy=POLICY_FOR_CELL[cell])
+def save(path, evidence):
+    descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".")
     try:
-        set_policy(conn, POLICY_FOR_CELL[cell])
-        query(conn, f"CREATE TABLE {table} (RECORD_METADATA VARIANT, ID NUMBER, NAME VARCHAR)"
-              " ENABLE_SCHEMA_EVOLUTION = TRUE")
-        spec = Template((HERE / "job.yaml").read_text()).substitute(
-            IMAGE=os.environ["SPCS_IMAGE"], STAGE=f"@{STAGE}/{run_id}/",
-            TABLE=table, NRECORDS=args.nrecords, TIMEOUT_SECS=args.timeout_secs,
-        )
-        # Submission errors never count as an expected negative-test outcome.
-        query(conn, f"EXECUTE JOB SERVICE IN COMPUTE POOL {POOL} NAME = {job} "
-              f"ASYNC = TRUE FROM SPECIFICATION $$\n{spec}\n$$")
-        deadline = time.monotonic() + args.timeout_secs + 180
-        status, logs = None, ""
-        while time.monotonic() < deadline:
-            rows = query(conn, "DESCRIBE SERVICE " + job, dictionaries=True)
-            status = str(rows[0]["status"]).upper() if len(rows) == 1 else None
-            # Logs may not be available while the job is provisioning. Missing
-            # final summaries remain a hard failure in the independent oracle.
-            try:
-                text = query(conn, "SELECT SYSTEM$GET_SERVICE_LOGS(%s, 0, 'e2e', 1000)",
-                             (job,))[0][0]
-                if text:
-                    logs = text
-            except Exception:
-                pass
-            if status in ("DONE", "FAILED"):
-                break
-            time.sleep(5)
-        else:
-            raise TimeoutError("job did not reach a known terminal state")
-        stats = query(conn, f"SELECT COUNT(*), COUNT(DISTINCT ID), "
-                      f"COALESCE(COUNT_IF(ID IS NULL OR ID < 1 OR ID > {args.nrecords} "
-                      "OR NAME IS NULL OR NAME != 'spcs-release-' || ID::VARCHAR), 0) "
-                      f"FROM {table}")[0]
-        verdict = evaluate(Observation(cell, int(stats[0]), status, logs,
-                                       int(stats[1]), int(stats[2])), args.nrecords)
-        journal.state["results"].append(dict(cell=cell, attempt=attempt,
-                                            passed=verdict.passed, reasons=verdict.reasons))
-        journal.save(phase="cell_observed")
-        return verdict
+        with os.fdopen(descriptor, "w") as stream:
+            json.dump(evidence, stream, indent=2)
+        os.replace(temporary, path)
     finally:
-        # If service deletion fails, retain the table and journal for recovery.
-        query(conn, "DROP SERVICE IF EXISTS " + job)
-        query(conn, "DROP TABLE IF EXISTS " + table)
-        journal.save(phase="cell_cleaned")
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def preflight(args):
+    if not args.exclusive_pool:
+        raise ValueError("Reserve the pool for this run and supply --exclusive-pool")
+    identity = sql(
+        args,
+        "SELECT CURRENT_ACCOUNT() AS ACCOUNT, CURRENT_ROLE() AS ROLE, "
+        "CURRENT_VERSION() AS VERSION",
+    )[0]
+    if identity["ACCOUNT"].upper() != args.expected_account.upper():
+        raise RuntimeError("Wrong account; no resources created")
+    if identity["ROLE"].upper() != args.role:
+        raise RuntimeError("Wrong service-owner role")
+    pools = sql(args, "SHOW COMPUTE POOLS")
+    pool = next((pool for pool in pools if pool["name"] == args.pool), None)
+    if pool is None or pool["num_services"] or pool["num_jobs"]:
+        raise RuntimeError("Select an existing unused compute pool")
+    if pool["state"] != "SUSPENDED" or str(pool["auto_resume"]).lower() != "true":
+        raise RuntimeError("Select an unused suspended pool with auto_resume enabled")
+    sql(args, f"DESCRIBE STAGE {args.stage}")
+    # This requires actual warehouse access with secondary roles disabled.
+    sql(args, "SELECT COUNT(*) FROM TABLE(GENERATOR(ROWCOUNT => 1))")
+    return identity
+
+
+def make_payload(path, jar):
+    with tarfile.open(path, "w:gz") as archive:
+        for relative in ["lib", "tests/spcs", "conftest.py", "pyproject.toml"]:
+            source = TEST / relative
+            files = sorted(source.rglob("*")) if source.is_dir() else [source]
+            for file in files:
+                if (
+                    file.is_file()
+                    and "__pycache__" not in file.parts
+                    and file.suffix != ".pyc"
+                ):
+                    archive.add(file, arcname="test/" + str(file.relative_to(TEST)))
+        archive.add(HERE / "run-e2e.sh", arcname="run-e2e.sh")
+        archive.add(jar, arcname="kc.jar")
+
+
+def specification(args, stage_path):
+    # JSON is valid YAML and avoids interpolating arbitrary strings into a spec.
+    return json.dumps(
+        {
+            "spec": {
+                "containers": [
+                    {
+                        "name": "smoke",
+                        "image": args.image,
+                        "command": ["/bin/bash"],
+                        "args": [
+                            "-c",
+                            "exec timeout --signal=TERM --kill-after=15s 600 bash -c "
+                            "'set -e; cd /work; tar xzf /mnt/harness/payload.tgz; "
+                            "exec bash /work/run-e2e.sh'",
+                        ],
+                        "env": {"SPCS_QUERY_WAREHOUSE": args.warehouse},
+                        "volumeMounts": [
+                            {"name": "harness", "mountPath": "/mnt/harness"},
+                            {"name": "work", "mountPath": "/work"},
+                        ],
+                        "resources": {
+                            "requests": {"memory": "4Gi"},
+                            "limits": {"memory": "6Gi"},
+                        },
+                    }
+                ],
+                "volumes": [
+                    {
+                        "name": "harness",
+                        "source": "stage",
+                        "stageConfig": {"name": stage_path},
+                    },
+                    {"name": "work", "source": "local"},
+                ],
+            },
+            "capabilities": {"securityContext": {"enableCustomCredentials": True}},
+        }
+    )
+
+
+def wait_for_job(args, job):
+    deadline = time.monotonic() + args.timeout
+    while time.monotonic() < deadline:
+        rows = sql(args, f"DESCRIBE SERVICE {job}")
+        if len(rows) != 1:
+            raise RuntimeError("Unexpected job status response")
+        status = rows[0]["status"].upper()
+        if status in ("DONE", "FAILED"):
+            return status
+        time.sleep(5)
+    raise TimeoutError("SPCS job exceeded its deadline")
+
+
+def verify(status, logs, values):
+    if status != "DONE":
+        raise RuntimeError(f"Job did not succeed: {status}")
+    if re.findall(r"^SPCS_SMOKE_EXIT=(-?\d+)$", logs, re.MULTILINE) != ["0"]:
+        raise RuntimeError("Missing, failed, or duplicate pytest completion marker")
+    if any(not isinstance(value, str) for value in values) or sorted(values) != sorted(
+        str(value) for value in range(1, 101)
+    ):
+        raise RuntimeError("Landed records do not match the expected 100 unique values")
+
+
+def capture_diagnostics(args, job, evidence):
+    """Keep raw logs private; only fixed-format signals enter the shared JSON."""
+    logs = (
+        sql(
+            args,
+            f"SELECT SYSTEM$GET_SERVICE_LOGS('{job}', 0, 'smoke', 1000) AS LOGS",
+            timeout=30,
+        )[0]["LOGS"]
+        or ""
+    )
+    evidence["diagnostics"] = {
+        "completion_codes": re.findall(
+            r"^SPCS_SMOKE_EXIT=(-?\d{1,3})$", logs, re.MULTILINE
+        ),
+        "pytest_counts": re.findall(
+            r"\b\d{1,6} (?:passed|failed|errors?|skipped)\b", logs
+        )[-10:],
+        "sql_codes": sorted(set(re.findall(r"\b\d{6}(?= \([A-Z0-9]{5}\))", logs))),
+        "exception_types": sorted(
+            set(
+                re.findall(
+                    r"\b(?:TimeoutError|AssertionError|ConnectionError|ProgrammingError|OperationalError|SnowflakeKafkaConnectorException)\b",
+                    logs,
+                )
+            )
+        ),
+    }
+    descriptor = os.open(
+        args.evidence.with_suffix(".log"), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600
+    )
+    with os.fdopen(descriptor, "w") as stream:
+        stream.write(logs)
+    return logs
+
+
+def reconcile_schema(args, schema, marker):
+    """Delete only a schema positively identified as this run's creation."""
+    database, name = schema.split(".")
+    rows = sql(args, f"SHOW SCHEMAS LIKE '{name}' IN DATABASE {database}", timeout=30)
+    matches = [row for row in rows if row["name"] == name]
+    if not matches:
+        raise RuntimeError("Schema creation outcome unresolved; inspect recorded name")
+    if len(matches) != 1 or matches[0].get("comment") != marker:
+        raise RuntimeError("Schema ownership marker mismatch; refusing cleanup")
+    return True
+
+
+def terminate(signum, frame):
+    raise InterruptedError("Run interrupted by SIGTERM")
+
+
+def finalize_result(evidence, cleanup_policy):
+    evidence["passed"] = evidence["test_passed"] and (
+        evidence["cleanup_complete"] or cleanup_policy == "warn"
+    )
+    evidence["outcome"] = (
+        "PASS"
+        if evidence["passed"] and evidence["cleanup_complete"]
+        else "PASS_WITH_CLEANUP_WARNING"
+        if evidence["passed"]
+        else "FAIL"
+    )
+
+
+def cleanup(args, schema, job, stage_path):
+    # Drop job before its data. On an uncertain deletion, preserve recovery evidence.
+    sql(args, f"DROP SERVICE IF EXISTS {job}")
+    sql(args, f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+    sql(args, f"REMOVE {stage_path}")
+    pools = sql(args, "SHOW COMPUTE POOLS")
+    pool = next(pool for pool in pools if pool["name"] == args.pool)
+    if pool["num_services"] or pool["num_jobs"]:
+        raise RuntimeError("Pool now contains other work; refusing to suspend it")
+    sql(args, f"ALTER COMPUTE POOL {args.pool} SUSPEND")
+    database, name = schema.split(".")
+    rows = sql(args, f"SHOW SCHEMAS LIKE '{name}' IN DATABASE {database}")
+    if any(row["name"] == name for row in rows) or sql(args, f"LIST {stage_path}"):
+        raise RuntimeError("Run resources still present after cleanup")
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        pool = sql(args, f"DESCRIBE COMPUTE POOL {args.pool}", timeout=15)[0]
+        if pool["num_services"] or pool["num_jobs"]:
+            raise RuntimeError("Pool now contains other work; manual recovery required")
+        if pool["state"] == "SUSPENDED":
+            return
+        time.sleep(3)
+    raise TimeoutError("Pool suspension was not confirmed")
+
+
+def run(args):
+    identity = preflight(args)
+    run_id = "KC_SMOKE_" + uuid.uuid4().hex.upper()
+    schema = f"{args.database}.{run_id}"
+    job = f"{schema}.SMOKE_JOB"
+    stage_path = f"@{args.stage}/{run_id}/"
+    evidence = dict(
+        identity=identity,
+        schema=schema,
+        job=job,
+        stage=stage_path,
+        pool=args.pool,
+        image=args.image,
+        passed=False,
+        test_passed=False,
+        cleanup_policy=args.cleanup_policy,
+        cleanup_complete=False,
+        connector_sha256=hashlib.sha256(args.jar.read_bytes()).hexdigest(),
+    )
+    # Exclusive creation protects prior evidence; record intended names before mutations.
+    descriptor = os.open(args.evidence, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    with os.fdopen(descriptor, "w") as stream:
+        json.dump(evidence, stream, indent=2)
+    schema_created = False
+    schema_attempted = False
+    job_attempted = False
+    diagnostics_attempted = False
+    failure = None
+    marker = "kc-smoke:" + run_id
+    previous_handler = signal.signal(signal.SIGTERM, terminate)
+    try:
+        schema_attempted = True
+        sql(args, f"CREATE SCHEMA {schema} COMMENT = '{marker}'")
+        schema_created = True
+        sql(
+            args,
+            f'CREATE TABLE {schema}.SMOKE_ROWS (RECORD_METADATA VARIANT, "number" VARCHAR)',
+        )
+        with tempfile.TemporaryDirectory(dir=args.evidence.parent) as directory:
+            payload = Path(directory) / "payload.tgz"
+            make_payload(payload, args.jar)
+            evidence["payload_sha256"] = hashlib.sha256(
+                payload.read_bytes()
+            ).hexdigest()
+            save(args.evidence, evidence)
+            uri = payload.as_uri().replace("'", "''")
+            sql(args, f"PUT '{uri}' {stage_path} AUTO_COMPRESS=FALSE OVERWRITE=FALSE")
+        spec = specification(args, stage_path)
+        egress = (
+            f" EXTERNAL_ACCESS_INTEGRATIONS = ({args.egress})" if args.egress else ""
+        )
+        job_attempted = True
+        sql(
+            args,
+            f"EXECUTE JOB SERVICE IN COMPUTE POOL {args.pool} NAME={job} "
+            f"ASYNC=TRUE{egress} FROM SPECIFICATION $${spec}$$",
+        )
+        status = wait_for_job(args, job)
+        evidence["job_status"] = status
+        diagnostics_attempted = True
+        logs = capture_diagnostics(args, job, evidence)
+        values = [
+            row["number"]
+            for row in sql(args, f'SELECT "number" FROM {schema}.SMOKE_ROWS')
+        ]
+        evidence["landed_rows"] = len(values)
+        evidence["distinct_values"] = len(set(values))
+        verify(status, logs, values)
+        evidence["test_passed"] = True
+    except BaseException as error:
+        failure = error
+        evidence["test_passed"] = False
+        evidence["error"] = error_summary(error)
+    finally:
+        # A second TERM must not interrupt bounded recovery. SIGKILL remains unrecoverable.
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        try:
+            if job_attempted and not diagnostics_attempted:
+                try:
+                    capture_diagnostics(args, job, evidence)
+                except Exception as error:
+                    evidence["diagnostics_error"] = error_summary(error)
+            try:
+                if schema_attempted and not schema_created:
+                    schema_created = reconcile_schema(args, schema, marker)
+                if schema_created:
+                    cleanup(args, schema, job, stage_path)
+                    evidence["cleanup_complete"] = True
+                else:
+                    evidence["cleanup_complete"] = not schema_attempted
+            except Exception as error:
+                evidence["cleanup_error"] = error_summary(error)
+            finalize_result(evidence, args.cleanup_policy)
+            save(args.evidence, evidence)
+        finally:
+            signal.signal(signal.SIGTERM, previous_handler)
+    print(json.dumps(evidence, indent=2))
+    if not evidence["cleanup_complete"]:
+        print(
+            "WARNING: cleanup incomplete; inspect resources recorded in evidence",
+            file=sys.stderr,
+        )
+    if failure is not None:
+        raise RuntimeError(
+            f"Smoke failed ({type(failure).__name__}); see evidence"
+        ) from None
+    if not evidence["passed"]:
+        raise RuntimeError("Cleanup incomplete under strict cleanup policy")
+    return evidence
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cells", default="A,B,C")
-    parser.add_argument("--nrecords", type=int, default=1000)
-    parser.add_argument("--timeout-secs", type=int, default=600)
-    parser.add_argument("--retries", type=int, default=1)
-    parser.add_argument("--journal", required=True)
+    for name in (
+        "connection",
+        "expected-account",
+        "pool",
+        "stage",
+        "image",
+        "warehouse",
+    ):
+        parser.add_argument("--" + name, required=True)
+    parser.add_argument("--database", default="KC_TEST")
+    parser.add_argument("--role", default="SYSADMIN")
+    parser.add_argument(
+        "--egress", help="Existing approved external access integration, if needed"
+    )
+    parser.add_argument("--jar", required=True, type=Path)
+    parser.add_argument("--evidence", required=True, type=Path)
+    parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument(
+        "--cleanup-policy",
+        choices=("warn", "fail"),
+        default="warn",
+        help="Whether incomplete cleanup changes a successful test to failure",
+    )
+    parser.add_argument(
+        "--exclusive-pool",
+        action="store_true",
+        required=True,
+        help="Confirm pool is reserved for this run, including manual/other CI users",
+    )
     args = parser.parse_args(argv)
-    args.cells = [cell.strip().upper() for cell in args.cells.split(",")]
-    if not args.cells or any(cell not in POLICY_FOR_CELL for cell in args.cells):
-        parser.error("select at least one cell from A,B,C; empty cells are invalid")
-    if len(set(args.cells)) != len(args.cells):
-        parser.error("duplicate cells")
-    if not 1 <= args.nrecords <= 10000 or not 30 <= args.timeout_secs <= 600:
-        parser.error("nrecords must be 1..10000; timeout-secs must be 30..600")
-    if not 0 <= args.retries <= 1:
-        parser.error("retries must be 0 or 1")
+    for name in ("database", "role", "pool", "warehouse"):
+        setattr(args, name, identifier(getattr(args, name)))
+    args.stage = qualified(args.stage)
+    if args.egress:
+        args.egress = identifier(args.egress)
+    if not re.fullmatch(r"/[A-Za-z0-9_./-]+@sha256:[a-f0-9]{64}", args.image):
+        parser.error("--image must be a Snowflake repository path pinned by digest")
+    if not 60 <= args.timeout <= 1200:
+        parser.error("--timeout must be 60..1200 seconds")
+    args.jar = args.jar.resolve(strict=True)
+    args.evidence = args.evidence.absolute()
+    if args.evidence.exists() or args.evidence.with_suffix(".log").exists():
+        parser.error(
+            "Use a fresh evidence basename; previous evidence must not be overwritten"
+        )
+    if not args.evidence.parent.is_dir():
+        parser.error("--evidence parent directory must exist")
     return args
 
 
-def execute(conn, args, expected, run_id, journal):
-    preflight(conn, expected)
-    # CREATE without IF NOT EXISTS is the account-local concurrency guard.
-    # Never steal a stale lock: its journal must be reconciled by the owner.
-    query(conn, f"CREATE TABLE {LOCK} (RUN_ID VARCHAR) COMMENT='SNOW-4202412 {run_id}'")
-    restored, cleaned, prior_known = False, False, False
-    try:
-        prior = account_policy(conn)
-        prior_known = True
-        journal.save(phase="locked", prior_policy=prior, stage=f"@{STAGE}/{run_id}/")
-        upload_harness(conn, run_id)
-        passed = True
-        for cell in args.cells:
-            for attempt in range(args.retries + 1):
-                verdict = run_cell(conn, cell, attempt, args, run_id, journal)
-                if verdict.passed:
-                    break
-            passed = passed and verdict.passed
-        query(conn, f"REMOVE @{STAGE}/{run_id}/")
-        cleaned = True
-        return 0 if passed else 1
-    finally:
-        if prior_known:
-            # Journal IO must never prevent restoration of the account policy.
-            try:
-                journal.save(phase="restoring_policy")
-            finally:
-                set_policy(conn, prior)
-                restored = True
-        if restored and cleaned:
-            query(conn, "DROP TABLE " + LOCK)
-            journal.save(phase="complete", cleanup_complete=True)
-        else:
-            journal.save(phase="recovery_required", cleanup_complete=False)
-
-
-def main(argv=None):
-    args = parse_args(argv)
-    expected = os.environ["SPCS_EXPECTED_ACCOUNT"]
-    if os.environ.get("SPCS_CONFIRM_DEDICATED_ACCOUNT") != expected:
-        raise ValueError("explicit dedicated-account confirmation required")
-    image = os.environ["SPCS_IMAGE"]
-    if not re.fullmatch(r"/[A-Za-z0-9_./-]+@sha256:[a-f0-9]{64}", image):
-        raise ValueError("SPCS_IMAGE must be an immutable repository digest path")
-    verify_artifact(os.environ["KC_JAR"], os.environ["KC_JAR_SHA256"])
-    verify_artifact(os.environ["KAFKA_TGZ"], os.environ["KAFKA_SHA256"])
-    run_id = "R" + uuid.uuid4().hex.upper()
-    journal = Journal(args.journal, expected, run_id)
-    conn = connect()
-    try:
-        return execute(conn, args, expected, run_id, journal)
-    finally:
-        conn.close()
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    run(parse_args())

@@ -66,6 +66,8 @@ class KafkaDriver:
         credentials: Profile,
         testVersion: str,
         enableSSL: bool,
+        *,
+        snowflake_connection=None,
     ):
         self.testVersion = testVersion
         self.credentials = credentials
@@ -128,10 +130,14 @@ class KafkaDriver:
         # create the AvroProducer eagerly.
         self._avroProducer = None
 
-        snowflake_connector_config = SnowflakeConnectorConfig.from_profile(credentials)
-        self.snowflake_conn = snowflake.connector.connect(
-            **snowflake_connector_config.to_dict()
-        )
+        if snowflake_connection is None:
+            snowflake_connector_config = SnowflakeConnectorConfig.from_profile(
+                credentials
+            )
+            snowflake_connection = snowflake.connector.connect(
+                **snowflake_connector_config.to_dict()
+            )
+        self.snowflake_conn = snowflake_connection
 
     @property
     def avroProducer(self):

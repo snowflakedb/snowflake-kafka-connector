@@ -296,7 +296,15 @@ jobs:
       contents: read
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install observer contract dependencies
+      run: >-
+        pip install requests certifi 'confluent-kafka[avro,json,protobuf]==2.13.0'
+        avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0' 'pytest==8.3.5'
     - run: python3 -m unittest discover -s test/spcs -v
+    - run: python3 test/spcs/observer_contract.py
 
   # SNOW-4202412: opt-in only until the dedicated fixture is qualified.
   # A skipped job is NOT release validation. Publisher integration remains open.
@@ -315,41 +323,52 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    - name: Build connector
-      uses: ./.github/actions/build-connector
+    - uses: actions/setup-java@v4
       with:
-        platform: apache
-    - name: Run SPCS release cells A/B/C
+        distribution: zulu
+        java-version: '11'
+        cache: maven
+    - name: Build connector without a secret-bearing E2E profile
+      run: mvn package -DskipTests -Dgpg.skip=true
+    - name: Run SPCS smoke test
       env:
-        SPCS_ACCOUNT: ${{ secrets.SPCS_RELEASE_ACCOUNT }}
-        SPCS_EXPECTED_ACCOUNT: ${{ vars.SPCS_EXPECTED_ACCOUNT }}
-        SPCS_CONFIRM_DEDICATED_ACCOUNT: ${{ vars.SPCS_EXPECTED_ACCOUNT }}
-        SPCS_USER: ${{ secrets.SPCS_RELEASE_USER }}
+        SNOWFLAKE_CONNECTIONS_SPCS_ACCOUNT: ${{ secrets.SPCS_RELEASE_ACCOUNT }}
+        SNOWFLAKE_CONNECTIONS_SPCS_USER: ${{ secrets.SPCS_RELEASE_USER }}
+        SNOWFLAKE_CONNECTIONS_SPCS_AUTHENTICATOR: SNOWFLAKE_JWT
+        SNOWFLAKE_CONNECTIONS_SPCS_PRIVATE_KEY_FILE: ${{ github.workspace }}/test/spcs/.scratch/key.p8
         SPCS_PRIVATE_KEY: ${{ secrets.SPCS_RELEASE_PRIVATE_KEY }}
-        SPCS_HOST: ${{ secrets.SPCS_RELEASE_HOST }}
+        SPCS_EXPECTED_ACCOUNT: ${{ vars.SPCS_EXPECTED_ACCOUNT }}
         SPCS_IMAGE: ${{ vars.SPCS_RELEASE_IMAGE_DIGEST }}
-        KAFKA_SHA256: ${{ vars.SPCS_KAFKA_SHA256 }}
-        KAFKA_VERSION: '4.1.1'
+        SPCS_POOL: ${{ vars.SPCS_POOL }}
+        SPCS_STAGE: ${{ vars.SPCS_STAGE }}
+        SPCS_DATABASE: ${{ vars.SPCS_DATABASE }}
+        SPCS_ROLE: ${{ vars.SPCS_ROLE }}
+        SPCS_WAREHOUSE: ${{ vars.SPCS_WAREHOUSE }}
+        SPCS_CLEANUP_POLICY: ${{ vars.SPCS_CLEANUP_POLICY || 'warn' }}
+        SPCS_EXCLUSIVE_POOL: ${{ vars.SPCS_EXCLUSIVE_POOL }}
       run: |
         set -euo pipefail
         umask 077
-        mkdir -p test/spcs/.scratch
-        trap 'rm -f test/spcs/.scratch/spcs_key.p8' EXIT
-        pip install --quiet snowflake-connector-python==3.18.0 cryptography==46.0.1
+        mkdir -p test/spcs/.scratch ~/.snowflake
+        trap 'rm -f test/spcs/.scratch/key.p8' EXIT
+        pip install --quiet snowflake-cli==3.25.0
+        printf '[connections.spcs]\n' > ~/.snowflake/config.toml
+        printf '%s\n' "$SPCS_PRIVATE_KEY" > test/spcs/.scratch/key.p8
+        unset SPCS_PRIVATE_KEY
+        [ "$SPCS_EXCLUSIVE_POOL" = true ] || { echo 'Reserve a dedicated pool before enabling this job'; exit 1; }
         mapfile -t jars < <(find target -maxdepth 1 -name 'snowflake-kafka-connector-*.jar' ! -name '*sources*' ! -name '*javadoc*' ! -name '*original*')
         [ "${#jars[@]}" -eq 1 ] || { echo 'Expected exactly one connector artifact'; exit 1; }
-        export KC_JAR="${jars[0]}"
-        export KC_JAR_SHA256="$(sha256sum "$KC_JAR" | cut -d ' ' -f 1)"
-        curl --connect-timeout 10 --max-time 180 -fsSL -o test/spcs/.scratch/kafka.tgz \
-          "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz"
-        printf '%s\n' "$SPCS_PRIVATE_KEY" > test/spcs/.scratch/spcs_key.p8
-        SPCS_PRIVATE_KEY_FILE=test/spcs/.scratch/spcs_key.p8 \
-          KAFKA_TGZ=test/spcs/.scratch/kafka.tgz python3 test/spcs/run_spcs_release.py \
-          --journal test/spcs/.scratch/recovery.json
-    - name: Preserve sanitized recovery evidence
+        python3 test/spcs/run_spcs_release.py --connection spcs \
+          --expected-account "$SPCS_EXPECTED_ACCOUNT" --pool "$SPCS_POOL" \
+          --stage "$SPCS_STAGE" --database "$SPCS_DATABASE" --role "$SPCS_ROLE" \
+          --warehouse "$SPCS_WAREHOUSE" --image "$SPCS_IMAGE" --jar "${jars[0]}" \
+          --exclusive-pool --cleanup-policy "$SPCS_CLEANUP_POLICY" \
+          --evidence test/spcs/.scratch/result.json
+    - name: Preserve smoke result
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: spcs-release-recovery
-        path: test/spcs/.scratch/recovery.json
+        name: spcs-smoke-result
+        path: test/spcs/.scratch/result.json
+        include-hidden-files: true
         retention-days: 14
