@@ -195,7 +195,9 @@ public class ConnectorConfigDefinition {
             STRING,
             "",
             LOW,
-            "JVM option: https.proxyHost",
+            "HTTPS proxy host. Sets JVM https.proxyHost for JDBC and is forwarded to the native"
+                + " streaming SDK as proxy_url so each connector can use an isolated proxy on a"
+                + " shared Connect worker.",
             PROXY_INFO_DOC,
             0,
             Width.NONE,
@@ -205,7 +207,8 @@ public class ConnectorConfigDefinition {
             STRING,
             "",
             LOW,
-            "JVM option: https.proxyPort",
+            "HTTPS proxy port. Sets JVM https.proxyPort for JDBC and is forwarded to the native"
+                + " streaming SDK as part of proxy_url.",
             PROXY_INFO_DOC,
             1,
             Width.NONE,
@@ -215,7 +218,9 @@ public class ConnectorConfigDefinition {
             STRING,
             "",
             LOW,
-            "JVM option: http.nonProxyHosts",
+            "Hosts that bypass the proxy (Java http.nonProxyHosts syntax, '|' separated). Sets"
+                + " JVM http.nonProxyHosts for JDBC and is forwarded to the native streaming SDK"
+                + " as no_proxy.",
             PROXY_INFO_DOC,
             2,
             Width.NONE,
@@ -225,7 +230,8 @@ public class ConnectorConfigDefinition {
             STRING,
             "",
             LOW,
-            "JVM proxy username",
+            "HTTPS proxy username. Sets JVM proxy auth for JDBC and is forwarded to the native"
+                + " streaming SDK as proxy_user.",
             PROXY_INFO_DOC,
             3,
             Width.NONE,
@@ -235,7 +241,8 @@ public class ConnectorConfigDefinition {
             PASSWORD,
             "",
             LOW,
-            "JVM proxy password",
+            "HTTPS proxy password. Sets JVM proxy auth for JDBC and is forwarded to the native"
+                + " streaming SDK as proxy_password.",
             PROXY_INFO_DOC,
             4,
             Width.NONE,

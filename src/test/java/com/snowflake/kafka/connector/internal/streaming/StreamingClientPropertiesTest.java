@@ -215,6 +215,91 @@ public class StreamingClientPropertiesTest {
   }
 
   @Test
+  public void shouldForwardJvmProxySettingsToStreamingSdkProperties() {
+    String privateKeyPem = Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded());
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, "proxyTenant");
+    connectorConfig.put(Utils.TASK_ID, "0");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+        "https://testaccount.us-east-1.snowflakecomputing.com");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, privateKeyPem);
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "proxy.example.com");
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "8080");
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, "proxy-user");
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, "proxy-pass");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS, "*.snowflakecomputing.com|localhost");
+
+    Properties clientProps =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+
+    assertThat(clientProps.getProperty("proxy_url")).isEqualTo("http://proxy.example.com:8080");
+    assertThat(clientProps.getProperty("proxy_user")).isEqualTo("proxy-user");
+    assertThat(clientProps.getProperty("proxy_password")).isEqualTo("proxy-pass");
+    assertThat(clientProps.getProperty("no_proxy"))
+        .isEqualTo("*.snowflakecomputing.com,localhost");
+  }
+
+  @Test
+  public void shouldNotForwardProxyWhenHostOrPortMissing() {
+    String privateKeyPem = Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded());
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, "noProxy");
+    connectorConfig.put(Utils.TASK_ID, "0");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+        "https://testaccount.us-east-1.snowflakecomputing.com");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, privateKeyPem);
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "proxy.example.com");
+
+    Properties clientProps =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+
+    assertThat(clientProps.stringPropertyNames())
+        .doesNotContain("proxy_url", "proxy_user", "proxy_password", "no_proxy");
+  }
+
+  @Test
+  public void differentProxySettingsProduceUnequalStreamingClientProperties() {
+    String privateKeyPem = Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded());
+    Map<String, String> tenantA = baseJwtConfig("tenantA", privateKeyPem);
+    tenantA.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "proxy-a.example.com");
+    tenantA.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "8080");
+    Map<String, String> tenantB = baseJwtConfig("tenantB", privateKeyPem);
+    tenantB.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "proxy-b.example.com");
+    tenantB.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "9090");
+
+    StreamingClientProperties a =
+        StreamingClientProperties.from(SinkTaskConfig.from(tenantA));
+    StreamingClientProperties b =
+        StreamingClientProperties.from(SinkTaskConfig.from(tenantB));
+
+    assertThat(a).isNotEqualTo(b);
+    assertThat(a.clientProperties.getProperty("proxy_url"))
+        .isEqualTo("http://proxy-a.example.com:8080");
+    assertThat(b.clientProperties.getProperty("proxy_url"))
+        .isEqualTo("http://proxy-b.example.com:9090");
+  }
+
+  private static Map<String, String> baseJwtConfig(String name, String privateKeyPem) {
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, name);
+    connectorConfig.put(Utils.TASK_ID, "0");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+        "https://testaccount.us-east-1.snowflakecomputing.com");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY, privateKeyPem);
+    return connectorConfig;
+  }
+
+  @Test
   void shouldPropagateStreamingClientPropertiesFromOverrideMap() {
     // GIVEN
     Map<String, String> connectorConfig =
