@@ -114,6 +114,8 @@ class CompatibilityPollingTests(unittest.TestCase):
     def test_success_does_not_wait(self):
         result, sleeps, elapsed = self.run_case([1], [[]])
         self.assertIsNone(result.connector_error)
+        self.assertFalse(result.timed_out)
+        self.assertEqual(result.last_row_count, 1)
         self.assertEqual(sleeps, [])
         self.assertEqual(elapsed, 0)
 
@@ -128,10 +130,20 @@ class CompatibilityPollingTests(unittest.TestCase):
         self.assertEqual(elapsed, 7)
         self.assertEqual(result.values, [])
         self.assertIsNone(result.connector_error)
+        self.assertTrue(result.timed_out)
+        self.assertEqual(result.elapsed_seconds, 7)
+        self.assertEqual(result.last_row_count, 0)
+        self.assertIn("timed_out=True", result.diagnostics)
+
+    def test_missing_table_is_not_reported_as_zero_rows(self):
+        result, _, _ = self.run_case([None], [[]], timeout=1)
+        self.assertTrue(result.timed_out)
+        self.assertIsNone(result.last_row_count)
 
     def test_failed_task_still_short_circuits(self):
         result, sleeps, _ = self.run_case([], [[{"trace": "validation failed"}]])
         self.assertEqual(result.connector_error, "validation failed")
+        self.assertFalse(result.timed_out)
         self.assertEqual(sleeps, [])
 
 

@@ -570,18 +570,35 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
         keys = [json.dumps({"number": str(i)}).encode() for i in range(len(values))]
         driver.sendBytesData(topic, records, keys)
 
-        deadline = time.monotonic() + timeout
+        started = time.monotonic()
+        deadline = started + timeout
         error = None
+        timed_out = True
+        last_row_count = None
         while time.monotonic() < deadline:
             if failed := driver.get_failed_tasks(connector_name):
                 error = failed[0].get("trace", "no trace")
                 logger.info("Connector error for %s: %.500s", test_id, error)
+                timed_out = False
                 break
-            tbl = driver.select_number_of_records(sf_table) or 0
-            if tbl >= len(values):
+            last_row_count = driver.select_number_of_records(sf_table)
+            if last_row_count is not None and last_row_count >= len(values):
+                timed_out = False
                 break
             # Poll at the shared E2E cadence without extending the case deadline.
             time.sleep(min(5, max(0, deadline - time.monotonic())))
+
+        elapsed_seconds = time.monotonic() - started
+        if timed_out:
+            logger.warning(
+                "Observation deadline expired for %s after %.1fs: "
+                "expected=%s, last_row_count=%s, no FAILED task observed. "
+                "Channel readiness and record rejection are not established.",
+                connector_name,
+                elapsed_seconds,
+                len(values),
+                last_row_count,
+            )
 
         rows = (
             driver.snowflake_conn.cursor()
@@ -594,6 +611,9 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
         return IngestResult(
             values=[r[0] for r in rows],
             connector_error=error,
+            timed_out=timed_out,
+            elapsed_seconds=elapsed_seconds,
+            last_row_count=last_row_count,
         )
 
     try:
@@ -611,3 +631,13 @@ class IngestResult:
     dlq_count: int = 0
     dlq_errors: list = field(default_factory=list)
     connector_error: str | None = None
+    timed_out: bool = False
+    elapsed_seconds: float = 0.0
+    last_row_count: int | None = None
+
+    @property
+    def diagnostics(self):
+        return (
+            f"timed_out={self.timed_out}, elapsed={self.elapsed_seconds:.1f}s, "
+            f"last_row_count={self.last_row_count}, error={self.connector_error}"
+        )
