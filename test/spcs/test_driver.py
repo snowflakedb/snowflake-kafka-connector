@@ -238,6 +238,25 @@ class CliTests(unittest.TestCase):
             "--exclusive-pool",
         ]
 
+    def test_payload_includes_diagnostic_helper(self):
+        import tarfile
+
+        payload = self.directory / "payload.tgz"
+        runner.make_payload(payload, self.directory / "kc.jar")
+        with tarfile.open(payload) as archive:
+            self.assertIn("diagnostics.py", archive.getnames())
+            self.assertIn("run-e2e.sh", archive.getnames())
+            self.assertIn("test/tests/spcs/test_spcs_ingestion.py", archive.getnames())
+
+    def test_log_tail_is_bounded(self):
+        from diagnostics import MAX_LOG_BYTES, log_tail
+
+        path = self.directory / "service.log"
+        path.write_bytes(b"discard-this" + b"x" * MAX_LOG_BYTES)
+        result = log_tail(path)
+        self.assertEqual(len(result), MAX_LOG_BYTES)
+        self.assertNotIn("discard-this", result)
+
     def test_cleanup_policy_defaults_to_warn(self):
         self.assertEqual(runner.parse_args(self.arguments).cleanup_policy, "warn")
 
