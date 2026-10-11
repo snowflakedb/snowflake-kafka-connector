@@ -1,6 +1,7 @@
 """Offline functional pacing contracts; run directly, without E2E fixtures."""
 
 import importlib.util
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -47,7 +48,9 @@ class PacingTests(unittest.TestCase):
 
     def check_pacing(self, delay, markers, expected):
         item = Mock(nodeid="test_functional[v4]")
-        item.config.getoption.return_value = delay
+        item.config.getoption.side_effect = lambda name: (
+            False if name == "--v4-trial" else delay
+        )
         item.get_closest_marker.side_effect = lambda name: name in markers
         with patch.object(pacing.time, "sleep") as sleep:
             pacing.pytest_runtest_setup(item)
@@ -76,6 +79,102 @@ class PacingTests(unittest.TestCase):
 
     def test_hook_runs_before_fixture_setup(self):
         self.assertTrue(pacing.pytest_runtest_setup.pytest_impl["tryfirst"])
+
+
+class TrialSelectionTests(unittest.TestCase):
+    def item(self, mode="v4-compat", name="test_dt_vector", path=None):
+        return SimpleNamespace(
+            path=path or TEST_ROOT / "tests/compatibility/test_unsupported_types.py",
+            originalname=name,
+            callspec=SimpleNamespace(params={"ingestion_mode": mode}),
+        )
+
+    def test_all_six_trial_cases_allowed(self):
+        for mode in ("v4-compat", "v4-ht"):
+            for name in (
+                "test_dt_vector",
+                "test_dt_structured_object",
+                "test_dt_structured_array",
+            ):
+                self.assertTrue(pacing._is_v4_trial_case(self.item(mode, name)))
+
+    def test_v3_and_unknown_modes_rejected(self):
+        for mode in ("v3", "v5", None):
+            self.assertFalse(pacing._is_v4_trial_case(self.item(mode)))
+
+    def test_other_tests_rejected(self):
+        self.assertFalse(pacing._is_v4_trial_case(self.item(name="test_dt_geography")))
+        self.assertFalse(
+            pacing._is_v4_trial_case(self.item(path=TEST_ROOT / "other.py"))
+        )
+
+    def test_incomplete_trial_fails_collection(self):
+        import pytest
+
+        config = Mock()
+        config.getoption.side_effect = lambda name: name == "--v4-trial"
+        with self.assertRaises(pytest.UsageError):
+            pacing.pytest_collection_modifyitems(config, [self.item()])
+
+    def test_runner_rejects_selection_override_before_setup(self):
+        result = subprocess.run(
+            ["bash", str(TEST_ROOT / "run_tests.sh"), "--v4-trial", "--", "-k", "v3"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "--v4-trial does not accept additional pytest arguments", result.stderr
+        )
+
+    def test_real_collection_contains_exactly_six_v4_cases(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/compatibility/test_unsupported_types.py",
+                "--v4-trial",
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "--kafka-address",
+                "localhost:9092",
+                "--kafka-connect-address",
+                "localhost:8083",
+                "--platform",
+                "apache",
+                "--platform-version",
+                "4.1.1",
+            ],
+            cwd=TEST_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        collected = {
+            line for line in result.stdout.splitlines() if line.startswith("tests/")
+        }
+        expected = {
+            f"tests/compatibility/test_unsupported_types.py::{name}[{mode}]"
+            for name in (
+                "test_dt_vector",
+                "test_dt_structured_object",
+                "test_dt_structured_array",
+            )
+            for mode in ("v4-compat", "v4-ht")
+        }
+        self.assertEqual(collected, expected)
+
+    def test_setup_guard_rejects_v3(self):
+        import pytest
+
+        item = self.item("v3")
+        item.config = Mock()
+        item.config.getoption.return_value = True
+        with self.assertRaises(pytest.UsageError):
+            pacing.pytest_runtest_setup(item)
 
 
 class CompatibilityPollingTests(unittest.TestCase):

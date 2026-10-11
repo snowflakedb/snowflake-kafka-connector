@@ -108,10 +108,12 @@ test-runner container.
 
 ## Functional CI load and duration
 
-Document version: 1.0, 2026-10-11 16:04 UTC
+Document version: 2.0, 2026-10-11 16:30 UTC
 
 The `functional` matrix in `end-to-end.yaml` runs one lane at a time. All seven
-lanes and their assertions remain enabled. Allow the sum of the lane durations,
+lanes and their assertions remain available for ready PRs, pushes, schedules,
+and explicit full-suite dispatches. Draft PRs use the narrow trial below instead.
+Allow the sum of the lane durations,
 plus build and queue time, for the complete functional result rather than the
 slowest parallel lane. Each lane retains GitHub Actions' default six-hour job
 limit; serialization does not require multiplying a per-job timeout.
@@ -133,6 +135,33 @@ The matrix cap is per workflow run, not per Snowflake account. Separate PR runs,
 fault-injection jobs, and other account users can still overlap. For a controlled
 trial, run only one functional workflow against the shared account at a time.
 This reduces test load but does not guarantee that shared-service throttling ends.
+
+### KC v4-only trial
+
+Draft PRs run a single Apache Kafka 4.1.1 / Java 17 / AWS job covering VECTOR,
+structured OBJECT, and structured ARRAY in both `v4-compat` and `v4-ht` modes.
+All six cases must be collected; other cases are deselected, with a second guard
+before fixture setup. The runner skips the KC v3 download and mounts a fresh
+empty legacy-plugin directory. Assertions and the 60-second case deadline remain
+unchanged. Service logs are retained on success as well as failure.
+
+```bash
+./test/run_tests.sh --platform=apache --platform-version=4.1.1 \
+  --java-version=17 --cloud=AWS --v4-trial --logs-dir="$PWD/test-logs"
+```
+
+`--v4-trial` rejects extra pytest arguments so callers cannot override its fixed
+selection. It applies five-second case pacing. Once this workflow is available
+on the default branch, it can also be dispatched with `run_v4_trial=true`; that
+input takes precedence over all other live E2E inputs. Draft PR creation and
+updates run the trial without needing a manual dispatch.
+
+The trial has a 45-minute job limit including build/setup. A repository-wide
+trial concurrency group prevents two trials from running together; GitHub may
+replace an older pending trial when newer runs queue. This is not an account-wide
+lock against other workflows or repositories. Broad Java integration and mixed
+E2E lanes are skipped on draft PRs and restored by the `ready_for_review` event.
+A green trial does not establish full-suite or release qualification.
 
 Offline checks (no credentials or running services):
 

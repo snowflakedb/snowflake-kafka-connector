@@ -5,11 +5,16 @@ on:
     branches: [master, 'release-*']
   pull_request:
     branches: ['**']
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   schedule:
     # Nightly run with all jobs, including the soak test.
     - cron: '0 20 * * *'
   workflow_dispatch:
     inputs:
+      run_v4_trial:
+        description: 'KC v4-only low-load trial (excludes other live E2E jobs)'
+        type: boolean
+        default: false
       run_functional:
         description: 'functional tests'
         type: boolean
@@ -51,12 +56,43 @@ jobs:
         avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0' 'pytest==8.3.5'
     - run: python3 test/scripts/functional_pacing_contract.py
 
+  v4-trial:
+    if: >
+      (github.event_name == 'pull_request' && github.event.pull_request.draft) ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_v4_trial)
+    needs: functional-pacing-contracts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    concurrency:
+      group: kc-v4-functional-trial-aws
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+    - uses: actions/checkout@v4
+    - name: Decrypt AWS test profile
+      run: ./.github/scripts/decrypt_secret.sh AWS
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: apache
+    - uses: ./.github/actions/run-e2e-tests
+      with:
+        platform: apache
+        platform-version: '4.1.1'
+        java-version: '17'
+        snowflake-cloud: AWS
+        test-group: v4-trial
+        v4-trial: 'true'
+
   functional:
     if: >
-      github.event_name == 'pull_request' ||
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_functional)
+      (github.event_name == 'workflow_dispatch' && inputs.run_functional && !inputs.run_v4_trial)
     runs-on: ubuntu-22.04
     name: >
       functional
@@ -151,10 +187,10 @@ jobs:
   fault_injection:
     # Exercises error-recovery paths using mitmproxy to inject HTTP 410 responses.
     if: >
-      github.event_name == 'pull_request' ||
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection)
+      (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection && !inputs.run_v4_trial)
     runs-on: ubuntu-22.04
     name: fault_injection
     permissions:
@@ -186,7 +222,7 @@ jobs:
     if: >
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_core_legacy)
+      (github.event_name == 'workflow_dispatch' && inputs.run_core_legacy && !inputs.run_v4_trial)
     runs-on: ubuntu-22.04
     name: >
       core_legacy
@@ -241,7 +277,7 @@ jobs:
     if: >
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_stress)
+      (github.event_name == 'workflow_dispatch' && inputs.run_stress && !inputs.run_v4_trial)
     runs-on: ubuntu-22.04
     name: >
       stress
@@ -279,7 +315,7 @@ jobs:
   soak_with_chaos:
     if: >
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_soak_with_chaos)
+      (github.event_name == 'workflow_dispatch' && inputs.run_soak_with_chaos && !inputs.run_v4_trial)
     runs-on: ubuntu-22.04
     name: soak with chaos
     timeout-minutes: 600
@@ -328,7 +364,7 @@ jobs:
   # SNOW-4202412: opt-in only until the dedicated fixture is qualified.
   # A skipped job is NOT release validation. Publisher integration remains open.
   spcs-release:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_spcs && vars.SPCS_RELEASE_ENABLED == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_spcs && !inputs.run_v4_trial && vars.SPCS_RELEASE_ENABLED == 'true'
     environment: spcs-release
     runs-on: ubuntu-22.04
     timeout-minutes: 90

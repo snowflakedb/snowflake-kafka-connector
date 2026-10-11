@@ -27,6 +27,10 @@ inputs:
     description: "Seconds before each functional case's fixture setup (0-60); pressure, soak, fault injection and SPCS are excluded"
     required: false
     default: '0'
+  v4-trial:
+    description: 'Run the fixed six-case KC v4 trial without the KC v3 plugin'
+    required: false
+    default: 'false'
   pressure:
     description: "Run pressure/stress tests instead of regular tests"
     required: false
@@ -72,9 +76,15 @@ runs:
         LOGS_DIR: "${{ github.workspace }}/test-logs"
         MARKER_FILTER: ${{ inputs.pressure == 'true' && 'pressure' || inputs['marker-filter'] }}
         MITMPROXY_FLAG: ${{ inputs['with-mitmproxy'] == 'true' && '--with-mitmproxy' || '' }}
+        V4_TRIAL: ${{ inputs['v4-trial'] }}
         FUNCTIONAL_TEST_DELAY: ${{ inputs['functional-test-delay'] }}
         JMX_FLAG: ${{ inputs.jmx == 'true' && '--jmx' || '' }}
       run: |
+        if [ "$V4_TRIAL" = true ]; then
+          TEST_ARGS=(--v4-trial)
+        else
+          TEST_ARGS=(-- -m "$MARKER_FILTER" --functional-test-delay "$FUNCTIONAL_TEST_DELAY")
+        fi
         ./run_tests.sh \
           --platform="$PLATFORM" \
           --platform-version="$PLATFORM_VERSION" \
@@ -83,10 +93,10 @@ runs:
           --logs-dir="$LOGS_DIR" \
           $MITMPROXY_FLAG \
           $JMX_FLAG \
-          -- -m "$MARKER_FILTER" --functional-test-delay "$FUNCTIONAL_TEST_DELAY"
+          "${TEST_ARGS[@]}"
 
-    - name: Upload service logs on failure
-      if: failure()
+    - name: Upload service logs
+      if: always() && (failure() || inputs['v4-trial'] == 'true')
       uses: actions/upload-artifact@v4
       with:
         name: logs-${{ inputs.platform }}-${{ inputs['platform-version'] }}-${{ inputs['snowflake-cloud'] }}-${{ inputs['test-group'] }}

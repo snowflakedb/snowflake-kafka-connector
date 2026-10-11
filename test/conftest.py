@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Dict, List
 
 import pytest
@@ -53,6 +54,12 @@ def pytest_addoption(parser):
         choices=range(61),
         default=0,
         help="Seconds before functional case setup (0-60; default: 0)",
+    )
+    group.addoption(
+        "--v4-trial",
+        action="store_true",
+        default=False,
+        help="Run only the six v4 VECTOR/structured-type trial cases",
     )
     group.addoption(
         "--spcs",
@@ -159,7 +166,27 @@ def pytest_configure(config):
         )
 
 
+def _is_v4_trial_case(item):
+    return (
+        item.path
+        == Path(__file__).parent / "tests/compatibility/test_unsupported_types.py"
+        and item.originalname
+        in {"test_dt_vector", "test_dt_structured_object", "test_dt_structured_array"}
+        and getattr(item, "callspec", None) is not None
+        and item.callspec.params.get("ingestion_mode") in {"v4-compat", "v4-ht"}
+    )
+
+
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
+    if config.getoption("--v4-trial"):
+        selected = [item for item in items if _is_v4_trial_case(item)]
+        config.hook.pytest_deselected(
+            items=[item for item in items if item not in selected]
+        )
+        items[:] = selected
+        if len(items) != 6:
+            raise pytest.UsageError("--v4-trial requires all six v4 trial cases")
     if config.getoption("--spcs"):
         if any("spcs" not in item.keywords for item in items):
             raise pytest.UsageError("--spcs requires selecting tests/spcs only")
@@ -198,6 +225,8 @@ def pytest_report_header(config):
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     """Pace functional cases before fixture setup, outside assertion deadlines."""
+    if item.config.getoption("--v4-trial") and not _is_v4_trial_case(item):
+        raise pytest.UsageError("Non-v4 trial case reached setup")
     delay = item.config.getoption("--functional-test-delay")
     if delay and not any(
         item.get_closest_marker(marker)

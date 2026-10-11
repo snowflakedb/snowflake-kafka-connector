@@ -69,6 +69,7 @@ usage() {
     echo "  --jmx                Enable JMX metrics scraping via Jolokia"
     echo "  --profile            Enable JVM profiling (JFR, GC logs, JMX, async-profiler)"
     echo "  --with-mitmproxy     Enable mitmproxy for fault injection tests (410 injection)"
+    echo "  --v4-trial           Run only six v4 compatibility cases; do not load KC v3"
     echo "  --keep               Keep containers running after tests"
     echo "  -i, --interactive    Start infra, then drop into a bash shell in the test-runner"
     echo "  --rebuild            Force rebuild of images"
@@ -109,6 +110,7 @@ KEEP_RUNNING="false"
 INTERACTIVE="false"
 FORCE_REBUILD="false"
 LOGS_DIR=""
+V4_TRIAL="false"
 PASSTHROUGH_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -142,6 +144,10 @@ while [[ $# -gt 0 ]]; do
             MITMPROXY_ENABLED="true"
             shift
             ;;
+        --v4-trial)
+            V4_TRIAL="true"
+            shift
+            ;;
         --keep)
             KEEP_RUNNING="true"
             shift
@@ -171,6 +177,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [ "$V4_TRIAL" = "true" ]; then
+    if [ ${#PASSTHROUGH_ARGS[@]} -ne 0 ]; then
+        error_exit "--v4-trial does not accept additional pytest arguments"
+    fi
+    PASSTHROUGH_ARGS=(tests/compatibility/test_unsupported_types.py --v4-trial --functional-test-delay 5)
+fi
 
 # Validate required arguments
 if [ -z "$PLATFORM" ]; then
@@ -371,9 +384,14 @@ compile_protobuf_dependencies() {
 
 compile_protobuf_dependencies
 
-# Download KC v3 JAR for dual-version testing (skips if already cached)
-info "Preparing KC v3 connector JAR..."
-V3_PLUGIN_DIR=$("$SCRIPT_DIR/download_v3_jar.sh")
+if [ "$V4_TRIAL" = "true" ]; then
+    # Mount a new empty directory rather than the cached legacy plugin.
+    V3_PLUGIN_DIR=$(mktemp -d "$TARGET_DIR/e2e-empty-v3.XXXXXX")
+    info "KC v4-only trial: legacy connector download disabled"
+else
+    info "Preparing KC v3 connector JAR..."
+    V3_PLUGIN_DIR=$("$SCRIPT_DIR/download_v3_jar.sh")
+fi
 export V3_PLUGIN_PATH="$V3_PLUGIN_DIR"
 info "v3 plugin path: $V3_PLUGIN_PATH"
 
@@ -587,11 +605,11 @@ set -e
 # Stop the scraper before containers go away
 stop_metrics_scraper
 
-# Save logs on failure
-if [ $TEST_EXIT_CODE -ne 0 ] && [ -n "$LOGS_DIR" ]; then
+# Preserve trial logs even on success for timeout/throttling comparisons.
+if { [ $TEST_EXIT_CODE -ne 0 ] || [ "$V4_TRIAL" = "true" ]; } && [ -n "$LOGS_DIR" ]; then
     mkdir -p "$LOGS_DIR"
     LOG_FILE="$LOGS_DIR/${PLATFORM}-${PLATFORM_VERSION}-${HEALTH_CHECK_SERVICE}.log"
-    warn "Tests failed. Saving service logs to $LOG_FILE..."
+    info "Saving service logs to $LOG_FILE..."
     docker compose $COMPOSE_FILES logs $HEALTH_CHECK_SERVICE > "$LOG_FILE" 2>&1
 fi
 
