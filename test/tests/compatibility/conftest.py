@@ -580,7 +580,8 @@ def ingest_one_type_abort(driver, mode_salt, ingestion_mode, typed_table):
             tbl = driver.select_number_of_records(sf_table) or 0
             if tbl >= len(values):
                 break
-            time.sleep(2)
+            # Poll at the shared E2E cadence without extending the case deadline.
+            time.sleep(min(5, max(0, deadline - time.monotonic())))
 
         rows = (
             driver.snowflake_conn.cursor()

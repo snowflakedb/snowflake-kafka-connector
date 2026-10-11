@@ -48,6 +48,13 @@ def pytest_addoption(parser):
     """
     group = parser.getgroup("kafka-e2e", "Kafka connector end-to-end test options")
     group.addoption(
+        "--functional-test-delay",
+        type=int,
+        choices=range(61),
+        default=0,
+        help="Seconds before functional case setup (0-60; default: 0)",
+    )
+    group.addoption(
         "--spcs",
         action="store_true",
         default=False,
@@ -178,6 +185,28 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "confluent_only" in item.keywords:
             item.add_marker(skip)
+
+
+def pytest_report_header(config):
+    delay = config.getoption("--functional-test-delay")
+    return (
+        f"Functional setup pacing: {delay}s/case; assertion deadlines unchanged. "
+        "Exclude this delay from throughput comparisons."
+    )
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    """Pace functional cases before fixture setup, outside assertion deadlines."""
+    delay = item.config.getoption("--functional-test-delay")
+    if delay and not any(
+        item.get_closest_marker(marker)
+        for marker in ("pressure", "soak", "fault_injection", "spcs")
+    ):
+        logger.info(
+            "Functional setup pacing: waiting %ss before %s", delay, item.nodeid
+        )
+        time.sleep(delay)
 
 
 @pytest.fixture(autouse=True)

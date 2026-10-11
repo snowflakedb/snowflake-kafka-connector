@@ -23,6 +23,10 @@ inputs:
     description: "Short label for this test group used in artifact names (e.g. 'core', 'compatibility', 'schema_and_correctness')"
     required: false
     default: 'default'
+  functional-test-delay:
+    description: "Seconds before each functional case's fixture setup (0-60); pressure, soak, fault injection and SPCS are excluded"
+    required: false
+    default: '0'
   pressure:
     description: "Run pressure/stress tests instead of regular tests"
     required: false
@@ -68,6 +72,7 @@ runs:
         LOGS_DIR: "${{ github.workspace }}/test-logs"
         MARKER_FILTER: ${{ inputs.pressure == 'true' && 'pressure' || inputs['marker-filter'] }}
         MITMPROXY_FLAG: ${{ inputs['with-mitmproxy'] == 'true' && '--with-mitmproxy' || '' }}
+        FUNCTIONAL_TEST_DELAY: ${{ inputs['functional-test-delay'] }}
         JMX_FLAG: ${{ inputs.jmx == 'true' && '--jmx' || '' }}
       run: |
         ./run_tests.sh \
@@ -78,7 +83,7 @@ runs:
           --logs-dir="$LOGS_DIR" \
           $MITMPROXY_FLAG \
           $JMX_FLAG \
-          -- -m "$MARKER_FILTER"
+          -- -m "$MARKER_FILTER" --functional-test-delay "$FUNCTIONAL_TEST_DELAY"
 
     - name: Upload service logs on failure
       if: failure()

@@ -106,6 +106,40 @@ Both share the same `KafkaDriver` (`lib/driver.py`) and connector config templat
 `run_tests.sh` passes all pytest CLI options explicitly when launching the
 test-runner container.
 
+## Functional CI load and duration
+
+Document version: 1.0, 2026-10-11 16:04 UTC
+
+The `functional` matrix in `end-to-end.yaml` runs one lane at a time. All seven
+lanes and their assertions remain enabled. Allow the sum of the lane durations,
+plus build and queue time, for the complete functional result rather than the
+slowest parallel lane. Each lane retains GitHub Actions' default six-hour job
+limit; serialization does not require multiplying a per-job timeout.
+
+CI also passes `--functional-test-delay 5`, which waits five seconds before each
+functional case's fixture setup. Budget up to five seconds per selected case in
+addition to its existing runtime (some skipped cases may also incur the delay).
+The delay is outside each case's assertion deadline. Local runs default to no
+delay; select an integer from 0 to 60 after the runner's `--` separator to opt in.
+Pressure, soak, fault-injection, and SPCS tests are excluded from this pacing.
+This is case-level pacing, not a rate limit on every DDL or channel-open call.
+
+Per-type compatibility checks poll once every five seconds rather than two,
+without extending their 60-second observation window. Expected rows, value
+checks, and error assertions are unchanged. Functional runtime under pacing is
+not a throughput benchmark; stress and soak workloads keep their existing rates.
+
+The matrix cap is per workflow run, not per Snowflake account. Separate PR runs,
+fault-injection jobs, and other account users can still overlap. For a controlled
+trial, run only one functional workflow against the shared account at a time.
+This reduces test load but does not guarantee that shared-service throttling ends.
+
+Offline checks (no credentials or running services):
+
+```bash
+python3 test/scripts/functional_pacing_contract.py
+```
+
 ## Stress Tests
 
 Stress tests use the same Docker infrastructure but with `-m pressure` passed to pytest:
