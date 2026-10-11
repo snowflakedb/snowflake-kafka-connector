@@ -53,8 +53,9 @@ jobs:
     - name: Install offline test dependencies
       run: >-
         pip install requests certifi 'confluent-kafka[avro,json,protobuf]==2.13.0'
-        avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0' 'pytest==8.3.5'
+        avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0' 'pytest==8.3.5' 'PyYAML==6.0.3'
     - run: python3 test/scripts/functional_pacing_contract.py
+    - run: python3 test/scripts/workflow_contract.py
 
   v4-trial:
     if: >

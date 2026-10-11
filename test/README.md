@@ -108,7 +108,11 @@ test-runner container.
 
 ## Functional CI load and duration
 
-Document version: 2.0, 2026-10-11 16:30 UTC
+Document version: 2.1, 2026-10-11 20:00 UTC
+
+**Review decision:** #1587 changes draft CI across the repository. Maintainers
+must approve that policy before merge. It is separate from the [SPCS test and
+harness](spcs/README.md) in #1585/#1586.
 
 The `functional` matrix in `end-to-end.yaml` runs one lane at a time. All seven
 lanes and their assertions remain available for ready PRs, pushes, schedules,
@@ -167,6 +171,7 @@ Offline checks (no credentials or running services):
 
 ```bash
 python3 test/scripts/functional_pacing_contract.py
+python3 test/scripts/workflow_contract.py  # requires PyYAML==6.0.3
 ```
 
 ## Stress Tests
