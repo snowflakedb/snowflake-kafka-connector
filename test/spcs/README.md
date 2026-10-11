@@ -78,7 +78,7 @@ record `test_passed` and `cleanup_complete`. Warnings require operator follow-up
 SIGTERM and Ctrl-C trigger cleanup. Host loss or SIGKILL may require manual
 recovery using the recorded resource names. Never suspend a pool with other work.
 
-The result records run timestamps, execution/cleanup stages, checksums, resource
+The result records run timestamps, execution stages, checksums, resource
 names, and bounded diagnostic signals, including labeled request IDs and HTTP
 status codes. This supports server-log lookup without uploading raw logs. The
 container scans at most the last 2 MiB of each Kafka/Connect log; earlier context
