@@ -11,6 +11,18 @@ from lib.utils import RecordProducer
 def test_spcs_ingestion(
     connector_version, driver, name_salt, create_connector, wait_for_rows
 ):
+    # Check the caller-owned fixture before creating a connector or sending records.
+    try:
+        with driver.snowflake_conn.cursor() as cursor:
+            cursor.execute('SELECT RECORD_METADATA, "number" FROM SMOKE_ROWS LIMIT 1')
+            if cursor.fetchone() is not None:
+                pytest.fail("SMOKE_ROWS must be empty; use a fresh isolated schema")
+    except Exception:
+        pytest.fail(
+            "SPCS fixture requires an accessible SMOKE_ROWS table with "
+            'RECORD_METADATA VARIANT and "number" VARCHAR; see test/spcs/README.md',
+            pytrace=False,
+        )
     topic = f"spcs_smoke{name_salt}"
     config = {
         "connector.class": V4_CONNECTOR_CLASS,

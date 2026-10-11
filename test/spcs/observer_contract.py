@@ -4,7 +4,9 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lib.driver import KafkaDriver
@@ -48,7 +50,8 @@ class ObserverTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("spcs_smoke", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        driver = Mock()
+        driver = MagicMock()
+        driver.snowflake_conn.cursor.return_value.__enter__.return_value.fetchone.return_value = None
         cursor = driver.snowflake_conn.cursor.return_value
         cursor.execute.return_value.fetchone.return_value = ("SERVICE_OWNER",)
         cursor.execute.return_value.fetchall.return_value = [
@@ -68,6 +71,32 @@ class ObserverTests(unittest.TestCase):
             }
             & config.keys()
         )
+
+    def test_missing_table_fails_before_connector_creation(self):
+        self.check_invalid_fixture(error=RuntimeError("credentials=do-not-print"))
+
+    def test_nonempty_table_fails_before_connector_creation(self):
+        self.check_invalid_fixture(row=({}, "1"))
+
+    def check_invalid_fixture(self, *, error=None, row=None):
+        path = Path(__file__).resolve().parents[1] / "tests/spcs/test_spcs_ingestion.py"
+        spec = importlib.util.spec_from_file_location("spcs_smoke", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        driver = MagicMock()
+        cursor = driver.snowflake_conn.cursor.return_value.__enter__.return_value
+        cursor.execute.side_effect = error
+        cursor.fetchone.return_value = row
+        create_connector = Mock()
+        with patch.object(module, "RecordProducer") as producer:
+            with self.assertRaises(pytest.fail.Exception) as failure:
+                module.test_spcs_ingestion(
+                    "v4", driver, "_test", create_connector, Mock()
+                )
+            self.assertIn("SMOKE_ROWS", str(failure.exception))
+            self.assertNotIn("do-not-print", str(failure.exception))
+            create_connector.assert_not_called()
+            producer.assert_not_called()
 
 
 if __name__ == "__main__":
