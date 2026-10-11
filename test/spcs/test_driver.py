@@ -299,6 +299,7 @@ class RecoveryTests(unittest.TestCase):
                 side_effect=lambda path, jar: path.write_bytes(b"payload"),
             )
         )
+        self.statements = []
         self.events = []
         self.created = False
         self.create_error = None
@@ -315,6 +316,7 @@ class RecoveryTests(unittest.TestCase):
         self.stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
 
     def sql(self, args, statement, **kwargs):
+        self.statements.append(statement)
         if statement.startswith("CREATE SCHEMA"):
             self.created = True
             self.schema = statement.split()[2]
@@ -344,6 +346,45 @@ class RecoveryTests(unittest.TestCase):
 
     def evidence(self):
         return json.loads(self.args.evidence.read_text())
+
+    def test_optional_egress_is_attached_only_when_supplied(self):
+        self.args.egress = "APPROVED_EGRESS"
+        runner.run(self.args)
+        statement = next(s for s in self.statements if s.startswith("EXECUTE JOB"))
+        self.assertIn("EXTERNAL_ACCESS_INTEGRATIONS = (APPROVED_EGRESS)", statement)
+
+    def test_no_egress_omits_integration_clause(self):
+        runner.run(self.args)
+        statement = next(s for s in self.statements if s.startswith("EXECUTE JOB"))
+        self.assertNotIn("EXTERNAL_ACCESS_INTEGRATIONS", statement)
+
+    def test_failure_records_phase_and_time_window(self):
+        self.wait.side_effect = TimeoutError("sensitive text")
+        with self.assertRaises(RuntimeError):
+            runner.run(self.args)
+        evidence = self.evidence()
+        self.assertEqual(evidence["phase"], "wait_for_job")
+        self.assertLessEqual(evidence["started_at"], evidence["finished_at"])
+        self.assertNotIn("sensitive text", json.dumps(evidence))
+
+    def test_exact_signal_allowlist_excludes_secrets(self):
+        request_id = "fd8a9e56-2aa8-4843-a2ac-1d6c86da5bd4"
+        text = f'request_id="{request_id}" HTTP status: 504 password=secret'
+        self.assertEqual(
+            runner.signals(text),
+            {"request_ids": [request_id], "http_statuses": [504]},
+        )
+        self.assertEqual(
+            runner.signals("request_id=secret HTTP 5049"),
+            {"request_ids": [], "http_statuses": []},
+        )
+
+    def test_diagnostic_ids_are_deduplicated_and_bounded(self):
+        text = "\n".join(
+            f"SPCS_REQUEST_ID=00000000-0000-0000-0000-{value:012x}"
+            for value in range(30)
+        )
+        self.assertEqual(len(runner.signals(text + text)["request_ids"]), 20)
 
     def test_success_and_cleanup_pass(self):
         result = runner.run(self.args)

@@ -344,6 +344,7 @@ jobs:
         SPCS_DATABASE: ${{ vars.SPCS_DATABASE }}
         SPCS_ROLE: ${{ vars.SPCS_ROLE }}
         SPCS_WAREHOUSE: ${{ vars.SPCS_WAREHOUSE }}
+        SPCS_EGRESS: ${{ vars.SPCS_EGRESS }}
         SPCS_CLEANUP_POLICY: ${{ vars.SPCS_CLEANUP_POLICY || 'warn' }}
         SPCS_EXCLUSIVE_POOL: ${{ vars.SPCS_EXCLUSIVE_POOL }}
       run: |
@@ -358,12 +359,14 @@ jobs:
         [ "$SPCS_EXCLUSIVE_POOL" = true ] || { echo 'Reserve a dedicated pool before enabling this job'; exit 1; }
         mapfile -t jars < <(find target -maxdepth 1 -name 'snowflake-kafka-connector-*.jar' ! -name '*sources*' ! -name '*javadoc*' ! -name '*original*')
         [ "${#jars[@]}" -eq 1 ] || { echo 'Expected exactly one connector artifact'; exit 1; }
+        egress_args=()
+        if [ -n "$SPCS_EGRESS" ]; then egress_args=(--egress "$SPCS_EGRESS"); fi
         python3 test/spcs/run_spcs_release.py --connection spcs \
           --expected-account "$SPCS_EXPECTED_ACCOUNT" --pool "$SPCS_POOL" \
           --stage "$SPCS_STAGE" --database "$SPCS_DATABASE" --role "$SPCS_ROLE" \
           --warehouse "$SPCS_WAREHOUSE" --image "$SPCS_IMAGE" --jar "${jars[0]}" \
           --exclusive-pool --cleanup-policy "$SPCS_CLEANUP_POLICY" \
-          --evidence test/spcs/.scratch/result.json
+          --evidence test/spcs/.scratch/result.json "${egress_args[@]}"
     - name: Preserve smoke result
       if: always()
       uses: actions/upload-artifact@v4
