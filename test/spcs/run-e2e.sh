@@ -12,6 +12,7 @@ finish() {
   if [ "$result" -ne 0 ]; then
     tail -n 40 /work/kafka.log /work/connect.log 2>/dev/null || true
   fi
+  python /work/diagnostics.py /work/kafka.log /work/connect.log || true
   echo "SPCS_SMOKE_EXIT=$result"
   exit "$result"
 }

@@ -2,6 +2,7 @@
 """Run one finite KC v4 smoke job against an existing SPCS fixture."""
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -14,6 +15,8 @@ import tarfile
 import tempfile
 import time
 import uuid
+
+from diagnostics import signals
 
 HERE = Path(__file__).resolve().parent
 TEST = HERE.parent
@@ -117,6 +120,7 @@ def make_payload(path, jar):
                 ):
                     archive.add(file, arcname="test/" + str(file.relative_to(TEST)))
         archive.add(HERE / "run-e2e.sh", arcname="run-e2e.sh")
+        archive.add(HERE / "diagnostics.py", arcname="diagnostics.py")
         archive.add(jar, arcname="kc.jar")
 
 
@@ -196,6 +200,7 @@ def capture_diagnostics(args, job, evidence):
         or ""
     )
     evidence["diagnostics"] = {
+        **signals(logs),
         "completion_codes": re.findall(
             r"^SPCS_SMOKE_EXIT=(-?\d{1,3})$", logs, re.MULTILINE
         ),
@@ -282,6 +287,8 @@ def run(args):
     stage_path = f"@{args.stage}/{run_id}/"
     evidence = dict(
         identity=identity,
+        started_at=datetime.now(timezone.utc).isoformat(),
+        phase="create_schema",
         schema=schema,
         job=job,
         stage=stage_path,
@@ -308,10 +315,12 @@ def run(args):
         schema_attempted = True
         sql(args, f"CREATE SCHEMA {schema} COMMENT = '{marker}'")
         schema_created = True
+        evidence["phase"] = "create_table"
         sql(
             args,
             f'CREATE TABLE {schema}.SMOKE_ROWS (RECORD_METADATA VARIANT, "number" VARCHAR)',
         )
+        evidence["phase"] = "upload_payload"
         with tempfile.TemporaryDirectory(dir=args.evidence.parent) as directory:
             payload = Path(directory) / "payload.tgz"
             make_payload(payload, args.jar)
@@ -325,16 +334,20 @@ def run(args):
         egress = (
             f" EXTERNAL_ACCESS_INTEGRATIONS = ({args.egress})" if args.egress else ""
         )
+        evidence["phase"] = "start_job"
         job_attempted = True
         sql(
             args,
             f"EXECUTE JOB SERVICE IN COMPUTE POOL {args.pool} NAME={job} "
             f"ASYNC=TRUE{egress} FROM SPECIFICATION $${spec}$$",
         )
+        evidence["phase"] = "wait_for_job"
         status = wait_for_job(args, job)
         evidence["job_status"] = status
+        evidence["phase"] = "capture_diagnostics"
         diagnostics_attempted = True
         logs = capture_diagnostics(args, job, evidence)
+        evidence["phase"] = "verify_rows"
         values = [
             row["number"]
             for row in sql(args, f'SELECT "number" FROM {schema}.SMOKE_ROWS')
@@ -343,6 +356,7 @@ def run(args):
         evidence["distinct_values"] = len(set(values))
         verify(status, logs, values)
         evidence["test_passed"] = True
+        evidence["phase"] = "complete"
     except BaseException as error:
         failure = error
         evidence["test_passed"] = False
@@ -366,6 +380,7 @@ def run(args):
                     evidence["cleanup_complete"] = not schema_attempted
             except Exception as error:
                 evidence["cleanup_error"] = error_summary(error)
+            evidence["finished_at"] = datetime.now(timezone.utc).isoformat()
             finalize_result(evidence, args.cleanup_policy)
             save(args.evidence, evidence)
         finally:
