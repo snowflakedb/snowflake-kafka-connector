@@ -77,14 +77,14 @@ class StreamingClientPoolsTest {
   }
 
   @Test
-  void getClient_retries_on_sf_api_no_route() {
+  void getClient_retries_on_sf_api_not_found() {
     SnowflakeStreamingIngestClient mockClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     AtomicInteger callCount = new AtomicInteger();
 
     StreamingClientFactory.setStreamingClientSupplier(
         (clientName, dbName, schemaName, pipeName, props) -> {
           if (callCount.incrementAndGet() == 1) {
-            throw new SFException("SfApiNoRoute", "no route", 404, "Not Found");
+            throw new SFException("SfApiNotFoundError", "not found", 404, "Not Found");
           }
           return mockClient;
         });
@@ -111,10 +111,10 @@ class StreamingClientPoolsTest {
   }
 
   @Test
-  void recreateClient_does_not_retry_sf_api_no_route() {
+  void recreateClient_does_not_retry_sf_api_not_found() {
     SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     AtomicInteger callCount = new AtomicInteger();
-    SFException noRoute = new SFException("SfApiNoRoute", "no route", 404, "Not Found");
+    SFException notFound = new SFException("SfApiNotFoundError", "not found", 404, "Not Found");
 
     StreamingClientFactory.setStreamingClientSupplier(
         (clientName, dbName, schemaName, pipeName, props) -> {
@@ -122,12 +122,12 @@ class StreamingClientPoolsTest {
           if (count == 1) {
             return oldClient;
           }
-          throw noRoute;
+          throw notFound;
         });
 
     getClient("pipe-A");
 
-    assertThatThrownBy(() -> recreateClient("pipe-A", oldClient)).isSameAs(noRoute);
+    assertThatThrownBy(() -> recreateClient("pipe-A", oldClient)).isSameAs(notFound);
     assertThat(callCount.get()).isEqualTo(2);
   }
 

@@ -73,8 +73,8 @@ public class StreamingClientPools {
 
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
-   * future completes when the client is ready. {@code SfApiNoRoute} on {@code .build()} is retried
-   * for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
+   * future completes when the client is ready. {@code SfApiNotFoundError} on {@code .build()} is
+   * retried for {@link #CLIENT_CREATE_MAX_DURATION} without blocking the caller.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
@@ -183,10 +183,10 @@ public class StreamingClientPools {
   static final Duration CLIENT_RECREATE_MAX_DURATION = Duration.ofMinutes(6);
 
   /**
-   * Shared backoff for client creation retries. First-time create retries {@code SfApiNoRoute};
-   * replacement-client creation retries a client-invalid error (e.g., pipe failover still in
-   * flight). The pool evicts the failed entry on each attempt, so the retry creates a fresh client.
-   * Errors that do not match {@code retryOn} fall through immediately.
+   * Shared backoff for client creation retries. First-time create retries {@code
+   * SfApiNotFoundError}; replacement-client creation retries a client-invalid error (e.g., pipe
+   * failover still in flight). The pool evicts the failed entry on each attempt, so the retry
+   * creates a fresh client. Errors that do not match {@code retryOn} fall through immediately.
    *
    * <p>{@link #recreateClient} can be called concurrently by multiple {@link
    * com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel}s on the
@@ -226,7 +226,7 @@ public class StreamingClientPools {
   private static RetryPolicy<SnowflakeStreamingIngestClient> createClientRetryPolicy(
       String pipeName) {
     return clientRetryPolicy(
-        pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isSfApiNoRoute);
+        pipeName, CLIENT_CREATE_MAX_DURATION, ClientRecreationException::isSfApiNotFoundError);
   }
 
   private static RetryPolicy<SnowflakeStreamingIngestClient> recreateClientRetryPolicy(

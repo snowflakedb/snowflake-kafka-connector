@@ -100,18 +100,18 @@ public class ClientRecreationExceptionTest {
   }
 
   @Test
-  void shouldRecognizeSfApiNoRoute() {
-    SFException noRoute = new SFException("SfApiNoRoute", "no route", 404, "Not Found");
+  void shouldRecognizeSfApiNotFoundError() {
+    SFException notFound = new SFException("SfApiNotFoundError", "not found", 404, "Not Found");
 
-    assertTrue(ClientRecreationException.isSfApiNoRoute(noRoute));
-    assertFalse(ClientRecreationException.isClientInvalidError(noRoute));
+    assertTrue(ClientRecreationException.isSfApiNotFoundError(notFound));
+    assertFalse(ClientRecreationException.isClientInvalidError(notFound));
   }
 
   @Test
-  void shouldNotTreatSfApiUserErrorAsNoRoute() {
+  void shouldNotTreatSfApiUserErrorAsNotFound() {
     SFException userError =
         new SFException("SfApiUserError", "HTTP 404, error_code=, message=,", 400, "Bad Request");
 
-    assertFalse(ClientRecreationException.isSfApiNoRoute(userError));
+    assertFalse(ClientRecreationException.isSfApiNotFoundError(userError));
   }
 }
