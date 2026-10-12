@@ -83,10 +83,7 @@
         <commons-lang3.version>3.20.0</commons-lang3.version>
         <auto-value.version>1.11.1</auto-value.version>
 
-        <!-- TODO: Bump to the next snowpipe-streaming release once
-             https://github.com/snowflake-eng/snowflake-ingest-sdk/pull/1099 is published.
-             1.8.1 still shades Jackson 2.18.10. -->
-        <snowpipe-streaming.version>1.8.1</snowpipe-streaming.version>
+        <snowpipe-streaming.version>1.9.0</snowpipe-streaming.version>
 
     </properties>
 
