@@ -78,6 +78,7 @@ def inspect(connection, profile):
 
 
 def main():
+    phase = "load_profile"
     try:
         profile = Profile.load(Path(os.environ["SNOWFLAKE_CREDENTIAL_FILE"]))
         if not profile.role or not profile.database:
@@ -89,14 +90,23 @@ def main():
             network_timeout=30,
             session_parameters={"STATEMENT_TIMEOUT_IN_SECONDS": 30},
         )
+        phase = "connect"
         with snowflake.connector.connect(**parameters) as connection:
             # Session scope only; do not inherit unrelated default secondary roles.
+            phase = "secondary_roles"
             query(connection, "USE SECONDARY ROLES NONE")
+            phase = "inspect"
             print(json.dumps(inspect(connection, profile), sort_keys=True))
     except Exception as error:
         print(
             json.dumps(
-                {"inspection_succeeded": False, "error_type": type(error).__name__}
+                {
+                    "inspection_succeeded": False,
+                    "error_type": type(error).__name__,
+                    "phase": phase,
+                    "errno": getattr(error, "errno", None),
+                    "sqlstate": getattr(error, "sqlstate", None),
+                }
             )
         )
         return 1
