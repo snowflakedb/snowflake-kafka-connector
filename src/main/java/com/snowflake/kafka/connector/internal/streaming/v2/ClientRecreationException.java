@@ -77,4 +77,11 @@ public class ClientRecreationException extends RuntimeException {
     }
     return CLIENT_INVALID_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
   }
+
+  public static boolean isSfApiNotFoundError(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    return "SfApiNotFoundError".equals(((SFException) e).getErrorCodeName());
+  }
 }

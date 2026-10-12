@@ -13,7 +13,7 @@ Usage:
   mitmdump --mode reverse:https://$UPSTREAM_HOST/ --listen-port 8080 \
            --certs /certs/mitmproxy.pem \
            --set keep_host_header=false --set upstream_cert=false \
-           -s /addon/addon_410.py
+           -s /addon/addon.py
 """
 
 import json
@@ -32,7 +32,7 @@ PROXY_SUBDOMAIN_ALIAS = os.environ.get("PROXY_SUBDOMAIN_ALIAS", "mitmproxy-subdo
 
 def log(msg: str) -> None:
     """Print to stderr so mitmdump and Docker capture it."""
-    print(f"[addon_410] {msg}", file=sys.stderr, flush=True)
+    print(f"[addon] {msg}", file=sys.stderr, flush=True)
 
 
 class FaultState:
@@ -92,9 +92,12 @@ fault_state = FaultState()
 # Separate state for 404-on-bulk-channel-status injection (SNOW-3670537)
 fault_state_404_bcs = FaultState()
 
+# 404 on /v2/streaming/hostname (first-create).
+fault_state_404_hostname = FaultState()
 
-class Addon410:
-    """mitmproxy addon that injects HTTP 410 and manages hostname routing."""
+
+class FaultAddon:
+    """mitmproxy addon that injects faults and manages hostname routing."""
 
     def request(self, flow: http.HTTPFlow) -> None:
         """Inject 410 on streaming API paths when fault mode is active.
@@ -114,8 +117,15 @@ class Addon410:
             self._rewrite_oauth_scope(flow)
             return
 
-        # Never intercept the hostname endpoint — must work for client recreation
+        # Hostname 404 (first-create NR) must run before the "never intercept
+        # hostname" return, or 410 tests would also lose discovery.
         if "/v2/streaming/hostname" in path:
+            if fault_state_404_hostname.enabled:
+                flow.response = http.Response.make(
+                    404, b"Not Found", {"Content-Type": "text/plain"}
+                )
+                fault_state_404_hostname.inc_injected()
+                log(f"Injected 404 (hostname) on {flow.request.method} {path}")
             return
 
         # Streaming API calls must be routed to the real subdomain (the scoped
@@ -212,6 +222,7 @@ class ControlHandler(BaseHTTPRequestHandler):
         elif self.path == "/reset-counters":
             fault_state.reset_counters()
             fault_state_404_bcs.reset_counters()
+            fault_state_404_hostname.reset_counters()
             self._respond(200, {"status": "reset"})
         elif self.path == "/enable-404-bcs":
             fault_state_404_bcs.enabled = True
@@ -221,6 +232,14 @@ class ControlHandler(BaseHTTPRequestHandler):
             fault_state_404_bcs.enabled = False
             log("404-bulk-channel-status injection DISABLED")
             self._respond(200, {"status": "disabled"})
+        elif self.path == "/enable-404-hostname":
+            fault_state_404_hostname.enabled = True
+            log("404-hostname injection ENABLED")
+            self._respond(200, {"status": "enabled"})
+        elif self.path == "/disable-404-hostname":
+            fault_state_404_hostname.enabled = False
+            log("404-hostname injection DISABLED")
+            self._respond(200, {"status": "disabled"})
         else:
             self._respond(404, {"error": "not found"})
 
@@ -228,6 +247,9 @@ class ControlHandler(BaseHTTPRequestHandler):
         if self.path == "/status":
             status = fault_state.to_dict()
             status["injected_404_bcs_count"] = fault_state_404_bcs.injected_count
+            status["injected_404_hostname_count"] = (
+                fault_state_404_hostname.injected_count
+            )
             self._respond(200, status)
         else:
             self._respond(404, {"error": "not found"})
@@ -250,7 +272,7 @@ def start_control_server():
     server.serve_forever()
 
 
-addons = [Addon410()]
+addons = [FaultAddon()]
 
 # Start control server in a daemon thread so it doesn't block mitmproxy
 control_thread = threading.Thread(target=start_control_server, daemon=True)
