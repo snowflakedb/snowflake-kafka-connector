@@ -82,6 +82,6 @@ public class ClientRecreationException extends RuntimeException {
     if (!(e instanceof SFException)) {
       return false;
     }
-      return "SfApiNoRoute".equals(((SFException) e).getErrorCodeName());
+    return "SfApiNoRoute".equals(((SFException) e).getErrorCodeName());
   }
 }
