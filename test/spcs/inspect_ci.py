@@ -77,7 +77,7 @@ def inspect(connection, profile):
         ):
             if not result[key]:
                 result[key] = None
-    database = quoted(profile.database)
+    database = quoted(identity["database"])
     for label, statement in (
         ("compute_pools", "SHOW COMPUTE POOLS"),
         ("image_repositories", f"SHOW IMAGE REPOSITORIES IN DATABASE {database}"),
@@ -87,6 +87,16 @@ def inspect(connection, profile):
         try:
             rows = query(connection, statement)
             result[label] = {"visible_count": len(rows), "inspection_succeeded": True}
+            if label == "compute_pools":
+                result[label]["owned_by_ci_role_count"] = sum(
+                    row.get("owner") == identity["role"] for row in rows
+                )
+                result[label]["idle_suspended_count"] = sum(
+                    row.get("state") == "SUSPENDED"
+                    and row.get("num_services") == 0
+                    and row.get("num_jobs") == 0
+                    for row in rows
+                )
         except snowflake.connector.Error as error:
             result[label] = {"inspection_succeeded": False, "errno": error.errno}
     # Counts and capability flags only: no account names, grants, URLs, or profiles in public CI logs.

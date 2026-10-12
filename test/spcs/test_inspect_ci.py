@@ -66,6 +66,32 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(len(result["grant_inspection_errors"]), 2)
         self.assertTrue(result["compute_pools"]["inspection_succeeded"])
 
+    def test_uses_resolved_database_case(self):
+        statements = []
+
+        def execute(connection, statement):
+            statements.append(statement)
+            if statement.startswith("SELECT"):
+                return [{"account": "A", "role": "CI_ROLE", "database": "TESTDB"}]
+            if statement == "SHOW COMPUTE POOLS":
+                return [
+                    {
+                        "owner": "CI_ROLE",
+                        "state": "SUSPENDED",
+                        "num_services": 0,
+                        "num_jobs": 0,
+                    }
+                ]
+            return []
+
+        with patch.object(inspect_ci, "query", side_effect=execute):
+            result = inspect_ci.inspect(
+                None, SimpleNamespace(role="ci_role", database="testdb")
+            )
+        self.assertIn('SHOW STAGES IN DATABASE "TESTDB"', statements)
+        self.assertEqual(result["compute_pools"]["owned_by_ci_role_count"], 1)
+        self.assertEqual(result["compute_pools"]["idle_suspended_count"], 1)
+
     def test_wrong_role_stops_before_grant_inspection(self):
         with patch.object(
             inspect_ci,
