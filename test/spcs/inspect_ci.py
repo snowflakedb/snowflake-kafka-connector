@@ -24,6 +24,7 @@ def query(connection, statement):
 
 
 def inspect(connection, profile):
+    print(json.dumps({"check": "identity", "status": "started"}), flush=True)
     identity = query(
         connection,
         "SELECT CURRENT_ACCOUNT() AS ACCOUNT, CURRENT_ROLE() AS ROLE, CURRENT_DATABASE() AS DATABASE",
@@ -35,9 +36,10 @@ def inspect(connection, profile):
     }
     if not all((result["database_matches_profile"], result["role_matches_profile"])):
         raise ValueError("Unexpected CI identity")
-    pending = [identity["role"], "PUBLIC"]
+    pending = ["PUBLIC", identity["role"]]
     visited = set()
     grants = []
+    grant_errors = []
     while pending:
         role = pending.pop()
         if role in visited:
@@ -45,12 +47,18 @@ def inspect(connection, profile):
         if len(visited) >= 50:
             raise ValueError("Role hierarchy exceeds inspection bound")
         visited.add(role)
-        rows = query(connection, f"SHOW GRANTS TO ROLE {quoted(role)}")
+        print(json.dumps({"check": "role_grants", "ordinal": len(visited)}), flush=True)
+        try:
+            rows = query(connection, f"SHOW GRANTS TO ROLE {quoted(role)}")
+        except snowflake.connector.Error as error:
+            grant_errors.append({"ordinal": len(visited), "errno": error.errno})
+            continue
         grants.extend(rows)
         for row in rows:
             if row.get("granted_on") == "ROLE" and row.get("privilege") == "USAGE":
                 pending.append(row["name"])
     result["roles_inspected"] = len(visited)
+    result["grant_inspection_errors"] = grant_errors
     result["database_owned_by_role_hierarchy"] = any(
         row.get("granted_on") == "DATABASE"
         and row.get("name") == profile.database.upper()
@@ -62,12 +70,20 @@ def inspect(connection, profile):
         and row.get("privilege") == "CREATE COMPUTE POOL"
         for row in grants
     )
+    if grant_errors:
+        for key in (
+            "database_owned_by_role_hierarchy",
+            "account_create_compute_pool_granted",
+        ):
+            if not result[key]:
+                result[key] = None
     database = quoted(profile.database)
     for label, statement in (
         ("compute_pools", "SHOW COMPUTE POOLS"),
         ("image_repositories", f"SHOW IMAGE REPOSITORIES IN DATABASE {database}"),
         ("stages", f"SHOW STAGES IN DATABASE {database}"),
     ):
+        print(json.dumps({"check": label, "status": "started"}), flush=True)
         try:
             rows = query(connection, statement)
             result[label] = {"visible_count": len(rows), "inspection_succeeded": True}

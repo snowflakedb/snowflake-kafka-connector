@@ -49,6 +49,23 @@ class InspectTests(unittest.TestCase):
         self.assertNotIn("PRIVATE", str(result))
         self.assertNotIn("CHILD", str(result))
 
+    def test_timed_out_grants_are_unknown_not_denied(self):
+        def execute(connection, statement):
+            if statement.startswith("SELECT"):
+                return [{"account": "A", "role": "CI_ROLE", "database": "DB"}]
+            if statement.startswith("SHOW GRANTS"):
+                raise inspect_ci.snowflake.connector.ProgrammingError(errno=630)
+            return []
+
+        with patch.object(inspect_ci, "query", side_effect=execute):
+            result = inspect_ci.inspect(
+                None, SimpleNamespace(role="CI_ROLE", database="DB")
+            )
+        self.assertIsNone(result["database_owned_by_role_hierarchy"])
+        self.assertIsNone(result["account_create_compute_pool_granted"])
+        self.assertEqual(len(result["grant_inspection_errors"]), 2)
+        self.assertTrue(result["compute_pools"]["inspection_succeeded"])
+
     def test_wrong_role_stops_before_grant_inspection(self):
         with patch.object(
             inspect_ci,
