@@ -39,7 +39,7 @@ def test_se_nullable_values_after_smt(
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {table_name} "
         f"(RECORD_METADATA VARIANT, INDEX NUMBER NOT NULL) "
-        f"ENABLE_SCHEMA_EVOLUTION = TRUE"
+        f"ENABLE_SCHEMA_EVOLUTION = TRUE ERROR_LOGGING = TRUE"
     )
     driver.createTopics(topic, partitionNum=1, replicationNum=1)
 

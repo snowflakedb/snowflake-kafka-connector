@@ -107,7 +107,7 @@ def test_se_multi_topic_replace_table(
     driver.snowflake_conn.cursor().execute(
         f"CREATE OR REPLACE TABLE {table_name} "
         f"(RECORD_METADATA VARIANT) "
-        f"ENABLE_SCHEMA_EVOLUTION = TRUE"
+        f"ENABLE_SCHEMA_EVOLUTION = TRUE ERROR_LOGGING = TRUE"
     )
 
     # Wave 2 — after CREATE OR REPLACE TABLE the old channels are invalidated and

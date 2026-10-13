@@ -46,7 +46,10 @@ public class SnowflakeSinkTaskForStreamingIT {
     topicPartition = new TopicPartition(topicName, partition);
     getConnectionServiceWithEncryptedKey()
         .executeQueryWithParameters(
-            format("create or replace table %s (record_metadata variant, f1 varchar)", topicName));
+            format(
+                "create or replace table %s (record_metadata variant, f1 varchar)"
+                    + " error_logging = true",
+                topicName));
   }
 
   @AfterEach

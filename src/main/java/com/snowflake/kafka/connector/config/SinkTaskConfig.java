@@ -58,6 +58,13 @@ public abstract class SinkTaskConfig {
 
   public abstract SnowflakeValidation getValidation();
 
+  /**
+   * When {@code snowflake.validation=server_side}, whether startup fails if an existing target
+   * table does not have {@code ERROR_LOGGING} enabled. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE}.
+   */
+  public abstract boolean isRequireErrorTable();
+
   public abstract int getOpenChannelIoThreads();
 
   @Nullable
@@ -309,6 +316,12 @@ public abstract class SinkTaskConfig {
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT));
 
+    boolean requireErrorTable =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE))
+            .map(Boolean::parseBoolean)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE_DEFAULT);
+
     int openChannelIoThreads =
         Optional.ofNullable(
                 config.get(KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS))
@@ -487,6 +500,7 @@ public abstract class SinkTaskConfig {
         .enableSchematization(enableSchematization)
         .enableColumnIdentifierNormalization(enableColumnIdentifierNormalization)
         .validation(validation)
+        .requireErrorTable(requireErrorTable)
         .openChannelIoThreads(openChannelIoThreads)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
         .cachingConfig(cachingConfig)
@@ -578,6 +592,8 @@ public abstract class SinkTaskConfig {
         boolean enableColumnIdentifierNormalization);
 
     public abstract Builder validation(SnowflakeValidation validation);
+
+    public abstract Builder requireErrorTable(boolean requireErrorTable);
 
     public abstract Builder openChannelIoThreads(int openChannelIoThreads);
 

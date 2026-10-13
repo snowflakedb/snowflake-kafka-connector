@@ -452,7 +452,8 @@ class KafkaDriver:
     def create_table(self, table_name: str):
         logger.info(f"=== Creating table {table_name} ===")
         self.snowflake_conn.cursor().execute(
-            f"CREATE TABLE IF NOT EXISTS {quote_name(table_name)} (RECORD_METADATA VARIANT)"
+            f"CREATE TABLE IF NOT EXISTS {quote_name(table_name)} "
+            f"(RECORD_METADATA VARIANT) ERROR_LOGGING = TRUE"
         )
 
     def drop_table(self, table_name: str):

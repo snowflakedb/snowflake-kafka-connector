@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_TOPICS2TABLE_MAP;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE;
 import static com.snowflake.kafka.connector.internal.TestUtils.assertColumnNullable;
 import static com.snowflake.kafka.connector.internal.TestUtils.assertTableColumnCount;
 import static com.snowflake.kafka.connector.internal.TestUtils.assertWithRetry;
@@ -70,7 +71,7 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
         "CREATE OR REPLACE TABLE "
             + tableName
             + " (RECORD_METADATA VARIANT, COL1 VARCHAR NOT NULL, COL2 VARCHAR)"
-            + " ENABLE_SCHEMA_EVOLUTION = true");
+            + " ENABLE_SCHEMA_EVOLUTION = true ERROR_LOGGING = TRUE");
 
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);
@@ -265,6 +266,8 @@ class SchemaEvolutionJsonIT extends SchemaEvolutionBase {
     config.put("errors.deadletterqueue.topic.replication.factor", "1");
     config.put("jmx", "true");
     config.put(SNOWFLAKE_TOPICS2TABLE_MAP, streamingTopic + ":" + tableName);
+    // INTERACTIVE TABLE may not support ERROR_LOGGING; this test is about schema evolution.
+    config.put(SNOWFLAKE_VALIDATION_REQUIRE_ERROR_TABLE, "false");
 
     connectCluster.configureConnector(connectorName, config);
     waitForConnectorRunning(connectorName);
