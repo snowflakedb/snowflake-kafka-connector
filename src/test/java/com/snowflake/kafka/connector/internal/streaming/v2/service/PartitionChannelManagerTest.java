@@ -64,6 +64,17 @@ class PartitionChannelManagerTest {
   // --- startPartitions ---
 
   @Test
+  void sumInFlightBytesAddsEveryChannel() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition("other_topic", 1);
+    startPartitions(tp0, tp1);
+    when(createdChannels.get(tp0).getInFlightBytes()).thenReturn(10L);
+    when(createdChannels.get(tp1).getInFlightBytes()).thenReturn(25L);
+
+    assertEquals(35L, manager.sumInFlightBytes());
+  }
+
+  @Test
   void startPartitionsRegistersChannelsInMap() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);

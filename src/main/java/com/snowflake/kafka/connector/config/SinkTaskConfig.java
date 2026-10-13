@@ -12,6 +12,7 @@ import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.internal.CachingConfig;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
+import com.snowflake.kafka.connector.internal.streaming.v2.InFlightBytes;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.records.SnowflakeMetadataConfig;
 import java.util.HashMap;
@@ -62,6 +63,12 @@ public abstract class SinkTaskConfig {
 
   @Nullable
   public abstract String getStreamingClientProviderOverrideMap();
+
+  /**
+   * Task-level cap on summed per-channel in-flight bytes. {@code -1} disables the limit. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES}.
+   */
+  public abstract long getMaxTaskInFlightBytes();
 
   public abstract CachingConfig getCachingConfig();
 
@@ -318,6 +325,10 @@ public abstract class SinkTaskConfig {
     String streamingClientProviderOverrideMap =
         config.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
 
+    long maxTaskInFlightBytes =
+        parseMaxTaskInFlightBytes(
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES));
+
     CachingConfig cachingConfig = CachingConfig.fromConfig(config);
     SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(config);
 
@@ -489,6 +500,7 @@ public abstract class SinkTaskConfig {
         .validation(validation)
         .openChannelIoThreads(openChannelIoThreads)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
+        .maxTaskInFlightBytes(maxTaskInFlightBytes)
         .cachingConfig(cachingConfig)
         .metadataConfig(metadataConfig)
         .snowflakeUrl(snowflakeUrl)
@@ -526,6 +538,38 @@ public abstract class SinkTaskConfig {
     prometheusMetricsPort.ifPresent(b::prometheusMetricsPort);
     prometheusMetricsHost.ifPresent(b::prometheusMetricsHost);
     return b;
+  }
+
+  private static long parseMaxTaskInFlightBytes(String raw) {
+    if (raw == null || raw.isBlank()) {
+      return KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES_DEFAULT;
+    }
+    final long parsed;
+    try {
+      parsed = Long.parseLong(raw.trim());
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES
+              + " must be a long; got '"
+              + raw
+              + "'",
+          e);
+    }
+    if (parsed != -1L && parsed <= 0L) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES
+              + " must be -1 (disabled) or a positive byte count; got "
+              + parsed);
+    }
+    if (parsed > 0L && !InFlightBytes.isSupported()) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES
+              + " requires snowpipe-streaming with"
+              + " SnowflakeStreamingIngestChannel.getInFlightBytes(). The bundled SDK does not"
+              + " expose that API; leave the setting unset or -1, or upgrade snowpipe-streaming and"
+              + " this connector together.");
+    }
+    return parsed;
   }
 
   private static Optional<String> optionalString(String value) {
@@ -583,6 +627,8 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder streamingClientProviderOverrideMap(
         String streamingClientProviderOverrideMap);
+
+    public abstract Builder maxTaskInFlightBytes(long maxTaskInFlightBytes);
 
     public abstract Builder cachingConfig(CachingConfig cachingConfig);
 

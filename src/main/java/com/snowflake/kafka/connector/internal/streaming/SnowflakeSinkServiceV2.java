@@ -76,6 +76,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /** Cooldown duration after a backpressure event before retrying inserts. */
   static final Duration BACKPRESSURE_COOLDOWN = Duration.ofSeconds(1);
 
+  /**
+   * How many successful inserts to allow between re-reads of summed in-flight bytes when a task
+   * in-flight cap is set. The start-of-put check always runs.
+   */
+  static final int IN_FLIGHT_CHECK_INTERVAL = 32;
+
   /** Timestamp until which all inserts are skipped due to backpressure. */
   @VisibleForTesting Instant backpressureUntil = Instant.MIN;
 
@@ -477,7 +483,26 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       skipAllPartitions = true;
     }
 
+    // Task-level cap: sum SDK in-flight bytes across this task's channels (they may belong to
+    // different clients/pipes). Re-check every IN_FLIGHT_CHECK_INTERVAL successful inserts so a
+    // single large poll cannot run far past the cap.
+    final long maxTaskInFlightBytes = taskConfig.getMaxTaskInFlightBytes();
+    final boolean inFlightLimitEnabled = maxTaskInFlightBytes > 0;
+    int insertsSinceInFlightCheck = 0;
     boolean newBackpressure = false;
+    if (inFlightLimitEnabled && !skipAllPartitions) {
+      long inFlightBytes = channelManager.sumInFlightBytes();
+      if (inFlightBytes >= maxTaskInFlightBytes) {
+        LOGGER.warn(
+            "Task in-flight bytes exceeded before insert: in-flight bytes {} >= limit {}",
+            inFlightBytes,
+            maxTaskInFlightBytes);
+        skipAllPartitions = true;
+        newBackpressure = true;
+        taskMetrics.incBackpressureRewindCount();
+      }
+    }
+
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
@@ -498,9 +523,29 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         continue;
       }
 
+      if (inFlightLimitEnabled && insertsSinceInFlightCheck >= IN_FLIGHT_CHECK_INTERVAL) {
+        long inFlightBytes = channelManager.sumInFlightBytes();
+        insertsSinceInFlightCheck = 0;
+        if (inFlightBytes >= maxTaskInFlightBytes) {
+          LOGGER.warn(
+              "Task in-flight bytes exceeded mid-batch on partition {}: in-flight bytes {} >="
+                  + " limit {}",
+              tp,
+              inFlightBytes,
+              maxTaskInFlightBytes);
+          taskMetrics.incBackpressureRewindCount();
+          offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
+          skipAllPartitions = true;
+          newBackpressure = true;
+          continue;
+        }
+      }
+
       try {
         if (!insert(record)) {
           offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
+        } else if (inFlightLimitEnabled) {
+          insertsSinceInFlightCheck++;
         }
       } catch (BackpressureException e) {
         LOGGER.warn(
