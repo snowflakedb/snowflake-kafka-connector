@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,7 +65,8 @@ public class SnowflakeAvroConverter implements Converter {
   }
 
   @Override
-  public void configure(Map<String, ?> configs, boolean isKey) {
+  public void configure(Map<String, ?> originalConfigs, boolean isKey) {
+    Map<String, Object> configs = withDefaults(originalConfigs);
     List<String> registryUrls = parseSchemaRegistryUrls(configs);
     // Built the same way AvroConverter builds its own client, rather than via a hardcoded
     // `new CachedSchemaRegistryClient(...)`, so a `mock://` scoped test URL (or any other
@@ -79,6 +81,22 @@ public class SnowflakeAvroConverter implements Converter {
             null);
     this.delegate = new AvroConverter(schemaRegistryClient);
     this.delegate.configure(configs, isKey);
+  }
+
+  /**
+   * Returns a copy of {@code configs} with this converter's defaults applied. User-set values win.
+   *
+   * <p>Disables Confluent's ServiceLoader discovery of Data Contracts rule executors ({@code
+   * rule.service.loader.enable}). On Confluent Platform workers, {@code
+   * /usr/share/java/kafka-serde-tools} (including {@code kafka-schema-rules}) is on the worker's
+   * base classpath, so ServiceLoader finds e.g. {@code CelExecutor} loaded by the worker's
+   * classloader while {@code RuleExecutor} comes from the copy bundled in this plugin, and
+   * configuration fails with "CelExecutor not a subtype". We don't use Data Contracts rules.
+   */
+  static Map<String, Object> withDefaults(Map<String, ?> configs) {
+    Map<String, Object> withDefaults = new HashMap<>(configs);
+    withDefaults.putIfAbsent(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE, false);
+    return withDefaults;
   }
 
   @Override

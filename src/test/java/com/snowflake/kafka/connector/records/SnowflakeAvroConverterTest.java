@@ -183,6 +183,29 @@ public class SnowflakeAvroConverterTest {
   }
 
   @Test
+  public void withDefaults_disablesRuleServiceLoaderByDefault() {
+    Map<String, Object> configs = new HashMap<>();
+    configs.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://good:8081");
+
+    Map<String, Object> actual = SnowflakeAvroConverter.withDefaults(configs);
+
+    assertEquals(false, actual.get(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE));
+    assertEquals(
+        "http://good:8081", actual.get(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG));
+    assertFalse(configs.containsKey(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE));
+  }
+
+  @Test
+  public void withDefaults_userSetRuleServiceLoaderWins() {
+    Map<String, Object> configs = new HashMap<>();
+    configs.put(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE, "true");
+
+    Map<String, Object> actual = SnowflakeAvroConverter.withDefaults(configs);
+
+    assertEquals("true", actual.get(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE));
+  }
+
+  @Test
   public void fromConnectData_delegatesDirectly() {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
