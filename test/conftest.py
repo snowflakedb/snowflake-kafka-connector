@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Dict, List
 
 import pytest
@@ -47,6 +48,19 @@ def pytest_addoption(parser):
     the values -- no long CLI arg lists needed.
     """
     group = parser.getgroup("kafka-e2e", "Kafka connector end-to-end test options")
+    group.addoption(
+        "--functional-test-delay",
+        type=int,
+        choices=range(61),
+        default=0,
+        help="Seconds before functional case setup (0-60; default: 0)",
+    )
+    group.addoption(
+        "--v4-trial",
+        action="store_true",
+        default=False,
+        help="Run only the six v4 VECTOR/structured-type trial cases",
+    )
     group.addoption(
         "--spcs",
         action="store_true",
@@ -152,7 +166,35 @@ def pytest_configure(config):
         )
 
 
+_V4_TRIAL_REPORTS = pytest.StashKey[dict[str, dict[str, bool]]]()
+
+
+def _is_v4_trial_case(item):
+    return (
+        item.path
+        == Path(__file__).parent / "tests/compatibility/test_unsupported_types.py"
+        and item.originalname
+        in {"test_dt_vector", "test_dt_structured_object", "test_dt_structured_array"}
+        and getattr(item, "callspec", None) is not None
+        and item.callspec.params.get("ingestion_mode") in {"v4-compat", "v4-ht"}
+    )
+
+
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
+    if config.getoption("--v4-trial"):
+        selected = [item for item in items if _is_v4_trial_case(item)]
+        config.hook.pytest_deselected(
+            items=[item for item in items if item not in selected]
+        )
+        items[:] = selected
+        cases = {
+            (item.originalname, item.callspec.params["ingestion_mode"])
+            for item in items
+        }
+        if len(items) != 6 or len(cases) != 6:
+            raise pytest.UsageError("--v4-trial requires all six v4 trial cases")
+        config.stash[_V4_TRIAL_REPORTS] = {item.nodeid: {} for item in items}
     if config.getoption("--spcs"):
         if any("spcs" not in item.keywords for item in items):
             raise pytest.UsageError("--spcs requires selecting tests/spcs only")
@@ -178,6 +220,30 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "confluent_only" in item.keywords:
             item.add_marker(skip)
+
+
+def pytest_report_header(config):
+    delay = config.getoption("--functional-test-delay")
+    return (
+        f"Functional setup pacing: {delay}s/case; assertion deadlines unchanged. "
+        "Exclude this delay from throughput comparisons."
+    )
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    """Pace functional cases before fixture setup, outside assertion deadlines."""
+    if item.config.getoption("--v4-trial") and not _is_v4_trial_case(item):
+        raise pytest.UsageError("Non-v4 trial case reached setup")
+    delay = item.config.getoption("--functional-test-delay")
+    if delay and not any(
+        item.get_closest_marker(marker)
+        for marker in ("pressure", "soak", "fault_injection", "spcs")
+    ):
+        logger.info(
+            "Functional setup pacing: waiting %ss before %s", delay, item.nodeid
+        )
+        time.sleep(delay)
 
 
 @pytest.fixture(autouse=True)
@@ -341,6 +407,11 @@ def pytest_runtest_makereport(item):
     """Collect failed test reports for GITHUB_STEP_SUMMARY."""
     outcome = yield
     report = outcome.get_result()
+    trial_reports = item.config.stash.get(_V4_TRIAL_REPORTS, {})
+    if report.nodeid in trial_reports:
+        trial_reports[report.nodeid][report.when] = report.passed and not hasattr(
+            report, "wasxfail"
+        )
     if report.when == "call" and report.failed and report.longrepr:
         _github_summary_failures.append(report)
 
@@ -364,6 +435,24 @@ def _python_error_annotation(report: TestReport) -> None:
 
 def pytest_sessionfinish(session, exitstatus):
     """Append failure summary to GITHUB_STEP_SUMMARY when set (e.g. in GitHub Actions)."""
+    if (
+        session.config.getoption("--v4-trial")
+        and not session.config.getoption("collectonly")
+        and exitstatus == pytest.ExitCode.OK
+    ):
+        reports = session.config.stash.get(_V4_TRIAL_REPORTS, {})
+        passed = sum(
+            all(phases.get(phase, False) for phase in ("setup", "call", "teardown"))
+            for phases in reports.values()
+        )
+        if len(reports) != 6 or passed != 6:
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED
+            print(
+                f"KC v4 trial incomplete: {passed}/6 cases passed setup, call, "
+                "and teardown without skips or expected failures.",
+                file=sys.stderr,
+            )
+
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not summary_path or not _github_summary_failures or exitstatus == 0:
         return
