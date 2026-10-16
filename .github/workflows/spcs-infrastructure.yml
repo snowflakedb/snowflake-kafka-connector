@@ -1,0 +1,60 @@
+name: Set up permanent KC SPCS infrastructure
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spcs-infrastructure.yml'
+      - 'test/spcs/setup_ci.py'
+      - 'test/spcs/test_setup_ci.py'
+      - 'test/lib/config.py'
+      - 'test/lib/crypto.py'
+  workflow_dispatch:
+    inputs:
+      confirm_setup:
+        description: After approval and merge, create permanent KC resources (pool stays suspended)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install 'snowflake-connector-python==4.2.0' 'PyYAML==6.0.2' 'ruff==0.15.0'
+    - run: python3 test/spcs/test_setup_ci.py -v
+    - run: ruff check test/spcs/setup_ci.py test/spcs/test_setup_ci.py
+    - run: ruff format --check test/spcs/setup_ci.py test/spcs/test_setup_ci.py
+
+  setup:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector' && inputs.confirm_setup
+    needs: contracts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    concurrency:
+      group: spcs-release-account
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install 'snowflake-connector-python==4.2.0'
+    - name: Create or verify permanent resources
+      env:
+        KC_SPCS_CONFIRM_SETUP: ${{ inputs.confirm_setup }}
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+        SNOWFLAKE_CREDENTIAL_FILE: ${{ github.workspace }}/profile.json
+      run: |
+        set -euo pipefail
+        umask 077
+        trap 'rm -f profile.json' EXIT
+        ./.github/scripts/decrypt_secret.sh AWS
+        unset SNOWFLAKE_TEST_PROFILE_SECRET
+        python3 test/spcs/setup_ci.py
