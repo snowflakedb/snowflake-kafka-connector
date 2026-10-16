@@ -1,7 +1,9 @@
 """Offline functional pacing contracts; run directly, without E2E fixtures."""
 
 import importlib.util
+import os
 import subprocess
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -116,6 +118,16 @@ class TrialSelectionTests(unittest.TestCase):
         with self.assertRaises(pytest.UsageError):
             pacing.pytest_collection_modifyitems(config, [self.item()])
 
+    def test_duplicate_cases_cannot_replace_missing_cases(self):
+        import pytest
+
+        config = Mock()
+        config.getoption.side_effect = lambda name: name == "--v4-trial"
+        with self.assertRaises(pytest.UsageError):
+            pacing.pytest_collection_modifyitems(
+                config, [self.item() for _ in range(6)]
+            )
+
     def test_runner_rejects_selection_override_before_setup(self):
         result = subprocess.run(
             ["bash", str(TEST_ROOT / "run_tests.sh"), "--v4-trial", "--", "-k", "v3"],
@@ -175,6 +187,108 @@ class TrialSelectionTests(unittest.TestCase):
         item.config.getoption.return_value = True
         with self.assertRaises(pytest.UsageError):
             pacing.pytest_runtest_setup(item)
+
+
+class TrialOutcomeTests(unittest.TestCase):
+    """Exercise the production hooks through real, credential-free pytest runs."""
+
+    def run_trial(self, behavior, *, trial=True, collect_only=False):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "conftest.py").write_text(
+                "import importlib.util\n"
+                "from pathlib import Path\n"
+                f"spec = importlib.util.spec_from_file_location('trial_hooks', {str(TEST_ROOT / 'conftest.py')!r})\n"
+                "hooks = importlib.util.module_from_spec(spec)\n"
+                "spec.loader.exec_module(hooks)\n"
+                "hooks.__file__ = str(Path(__file__))\n"
+                "for name in ('pytest_addoption', 'pytest_collection_modifyitems', "
+                "'pytest_runtest_setup', 'pytest_runtest_makereport', 'pytest_sessionfinish'):\n"
+                "    globals()[name] = getattr(hooks, name)\n"
+            )
+            cases = root / "tests/compatibility"
+            cases.mkdir(parents=True)
+            (cases / "test_unsupported_types.py").write_text(
+                "import pytest\n"
+                "@pytest.fixture(params=['v4-compat', 'v4-ht'])\n"
+                "def ingestion_mode(request):\n"
+                "    return request.param\n"
+                "@pytest.fixture(autouse=True)\n"
+                "def outcome(request):\n"
+                f"    behavior = {behavior!r}\n"
+                "    if behavior == 'skip_setup': pytest.skip('fixture unavailable')\n"
+                "    if behavior == 'partial_skip' and request.node.originalname == 'test_dt_vector':\n"
+                "        pytest.skip('one type unavailable')\n"
+                "    if behavior == 'setup_error': raise RuntimeError('setup failure')\n"
+                "    if behavior in ('xfail', 'xpass'):\n"
+                "        request.node.add_marker(pytest.mark.xfail(reason='expected', strict=False))\n"
+                "    yield\n"
+                "    if behavior == 'teardown_error': raise RuntimeError('cleanup failure')\n"
+                "def check():\n"
+                f"    behavior = {behavior!r}\n"
+                "    if behavior == 'skip_call': pytest.skip('not run')\n"
+                "    if behavior in ('xfail', 'failure'): assert False\n"
+                "def test_dt_vector(ingestion_mode): check()\n"
+                "def test_dt_structured_object(ingestion_mode): check()\n"
+                "def test_dt_structured_array(ingestion_mode): check()\n"
+            )
+            environment = dict(os.environ)
+            environment.pop("PYTEST_ADDOPTS", None)
+            environment["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+            environment["PYTHONPATH"] = str(TEST_ROOT)
+            command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+            if trial:
+                command.append("--v4-trial")
+            if collect_only:
+                command.append("--collect-only")
+            return subprocess.run(
+                command,
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+    def test_six_passed_cases_succeed(self):
+        result = self.run_trial("pass")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("6 passed", result.stdout)
+
+    def test_skipped_cases_fail_qualification(self):
+        for behavior in ("skip_setup", "skip_call"):
+            with self.subTest(behavior=behavior):
+                result = self.run_trial(behavior)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("KC v4 trial incomplete: 0/6", result.stderr)
+
+    def test_partial_execution_cannot_pass_qualification(self):
+        result = self.run_trial("partial_skip")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("KC v4 trial incomplete: 4/6", result.stderr)
+
+    def test_expected_failures_and_unexpected_passes_fail_qualification(self):
+        for behavior in ("xfail", "xpass"):
+            with self.subTest(behavior=behavior):
+                result = self.run_trial(behavior)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("KC v4 trial incomplete", result.stderr)
+
+    def test_setup_call_and_teardown_failures_remain_failures(self):
+        for behavior in ("setup_error", "failure", "teardown_error"):
+            with self.subTest(behavior=behavior):
+                result = self.run_trial(behavior)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+
+    def test_nontrial_skip_behavior_is_unchanged(self):
+        result = self.run_trial("skip_setup", trial=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("6 skipped", result.stdout)
+
+    def test_collect_only_does_not_require_execution(self):
+        result = self.run_trial("pass", collect_only=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("6 tests collected", result.stdout)
 
 
 class CompatibilityPollingTests(unittest.TestCase):

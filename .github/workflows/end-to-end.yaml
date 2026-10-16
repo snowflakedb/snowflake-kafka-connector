@@ -5,7 +5,6 @@ on:
     branches: [master, 'release-*']
   pull_request:
     branches: ['**']
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   schedule:
     # Nightly run with all jobs, including the soak test.
     - cron: '0 20 * * *'
@@ -87,9 +86,7 @@ jobs:
     - run: python3 test/scripts/workflow_contract.py
 
   v4-trial:
-    if: >
-      (github.event_name == 'pull_request' && github.event.pull_request.draft) ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_v4_trial && !inputs.inspect_spcs)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_v4_trial && !inputs.inspect_spcs
     needs: functional-pacing-contracts
     runs-on: ubuntu-22.04
     timeout-minutes: 45
@@ -119,7 +116,7 @@ jobs:
 
   functional:
     if: >
-      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_functional && !inputs.run_v4_trial && !inputs.inspect_spcs)
@@ -217,7 +214,7 @@ jobs:
   fault_injection:
     # Exercises error-recovery paths using mitmproxy to inject HTTP 410 responses.
     if: >
-      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection && !inputs.run_v4_trial && !inputs.inspect_spcs)

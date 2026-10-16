@@ -58,25 +58,42 @@ class WorkflowTests(unittest.TestCase):
             if "if" in job and enabled(job["if"], context)
         }
 
-    def test_draft_and_ready_routes(self):
+    def test_draft_and_ready_keep_broad_coverage(self):
+        for draft in (True, False):
+            with self.subTest(draft=draft):
+                self.assertEqual(
+                    self.live_jobs(
+                        "pull_request", **{"github.event.pull_request.draft": draft}
+                    ),
+                    {"functional", "fault_injection"},
+                )
+        self.assertNotIn("if", self.java["jobs"]["build_and_test"])
+
+    def test_trial_requires_explicit_manual_input(self):
+        self.assertEqual(self.live_jobs("workflow_dispatch"), set())
         self.assertEqual(
-            self.live_jobs("pull_request", **{"github.event.pull_request.draft": True}),
+            self.live_jobs("workflow_dispatch", **{"inputs.run_v4_trial": True}),
             {"v4-trial"},
         )
-        self.assertEqual(
-            self.live_jobs("pull_request"), {"functional", "fault_injection"}
-        )
-        condition = self.java["jobs"]["build_and_test"]["if"]
-        self.assertFalse(
-            enabled(
-                condition,
-                {
-                    "github.event_name": "pull_request",
-                    "github.event.pull_request.draft": True,
-                },
+
+    def test_inspection_excludes_every_live_job(self):
+        inputs = {
+            f"inputs.{name}": True
+            for name in (
+                "inspect_spcs",
+                "run_v4_trial",
+                "run_functional",
+                "run_fault_injection",
+                "run_core_legacy",
+                "run_stress",
+                "run_soak_with_chaos",
+                "run_spcs",
             )
+        }
+        inputs["vars.SPCS_RELEASE_ENABLED"] = "true"
+        self.assertEqual(
+            self.live_jobs("workflow_dispatch", **inputs), {"spcs-inspect"}
         )
-        self.assertTrue(enabled(condition, {"github.event_name": "pull_request"}))
 
     def test_push_and_schedule_keep_broad_coverage(self):
         expected = {"functional", "fault_injection", "core_legacy", "stress"}
@@ -117,10 +134,10 @@ class WorkflowTests(unittest.TestCase):
             {"spcs-release"},
         )
 
-    def test_review_state_events_and_serial_limits(self):
+    def test_existing_pr_events_and_serial_limits(self):
         for workflow in (self.workflow, self.java):
-            events = workflow.get("on", workflow.get(True))["pull_request"]["types"]
-            self.assertTrue({"ready_for_review", "converted_to_draft"}.issubset(events))
+            events = workflow.get("on", workflow.get(True))["pull_request"]
+            self.assertNotIn("types", events)
         self.assertEqual(self.jobs["functional"]["strategy"]["max-parallel"], 1)
         self.assertEqual(self.jobs["v4-trial"]["timeout-minutes"], 45)
         self.assertFalse(self.jobs["v4-trial"]["concurrency"]["cancel-in-progress"])

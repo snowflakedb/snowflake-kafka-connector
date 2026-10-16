@@ -5,12 +5,9 @@ on:
     branches: [ master ]
   pull_request:
     branches: '**'
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
 
 jobs:
   build_and_test:
-    # Drafts use the isolated v4 E2E trial; restore broad Java coverage on ready.
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategyfail-fast

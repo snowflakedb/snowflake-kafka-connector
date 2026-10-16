@@ -108,15 +108,16 @@ test-runner container.
 
 ## Functional CI load and duration
 
-Document version: 2.1, 2026-10-11 20:00 UTC
+Document version: 3.0, 2026-10-16 07:20 UTC
 
-**Review decision:** #1587 changes draft CI across the repository. Maintainers
-must approve that policy before merge. It is separate from the [SPCS test and
-harness](spcs/README.md) in #1585/#1586.
+The v4-only trial is opt-in. Draft and ready PRs retain the existing broad
+functional, fault-injection, and Java integration coverage. The [SPCS test and
+harness](spcs/README.md) from #1585/#1586 are already merged; their live
+infrastructure and activation remain separate.
 
 The `functional` matrix in `end-to-end.yaml` runs one lane at a time. All seven
-lanes and their assertions remain available for ready PRs, pushes, schedules,
-and explicit full-suite dispatches. Draft PRs use the narrow trial below instead.
+lanes and their assertions remain available for draft and ready PRs, pushes,
+schedules, and explicit full-suite dispatches.
 Allow the sum of the lane durations,
 plus build and queue time, for the complete functional result rather than the
 slowest parallel lane. Each lane retains GitHub Actions' default six-hour job
@@ -142,10 +143,12 @@ This reduces test load but does not guarantee that shared-service throttling end
 
 ### KC v4-only trial
 
-Draft PRs run a single Apache Kafka 4.1.1 / Java 17 / AWS job covering VECTOR,
+The manual trial runs a single Apache Kafka 4.1.1 / Java 17 / AWS job covering VECTOR,
 structured OBJECT, and structured ARRAY in both `v4-compat` and `v4-ht` modes.
-All six cases must be collected; other cases are deselected, with a second guard
-before fixture setup. The runner skips the KC v3 download and mounts a fresh
+All six distinct cases must be collected and pass setup, execution, and teardown.
+Skipped cases, expected failures, unexpected passes, and incomplete results fail
+the trial. Collection-only checks do not require execution. Other cases are
+deselected, with a second guard before fixture setup. The runner skips the KC v3 download and mounts a fresh
 empty legacy-plugin directory. Assertions and the 60-second case deadline remain
 unchanged. Service logs are retained on success as well as failure.
 
@@ -157,15 +160,17 @@ unchanged. Service logs are retained on success as well as failure.
 `--v4-trial` rejects extra pytest arguments so callers cannot override its fixed
 selection. It applies five-second case pacing. Once this workflow is available
 on the default branch, it can also be dispatched with `run_v4_trial=true`; that
-input takes precedence over all other live E2E inputs. Draft PR creation and
-updates run the trial without needing a manual dispatch.
+input takes precedence over other live E2E inputs. `inspect_spcs=true` takes
+precedence over the trial and runs only the read-only inspection. Ordinary PR
+creation and updates do not run the trial.
 
 The trial has a 45-minute job limit including build/setup. A repository-wide
 trial concurrency group prevents two trials from running together; GitHub may
 replace an older pending trial when newer runs queue. This is not an account-wide
 lock against other workflows or repositories. Broad Java integration and mixed
-E2E lanes are skipped on draft PRs and restored by the `ready_for_review` event.
-A green trial does not establish full-suite or release qualification.
+E2E lanes retain their existing PR behavior. A green trial establishes six
+successful type-acceptance/row-count checks, not full value fidelity, SPCS
+validation, full-suite coverage, or release qualification.
 
 Offline checks (no credentials or running services):
 
