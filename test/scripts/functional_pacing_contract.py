@@ -260,7 +260,7 @@ class RunnerLifecycleTests(unittest.TestCase):
                     name,
                     "#!/bin/sh\n"
                     'for arg in "$@"; do\n'
-                    '    case "$arg" in /tmp/*) exit 0 ;; esac\n'
+                    '    case "$arg" in /tmp/kafka-connect-extra-jars) exit 0 ;; esac\n'
                     "done\n"
                     f'exec {shutil.which(name)} "$@"\n',
                 )
