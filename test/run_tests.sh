@@ -179,6 +179,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ "$V4_TRIAL" = "true" ]; then
+    if [ "$INTERACTIVE" = "true" ]; then
+        error_exit "--v4-trial cannot be combined with --interactive"
+    fi
     if [ ${#PASSTHROUGH_ARGS[@]} -ne 0 ]; then
         error_exit "--v4-trial does not accept additional pytest arguments"
     fi
@@ -480,6 +483,55 @@ if [ "$PROFILE_ENABLED" = "true" ]; then
     docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
 fi
 
+# Register finalization before startup, including partial startup failures.
+METRICS_PID=""
+TEST_EXIT_CODE=""
+
+stop_metrics_scraper() {
+    if [ -n "$METRICS_PID" ] && kill -0 "$METRICS_PID" 2>/dev/null; then
+        kill "$METRICS_PID" 2>/dev/null || true
+        wait "$METRICS_PID" 2>/dev/null || true
+        METRICS_PID=""
+    fi
+}
+
+cleanup() {
+    local exit_code=$?
+    local log_file
+    trap - EXIT
+    stop_metrics_scraper
+    # Capture before removing containers. Limit retained history per service.
+    if { [ "$exit_code" -ne 0 ] || [ "$V4_TRIAL" = "true" ]; } && [ -n "$LOGS_DIR" ]; then
+        log_file="$LOGS_DIR/${PLATFORM}-${PLATFORM_VERSION}-${HEALTH_CHECK_SERVICE}.log"
+        info "Saving service logs to $log_file..."
+        if ! { mkdir -p "$LOGS_DIR" && docker compose $COMPOSE_FILES logs --no-color --tail 10000 $HEALTH_CHECK_SERVICE > "$log_file" 2>&1; }; then
+            warn "Service log capture failed"
+            if [ "$exit_code" -eq 0 ]; then
+                exit_code=1
+            fi
+        fi
+    fi
+    if [ "$KEEP_RUNNING" = "false" ]; then
+        info "Cleaning up containers..."
+        if ! docker compose $COMPOSE_FILES down -v --remove-orphans; then
+            warn "Container cleanup failed"
+            if [ "$V4_TRIAL" = "true" ] && [ "$exit_code" -eq 0 ]; then
+                exit_code=1
+            fi
+        fi
+    else
+        warn "Keeping containers running (--keep specified)"
+        echo "To stop: cd $DOCKER_DIR && docker compose $COMPOSE_FILES down -v"
+    fi
+    if [ "$exit_code" -eq 0 ] && [ "$TEST_EXIT_CODE" = "0" ] && [ "$INTERACTIVE" = "false" ]; then
+        info "ALL TESTS PASSED"
+    fi
+    exit "$exit_code"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 # Start services
 info "Starting services: $START_SERVICES"
 docker compose $COMPOSE_FILES up -d $START_SERVICES
@@ -524,8 +576,6 @@ fi
 
 # Start JMX metrics scraper in the background
 METRICS_FILE="/tmp/sf-metrics-${PLATFORM}-${PLATFORM_VERSION}-$(date +%Y%m%d-%H%M%S).jsonl"
-METRICS_PID=""
-
 start_metrics_scraper() {
     local scraper="$PROJECT_ROOT/test/scripts/scrape_metrics.sh"
     if [ ! -x "$scraper" ]; then
@@ -536,26 +586,6 @@ start_metrics_scraper() {
     METRICS_PID=$!
     disown "$METRICS_PID" 2>/dev/null || true
 }
-
-stop_metrics_scraper() {
-    if [ -n "$METRICS_PID" ] && kill -0 "$METRICS_PID" 2>/dev/null; then
-        kill "$METRICS_PID" 2>/dev/null || true
-        wait "$METRICS_PID" 2>/dev/null || true
-        METRICS_PID=""
-    fi
-}
-
-cleanup() {
-    stop_metrics_scraper
-    if [ "$KEEP_RUNNING" = "false" ]; then
-        info "Cleaning up containers..."
-        docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
-    else
-        warn "Keeping containers running (--keep specified)"
-        echo "To stop: cd $DOCKER_DIR && docker compose $COMPOSE_FILES down -v"
-    fi
-}
-trap cleanup EXIT
 
 if [ "$JMX_ENABLED" = "true" ]; then
     # Give Jolokia a moment to initialize, then start scraping
@@ -605,14 +635,6 @@ set -e
 # Stop the scraper before containers go away
 stop_metrics_scraper
 
-# Preserve trial logs even on success for timeout/throttling comparisons.
-if { [ $TEST_EXIT_CODE -ne 0 ] || [ "$V4_TRIAL" = "true" ]; } && [ -n "$LOGS_DIR" ]; then
-    mkdir -p "$LOGS_DIR"
-    LOG_FILE="$LOGS_DIR/${PLATFORM}-${PLATFORM_VERSION}-${HEALTH_CHECK_SERVICE}.log"
-    info "Saving service logs to $LOG_FILE..."
-    docker compose $COMPOSE_FILES logs $HEALTH_CHECK_SERVICE > "$LOG_FILE" 2>&1
-fi
-
 if [ "$JMX_ENABLED" = "true" ]; then
     # Print metrics summary
     METRICS_LINES=0
@@ -646,7 +668,5 @@ if [ $TEST_EXIT_CODE -ne 0 ]; then
     exit $TEST_EXIT_CODE
 fi
 
-echo -e "\n${GREEN}========================================${NC}"
-echo -e "${GREEN}  ALL TESTS PASSED${NC}"
-echo -e "${GREEN}========================================${NC}"
+# The EXIT handler reports success only after logs and cleanup finish.
 exit 0

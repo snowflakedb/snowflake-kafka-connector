@@ -2,6 +2,8 @@
 
 import importlib.util
 import os
+import json
+import shutil
 import subprocess
 import tempfile
 import sys
@@ -139,6 +141,21 @@ class TrialSelectionTests(unittest.TestCase):
             "--v4-trial does not accept additional pytest arguments", result.stderr
         )
 
+    def test_runner_rejects_interactive_trial_before_setup(self):
+        for flag in ("--interactive", "-i"):
+            with self.subTest(flag=flag):
+                result = subprocess.run(
+                    ["bash", str(TEST_ROOT / "run_tests.sh"), "--v4-trial", flag],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(
+                    "--v4-trial cannot be combined with --interactive", result.stderr
+                )
+                self.assertNotIn("ALL TESTS PASSED", result.stdout)
+
     def test_real_collection_contains_exactly_six_v4_cases(self):
         result = subprocess.run(
             [
@@ -187,6 +204,145 @@ class TrialSelectionTests(unittest.TestCase):
         item.config.getoption.return_value = True
         with self.assertRaises(pytest.UsageError):
             pacing.pytest_runtest_setup(item)
+
+
+class RunnerLifecycleTests(unittest.TestCase):
+    """Run the complete shell entry point with no Docker, credentials or network."""
+
+    def run_runner(self, scenario, *options):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tests = root / "test"
+            (tests / "docker").mkdir(parents=True)
+            shutil.copy2(TEST_ROOT / "run_tests.sh", tests / "run_tests.sh")
+            target = root / "target"
+            target.mkdir()
+            (target / "snowflake-kafka-connector-4.2.1.jar").write_text("fixture")
+            profile = root / "profile.json"
+            profile.write_text("{}")
+            commands = root / "commands.jsonl"
+            logs = root / "logs"
+            binaries = root / "bin"
+            binaries.mkdir()
+
+            def executable(name, source):
+                path = binaries / name
+                path.write_text(source)
+                path.chmod(0o755)
+
+            executable(
+                "docker",
+                f"#!{sys.executable}\n"
+                "import json, os, signal, sys\n"
+                "args = sys.argv[1:]\n"
+                "with open(os.environ['COMMAND_LOG'], 'a') as output:\n"
+                "    output.write(json.dumps(args) + '\\n')\n"
+                "scenario = os.environ['SCENARIO']\n"
+                "if args[0] == 'create': print('fixture-container')\n"
+                "if args[0] == 'compose':\n"
+                "    if 'up' in args:\n"
+                "        if scenario == 'startup': sys.exit(17)\n"
+                "        if scenario == 'signal': os.kill(os.getppid(), signal.SIGTERM)\n"
+                "    if 'ps' in args and scenario != 'health': print('healthy')\n"
+                "    if 'run' in args and scenario == 'pytest': sys.exit(7)\n"
+                "    if 'logs' in args:\n"
+                "        print('fixture service log')\n"
+                "        if scenario in ('logs', 'pytest_logs'): sys.exit(19)\n"
+                "    if 'run' in args and scenario == 'pytest_logs': sys.exit(7)\n"
+                "    if 'down' in args and scenario in ('cleanup', 'pytest_cleanup'): sys.exit(23)\n"
+                "    if 'run' in args and scenario == 'pytest_cleanup': sys.exit(7)\n",
+            )
+            executable("sleep", "#!/bin/sh\nexit 0\n")
+            # The existing runner's protobuf scratch path is irrelevant to mocked Docker.
+            # Intercept only that path so the contract never touches global /tmp.
+            for name in ("mkdir", "ls"):
+                executable(
+                    name,
+                    "#!/bin/sh\n"
+                    'for arg in "$@"; do\n'
+                    '    case "$arg" in /tmp/*) exit 0 ;; esac\n'
+                    "done\n"
+                    f'exec {shutil.which(name)} "$@"\n',
+                )
+            (binaries / "python3").symlink_to(sys.executable)
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(tests / "run_tests.sh"),
+                    "--platform=apache",
+                    "--platform-version=4.1.1",
+                    "--v4-trial",
+                    f"--logs-dir={logs}",
+                    *options,
+                ],
+                env={
+                    "PATH": f"{binaries}{os.pathsep}{os.defpath}",
+                    "HOME": directory,
+                    "SNOWFLAKE_CREDENTIAL_FILE": str(profile),
+                    "COMMAND_LOG": str(commands),
+                    "SCENARIO": scenario,
+                },
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            calls = [json.loads(line) for line in commands.read_text().splitlines()]
+            logfile = logs / "apache-4.1.1-kafka.log"
+            log = logfile.read_text() if logfile.exists() else ""
+            return result, calls, log
+
+    def assert_finalized(self, scenario, expected):
+        result, calls, log = self.run_runner(scenario)
+        self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+        logging = [index for index, call in enumerate(calls) if "logs" in call]
+        cleanup = [index for index, call in enumerate(calls) if "down" in call]
+        self.assertEqual(len(logging), 1)
+        self.assertEqual(len(cleanup), 1)
+        self.assertLess(logging[0], cleanup[0])
+        self.assertIn("--tail", calls[logging[0]])
+        self.assertIn("fixture service log", log)
+        if expected:
+            self.assertNotIn("ALL TESTS PASSED", result.stdout)
+        return result, calls
+
+    def test_partial_startup_failure_preserves_status_logs_and_cleanup(self):
+        _, calls = self.assert_finalized("startup", 17)
+        self.assertFalse(any("run" in call for call in calls))
+
+    def test_health_timeout_captures_logs_and_cleans_up(self):
+        _, calls = self.assert_finalized("health", 1)
+        self.assertFalse(any("run" in call for call in calls))
+
+    def test_success_logs_before_cleanup_and_reports_pass(self):
+        result, calls = self.assert_finalized("pass", 0)
+        self.assertIn("ALL TESTS PASSED", result.stdout)
+        run = next(call for call in calls if "run" in call)
+        self.assertIn("--v4-trial", run)
+        self.assertIn("pytest", run)
+
+    def test_test_failure_preserves_original_exit_status(self):
+        self.assert_finalized("pytest", 7)
+
+    def test_failed_log_capture_still_cleans_up_and_fails_trial(self):
+        self.assert_finalized("logs", 1)
+
+    def test_cleanup_failure_cannot_qualify_trial(self):
+        self.assert_finalized("cleanup", 1)
+
+    def test_secondary_failures_do_not_mask_test_failure(self):
+        for scenario in ("pytest_logs", "pytest_cleanup"):
+            with self.subTest(scenario=scenario):
+                self.assert_finalized(scenario, 7)
+
+    def test_termination_collects_logs_cleans_up_and_fails(self):
+        self.assert_finalized("signal", 143)
+
+    def test_keep_retains_containers_but_still_collects_logs(self):
+        result, calls, log = self.run_runner("pass", "--keep")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(any("down" in call for call in calls))
+        self.assertIn("fixture service log", log)
+        self.assertIn("Keeping containers running", result.stdout)
 
 
 class TrialOutcomeTests(unittest.TestCase):

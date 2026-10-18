@@ -150,15 +150,21 @@ Skipped cases, expected failures, unexpected passes, and incomplete results fail
 the trial. Collection-only checks do not require execution. Other cases are
 deselected, with a second guard before fixture setup. The runner skips the KC v3 download and mounts a fresh
 empty legacy-plugin directory. Assertions and the 60-second case deadline remain
-unchanged. Service logs are retained on success as well as failure.
+unchanged. When `--logs-dir` is supplied (as in CI), the last 10,000 service-log
+lines are retained on success, test failure, partial startup failure, and health
+check timeout, before container cleanup. Log-capture or container-cleanup failure
+fails an otherwise successful trial; an earlier failure keeps its original exit
+status. `--keep` explicitly retains containers. Pytest teardown and Docker cleanup
+are not independent proof that every Snowflake resource or channel was removed.
 
 ```bash
 ./test/run_tests.sh --platform=apache --platform-version=4.1.1 \
   --java-version=17 --cloud=AWS --v4-trial --logs-dir="$PWD/test-logs"
 ```
 
-`--v4-trial` rejects extra pytest arguments so callers cannot override its fixed
-selection. It applies five-second case pacing. Once this workflow is available
+`--v4-trial` rejects extra pytest arguments and `--interactive`/`-i` so callers
+cannot override its fixed selection or report an interactive shell as a passed
+trial. It applies five-second case pacing. Once this workflow is available
 on the default branch, it can also be dispatched with `run_v4_trial=true`; that
 input takes precedence over other live E2E inputs. `inspect_spcs=true` takes
 precedence over the trial and runs only the read-only inspection. Ordinary PR
