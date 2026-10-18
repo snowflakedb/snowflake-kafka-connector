@@ -364,9 +364,11 @@ def test_migration_from_snowpipe(
     test_name = "test_migration_from_snowpipe"
     warmup_records = 10
 
+    # File-based Snowpipe CREATE PIPE ... COPY INTO rejects ERROR_LOGGING.
     table = create_table(
         test_name.upper(),
         columns="(record_metadata variant, record_content variant)",
+        error_table=False,
     )
     topic = f"{test_name}{name_salt}"
     producer = RecordProducer(driver, topic)

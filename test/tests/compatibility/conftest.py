@@ -518,9 +518,10 @@ def typed_table(driver, mode_salt, ingestion_mode):
         topic = f"{test_id}{mode_salt}"
         sf_table = topic if ingestion_mode == "v4-ht" else topic.upper()
         quoted = quote_name(sf_table)
+        error_logging = " ERROR_LOGGING = TRUE" if ingestion_mode == "v4-ht" else ""
         driver.snowflake_conn.cursor().execute(
             f"CREATE OR REPLACE TABLE {quoted} "
-            f"(VALUE_COL {col_ddl}, RECORD_METADATA VARIANT)"
+            f"(VALUE_COL {col_ddl}, RECORD_METADATA VARIANT){error_logging}"
         )
         driver.snowflake_conn.cursor().execute(
             f"ALTER TABLE {quoted} SET ENABLE_SCHEMA_EVOLUTION = TRUE"
