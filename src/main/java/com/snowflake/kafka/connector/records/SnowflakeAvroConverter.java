@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.avro.Schema;
 import org.apache.kafka.common.config.ConfigException;
@@ -79,8 +80,37 @@ public class SnowflakeAvroConverter implements Converter {
             Collections.singletonList(new AvroSchemaProvider()),
             configs,
             null);
-    this.delegate = new AvroConverter(schemaRegistryClient);
-    this.delegate.configure(configs, isKey);
+    // The delegate builds its own registry client from the same configs rather than sharing ours:
+    // when AvroConverter is loaded from the worker classpath (the Confluent Hub package doesn't
+    // bundle it), its SchemaRegistryClient type differs from the one bundled in this plugin, so
+    // passing ours across fails with a LinkageError.
+    this.delegate =
+        withDelegateClassLoader(
+            () -> {
+              AvroConverter converter = new AvroConverter();
+              converter.configure(configs, isKey);
+              return converter;
+            });
+  }
+
+  /**
+   * Runs {@code action} with the thread context classloader set to {@link AvroConverter}'s own
+   * loader. Confluent's serde code resolves configured classes (e.g. the default context name
+   * strategy) through the context classloader and caches some of them in static config. When
+   * AvroConverter comes from the worker classpath (the Confluent Hub package), resolving them
+   * through this plugin's loader would mix in this plugin's bundled copies, failing here and in
+   * every other connector on the worker that uses AvroConverter. When AvroConverter is bundled in
+   * this plugin (the Maven package), this is a no-op.
+   */
+  private static <T> T withDelegateClassLoader(Supplier<T> action) {
+    Thread thread = Thread.currentThread();
+    ClassLoader original = thread.getContextClassLoader();
+    thread.setContextClassLoader(AvroConverter.class.getClassLoader());
+    try {
+      return action.get();
+    } finally {
+      thread.setContextClassLoader(original);
+    }
   }
 
   /**
@@ -102,13 +132,13 @@ public class SnowflakeAvroConverter implements Converter {
   @Override
   public byte[] fromConnectData(
       String topic, org.apache.kafka.connect.data.Schema schema, Object value) {
-    return delegate.fromConnectData(topic, schema, value);
+    return withDelegateClassLoader(() -> delegate.fromConnectData(topic, schema, value));
   }
 
   @Override
   public SchemaAndValue toConnectData(String topic, byte[] value) {
     Schema avroSchema = tryResolveAvroSchema(value);
-    SchemaAndValue converted = delegate.toConnectData(topic, value);
+    SchemaAndValue converted = withDelegateClassLoader(() -> delegate.toConnectData(topic, value));
     return avroSchema == null ? converted : attachAvroSchema(converted, avroSchema);
   }
 
