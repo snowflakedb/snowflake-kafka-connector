@@ -296,9 +296,9 @@ public class RecordService {
           == null) // Any schema is valid and we don't have a default, so treat this as an optional
         // schema
         return null;
+      if (schema.isOptional()) return JsonNodeFactory.instance.nullNode();
       if (schema.defaultValue() != null)
         return convertToJson(schema, schema.defaultValue(), isStreaming);
-      if (schema.isOptional()) return JsonNodeFactory.instance.nullNode();
       throw SnowflakeErrors.ERROR_5015.getException(
           "Conversion error: null value for field that is required and has no default value");
     }
@@ -439,7 +439,11 @@ public class RecordService {
               throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
             ObjectNode obj = JsonNodeFactory.instance.objectNode();
             for (Field field : schema.fields()) {
-              obj.set(field.name(), convertToJson(field.schema(), struct.get(field), isStreaming));
+              // Struct.get would turn a null into the schema default, so read the raw value.
+              obj.set(
+                  field.name(),
+                  convertToJson(
+                      field.schema(), struct.getWithoutDefault(field.name()), isStreaming));
             }
             return obj;
           }
