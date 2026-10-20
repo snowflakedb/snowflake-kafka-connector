@@ -99,13 +99,10 @@ public interface TopicPartitionChannel {
   default void incRecoverySkipConflictCount() {}
 
   /**
-   * In-flight bytes currently buffered in this partition's SDK channel. The task sums this across
-   * all assigned partitions. Returns 0 if the channel is not yet open, is closed, or the bundled
-   * SDK does not expose {@code getInFlightBytes()}.
+   * Rows and bytes this partition's SDK channel has accepted and Snowflake has not yet
+   * acknowledged. Returns {@link InflightUsage#NONE} while no open SDK channel exists.
    */
-  default long getInFlightBytes() {
-    return 0L;
-  }
+  InflightUsage getInflightUsage();
 
   @VisibleForTesting
   SnowflakeTelemetryChannelStatus getSnowflakeTelemetryChannelStatus();

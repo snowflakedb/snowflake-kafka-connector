@@ -26,6 +26,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
@@ -84,14 +85,19 @@ class PartitionChannelManagerTest {
   // --- startPartitions ---
 
   @Test
-  void sumInFlightBytesAddsEveryChannel() {
+  void sumInflightUsageAddsRowsAndBytesOfEveryChannel() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition("other_topic", 1);
     startPartitions(tp0, tp1);
-    when(createdChannels.get(tp0).getInFlightBytes()).thenReturn(10L);
-    when(createdChannels.get(tp1).getInFlightBytes()).thenReturn(25L);
+    when(createdChannels.get(tp0).getInflightUsage()).thenReturn(new InflightUsage(1, 10));
+    when(createdChannels.get(tp1).getInflightUsage()).thenReturn(new InflightUsage(2, 25));
 
-    assertEquals(35L, manager.sumInFlightBytes());
+    assertEquals(new InflightUsage(3, 35), manager.sumInflightUsage());
+  }
+
+  @Test
+  void sumInflightUsageIsZeroWithNoChannels() {
+    assertEquals(InflightUsage.NONE, manager.sumInflightUsage());
   }
 
   @Test
