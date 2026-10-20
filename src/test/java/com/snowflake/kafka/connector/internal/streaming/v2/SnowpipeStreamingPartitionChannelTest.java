@@ -31,6 +31,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
@@ -168,7 +169,7 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void getInFlightBytesDoesNotBlockWhenChannelNotYetOpen() throws Exception {
+  void getInflightUsageIsZeroWithoutJmxWhileChannelIsOpening() throws Exception {
     CountDownLatch blockExecutor = new CountDownLatch(1);
     openChannelIoExecutor.submit(
         () -> {
@@ -177,9 +178,38 @@ class SnowpipeStreamingPartitionChannelTest {
         });
 
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
-    assertEquals(0L, partitionChannel.getInFlightBytes());
+    // No beans are registered, so any JMX read would throw.
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
 
     blockExecutor.countDown();
+  }
+
+  @Test
+  void getInflightUsageReadsBeansForOpenedChannelOnItsClient() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans().channel(trackingClient.getClientName(), channelName, 5, 500)) {
+      assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+    }
+  }
+
+  @Test
+  void getInflightUsageFailsLoudWhenOpenedChannelHasNoBeans() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+
+    assertThrows(ConnectException.class, partitionChannel::getInflightUsage);
+  }
+
+  @Test
+  void getInflightUsageIsZeroWithoutJmxAfterChannelCloses() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    partitionChannel.closeChannelAsync().get(5, TimeUnit.SECONDS);
+
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
   }
 
   /**
@@ -1466,7 +1496,7 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public String getClientName() {
-      throw new UnsupportedOperationException();
+      return "tracking_client_" + pipeName;
     }
 
     @Override
