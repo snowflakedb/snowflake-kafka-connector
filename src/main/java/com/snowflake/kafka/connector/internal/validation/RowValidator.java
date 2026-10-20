@@ -230,7 +230,11 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
-        value = rewriteBareDateZ(value, false);
+        // DATE cannot store a timezone, so a bare YYYY-MM-DDZ drops the Z.
+        Optional<String> bareDate = bareDateBeforeZ(value);
+        if (bareDate.isPresent()) {
+          value = bareDate.get();
+        }
         DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
         break;
 
@@ -299,7 +303,11 @@ public class RowValidator {
       return DataValidationUtil.validateAndFormatTimestamp(
           col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
     }
-    value = rewriteBareDateZ(value, true);
+    // TIMESTAMP is an instant, so a bare YYYY-MM-DDZ is UTC midnight.
+    Optional<String> bareDate = bareDateBeforeZ(value);
+    if (bareDate.isPresent()) {
+      value = bareDate.get() + "T00:00:00Z";
+    }
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),
         value,
@@ -310,25 +318,22 @@ public class RowValidator {
     return value;
   }
 
-  /**
-   * Bare {@code YYYY-MM-DDZ} only. DATE cannot store a timezone, so drop {@code Z}. TIMESTAMP is an
-   * instant, so send UTC midnight. Anything else is returned unchanged.
-   */
-  private static Object rewriteBareDateZ(Object value, boolean asUtcTimestamp) {
+  /** Returns the date of a bare {@code YYYY-MM-DDZ} string, or empty for any other value. */
+  private static Optional<String> bareDateBeforeZ(Object value) {
     if (!(value instanceof String)) {
-      return value;
+      return Optional.empty();
     }
     String s = ((String) value).trim();
     if (!s.endsWith("Z")) {
-      return value;
+      return Optional.empty();
     }
     String withoutZ = s.substring(0, s.length() - 1);
     try {
       LocalDate.parse(withoutZ);
-      return asUtcTimestamp ? withoutZ + "T00:00:00Z" : withoutZ;
     } catch (DateTimeParseException e) {
-      return value;
+      return Optional.empty();
     }
+    return Optional.of(withoutZ);
   }
 
   /** Detect columns in the row that don't exist in the table schema. */
