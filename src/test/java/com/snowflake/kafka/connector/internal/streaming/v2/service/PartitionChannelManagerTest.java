@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,14 +65,19 @@ class PartitionChannelManagerTest {
   // --- startPartitions ---
 
   @Test
-  void sumInFlightBytesAddsEveryChannel() {
+  void sumInflightUsageAddsRowsAndBytesOfEveryChannel() {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartition tp1 = new TopicPartition("other_topic", 1);
     startPartitions(tp0, tp1);
-    when(createdChannels.get(tp0).getInFlightBytes()).thenReturn(10L);
-    when(createdChannels.get(tp1).getInFlightBytes()).thenReturn(25L);
+    when(createdChannels.get(tp0).getInflightUsage()).thenReturn(new InflightUsage(1, 10));
+    when(createdChannels.get(tp1).getInflightUsage()).thenReturn(new InflightUsage(2, 25));
 
-    assertEquals(35L, manager.sumInFlightBytes());
+    assertEquals(new InflightUsage(3, 35), manager.sumInflightUsage());
+  }
+
+  @Test
+  void sumInflightUsageIsZeroWithNoChannels() {
+    assertEquals(InflightUsage.NONE, manager.sumInflightUsage());
   }
 
   @Test

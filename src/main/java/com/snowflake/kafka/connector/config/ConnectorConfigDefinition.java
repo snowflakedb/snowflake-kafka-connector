@@ -8,7 +8,6 @@ import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Width;
-import org.apache.kafka.common.config.ConfigException;
 
 /** This class is a placeholder for config definition in Apache Kafka specific format */
 public class ConnectorConfigDefinition {
@@ -24,16 +23,6 @@ public class ConnectorConfigDefinition {
   private static final ConfigDef.Validator TOPIC_TO_TABLE_VALIDATOR = new TopicToTableValidator();
   private static final ConfigDef.Validator STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR =
       new CommaSeparatedKeyValueValidator();
-  private static final ConfigDef.Validator MAX_TASK_IN_FLIGHT_BYTES_VALIDATOR =
-      (name, value) -> {
-        if (value == null) {
-          return;
-        }
-        long parsed = (Long) value;
-        if (parsed != -1L && parsed <= 0L) {
-          throw new ConfigException(name, value, "Must be -1 (disabled) or a positive byte count");
-        }
-      };
 
   public static ConfigDef getConfig() {
     return new ConfigDef()
@@ -420,19 +409,33 @@ public class ConnectorConfigDefinition {
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
         .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS,
             LONG,
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_IN_FLIGHT_BYTES_DEFAULT,
-            MAX_TASK_IN_FLIGHT_BYTES_VALIDATOR,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS_DEFAULT,
+            atLeast(0L),
             LOW,
-            "Task-level cap on summed per-channel in-flight bytes"
-                + " (SnowflakeStreamingIngestChannel.getInFlightBytes()). -1 disables the limit."
-                + " When the sum across this task's channels (which may span multiple SDK clients)"
-                + " reaches the cap, the task rewinds the current poll and backs off.",
+            "Task-level cap on rows accepted by this task's Snowpipe Streaming channels and not yet"
+                + " acknowledged by Snowflake, summed across every channel the task owns (which may"
+                + " span multiple SDK clients). 0 disables the cap. When the sum reaches the cap,"
+                + " the task rewinds the current poll and backs off.",
             CONNECTOR_CONFIG_DOC,
             7,
             Width.NONE,
-            "Max Task In-Flight Bytes")
+            "Max Task Inflight Rows")
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES,
+            LONG,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES_DEFAULT,
+            atLeast(0L),
+            LOW,
+            "Task-level cap, in MiB, on bytes accepted by this task's Snowpipe Streaming channels"
+                + " and not yet acknowledged by Snowflake, summed across every channel the task"
+                + " owns (which may span multiple SDK clients). 0 disables the cap. When the sum"
+                + " reaches the cap, the task rewinds the current poll and backs off.",
+            CONNECTOR_CONFIG_DOC,
+            8,
+            Width.NONE,
+            "Max Task Inflight Megabytes")
         .define(
             KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
             STRING,

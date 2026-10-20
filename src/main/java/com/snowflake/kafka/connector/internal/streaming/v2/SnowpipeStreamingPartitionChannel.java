@@ -23,6 +23,7 @@ import com.snowflake.kafka.connector.internal.schemaevolution.SchemaEvolutionTar
 import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.schemaevolution.ValidationResultMapper;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -945,20 +946,25 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     return channelName;
   }
 
+  /**
+   * Reads the SDK's per-channel inflight gauges over JMX. A channel that is still opening, failed
+   * to open, or is closed has nothing to report and is not read. The SDK registers a channel's
+   * beans inside openChannel before returning, so once the open future completes the beans exist
+   * and a missing bean is a real error rather than a registration race.
+   */
   @Override
-  public long getInFlightBytes() {
+  public InflightUsage getInflightUsage() {
     CompletableFuture<SnowflakeStreamingIngestChannel> future = this.channel;
-    if (future == null
-        || !future.isDone()
-        || future.isCompletedExceptionally()
-        || future.isCancelled()) {
-      return 0L;
+    if (!future.isDone() || future.isCompletedExceptionally()) {
+      return InflightUsage.NONE;
     }
-    try {
-      return InFlightBytes.from(future.getNow(null));
-    } catch (RuntimeException e) {
-      return 0L;
+    SnowflakeStreamingIngestChannel sdkChannel = future.join();
+    if (sdkChannel.isClosed()) {
+      return InflightUsage.NONE;
     }
+    // streamingClient is replaced before a channel is reopened on a recreated client, so it is the
+    // client that owns the completed channel.
+    return ChannelInflightMetrics.read(streamingClient.getClientName(), channelName);
   }
 
   /**

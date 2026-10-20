@@ -18,6 +18,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
@@ -77,10 +78,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   static final Duration BACKPRESSURE_COOLDOWN = Duration.ofSeconds(1);
 
   /**
-   * How many successful inserts to allow between re-reads of summed in-flight bytes when a task
-   * in-flight cap is set. The start-of-put check always runs.
+   * How many successful inserts to allow between re-reads of summed inflight usage when a task
+   * inflight cap is set. The start-of-put check always runs.
    */
-  static final int IN_FLIGHT_CHECK_INTERVAL = 32;
+  static final int INFLIGHT_CHECK_INTERVAL = 32;
 
   /** Timestamp until which all inserts are skipped due to backpressure. */
   @VisibleForTesting Instant backpressureUntil = Instant.MIN;
@@ -483,24 +484,17 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       skipAllPartitions = true;
     }
 
-    // Task-level cap: sum SDK in-flight bytes across this task's channels (they may belong to
-    // different clients/pipes). Re-check every IN_FLIGHT_CHECK_INTERVAL successful inserts so a
-    // single large poll cannot run far past the cap.
-    final long maxTaskInFlightBytes = taskConfig.getMaxTaskInFlightBytes();
-    final boolean inFlightLimitEnabled = maxTaskInFlightBytes > 0;
-    int insertsSinceInFlightCheck = 0;
+    // Task-level caps: sum SDK inflight rows and bytes across this task's channels (they may belong
+    // to different clients/pipes). Re-check every INFLIGHT_CHECK_INTERVAL successful inserts so a
+    // single large poll cannot run far past the caps.
+    final boolean inflightCapsEnabled =
+        taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0;
+    int insertsSinceInflightCheck = 0;
     boolean newBackpressure = false;
-    if (inFlightLimitEnabled && !skipAllPartitions) {
-      long inFlightBytes = channelManager.sumInFlightBytes();
-      if (inFlightBytes >= maxTaskInFlightBytes) {
-        LOGGER.warn(
-            "Task in-flight bytes exceeded before insert: in-flight bytes {} >= limit {}",
-            inFlightBytes,
-            maxTaskInFlightBytes);
-        skipAllPartitions = true;
-        newBackpressure = true;
-        taskMetrics.incBackpressureRewindCount();
-      }
+    if (inflightCapsEnabled && !skipAllPartitions && taskInflightCapReached("before insert")) {
+      skipAllPartitions = true;
+      newBackpressure = true;
+      taskMetrics.incBackpressureRewindCount();
     }
 
     for (SinkRecord record : records) {
@@ -523,16 +517,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         continue;
       }
 
-      if (inFlightLimitEnabled && insertsSinceInFlightCheck >= IN_FLIGHT_CHECK_INTERVAL) {
-        long inFlightBytes = channelManager.sumInFlightBytes();
-        insertsSinceInFlightCheck = 0;
-        if (inFlightBytes >= maxTaskInFlightBytes) {
-          LOGGER.warn(
-              "Task in-flight bytes exceeded mid-batch on partition {}: in-flight bytes {} >="
-                  + " limit {}",
-              tp,
-              inFlightBytes,
-              maxTaskInFlightBytes);
+      if (inflightCapsEnabled && insertsSinceInflightCheck >= INFLIGHT_CHECK_INTERVAL) {
+        insertsSinceInflightCheck = 0;
+        if (taskInflightCapReached("mid-batch on partition " + tp)) {
           taskMetrics.incBackpressureRewindCount();
           offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
           skipAllPartitions = true;
@@ -544,8 +531,8 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       try {
         if (!insert(record)) {
           offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
-        } else if (inFlightLimitEnabled) {
-          insertsSinceInFlightCheck++;
+        } else if (inflightCapsEnabled) {
+          insertsSinceInflightCheck++;
         }
       } catch (BackpressureException e) {
         LOGGER.warn(
@@ -584,6 +571,30 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsToRewindTo);
       sinkTaskContext.offset(offsetsToRewindTo);
     }
+  }
+
+  /**
+   * Whether this task's summed inflight rows or bytes are at or above a configured cap. A cap of 0
+   * is disabled. The SDK gauges can be up to about one second stale, so this is a soft task cap on
+   * top of the SDK's own per-channel limits.
+   */
+  private boolean taskInflightCapReached(String when) {
+    InflightUsage usage = channelManager.sumInflightUsage();
+    long maxRows = taskConfig.getMaxTaskInflightRows();
+    long maxBytes = taskConfig.getMaxTaskInflightBytes();
+    boolean rowsReached = maxRows > 0 && usage.getRows() >= maxRows;
+    boolean bytesReached = maxBytes > 0 && usage.getBytes() >= maxBytes;
+    if (rowsReached || bytesReached) {
+      LOGGER.warn(
+          "Task inflight cap reached {}: rows {} (cap {}), bytes {} (cap {})",
+          when,
+          usage.getRows(),
+          maxRows,
+          usage.getBytes(),
+          maxBytes);
+      return true;
+    }
+    return false;
   }
 
   /**

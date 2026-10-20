@@ -12,6 +12,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreator;
@@ -436,13 +437,13 @@ public class PartitionChannelManager {
   }
 
   /**
-   * Sum of in-flight bytes across every channel owned by this task, including channels on different
-   * SDK clients (different pipes).
+   * Inflight rows and bytes summed across every channel owned by this task, including channels on
+   * different SDK clients (different pipes).
    */
-  public long sumInFlightBytes() {
-    long sum = 0L;
+  public InflightUsage sumInflightUsage() {
+    InflightUsage sum = InflightUsage.NONE;
     for (TopicPartitionChannel channel : partitionChannels.values()) {
-      sum += channel.getInFlightBytes();
+      sum = sum.plus(channel.getInflightUsage());
     }
     return sum;
   }
