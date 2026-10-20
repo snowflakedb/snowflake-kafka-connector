@@ -11,7 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.Utils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -228,6 +230,11 @@ public class RowValidator {
             col.getName(), value, Optional.ofNullable(col.getByteLength()), insertRowIndex);
 
       case DATE:
+        // DATE cannot store a timezone, so a bare YYYY-MM-DDZ drops the Z.
+        Optional<String> bareDate = bareDateBeforeZ(value);
+        if (bareDate.isPresent()) {
+          value = bareDate.get();
+        }
         DataValidationUtil.validateAndParseDate(col.getName(), value, insertRowIndex);
         break;
 
@@ -296,6 +303,11 @@ public class RowValidator {
       return DataValidationUtil.validateAndFormatTimestamp(
           col.getName(), value, defaultTimezone, trimTimezone, insertRowIndex);
     }
+    // TIMESTAMP is an instant, so a bare YYYY-MM-DDZ is UTC midnight.
+    Optional<String> bareDate = bareDateBeforeZ(value);
+    if (bareDate.isPresent()) {
+      value = bareDate.get() + "T00:00:00Z";
+    }
     DataValidationUtil.validateAndParseTimestamp(
         col.getName(),
         value,
@@ -304,6 +316,24 @@ public class RowValidator {
         trimTimezone,
         insertRowIndex);
     return value;
+  }
+
+  /** Returns the date of a bare {@code YYYY-MM-DDZ} string, or empty for any other value. */
+  private static Optional<String> bareDateBeforeZ(Object value) {
+    if (!(value instanceof String)) {
+      return Optional.empty();
+    }
+    String s = ((String) value).trim();
+    if (!s.endsWith("Z")) {
+      return Optional.empty();
+    }
+    String withoutZ = s.substring(0, s.length() - 1);
+    try {
+      LocalDate.parse(withoutZ);
+    } catch (DateTimeParseException e) {
+      return Optional.empty();
+    }
+    return Optional.of(withoutZ);
   }
 
   /** Detect columns in the row that don't exist in the table schema. */
