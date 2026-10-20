@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # google-java-format uses internal javac APIs; do not inherit the runner JDK.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
       - uses: axel-op/googlejavaformat-action@v3
         with:
           skip-commit: true
