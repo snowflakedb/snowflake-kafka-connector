@@ -25,6 +25,7 @@ docker-setup
 *.log.*
 
 profile*.json
+/test/spcs/.scratch/
 
 licenses/
 ai-docs/
