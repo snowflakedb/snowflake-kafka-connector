@@ -215,9 +215,9 @@ public enum SnowflakeErrors {
           + " ingest. See the specific error message for details."),
   ERROR_5031(
       "5031",
-      "Critical server advisory: connector startup refused",
+      "Critical server advisory: connector stopped",
       "A critical advisory from Snowflake applies to this connector version. Upgrade the"
-          + " connector, or to start anyway set snowflake.feature.fail_on_critical_advisory=false"
+          + " connector, or to run anyway set snowflake.feature.fail_on_critical_advisory=false"
           + " (not recommended).");
 
   // properties

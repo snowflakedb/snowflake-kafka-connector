@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,6 +33,7 @@ import org.apache.kafka.connect.connector.Connector;
 import org.apache.kafka.connect.connector.ConnectorContext;
 import org.apache.kafka.connect.sink.SinkConnectorContext;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.objenesis.Objenesis;
 import org.objenesis.ObjenesisStd;
 
@@ -176,22 +178,58 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
   }
 
   @Test
-  public void pollAdvisories_criticalMidRun_keepsRunning() throws Exception {
+  public void pollAdvisories_criticalMidRun_stopsConnectorOnce() throws Exception {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.getKcAdvisoryMessages(anyString()))
         .thenReturn(Collections.singletonList(new AdvisoryMessage("critical", "you must upgrade")));
-    // Empty config => fail_on_critical defaults to true; it only applies at startup.
+    // Empty config => fail_on_critical defaults to true.
     SnowflakeStreamingSinkConnector connector = connectorWith(conn, new HashMap<>());
     SinkConnectorContext ctx = mock(SinkConnectorContext.class);
     setContext(connector, ctx);
+    ScheduledExecutorService poller = Executors.newSingleThreadScheduledExecutor();
+    setField(connector, "advisoryPoller", poller);
 
-    // Two polls: neither throws nor fails the connector through the framework.
+    // Two polls see the critical advisory; only the first one stops the connector.
     invokePrivate(connector, "pollAdvisories");
     invokePrivate(connector, "pollAdvisories");
 
-    verify(ctx, never()).raiseError(any(Exception.class));
-    verify(conn, times(2)).getKcAdvisoryMessages(anyString());
+    ArgumentCaptor<Exception> error = ArgumentCaptor.forClass(Exception.class);
+    verify(ctx, times(1)).raiseError(error.capture());
+    SnowflakeKafkaConnectorException cause = (SnowflakeKafkaConnectorException) error.getValue();
+    assertEquals(SnowflakeErrors.ERROR_5031.getCode(), cause.getCode());
+    assertTrue(
+        cause
+            .getMessage()
+            .contains(
+                Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
+                    + "=false"),
+        "the failure must say how to override it: " + cause.getMessage());
+    assertTrue(poller.isShutdown(), "the poller must stop after failing the connector");
     assertEquals(2, connector.advisoryPollCountForTest());
+  }
+
+  @Test
+  public void startAdvisoryPolling_criticalMidRun_stopsPolling() throws Exception {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.getKcAdvisoryMessages(anyString()))
+        .thenReturn(Collections.singletonList(new AdvisoryMessage("critical", "you must upgrade")));
+    Map<String, String> config = new HashMap<>();
+    config.put(
+        Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS, "1");
+    SnowflakeStreamingSinkConnector connector = connectorWith(conn, config);
+    SinkConnectorContext ctx = mock(SinkConnectorContext.class);
+    setContext(connector, ctx);
+
+    invokePrivate(connector, "startAdvisoryPolling");
+    // Long enough for at least 2 cycles at a 1s interval, had the poller kept going.
+    Thread.sleep(2300);
+
+    verify(ctx, times(1)).raiseError(any(Exception.class));
+    verify(conn, times(1)).getKcAdvisoryMessages(anyString());
+    assertEquals(1, connector.advisoryPollCountForTest());
+    Field pollerField = SnowflakeStreamingSinkConnector.class.getDeclaredField("advisoryPoller");
+    pollerField.setAccessible(true);
+    assertTrue(((ScheduledExecutorService) pollerField.get(connector)).isShutdown());
   }
 
   @Test
@@ -203,6 +241,30 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
     config.put(
         Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY, "false");
     SnowflakeStreamingSinkConnector connector = connectorWith(conn, config);
+    SinkConnectorContext ctx = mock(SinkConnectorContext.class);
+    setContext(connector, ctx);
+    ScheduledExecutorService poller = Executors.newSingleThreadScheduledExecutor();
+    setField(connector, "advisoryPoller", poller);
+
+    invokePrivate(connector, "pollAdvisories");
+    invokePrivate(connector, "pollAdvisories");
+
+    verify(ctx, never()).raiseError(any(Exception.class));
+    assertFalse(poller.isShutdown(), "with the opt-out the poller keeps running");
+    assertEquals(2, connector.advisoryPollCountForTest());
+    poller.shutdownNow();
+  }
+
+  @Test
+  public void pollAdvisories_nonCriticalMidRun_keepsRunning() throws Exception {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.getKcAdvisoryMessages(anyString()))
+        .thenReturn(
+            Arrays.asList(
+                new AdvisoryMessage("info", "fyi"),
+                new AdvisoryMessage("warn", "heads up"),
+                new AdvisoryMessage("error", "known bug")));
+    SnowflakeStreamingSinkConnector connector = connectorWith(conn, new HashMap<>());
     SinkConnectorContext ctx = mock(SinkConnectorContext.class);
     setContext(connector, ctx);
 
@@ -217,9 +279,12 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.getKcAdvisoryMessages(anyString())).thenThrow(new RuntimeException("boom"));
     SnowflakeStreamingSinkConnector connector = connectorWith(conn, new HashMap<>());
+    SinkConnectorContext ctx = mock(SinkConnectorContext.class);
+    setContext(connector, ctx);
 
     invokePrivate(connector, "pollAdvisories");
 
+    verify(ctx, never()).raiseError(any(Exception.class));
     assertEquals(1, connector.advisoryPollCountForTest());
   }
 
