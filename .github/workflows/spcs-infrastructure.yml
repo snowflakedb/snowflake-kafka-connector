@@ -4,16 +4,19 @@ on:
   pull_request:
     paths:
       - '.github/workflows/spcs-infrastructure.yml'
+      - '.github/scripts/decrypt_secret.sh'
+      - '.github/scripts/test_spcs_workflow.py'
       - 'test/spcs/setup_ci.py'
       - 'test/spcs/test_setup_ci.py'
       - 'test/lib/config.py'
       - 'test/lib/crypto.py'
   workflow_dispatch:
     inputs:
-      confirm_setup:
-        description: After approval and merge, create permanent KC resources (pool stays suspended)
-        type: boolean
-        default: false
+      action:
+        description: Check metadata without changes, or create missing permanent resources
+        type: choice
+        options: [check, apply]
+        default: check
 
 permissions:
   contents: read
@@ -24,16 +27,22 @@ jobs:
     timeout-minutes: 5
     steps:
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     - run: pip install 'snowflake-connector-python==4.2.0' 'PyYAML==6.0.2' 'ruff==0.15.0'
     - run: python3 test/spcs/test_setup_ci.py -v
-    - run: ruff check test/spcs/setup_ci.py test/spcs/test_setup_ci.py
-    - run: ruff format --check test/spcs/setup_ci.py test/spcs/test_setup_ci.py
+    - run: python3 .github/scripts/test_spcs_workflow.py -v
+    - run: ruff check test/spcs/setup_ci.py test/spcs/test_setup_ci.py .github/scripts/test_spcs_workflow.py
+    - run: ruff format --check test/spcs/setup_ci.py test/spcs/test_setup_ci.py .github/scripts/test_spcs_workflow.py
 
+  # Configure required approval and selected deployment branches before use.
+  # This gates this job, not other workflows using the same repository credential.
   setup:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector' && inputs.confirm_setup
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
+    environment: kc-spcs-setup
     needs: contracts
     runs-on: ubuntu-22.04
     timeout-minutes: 10
@@ -41,20 +50,42 @@ jobs:
       group: spcs-release-account
       cancel-in-progress: false
     steps:
+    - name: Require configured setup gate
+      env:
+        SETUP_ENABLED: ${{ vars.KC_SPCS_SETUP_ENABLED }}
+      run: test "$SETUP_ENABLED" = true
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     - run: pip install 'snowflake-connector-python==4.2.0'
-    - name: Create or verify permanent resources
+    - name: Check or create permanent resources
       env:
-        KC_SPCS_CONFIRM_SETUP: ${{ inputs.confirm_setup }}
+        SETUP_ACTION: ${{ inputs.action }}
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
         SNOWFLAKE_CREDENTIAL_FILE: ${{ github.workspace }}/profile.json
       run: |
         set -euo pipefail
+        case "$SETUP_ACTION" in check|apply) ;; *) exit 2 ;; esac
         umask 077
-        trap 'rm -f profile.json' EXIT
-        ./.github/scripts/decrypt_secret.sh AWS
-        unset SNOWFLAKE_TEST_PROFILE_SECRET
-        python3 test/spcs/setup_ci.py
+        trap 'rm -f profile.json setup.stderr' EXIT
+        # The helper prints mask commands from arbitrary profile values. Keep them private.
+        if sh -e ./.github/scripts/decrypt_secret.sh AWS >/dev/null 2>&1; then
+          unset SNOWFLAKE_TEST_PROFILE_SECRET
+        else
+          status=$?
+          printf 'ERROR: AWS profile decryption or parsing failed (exit %s)\n' "$status"
+          exit "$status"
+        fi
+        # Libraries can log credentials/identifiers to stderr outside our error handler.
+        if python3 test/spcs/setup_ci.py "$SETUP_ACTION" 2>setup.stderr; then
+          status=0
+        else
+          status=$?
+        fi
+        if [ -s setup.stderr ]; then
+          printf 'NOTICE: dependency stderr suppressed; use controlled diagnostics and query IDs above.\n'
+        fi
+        exit "$status"
