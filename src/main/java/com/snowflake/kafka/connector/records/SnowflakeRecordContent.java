@@ -43,9 +43,27 @@ public class SnowflakeRecordContent {
    * @param isStreaming indicates whether this is part of snowpipe streaming
    */
   public SnowflakeRecordContent(Schema schema, Object data, boolean isStreaming) {
+    this(schema, data, isStreaming, true);
+  }
+
+  /**
+   * constructor for native json converter
+   *
+   * @param schema schema of the object
+   * @param data object produced by native avro/json converters
+   * @param isStreaming indicates whether this is part of snowpipe streaming
+   * @param replaceNullWithDefault replace null values with the schema default (legacy behavior);
+   *     when false, explicit nulls of optional fields are kept
+   */
+  public SnowflakeRecordContent(
+      Schema schema,
+      Object data,
+      boolean isStreaming,
+      boolean replaceNullWithDefault) {
     this.content = new JsonNode[1];
     this.schemaID = NON_AVRO_SCHEMA;
-    this.content[0] = RecordService.convertToJson(schema, data, isStreaming);
+    this.content[0] =
+        RecordService.convertToJson(schema, data, isStreaming, replaceNullWithDefault);
     this.isBroken = false;
     this.brokenData = null;
   }

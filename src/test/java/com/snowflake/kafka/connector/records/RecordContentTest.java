@@ -198,9 +198,29 @@ public class RecordContentTest {
   }
 
   @Test
-  public void recordService_convertToJson_whenOptionalWithDefault_returnNull() {
+  public void recordService_convertToJson_returnDefaultValue() {
     Schema schema = SchemaBuilder.int32().optional().defaultValue(123).build();
-    Assertions.assertEquals("null", RecordService.convertToJson(schema, null, false).toString());
+    Assertions.assertEquals("123", RecordService.convertToJson(schema, null, false).toString());
+  }
+
+  @Test
+  public void recordService_convertToJson_whenReplaceDisabled_optionalWithDefault_returnNull() {
+    Schema schema = SchemaBuilder.int32().optional().defaultValue(123).build();
+    Assertions.assertEquals(
+        "null", RecordService.convertToJson(schema, null, false, false).toString());
+  }
+
+  @Test
+  public void recordService_convertToJson_structFieldNull_replaceEnabled_useDefault() {
+    Schema schema =
+        SchemaBuilder.struct()
+            .field("id", Schema.INT64_SCHEMA)
+            .field("pin", OPTIONAL_PIN_WITH_DEFAULT)
+            .build();
+    Struct value = new Struct(schema).put("id", 1L).put("pin", null);
+
+    Assertions.assertEquals(
+        "{\"id\":1,\"pin\":\"y\"}", RecordService.convertToJson(schema, value, true).toString());
   }
 
   @Test
@@ -213,7 +233,7 @@ public class RecordContentTest {
       SchemaBuilder.string().optional().defaultValue("y").build();
 
   @Test
-  public void recordService_convertToJson_structFieldNullOptionalWithDefault_keepNull() {
+  public void recordService_convertToJson_structFieldNull_replaceDisabled_keepNull() {
     Schema schema =
         SchemaBuilder.struct()
             .field("id", Schema.INT64_SCHEMA)
@@ -222,15 +242,17 @@ public class RecordContentTest {
     Struct value = new Struct(schema).put("id", 1L).put("pin", null);
 
     Assertions.assertEquals(
-        "{\"id\":1,\"pin\":null}", RecordService.convertToJson(schema, value, true).toString());
+        "{\"id\":1,\"pin\":null}",
+        RecordService.convertToJson(schema, value, true, false).toString());
   }
 
   @Test
-  public void recordService_convertToJson_structFieldUnsetOptionalWithDefault_keepNull() {
+  public void recordService_convertToJson_structFieldUnset_replaceDisabled_keepNull() {
     Schema schema = SchemaBuilder.struct().field("pin", OPTIONAL_PIN_WITH_DEFAULT).build();
 
     Assertions.assertEquals(
-        "{\"pin\":null}", RecordService.convertToJson(schema, new Struct(schema), true).toString());
+        "{\"pin\":null}",
+        RecordService.convertToJson(schema, new Struct(schema), true, false).toString());
   }
 
   @Test
@@ -254,16 +276,18 @@ public class RecordContentTest {
   }
 
   @Test
-  public void recordService_convertToJson_arrayAndMapNullOptionalWithDefault_keepNull() {
+  public void recordService_convertToJson_arrayAndMapNull_replaceDisabled_keepNull() {
     Schema array = SchemaBuilder.array(OPTIONAL_PIN_WITH_DEFAULT).build();
     Schema map = SchemaBuilder.map(Schema.STRING_SCHEMA, OPTIONAL_PIN_WITH_DEFAULT).build();
 
     Assertions.assertEquals(
         "[null]",
-        RecordService.convertToJson(array, Collections.singletonList(null), true).toString());
+        RecordService.convertToJson(array, Collections.singletonList(null), true, false)
+            .toString());
     Assertions.assertEquals(
         "{\"k\":null}",
-        RecordService.convertToJson(map, Collections.singletonMap("k", null), true).toString());
+        RecordService.convertToJson(map, Collections.singletonMap("k", null), true, false)
+            .toString());
   }
 
   @Test

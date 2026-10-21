@@ -496,6 +496,19 @@ public class Utils {
 
   /**
    * @param config config with applied default values
+   * @return true when nulls of optional fields should be replaced by schema defaults.
+   */
+  public static boolean isReplaceNullWithDefaultEnabled(Map<String, String> config) {
+    String value =
+        config.get(SnowflakeSinkConnectorConfig.REPLACE_NULL_WITH_DEFAULT_CONFIG);
+    if (value == null) {
+      return SnowflakeSinkConnectorConfig.REPLACE_NULL_WITH_DEFAULT_DEFAULT;
+    }
+    return Boolean.parseBoolean(value);
+  }
+
+  /**
+   * @param config config with applied default values
    * @return true when streaming infinity handling is enabled.
    */
   public static boolean isStreamingInfinityHandlingEnabled(Map<String, String> config) {

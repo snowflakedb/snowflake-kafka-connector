@@ -291,14 +291,32 @@ public class RecordService {
    * @return a JsonNode of the object
    */
   public static JsonNode convertToJson(Schema schema, Object logicalValue, boolean isStreaming) {
+    return convertToJson(schema, logicalValue, isStreaming, true);
+  }
+
+  /**
+   * Same as {@link #convertToJson(Schema, Object, boolean)}, with control over null handling.
+   *
+   * @param replaceNullWithDefault when true (legacy behavior), a null value is replaced by the
+   *     schema default value if there is one; when false, an explicit null for an optional field
+   *     is kept as null
+   */
+  public static JsonNode convertToJson(
+      Schema schema,
+      Object logicalValue,
+      boolean isStreaming,
+      boolean replaceNullWithDefault) {
     if (logicalValue == null) {
       if (schema
           == null) // Any schema is valid and we don't have a default, so treat this as an optional
         // schema
         return null;
-      if (schema.isOptional()) return JsonNodeFactory.instance.nullNode();
+      if (!replaceNullWithDefault && schema.isOptional())
+        return JsonNodeFactory.instance.nullNode();
       if (schema.defaultValue() != null)
-        return convertToJson(schema, schema.defaultValue(), isStreaming);
+        return convertToJson(
+            schema, schema.defaultValue(), isStreaming, replaceNullWithDefault);
+      if (schema.isOptional()) return JsonNodeFactory.instance.nullNode();
       throw SnowflakeErrors.ERROR_5015.getException(
           "Conversion error: null value for field that is required and has no default value");
     }
@@ -394,7 +412,8 @@ public class RecordService {
             ArrayNode list = JsonNodeFactory.instance.arrayNode();
             for (Object elem : collection) {
               Schema valueSchema = schema == null ? null : schema.valueSchema();
-              JsonNode fieldValue = convertToJson(valueSchema, elem, isStreaming);
+              JsonNode fieldValue = convertToJson(
+                      valueSchema, elem, isStreaming, replaceNullWithDefault);
               list.add(fieldValue);
             }
             return list;
@@ -424,8 +443,13 @@ public class RecordService {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
               Schema keySchema = schema == null ? null : schema.keySchema();
               Schema valueSchema = schema == null ? null : schema.valueSchema();
-              JsonNode mapKey = convertToJson(keySchema, entry.getKey(), isStreaming);
-              JsonNode mapValue = convertToJson(valueSchema, entry.getValue(), isStreaming);
+              JsonNode mapKey = convertToJson(
+                      keySchema, entry.getKey(), isStreaming, replaceNullWithDefault);
+              JsonNode mapValue = convertToJson(
+                      valueSchema,
+                      entry.getValue(),
+                      isStreaming,
+                      replaceNullWithDefault);
 
               if (objectMode) obj.set(mapKey.asText(), mapValue);
               else list.add(JsonNodeFactory.instance.arrayNode().add(mapKey).add(mapValue));
@@ -439,11 +463,19 @@ public class RecordService {
               throw SnowflakeErrors.ERROR_5015.getException("Mismatching schema.");
             ObjectNode obj = JsonNodeFactory.instance.objectNode();
             for (Field field : schema.fields()) {
-              // Struct.get would turn a null into the schema default, so read the raw value.
+              // Struct.get turns a null into the schema default, so read the raw value when nulls
+              // must be kept.
+              Object fieldValue =
+                  replaceNullWithDefault
+                      ? struct.get(field)
+                      : struct.getWithoutDefault(field.name());
               obj.set(
                   field.name(),
                   convertToJson(
-                      field.schema(), struct.getWithoutDefault(field.name()), isStreaming));
+                      field.schema(),
+                      fieldValue,
+                      isStreaming,
+                      replaceNullWithDefault));
             }
             return obj;
           }

@@ -297,6 +297,17 @@ public class SnowflakeSinkConnectorConfig {
           + " ingested as 'Inf' or '-Inf'. When disabled, infinity values will be treated as 'NaN'"
           + " for backward compatibility. Can only be set if Streaming Snowpipe is enabled";
 
+  public static final String REPLACE_NULL_WITH_DEFAULT_CONFIG =
+      "snowflake.replace.null.with.default";
+  public static final String REPLACE_NULL_WITH_DEFAULT_DISPLAY =
+      "Replace null with schema default";
+  public static final boolean REPLACE_NULL_WITH_DEFAULT_DEFAULT = true;
+  public static final String REPLACE_NULL_WITH_DEFAULT_DOC =
+      "Whether a null value of an optional field that has a schema default should be replaced by"
+          + " that default value. When enabled (default), the default value is ingested instead of"
+          + " null, which is the historical behavior. When disabled, an explicit null is ingested"
+          + " as NULL.";
+
   public static final String ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS =
       "enable.task.fail.on.authorization.errors";
   public static final boolean ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS_DEFAULT = false;

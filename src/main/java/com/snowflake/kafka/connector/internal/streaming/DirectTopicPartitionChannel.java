@@ -385,7 +385,11 @@ public class DirectTopicPartitionChannel implements TopicPartitionChannel {
     Schema schema = isKey ? record.keySchema() : record.valueSchema();
     Object content = isKey ? record.key() : record.value();
     try {
-      newSFContent = new SnowflakeRecordContent(schema, content, true);
+      newSFContent = new SnowflakeRecordContent(
+              schema,
+              content,
+              true,
+              Utils.isReplaceNullWithDefaultEnabled(sfConnectorConfig));
     } catch (Exception e) {
       if (e instanceof SnowflakeKafkaConnectorException) {
         // SnowflakeKafkaConnectorException messages are fixed, structured error descriptions

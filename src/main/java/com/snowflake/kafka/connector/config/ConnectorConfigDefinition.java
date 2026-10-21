@@ -678,6 +678,16 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             13,
             ConfigDef.Width.NONE,
-            ENABLE_STREAMING_INFINITY_HANDLING_DISPLAY);
+            ENABLE_STREAMING_INFINITY_HANDLING_DISPLAY)
+        .define(
+            REPLACE_NULL_WITH_DEFAULT_CONFIG,
+            ConfigDef.Type.BOOLEAN,
+            REPLACE_NULL_WITH_DEFAULT_DEFAULT,
+            ConfigDef.Importance.LOW,
+            REPLACE_NULL_WITH_DEFAULT_DOC,
+            CONNECTOR_CONFIG_DOC,
+            14,
+            ConfigDef.Width.NONE,
+            REPLACE_NULL_WITH_DEFAULT_DISPLAY);
   }
 }
