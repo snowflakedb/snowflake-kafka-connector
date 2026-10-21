@@ -94,6 +94,19 @@ public interface SnowflakeConnectionService {
   void createIcebergTableWithOnlyMetadataColumn(String tableName, String createTableOptions);
 
   /**
+   * Create an interactive table with only the RECORD_METADATA column, schema evolution and error
+   * logging enabled. No-op if the table already exists.
+   *
+   * @param tableName table name
+   * @param createTableOptions operator-supplied SQL clauses spliced after the column list (e.g.
+   *     "CLUSTER BY (RECORD_METADATA:partition::number)"). May be empty. Interactive tables require
+   *     clustering keys, so when the options contain no CLUSTER BY the connector clusters on
+   *     RECORD_METADATA:offset. The connector always supplies ENABLE_SCHEMA_EVOLUTION and
+   *     ERROR_LOGGING, so callers must not repeat those here.
+   */
+  void createInteractiveTableWithOnlyMetadataColumn(String tableName, String createTableOptions);
+
+  /**
    * Calls describe table statement and returns all columns and corresponding types.
    *
    * @param tableName - table name

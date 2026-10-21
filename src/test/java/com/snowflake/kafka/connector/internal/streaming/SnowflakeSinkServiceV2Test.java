@@ -562,6 +562,49 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
+  void createTableIfNotExists_interactiveType_callsInteractiveCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig cfg =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.INTERACTIVE)
+            .interactiveCreateTableOptions(Optional.of("CLUSTER BY (c)"))
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg);
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn).createInteractiveTableWithOnlyMetadataColumn("t1", "CLUSTER BY (c)");
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_interactiveType_noOptions_passesEmpty() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.INTERACTIVE, null));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn).createInteractiveTableWithOnlyMetadataColumn("t1", "");
+  }
+
+  @Test
+  void createTableIfNotExists_interactiveType_existingTable_usedAsIs_noCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(true);
+    SnowflakeSinkServiceV2 svc = newService(conn, cfg(TableType.INTERACTIVE, null));
+
+    svc.createTableIfNotExists("t1");
+
+    verify(conn, never()).createInteractiveTableWithOnlyMetadataColumn(anyString(), anyString());
+    verify(conn, never()).createTableWithOnlyMetadataColumn(anyString());
+  }
+
+  @Test
   void createTableIfNotExists_icebergType_callsIcebergCreate() {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(false);

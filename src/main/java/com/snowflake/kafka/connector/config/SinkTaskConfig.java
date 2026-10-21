@@ -54,6 +54,8 @@ public abstract class SinkTaskConfig {
 
   public abstract Optional<String> getIcebergCreateTableOptions();
 
+  public abstract Optional<String> getInteractiveCreateTableOptions();
+
   public abstract boolean isEnableColumnIdentifierNormalization();
 
   public abstract SnowflakeValidation getValidation();
@@ -437,6 +439,22 @@ public abstract class SinkTaskConfig {
               + ")");
     }
 
+    Optional<String> interactiveCreateTableOptions =
+        Optional.ofNullable(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_INTERACTIVE_CREATE_TABLE_OPTIONS))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty());
+    if (interactiveCreateTableOptions.isPresent()
+        && autocreatedTableType != TableType.INTERACTIVE) {
+      throw new IllegalArgumentException(
+          KafkaConnectorConfigParams.SNOWFLAKE_INTERACTIVE_CREATE_TABLE_OPTIONS
+              + " is only valid when "
+              + KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE
+              + "=interactive (got table.type="
+              + autocreatedTableType.configValue()
+              + ")");
+    }
+
     // client_side validation cannot model the structured RECORD_METADATA column of managed Iceberg
     // tables; client-side schema evolution also relies on ALTER ADD COLUMN, which is a server-side
     // concern for Iceberg. Reject unconditionally rather than only when schematization is enabled.
@@ -513,7 +531,8 @@ public abstract class SinkTaskConfig {
         .normalizeTimeEnabled(normalizeTimeEnabled)
         .structuredRecordMetadataEnabled(structuredRecordMetadataEnabled)
         .autocreatedTableType(autocreatedTableType)
-        .icebergCreateTableOptions(icebergCreateTableOptions);
+        .icebergCreateTableOptions(icebergCreateTableOptions)
+        .interactiveCreateTableOptions(interactiveCreateTableOptions);
 
     snowflakePrivateKey.ifPresent(b::snowflakePrivateKey);
     snowflakePrivateKeyPassphrase.ifPresent(b::snowflakePrivateKeyPassphrase);
@@ -573,6 +592,9 @@ public abstract class SinkTaskConfig {
     public abstract Builder autocreatedTableType(TableType autocreatedTableType);
 
     public abstract Builder icebergCreateTableOptions(Optional<String> icebergCreateTableOptions);
+
+    public abstract Builder interactiveCreateTableOptions(
+        Optional<String> interactiveCreateTableOptions);
 
     public abstract Builder enableColumnIdentifierNormalization(
         boolean enableColumnIdentifierNormalization);

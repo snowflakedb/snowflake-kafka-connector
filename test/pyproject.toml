@@ -10,6 +10,7 @@ markers = [
     "compatibility: data-type and version compatibility tests across ingestion modes",
     "confluent_only: test requires Confluent platform (schema registry)",
     "iceberg: iceberg table tests (requires ICEBERG_EXTERNAL_VOLUME)",
+    "interactive: interactive table tests (account must have interactive streaming)",
     "pressure: long-running stress/pressure test",
     "compatibility: v3/v4 dual-version compatibility tests",
     "schema_evolution: schema evolution e2e tests",

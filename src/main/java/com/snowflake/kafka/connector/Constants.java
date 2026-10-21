@@ -176,6 +176,14 @@ public final class Constants {
     public static final String SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS =
         "snowflake.iceberg.create.table.options";
     public static final String SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT = "";
+    // Optional SQL clauses spliced into the auto-created interactive table's CREATE statement,
+    // right after the column list (e.g. "CLUSTER BY (RECORD_METADATA:partition::number)"). An
+    // interactive table must have clustering keys; when these options contain no CLUSTER BY, the
+    // connector clusters on RECORD_METADATA:offset, which every record carries. Only valid when
+    // snowflake.autocreate.table.type=interactive.
+    public static final String SNOWFLAKE_INTERACTIVE_CREATE_TABLE_OPTIONS =
+        "snowflake.interactive.create.table.options";
+    public static final String SNOWFLAKE_INTERACTIVE_CREATE_TABLE_OPTIONS_DEFAULT = "";
 
     // MDC logging header
     public static final String ENABLE_MDC_LOGGING_CONFIG = "enable.mdc.logging";

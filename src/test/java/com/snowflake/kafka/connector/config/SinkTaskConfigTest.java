@@ -337,6 +337,49 @@ public class SinkTaskConfigTest {
   }
 
   @Test
+  void from_parsesInteractiveTableTypeAndCreateOptions() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "interactive");
+    raw.put(
+        "snowflake.interactive.create.table.options",
+        "  CLUSTER BY (RECORD_METADATA:partition::number)  ");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.INTERACTIVE);
+    assertThat(config.getInteractiveCreateTableOptions())
+        .contains("CLUSTER BY (RECORD_METADATA:partition::number)");
+    assertThat(config.getIcebergCreateTableOptions()).isEmpty();
+  }
+
+  @Test
+  void from_interactiveTableType_caseInsensitive_noOptions() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "INTERACTIVE");
+    SinkTaskConfig config = SinkTaskConfig.from(raw);
+    assertThat(config.getAutocreatedTableType()).isEqualTo(TableType.INTERACTIVE);
+    assertThat(config.getInteractiveCreateTableOptions()).isEmpty();
+  }
+
+  @Test
+  void from_interactiveOptionsWithoutInteractiveTableType_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "snowflake");
+    raw.put("snowflake.interactive.create.table.options", "CLUSTER BY (c)");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("snowflake.interactive.create.table.options");
+  }
+
+  @Test
+  void from_icebergOptionsWithInteractiveTableType_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "interactive");
+    raw.put("snowflake.iceberg.create.table.options", "ICEBERG_VERSION=3");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("snowflake.iceberg.create.table.options");
+  }
+
+  @Test
   void from_createOptionsWithoutIcebergTableType_throws() {
     Map<String, String> raw = minimalConfig();
     raw.put("snowflake.autocreate.table.type", "snowflake");

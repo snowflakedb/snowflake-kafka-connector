@@ -326,14 +326,22 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         this.conn.createIcebergTableWithOnlyMetadataColumn(
             tableName, taskConfig.getIcebergCreateTableOptions().orElse(""));
         break;
+      case INTERACTIVE:
+        LOGGER.info(
+            "Creating new interactive table {} (createTableOptions='{}').",
+            tableName,
+            taskConfig.getInteractiveCreateTableOptions().orElse(""));
+        this.conn.createInteractiveTableWithOnlyMetadataColumn(
+            tableName, taskConfig.getInteractiveCreateTableOptions().orElse(""));
+        break;
       case NONE:
         // Missing table + none: fail loudly and tell the operator their two ways out.
         throw SnowflakeErrors.ERROR_0034.getException(
             "Table '"
                 + tableName
                 + "' does not exist and snowflake.autocreate.table.type=none. Either create the"
-                + " table yourself, or set snowflake.autocreate.table.type=snowflake|iceberg so"
-                + " the connector creates the table for you.");
+                + " table yourself, or set snowflake.autocreate.table.type=snowflake|iceberg|"
+                + "interactive so the connector creates the table for you.");
       case SNOWFLAKE:
       default:
         LOGGER.info("Creating new table {}.", tableName);

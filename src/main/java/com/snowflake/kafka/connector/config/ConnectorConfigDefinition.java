@@ -508,11 +508,13 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE,
             STRING,
             KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT.configValue(),
-            ConfigDef.ValidString.in("snowflake", "iceberg", "none"),
+            ConfigDef.ValidString.in("snowflake", "iceberg", "interactive", "none"),
             MEDIUM,
             "Controls table auto-creation. 'snowflake' (default): auto-create a standard Snowflake"
                 + " table if it is missing. 'iceberg': auto-create a Snowflake-managed Iceberg"
-                + " table if it is missing. 'none': never auto-create the table (fail fast if it"
+                + " table if it is missing. 'interactive': auto-create an interactive table if it"
+                + " is missing (requires interactive streaming to be enabled on the account)."
+                + " 'none': never auto-create the table (fail fast if it"
                 + " is missing); the pipe is still auto-managed by the connector as usual. An"
                 + " existing table is always used as-is, regardless of this setting.",
             CONNECTOR_CONFIG_DOC,
@@ -534,6 +536,22 @@ public class ConnectorConfigDefinition {
             16,
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS)
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_INTERACTIVE_CREATE_TABLE_OPTIONS,
+            STRING,
+            KafkaConnectorConfigParams.SNOWFLAKE_INTERACTIVE_CREATE_TABLE_OPTIONS_DEFAULT,
+            LOW,
+            "SQL clauses spliced into the auto-created interactive table's CREATE statement after"
+                + " the column list (e.g. \"CLUSTER BY (RECORD_METADATA:partition::number)\")."
+                + " Interactive tables require clustering keys: if these options contain no"
+                + " CLUSTER BY, the connector clusters on RECORD_METADATA:offset. Only valid when"
+                + " snowflake.autocreate.table.type=interactive. Do NOT include"
+                + " ENABLE_SCHEMA_EVOLUTION or ERROR_LOGGING -- the connector always supplies"
+                + " those. Ignored if the table already exists.",
+            CONNECTOR_CONFIG_DOC,
+            16,
+            Width.NONE,
+            KafkaConnectorConfigParams.SNOWFLAKE_INTERACTIVE_CREATE_TABLE_OPTIONS)
         .define(
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
             BOOLEAN,

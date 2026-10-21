@@ -174,6 +174,14 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
+  public void createInteractiveTableWithOnlyMetadataColumn(
+      String tableName, String createTableOptions) {
+    delegate.createInteractiveTableWithOnlyMetadataColumn(tableName, createTableOptions);
+    tableExistsCache.invalidate(tableName);
+    errorLoggingCache.invalidate(tableName);
+  }
+
+  @Override
   public boolean isTableCompatible(String tableName) {
     return delegate.isTableCompatible(tableName);
   }

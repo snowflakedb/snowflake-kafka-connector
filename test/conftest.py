@@ -138,6 +138,10 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers",
+        "interactive: interactive table tests (account must have interactive streaming)",
+    )
+    config.addinivalue_line(
+        "markers",
         "fault_injection: fault injection tests requiring mitmproxy (--with-mitmproxy)",
     )
 

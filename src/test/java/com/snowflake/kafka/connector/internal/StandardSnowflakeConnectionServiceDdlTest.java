@@ -520,6 +520,75 @@ public class StandardSnowflakeConnectionServiceDdlTest {
   }
 
   @Test
+  public void createInteractiveTable_noOptions_usesDefaultClusterBy() throws SQLException {
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createInteractiveTableWithOnlyMetadataColumn("test_table", "");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue();
+
+    assertThat(sql).startsWith("create interactive table if not exists identifier(?)");
+    // interactive tables reject a CREATE without clustering keys, so the default is always added
+    assertThat(sql)
+        .contains(
+            "') cluster by (record_metadata:offset::number) enable_schema_evolution = true"
+                + " error_logging = true");
+    assertThat(sql.toLowerCase()).doesNotContain("catalog");
+    // the table name is bound, never concatenated
+    assertThat(sql).doesNotContain("test_table");
+    verify(createStmt).setString(1, "\"test_table\"");
+    verify(createStmt).execute();
+  }
+
+  @Test
+  public void createInteractiveTable_userClusterBy_replacesDefault() throws SQLException {
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createInteractiveTableWithOnlyMetadataColumn(
+        "test_table", "  Cluster  By (RECORD_METADATA:partition::number)  ");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    String sql = sqlCaptor.getValue();
+
+    assertThat(sql)
+        .contains(
+            "') Cluster  By (RECORD_METADATA:partition::number) enable_schema_evolution = true");
+    assertThat(sql).doesNotContain("record_metadata:offset");
+  }
+
+  @Test
+  public void createInteractiveTable_optionsWithoutClusterBy_keepsDefaultFirst()
+      throws SQLException {
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+
+    service.createInteractiveTableWithOnlyMetadataColumn("test_table", "COMMENT = 'x'");
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
+    assertThat(sqlCaptor.getValue())
+        .contains(
+            "') cluster by (record_metadata:offset::number) COMMENT = 'x'"
+                + " enable_schema_evolution = true");
+  }
+
+  @Test
+  public void createInteractiveTable_sqlException_wrapped() throws SQLException {
+    PreparedStatement createStmt = mock(PreparedStatement.class);
+    when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);
+    when(createStmt.execute()).thenThrow(new SQLException("boom"));
+
+    assertThrows(
+        SnowflakeKafkaConnectorException.class,
+        () -> service.createInteractiveTableWithOnlyMetadataColumn("test_table", ""));
+  }
+
+  @Test
   public void testHasErrorLoggingEnabled_onMeansEnabled() throws Exception {
     // SHOW TABLES renders error_logging as ON/OFF, not Y/N.
     Connection conn = mock(Connection.class);

@@ -39,6 +39,12 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   // support it (format v2, or ENABLE_ICEBERG_VARIANT_TYPE off). JDBC strips the leading zero of
   // 091386.
   private static final int ERR_ICEBERG_DATATYPE_NOT_SUPPORTED = 91386;
+  // Default clustering key for auto-created interactive tables; see
+  // createInteractiveTableWithOnlyMetadataColumn.
+  static final String INTERACTIVE_DEFAULT_CLUSTER_BY =
+      "cluster by (record_metadata:offset::number)";
+  private static final java.util.regex.Pattern INTERACTIVE_CLUSTER_BY_PATTERN =
+      java.util.regex.Pattern.compile("(?i)\\bcluster\\s+by\\b");
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
@@ -140,6 +146,43 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     LOGGER.info(
         "Created Iceberg table {} (createTableOptions='{}') with structured OBJECT RECORD_METADATA,"
             + " schema evolution and error logging enabled",
+        tableName,
+        createTableOptions);
+  }
+
+  @Override
+  public void createInteractiveTableWithOnlyMetadataColumn(
+      final String tableName, final String createTableOptions) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    String options = createTableOptions == null ? "" : createTableOptions.trim();
+    // An interactive table must have clustering keys ("An interactive table must contain clustering
+    // keys"), and at creation time RECORD_METADATA is its only column. Its offset is present on
+    // every
+    // record, so it is a safe default; operators can override it via the options.
+    String clusterClause =
+        INTERACTIVE_CLUSTER_BY_PATTERN.matcher(options).find()
+            ? ""
+            : " " + INTERACTIVE_DEFAULT_CLUSTER_BY;
+    String optionsClause = options.isEmpty() ? "" : " " + options;
+    String createTableQuery =
+        "create interactive table if not exists identifier(?) (record_metadata variant comment '"
+            + COLUMN_COMMENT
+            + "')"
+            + clusterClause
+            + optionsClause
+            + " enable_schema_evolution = true error_logging = true";
+
+    try (PreparedStatement stmt = conn.prepareStatement(createTableQuery)) {
+      stmt.setString(1, quoteIdentifier(tableName));
+      stmt.execute();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2007.getException(e);
+    }
+    LOGGER.info(
+        "Created interactive table {} (createTableOptions='{}') with RECORD_METADATA column, schema"
+            + " evolution and error logging enabled",
         tableName,
         createTableOptions);
   }
