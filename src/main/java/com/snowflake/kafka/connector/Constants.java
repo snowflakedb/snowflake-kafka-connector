@@ -106,18 +106,19 @@ public final class Constants {
         "snowflake.feature.structured.headers";
     public static final boolean SNOWFLAKE_FEATURE_STRUCTURED_HEADERS_DEFAULT = false;
 
-    // When true (default), a CRITICAL server advisory causes connector startup to fail, and stops a
-    // running connector, with a clear message. Set to false to run despite a critical advisory (not
-    // recommended).
+    // When true (default), a CRITICAL server advisory causes connector and task startup to fail,
+    // and stops a running connector and its tasks, with a clear message. Set to false to run
+    // despite a critical advisory (not recommended).
     public static final String SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY =
         "snowflake.feature.fail_on_critical_advisory";
     public static final boolean SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY_DEFAULT = true;
 
     // Kill-switch (unregistered) controlling the interval, in seconds, at which the connector
     // re-polls server-side advisories while running (in addition to the one-time startup check).
-    // A CRITICAL advisory seen mid-run stops the connector, just as it refuses startup (both
-    // honor SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY); other levels only log. Set to <= 0 to
-    // disable periodic polling (startup-only checking).
+    // The connector and each task poll on this interval (tasks with a random first delay). A
+    // CRITICAL advisory seen mid-run stops the connector and the tasks, just as it refuses startup
+    // (both honor SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY); other levels only log. Set to <= 0
+    // to disable periodic polling (startup-only checking).
     public static final String SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS =
         "snowflake.feature.advisory_poll_interval_seconds";
     public static final long SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS_DEFAULT = 3600L;

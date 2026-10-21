@@ -449,7 +449,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   }
 
   /** Request context sent to the GS advisory function; v1 carries only the connector version. */
-  private static String advisoryRequestJson() {
+  static String advisoryRequestJson() {
     return "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
   }
 
@@ -458,6 +458,11 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
    *     user-overridable via {@code snowflake.feature.fail_on_critical_advisory}.
    */
   private boolean failOnCriticalAdvisory() {
+    return failOnCriticalAdvisory(config);
+  }
+
+  /** Shared with {@link SinkTaskAdvisoryMonitor}, which reads the same settings. */
+  static boolean failOnCriticalAdvisory(Map<String, String> config) {
     return Boolean.parseBoolean(
         config.getOrDefault(
             KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY,
@@ -587,13 +592,7 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
    */
   private void startAdvisoryPolling() {
     criticalSeenMidRun.set(false); // start() may be called again on this instance after stop()
-    long intervalSeconds =
-        Long.parseLong(
-            config.getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS,
-                String.valueOf(
-                    KafkaConnectorConfigParams
-                        .SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS_DEFAULT)));
+    long intervalSeconds = advisoryPollIntervalSeconds(config);
     if (intervalSeconds <= 0) {
       LOGGER.info("Server advisory polling disabled (interval <= 0).");
       return;
@@ -608,6 +607,15 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     advisoryPoller.scheduleAtFixedRate(
         this::pollAdvisories, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
     LOGGER.info("Server advisory polling every {}s.", intervalSeconds);
+  }
+
+  static long advisoryPollIntervalSeconds(Map<String, String> config) {
+    return Long.parseLong(
+        config.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS,
+            String.valueOf(
+                KafkaConnectorConfigParams
+                    .SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS_DEFAULT)));
   }
 
   /**
