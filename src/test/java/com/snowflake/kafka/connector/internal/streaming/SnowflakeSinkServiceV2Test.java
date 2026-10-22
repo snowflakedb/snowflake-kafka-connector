@@ -562,7 +562,7 @@ class SnowflakeSinkServiceV2Test {
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
-    List<InflightUsage> usages = new ArrayList<>(Collections.nCopies(11, new InflightUsage(50, 0)));
+    List<InflightUsage> usages = new ArrayList<>(Collections.nCopies(12, new InflightUsage(50, 0)));
     usages.add(new InflightUsage(0, 0));
     when(mockChannelManager.sumInflightUsage())
         .thenReturn(usages.get(0), usages.subList(1, usages.size()).toArray(new InflightUsage[0]));
@@ -571,7 +571,11 @@ class SnowflakeSinkServiceV2Test {
     limited.insert(Collections.singletonList(record));
     limited.insert(Collections.singletonList(record));
 
-    verify(mockChannelManager, times(12)).sumInflightUsage();
+    verify(mockChannelManager, times(13)).sumInflightUsage();
+    // 10 rechecks exhaust the first put, then the second put starts capped and waits once.
+    assertEquals(11, sleeper.sleeps.size());
+    verify(mockTaskMetrics, times(2)).incInflightCapWaitCount();
+    verify(mockTaskMetrics, times(1)).incBackpressureRewindCount();
     verify(mockSinkTaskContext, times(1)).offset(Map.of(tp0, 1000L));
     verify(channel0, times(1)).insertRecord(record);
     assertFalse(limited.isTaskInflightCapped());
@@ -591,6 +595,9 @@ class SnowflakeSinkServiceV2Test {
     limited.insert(Collections.singletonList(record));
 
     verify(mockChannelManager, times(2)).sumInflightUsage();
+    assertEquals(List.of(SnowflakeSinkServiceV2.INFLIGHT_RECHECK_INTERVAL), sleeper.sleeps);
+    verify(mockTaskMetrics).incInflightCapWaitCount();
+    verify(mockTaskMetrics, never()).incBackpressureRewindCount();
     verify(channel0).insertRecord(record);
     verify(mockSinkTaskContext, never()).offset(any(Map.class));
     assertFalse(limited.isTaskInflightCapped());
@@ -694,6 +701,8 @@ class SnowflakeSinkServiceV2Test {
 
     verify(channel0, never()).insertRecord(any());
     verify(mockSinkTaskContext).offset(Map.of(tp0, 1000L));
+    verify(mockChannelManager, never()).sumInflightUsage();
+    verify(mockTaskMetrics, never()).incBackpressureRewindCount();
     assertTrue(sleeper.sleeps.isEmpty());
     assertEquals(cooldown, limited.backpressureUntil);
   }
