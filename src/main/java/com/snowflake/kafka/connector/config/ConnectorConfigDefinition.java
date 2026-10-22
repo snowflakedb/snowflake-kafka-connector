@@ -419,11 +419,12 @@ public class ConnectorConfigDefinition {
                 + " span multiple SDK clients). 0 disables the cap. Checked once at the start of"
                 + " every put, before any record of that batch is appended. The SDK values are"
                 + " exact at read time. When the sum is at or above the cap, or a read fails for an"
-                + " open channel, the task appends nothing from the batch, rewinds it, and backs"
-                + " off for 1 second. A read failing for more than 5 minutes in a row fails the"
-                + " task. The task can exceed the cap by at most one put batch, which is at most"
-                + " the consumer max.poll.records rows. Requires a snowpipe-streaming version that"
-                + " publishes per-channel inflight JMX beans, otherwise the task fails to start.",
+                + " open channel, the task appends nothing from the batch and asks Kafka Connect to"
+                + " pause its partitions and redeliver the same batch after 1 second. A read"
+                + " failing for more than 5 minutes in a row fails the task. The task can exceed"
+                + " the cap by at most one put batch, which is at most the consumer"
+                + " max.poll.records rows. Requires a snowpipe-streaming version that publishes"
+                + " per-channel inflight JMX beans, otherwise the task fails to start.",
             CONNECTOR_CONFIG_DOC,
             7,
             Width.NONE,
@@ -439,8 +440,9 @@ public class ConnectorConfigDefinition {
                 + " owns (which may span multiple SDK clients). 0 disables the cap. Checked once at"
                 + " the start of every put, before any record of that batch is appended. The SDK"
                 + " values are exact at read time. When the sum is at or above the cap, or a read"
-                + " fails for an open channel, the task appends nothing from the batch, rewinds it,"
-                + " and backs off for 1 second. A read failing for more than 5 minutes in a row"
+                + " fails for an open channel, the task appends nothing from the batch and asks"
+                + " Kafka Connect to pause its partitions and redeliver the same batch after 1"
+                + " second. A read failing for more than 5 minutes in a row"
                 + " fails the task. The task can exceed the cap by at most the SDK-accounted"
                 + " bytes of one put batch of at most max.poll.records records (consumer fetch"
                 + " sizes bound compressed Kafka bytes, not SDK-accounted bytes). Requires a"

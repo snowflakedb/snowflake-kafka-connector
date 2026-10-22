@@ -42,6 +42,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -461,6 +462,23 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           initializingPartitions);
     }
 
+    // Task-level caps, checked once per put before any record of this batch is appended and before
+    // pending offset resets are drained, so a tripped check leaves those resets queued for the
+    // redelivered put. Every appendRow of this task runs below on this thread and the SDK gauges
+    // are exact at read time, so per task the summed inflight usage can exceed a cap by at most
+    // one batch. A tripped check asks Connect to pause and redeliver this same batch after the
+    // cooldown instead of rewinding, so nothing is refetched from Kafka.
+    if ((taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0)
+        && !records.isEmpty()) {
+      try {
+        if (taskInflightCapReached()) {
+          throw pauseForRedelivery("Task inflight cap reached", null);
+        }
+      } catch (InflightUsageUnavailableException e) {
+        throw pauseForRedelivery("Task inflight usage unavailable", e);
+      }
+    }
+
     Map<TopicPartition, Long> offsetsToRewindTo = new HashMap<>();
 
     // Drain offset resets submitted by channel init / recovery on the IO thread.
@@ -492,21 +510,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       skipAllPartitions = true;
     }
 
-    // Task-level caps, checked once per put before any record of this batch is appended. Every
-    // appendRow of this task runs below on this thread and the SDK gauges are exact at read time,
-    // so per task the summed inflight usage can exceed a cap by at most this one batch. A skipped
-    // or rewound record is only appended by a later put, which runs its own check.
-    final boolean inflightCapsEnabled =
-        taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0;
     boolean newBackpressure = false;
-    if (inflightCapsEnabled
-        && !skipAllPartitions
-        && !records.isEmpty()
-        && taskInflightCapReached()) {
-      skipAllPartitions = true;
-      newBackpressure = true;
-      taskMetrics.incBackpressureRewindCount();
-    }
 
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
@@ -571,6 +575,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
+  /**
+   * Asks Connect to pause all assigned partitions and redeliver the current batch after the
+   * backpressure cooldown. Only valid while nothing from the batch has been appended or rewound.
+   */
+  private RetriableException pauseForRedelivery(String reason, Throwable cause) {
+    sinkTaskContext.timeout(BACKPRESSURE_COOLDOWN.toMillis());
+    return new RetriableException(
+        reason + ", redelivering the batch after " + BACKPRESSURE_COOLDOWN, cause);
+  }
+
   @VisibleForTesting
   boolean isTaskInflightCapped() {
     return taskInflightCapped;
@@ -578,9 +592,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   /**
    * Whether this task's summed inflight rows or bytes are at or above a configured cap. A cap of 0
-   * is disabled. Usage that cannot be read counts as reached, so the caller backs off instead of
-   * appending blind. Logs WARN when the task becomes capped and INFO when it is no longer capped.
+   * is disabled. Logs WARN when the task becomes capped and INFO when it is no longer capped.
    *
+   * @throws InflightUsageUnavailableException if the usage cannot be read, after logging it and
+   *     marking the task capped
    * @throws ConnectException if the usage has been unavailable on every check for longer than
    *     {@link #MAX_INFLIGHT_USAGE_UNAVAILABLE}
    */
@@ -607,7 +622,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                 KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES),
             e);
       }
-      // Runs at most once per backpressure cooldown: the cooldown this sets skips the next check.
+      // Runs once per redelivery: the caller asks Connect to wait the cooldown before the next put.
       LOGGER.error(
           String.format(
               "Task inflight usage unavailable since %s, treating the task inflight cap as reached"
@@ -615,7 +630,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
               inflightUnavailableSince, BACKPRESSURE_COOLDOWN, maxRows, maxBytes),
           e);
       taskInflightCapped = true;
-      return true;
+      throw e;
     }
     inflightUnavailableSince = null;
     boolean rowsReached = maxRows > 0 && usage.getRows() >= maxRows;
