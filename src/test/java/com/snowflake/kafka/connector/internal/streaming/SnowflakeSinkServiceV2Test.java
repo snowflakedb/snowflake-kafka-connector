@@ -2,11 +2,14 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -25,6 +28,7 @@ import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
+import com.snowflake.kafka.connector.internal.streaming.v2.InflightUsageUnavailableException;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
@@ -41,6 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -48,7 +53,11 @@ import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 class SnowflakeSinkServiceV2Test {
 
@@ -502,6 +511,39 @@ class SnowflakeSinkServiceV2Test {
     assertTrue(limited.backpressureUntil.isAfter(Instant.now()));
   }
 
+  @ParameterizedTest
+  @MethodSource("usageAtEitherCap")
+  @SuppressWarnings("unchecked")
+  void insertRewindsEveryPartitionWhenEitherCapReached(InflightUsage usage) {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 2);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    TopicPartitionChannel channel1 = mockChannel("ch_1", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
+    when(mockChannelManager.sumInflightUsage()).thenReturn(usage);
+
+    limited.insert(
+        Arrays.asList(
+            recordFor(TOPIC, 0, 1000),
+            recordFor(TOPIC, 1, 2000),
+            recordFor(TOPIC, 0, 1001),
+            recordFor(TOPIC, 1, 2001)));
+
+    verify(channel0, never()).insertRecord(any());
+    verify(channel1, never()).insertRecord(any());
+    verify(mockSinkTaskContext).offset(Map.of(tp0, 1000L, tp1, 2000L));
+    assertTrue(limited.backpressureUntil.isAfter(Instant.now()));
+    assertTrue(limited.isTaskInflightCapped());
+  }
+
+  static Stream<Arguments> usageAtEitherCap() {
+    return Stream.of(
+        Arguments.of(new InflightUsage(50, 0)),
+        Arguments.of(new InflightUsage(0, 2L * BYTES_PER_MEGABYTE)));
+  }
+
   @Test
   @SuppressWarnings("unchecked")
   void insertAllowsRecordsWhenTaskInflightUnderBothCaps() {
@@ -515,9 +557,106 @@ class SnowflakeSinkServiceV2Test {
     SinkRecord record = recordFor(TOPIC, 0, 5);
     limited.insert(Collections.singletonList(record));
 
+    verify(mockChannelManager, times(1)).sumInflightUsage();
     verify(channel0).insertRecord(record);
     verify(mockSinkTaskContext, never()).offset(any(Map.class));
     assertEquals(Instant.MIN, limited.backpressureUntil);
+    assertFalse(limited.isTaskInflightCapped());
+  }
+
+  @Test
+  void insertReadsInflightUsageBeforeFirstInsertOfBatch() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    TopicPartitionChannel channel1 = mockChannel("ch_1", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
+    when(mockChannelManager.sumInflightUsage()).thenReturn(new InflightUsage(0, 0));
+
+    SinkRecord r0 = recordFor(TOPIC, 0, 1000);
+    SinkRecord r1 = recordFor(TOPIC, 1, 2000);
+    SinkRecord r2 = recordFor(TOPIC, 0, 1001);
+    limited.insert(Arrays.asList(r0, r1, r2));
+
+    InOrder order = inOrder(mockChannelManager, channel0, channel1);
+    order.verify(mockChannelManager).sumInflightUsage();
+    order.verify(channel0).insertRecord(r0);
+    order.verify(channel1).insertRecord(r1);
+    order.verify(channel0).insertRecord(r2);
+    verify(mockChannelManager, times(1)).sumInflightUsage();
+  }
+
+  @Test
+  void insertSkipsInflightReadForEmptyBatch() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+
+    limited.insert(Collections.emptyList());
+
+    verify(mockChannelManager, never()).sumInflightUsage();
+    assertEquals(Instant.MIN, limited.backpressureUntil);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void insertTreatsUnavailableInflightUsageAsCapReached() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    TopicPartitionChannel channel1 = mockChannel("ch_1", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
+    when(mockChannelManager.sumInflightUsage())
+        .thenThrow(new InflightUsageUnavailableException("stale", new RuntimeException("x")));
+
+    limited.insert(Arrays.asList(recordFor(TOPIC, 0, 1000), recordFor(TOPIC, 1, 2000)));
+
+    verify(channel0, never()).insertRecord(any());
+    verify(channel1, never()).insertRecord(any());
+    verify(mockSinkTaskContext).offset(Map.of(tp0, 1000L, tp1, 2000L));
+    assertTrue(limited.backpressureUntil.isAfter(Instant.now()));
+    assertTrue(limited.isTaskInflightCapped());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void insertDoesNotReadInflightUsageAgainWithinCooldown() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.sumInflightUsage())
+        .thenThrow(new InflightUsageUnavailableException("stale", new RuntimeException("x")));
+
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
+
+    verify(mockChannelManager, times(1)).sumInflightUsage();
+    verify(channel0, never()).insertRecord(any());
+    verify(mockSinkTaskContext, times(2)).offset(Map.of(tp0, 1000L));
+  }
+
+  @Test
+  void insertReadsAgainAfterCooldownAndClearsCappedState() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.sumInflightUsage())
+        .thenReturn(new InflightUsage(50, 0), new InflightUsage(49, 0));
+
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
+    assertTrue(limited.isTaskInflightCapped());
+
+    limited.backpressureUntil = Instant.now().minusSeconds(1);
+    SinkRecord record = recordFor(TOPIC, 0, 1000);
+    limited.insert(Collections.singletonList(record));
+
+    verify(mockChannelManager, times(2)).sumInflightUsage();
+    verify(channel0).insertRecord(record);
+    assertFalse(limited.isTaskInflightCapped());
   }
 
   @Test
@@ -558,17 +697,24 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
-  void insertPropagatesMissingInflightBeanFailure() {
+  @SuppressWarnings("unchecked")
+  void insertPropagatesMissingInflightBeanFailureWithoutSideEffects() {
     SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
-    when(mockChannelManager.sumInflightUsage()).thenThrow(new ConnectException("missing bean"));
+    ConnectException missing = new ConnectException("missing bean");
+    when(mockChannelManager.sumInflightUsage()).thenThrow(missing);
 
-    assertThrows(
-        ConnectException.class,
-        () -> limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 100))));
+    assertSame(
+        missing,
+        assertThrows(
+            ConnectException.class,
+            () -> limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 100)))));
+    verify(mockChannelManager, times(1)).sumInflightUsage();
     verify(channel0, never()).insertRecord(any());
+    verify(mockSinkTaskContext, never()).offset(any(Map.class));
+    assertEquals(Instant.MIN, limited.backpressureUntil);
   }
 
   @Test

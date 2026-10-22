@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -28,6 +29,7 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingClientPropertie
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.InflightUsageUnavailableException;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -93,6 +95,20 @@ class PartitionChannelManagerTest {
     when(createdChannels.get(tp1).getInflightUsage()).thenReturn(new InflightUsage(2, 25));
 
     assertEquals(new InflightUsage(3, 35), manager.sumInflightUsage());
+  }
+
+  @Test
+  void sumInflightUsagePropagatesChannelReadFailure() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    startPartitions(tp0, tp1);
+    InflightUsageUnavailableException failure =
+        new InflightUsageUnavailableException("stale", new RuntimeException("cause"));
+    when(createdChannels.get(tp0).getInflightUsage()).thenReturn(new InflightUsage(1, 10));
+    when(createdChannels.get(tp1).getInflightUsage()).thenThrow(failure);
+
+    assertSame(
+        failure, assertThrows(InflightUsageUnavailableException.class, manager::sumInflightUsage));
   }
 
   @Test
