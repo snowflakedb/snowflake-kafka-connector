@@ -2,9 +2,10 @@
 # Compose with: -f docker-compose.base.yml -f docker-compose.confluent.yml -f docker-compose.mitmproxy.yml
 #
 # The proxy runs in reverse mode: TLS on port 8080, forwarding HTTPS to the
-# real Snowflake host. The SDK is configured (via connector overrides) to use
-# scheme=https, host=mitmproxy, port=8080. The Connect worker trusts the
-# test-only CA through SSL_CERT_FILE (SSv2 SDK 1.7+).
+# real Snowflake host. The Connect worker env var
+# SNOWFLAKE_KAFKA_CONNECTOR_TEST_STREAMING_URL points the SDK at
+# https://mitmproxy:8080 for every connector in the run. The Connect worker
+# trusts the test-only CA through SSL_CERT_FILE (SSv2 SDK 1.7+).
 #
 # The addon rewrites the /v2/streaming/hostname response to "mitmproxy-subdomain"
 # (a Docker network alias for the same container). This ensures all subsequent
@@ -41,6 +42,7 @@ services:
         condition: service_healthy
     environment:
       SSL_CERT_FILE: /certs/mitmproxy-ca.crt
+      SNOWFLAKE_KAFKA_CONNECTOR_TEST_STREAMING_URL: "https://mitmproxy:8080"
     volumes:
       - ./mitmproxy/certs/mitmproxy-ca.crt:/certs/mitmproxy-ca.crt:ro
 

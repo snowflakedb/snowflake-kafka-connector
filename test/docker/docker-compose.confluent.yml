@@ -73,6 +73,8 @@ services:
       KAFKA_HEAP_OPTS: "-Xms512m -Xmx6g"
       KAFKA_OPTS: "${KAFKA_OPTS:-}"
       SS_LOG_LEVEL: warn
+      # Worker env, not connector config: redirects SDK traffic for local deployments.
+      SNOWFLAKE_KAFKA_CONNECTOR_TEST_STREAMING_URL: ${SNOWPIPE_STREAMING_URL:-}
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/opt/kafka-connect/plugins/snowflake-connector
       - ${V3_PLUGIN_PATH:-/tmp/sf-kafka-connect-v3}:/opt/kafka-connect/plugins/snowflake-connector-v3

@@ -335,10 +335,7 @@ public class Utils {
       String[] tt = str.split(":");
 
       if (tt.length != 2 || tt[0].trim().isEmpty() || tt[1].trim().isEmpty()) {
-        LOGGER.error(
-            "Invalid {} config format: {}",
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-            input);
+        // The input is not logged because it may hold secrets or line breaks.
         throw SnowflakeErrors.ERROR_0030.getException();
       }
       pairs.put(tt[0].trim(), tt[1].trim());

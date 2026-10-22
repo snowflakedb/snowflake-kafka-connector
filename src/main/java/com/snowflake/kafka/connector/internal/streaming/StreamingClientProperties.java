@@ -28,12 +28,16 @@ import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.PrivateKey;
 import java.util.Base64;
-import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.TreeSet;
+import java.util.function.Function;
 
 /**
  * Object to convert and store properties for {@code
@@ -49,6 +53,14 @@ public class StreamingClientProperties {
    * outbound User-Agent as {@code (app=<value>)} for connector version attribution.
    */
   public static final String APPLICATION_NAME = "SnowflakeKafkaConnector/" + Utils.VERSION;
+
+  /**
+   * Worker environment variable that redirects SDK traffic to {@code scheme://host:port}, such as a
+   * fault-injection proxy or a local deployment in tests. It is read from the Connect worker
+   * process environment, not from connector configuration.
+   */
+  public static final String TEST_ENDPOINT_OVERRIDE_ENV =
+      "SNOWFLAKE_KAFKA_CONNECTOR_TEST_STREAMING_URL";
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
   public final Properties clientProperties;
@@ -67,6 +79,10 @@ public class StreamingClientProperties {
 
   /** Creates streaming client properties from parsed {@link SinkTaskConfig}. */
   public static StreamingClientProperties from(SinkTaskConfig config) {
+    return from(config, System::getenv);
+  }
+
+  static StreamingClientProperties from(SinkTaskConfig config, Function<String, String> env) {
     final Properties clientProperties = new Properties();
     if (Strings.isNullOrEmpty(config.getSnowflakeUrl())) {
       // Without a URL there is no account or host: the authorization type and credential would be
@@ -160,21 +176,21 @@ public class StreamingClientProperties {
     clientProperties.put("account", account);
     clientProperties.put("host", url.getUrlWithoutPort());
     clientProperties.put("application", APPLICATION_NAME);
+    applyTestEndpointOverride(clientProperties, env.apply(TEST_ENDPOINT_OVERRIDE_ENV));
 
-    // Passwords stay on clientProperties, which is not logged; only parameterOverrides is logged
-    // below.
+    // Proxy passwords stay on clientProperties, which is never logged.
     putProxy(clientProperties, config);
 
     String clientNamePrefix =
         STREAMING_CLIENT_V2_PREFIX_NAME
             + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME);
 
-    Map<String, Object> parameterOverrides = new HashMap<>();
-    String overrideMap = config.getStreamingClientProviderOverrideMap();
-    if (overrideMap != null && !overrideMap.isEmpty()) {
-      Utils.parseCommaSeparatedKeyValuePairs(overrideMap)
-          .forEach((key, value) -> parameterOverrides.put(key.toLowerCase(), value));
-      LOGGER.info("Streaming Client config overrides: {}", parameterOverrides);
+    Map<String, Object> parameterOverrides =
+        Map.copyOf(StreamingClientOverrides.parse(config.getStreamingClientProviderOverrideMap()));
+    if (!parameterOverrides.isEmpty()) {
+      // Keys are validated against the allowlist, values are not logged.
+      LOGGER.info(
+          "Streaming Client config override keys: {}", new TreeSet<>(parameterOverrides.keySet()));
     }
 
     return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
@@ -262,6 +278,50 @@ public class StreamingClientProperties {
       return null;
     }
     return value;
+  }
+
+  /**
+   * Points the SDK at {@code endpoint} when it is set. The value must be an {@code http} or {@code
+   * https} URL with an explicit host and port and nothing else, and an invalid value fails client
+   * creation instead of being ignored.
+   */
+  private static void applyTestEndpointOverride(Properties clientProperties, String endpoint) {
+    if (endpoint == null || endpoint.isBlank()) {
+      return;
+    }
+    URI uri;
+    try {
+      uri = new URI(endpoint.trim());
+    } catch (URISyntaxException e) {
+      throw invalidTestEndpoint();
+    }
+    String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+    String path = uri.getRawPath() == null ? "" : uri.getRawPath();
+    if (!(scheme.equals("http") || scheme.equals("https"))
+        || uri.getHost() == null
+        || uri.getPort() < 1
+        || uri.getPort() > 65535
+        || uri.getRawUserInfo() != null
+        || uri.getRawQuery() != null
+        || uri.getRawFragment() != null
+        || !(path.isEmpty() || path.equals("/"))) {
+      throw invalidTestEndpoint();
+    }
+    clientProperties.put("scheme", scheme);
+    clientProperties.put("host", uri.getHost());
+    clientProperties.put("port", String.valueOf(uri.getPort()));
+    LOGGER.warn(
+        "{} is set, Snowpipe Streaming traffic is sent to {}://{}:{} instead of the Snowflake URL",
+        TEST_ENDPOINT_OVERRIDE_ENV,
+        scheme,
+        uri.getHost(),
+        uri.getPort());
+  }
+
+  private static IllegalArgumentException invalidTestEndpoint() {
+    return new IllegalArgumentException(
+        TEST_ENDPOINT_OVERRIDE_ENV
+            + " must be an http or https URL of the form scheme://host:port");
   }
 
   /**
