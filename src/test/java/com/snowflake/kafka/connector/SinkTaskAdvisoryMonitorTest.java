@@ -13,6 +13,7 @@ import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,6 +24,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +32,7 @@ import java.util.Map;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 /** Unit tests for {@link SinkTaskAdvisoryMonitor} and its use in {@link SnowflakeSinkTask}. */
@@ -53,27 +56,63 @@ class SinkTaskAdvisoryMonitorTest {
     return config;
   }
 
+  private static SnowflakeConnectionService connReturning(
+      List<AdvisoryMessage> advisories, SnowflakeTelemetryService telemetry) {
+    SnowflakeConnectionService conn = connReturning(advisories);
+    when(conn.getTelemetryClient()).thenReturn(telemetry);
+    return conn;
+  }
+
+  /** Checks the error code and that the message (shown in the task trace) says what to do. */
   private static void assertIs5031(ConnectException e) {
     assertEquals(
         SnowflakeErrors.ERROR_5031.getCode(),
         ((SnowflakeKafkaConnectorException) e.getCause()).getCode());
-    assertTrue(
-        e.getMessage().contains(SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY + "=false"),
-        "the failure must say how to override it: " + e.getMessage());
+    SnowflakeStreamingSinkConnectorAdvisoryTest.assertCriticalMessage(
+        e.getMessage(), "you must upgrade");
+  }
+
+  private static void assertTelemetryOnce(SnowflakeTelemetryService telemetry) {
+    ArgumentCaptor<String> detail = ArgumentCaptor.forClass(String.class);
+    verify(telemetry, times(1)).reportKafkaConnectFatalError(detail.capture());
+    assertTrue(detail.getValue().startsWith(SnowflakeErrors.ERROR_5031.getCode()));
+    assertTrue(detail.getValue().contains("you must upgrade"), detail.getValue());
   }
 
   @Test
   void criticalMidRun_nextPutThrowsAndDoesNotIngest() {
     SnowflakeSinkService sink = mock(SnowflakeSinkService.class);
+    SnowflakeTelemetryService telemetry = mock(SnowflakeTelemetryService.class);
     SinkTaskAdvisoryMonitor monitor =
-        new SinkTaskAdvisoryMonitor(connReturning(CRITICAL), new HashMap<>(), "0");
+        new SinkTaskAdvisoryMonitor(connReturning(CRITICAL, telemetry), new HashMap<>(), "0");
     SnowflakeSinkTask task = new SnowflakeSinkTask(sink, null, monitor);
 
     monitor.poll();
+    monitor.poll(); // a second poll must not report again
 
-    assertIs5031(assertThrows(ConnectException.class, () -> task.put(BATCH)));
+    ConnectException e = assertThrows(ConnectException.class, () -> task.put(BATCH));
+    assertIs5031(e);
+    assertTrue(e.getMessage().startsWith("Stopping task 0: "), e.getMessage());
     assertIs5031(assertThrows(ConnectException.class, () -> task.put(Collections.emptyList())));
     verify(sink, never()).insert(anyCollection());
+    assertTelemetryOnce(telemetry);
+  }
+
+  @Test
+  void severalCriticals_allTextsInMessage() {
+    SinkTaskAdvisoryMonitor monitor =
+        new SinkTaskAdvisoryMonitor(
+            connReturning(
+                List.of(
+                    new AdvisoryMessage("critical", "first issue"),
+                    new AdvisoryMessage("critical", "second issue"))),
+            new HashMap<>(),
+            "3");
+
+    ConnectException e = assertThrows(ConnectException.class, monitor::checkOnStart);
+    assertTrue(e.getMessage().startsWith("Refusing to start task 3: "), e.getMessage());
+    SnowflakeStreamingSinkConnectorAdvisoryTest.assertCriticalMessage(
+        e.getMessage(), "first issue; second issue");
   }
 
   @Test
@@ -121,7 +160,8 @@ class SinkTaskAdvisoryMonitorTest {
 
   @Test
   void criticalOnStart_taskStartThrows() {
-    SnowflakeConnectionService conn = connReturning(CRITICAL);
+    SnowflakeTelemetryService telemetry = mock(SnowflakeTelemetryService.class);
+    SnowflakeConnectionService conn = connReturning(CRITICAL, telemetry);
     SnowflakeConnectionServiceBuilder builder =
         mock(SnowflakeConnectionServiceBuilder.class, RETURNS_SELF);
     when(builder.build()).thenReturn(conn);
@@ -137,16 +177,19 @@ class SinkTaskAdvisoryMonitorTest {
       assertIs5031(assertThrows(ConnectException.class, () -> task.start(config)));
       task.stop(); // Kafka Connect calls stop() after a failed start(); it must not throw
     }
+    assertTelemetryOnce(telemetry);
   }
 
   @Test
   void criticalOnStart_optOut_doesNotThrow() {
+    SnowflakeTelemetryService telemetry = mock(SnowflakeTelemetryService.class);
     SinkTaskAdvisoryMonitor monitor =
         new SinkTaskAdvisoryMonitor(
-            connReturning(CRITICAL),
+            connReturning(CRITICAL, telemetry),
             config(SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY, "false"),
             "0");
     assertDoesNotThrow(monitor::checkOnStart);
+    verify(telemetry, never()).reportKafkaConnectFatalError(anyString());
   }
 
   @Test

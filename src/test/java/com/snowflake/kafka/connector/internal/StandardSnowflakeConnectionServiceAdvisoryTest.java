@@ -103,4 +103,30 @@ public class StandardSnowflakeConnectionServiceAdvisoryTest {
     verify(logger, times(1)).info(anyString(), (Object) any());
     verify(logger, times(2)).debug(anyString(), (Object) any());
   }
+
+  @Test
+  public void successAfterFailure_nextFailureLoggedAtInfoAgain() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+    when(rs.next()).thenReturn(true);
+    when(rs.getString(1)).thenReturn("{\"messages\":[]}");
+    // fail, fail, succeed, fail: the failure after the recovery is logged at INFO again.
+    when(stmt.executeQuery())
+        .thenThrow(new SQLException("transient"))
+        .thenThrow(new SQLException("transient"))
+        .thenReturn(rs)
+        .thenThrow(new SQLException("transient again"));
+    KCLogger logger = mock(KCLogger.class);
+    StandardSnowflakeConnectionService svc = serviceWith(conn, logger);
+
+    for (int i = 0; i < 4; i++) {
+      assertTrue(svc.getKcAdvisoryMessages("{}").isEmpty());
+    }
+
+    verify(logger, times(2)).info(anyString(), (Object) any());
+    verify(logger, times(1)).debug(anyString(), (Object) any());
+  }
 }

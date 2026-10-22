@@ -17,6 +17,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -81,6 +82,54 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
     return method.invoke(target);
   }
 
+  /**
+   * Asserts a critical-advisory message carries the server text, leads with the upgrade action and
+   * names the opt-out key.
+   */
+  static void assertCriticalMessage(String message, String... serverTexts) {
+    for (String text : serverTexts) {
+      assertTrue(message.contains(text), "missing server text '" + text + "': " + message);
+    }
+    assertTrue(
+        message.contains("Snowflake has flagged Kafka Connector " + Utils.VERSION),
+        "must name the flagged version: " + message);
+    assertTrue(message.contains("Upgrade the connector."), "must say to upgrade: " + message);
+    assertTrue(
+        message.contains(
+            Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
+                + "=false"),
+        "the failure must say how to override it: " + message);
+  }
+
+  private static SnowflakeConnectionService connWithTelemetry(
+      List<AdvisoryMessage> advisories, SnowflakeTelemetryService telemetry) {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.getKcAdvisoryMessages(anyString())).thenReturn(advisories);
+    when(conn.getTelemetryClient()).thenReturn(telemetry);
+    return conn;
+  }
+
+  @Test
+  public void criticalStopMessage_joinsAllCriticalTexts() {
+    List<AdvisoryMessage> advisories =
+        Arrays.asList(
+            new AdvisoryMessage("critical", "Data loss bug. Upgrade to 4.2.3."),
+            new AdvisoryMessage("warn", "not included"),
+            new AdvisoryMessage("critical", "Second issue"));
+    String message =
+        SnowflakeStreamingSinkConnector.criticalStopMessage(
+            "Stopping connector", SnowflakeStreamingSinkConnector.criticalTexts(advisories));
+
+    assertEquals(
+        "Stopping connector: Snowflake has flagged Kafka Connector "
+            + Utils.VERSION
+            + " with a critical issue: Data loss bug. Upgrade to 4.2.3; Second issue. Upgrade the"
+            + " connector. To keep running anyway (not recommended), set "
+            + Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
+            + "=false.",
+        message);
+  }
+
   @Test
   public void hasCritical_emptyList_returnsFalse() {
     assertFalse(SnowflakeStreamingSinkConnector.hasCritical(Collections.emptyList()));
@@ -120,9 +169,11 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
 
   @Test
   public void logServerAdvisories_criticalWithFailOnDefault_refusesToStart() throws Exception {
-    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
-    when(conn.getKcAdvisoryMessages(anyString()))
-        .thenReturn(Collections.singletonList(new AdvisoryMessage("critical", "you must upgrade")));
+    SnowflakeTelemetryService telemetry = mock(SnowflakeTelemetryService.class);
+    SnowflakeConnectionService conn =
+        connWithTelemetry(
+            Collections.singletonList(new AdvisoryMessage("critical", "you must upgrade")),
+            telemetry);
     // Empty config => fail_on_critical defaults to true.
     SnowflakeStreamingSinkConnector connector = connectorWith(conn, new HashMap<>());
 
@@ -132,13 +183,12 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
 
     SnowflakeKafkaConnectorException cause = (SnowflakeKafkaConnectorException) thrown.getCause();
     assertEquals(SnowflakeErrors.ERROR_5031.getCode(), cause.getCode());
-    assertTrue(
-        cause
-            .getMessage()
-            .contains(
-                Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
-                    + "=false"),
-        "the failure must say how to override it: " + cause.getMessage());
+    assertTrue(cause.getMessage().contains("Refusing to start: "), cause.getMessage());
+    assertCriticalMessage(cause.getMessage(), "you must upgrade");
+    ArgumentCaptor<String> detail = ArgumentCaptor.forClass(String.class);
+    verify(telemetry, times(1)).reportKafkaConnectFatalError(detail.capture());
+    assertTrue(detail.getValue().startsWith(SnowflakeErrors.ERROR_5031.getCode()));
+    assertTrue(detail.getValue().contains("you must upgrade"), detail.getValue());
   }
 
   @Test
@@ -179,9 +229,11 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
 
   @Test
   public void pollAdvisories_criticalMidRun_stopsConnectorOnce() throws Exception {
-    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
-    when(conn.getKcAdvisoryMessages(anyString()))
-        .thenReturn(Collections.singletonList(new AdvisoryMessage("critical", "you must upgrade")));
+    SnowflakeTelemetryService telemetry = mock(SnowflakeTelemetryService.class);
+    SnowflakeConnectionService conn =
+        connWithTelemetry(
+            Collections.singletonList(new AdvisoryMessage("critical", "you must upgrade")),
+            telemetry);
     // Empty config => fail_on_critical defaults to true.
     SnowflakeStreamingSinkConnector connector = connectorWith(conn, new HashMap<>());
     SinkConnectorContext ctx = mock(SinkConnectorContext.class);
@@ -197,13 +249,11 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
     verify(ctx, times(1)).raiseError(error.capture());
     SnowflakeKafkaConnectorException cause = (SnowflakeKafkaConnectorException) error.getValue();
     assertEquals(SnowflakeErrors.ERROR_5031.getCode(), cause.getCode());
-    assertTrue(
-        cause
-            .getMessage()
-            .contains(
-                Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
-                    + "=false"),
-        "the failure must say how to override it: " + cause.getMessage());
+    assertTrue(cause.getMessage().contains("Stopping connector: "), cause.getMessage());
+    assertCriticalMessage(cause.getMessage(), "you must upgrade");
+    ArgumentCaptor<String> detail = ArgumentCaptor.forClass(String.class);
+    verify(telemetry, times(1)).reportKafkaConnectFatalError(detail.capture());
+    assertTrue(detail.getValue().contains("you must upgrade"), detail.getValue());
     assertTrue(poller.isShutdown(), "the poller must stop after failing the connector");
     assertEquals(2, connector.advisoryPollCountForTest());
   }
@@ -234,9 +284,11 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
 
   @Test
   public void pollAdvisories_criticalWithFailOff_keepsRunning() throws Exception {
-    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
-    when(conn.getKcAdvisoryMessages(anyString()))
-        .thenReturn(Collections.singletonList(new AdvisoryMessage("critical", "you must upgrade")));
+    SnowflakeTelemetryService telemetry = mock(SnowflakeTelemetryService.class);
+    SnowflakeConnectionService conn =
+        connWithTelemetry(
+            Collections.singletonList(new AdvisoryMessage("critical", "you must upgrade")),
+            telemetry);
     Map<String, String> config = new HashMap<>();
     config.put(
         Constants.KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY, "false");
@@ -250,6 +302,7 @@ public class SnowflakeStreamingSinkConnectorAdvisoryTest {
     invokePrivate(connector, "pollAdvisories");
 
     verify(ctx, never()).raiseError(any(Exception.class));
+    verify(telemetry, never()).reportKafkaConnectFatalError(anyString());
     assertFalse(poller.isShutdown(), "with the opt-out the poller keeps running");
     assertEquals(2, connector.advisoryPollCountForTest());
     poller.shutdownNow();

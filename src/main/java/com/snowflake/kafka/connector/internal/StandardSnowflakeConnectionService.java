@@ -44,7 +44,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   private static final int ERR_ICEBERG_DATATYPE_NOT_SUPPORTED = 91386;
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
 
-  // Whether getKcAdvisoryMessages has already logged a failure at INFO for this connection.
+  // Whether getKcAdvisoryMessages has logged a failure at INFO since its last success.
   private final AtomicBoolean advisoryFetchFailureLogged = new AtomicBoolean();
 
   private final Connection conn;
@@ -689,23 +689,24 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
       try (PreparedStatement stmt = conn.prepareStatement(query)) {
         stmt.setString(1, requestJson);
         try (ResultSet rs = stmt.executeQuery()) {
-          if (!rs.next()) {
-            return Collections.emptyList();
-          }
-          KcAdvisoryResponse response =
-              OBJECT_MAPPER.readValue(rs.getString(1), KcAdvisoryResponse.class);
-          return response.getMessages();
+          List<AdvisoryMessage> messages =
+              rs.next()
+                  ? OBJECT_MAPPER.readValue(rs.getString(1), KcAdvisoryResponse.class).getMessages()
+                  : Collections.emptyList();
+          // After a success, the next failure is logged at INFO again.
+          advisoryFetchFailureLogged.set(false);
+          return messages;
         }
       }
     } catch (Exception e) {
       // Fail-safe: an old GS without the function, a rejected request, a JDBC error, or a parse
-      // error must never disrupt the connector. The first failure is logged at INFO so that a
-      // persistent server-side problem (e.g. a permission regression) is visible; later ones
-      // only at DEBUG, so the periodic poll does not repeat it.
+      // error must never disrupt the connector. The first failure after a success (or after
+      // startup) is logged at INFO so that a server-side problem (e.g. a permission regression)
+      // is visible; repeated failures only at DEBUG, so the periodic poll does not repeat it.
       if (advisoryFetchFailureLogged.compareAndSet(false, true)) {
         LOGGER.info(
             "SYSTEM$GET_KC_ADVISORY_MESSAGES unavailable or failed; continuing without server"
-                + " advisories. Later failures are logged at DEBUG. Cause: {}",
+                + " advisories. Repeated failures are logged at DEBUG. Cause: {}",
             e.getMessage());
       } else {
         LOGGER.debug("SYSTEM$GET_KC_ADVISORY_MESSAGES unavailable or failed: {}", e.getMessage());

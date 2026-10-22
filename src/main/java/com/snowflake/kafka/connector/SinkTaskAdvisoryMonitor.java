@@ -1,11 +1,10 @@
 package com.snowflake.kafka.connector;
 
-import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
-import com.snowflake.kafka.connector.internal.advisory.AdvisoryLevel;
-import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -23,8 +22,10 @@ import org.apache.kafka.connect.errors.ConnectException;
  * itself. The task checks once on start and then every {@code
  * snowflake.feature.advisory_poll_interval_seconds} ({@code <= 0} disables the periodic check),
  * with a random first delay so that many tasks do not query Snowflake at the same time. A
- * background poll cannot fail the task, so it only sets a flag; {@link #throwIfCritical()} throws
- * from the next {@code put()}, which Kafka Connect calls even when there are no records.
+ * background poll cannot fail the task, so it only records the error (and sends {@code
+ * kafka_fatal_error} telemetry); {@link #throwIfCritical()} throws from the next {@code put()},
+ * which Kafka Connect calls even when there are no records. The exception message carries the
+ * server's advisory text, so it shows in the task trace of {@code GET /connectors/<name>/status}.
  *
  * <p>With {@code snowflake.feature.fail_on_critical_advisory=false} the task does not check at all;
  * the connector still logs the advisories. Fetch errors never stop the task.
@@ -37,7 +38,9 @@ class SinkTaskAdvisoryMonitor {
   private final boolean enabled;
   private final long intervalSeconds;
   private ScheduledExecutorService poller;
-  private volatile boolean criticalSeen;
+  // Set by the poll that sees a critical advisory; null until then.
+  private volatile String stopMessage;
+  private volatile SnowflakeKafkaConnectorException stopCause;
 
   SinkTaskAdvisoryMonitor(
       SnowflakeConnectionService conn, Map<String, String> config, String taskId) {
@@ -49,8 +52,16 @@ class SinkTaskAdvisoryMonitor {
 
   /** Refuses to start the task while a critical advisory applies. */
   void checkOnStart() {
-    if (enabled && fetchHasCritical()) {
-      throw stopException("Refusing to start task");
+    if (!enabled) {
+      return;
+    }
+    List<String> criticalTexts = fetchCriticalTexts();
+    if (!criticalTexts.isEmpty()) {
+      String message =
+          SnowflakeStreamingSinkConnector.criticalStopMessage(
+              "Refusing to start task " + taskId, criticalTexts);
+      LOGGER.error("{}", message);
+      throw new ConnectException(message, reportCritical(message));
     }
   }
 
@@ -76,8 +87,14 @@ class SinkTaskAdvisoryMonitor {
 
   /** One periodic check; package-private for testing. */
   void poll() {
-    if (fetchHasCritical()) {
-      criticalSeen = true;
+    List<String> criticalTexts = fetchCriticalTexts();
+    if (!criticalTexts.isEmpty() && stopCause == null) {
+      String message =
+          SnowflakeStreamingSinkConnector.criticalStopMessage(
+              "Stopping task " + taskId, criticalTexts);
+      LOGGER.error("{}", message);
+      stopMessage = message;
+      stopCause = reportCritical(message);
       if (poller != null) {
         poller.shutdown(); // not shutdownNow(): this runs on the poller thread
       }
@@ -86,8 +103,9 @@ class SinkTaskAdvisoryMonitor {
 
   /** Throws if a periodic check has seen a critical advisory. Called at the start of put(). */
   void throwIfCritical() {
-    if (criticalSeen) {
-      throw stopException("Stopping task");
+    SnowflakeKafkaConnectorException cause = stopCause;
+    if (cause != null) {
+      throw new ConnectException(stopMessage, cause);
     }
   }
 
@@ -102,30 +120,23 @@ class SinkTaskAdvisoryMonitor {
     return poller;
   }
 
-  private boolean fetchHasCritical() {
+  /**
+   * Returns the texts of the critical advisories; empty if there are none or the fetch failed. The
+   * stop message carries the texts, so they are not logged separately; the connector logs all
+   * advisories.
+   */
+  private List<String> fetchCriticalTexts() {
     try {
-      List<AdvisoryMessage> advisories =
-          conn.getKcAdvisoryMessages(SnowflakeStreamingSinkConnector.advisoryRequestJson());
-      // Only critical advisories are logged here; the connector logs all of them.
-      advisories.stream()
-          .filter(m -> AdvisoryLevel.fromString(m.getLevel()) == AdvisoryLevel.CRITICAL)
-          .forEach(m -> LOGGER.error("Task {}: {}", taskId, m.getText()));
-      return SnowflakeStreamingSinkConnector.hasCritical(advisories);
+      return SnowflakeStreamingSinkConnector.criticalTexts(
+          conn.getKcAdvisoryMessages(SnowflakeStreamingSinkConnector.advisoryRequestJson()));
     } catch (Exception e) {
       LOGGER.debug("Task {}: advisory check failed: {}", taskId, e.getMessage());
-      return false;
+      return Collections.emptyList();
     }
   }
 
-  private ConnectException stopException(String action) {
-    String message =
-        action
-            + ": a critical server advisory now applies to Kafka Connector "
-            + Utils.VERSION
-            + ". To keep running set "
-            + KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
-            + "=false (not recommended).";
-    LOGGER.error("Task {}: {}", taskId, message);
-    return new ConnectException(message, SnowflakeErrors.ERROR_5031.getException(message));
+  /** Builds the ERROR_5031 cause and sends kafka_fatal_error telemetry through the task's conn. */
+  private SnowflakeKafkaConnectorException reportCritical(String message) {
+    return SnowflakeErrors.ERROR_5031.getException(message, conn.getTelemetryClient());
   }
 }

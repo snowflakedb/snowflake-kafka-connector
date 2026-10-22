@@ -215,10 +215,9 @@ public enum SnowflakeErrors {
           + " ingest. See the specific error message for details."),
   ERROR_5031(
       "5031",
-      "Critical server advisory: connector stopped",
-      "A critical advisory from Snowflake applies to this connector version. Upgrade the"
-          + " connector, or to run anyway set snowflake.feature.fail_on_critical_advisory=false"
-          + " (not recommended).");
+      "Connector version flagged by Snowflake",
+      "Snowflake has flagged this Kafka Connector version with a critical issue. Upgrade the"
+          + " connector.");
 
   // properties
 
