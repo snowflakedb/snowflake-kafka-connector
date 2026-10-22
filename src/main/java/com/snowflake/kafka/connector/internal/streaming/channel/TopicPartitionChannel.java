@@ -100,7 +100,11 @@ public interface TopicPartitionChannel {
 
   /**
    * Rows and bytes this partition's SDK channel has accepted and Snowflake has not yet
-   * acknowledged. Returns {@link InflightUsage#NONE} while no open SDK channel exists.
+   * acknowledged. Returns {@link InflightUsage#NONE} while no open SDK channel on an open client
+   * exists.
+   *
+   * @throws com.snowflake.kafka.connector.internal.streaming.v2.InflightUsageUnavailableException
+   *     if the usage cannot be read for a transient reason
    */
   InflightUsage getInflightUsage();
 
