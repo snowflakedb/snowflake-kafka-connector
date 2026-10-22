@@ -527,7 +527,7 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
 
     List<SinkRecord> records = new ArrayList<>();
-    for (int i = 0; i <= 2 * SnowflakeSinkServiceV2.INFLIGHT_CHECK_INTERVAL; i++) {
+    for (int i = 0; i < 100; i++) {
       records.add(recordFor(TOPIC, 0, i));
     }
     service.insert(records);
@@ -537,25 +537,24 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
-  void insertStopsMidBatchWhenTaskInflightReachesCap() {
+  void insertReadsInflightUsageOncePerPutAndInsertsWholeBatchUnderCap() {
     SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
-    // First read is the start-of-put check (under the cap). After INFLIGHT_CHECK_INTERVAL
-    // successful inserts the next read is at the cap.
+    // A later read at the cap must not be consulted within the same put.
     when(mockChannelManager.sumInflightUsage())
         .thenReturn(new InflightUsage(0, 0), new InflightUsage(50, 0));
 
     List<SinkRecord> records = new ArrayList<>();
-    for (int i = 0; i <= SnowflakeSinkServiceV2.INFLIGHT_CHECK_INTERVAL; i++) {
+    for (int i = 0; i < 100; i++) {
       records.add(recordFor(TOPIC, 0, i));
     }
     limited.insert(records);
 
-    verify(channel0, times(SnowflakeSinkServiceV2.INFLIGHT_CHECK_INTERVAL)).insertRecord(any());
-    verify(mockSinkTaskContext)
-        .offset(Map.of(tp0, (long) SnowflakeSinkServiceV2.INFLIGHT_CHECK_INTERVAL));
+    verify(mockChannelManager, times(1)).sumInflightUsage();
+    verify(channel0, times(records.size())).insertRecord(any());
+    verify(mockSinkTaskContext, never()).offset(any(Map.class));
   }
 
   @Test
