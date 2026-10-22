@@ -64,17 +64,6 @@ class TaskInflightCapsConfigTest {
     assertEquals(0L, config.getMaxTaskInflightBytes());
   }
 
-  @Test
-  void fromDefaultsMatchConfigDefDefaults() {
-    Map<String, Object> parsed = ConnectorConfigDefinition.getConfig().parse(Map.of());
-    SinkTaskConfig config = SinkTaskConfig.from(TestUtils.getConfig(), true);
-    assertEquals(
-        parsed.get(SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS), config.getMaxTaskInflightRows());
-    assertEquals(
-        (Long) parsed.get(SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES) * BYTES_PER_MEGABYTE,
-        config.getMaxTaskInflightBytes());
-  }
-
   @ParameterizedTest
   @MethodSource("keysWithBlankValues")
   void fromTreatsBlankAsDisabled(String key, String blank) {

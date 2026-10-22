@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -177,11 +178,17 @@ class SnowpipeStreamingPartitionChannelTest {
           return null;
         });
 
-    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
-    // No beans are registered, so any JMX read would throw.
-    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
-
-    blockExecutor.countDown();
+    try {
+      SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+      assertTrue(partitionChannel.isInitializing(), "open must still be pending");
+      // No beans are registered, so any JMX read would throw. The preemptive timeout turns a read
+      // that blocks on the pending open into a failure instead of a hang.
+      assertEquals(
+          InflightUsage.NONE,
+          assertTimeoutPreemptively(Duration.ofSeconds(5), partitionChannel::getInflightUsage));
+    } finally {
+      blockExecutor.countDown();
+    }
   }
 
   @Test
@@ -241,22 +248,24 @@ class SnowpipeStreamingPartitionChannelTest {
 
   @Test
   void getInflightUsageIsZeroWhenClientClosesAndUnregistersBeansAfterNameRead() {
-    // Closing between the name read and the bean read: the name is still readable here, but the
-    // client is closed and its beans are gone.
+    // The client closes right after its name is read, so the bean read finds no beans.
     String clientName = "closing_client_" + pipeName;
     TrackingStreamingIngestClient closingClient =
         new TrackingStreamingIngestClient(pipeName, trackingClientSupplier, clientName) {
           @Override
           public String getClientName() {
-            return clientName;
+            String name = super.getClientName();
+            markClosed();
+            return name;
           }
         };
     trackingClient = closingClient;
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
     partitionChannel.getChannel();
-    closingClient.markClosed();
+    assertFalse(closingClient.isClosed());
 
     assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+    assertTrue(closingClient.isClosed());
   }
 
   @Test
@@ -321,8 +330,13 @@ class SnowpipeStreamingPartitionChannelTest {
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
     partitionChannel.getChannel();
     partitionChannel.closeChannelAsync().get(5, TimeUnit.SECONDS);
+    assertTrue(partitionChannel.isChannelClosed());
 
-    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+    // Nonzero beans for this channel make any JMX read report a wrong, nonzero usage.
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans().channel(trackingClient.getClientName(), channelName, 5, 500)) {
+      assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+    }
   }
 
   /**
