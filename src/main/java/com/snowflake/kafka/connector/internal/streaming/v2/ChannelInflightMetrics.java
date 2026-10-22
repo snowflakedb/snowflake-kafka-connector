@@ -16,13 +16,10 @@ import org.apache.kafka.connect.errors.ConnectException;
  * snowpipe-streaming publishes on the platform MBeanServer. Each gauge counts what a channel has
  * accepted and Snowflake has not yet acknowledged.
  *
- * <p>Freshness contract of the SDK beans: the SDK updates a gauge synchronously when it accepts or
- * acknowledges an append, and every {@code Value} read returns data from a snapshot taken at most
- * one second before the read. A bean that cannot honor that (snapshot unavailable, stale, missing
- * series, ambiguous key) throws instead of returning a value. A returned value therefore includes
- * every append the SDK accepted up to at most one second before the read, so a limit checked
- * against it before appending can be exceeded by at most what was appended in the second before the
- * read plus what is appended after it.
+ * <p>Contract of the SDK beans: every {@code Value} read returns the exact current value of that
+ * channel instance at read time, or throws (channel gone, FFI failure). A limit checked against
+ * these values before appending can therefore be exceeded by at most what is appended after the
+ * check.
  */
 public final class ChannelInflightMetrics {
 

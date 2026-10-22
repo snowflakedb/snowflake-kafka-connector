@@ -142,7 +142,7 @@ class ChannelInflightMetricsTest {
 
   @Test
   void beanMBeanExceptionIsUnavailable() {
-    MBeanException failure = new MBeanException(new Exception("snapshot stale"), "stale");
+    MBeanException failure = new MBeanException(new Exception("ffi failure"), "ffi");
     beans
         .gauge("client_a", "conn_topic_0", FakeInflightMBeans.ROWS, 1)
         .register(
