@@ -21,6 +21,7 @@ import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
+import com.snowflake.kafka.connector.internal.streaming.v2.InflightUsageUnavailableException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
@@ -79,6 +80,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   /** Timestamp until which all inserts are skipped due to backpressure. */
   @VisibleForTesting Instant backpressureUntil = Instant.MIN;
+
+  /** Whether the last task inflight cap check found a cap reached or the usage unavailable. */
+  private boolean taskInflightCapped = false;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -478,14 +482,18 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       skipAllPartitions = true;
     }
 
-    // Task-level caps: sum SDK inflight rows and bytes across this task's channels (they may belong
-    // to different clients/pipes). Checked once per put: the SDK refreshes these gauges at most
-    // once
-    // per second, so re-reading within a put would return the same values.
+    // Task-level caps, checked once per put before any record of this batch is appended. Every
+    // appendRow of this task runs below on this thread, so per task the summed inflight usage can
+    // exceed a cap by at most what was appended in the second before the read (SDK snapshot age)
+    // plus this one batch. A skipped or rewound record is only appended by a later put, which runs
+    // its own check.
     final boolean inflightCapsEnabled =
         taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0;
     boolean newBackpressure = false;
-    if (inflightCapsEnabled && !skipAllPartitions && taskInflightCapReached()) {
+    if (inflightCapsEnabled
+        && !skipAllPartitions
+        && !records.isEmpty()
+        && taskInflightCapReached()) {
       skipAllPartitions = true;
       newBackpressure = true;
       taskMetrics.incBackpressureRewindCount();
@@ -554,26 +562,57 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
+  @VisibleForTesting
+  boolean isTaskInflightCapped() {
+    return taskInflightCapped;
+  }
+
   /**
    * Whether this task's summed inflight rows or bytes are at or above a configured cap. A cap of 0
-   * is disabled. The SDK gauges can be up to about one second stale, so this is a soft task cap on
-   * top of the SDK's own per-channel limits.
+   * is disabled. Usage that cannot be read for a transient reason counts as reached, so the caller
+   * backs off instead of appending blind. Logs WARN when the task becomes capped and INFO when it
+   * is no longer capped.
    */
   private boolean taskInflightCapReached() {
-    InflightUsage usage = channelManager.sumInflightUsage();
     long maxRows = taskConfig.getMaxTaskInflightRows();
     long maxBytes = taskConfig.getMaxTaskInflightBytes();
+    final InflightUsage usage;
+    try {
+      usage = channelManager.sumInflightUsage();
+    } catch (InflightUsageUnavailableException e) {
+      // Runs at most once per backpressure cooldown: the cooldown this sets skips the next check.
+      LOGGER.error(
+          String.format(
+              "Task inflight usage unavailable, treating the task inflight cap as reached and"
+                  + " backing off for %s (caps: rows %d, bytes %d)",
+              BACKPRESSURE_COOLDOWN, maxRows, maxBytes),
+          e);
+      taskInflightCapped = true;
+      return true;
+    }
     boolean rowsReached = maxRows > 0 && usage.getRows() >= maxRows;
     boolean bytesReached = maxBytes > 0 && usage.getBytes() >= maxBytes;
     if (rowsReached || bytesReached) {
-      LOGGER.warn(
-          "Task inflight cap reached: rows {} (cap {}), bytes {} (cap {})",
+      if (!taskInflightCapped) {
+        LOGGER.warn(
+            "Task inflight cap reached, pausing appends: rows {} (cap {}), bytes {} (cap {})",
+            usage.getRows(),
+            maxRows,
+            usage.getBytes(),
+            maxBytes);
+      }
+      taskInflightCapped = true;
+      return true;
+    }
+    if (taskInflightCapped) {
+      LOGGER.info(
+          "Task inflight usage below caps, resuming appends: rows {} (cap {}), bytes {} (cap {})",
           usage.getRows(),
           maxRows,
           usage.getBytes(),
           maxBytes);
-      return true;
     }
+    taskInflightCapped = false;
     return false;
   }
 

@@ -416,8 +416,15 @@ public class ConnectorConfigDefinition {
             LOW,
             "Task-level cap on rows accepted by this task's Snowpipe Streaming channels and not yet"
                 + " acknowledged by Snowflake, summed across every channel the task owns (which may"
-                + " span multiple SDK clients). 0 disables the cap. When the sum reaches the cap,"
-                + " the task rewinds the current poll and backs off.",
+                + " span multiple SDK clients). 0 disables the cap. Checked once at the start of"
+                + " every put, before any record of that batch is appended. When the sum is at or"
+                + " above the cap, or cannot be read (snapshot unavailable or stale), the task"
+                + " appends nothing from the batch, rewinds it, and backs off for 1 second. The sum"
+                + " includes every append up to at most 1 second before the check, so the task can"
+                + " exceed the cap by at most the rows it appended in that second plus one put"
+                + " batch (at most the consumer max.poll.records). Requires a snowpipe-streaming"
+                + " version that publishes per-channel inflight JMX beans, otherwise the task fails"
+                + " to start.",
             CONNECTOR_CONFIG_DOC,
             7,
             Width.NONE,
@@ -430,8 +437,16 @@ public class ConnectorConfigDefinition {
             LOW,
             "Task-level cap, in MiB, on bytes accepted by this task's Snowpipe Streaming channels"
                 + " and not yet acknowledged by Snowflake, summed across every channel the task"
-                + " owns (which may span multiple SDK clients). 0 disables the cap. When the sum"
-                + " reaches the cap, the task rewinds the current poll and backs off.",
+                + " owns (which may span multiple SDK clients). 0 disables the cap. Checked once at"
+                + " the start of every put, before any record of that batch is appended. When the"
+                + " sum is at or above the cap, or cannot be read (snapshot unavailable or stale),"
+                + " the task appends nothing from the batch, rewinds it, and backs off for 1"
+                + " second. The sum includes every append up to at most 1 second before the check,"
+                + " so the task can exceed the cap by at most the bytes it appended in that second"
+                + " plus the SDK-accounted bytes of one put batch of at most max.poll.records"
+                + " records (consumer fetch sizes bound compressed Kafka bytes, not SDK-accounted"
+                + " bytes). Requires a snowpipe-streaming version that publishes per-channel"
+                + " inflight JMX beans, otherwise the task fails to start.",
             CONNECTOR_CONFIG_DOC,
             8,
             Width.NONE,
