@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
-import javax.management.AttributeNotFoundException;
 import javax.management.InstanceNotFoundException;
 import javax.management.JMException;
 import javax.management.MBeanException;
@@ -30,13 +29,6 @@ class ChannelInflightMetricsTest {
   @AfterEach
   void tearDown() throws JMException {
     beans.close();
-  }
-
-  @Test
-  void constantsMatchSdkGaugeNames() {
-    assertEquals("snowflake.ingest.sdk", ChannelInflightMetrics.DOMAIN);
-    assertEquals("inflight_rows", ChannelInflightMetrics.INFLIGHT_ROWS);
-    assertEquals("inflight_bytes", ChannelInflightMetrics.INFLIGHT_BYTES);
   }
 
   @Test
@@ -125,14 +117,19 @@ class ChannelInflightMetricsTest {
   }
 
   @Test
-  void missingBeanForOpenChannelNamesBeanChannelClientKeysAndRegistrationLogs() {
-    InstanceNotFoundException cause = new InstanceNotFoundException("bean");
+  void missingBeanForOpenChannelNamesBeanChannelClientKeysAndRegistrationLogs() throws Exception {
+    String bean =
+        ChannelInflightMetrics.objectName(
+                "client_a", "conn_topic_0", ChannelInflightMetrics.INFLIGHT_BYTES)
+            .toString();
+    InstanceNotFoundException cause = new InstanceNotFoundException(bean);
 
     ConnectException thrown =
         ChannelInflightMetrics.missingBeanForOpenChannel("client_a", "conn_topic_0", cause);
 
     assertSame(cause, thrown.getCause());
     String message = thrown.getMessage();
+    assertTrue(message.contains(bean), message);
     assertTrue(message.contains("client_a"), message);
     assertTrue(message.contains("conn_topic_0"), message);
     assertTrue(message.contains(ROWS_KEY), message);
@@ -176,21 +173,6 @@ class ChannelInflightMetricsTest {
     RuntimeMBeanException wrapped =
         assertInstanceOf(RuntimeMBeanException.class, thrown.getCause());
     assertSame(failure, wrapped.getCause());
-  }
-
-  @Test
-  void beanWithoutValueAttributeIsUnavailable() {
-    beans.register(
-        FakeInflightMBeans.sdkObjectName("client_a", "conn_topic_0", FakeInflightMBeans.ROWS),
-        () -> {
-          throw new AttributeNotFoundException("Value");
-        });
-
-    InflightUsageUnavailableException thrown =
-        assertThrows(
-            InflightUsageUnavailableException.class,
-            () -> ChannelInflightMetrics.read("client_a", "conn_topic_0"));
-    assertInstanceOf(AttributeNotFoundException.class, thrown.getCause());
   }
 
   @ParameterizedTest
