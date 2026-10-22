@@ -83,7 +83,7 @@ class PartitionChannelManagerTest {
     TopicPartition tp1 = new TopicPartition(TOPIC, 1);
     startPartitions(tp0, tp1);
     InflightUsageUnavailableException failure =
-        new InflightUsageUnavailableException("stale", new RuntimeException("cause"));
+        new InflightUsageUnavailableException("ffi", new RuntimeException("cause"));
     when(createdChannels.get(tp0).getInflightUsage()).thenReturn(new InflightUsage(1, 10));
     when(createdChannels.get(tp1).getInflightUsage()).thenThrow(failure);
 

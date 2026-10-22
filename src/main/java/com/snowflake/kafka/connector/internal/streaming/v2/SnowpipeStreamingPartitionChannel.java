@@ -950,12 +950,14 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   /**
    * Reads the SDK's per-channel inflight gauges over JMX. A channel that is still opening, failed
    * to open, or is closed, or whose client is closed, has nothing to report and returns {@link
-   * InflightUsage#NONE}. The SDK registers a channel's beans inside openChannel before returning
-   * and unregisters them only when the channel is dropped or its client closes, so a bean missing
-   * for an open channel on an open client is a registration failure.
+   * InflightUsage#NONE}, also when it closes during the read. The SDK registers a channel's beans
+   * inside openChannel before returning and unregisters them when the channel closes or is dropped
+   * or its client closes, so a bean missing for an open channel on an open client is a registration
+   * failure.
    *
    * @throws ConnectException if a bean is missing while the channel and its client are open
-   * @throws InflightUsageUnavailableException if the usage cannot be read for a transient reason
+   * @throws InflightUsageUnavailableException if a read fails while the channel and its client are
+   *     open
    */
   @Override
   public InflightUsage getInflightUsage() {
@@ -987,6 +989,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         return InflightUsage.NONE;
       }
       throw ChannelInflightMetrics.missingBeanForOpenChannel(clientName, channelName, e);
+    } catch (InflightUsageUnavailableException e) {
+      if (sdkChannel.isClosed() || client.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw e;
     }
   }
 

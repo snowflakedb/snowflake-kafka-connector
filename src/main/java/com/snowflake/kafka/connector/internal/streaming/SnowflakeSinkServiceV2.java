@@ -27,6 +27,7 @@ import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFe
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -40,6 +41,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -81,8 +83,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /** Timestamp until which all inserts are skipped due to backpressure. */
   @VisibleForTesting Instant backpressureUntil = Instant.MIN;
 
+  /** Longest stretch of consecutive unavailable inflight reads before the task fails. */
+  static final Duration MAX_INFLIGHT_USAGE_UNAVAILABLE = Duration.ofMinutes(5);
+
+  @VisibleForTesting Clock clock = Clock.systemUTC();
+
   /** Whether the last task inflight cap check found a cap reached or the usage unavailable. */
   private boolean taskInflightCapped = false;
+
+  /** First of the current run of unavailable inflight reads, or null after a readable one. */
+  private Instant inflightUnavailableSince = null;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -476,17 +486,16 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     // If still in cooldown from a recent backpressure event, treat all partitions as
     // backpressured so we skip the entire batch and give the SDK time to drain.
     boolean skipAllPartitions = false;
-    if (Instant.now().isBefore(backpressureUntil)) {
+    if (clock.instant().isBefore(backpressureUntil)) {
       LOGGER.debug(
           "Backpressure cooldown active until {}. Skipping entire batch.", backpressureUntil);
       skipAllPartitions = true;
     }
 
     // Task-level caps, checked once per put before any record of this batch is appended. Every
-    // appendRow of this task runs below on this thread, so per task the summed inflight usage can
-    // exceed a cap by at most what was appended in the second before the read (SDK snapshot age)
-    // plus this one batch. A skipped or rewound record is only appended by a later put, which runs
-    // its own check.
+    // appendRow of this task runs below on this thread and the SDK gauges are exact at read time,
+    // so per task the summed inflight usage can exceed a cap by at most this one batch. A skipped
+    // or rewound record is only appended by a later put, which runs its own check.
     final boolean inflightCapsEnabled =
         taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0;
     boolean newBackpressure = false;
@@ -537,7 +546,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     if (newBackpressure) {
-      backpressureUntil = Instant.now().plus(BACKPRESSURE_COOLDOWN);
+      backpressureUntil = clock.instant().plus(BACKPRESSURE_COOLDOWN);
       LOGGER.info("Backpressure cooldown set until {}", backpressureUntil);
     }
 
@@ -569,9 +578,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   /**
    * Whether this task's summed inflight rows or bytes are at or above a configured cap. A cap of 0
-   * is disabled. Usage that cannot be read for a transient reason counts as reached, so the caller
-   * backs off instead of appending blind. Logs WARN when the task becomes capped and INFO when it
-   * is no longer capped.
+   * is disabled. Usage that cannot be read counts as reached, so the caller backs off instead of
+   * appending blind. Logs WARN when the task becomes capped and INFO when it is no longer capped.
+   *
+   * @throws ConnectException if the usage has been unavailable on every check for longer than
+   *     {@link #MAX_INFLIGHT_USAGE_UNAVAILABLE}
    */
   private boolean taskInflightCapReached() {
     long maxRows = taskConfig.getMaxTaskInflightRows();
@@ -580,16 +591,33 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     try {
       usage = channelManager.sumInflightUsage();
     } catch (InflightUsageUnavailableException e) {
+      Instant now = clock.instant();
+      if (inflightUnavailableSince == null) {
+        inflightUnavailableSince = now;
+      } else if (Duration.between(inflightUnavailableSince, now)
+              .compareTo(MAX_INFLIGHT_USAGE_UNAVAILABLE)
+          > 0) {
+        throw new ConnectException(
+            String.format(
+                "Task inflight usage has been unavailable since %s, longer than %d minutes, while"
+                    + " %s or %s is enabled. Failing the task so it restarts.",
+                inflightUnavailableSince,
+                MAX_INFLIGHT_USAGE_UNAVAILABLE.toMinutes(),
+                KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS,
+                KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES),
+            e);
+      }
       // Runs at most once per backpressure cooldown: the cooldown this sets skips the next check.
       LOGGER.error(
           String.format(
-              "Task inflight usage unavailable, treating the task inflight cap as reached and"
-                  + " backing off for %s (caps: rows %d, bytes %d)",
-              BACKPRESSURE_COOLDOWN, maxRows, maxBytes),
+              "Task inflight usage unavailable since %s, treating the task inflight cap as reached"
+                  + " and backing off for %s (caps: rows %d, bytes %d)",
+              inflightUnavailableSince, BACKPRESSURE_COOLDOWN, maxRows, maxBytes),
           e);
       taskInflightCapped = true;
       return true;
     }
+    inflightUnavailableSince = null;
     boolean rowsReached = maxRows > 0 && usage.getRows() >= maxRows;
     boolean bytesReached = maxBytes > 0 && usage.getBytes() >= maxBytes;
     if (rowsReached || bytesReached) {
