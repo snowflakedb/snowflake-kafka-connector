@@ -90,6 +90,9 @@ public class SnowflakeSinkTask extends SinkTask {
   // Task-level JMX metrics (lifecycle, throughput, duration)
   private TaskMetrics taskMetrics = TaskMetrics.noop();
 
+  // Stops this task when a critical server advisory applies (SNOW-3648295)
+  private SinkTaskAdvisoryMonitor advisoryMonitor = null;
+
   /** default constructor, invoked by kafka connect framework */
   public SnowflakeSinkTask() {
     DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
@@ -101,6 +104,15 @@ public class SnowflakeSinkTask extends SinkTask {
     DYNAMIC_LOGGER = new KCLogger(this.getClass().getName());
     this.sink = service;
     this.conn = connectionService;
+  }
+
+  @VisibleForTesting
+  SnowflakeSinkTask(
+      SnowflakeSinkService service,
+      SnowflakeConnectionService connectionService,
+      SinkTaskAdvisoryMonitor advisoryMonitor) {
+    this(service, connectionService);
+    this.advisoryMonitor = advisoryMonitor;
   }
 
   private SnowflakeConnectionService getConnection() {
@@ -171,6 +183,11 @@ public class SnowflakeSinkTask extends SinkTask {
             .setTaskID(this.taskConfigId)
             .build();
 
+    // Refuse to start while a critical advisory applies, before any channel is opened.
+    this.advisoryMonitor = new SinkTaskAdvisoryMonitor(conn, parsedConfig, this.taskConfigId);
+    this.advisoryMonitor.checkOnStart();
+    this.advisoryMonitor.startPolling();
+
     if (this.sink != null) {
       this.sink.closeAll();
     }
@@ -234,6 +251,10 @@ public class SnowflakeSinkTask extends SinkTask {
     // Stop telemetry reporter first
     if (this.telemetryReporter != null) {
       this.telemetryReporter.stop();
+    }
+
+    if (this.advisoryMonitor != null) {
+      this.advisoryMonitor.stop();
     }
 
     this.taskMetrics.unregister();
@@ -300,6 +321,11 @@ public class SnowflakeSinkTask extends SinkTask {
    */
   @Override
   public void put(final Collection<SinkRecord> records) {
+    // Before anything is ingested: once a critical advisory applies, no further batch is written.
+    if (this.advisoryMonitor != null) {
+      this.advisoryMonitor.throwIfCritical();
+    }
+
     this.authorizationExceptionTracker.throwExceptionIfAuthorizationFailed();
 
     // Check for channel errors detected in preCommit and fail the task

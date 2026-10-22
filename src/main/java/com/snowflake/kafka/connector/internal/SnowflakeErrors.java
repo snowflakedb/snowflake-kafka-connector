@@ -212,7 +212,12 @@ public enum SnowflakeErrors {
       "An existing table's structured-OBJECT RECORD_METADATA column (managed-Iceberg v2) does not"
           + " match the schema the connector requires: a sub-field is missing or extra, or the"
           + " sub-fields could not be read. The strict typed-OBJECT cast would reject every row at"
-          + " ingest. See the specific error message for details.");
+          + " ingest. See the specific error message for details."),
+  ERROR_5031(
+      "5031",
+      "Connector version flagged by Snowflake",
+      "Snowflake has flagged this Kafka Connector version with a critical issue. Upgrade the"
+          + " connector.");
 
   // properties
 
