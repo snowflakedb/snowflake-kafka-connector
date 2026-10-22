@@ -77,12 +77,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /** Cooldown duration after a backpressure event before retrying inserts. */
   static final Duration BACKPRESSURE_COOLDOWN = Duration.ofSeconds(1);
 
-  /**
-   * How many successful inserts to allow between re-reads of summed inflight usage when a task
-   * inflight cap is set. The start-of-put check always runs.
-   */
-  static final int INFLIGHT_CHECK_INTERVAL = 32;
-
   /** Timestamp until which all inserts are skipped due to backpressure. */
   @VisibleForTesting Instant backpressureUntil = Instant.MIN;
 
@@ -485,13 +479,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     // Task-level caps: sum SDK inflight rows and bytes across this task's channels (they may belong
-    // to different clients/pipes). Re-check every INFLIGHT_CHECK_INTERVAL successful inserts so a
-    // single large poll cannot run far past the caps.
+    // to different clients/pipes). Checked once per put: the SDK refreshes these gauges at most
+    // once
+    // per second, so re-reading within a put would return the same values.
     final boolean inflightCapsEnabled =
         taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0;
-    int insertsSinceInflightCheck = 0;
     boolean newBackpressure = false;
-    if (inflightCapsEnabled && !skipAllPartitions && taskInflightCapReached("before insert")) {
+    if (inflightCapsEnabled && !skipAllPartitions && taskInflightCapReached()) {
       skipAllPartitions = true;
       newBackpressure = true;
       taskMetrics.incBackpressureRewindCount();
@@ -517,22 +511,9 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
         continue;
       }
 
-      if (inflightCapsEnabled && insertsSinceInflightCheck >= INFLIGHT_CHECK_INTERVAL) {
-        insertsSinceInflightCheck = 0;
-        if (taskInflightCapReached("mid-batch on partition " + tp)) {
-          taskMetrics.incBackpressureRewindCount();
-          offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
-          skipAllPartitions = true;
-          newBackpressure = true;
-          continue;
-        }
-      }
-
       try {
         if (!insert(record)) {
           offsetsToRewindTo.putIfAbsent(tp, record.kafkaOffset());
-        } else if (inflightCapsEnabled) {
-          insertsSinceInflightCheck++;
         }
       } catch (BackpressureException e) {
         LOGGER.warn(
@@ -578,7 +559,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    * is disabled. The SDK gauges can be up to about one second stale, so this is a soft task cap on
    * top of the SDK's own per-channel limits.
    */
-  private boolean taskInflightCapReached(String when) {
+  private boolean taskInflightCapReached() {
     InflightUsage usage = channelManager.sumInflightUsage();
     long maxRows = taskConfig.getMaxTaskInflightRows();
     long maxBytes = taskConfig.getMaxTaskInflightBytes();
@@ -586,8 +567,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     boolean bytesReached = maxBytes > 0 && usage.getBytes() >= maxBytes;
     if (rowsReached || bytesReached) {
       LOGGER.warn(
-          "Task inflight cap reached {}: rows {} (cap {}), bytes {} (cap {})",
-          when,
+          "Task inflight cap reached: rows {} (cap {}), bytes {} (cap {})",
           usage.getRows(),
           maxRows,
           usage.getBytes(),
