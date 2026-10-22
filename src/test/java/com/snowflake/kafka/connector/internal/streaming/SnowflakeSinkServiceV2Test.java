@@ -33,7 +33,10 @@ import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFe
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -609,7 +612,7 @@ class SnowflakeSinkServiceV2Test {
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
     when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
     when(mockChannelManager.sumInflightUsage())
-        .thenThrow(new InflightUsageUnavailableException("stale", new RuntimeException("x")));
+        .thenThrow(new InflightUsageUnavailableException("ffi", new RuntimeException("x")));
 
     limited.insert(Arrays.asList(recordFor(TOPIC, 0, 1000), recordFor(TOPIC, 1, 2000)));
 
@@ -628,7 +631,7 @@ class SnowflakeSinkServiceV2Test {
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
     when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
     when(mockChannelManager.sumInflightUsage())
-        .thenThrow(new InflightUsageUnavailableException("stale", new RuntimeException("x")));
+        .thenThrow(new InflightUsageUnavailableException("ffi", new RuntimeException("x")));
 
     limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
     limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
@@ -694,6 +697,112 @@ class SnowflakeSinkServiceV2Test {
     verify(mockChannelManager, times(1)).sumInflightUsage();
     verify(channel0, times(records.size())).insertRecord(any());
     verify(mockSinkTaskContext, never()).offset(any(Map.class));
+  }
+
+  @Test
+  void insertResumesInsertingWhenUnavailableUsageBecomesReadable() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.sumInflightUsage())
+        .thenThrow(new InflightUsageUnavailableException("ffi", new RuntimeException("x")))
+        .thenReturn(new InflightUsage(0, 0));
+
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
+    verify(channel0, never()).insertRecord(any());
+
+    limited.backpressureUntil = Instant.now().minusSeconds(1);
+    SinkRecord record = recordFor(TOPIC, 0, 1000);
+    limited.insert(Collections.singletonList(record));
+
+    verify(channel0).insertRecord(record);
+    assertFalse(limited.isTaskInflightCapped());
+  }
+
+  @Test
+  void insertFailsTaskWhenUsageUnavailableLongerThanLimit() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    MutableClock clock = new MutableClock(Instant.parse("2026-01-01T00:00:00Z"));
+    limited.clock = clock;
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    InflightUsageUnavailableException failure =
+        new InflightUsageUnavailableException("ffi", new RuntimeException("x"));
+    when(mockChannelManager.sumInflightUsage()).thenThrow(failure);
+
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
+    clock.advance(SnowflakeSinkServiceV2.MAX_INFLIGHT_USAGE_UNAVAILABLE);
+    limited.backpressureUntil = Instant.MIN;
+    // Exactly at the limit still throttles.
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
+
+    clock.advance(Duration.ofMillis(1));
+    limited.backpressureUntil = Instant.MIN;
+    ConnectException thrown =
+        assertThrows(
+            ConnectException.class,
+            () -> limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000))));
+    assertSame(failure, thrown.getCause());
+    assertTrue(thrown.getMessage().contains("5 minutes"), thrown.getMessage());
+    verify(channel0, never()).insertRecord(any());
+  }
+
+  @Test
+  void insertRestartsUnavailableWindowAfterAReadableCheck() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    MutableClock clock = new MutableClock(Instant.parse("2026-01-01T00:00:00Z"));
+    limited.clock = clock;
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    InflightUsageUnavailableException failure =
+        new InflightUsageUnavailableException("ffi", new RuntimeException("x"));
+    when(mockChannelManager.sumInflightUsage())
+        .thenThrow(failure)
+        .thenReturn(new InflightUsage(0, 0))
+        .thenThrow(failure);
+
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
+    clock.advance(Duration.ofMinutes(4));
+    limited.backpressureUntil = Instant.MIN;
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1000)));
+    clock.advance(Duration.ofMinutes(4));
+    limited.backpressureUntil = Instant.MIN;
+
+    // 8 minutes since the first failure, but only one unavailable read since the readable one.
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 0, 1001)));
+
+    verify(mockChannelManager, times(3)).sumInflightUsage();
+    assertTrue(limited.isTaskInflightCapped());
+  }
+
+  private static final class MutableClock extends Clock {
+    private Instant now;
+
+    MutableClock(Instant now) {
+      this.now = now;
+    }
+
+    void advance(Duration duration) {
+      now = now.plus(duration);
+    }
+
+    @Override
+    public Instant instant() {
+      return now;
+    }
+
+    @Override
+    public java.time.ZoneId getZone() {
+      return ZoneOffset.UTC;
+    }
+
+    @Override
+    public Clock withZone(java.time.ZoneId zone) {
+      return this;
+    }
   }
 
   @Test

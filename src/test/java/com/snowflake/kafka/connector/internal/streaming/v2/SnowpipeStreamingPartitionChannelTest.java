@@ -260,6 +260,45 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
+  void getInflightUsageIsZeroWhenBeanReadFailsAfterClientCloses() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    String clientName = trackingClient.getClientName();
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans()
+            .register(
+                FakeInflightMBeans.sdkObjectName(clientName, channelName, FakeInflightMBeans.ROWS),
+                () -> {
+                  trackingClient.markClosed();
+                  throw new javax.management.MBeanException(new Exception("channel pointer gone"));
+                })) {
+      assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+    }
+  }
+
+  @Test
+  void getInflightUsageIsUnavailableWhenBeanReadFailsOnOpenChannel() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    javax.management.MBeanException failure =
+        new javax.management.MBeanException(new Exception("ffi failure"));
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans()
+            .register(
+                FakeInflightMBeans.sdkObjectName(
+                    trackingClient.getClientName(), channelName, FakeInflightMBeans.ROWS),
+                () -> {
+                  throw failure;
+                })) {
+      InflightUsageUnavailableException thrown =
+          assertThrows(InflightUsageUnavailableException.class, partitionChannel::getInflightUsage);
+      assertSame(failure, thrown.getCause());
+    }
+  }
+
+  @Test
   void getInflightUsageIsUnavailableWhenOpenClientNameUnreadable() {
     SFException failure = new SFException("InternalError", "name unavailable", 0, "");
     trackingClient =
