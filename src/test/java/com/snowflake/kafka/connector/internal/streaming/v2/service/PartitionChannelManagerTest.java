@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,7 +13,9 @@ import static org.mockito.Mockito.when;
 import com.snowflake.kafka.connector.StaticTopicToTableResolver;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.InflightUsageUnavailableException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -62,6 +65,36 @@ class PartitionChannelManagerTest {
   }
 
   // --- startPartitions ---
+
+  @Test
+  void sumInflightUsageAddsRowsAndBytesOfEveryChannel() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition("other_topic", 1);
+    startPartitions(tp0, tp1);
+    when(createdChannels.get(tp0).getInflightUsage()).thenReturn(new InflightUsage(1, 10));
+    when(createdChannels.get(tp1).getInflightUsage()).thenReturn(new InflightUsage(2, 25));
+
+    assertEquals(new InflightUsage(3, 35), manager.sumInflightUsage());
+  }
+
+  @Test
+  void sumInflightUsagePropagatesChannelReadFailure() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    startPartitions(tp0, tp1);
+    InflightUsageUnavailableException failure =
+        new InflightUsageUnavailableException("ffi", new RuntimeException("cause"));
+    when(createdChannels.get(tp0).getInflightUsage()).thenReturn(new InflightUsage(1, 10));
+    when(createdChannels.get(tp1).getInflightUsage()).thenThrow(failure);
+
+    assertSame(
+        failure, assertThrows(InflightUsageUnavailableException.class, manager::sumInflightUsage));
+  }
+
+  @Test
+  void sumInflightUsageIsZeroWithNoChannels() {
+    assertEquals(InflightUsage.NONE, manager.sumInflightUsage());
+  }
 
   @Test
   void startPartitionsRegistersChannelsInMap() {

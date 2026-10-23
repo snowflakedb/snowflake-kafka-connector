@@ -23,6 +23,7 @@ import com.snowflake.kafka.connector.internal.schemaevolution.SchemaEvolutionTar
 import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.schemaevolution.ValidationResultMapper;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -47,6 +48,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.management.InstanceNotFoundException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -943,6 +945,56 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   @Override
   public String getChannelName() {
     return channelName;
+  }
+
+  /**
+   * Reads the SDK's per-channel inflight gauges over JMX. A channel that is still opening, failed
+   * to open, or is closed, or whose client is closed, has nothing to report and returns {@link
+   * InflightUsage#NONE}, also when it closes during the read. The SDK registers a channel's beans
+   * inside openChannel before returning and unregisters them when the channel closes or is dropped
+   * or its client closes, so a bean missing for an open channel on an open client is a registration
+   * failure.
+   *
+   * @throws ConnectException if a bean is missing while the channel and its client are open
+   * @throws InflightUsageUnavailableException if a read fails while the channel and its client are
+   *     open
+   */
+  @Override
+  public InflightUsage getInflightUsage() {
+    CompletableFuture<SnowflakeStreamingIngestChannel> future = this.channel;
+    if (!future.isDone() || future.isCompletedExceptionally()) {
+      return InflightUsage.NONE;
+    }
+    SnowflakeStreamingIngestChannel sdkChannel = future.join();
+    if (sdkChannel.isClosed()) {
+      return InflightUsage.NONE;
+    }
+    // streamingClient is replaced before a channel is reopened on a recreated client, so once the
+    // channel future is complete it is the client that owns the channel.
+    SnowflakeStreamingIngestClient client = this.streamingClient;
+    final String clientName;
+    try {
+      clientName = client.getClientName();
+    } catch (SFException e) {
+      if (sdkChannel.isClosed() || client.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw new InflightUsageUnavailableException(
+          "Failed to read the client name of open channel " + channelName, e);
+    }
+    try {
+      return ChannelInflightMetrics.read(clientName, channelName);
+    } catch (InstanceNotFoundException e) {
+      if (sdkChannel.isClosed() || client.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw ChannelInflightMetrics.missingBeanForOpenChannel(clientName, channelName, e);
+    } catch (InflightUsageUnavailableException e) {
+      if (sdkChannel.isClosed() || client.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw e;
+    }
   }
 
   /**

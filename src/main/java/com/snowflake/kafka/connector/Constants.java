@@ -47,6 +47,24 @@ public final class Constants {
     public static final boolean SNOWFLAKE_STREAMING_METADATA_CONNECTOR_PUSH_TIME_DEFAULT = true;
     public static final String SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP =
         "snowflake.streaming.client.provider.override.map";
+
+    /**
+     * Task-level cap on the summed SDK {@code inflight_rows} gauge (rows accepted and not yet
+     * acknowledged by Snowflake) across this task's channels. {@code 0} disables the cap.
+     */
+    public static final String SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS =
+        "snowflake.streaming.max.task.inflight.rows";
+
+    public static final long SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS_DEFAULT = 0L;
+
+    /**
+     * Task-level cap, in MiB, on the summed SDK {@code inflight_bytes} gauge across this task's
+     * channels. {@code 0} disables the cap.
+     */
+    public static final String SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES =
+        "snowflake.streaming.max.task.inflight.megabytes";
+
+    public static final long SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES_DEFAULT = 0L;
     public static final String SNOWFLAKE_OPEN_CHANNEL_IO_THREADS =
         "snowflake.open.channel.io.threads";
     public static final int SNOWFLAKE_OPEN_CHANNEL_IO_THREADS_DEFAULT = 50;
