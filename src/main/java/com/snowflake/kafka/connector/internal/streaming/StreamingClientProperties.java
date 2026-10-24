@@ -153,6 +153,7 @@ public class StreamingClientProperties {
     clientProperties.put("account", account);
     clientProperties.put("host", url.getUrlWithoutPort());
     clientProperties.put("application", APPLICATION_NAME);
+    putStreamingSdkProxyProperties(clientProperties, config);
 
     String clientNamePrefix =
         STREAMING_CLIENT_V2_PREFIX_NAME
@@ -167,6 +168,32 @@ public class StreamingClientProperties {
     }
 
     return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
+  }
+
+  /**
+   * Forwards {@code jvm.proxy.*} onto the native streaming SDK as per-client properties so two
+   * connectors on one Connect worker can use different proxies. JDBC still uses {@link
+   * Utils#enableJVMProxy} (process-global) plus per-connection JDBC proxy properties.
+   *
+   * <p>{@code jvm.nonProxy.hosts} uses Java {@code |} separators; the SDK expects curl-style {@code
+   * NO_PROXY} commas.
+   */
+  private static void putStreamingSdkProxyProperties(
+      Properties clientProperties, SinkTaskConfig config) {
+    String proxyHost = config.getProxyHost();
+    String proxyPort = config.getProxyPort();
+    if (Strings.isNullOrEmpty(proxyHost) || Strings.isNullOrEmpty(proxyPort)) {
+      return;
+    }
+    clientProperties.put("proxy_url", "http://" + proxyHost + ":" + proxyPort);
+    if (!Strings.isNullOrEmpty(config.getProxyUsername())
+        && !Strings.isNullOrEmpty(config.getProxyPassword())) {
+      clientProperties.put("proxy_user", config.getProxyUsername());
+      clientProperties.put("proxy_password", config.getProxyPassword());
+    }
+    if (!Strings.isNullOrEmpty(config.getNonProxyHosts())) {
+      clientProperties.put("no_proxy", config.getNonProxyHosts().replace('|', ','));
+    }
   }
 
   /**
