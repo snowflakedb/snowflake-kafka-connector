@@ -10,6 +10,14 @@ on:
     - cron: '0 20 * * *'
   workflow_dispatch:
     inputs:
+      inspect_spcs:
+        description: 'Read-only SPCS capability check using existing AWS KC CI profile'
+        type: boolean
+        default: false
+      run_v4_trial:
+        description: 'KC v4-only low-load trial (excludes other live E2E jobs)'
+        type: boolean
+        default: false
       run_functional:
         description: 'functional tests'
         type: boolean
@@ -36,12 +44,82 @@ on:
         default: false
 
 jobs:
+  spcs-inspect:
+    if: github.event_name == 'workflow_dispatch' && inputs.inspect_spcs
+    needs: spcs-contracts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install 'snowflake-connector-python==4.2.0'
+    - name: Inspect existing AWS CI role without creating resources
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+        SNOWFLAKE_CREDENTIAL_FILE: ${{ github.workspace }}/profile.json
+      run: |
+        set -euo pipefail
+        umask 077
+        trap 'rm -f profile.json' EXIT
+        ./.github/scripts/decrypt_secret.sh AWS
+        unset SNOWFLAKE_TEST_PROFILE_SECRET
+        python3 test/spcs/inspect_ci.py
+
+  functional-pacing-contracts:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install offline test dependencies
+      run: >-
+        pip install requests certifi 'confluent-kafka[avro,json,protobuf]==2.13.0'
+        avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0' 'pytest==8.3.5' 'PyYAML==6.0.3'
+    - run: python3 test/scripts/functional_pacing_contract.py
+    - run: python3 test/scripts/workflow_contract.py
+
+  v4-trial:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_v4_trial && !inputs.inspect_spcs
+    needs: functional-pacing-contracts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    concurrency:
+      group: kc-v4-functional-trial-aws
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+    - uses: actions/checkout@v4
+    - name: Decrypt AWS test profile
+      run: ./.github/scripts/decrypt_secret.sh AWS
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: apache
+    - uses: ./.github/actions/run-e2e-tests
+      with:
+        platform: apache
+        platform-version: '4.1.1'
+        java-version: '17'
+        snowflake-cloud: AWS
+        test-group: v4-trial
+        v4-trial: 'true'
+
   functional:
     if: >
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_functional)
+      (github.event_name == 'workflow_dispatch' && inputs.run_functional && !inputs.run_v4_trial && !inputs.inspect_spcs)
     runs-on: ubuntu-22.04
     name: >
       functional
@@ -51,11 +129,14 @@ jobs:
       [${{ matrix.test_group }}]
     permissions:
       packages: read
+    # Serial execution intentionally trades total workflow latency for lower
+    # shared-account metadata load. This is not a cross-workflow account lock.
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
-          # ── New platforms: full suite split into 3 parallel groups ───────
+          # New platforms: full suite split into three sequential groups.
           - platform: apache
             platform_version: '4.1.1'
             snowflake_cloud: 'AWS'
@@ -128,6 +209,7 @@ jobs:
         java-version: ${{ matrix.java_test_version || '11' }}
         marker-filter: ${{ matrix.marker_filter }}
         test-group: ${{ matrix.test_group }}
+        functional-test-delay: '5'
 
   fault_injection:
     # Exercises error-recovery paths using mitmproxy to inject HTTP 410 responses.
@@ -135,7 +217,7 @@ jobs:
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection)
+      (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection && !inputs.run_v4_trial && !inputs.inspect_spcs)
     runs-on: ubuntu-22.04
     name: fault_injection
     permissions:
@@ -167,7 +249,7 @@ jobs:
     if: >
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_core_legacy)
+      (github.event_name == 'workflow_dispatch' && inputs.run_core_legacy && !inputs.run_v4_trial && !inputs.inspect_spcs)
     runs-on: ubuntu-22.04
     name: >
       core_legacy
@@ -222,7 +304,7 @@ jobs:
     if: >
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_stress)
+      (github.event_name == 'workflow_dispatch' && inputs.run_stress && !inputs.run_v4_trial && !inputs.inspect_spcs)
     runs-on: ubuntu-22.04
     name: >
       stress
@@ -260,7 +342,7 @@ jobs:
   soak_with_chaos:
     if: >
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_soak_with_chaos)
+      (github.event_name == 'workflow_dispatch' && inputs.run_soak_with_chaos && !inputs.run_v4_trial && !inputs.inspect_spcs)
     runs-on: ubuntu-22.04
     name: soak with chaos
     timeout-minutes: 600
@@ -309,7 +391,7 @@ jobs:
   # SNOW-4202412: opt-in only until the dedicated fixture is qualified.
   # A skipped job is NOT release validation. Publisher integration remains open.
   spcs-release:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_spcs && vars.SPCS_RELEASE_ENABLED == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_spcs && !inputs.run_v4_trial && !inputs.inspect_spcs && vars.SPCS_RELEASE_ENABLED == 'true'
     environment: spcs-release
     runs-on: ubuntu-22.04
     timeout-minutes: 90

@@ -106,6 +106,85 @@ Both share the same `KafkaDriver` (`lib/driver.py`) and connector config templat
 `run_tests.sh` passes all pytest CLI options explicitly when launching the
 test-runner container.
 
+## Functional CI load and duration
+
+Document version: 3.0, 2026-10-16 07:20 UTC
+
+The v4-only trial is opt-in. Draft and ready PRs retain the existing broad
+functional, fault-injection, and Java integration coverage. The [SPCS test and
+harness](spcs/README.md) from #1585/#1586 are already merged; their live
+infrastructure and activation remain separate.
+
+The `functional` matrix in `end-to-end.yaml` runs one lane at a time. All seven
+lanes and their assertions remain available for draft and ready PRs, pushes,
+schedules, and explicit full-suite dispatches.
+Allow the sum of the lane durations,
+plus build and queue time, for the complete functional result rather than the
+slowest parallel lane. Each lane retains GitHub Actions' default six-hour job
+limit; serialization does not require multiplying a per-job timeout.
+
+CI also passes `--functional-test-delay 5`, which waits five seconds before each
+functional case's fixture setup. Budget up to five seconds per selected case in
+addition to its existing runtime (some skipped cases may also incur the delay).
+The delay is outside each case's assertion deadline. Local runs default to no
+delay; select an integer from 0 to 60 after the runner's `--` separator to opt in.
+Pressure, soak, fault-injection, and SPCS tests are excluded from this pacing.
+This is case-level pacing, not a rate limit on every DDL or channel-open call.
+
+Per-type compatibility checks poll once every five seconds rather than two,
+without extending their 60-second observation window. Expected rows, value
+checks, and error assertions are unchanged. Functional runtime under pacing is
+not a throughput benchmark; stress and soak workloads keep their existing rates.
+
+The matrix cap is per workflow run, not per Snowflake account. Separate PR runs,
+fault-injection jobs, and other account users can still overlap. For a controlled
+trial, run only one functional workflow against the shared account at a time.
+This reduces test load but does not guarantee that shared-service throttling ends.
+
+### KC v4-only trial
+
+The manual trial runs a single Apache Kafka 4.1.1 / Java 17 / AWS job covering VECTOR,
+structured OBJECT, and structured ARRAY in both `v4-compat` and `v4-ht` modes.
+All six distinct cases must be collected and pass setup, execution, and teardown.
+Skipped cases, expected failures, unexpected passes, and incomplete results fail
+the trial. Collection-only checks do not require execution. Other cases are
+deselected, with a second guard before fixture setup. The runner skips the KC v3 download and mounts a fresh
+empty legacy-plugin directory. Assertions and the 60-second case deadline remain
+unchanged. When `--logs-dir` is supplied (as in CI), the last 10,000 service-log
+lines are retained on success, test failure, partial startup failure, and health
+check timeout, before container cleanup. Log-capture or container-cleanup failure
+fails an otherwise successful trial; an earlier failure keeps its original exit
+status. `--keep` explicitly retains containers. Pytest teardown and Docker cleanup
+are not independent proof that every Snowflake resource or channel was removed.
+
+```bash
+./test/run_tests.sh --platform=apache --platform-version=4.1.1 \
+  --java-version=17 --cloud=AWS --v4-trial --logs-dir="$PWD/test-logs"
+```
+
+`--v4-trial` rejects extra pytest arguments and `--interactive`/`-i` so callers
+cannot override its fixed selection or report an interactive shell as a passed
+trial. It applies five-second case pacing. Once this workflow is available
+on the default branch, it can also be dispatched with `run_v4_trial=true`; that
+input takes precedence over other live E2E inputs. `inspect_spcs=true` takes
+precedence over the trial and runs only the read-only inspection. Ordinary PR
+creation and updates do not run the trial.
+
+The trial has a 45-minute job limit including build/setup. A repository-wide
+trial concurrency group prevents two trials from running together; GitHub may
+replace an older pending trial when newer runs queue. This is not an account-wide
+lock against other workflows or repositories. Broad Java integration and mixed
+E2E lanes retain their existing PR behavior. A green trial establishes six
+successful type-acceptance/row-count checks, not full value fidelity, SPCS
+validation, full-suite coverage, or release qualification.
+
+Offline checks (no credentials or running services):
+
+```bash
+python3 test/scripts/functional_pacing_contract.py
+python3 test/scripts/workflow_contract.py  # requires PyYAML==6.0.3
+```
+
 ## Stress Tests
 
 Stress tests use the same Docker infrastructure but with `-m pressure` passed to pytest:
