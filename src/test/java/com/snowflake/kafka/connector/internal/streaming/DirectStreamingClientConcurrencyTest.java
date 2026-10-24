@@ -30,6 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import net.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import org.junit.After;
 import org.junit.Assert;
@@ -201,9 +202,9 @@ public class DirectStreamingClientConcurrencyTest {
             clientConfig3,
             getClient3Futures.get(getClient3Futures.size() - 1).get()));
 
-    task1Latch.await();
-    task2Latch.await();
-    task3Latch.await();
+    awaitClients(task1Latch);
+    awaitClients(task2Latch);
+    awaitClients(task3Latch);
 
     // verify createClient and closeClient calls
     int totalCloseCount =
@@ -233,7 +234,7 @@ public class DirectStreamingClientConcurrencyTest {
     }
 
     // wait for getClient to complete
-    latch.await();
+    awaitClients(latch);
 
     // Verify that clients are valid
     for (Future<SnowflakeStreamingIngestClient> future : futures) {
@@ -264,7 +265,7 @@ public class DirectStreamingClientConcurrencyTest {
     }
 
     // wait for closeClient to complete
-    latch.await();
+    awaitClients(latch);
 
     // Verify that clients are invalid (closed)
     for (Future<SnowflakeStreamingIngestClient> future : futures) {
@@ -289,9 +290,11 @@ public class DirectStreamingClientConcurrencyTest {
     Future<SnowflakeStreamingIngestClient> future =
         executorService.submit(
             () -> {
-              SnowflakeStreamingIngestClient client = streamingClientProvider.getClient(config);
-              countDownLatch.countDown();
-              return client;
+              try {
+                return streamingClientProvider.getClient(config);
+              } finally {
+                countDownLatch.countDown();
+              }
             });
 
     return future;
@@ -305,10 +308,19 @@ public class DirectStreamingClientConcurrencyTest {
     Future future =
         executorService.submit(
             () -> {
-              streamingClientProvider.closeClient(config, client);
-              countDownLatch.countDown();
+              try {
+                streamingClientProvider.closeClient(config, client);
+              } finally {
+                countDownLatch.countDown();
+              }
             });
 
     return future;
+  }
+
+  private static void awaitClients(CountDownLatch latch) throws InterruptedException {
+    if (!latch.await(60, TimeUnit.SECONDS)) {
+      Assert.fail("timed out waiting for streaming client operations");
+    }
   }
 }
