@@ -30,6 +30,7 @@ import com.snowflake.kafka.connector.internal.metrics.SnowflakeSinkTaskMetrics;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
+import com.snowflake.kafka.connector.internal.streaming.v2.ChannelInflightMetrics;
 import com.snowflake.kafka.connector.internal.streaming.v2.SdkBootstrapConfig;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import java.util.Arrays;
@@ -154,6 +155,11 @@ public class SnowflakeSinkTask extends SinkTask {
 
     // Parse raw config once into typed structure; validates required fields and applies defaults
     final SinkTaskConfig config = SinkTaskConfig.from(parsedConfig);
+
+    // Fail at start, not on the first put, when a task inflight cap is enabled against an SDK
+    // that cannot report inflight usage.
+    ChannelInflightMetrics.requireSdkSupport(
+        config.getMaxTaskInflightRows(), config.getMaxTaskInflightBytes());
 
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
