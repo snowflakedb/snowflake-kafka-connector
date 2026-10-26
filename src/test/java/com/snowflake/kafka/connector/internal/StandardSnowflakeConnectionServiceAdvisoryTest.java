@@ -1,0 +1,132 @@
+package com.snowflake.kafka.connector.internal;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
+import java.lang.reflect.Field;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.jupiter.api.Test;
+
+public class StandardSnowflakeConnectionServiceAdvisoryTest {
+
+  private static StandardSnowflakeConnectionService serviceWith(Connection conn) throws Exception {
+    return serviceWith(conn, new KCLogger(StandardSnowflakeConnectionService.class.getName()));
+  }
+
+  private static StandardSnowflakeConnectionService serviceWith(Connection conn, KCLogger logger)
+      throws Exception {
+    org.objenesis.Objenesis objenesis = new org.objenesis.ObjenesisStd();
+    StandardSnowflakeConnectionService svc =
+        objenesis.newInstance(StandardSnowflakeConnectionService.class);
+    Field connField = StandardSnowflakeConnectionService.class.getDeclaredField("conn");
+    connField.setAccessible(true);
+    connField.set(svc, conn);
+    Field loggerField = StandardSnowflakeConnectionService.class.getDeclaredField("LOGGER");
+    loggerField.setAccessible(true);
+    loggerField.set(svc, logger);
+    // Objenesis skips field initializers, so the failure-logged flag must be wired manually.
+    Field failureLoggedField =
+        StandardSnowflakeConnectionService.class.getDeclaredField("advisoryFetchFailureLogged");
+    failureLoggedField.setAccessible(true);
+    failureLoggedField.set(svc, new AtomicBoolean());
+    return svc;
+  }
+
+  private static Connection mockConnReturning(String json) throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+    when(stmt.executeQuery()).thenReturn(rs);
+    when(rs.next()).thenReturn(true);
+    when(rs.getString(1)).thenReturn(json);
+    return conn;
+  }
+
+  @Test
+  public void parsesMessages() throws Exception {
+    // "code" field is retained in the JSON to verify it is ignored (AdvisoryMessage no longer has
+    // a code field; @JsonIgnoreProperties ensures the stray field is silently discarded).
+    String json =
+        "{\"messages\":[{\"level\":\"warn\",\"code\":\"DEPRECATED_VERSION\",\"text\":\"upgrade\"}]}";
+    List<AdvisoryMessage> msgs =
+        serviceWith(mockConnReturning(json))
+            .getKcAdvisoryMessages("{\"connectorVersion\":\"4.1.0\"}");
+    assertEquals(1, msgs.size());
+    assertEquals("warn", msgs.get(0).getLevel());
+    assertEquals("upgrade", msgs.get(0).getText());
+  }
+
+  @Test
+  public void emptyMessages_returnsEmptyList() throws Exception {
+    List<AdvisoryMessage> msgs =
+        serviceWith(mockConnReturning("{\"messages\":[]}")).getKcAdvisoryMessages("{}");
+    assertTrue(msgs.isEmpty());
+  }
+
+  @Test
+  public void sqlException_failsSafeToEmptyList() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    when(conn.prepareStatement(anyString())).thenThrow(new SQLException("function does not exist"));
+    List<AdvisoryMessage> msgs = serviceWith(conn).getKcAdvisoryMessages("{}");
+    assertTrue(msgs.isEmpty()); // must not throw
+  }
+
+  @Test
+  public void malformedJson_failsSafeToEmptyList() throws Exception {
+    List<AdvisoryMessage> msgs =
+        serviceWith(mockConnReturning("{not json")).getKcAdvisoryMessages("{}");
+    assertTrue(msgs.isEmpty()); // must not throw
+  }
+
+  @Test
+  public void firstFailureLoggedAtInfo_laterFailuresAtDebug() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    // e.g. SQL compilation error 000937 for a request GS rejects, or an unknown function.
+    when(conn.prepareStatement(anyString())).thenThrow(new SQLException("permission denied"));
+    KCLogger logger = mock(KCLogger.class);
+    StandardSnowflakeConnectionService svc = serviceWith(conn, logger);
+
+    assertTrue(svc.getKcAdvisoryMessages("{}").isEmpty());
+    assertTrue(svc.getKcAdvisoryMessages("{}").isEmpty());
+    assertTrue(svc.getKcAdvisoryMessages("{}").isEmpty());
+
+    verify(logger, times(1)).info(anyString(), (Object) any());
+    verify(logger, times(2)).debug(anyString(), (Object) any());
+  }
+
+  @Test
+  public void successAfterFailure_nextFailureLoggedAtInfoAgain() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    when(conn.prepareStatement(anyString())).thenReturn(stmt);
+    when(rs.next()).thenReturn(true);
+    when(rs.getString(1)).thenReturn("{\"messages\":[]}");
+    // fail, fail, succeed, fail: the failure after the recovery is logged at INFO again.
+    when(stmt.executeQuery())
+        .thenThrow(new SQLException("transient"))
+        .thenThrow(new SQLException("transient"))
+        .thenReturn(rs)
+        .thenThrow(new SQLException("transient again"));
+    KCLogger logger = mock(KCLogger.class);
+    StandardSnowflakeConnectionService svc = serviceWith(conn, logger);
+
+    for (int i = 0; i < 4; i++) {
+      assertTrue(svc.getKcAdvisoryMessages("{}").isEmpty());
+    }
+
+    verify(logger, times(2)).info(anyString(), (Object) any());
+    verify(logger, times(1)).debug(anyString(), (Object) any());
+  }
+}
