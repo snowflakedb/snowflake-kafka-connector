@@ -335,4 +335,31 @@ public class UtilsTest {
     assertEquals("MIXEDCASE", Utils.getTableName("otherTopic", resolver, true));
     assertEquals("MIXEDCASE", Utils.getTableName("otherTopic", resolver, false));
   }
+
+  @Test
+  public void testTableNameHashToggle() {
+    TopicToTableResolver emptyResolver = new StaticTopicToTableResolver(new HashMap<>());
+
+    String topic = "my.topic";
+    int hash = Math.abs(topic.hashCode());
+
+    // Hash appended by default (v3-compatible behavior)
+    assertEquals(
+        "MY_TOPIC_" + hash,
+        Utils.getTableName(topic, emptyResolver, true, true),
+        "Sanitized name should include hash suffix by default");
+
+    // Hash disabled: sanitized but no suffix
+    assertEquals(
+        "MY_TOPIC",
+        Utils.getTableName(topic, emptyResolver, true, false),
+        "Sanitized name should omit hash suffix when disabled");
+
+    // Valid identifiers never get a hash, regardless of the flag
+    assertEquals("VALID_TOPIC", Utils.getTableName("valid_topic", emptyResolver, true, true));
+    assertEquals("VALID_TOPIC", Utils.getTableName("valid_topic", emptyResolver, true, false));
+
+    // Sanitization disabled: pass-through, hash flag has no effect
+    assertEquals("my.topic", Utils.getTableName("my.topic", emptyResolver, false, false));
+  }
 }
