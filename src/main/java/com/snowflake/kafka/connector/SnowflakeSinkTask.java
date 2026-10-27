@@ -160,9 +160,6 @@ public class SnowflakeSinkTask extends SinkTask {
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 
-    // enable jvm proxy
-    Utils.enableJVMProxy(parsedConfig);
-
     KafkaRecordErrorReporter kafkaRecordErrorReporter = createKafkaRecordErrorReporter();
 
     conn =

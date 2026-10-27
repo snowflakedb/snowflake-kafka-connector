@@ -9,7 +9,12 @@ import com.snowflake.kafka.connector.internal.URL;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import java.io.IOException;
+import java.net.Authenticator;
+import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
+import java.net.Proxy;
 import java.net.ProxySelector;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -19,8 +24,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.config.types.Password;
 
@@ -63,8 +70,7 @@ public class OAuthAccessTokenFetcher {
 
   /**
    * Fetch an OAuth access token. Retries with exponential backoff on transient failures. Uses the
-   * JVM's default {@link ProxySelector} so that proxy settings from {@code Utils.enableJVMProxy}
-   * (including {@code jvm.nonProxy.hosts} bypass rules) are respected, matching KC v3 behavior.
+   * JVM's default {@link ProxySelector}, so an existing {@code -Dhttps.proxyHost} still applies.
    *
    * @param url OAuth server URL (scheme, host, port, path)
    * @param clientId OAuth client ID
@@ -80,8 +86,96 @@ public class OAuthAccessTokenFetcher {
       Password clientSecret,
       Optional<Password> refreshToken,
       Optional<String> scope) {
-    HttpClient httpClient = HttpClient.newBuilder().proxy(ProxySelector.getDefault()).build();
-    return fetchAccessToken(url, clientId, clientSecret, refreshToken, scope, httpClient);
+    return fetchAccessToken(
+        url, clientId, clientSecret, refreshToken, scope, null, null, null, null, null);
+  }
+
+  /**
+   * Fetch an OAuth access token through the connector's {@code jvm.proxy.*} settings when host and
+   * port are set. Otherwise uses the JVM's default {@link ProxySelector}.
+   */
+  public static String fetchAccessToken(
+      URL url,
+      String clientId,
+      Password clientSecret,
+      Optional<Password> refreshToken,
+      Optional<String> scope,
+      String proxyHost,
+      String proxyPort,
+      String nonProxyHosts,
+      String proxyUser,
+      String proxyPassword) {
+    HttpClient.Builder builder = HttpClient.newBuilder();
+    if (!isBlank(proxyHost) && !isBlank(proxyPort)) {
+      int port;
+      try {
+        port = Integer.parseInt(proxyPort.trim());
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("jvm.proxy.port must be an integer", e);
+      }
+      builder.proxy(connectorProxySelector(proxyHost.trim(), port, nonProxyHosts));
+      if (!isBlank(proxyUser) && !isBlank(proxyPassword)) {
+        String user = proxyUser;
+        String password = proxyPassword;
+        builder.authenticator(
+            new Authenticator() {
+              @Override
+              protected PasswordAuthentication getPasswordAuthentication() {
+                if (getRequestorType() == RequestorType.PROXY) {
+                  return new PasswordAuthentication(user, password.toCharArray());
+                }
+                return null;
+              }
+            });
+      }
+    } else {
+      builder.proxy(ProxySelector.getDefault());
+    }
+    return fetchAccessToken(url, clientId, clientSecret, refreshToken, scope, builder.build());
+  }
+
+  /** HTTP proxy for {@code jvm.proxy.host} and {@code jvm.proxy.port}, honoring the bypass list. */
+  static ProxySelector connectorProxySelector(String host, int port, String nonProxyHosts) {
+    InetSocketAddress address = new InetSocketAddress(host, port);
+    Proxy proxy = new Proxy(Proxy.Type.HTTP, address);
+    return new ProxySelector() {
+      @Override
+      public List<Proxy> select(URI uri) {
+        String destination = uri == null ? null : uri.getHost();
+        if (bypassesProxy(destination, nonProxyHosts)) {
+          return List.of(Proxy.NO_PROXY);
+        }
+        return List.of(proxy);
+      }
+
+      @Override
+      public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {}
+    };
+  }
+
+  /**
+   * JDK {@code http.nonProxyHosts} match: {@code |} separates entries, {@code *} is a wildcard, and
+   * the pattern is matched against the whole host, ignoring case.
+   */
+  static boolean bypassesProxy(String host, String nonProxyHosts) {
+    if (host == null || isBlank(nonProxyHosts)) {
+      return false;
+    }
+    for (String raw : nonProxyHosts.split("\\|", -1)) {
+      String pattern = raw.trim();
+      if (pattern.isEmpty()) {
+        continue;
+      }
+      String regex = Pattern.quote(pattern).replace("*", "\\E.*\\Q");
+      if (host.matches("(?i)" + regex)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isBlank(String value) {
+    return value == null || value.trim().isEmpty();
   }
 
   static String fetchAccessToken(
