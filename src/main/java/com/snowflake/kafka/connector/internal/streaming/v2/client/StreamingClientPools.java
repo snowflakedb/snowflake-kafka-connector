@@ -174,7 +174,7 @@ public class StreamingClientPools {
    * #getClientAsync}). Sized to observed T1 NR windows. Exhaustion fails the create so a
    * permanently unknown account does not retry forever.
    */
-  static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(2);
+  static final Duration CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(5);
 
   /**
    * Wall-clock budget for replacement-client creation, sized to absorb a pipe-failover window.
