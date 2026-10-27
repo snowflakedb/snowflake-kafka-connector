@@ -78,6 +78,8 @@
         <snowflake-ingest-sdk.version>4.4.6</snowflake-ingest-sdk.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
+        <httpclient5.version>5.6.5</httpclient5.version>
+        <httpcore5.version>5.4.4</httpcore5.version>
     </properties>
 
 
@@ -800,12 +802,6 @@
                     <groupId>io.airlift</groupId>
                     <artifactId>aircompressor</artifactId>
                 </exclusion>
-                <!-- httpclient5 is only used by iceberg's REST catalog, which is not exercised by the connector.
-                     Excluded to remove CVE-2026-54399 and CVE-2026-54428 (httpcore5) from the shaded artifact. -->
-                <exclusion>
-                    <groupId>org.apache.httpcomponents.client5</groupId>
-                    <artifactId>httpclient5</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
@@ -875,6 +871,23 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- httpclient5 comes in transitively through iceberg-core. Pinned to remove CVE-2026-54399 and
+                 CVE-2026-54428 (httpcore5) from the shaded artifact. -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>${httpclient5.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>${httpcore5.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>${httpcore5.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
