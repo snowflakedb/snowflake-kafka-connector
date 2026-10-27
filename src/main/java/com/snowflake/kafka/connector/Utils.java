@@ -23,8 +23,6 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
@@ -210,64 +208,6 @@ public class Utils {
     }
 
     return ImmutableMap.copyOf(invalidConfigParams);
-  }
-
-  /**
-   * Enable JVM proxy
-   *
-   * @param config connector configuration
-   */
-  public static void enableJVMProxy(Map<String, String> config) {
-    String host =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_HOST);
-    String port =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_PORT);
-    String nonProxyHosts =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS);
-    if (host != null && port != null) {
-      LOGGER.info(
-          "enable jvm proxy: {}:{} and bypass proxy for hosts: {}", host, port, nonProxyHosts);
-
-      // enable https proxy
-      System.setProperty(KafkaConnectorConfigParams.HTTP_USE_PROXY, "true");
-      System.setProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST, host);
-      System.setProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT, port);
-      System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST, host);
-      System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT, port);
-
-      // If the user provided the jvm.nonProxy.hosts configuration then we
-      // will append that to the list provided by the JVM argument
-      // -Dhttp.nonProxyHosts and not override it altogether, if it exists.
-      if (nonProxyHosts != null) {
-        nonProxyHosts =
-            (System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS) != null)
-                ? System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS)
-                    + "|"
-                    + nonProxyHosts
-                : nonProxyHosts;
-        System.setProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS, nonProxyHosts);
-      }
-
-      // set username and password
-      String username =
-          ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
-      String password =
-          ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
-      if (username != null && password != null) {
-        Authenticator.setDefault(
-            new Authenticator() {
-              @Override
-              public PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(username, password.toCharArray());
-              }
-            });
-        System.setProperty(JDK_HTTP_AUTH_TUNNELING, "");
-        System.setProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER, username);
-        System.setProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD, password);
-        System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER, username);
-        System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD, password);
-      }
-    }
   }
 
   /**

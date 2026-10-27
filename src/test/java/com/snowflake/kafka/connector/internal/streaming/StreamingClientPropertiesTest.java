@@ -485,4 +485,95 @@ public class StreamingClientPropertiesTest {
         .doesNotContainKey("authorization_type")
         .doesNotContainKey("oauth_client_id");
   }
+
+  @Test
+  void connectorProxySettingsAreCopiedOntoSdkClientProperties() {
+    Map<String, String> connectorConfig = streamingConfigWithKey();
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "proxy.example.com");
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "3128");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS, "localhost|*.internal.example.com");
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, "proxy-user");
+    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, "proxy-secret-value");
+
+    StreamingClientProperties properties =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig));
+
+    assertThat(properties.clientProperties)
+        .containsEntry("https_proxy_url", "http://proxy.example.com:3128")
+        .containsEntry("no_proxy", "localhost,.internal.example.com")
+        .containsEntry("proxy_user", "proxy-user")
+        .containsEntry("proxy_password", "proxy-secret-value");
+    assertThat(properties.parameterOverrides).isEmpty();
+    assertThat(properties.parameterOverrides.toString()).doesNotContain("proxy-secret-value");
+  }
+
+  @Test
+  void unsetProxyDoesNotSetSdkProxyProperties() {
+    Properties clientProperties =
+        StreamingClientProperties.from(SinkTaskConfig.from(streamingConfigWithKey()))
+            .clientProperties;
+
+    assertThat(clientProperties)
+        .doesNotContainKey("https_proxy_url")
+        .doesNotContainKey("no_proxy")
+        .doesNotContainKey("proxy_user")
+        .doesNotContainKey("proxy_password")
+        .doesNotContainKey("jvm_https_proxy_url")
+        .doesNotContainKey("jvm_no_proxy")
+        .doesNotContainKey("jvm_proxy_user")
+        .doesNotContainKey("jvm_proxy_password");
+  }
+
+  @Test
+  void jvmSystemPropertiesAreCopiedWithoutMutatingThem() {
+    String previousHost = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST);
+    String previousPort = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT);
+    String previousBypass = System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS);
+    String previousUser = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER);
+    String previousPassword = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
+    System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST, "jvm-proxy.example.com");
+    System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT, "8443");
+    System.setProperty(
+        KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS, "*.snowflakecomputing.com|localhost");
+    System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER, "jvm-user");
+    System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD, "jvm-secret-value");
+    try {
+      Properties clientProperties =
+          StreamingClientProperties.from(SinkTaskConfig.from(streamingConfigWithKey()))
+              .clientProperties;
+
+      assertThat(clientProperties)
+          .containsEntry("jvm_https_proxy_url", "http://jvm-proxy.example.com:8443")
+          .containsEntry("jvm_no_proxy", ".snowflakecomputing.com,localhost")
+          .containsEntry("jvm_proxy_user", "jvm-user")
+          .containsEntry("jvm_proxy_password", "jvm-secret-value")
+          .doesNotContainKey("https_proxy_url");
+      assertThat(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST))
+          .isEqualTo("jvm-proxy.example.com");
+    } finally {
+      restoreProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST, previousHost);
+      restoreProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT, previousPort);
+      restoreProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS, previousBypass);
+      restoreProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER, previousUser);
+      restoreProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD, previousPassword);
+    }
+  }
+
+  private static void restoreProperty(String key, String previous) {
+    if (previous == null) {
+      System.clearProperty(key);
+    } else {
+      System.setProperty(key, previous);
+    }
+  }
+
+  private static Map<String, String> streamingConfigWithKey() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withPrivateKey(Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()))
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+    return connectorConfig;
+  }
 }

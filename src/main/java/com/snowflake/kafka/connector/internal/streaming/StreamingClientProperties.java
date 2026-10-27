@@ -18,6 +18,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
@@ -154,6 +155,21 @@ public class StreamingClientProperties {
     clientProperties.put("host", url.getUrlWithoutPort());
     clientProperties.put("application", APPLICATION_NAME);
 
+    // Connector jvm.proxy.* is the https_proxy_url tier. The JVM system-property snapshot is a
+    // lower tier. The SDK uses one tier's URL, bypass list, and credentials together. Passwords
+    // stay on clientProperties, which is not logged; only parameterOverrides is logged below.
+    putProxyTier(
+        clientProperties,
+        "https_proxy_url",
+        "no_proxy",
+        "proxy_user",
+        "proxy_password",
+        proxyUrl(config.getProxyHost(), config.getProxyPort()),
+        toSdkNoProxy(config.getNonProxyHosts()),
+        blankToNull(config.getProxyUsername()),
+        blankToNull(config.getProxyPassword()));
+    putJvmProxySnapshot(clientProperties);
+
     String clientNamePrefix =
         STREAMING_CLIENT_V2_PREFIX_NAME
             + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME);
@@ -167,6 +183,105 @@ public class StreamingClientProperties {
     }
 
     return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
+  }
+
+  private static void putJvmProxySnapshot(Properties clientProperties) {
+    String url = null;
+    String user = null;
+    String password = null;
+    String httpsHost = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST));
+    String httpsPort = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT));
+    String httpHost = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST));
+    String httpPort = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT));
+    if (httpsHost != null && httpsPort != null) {
+      url = proxyUrl(httpsHost, httpsPort);
+      user = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER));
+      password = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD));
+    } else if (httpHost != null && httpPort != null) {
+      url = proxyUrl(httpHost, httpPort);
+      user = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER));
+      password = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD));
+    }
+    putProxyTier(
+        clientProperties,
+        "jvm_https_proxy_url",
+        "jvm_no_proxy",
+        "jvm_proxy_user",
+        "jvm_proxy_password",
+        url,
+        toSdkNoProxy(System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS)),
+        user,
+        password);
+  }
+
+  private static void putProxyTier(
+      Properties properties,
+      String urlKey,
+      String noProxyKey,
+      String userKey,
+      String passwordKey,
+      String url,
+      String noProxy,
+      String user,
+      String password) {
+    if (url == null) {
+      return;
+    }
+    properties.put(urlKey, url);
+    if (noProxy != null) {
+      properties.put(noProxyKey, noProxy);
+    }
+    if (user != null && password != null) {
+      properties.put(userKey, user);
+      properties.put(passwordKey, password);
+    }
+  }
+
+  /** {@code http://host:port}. Returns null when host or port is missing. */
+  static String proxyUrl(String host, String port) {
+    host = blankToNull(host);
+    port = blankToNull(port);
+    if (host == null || port == null) {
+      return null;
+    }
+    host = host.trim();
+    port = port.trim();
+    if (host.indexOf(':') >= 0 && !host.startsWith("[")) {
+      host = "[" + host + "]";
+    }
+    return "http://" + host + ":" + port;
+  }
+
+  /**
+   * Converts a JDK {@code |} bypass list into the SDK comma list. {@code *.host} becomes {@code
+   * .host}. Returns null when the list is empty.
+   */
+  static String toSdkNoProxy(String jvmNonProxyHosts) {
+    if (blankToNull(jvmNonProxyHosts) == null) {
+      return null;
+    }
+    StringBuilder converted = new StringBuilder();
+    for (String raw : jvmNonProxyHosts.split("\\|", -1)) {
+      String entry = raw.trim();
+      if (entry.isEmpty()) {
+        continue;
+      }
+      if (entry.startsWith("*.")) {
+        entry = "." + entry.substring(2);
+      }
+      if (converted.length() > 0) {
+        converted.append(',');
+      }
+      converted.append(entry);
+    }
+    return converted.length() == 0 ? null : converted.toString();
+  }
+
+  private static String blankToNull(String value) {
+    if (value == null || value.trim().isEmpty()) {
+      return null;
+    }
+    return value;
   }
 
   /**
