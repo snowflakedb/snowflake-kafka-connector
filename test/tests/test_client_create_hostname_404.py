@@ -2,7 +2,7 @@
 E2E tests for first-create getClient when GET /v2/streaming/hostname
 returns HTTP 404. Since ingest-sdk 1.9.0 the SDK surfaces that as
 SfApiNotFoundError; KC Failsafe retries that name for CLIENT_CREATE_MAX_DURATION
-(2 minutes). This is not a recreate test.
+(5 minutes). This is not a recreate test.
 
 Requires: --with-mitmproxy flag when running run_tests.sh.
 """
@@ -19,8 +19,8 @@ from lib.utils import RecordProducer
 
 logger = logging.getLogger(__name__)
 
-# Matches StreamingClientPools.CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(2).
-CREATE_BUDGET_S = 120
+# Matches StreamingClientPools.CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(5).
+CREATE_BUDGET_S = 300
 FAULT_WINDOW_S = 60
 FAIL_DEADLINE_S = CREATE_BUDGET_S + 60
 RECORD_BATCH = 300
@@ -54,7 +54,7 @@ def test_getclient_retries_sf_api_not_found_then_recovers(
     wait_for_rows,
     mitmproxy,
 ):
-    """Hostname 404 for 60s (inside the 2 min create budget) then heal.
+    """Hostname 404 for 60s (inside the 5 min create budget) then heal.
 
     start() is blocked in getClientAsync.join() while the 404 is on.
     Do not wait_for_connector_running during the fault window: Connect may
@@ -107,7 +107,7 @@ def test_getclient_fails_after_create_budget_when_hostname_404_persists(
     create_connector,
     mitmproxy,
 ):
-    """Leave hostname 404 on. Task must still be retrying at 60s and FAILED by 180s."""
+    """Leave hostname 404 on. Task must still be retrying at 60s and FAILED by 360s."""
     if mitmproxy is None:
         pytest.skip("mitmproxy control API not reachable")
 
