@@ -52,62 +52,49 @@ public class SinkTaskProxyIT {
     try {
       sinkTask.start(config);
     } catch (SnowflakeKafkaConnectorException e) {
-      assert System.getProperty(KafkaConnectorConfigParams.HTTP_USE_PROXY).equals("true");
-      assert System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST).equals("wronghost");
-      assert System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT).equals("9093");
-      assert System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST).equals("wronghost");
-      assert System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT).equals("9093");
-      assert System.getProperty(Utils.JDK_HTTP_AUTH_TUNNELING).isEmpty();
-      assert System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER).equals("user");
-      assert System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD).equals("password");
-      assert System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER).equals("user");
-      assert System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD).equals("password");
-
-      // unset the system parameters please.
+      assertUnset(KafkaConnectorConfigParams.HTTPS_PROXY_HOST);
+      assertUnset(KafkaConnectorConfigParams.HTTPS_PROXY_PORT);
+      assertUnset(KafkaConnectorConfigParams.HTTP_PROXY_HOST);
+      assertUnset(KafkaConnectorConfigParams.HTTP_PROXY_PORT);
       TestUtils.resetProxyParametersInJVM();
       throw e;
     }
   }
 
   /**
-   * Tests that the Snowflake Sink Task properly configures JVM proxy settings. This test verifies
-   * that the JVM system properties are correctly set when proxy configuration is provided, without
-   * actually connecting through a proxy or to Snowflake.
-   *
-   * <p>This is a focused unit test that verifies the proxy configuration logic.
+   * Connector proxy settings stay on the connector config. Starting a task must not publish them as
+   * JVM system properties.
    */
   @Test
   public void testProxyJvmPropertiesConfiguration() {
     Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
     ConnectorConfigTools.setDefaultValues(config);
 
-    // Configure proxy settings
+    config.put(Utils.TASK_ID, "0");
     config.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "test-proxy.example.com");
     config.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "8080");
     config.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, proxyServer.getUsername());
     config.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, proxyServer.getPassword());
+    TestUtils.resetProxyParametersInJVM();
 
-    // Set proxy properties (this is what the connector does internally)
-    Utils.enableJVMProxy(config);
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
+    try {
+      sinkTask.start(config);
+    } catch (Exception e) {
+      // The proxy host is unreachable, so the connection attempt itself is expected to fail.
+      // This test only verifies that starting the task never publishes proxy settings as
+      // JVM-wide system properties.
+    } finally {
+      sinkTask.stop();
+    }
 
-    // Verify all JVM proxy properties are set correctly
-    Assert.assertEquals("true", System.getProperty(KafkaConnectorConfigParams.HTTP_USE_PROXY));
     Assert.assertEquals(
-        "test-proxy.example.com", System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST));
-    Assert.assertEquals("8080", System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT));
-    Assert.assertEquals(
-        "test-proxy.example.com", System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST));
-    Assert.assertEquals("8080", System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT));
-    Assert.assertEquals(
-        proxyServer.getUsername(), System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER));
-    Assert.assertEquals(
-        proxyServer.getPassword(),
-        System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD));
-    Assert.assertEquals(
-        proxyServer.getUsername(), System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER));
-    Assert.assertEquals(
-        proxyServer.getPassword(),
-        System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD));
+        "test-proxy.example.com", config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
+    assertUnset(KafkaConnectorConfigParams.HTTP_USE_PROXY);
+    assertUnset(KafkaConnectorConfigParams.HTTP_PROXY_HOST);
+    assertUnset(KafkaConnectorConfigParams.HTTPS_PROXY_HOST);
+    assertUnset(KafkaConnectorConfigParams.HTTP_PROXY_USER);
+    assertUnset(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
   }
 
   @Test
@@ -123,24 +110,14 @@ public class SinkTaskProxyIT {
     config.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, proxyServer.getPassword());
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
+    TestUtils.resetProxyParametersInJVM();
     sinkTask.start(config);
 
-    assert System.getProperty(KafkaConnectorConfigParams.HTTP_USE_PROXY).equals("true");
-    assert System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST).equals("localhost");
-    assert System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT)
-        .equals(String.valueOf(proxyPort));
-    assert System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST).equals("localhost");
-    assert System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT)
-        .equals(String.valueOf(proxyPort));
-    assert System.getProperty(Utils.JDK_HTTP_AUTH_TUNNELING).isEmpty();
-    assert System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER)
-        .equals(proxyServer.getUsername());
-    assert System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD)
-        .equals(proxyServer.getPassword());
-    assert System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER)
-        .equals(proxyServer.getUsername());
-    assert System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD)
-        .equals(proxyServer.getPassword());
+    assertUnset(KafkaConnectorConfigParams.HTTPS_PROXY_HOST);
+    assertUnset(KafkaConnectorConfigParams.HTTPS_PROXY_PORT);
+    assertUnset(KafkaConnectorConfigParams.HTTP_PROXY_HOST);
+    assertUnset(KafkaConnectorConfigParams.HTTP_PROXY_USER);
+    assertUnset(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
 
     // Verify the snowflake connection service was created successfully
     Optional<SnowflakeConnectionService> optSfConnectionService = sinkTask.getSnowflakeConnection();
@@ -148,5 +125,10 @@ public class SinkTaskProxyIT {
 
     // Cleanup
     sinkTask.stop();
+  }
+
+  private static void assertUnset(String key) {
+    String value = System.getProperty(key);
+    Assert.assertTrue(value == null || value.isEmpty());
   }
 }
