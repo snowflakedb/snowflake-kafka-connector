@@ -29,7 +29,7 @@ from lib.fixtures.table import (  # noqa: F401
     iceberg_external_volume,
 )
 from lib.fixtures.function import connector_version, name_salt  # noqa: F401
-from lib import mitmproxy_control
+from lib import https_proxy_control, mitmproxy_control
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +139,10 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers",
         "fault_injection: fault injection tests requiring mitmproxy (--with-mitmproxy)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "https_proxy: forward-proxy tests requiring the https-proxy overlay (--with-https-proxy)",
     )
 
     # Validate required options (set via CLI or env var)
@@ -252,6 +256,17 @@ def mitmproxy():
     if ctrl is not None:
         # Ensure clean state at session start
         ctrl.disable_410()
+    return ctrl
+
+
+@pytest.fixture(scope="session")
+def https_proxy():
+    """Forward-proxy counter client. Skips the test if the overlay is not running."""
+    ctrl = https_proxy_control.from_env()
+    if ctrl is None or not ctrl.is_reachable():
+        pytest.skip(
+            "requires --with-https-proxy (https-proxy control API not reachable)"
+        )
     return ctrl
 
 

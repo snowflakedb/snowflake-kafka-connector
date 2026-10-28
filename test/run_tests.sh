@@ -69,6 +69,7 @@ usage() {
     echo "  --jmx                Enable JMX metrics scraping via Jolokia"
     echo "  --profile            Enable JVM profiling (JFR, GC logs, JMX, async-profiler)"
     echo "  --with-mitmproxy     Enable mitmproxy for fault injection tests (410 injection)"
+    echo "  --with-https-proxy   Isolate the worker behind a mitmproxy forward proxy (apache only)"
     echo "  --keep               Keep containers running after tests"
     echo "  -i, --interactive    Start infra, then drop into a bash shell in the test-runner"
     echo "  --rebuild            Force rebuild of images"
@@ -105,6 +106,7 @@ JAVA_VERSION_EXPLICIT="false"
 JMX_ENABLED="false"
 PROFILE_ENABLED="false"
 MITMPROXY_ENABLED="false"
+HTTPS_PROXY_ENABLED="false"
 KEEP_RUNNING="false"
 INTERACTIVE="false"
 FORCE_REBUILD="false"
@@ -140,6 +142,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --with-mitmproxy)
             MITMPROXY_ENABLED="true"
+            shift
+            ;;
+        --with-https-proxy)
+            HTTPS_PROXY_ENABLED="true"
             shift
             ;;
         --keep)
@@ -275,12 +281,29 @@ if [ "$MITMPROXY_ENABLED" = "true" ]; then
     START_SERVICES="$START_SERVICES mitmproxy"
 fi
 
+# Append forward-proxy overlay if requested
+if [ "$HTTPS_PROXY_ENABLED" = "true" ]; then
+    if [ "$PLATFORM" != "apache" ]; then
+        error_exit "--with-https-proxy is only supported with --platform=apache"
+    fi
+    if [ "$MITMPROXY_ENABLED" = "true" ]; then
+        error_exit "--with-https-proxy and --with-mitmproxy cannot be used together"
+    fi
+    info "Forward proxy enabled: worker reaches Snowflake only through https-proxy"
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.https-proxy.yml"
+    START_SERVICES="$START_SERVICES https-proxy"
+fi
+
 # Check prerequisites
 command -v docker >/dev/null 2>&1 || error_exit "Docker is not installed"
 command -v docker compose >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1 || error_exit "Docker Compose is not installed"
 
 if [ "$MITMPROXY_ENABLED" = "true" ] && [ -n "${LOCAL_PROXY_PORT:-}" ]; then
     error_exit "--with-mitmproxy and LOCAL_PROXY_PORT cannot be used together (untested combination)"
+fi
+
+if [ "$HTTPS_PROXY_ENABLED" = "true" ] && [ -n "${LOCAL_PROXY_PORT:-}" ]; then
+    error_exit "--with-https-proxy and LOCAL_PROXY_PORT cannot be used together (the worker has no route to the host)"
 fi
 
 # Check credentials file
@@ -439,6 +462,11 @@ if [ "$MITMPROXY_ENABLED" = "true" ]; then
 
     info "Building mitmproxy image..."
     docker compose $COMPOSE_FILES build $BUILD_ARGS mitmproxy
+fi
+
+if [ "$HTTPS_PROXY_ENABLED" = "true" ]; then
+    info "Building https-proxy image..."
+    docker compose $COMPOSE_FILES build $BUILD_ARGS https-proxy
 fi
 
 info "Building test runner image..."
