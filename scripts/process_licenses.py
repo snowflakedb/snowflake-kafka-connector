@@ -85,6 +85,7 @@ ADDITIONAL_LICENSES_MAP = {
     "org.apache.parquet:parquet-format-structures": APACHE_LICENSE,
     "org.bouncycastle:bc-fips": BOUNCY_CASTLE_LICENSE,
     "org.bouncycastle:bcpkix-fips": BOUNCY_CASTLE_LICENSE,
+    "org.jspecify:jspecify": APACHE_LICENSE,
     "org.projectnessie.cel:cel-core": APACHE_LICENSE,
     "org.projectnessie.cel:cel-generated-antlr": APACHE_LICENSE,
     "org.projectnessie.cel:cel-generated-pb": APACHE_LICENSE,
