@@ -1,5 +1,4 @@
 from test_suit.test_utils import RetryableError, NonRetryableError
-import json
 from confluent_kafka import avro
 from test_suit.base_iceberg_test import BaseIcebergTest
 
@@ -23,11 +22,7 @@ class TestIcebergAvroAws(BaseIcebergTest):
     def verify(self, round):
         self._assert_number_of_records_in_table(100)
 
-        first_record = (
-            self.driver.snowflake_conn.cursor()
-            .execute("Select * from {} limit 1".format(self.topic))
-            .fetchone()
-        )
+        content, metadata = self._select_record_and_metadata_for_offset(0)
 
-        self._verify_iceberg_content_from_docs(json.loads(first_record[0]))
-        self._verify_iceberg_metadata(json.loads(first_record[1]))
+        self._verify_iceberg_content_from_docs(content)
+        self._verify_iceberg_metadata(metadata)

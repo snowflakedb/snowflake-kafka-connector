@@ -31,13 +31,13 @@ class TestIcebergSchemaEvolutionJsonAws(BaseIcebergTest):
     def verify(self, round):
         self._assert_number_of_records_in_table(220)
 
-        actual_record_from_docs_dict = self._select_schematized_record_with_offset(1)
+        actual_record_from_docs_dict = self._select_schematized_record_matching(self.RECORD_FROM_DOCS)
         self._verify_iceberg_content_from_docs(actual_record_from_docs_dict)
 
-        actual_record_for_schema_evolution_2 = self._select_schematized_record_with_offset(120)
+        actual_record_for_schema_evolution_2 = self._select_schematized_record_matching(self.RECORD_FOR_SCHEMA_EVOLUTION_2)
         self._verify_iceberg_content_for_schema_evolution_2(actual_record_for_schema_evolution_2)
 
-        actual_record_for_schema_evolution_1 = self._select_schematized_record_with_offset(210)
+        actual_record_for_schema_evolution_1 = self._select_schematized_record_matching(self.RECORD_FOR_SCHEMA_EVOLUTION_1)
         self._verify_iceberg_content_for_schema_evolution_1(actual_record_for_schema_evolution_1)
 
 
