@@ -6,6 +6,13 @@ from confluent_kafka import avro
 
 class BaseIcebergTest(BaseE2eTest):
 
+    # Snowflake does not guarantee any row order for a query without ORDER BY, so rows
+    # cannot be identified by their position in the table. Every message within a wave is
+    # identical, so each wave is instead identified by a predicate on its content.
+    RECORD_FROM_DOCS = "id = 1"
+    RECORD_FOR_SCHEMA_EVOLUTION_1 = "null_long is null and some_object is not null"
+    RECORD_FOR_SCHEMA_EVOLUTION_2 = "null_long = 2137"
+
     def __init__(self, driver, name_salt: str, config_file_name: str):
         self.driver = driver
         self.file_name = config_file_name
@@ -336,12 +343,17 @@ class BaseIcebergTest(BaseE2eTest):
         assert_dict_contains('header1', 'value1', metadata['headers'])
 
 
-    def _select_schematized_record_with_offset(self, offset: int) -> dict:
+    def _select_schematized_record_matching(self, where_clause: str) -> dict:
         record = (
             self.driver.snowflake_conn.cursor()
-                .execute("select id, body_temperature, name, approved_coffee_types, animals_possessed, null_long, null_array, null_object, empty_array, some_object from {} limit 1 offset {}".format(self.topic, offset))
+                .execute("select id, body_temperature, name, approved_coffee_types, animals_possessed, null_long, null_array, null_object, empty_array, some_object from {} where {} limit 1".format(self.topic, where_clause))
                 .fetchone()
         )
+
+        if record is None:
+            raise NonRetryableError(
+                "No record matching '{}' found in table {}".format(where_clause, self.topic)
+            )
 
         return {
             "id": record[0],
@@ -355,6 +367,23 @@ class BaseIcebergTest(BaseE2eTest):
             "empty_array": self.__none_or_json_loads(record[8]),
             "some_object": self.__none_or_json_loads(record[9])
         }
+
+
+    def _select_record_and_metadata_for_offset(self, offset: int):
+        records = (
+            self.driver.snowflake_conn.cursor()
+                .execute("select record_content, record_metadata from {}".format(self.topic))
+                .fetchall()
+        )
+
+        for content, metadata in records:
+            metadata_dict = json.loads(metadata)
+            if metadata_dict['offset'] == offset:
+                return json.loads(content), metadata_dict
+
+        raise NonRetryableError(
+            "No record with offset {} found in table {}".format(offset, self.topic)
+        )
 
 
     def __none_or_json_loads(self, value: str) -> dict:
