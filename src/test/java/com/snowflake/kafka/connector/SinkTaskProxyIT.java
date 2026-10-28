@@ -70,11 +70,23 @@ public class SinkTaskProxyIT {
     Map<String, String> config = TestUtils.transformProfileFileToConnectorConfiguration(false);
     ConnectorConfigTools.setDefaultValues(config);
 
+    config.put(Utils.TASK_ID, "0");
     config.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "test-proxy.example.com");
     config.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "8080");
     config.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, proxyServer.getUsername());
     config.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, proxyServer.getPassword());
     TestUtils.resetProxyParametersInJVM();
+
+    SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
+    try {
+      sinkTask.start(config);
+    } catch (Exception e) {
+      // The proxy host is unreachable, so the connection attempt itself is expected to fail.
+      // This test only verifies that starting the task never publishes proxy settings as
+      // JVM-wide system properties.
+    } finally {
+      sinkTask.stop();
+    }
 
     Assert.assertEquals(
         "test-proxy.example.com", config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
