@@ -335,7 +335,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * the task.
    *
    * <p>This circuit breaker only covers channel-side failures. Patience for SDK client recreation
-   * (pipe failover, HTTP 410, hostname-discovery 404) lives in {@link
+   * (pipe failover, HTTP 410, {@code SfApiNotFoundError} on client build) lives in {@link
    * com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools#recreateClient}
    * — its Failsafe retry policy absorbs multi-minute windows of those errors, so this loop does not
    * need its own large budget.
@@ -759,7 +759,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * task spins forever rebuilding broken channels.
    *
    * <p>Single-shot retry at this layer by design — the patience for transient pipe-failover windows
-   * and hostname-discovery 404s while building the replacement client lives inside {@link
+   * and {@code SfApiNotFoundError} while building the replacement client lives inside {@link
    * com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools#recreateClient}
    * (multi-minute Failsafe budget with exponential backoff). If {@code recreate} still fails after
    * that budget, it throws and we translate to {@link ConnectException} so Kafka Connect fails and
