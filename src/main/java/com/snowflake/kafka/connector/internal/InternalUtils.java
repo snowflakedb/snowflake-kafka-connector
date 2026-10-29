@@ -197,7 +197,7 @@ public class InternalUtils {
    * fetcher form-encodes the whole value again, so the server form-decodes once to recover {@code
    * session:role:<encoded-role>} as a single token and then URL-decodes the role.
    */
-  static Optional<String> resolveOauthScope(SinkTaskConfig config) {
+  public static Optional<String> resolveOauthScope(SinkTaskConfig config) {
     if (!config.getOauthIncludeScope()) {
       return Optional.empty();
     }
