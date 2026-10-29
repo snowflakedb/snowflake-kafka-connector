@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.streaming.v2.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.snowflake.ingest.streaming.SFException;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
@@ -11,7 +12,9 @@ import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
+import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,6 +99,39 @@ class StreamingClientPoolsTest {
   }
 
   @Test
+  void getClientAsync_gives_up_on_sf_api_not_found_after_max_duration() {
+    Duration maxDuration = Duration.ofSeconds(10);
+    AtomicInteger callCount = new AtomicInteger();
+    SFException notFound = new SFException("SfApiNotFoundError", "not found", 404, "Not Found");
+
+    StreamingClientFactory.setStreamingClientSupplier(
+        (clientName, dbName, schemaName, pipeName, props) -> {
+          callCount.incrementAndGet();
+          throw notFound;
+        });
+
+    long startNanos = System.nanoTime();
+    Throwable thrown =
+        catchThrowable(
+            () ->
+                StreamingClientPools.getClientAsync(
+                        connectorName,
+                        TASK_ID,
+                        "pipe-A",
+                        sinkTaskConfig,
+                        streamingClientProperties,
+                        TaskMetrics.noop(),
+                        maxDuration)
+                    .join());
+    Duration elapsed = Duration.ofNanos(System.nanoTime() - startNanos);
+
+    assertThat(thrown).isInstanceOf(CompletionException.class);
+    assertThat(thrown.getCause()).isSameAs(notFound);
+    assertThat(callCount.get() - 1).as("retries").isGreaterThan(2);
+    assertThat(elapsed).isGreaterThanOrEqualTo(maxDuration.minusSeconds(1));
+  }
+
+  @Test
   void getClient_does_not_retry_client_invalid_error() {
     AtomicInteger callCount = new AtomicInteger();
     SFException invalid = new SFException("InvalidClientError", "client invalid", 409, "Conflict");
@@ -111,10 +147,10 @@ class StreamingClientPoolsTest {
   }
 
   @Test
-  void recreateClient_does_not_retry_sf_api_not_found() {
+  void recreateClient_retries_on_sf_api_not_found() {
     SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient newClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
     AtomicInteger callCount = new AtomicInteger();
-    SFException notFound = new SFException("SfApiNotFoundError", "not found", 404, "Not Found");
 
     StreamingClientFactory.setStreamingClientSupplier(
         (clientName, dbName, schemaName, pipeName, props) -> {
@@ -122,13 +158,47 @@ class StreamingClientPoolsTest {
           if (count == 1) {
             return oldClient;
           }
-          throw notFound;
+          if (count == 2) {
+            throw new SFException("SfApiNotFoundError", "not found", 404, "Not Found");
+          }
+          return newClient;
         });
 
     getClient("pipe-A");
 
-    assertThatThrownBy(() -> recreateClient("pipe-A", oldClient)).isSameAs(notFound);
-    assertThat(callCount.get()).isEqualTo(2);
+    SnowflakeStreamingIngestClient result = recreateClient("pipe-A", oldClient);
+
+    assertThat(result).isSameAs(newClient);
+    assertThat(callCount.get()).isEqualTo(3);
+  }
+
+  @Test
+  void recreateClient_retries_mixed_client_invalid_and_sf_api_not_found() {
+    SnowflakeStreamingIngestClient oldClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    SnowflakeStreamingIngestClient newClient = Mockito.mock(SnowflakeStreamingIngestClient.class);
+    AtomicInteger callCount = new AtomicInteger();
+
+    StreamingClientFactory.setStreamingClientSupplier(
+        (clientName, dbName, schemaName, pipeName, props) -> {
+          int count = callCount.incrementAndGet();
+          if (count == 1) {
+            return oldClient;
+          }
+          if (count == 2) {
+            throw new SFException("InvalidClientError", "client invalid", 409, "Conflict");
+          }
+          if (count == 3) {
+            throw new SFException("SfApiNotFoundError", "not found", 404, "Not Found");
+          }
+          return newClient;
+        });
+
+    getClient("pipe-A");
+
+    SnowflakeStreamingIngestClient result = recreateClient("pipe-A", oldClient);
+
+    assertThat(result).isSameAs(newClient);
+    assertThat(callCount.get()).isEqualTo(4);
   }
 
   @Test

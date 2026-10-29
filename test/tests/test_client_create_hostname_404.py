@@ -1,15 +1,19 @@
 """
-E2E tests for first-create getClient when GET /v2/streaming/hostname
-returns HTTP 404. Since ingest-sdk 1.9.0 the SDK surfaces that as
-SfApiNotFoundError; KC Failsafe retries that name for CLIENT_CREATE_MAX_DURATION
-(5 minutes). This is not a recreate test.
+E2E test for first-time streaming client creation when GET
+/v2/streaming/hostname returns HTTP 404. The SDK surfaces that as
+SfApiNotFoundError, which KC retries for CLIENT_CREATION_MAX_DURATION. The
+recreate case is covered in test_client_recreation_404.py.
+
+Client creation runs in SnowflakeSinkTask.open() (startPartitions ->
+warmUpStreamingClients), which blocks on getClientAsync while the 404 is on.
+Connect already reports the task RUNNING at that point, so RUNNING alone does
+not show that the client was created.
 
 Requires: --with-mitmproxy flag when running run_tests.sh.
 """
 
 import logging
 import os
-import time
 from time import sleep
 
 import pytest
@@ -19,10 +23,8 @@ from lib.utils import RecordProducer
 
 logger = logging.getLogger(__name__)
 
-# Matches StreamingClientPools.CLIENT_CREATE_MAX_DURATION = Duration.ofMinutes(5).
-CREATE_BUDGET_S = 300
+# Well inside StreamingClientPools.CLIENT_CREATION_MAX_DURATION.
 FAULT_WINDOW_S = 60
-FAIL_DEADLINE_S = CREATE_BUDGET_S + 60
 RECORD_BATCH = 300
 
 CONNECTOR_CONFIG = {
@@ -54,11 +56,10 @@ def test_getclient_retries_sf_api_not_found_then_recovers(
     wait_for_rows,
     mitmproxy,
 ):
-    """Hostname 404 for 60s (inside the 5 min create budget) then heal.
+    """Hostname 404 for FAULT_WINDOW_S (inside the create budget), then heal.
 
-    start() is blocked in getClientAsync.join() while the 404 is on.
-    Do not wait_for_connector_running during the fault window: Connect may
-    already report RUNNING before start() returns.
+    open() keeps retrying client creation during the fault. After the heal,
+    the next retry succeeds and records must land with no failed task.
     """
     if mitmproxy is None:
         pytest.skip("mitmproxy control API not reachable")
@@ -74,10 +75,12 @@ def test_getclient_retries_sf_api_not_found_then_recovers(
         sleep(FAULT_WINDOW_S)
         mitmproxy.disable_404_hostname()
 
+        # The SDK does not retry this 404 itself, so more than one injected
+        # 404 means KC retried client creation.
         injected = mitmproxy.get_404_hostname_injected_count()
-        assert injected > 0, (
-            f"No hostname 404s were injected — Failsafe never looped. "
-            f"count={injected} status={mitmproxy.get_status()}"
+        assert injected > 1, (
+            f"Expected KC to retry hostname discovery, but only {injected} "
+            f"hostname 404(s) were injected. status={mitmproxy.get_status()}"
         )
 
         driver.wait_for_connector_running(connector.name, timeout=90)
@@ -91,59 +94,5 @@ def test_getclient_retries_sf_api_not_found_then_recovers(
         )
         failed_tasks = driver.get_failed_tasks(connector.name)
         assert len(failed_tasks) == 0, f"Tasks failed after recovery: {failed_tasks}"
-    finally:
-        mitmproxy.disable_404_hostname()
-
-
-@pytest.mark.fault_injection
-@pytest.mark.skipif(
-    not os.environ.get("MITMPROXY_CONTROL_URL"),
-    reason="requires --with-mitmproxy (MITMPROXY_CONTROL_URL not set)",
-)
-@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
-def test_getclient_fails_after_create_budget_when_hostname_404_persists(
-    driver,
-    name_salt,
-    create_connector,
-    mitmproxy,
-):
-    """Leave hostname 404 on. Task must still be retrying at 60s and FAILED by 360s."""
-    if mitmproxy is None:
-        pytest.skip("mitmproxy control API not reachable")
-
-    topic = f"test_getclient_fails_after_create_budget_when_hostname_404_persists{name_salt}"
-    driver.createTopics(topic, partitionNum=1, replicationNum=1)
-
-    mitmproxy.reset_counters()
-    mitmproxy.enable_404_hostname()
-    try:
-        connector = create_connector(v4_config=CONNECTOR_CONFIG)
-        started = time.monotonic()
-
-        sleep(FAULT_WINDOW_S)
-        assert driver.get_failed_tasks(connector.name) == [], (
-            f"Task FAILED inside the create budget "
-            f"({FAULT_WINDOW_S}s < {CREATE_BUDGET_S}s): "
-            f"{driver.get_failed_tasks(connector.name)}"
-        )
-
-        failed_tasks = []
-        while time.monotonic() - started < FAIL_DEADLINE_S:
-            failed_tasks = driver.get_failed_tasks(connector.name)
-            if failed_tasks:
-                break
-            sleep(3)
-
-        assert failed_tasks, (
-            f"Expected a FAILED task within {FAIL_DEADLINE_S}s "
-            f"(create budget {CREATE_BUDGET_S}s + slack). "
-            f"status={driver.get_connector_status(connector.name)}"
-        )
-
-        injected = mitmproxy.get_404_hostname_injected_count()
-        assert injected > 0, (
-            f"Task FAILED but no hostname 404s were injected. "
-            f"count={injected} status={mitmproxy.get_status()}"
-        )
     finally:
         mitmproxy.disable_404_hostname()

@@ -92,7 +92,7 @@ fault_state = FaultState()
 # Separate state for 404-on-bulk-channel-status injection (SNOW-3670537)
 fault_state_404_bcs = FaultState()
 
-# 404 on /v2/streaming/hostname (first-create).
+# 404 on /v2/streaming/hostname.
 fault_state_404_hostname = FaultState()
 
 
@@ -117,8 +117,8 @@ class FaultAddon:
             self._rewrite_oauth_scope(flow)
             return
 
-        # Hostname 404 (first-create NR) must run before the "never intercept
-        # hostname" return, or 410 tests would also lose discovery.
+        # The hostname endpoint is only intercepted to inject the 404 on client
+        # create; otherwise it must pass through so client recreation works.
         if "/v2/streaming/hostname" in path:
             if fault_state_404_hostname.enabled:
                 flow.response = http.Response.make(

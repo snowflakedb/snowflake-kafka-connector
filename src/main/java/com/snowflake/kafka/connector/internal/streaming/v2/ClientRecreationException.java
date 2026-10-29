@@ -78,6 +78,13 @@ public class ClientRecreationException extends RuntimeException {
     return CLIENT_INVALID_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
   }
 
+  /**
+   * Checks if the given throwable is the SDK's not-found error.
+   *
+   * @param e the exception to check (may be null)
+   * @return {@code true} if {@code e} is an {@link SFException} with error code name {@code
+   *     SfApiNotFoundError}; {@code false} otherwise
+   */
   public static boolean isSfApiNotFoundError(Throwable e) {
     if (!(e instanceof SFException)) {
       return false;
