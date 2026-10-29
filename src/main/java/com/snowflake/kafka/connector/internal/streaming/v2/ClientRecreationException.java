@@ -32,6 +32,8 @@ public class ClientRecreationException extends RuntimeException {
           // Client was closed
           "ClosedClientError");
 
+  private static final String SF_API_NOT_FOUND_ERROR_CODE_NAME = "SfApiNotFoundError";
+
   /**
    * Constructs a new {@code ClientRecreationException} wrapping the given {@link SFException}.
    *
@@ -76,5 +78,19 @@ public class ClientRecreationException extends RuntimeException {
       return false;
     }
     return CLIENT_INVALID_ERROR_CODE_NAMES.contains(((SFException) e).getErrorCodeName());
+  }
+
+  /**
+   * Checks if the given throwable is the SDK's not-found error.
+   *
+   * @param e the exception to check (may be null)
+   * @return {@code true} if {@code e} is an {@link SFException} with error code name {@code
+   *     SfApiNotFoundError}; {@code false} otherwise
+   */
+  public static boolean isSfApiNotFoundError(Throwable e) {
+    if (!(e instanceof SFException)) {
+      return false;
+    }
+    return SF_API_NOT_FOUND_ERROR_CODE_NAME.equals(((SFException) e).getErrorCodeName());
   }
 }
