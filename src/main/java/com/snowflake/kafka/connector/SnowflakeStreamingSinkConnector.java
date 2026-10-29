@@ -37,10 +37,8 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
@@ -96,14 +94,8 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   private final ConnectorConfigValidator connectorConfigValidator =
       new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
-  // Periodically re-polls server advisories while the connector runs (SNOW-3648284). A CRITICAL
-  // advisory seen mid-run stops the connector (ConnectorContext.raiseError -> FAILED) unless
-  // snowflake.feature.fail_on_critical_advisory=false.
+  // Periodically re-polls server advisories while the connector runs (SNOW-3648284).
   private ScheduledExecutorService advisoryPoller;
-
-  // Set by the first mid-run poll that sees a CRITICAL advisory. Guards the one-time stop (or, with
-  // the opt-out, the one-time "keeps running" notice), so raiseError is called at most once.
-  private final AtomicBoolean criticalSeenMidRun = new AtomicBoolean();
 
   // test visibility: counts completed periodic poll cycles
   private final AtomicInteger advisoryPollCount = new AtomicInteger();
@@ -455,101 +447,20 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   }
 
   /**
-   * @return whether a CRITICAL advisory should hard-fail the connector. Default {@code true},
-   *     user-overridable via {@code snowflake.feature.fail_on_critical_advisory}.
-   */
-  private boolean failOnCriticalAdvisory() {
-    return failOnCriticalAdvisory(config);
-  }
-
-  /** Shared with {@link SinkTaskAdvisoryMonitor}, which reads the same settings. */
-  static boolean failOnCriticalAdvisory(Map<String, String> config) {
-    return Boolean.parseBoolean(
-        config.getOrDefault(
-            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY,
-            String.valueOf(
-                KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY_DEFAULT)));
-  }
-
-  /**
-   * Fetches server-side advisory messages for this connector version, logs each one at its declared
-   * level, and fails startup if any are CRITICAL (unless the user has opted out).
+   * Fetches server-side advisory messages for this connector version and logs each one at its
+   * declared level.
    *
    * <p>Mechanism errors (old GS without the function, JDBC/parse failures) never block startup:
    * {@link com.snowflake.kafka.connector.internal.SnowflakeConnectionService#getKcAdvisoryMessages}
    * is fail-safe and returns an empty list on any such error, and logs the failure itself.
    */
   private void logServerAdvisories() {
-    List<AdvisoryMessage> advisories;
     try {
-      advisories = fetchAndLogAdvisories();
+      fetchAndLogAdvisories();
     } catch (Exception e) {
       LOGGER.debug(
           "Failed to fetch server advisories: {}", e.getMessage()); // mechanism error, never fail
-      return;
     }
-    List<String> criticalTexts = criticalTexts(advisories);
-    if (criticalTexts.isEmpty()) {
-      return;
-    }
-    if (failOnCriticalAdvisory()) {
-      // The telemetry service sends kafka_fatal_error, so stopped connectors can be counted.
-      throw SnowflakeErrors.ERROR_5031.getException(
-          criticalStopMessage("Refusing to start", criticalTexts), conn.getTelemetryClient());
-    }
-    LOGGER.warn(
-        "{} Upgrade the connector. Starting anyway because {}=false.",
-        criticalFlaggedMessage(criticalTexts),
-        KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY);
-  }
-
-  /**
-   * Returns true if any advisory in the list has level CRITICAL.
-   *
-   * <p>Package-private for testing.
-   */
-  static boolean hasCritical(List<AdvisoryMessage> advisories) {
-    return !criticalTexts(advisories).isEmpty();
-  }
-
-  /** Returns the text of each CRITICAL advisory, in server order. Shared with the task. */
-  static List<String> criticalTexts(List<AdvisoryMessage> advisories) {
-    return advisories.stream()
-        .filter(m -> AdvisoryLevel.fromString(m.getLevel()) == AdvisoryLevel.CRITICAL)
-        .map(AdvisoryMessage::getText)
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * Returns e.g. "Snowflake has flagged Kafka Connector 4.2.2 with a critical issue: <server
-   * text>." The server text says which version to upgrade to; the connector does not know it.
-   * Several critical texts are joined with "; ".
-   */
-  static String criticalFlaggedMessage(List<String> criticalTexts) {
-    String joined =
-        criticalTexts.stream()
-            .map(t -> t == null ? "" : t.trim().replaceAll("\\.+$", ""))
-            .collect(Collectors.joining("; "));
-    return "Snowflake has flagged Kafka Connector "
-        + Utils.VERSION
-        + " with a critical issue: "
-        + joined
-        + ".";
-  }
-
-  /**
-   * Returns the message used when a critical advisory stops or refuses to start the connector or a
-   * task: the server text, then "Upgrade the connector", then the opt-out. Shared with the task.
-   *
-   * @param prefix what is happening, e.g. "Refusing to start" or "Stopping task 0"
-   */
-  static String criticalStopMessage(String prefix, List<String> criticalTexts) {
-    return prefix
-        + ": "
-        + criticalFlaggedMessage(criticalTexts)
-        + " Upgrade the connector. To keep running anyway (not recommended), set "
-        + KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY
-        + "=false.";
   }
 
   /** Fetches the advisories for this connector version and logs each at its declared level. */
@@ -565,56 +476,15 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
    * Re-fetches and logs server-side advisories on a background thread while the connector is
    * running. Each advisory is logged at its declared level (CRITICAL at ERROR).
    *
-   * <p>The first time a poll sees a CRITICAL advisory, and {@code
-   * snowflake.feature.fail_on_critical_advisory} is true (the default), the connector is stopped:
-   * the poller is shut down and the error is reported through {@link
-   * org.apache.kafka.connect.connector.ConnectorContext#raiseError}, which moves the connector to
-   * FAILED. A {@link SinkConnector} cannot pause itself, and Kafka Connect does not restart FAILED
-   * connectors, so it stays stopped until someone restarts it; that restart re-runs the startup
-   * check. With the opt-out set to false the connector logs one extra ERROR line and keeps running.
-   *
    * <p>Fetch and parse errors are caught so the scheduler keeps firing.
    */
   private void pollAdvisories() {
     try {
-      List<String> criticalTexts = criticalTexts(fetchAndLogAdvisories());
-      if (!criticalTexts.isEmpty() && criticalSeenMidRun.compareAndSet(false, true)) {
-        if (failOnCriticalAdvisory()) {
-          stopOnCriticalAdvisory(criticalTexts);
-        } else {
-          LOGGER.error(
-              "{} Upgrade the connector. The connector keeps running because {}=false.",
-              criticalFlaggedMessage(criticalTexts),
-              KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_FAIL_ON_CRITICAL_ADVISORY);
-        }
-      }
+      fetchAndLogAdvisories();
     } catch (Exception e) {
       LOGGER.debug("Periodic advisory poll failed: {}", e.getMessage());
     } finally {
       advisoryPollCount.incrementAndGet();
-    }
-  }
-
-  /**
-   * Stops a running connector because Snowflake has flagged its version with a critical issue:
-   * shuts down the poller so a failed connector is not polled again, then fails the connector
-   * through the framework. Called at most once per connector instance (guarded by {@link
-   * #criticalSeenMidRun}).
-   */
-  private void stopOnCriticalAdvisory(List<String> criticalTexts) {
-    String message = criticalStopMessage("Stopping connector", criticalTexts);
-    LOGGER.error("{}", message);
-    if (advisoryPoller != null) {
-      // shutdown(), not shutdownNow(): this runs on the poller thread, which must not be
-      // interrupted.
-      advisoryPoller.shutdown();
-    }
-    try {
-      // The telemetry service sends kafka_fatal_error, so stopped connectors can be counted.
-      context()
-          .raiseError(SnowflakeErrors.ERROR_5031.getException(message, conn.getTelemetryClient()));
-    } catch (Exception e) {
-      LOGGER.error("Failed to stop the connector after a critical advisory: {}", e.getMessage());
     }
   }
 
@@ -624,7 +494,6 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
    * startup-only.
    */
   private void startAdvisoryPolling() {
-    criticalSeenMidRun.set(false); // start() may be called again on this instance after stop()
     long intervalSeconds = advisoryPollIntervalSeconds(config);
     if (intervalSeconds <= 0) {
       LOGGER.info("Server advisory polling disabled (interval <= 0).");
