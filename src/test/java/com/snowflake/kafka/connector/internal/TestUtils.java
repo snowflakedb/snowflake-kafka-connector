@@ -526,8 +526,7 @@ public class TestUtils {
   }
 
   /**
-   * Reset proxy parameters in JVM which is enabled during starting a sink Task. Call this if your
-   * test/code executes the Utils.enableJVMProxy function
+   * Clear proxy system properties left behind by a test. Connector startup no longer writes them.
    */
   public static void resetProxyParametersInJVM() {
     System.setProperty(HTTP_USE_PROXY, "");

@@ -1,0 +1,59 @@
+# Overlay for forward-proxy E2E tests (Apache platform only).
+# Compose with: -f docker-compose.base.yml -f docker-compose.apache.yml -f docker-compose.https-proxy.yml
+#
+# The kafka container (broker + Connect worker) is attached only to the internal
+# "proxied" network, which has no route to the internet. The https-proxy
+# container is on both networks, so every Snowflake call the connector makes
+# must go through it; anything that bypasses the proxy fails instead of
+# silently succeeding.
+#
+# https-proxy listens on two ports so tests can tell the proxy tiers apart:
+#   8080  connector tier: tests set jvm.proxy.host=https-proxy, jvm.proxy.port=8080
+#   8081  worker JVM tier: the worker starts with -Dhttps.proxyHost=https-proxy -Dhttps.proxyPort=8081
+#   9080  control API (per-port call counters)
+
+services:
+  https-proxy:
+    build:
+      context: ./https-proxy
+      dockerfile: Dockerfile
+    hostname: https-proxy
+    user: "0:0"
+    networks:
+      - default
+      - proxied
+    volumes:
+      - https-proxy-certs:/certs
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os, urllib.request; assert os.path.getsize('/certs/mitmproxy-ca-cert.pem') > 0; urllib.request.urlopen('http://localhost:9080/status')"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  kafka:
+    depends_on:
+      https-proxy:
+        condition: service_healthy
+    networks:
+      - proxied
+    environment:
+      JVM_PROXY_HOST: https-proxy
+      JVM_PROXY_PORT: "8081"
+    volumes:
+      - https-proxy-certs:/proxy-certs:ro
+      - ./scripts/https-proxy-entrypoint.sh:/opt/https-proxy-entrypoint.sh:ro
+    command: ["/bin/bash", "/opt/https-proxy-entrypoint.sh"]
+
+  test-runner:
+    networks:
+      - default
+      - proxied
+    environment:
+      HTTPS_PROXY_CONTROL_URL: "http://https-proxy:9080"
+
+networks:
+  proxied:
+    internal: true
+
+volumes:
+  https-proxy-certs:
