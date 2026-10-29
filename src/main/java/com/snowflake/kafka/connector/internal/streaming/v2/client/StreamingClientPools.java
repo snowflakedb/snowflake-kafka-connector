@@ -42,6 +42,9 @@ public class StreamingClientPools {
    * same partition. It means that two tasks will never work with given channel at the same time,
    * because channel names are scoped to connector_name + topic_name + partition_id
    *
+   * <p>Blocks until the client is ready. If no client is cached for the pipe, this can take up to
+   * {@link #CLIENT_CREATION_MAX_DURATION} (see {@link #getClientAsync}).
+   *
    * @param connectorName the name of the connector
    * @param taskId the ID of the task requesting the client
    * @param pipeName the pipe name
@@ -74,11 +77,9 @@ public class StreamingClientPools {
 
   /**
    * Asynchronously gets or creates a client for the given connector, task, and pipe. The returned
-   * future completes when the client is ready. {@code SfApiNotFoundError} on {@code .build()} is
-   * retried for {@link #CLIENT_CREATION_MAX_DURATION} without blocking the caller.
-   *
-   * <p>Any call that finds no cached client for the pipe builds one under this retry, such a call
-   * can block for up to {@link #CLIENT_CREATION_MAX_DURATION}.
+   * future completes when the client is ready. If no client is cached for the pipe, one is built
+   * with {@code SfApiNotFoundError} on {@code .build()} retried, so the future can take up to
+   * {@link #CLIENT_CREATION_MAX_DURATION} to complete.
    */
   public static CompletableFuture<SnowflakeStreamingIngestClient> getClientAsync(
       final String connectorName,
