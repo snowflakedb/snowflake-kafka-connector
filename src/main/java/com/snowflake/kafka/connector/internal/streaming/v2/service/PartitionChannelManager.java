@@ -18,6 +18,8 @@ import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreator;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
+import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.PipeSchemaEvolver;
+import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.RestEvolveSchemaClient;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Collection;
@@ -71,6 +73,9 @@ public class PartitionChannelManager {
   private final Map<String, Boolean> recordMetadataStructuredObjectCache =
       new ConcurrentHashMap<>();
 
+  // Shared by the task's channels so each pipe is evolved once per distinct schema.
+  private final Optional<PipeSchemaEvolver> pipeSchemaEvolver;
+
   /**
    * Offset resets submitted by channel init / recovery on the IO thread. Drained by SSV2.insert on
    * the task thread so that sinkTaskContext.offset() is only ever called from the task thread.
@@ -93,6 +98,7 @@ public class PartitionChannelManager {
     this.metricsJmxReporter = metricsJmxReporter;
     this.taskMetrics = taskMetrics;
     this.conn = conn;
+    this.pipeSchemaEvolver = createPipeSchemaEvolver(taskConfig);
     this.partitionChannelBuilder = this::buildChannel;
     this.partitionChannels = new ConcurrentHashMap<>();
   }
@@ -109,6 +115,28 @@ public class PartitionChannelManager {
     this.metricsJmxReporter = Optional.empty();
     this.taskMetrics = null;
     this.conn = null;
+    this.pipeSchemaEvolver = Optional.empty();
+  }
+
+  /**
+   * Returns an evolver when the evolve-schema feature is on, with server-side validation and
+   * schematization: those are the only rows whose columns come from the record schema.
+   */
+  private static Optional<PipeSchemaEvolver> createPipeSchemaEvolver(SinkTaskConfig taskConfig) {
+    if (!taskConfig.isEvolveSchemaEnabled()
+        || taskConfig.getValidation() != SnowflakeValidation.SERVER_SIDE
+        || !taskConfig.isEnableSchematization()) {
+      return Optional.empty();
+    }
+    LOGGER.info(
+        "Evolve-schema enabled for connector: {}, task: {}",
+        taskConfig.getConnectorName(),
+        taskConfig.getTaskId());
+    return Optional.of(
+        new PipeSchemaEvolver(
+            RestEvolveSchemaClient.from(taskConfig),
+            taskConfig.getSnowflakeDatabase(),
+            taskConfig.getSnowflakeSchema()));
   }
 
   /** Gets a unique identifier consisting of connector name, topic name and partition number. */
@@ -258,7 +286,8 @@ public class PartitionChannelManager {
         shouldEvolveSchema,
         isRecordMetadataStructuredObject,
         this.conn,
-        ssv1ChannelName);
+        ssv1ChannelName,
+        pipeSchemaEvolver);
   }
 
   /**
