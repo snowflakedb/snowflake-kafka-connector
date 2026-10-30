@@ -28,6 +28,7 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetrySsv1Migration;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
+import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.PipeSchemaEvolver;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -108,6 +109,9 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile Map<String, ColumnSchema> tableSchema;
   private final boolean shouldEvolveSchema;
 
+  // Server-side validation: evolves the pipe's table to each new record value schema.
+  private final Optional<PipeSchemaEvolver> pipeSchemaEvolver;
+
   // Whether the target table's RECORD_METADATA is a structured OBJECT (vs FDN/v3 VARIANT).
   // Injected at construction time (after the table has been created/verified in startPartitions)
   // so it is cheap to query per-record. We probe the ACTUAL table rather than trusting
@@ -132,6 +136,48 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       boolean isRecordMetadataStructuredObject,
       SnowflakeConnectionService conn,
       Optional<String> ssv1ChannelName) {
+    this(
+        tableName,
+        channelName,
+        pipeName,
+        streamingClient,
+        clientRecreator,
+        openChannelIoExecutor,
+        telemetryService,
+        snowflakeTelemetryChannelStatus,
+        offsetTracker,
+        taskConfig,
+        streamingErrorHandler,
+        taskMetrics,
+        shouldEvolveSchema,
+        isRecordMetadataStructuredObject,
+        conn,
+        ssv1ChannelName,
+        Optional.empty());
+  }
+
+  /**
+   * @param pipeSchemaEvolver when present, each new record value schema is sent to the
+   *     evolve-schema endpoint before the record is appended
+   */
+  public SnowpipeStreamingPartitionChannel(
+      String tableName,
+      String channelName,
+      String pipeName,
+      SnowflakeStreamingIngestClient streamingClient,
+      ClientRecreator clientRecreator,
+      ExecutorService openChannelIoExecutor,
+      SnowflakeTelemetryService telemetryService,
+      SnowflakeTelemetryChannelStatus snowflakeTelemetryChannelStatus,
+      PartitionOffsetTracker offsetTracker,
+      SinkTaskConfig taskConfig,
+      StreamingErrorHandler streamingErrorHandler,
+      TaskMetrics taskMetrics,
+      boolean shouldEvolveSchema,
+      boolean isRecordMetadataStructuredObject,
+      SnowflakeConnectionService conn,
+      Optional<String> ssv1ChannelName,
+      Optional<PipeSchemaEvolver> pipeSchemaEvolver) {
     this.channelName = channelName;
     this.pipeName = pipeName;
     this.streamingClient = streamingClient;
@@ -148,6 +194,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     this.conn = conn;
     this.tableName = tableName;
     this.ssv1ChannelName = ssv1ChannelName;
+    this.pipeSchemaEvolver = pipeSchemaEvolver;
 
     LOGGER.info(
         "Initializing SnowpipeStreamingPartitionChannel channel: {}, pipe: {}",
@@ -217,6 +264,16 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                 taskConfig.getMetadataConfig().shouldIncludeAllMetadata(),
                 recordMetadataIsStructuredObject);
         if (!row.isEmpty()) {
+          if (pipeSchemaEvolver.isPresent() && kafkaSinkRecord.value() != null) {
+            pipeSchemaEvolver
+                .get()
+                .evolveIfNeeded(
+                    pipeName,
+                    channelName,
+                    kafkaOffset,
+                    kafkaSinkRecord.valueSchema(),
+                    record.getSchema());
+          }
           if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE
               && rowValidator != null) {
             ValidationResult validationResult = rowValidator.validateRow(row);
