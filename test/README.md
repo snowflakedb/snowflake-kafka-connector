@@ -108,20 +108,19 @@ test-runner container.
 
 ## Functional CI load and duration
 
-Document version: 3.0, 2026-10-16 07:20 UTC
+Document version: 4.0, 2026-10-30 20:30 UTC
 
 The v4-only trial is opt-in. Draft and ready PRs retain the existing broad
 functional, fault-injection, and Java integration coverage. The [SPCS test and
 harness](spcs/README.md) from #1585/#1586 are already merged; their live
 infrastructure and activation remain separate.
 
-The `functional` matrix in `end-to-end.yaml` runs one lane at a time. All seven
+The seven `functional` matrix lanes in `end-to-end.yaml` run in parallel, but
+each waits `matrix.start_offset` seconds (0, 30, ... 180) before its test step,
+so connector setup does not reach the shared account all at once. All seven
 lanes and their assertions remain available for draft and ready PRs, pushes,
-schedules, and explicit full-suite dispatches.
-Allow the sum of the lane durations,
-plus build and queue time, for the complete functional result rather than the
-slowest parallel lane. Each lane retains GitHub Actions' default six-hour job
-limit; serialization does not require multiplying a per-job timeout.
+schedules, and explicit full-suite dispatches. The complete functional result
+takes roughly the slowest lane plus three minutes.
 
 CI also passes `--functional-test-delay 5`, which waits five seconds before each
 functional case's fixture setup. Budget up to five seconds per selected case in
@@ -136,7 +135,7 @@ without extending their 60-second observation window. Expected rows, value
 checks, and error assertions are unchanged. Functional runtime under pacing is
 not a throughput benchmark; stress and soak workloads keep their existing rates.
 
-The matrix cap is per workflow run, not per Snowflake account. Separate PR runs,
+The stagger is per workflow run, not per Snowflake account. Separate PR runs,
 fault-injection jobs, and other account users can still overlap. For a controlled
 trial, run only one functional workflow against the shared account at a time.
 This reduces test load but does not guarantee that shared-service throttling ends.

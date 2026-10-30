@@ -134,11 +134,23 @@ class WorkflowTests(unittest.TestCase):
             {"spcs-release"},
         )
 
-    def test_existing_pr_events_and_serial_limits(self):
+    def test_existing_pr_events_and_staggered_lanes(self):
         for workflow in (self.workflow, self.java):
             events = workflow.get("on", workflow.get(True))["pull_request"]
             self.assertNotIn("types", events)
-        self.assertEqual(self.jobs["functional"]["strategy"]["max-parallel"], 1)
+        functional = self.jobs["functional"]
+        self.assertNotIn("max-parallel", functional["strategy"])
+        offsets = [
+            lane["start_offset"] for lane in functional["strategy"]["matrix"]["include"]
+        ]
+        self.assertEqual(offsets, [30 * index for index in range(len(offsets))])
+        self.assertEqual(len(offsets), 7)
+        names = [step.get("name", step.get("uses", "")) for step in functional["steps"]]
+        stagger = names.index("Stagger start (${{ matrix.start_offset }}s)")
+        self.assertEqual(names[stagger + 1], "./.github/actions/run-e2e-tests")
+        self.assertEqual(
+            functional["steps"][stagger]["run"], "sleep ${{ matrix.start_offset }}"
+        )
         self.assertEqual(self.jobs["v4-trial"]["timeout-minutes"], 45)
         self.assertFalse(self.jobs["v4-trial"]["concurrency"]["cancel-in-progress"])
 

@@ -129,31 +129,34 @@ jobs:
       [${{ matrix.test_group }}]
     permissions:
       packages: read
-    # Serial execution intentionally trades total workflow latency for lower
-    # shared-account metadata load. This is not a cross-workflow account lock.
+    # Lanes run in parallel but start their Snowflake work 30 seconds apart
+    # (matrix.start_offset), so connector setup does not hit the shared account
+    # all at once. This is not a cross-workflow account lock.
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         include:
-          # New platforms: full suite split into three sequential groups.
+          # New platforms: full suite split into three groups.
           - platform: apache
             platform_version: '4.1.1'
             snowflake_cloud: 'AWS'
             java_test_version: '17'
             test_group: compatibility
+            start_offset: 0
             marker_filter: 'compatibility and not schema_evolution'
           - platform: apache
             platform_version: '4.1.1'
             snowflake_cloud: 'AWS'
             java_test_version: '17'
             test_group: schema_and_correctness
+            start_offset: 30
             marker_filter: 'schema_evolution or correctness'
           - platform: apache
             platform_version: '4.1.1'
             snowflake_cloud: 'AWS'
             java_test_version: '17'
             test_group: core
+            start_offset: 60
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
 
           # ── Java 21 runtime coverage ──────────────────────────────────────
@@ -171,22 +174,26 @@ jobs:
             snowflake_cloud: 'AWS'
             java_test_version: '21'
             test_group: core_java21
+            start_offset: 90
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
 
           - platform: confluent
             platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
             test_group: compatibility
+            start_offset: 120
             marker_filter: 'compatibility and not schema_evolution'
           - platform: confluent
             platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
             test_group: schema_and_correctness
+            start_offset: 150
             marker_filter: 'schema_evolution or correctness'
           - platform: confluent
             platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
             test_group: core
+            start_offset: 180
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
 
     steps:
@@ -200,6 +207,9 @@ jobs:
     - uses: ./.github/actions/build-connector
       with:
         platform: ${{ matrix.platform }}
+
+    - name: Stagger start (${{ matrix.start_offset }}s)
+      run: sleep ${{ matrix.start_offset }}
 
     - uses: ./.github/actions/run-e2e-tests
       with:
