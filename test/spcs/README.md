@@ -1,19 +1,19 @@
 # KC v4 SPCS smoke test
 
 **Author:** Berni Schiefer (openai-gpt-6-astra, Cortex Code agent mode)
-**Date:** 2026-10-11 20:00 UTC
+**Date:** 2026-10-16 07:20 UTC
 **Status:** Draft; manual execution only, no release gate enabled
-**Document version:** 7.1
+**Document version:** 7.2
 
 A finite Snowpark Container Services (SPCS) job runs Kafka, Connect, and the
 KC v4 test. It sends 100 numbered records using ambient authentication. The
 host independently checks every value, then removes the job and test data.
 
-## Review order
+## Related changes
 
-1. [#1585](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1585): ingestion test and observer helpers.
-2. [#1586](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1586): this runner, container, cleanup, and manual CI job.
-3. [#1587](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1587): separate functional CI pacing and draft-trial policy.
+1. [#1585](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1585): merged ingestion test and observer helpers.
+2. [#1586](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1586): merged runner, container, cleanup, and manual CI job.
+3. [#1587](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1587): separate functional CI pacing and opt-in v4 trial.
 
 Continuous monitoring is separate: [SNOW-4202413](https://snowflakecomputing.atlassian.net/browse/SNOW-4202413),
 [snowprober #7096](https://github.com/snowflake-eng/snowprober/pull/7096), and
