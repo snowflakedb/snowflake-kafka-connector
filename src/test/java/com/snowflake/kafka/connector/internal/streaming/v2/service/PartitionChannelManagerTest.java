@@ -4,15 +4,32 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.kafka.connector.StaticTopicToTableResolver;
+import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
+import com.snowflake.kafka.connector.config.SnowflakeValidation;
+import com.snowflake.kafka.connector.dlq.KafkaRecordErrorReporter;
+import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
+import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
+import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,8 +38,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 
 class PartitionChannelManagerTest {
 
@@ -334,7 +354,92 @@ class PartitionChannelManagerTest {
     assertEquals(101L, drained.get(tp1));
   }
 
+  // --- schema evolution permission check (buildChannel) ---
+
+  @Test
+  void clientSideValidationUnderSpcsChecksSchemaEvolutionWithSessionRole() {
+    SnowflakeConnectionService conn =
+        buildChannelWithRealBuilder(AuthenticatorType.SPCS, "X");
+
+    verify(conn).shouldEvolveSchema(eq(TOPIC), isNull());
+    verify(conn, never()).shouldEvolveSchema(anyString(), eq("X"));
+  }
+
+  @Test
+  void clientSideValidationUnderJwtChecksSchemaEvolutionWithConfiguredRole() {
+    SnowflakeConnectionService conn =
+        buildChannelWithRealBuilder(AuthenticatorType.SNOWFLAKE_JWT, "X");
+
+    verify(conn).shouldEvolveSchema(TOPIC, "X");
+  }
+
   // --- helpers ---
+
+  /**
+   * Starts one partition through the production {@code buildChannel} path with CLIENT_SIDE
+   * validation, stubbing out streaming-client creation and the channel itself, and returns the
+   * mocked connection so callers can verify the schema-evolution permission check.
+   */
+  private static SnowflakeConnectionService buildChannelWithRealBuilder(
+      AuthenticatorType authenticator, String role) {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId(TASK_ID)
+            .topicToTableResolver(new StaticTopicToTableResolver(Collections.emptyMap()))
+            .enableSanitization(false)
+            .validation(SnowflakeValidation.CLIENT_SIDE)
+            .authenticator(authenticator)
+            .snowflakeRole(role)
+            .build();
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    SnowflakeStreamingIngestClient client = mock(SnowflakeStreamingIngestClient.class);
+
+    // buildChannel needs this connector's open-channel pool; register our own rather than rely on
+    // one leaked by another test class.
+    ThreadPools.registerTask(CONNECTOR_NAME, config);
+    try (MockedStatic<StreamingClientProperties> properties =
+            mockStatic(StreamingClientProperties.class);
+        MockedStatic<StreamingClientPools> pools = mockStatic(StreamingClientPools.class);
+        MockedConstruction<StreamingErrorHandler> errorHandlers =
+            mockConstruction(StreamingErrorHandler.class);
+        MockedConstruction<SnowpipeStreamingPartitionChannel> channels =
+            mockConstruction(SnowpipeStreamingPartitionChannel.class)) {
+      properties
+          .when(() -> StreamingClientProperties.from(any()))
+          .thenReturn(mock(StreamingClientProperties.class));
+      pools
+          .when(
+              () ->
+                  StreamingClientPools.getClientAsync(
+                      anyString(), anyString(), anyString(), any(), any(), any()))
+          .thenReturn(CompletableFuture.completedFuture(client));
+      pools
+          .when(
+              () ->
+                  StreamingClientPools.getClient(
+                      anyString(), anyString(), anyString(), any(), any(), any()))
+          .thenReturn(client);
+
+      PartitionChannelManager realManager =
+          new PartitionChannelManager(
+              mock(SnowflakeTelemetryService.class),
+              config,
+              mock(KafkaRecordErrorReporter.class),
+              mock(SinkTaskContext.class),
+              Optional.empty(),
+              mock(TaskMetrics.class),
+              conn);
+      realManager.startPartitions(
+          Collections.singletonList(new TopicPartition(TOPIC, 0)),
+          Collections.singletonMap(TOPIC, "pipe_" + TOPIC));
+      // Proves buildChannel ran past the schema-evolution check to channel construction.
+      assertEquals(1, channels.constructed().size());
+    } finally {
+      ThreadPools.closeForTask(CONNECTOR_NAME);
+    }
+    return conn;
+  }
 
   private void startSinglePartition(TopicPartition topicPartition) {
     startPartitions(topicPartition);

@@ -3,14 +3,23 @@ package com.snowflake.kafka.connector;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -107,5 +116,70 @@ public class BlankRequiredConfigTest {
         .as("blank URL is rejected with ERROR_0017 rather than silently returning empty properties")
         .isInstanceOf(com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException.class)
         .hasMessageContaining("0017");
+  }
+
+  @TempDir Path tempDir;
+
+  @AfterEach
+  void resetSpcs() {
+    SpcsEnvironment.resetForTests();
+  }
+
+  /** Simulates a container running inside SPCS, with a token file and the runtime env vars. */
+  private void simulateSpcs() throws IOException {
+    Path token = tempDir.resolve("token");
+    Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
+    Map<String, String> env = new HashMap<>();
+    env.put(SpcsEnvironment.ENV_HOST, "myaccount.us-east-1.snowflakecomputing.com");
+    env.put(SpcsEnvironment.ENV_ACCOUNT, "myaccount");
+    env.put(SpcsEnvironment.ENV_DATABASE, "AMBIENT_DB");
+    env.put(SpcsEnvironment.ENV_SCHEMA, "AMBIENT_SCHEMA");
+    SpcsEnvironment.overrideForTests(env::get, token);
+  }
+
+  /** The minimal SPCS configuration from the documentation, which sets no role. */
+  private static Map<String, String> documentedMinimalSpcsConfig() {
+    Map<String, String> config = new HashMap<>();
+    config.put("name", "spcs_sink");
+    config.put("connector.class", "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector");
+    config.put("topics", "orders");
+    config.put("snowflake.authenticator", "spcs");
+    config.put("key.converter", "org.apache.kafka.connect.storage.StringConverter");
+    config.put("value.converter", "org.apache.kafka.connect.json.JsonConverter");
+    config.put("value.converter.schemas.enable", "false");
+    config.put("snowflake.streaming.validate.compatibility.with.classic", "false");
+    return config;
+  }
+
+  /**
+   * SNOW-4392681: under SPCS the session runs as the service user with the service owner's role, so
+   * the documented configuration without {@code snowflake.role.name} must validate.
+   */
+  @Test
+  void shouldAcceptTheDocumentedSpcsConfigWithoutARole() throws IOException {
+    simulateSpcs();
+    Map<String, String> config = documentedMinimalSpcsConfig();
+
+    assertThatCode(() -> validator.validateConfig(config)).doesNotThrowAnyException();
+  }
+
+  @Test
+  void shouldStillAcceptAnExplicitRoleUnderSpcs() throws IOException {
+    simulateSpcs();
+    Map<String, String> config = documentedMinimalSpcsConfig();
+    config.put(SNOWFLAKE_ROLE_NAME, "SOME_ROLE");
+
+    assertThatCode(() -> validator.validateConfig(config)).doesNotThrowAnyException();
+  }
+
+  /** Regression guard: the SPCS exemption must not relax key-pair authentication. */
+  @Test
+  void shouldStillRejectAnAbsentRoleForKeyPairAuthentication() {
+    SpcsEnvironment.overrideForTests(name -> null, tempDir.resolve("absent"));
+    Map<String, String> config =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig().withoutRole().build();
+
+    assertThatThrownBy(() -> validator.validateConfig(config))
+        .hasMessageContaining(SNOWFLAKE_ROLE_NAME);
   }
 }

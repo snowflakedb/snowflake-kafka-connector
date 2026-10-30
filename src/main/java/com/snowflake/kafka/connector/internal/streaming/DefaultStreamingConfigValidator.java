@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.ConnectorConfigTools;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +56,10 @@ public class DefaultStreamingConfigValidator implements StreamingConfigValidator
   }
 
   private static Optional<Map.Entry<String, String>> validateRole(Map<String, String> inputConfig) {
+    // Under SPCS workload-identity authentication the service owner role applies.
+    if (SpcsEnvironment.isSpcsAuthenticator(inputConfig)) {
+      return Optional.empty();
+    }
     if (!inputConfig.containsKey(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME)
         || Strings.isNullOrEmpty(inputConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME))) {
       String missingRole =
