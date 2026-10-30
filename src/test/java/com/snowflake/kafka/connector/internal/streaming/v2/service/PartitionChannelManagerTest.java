@@ -358,8 +358,7 @@ class PartitionChannelManagerTest {
 
   @Test
   void clientSideValidationUnderSpcsChecksSchemaEvolutionWithSessionRole() {
-    SnowflakeConnectionService conn =
-        buildChannelWithRealBuilder(AuthenticatorType.SPCS, "X");
+    SnowflakeConnectionService conn = buildChannelWithRealBuilder(AuthenticatorType.SPCS, "X");
 
     verify(conn).shouldEvolveSchema(eq(TOPIC), isNull());
     verify(conn, never()).shouldEvolveSchema(anyString(), eq("X"));
