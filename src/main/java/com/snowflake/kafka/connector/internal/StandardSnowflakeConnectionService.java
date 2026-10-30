@@ -3,6 +3,8 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
+import com.snowflake.kafka.connector.internal.advisory.KcAdvisoryResponse;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -20,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.snowflake.client.api.driver.SnowflakeDriver;
 
 /**
@@ -40,6 +43,10 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   // 091386.
   private static final int ERR_ICEBERG_DATATYPE_NOT_SUPPORTED = 91386;
   private final KCLogger LOGGER = new KCLogger(StandardSnowflakeConnectionService.class.getName());
+
+  // Whether getKcAdvisoryMessages has logged a failure at INFO since its last success.
+  private final AtomicBoolean advisoryFetchFailureLogged = new AtomicBoolean();
+
   private final Connection conn;
   private final SnowflakeTelemetryService telemetry;
   private final String connectorName;
@@ -671,6 +678,40 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
               + ": "
               + e.getMessage(),
           e);
+    }
+  }
+
+  @Override
+  public List<AdvisoryMessage> getKcAdvisoryMessages(String requestJson) {
+    try {
+      checkConnection();
+      String query = "SELECT SYSTEM$GET_KC_ADVISORY_MESSAGES(?)";
+      try (PreparedStatement stmt = conn.prepareStatement(query)) {
+        stmt.setString(1, requestJson);
+        try (ResultSet rs = stmt.executeQuery()) {
+          List<AdvisoryMessage> messages =
+              rs.next()
+                  ? OBJECT_MAPPER.readValue(rs.getString(1), KcAdvisoryResponse.class).getMessages()
+                  : Collections.emptyList();
+          // After a success, the next failure is logged at INFO again.
+          advisoryFetchFailureLogged.set(false);
+          return messages;
+        }
+      }
+    } catch (Exception e) {
+      // Fail-safe: an old GS without the function, a rejected request, a JDBC error, or a parse
+      // error must never disrupt the connector. The first failure after a success (or after
+      // startup) is logged at INFO so that a server-side problem (e.g. a permission regression)
+      // is visible; repeated failures only at DEBUG, so the periodic poll does not repeat it.
+      if (advisoryFetchFailureLogged.compareAndSet(false, true)) {
+        LOGGER.info(
+            "SYSTEM$GET_KC_ADVISORY_MESSAGES unavailable or failed; continuing without server"
+                + " advisories. Repeated failures are logged at DEBUG. Cause: {}",
+            e.getMessage());
+      } else {
+        LOGGER.debug("SYSTEM$GET_KC_ADVISORY_MESSAGES unavailable or failed: {}", e.getMessage());
+      }
+      return Collections.emptyList();
     }
   }
 

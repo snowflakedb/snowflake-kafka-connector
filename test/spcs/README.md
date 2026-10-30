@@ -20,6 +20,40 @@ Continuous monitoring is separate: [SNOW-4202413](https://snowflakecomputing.atl
 [metrics configuration #167951](https://github.com/snowflake-eng/instance-metrics-config/pull/167951).
 Neither smoke-test PR enables those probers or blocks release publishing.
 
+## One-time setup: enable SPCS provisioning in CI
+
+[`setup_ci.py`](setup_ci.py) creates four permanent objects, once, in the
+existing CI account `SFCTEST0` as `TESTROLE_KAFKA`. Later CI runs reuse them.
+
+| Object | Purpose |
+|---|---|
+| Compute pool `KC_SPCS_CI_POOL` | `GEN_X64_G2_4`, at most one node, starts suspended, auto-suspends after 300 s |
+| Schema `TESTDB_KAFKA.KC_SPCS_CI` | Holds the two objects below |
+| Stage `...KC_SPCS_CI.HARNESS_STAGE` | Test payloads |
+| Image repository `...KC_SPCS_CI.IMAGES` | Test container images |
+
+The script never alters, drops, or grants anything, and rerunning it is safe.
+
+1. **Grant privileges** (Snowflake `ACCOUNTADMIN` in `SFCTEST0`):
+
+   ```sql
+   GRANT CREATE COMPUTE POOL ON ACCOUNT TO ROLE TESTROLE_KAFKA;
+   GRANT USAGE, CREATE SCHEMA ON DATABASE TESTDB_KAFKA TO ROLE TESTROLE_KAFKA;
+   ```
+
+   Owning the new schema lets the role create the stage and repository.
+2. **Protect the workflow** (GitHub repository admin): create environment
+   `kc-spcs-setup` with required reviewers, self-review prevented, and
+   deployments limited to branch `master`. Then set environment variable
+   `KC_SPCS_SETUP_ENABLED=true`.
+3. **Run** **Set up permanent KC SPCS infrastructure** from `master`: first
+   `check` (read-only; lists missing objects), then `apply`, then `check` again.
+   It should report all four objects present.
+4. **Optionally revoke** `CREATE COMPUTE POOL` and `CREATE SCHEMA` if nothing
+   else needs them. Keep database `USAGE`; the role keeps object ownership.
+
+Offline test: `python3 test/spcs/test_setup_ci.py -v`.
+
 ## Fixture and execution
 
 Provide an existing account, database, internal stage, warehouse, named CLI
