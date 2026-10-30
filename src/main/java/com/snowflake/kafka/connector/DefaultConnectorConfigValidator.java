@@ -140,7 +140,10 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
           Utils.formatString("{} cannot be empty.", KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME));
     }
 
-    if (isBlank(config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME))) {
+    // Under SPCS workload-identity authentication the session runs as the service user, whose
+    // default role is the service owner role, so no role needs to be configured.
+    if (!SpcsEnvironment.isSpcsAuthenticator(config)
+        && isBlank(config.get(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME))) {
       invalidConfigParams.put(
           KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME,
           Utils.formatString(

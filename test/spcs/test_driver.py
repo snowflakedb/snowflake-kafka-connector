@@ -190,14 +190,19 @@ class SmokeTests(unittest.TestCase):
                 runner.identifier(text)
 
     def test_spec_has_no_public_endpoints_or_credentials(self):
-        args = argparse.Namespace(image="/db/s/r/i@sha256:" + "a" * 64, warehouse="WH")
+        args = argparse.Namespace(
+            image="/db/s/r/i@sha256:" + "a" * 64,
+            warehouse="WH",
+            role_variants=["OWNER", "ABSENT"],
+        )
         spec = json.loads(runner.specification(args, "@DB.S.ST/RUN/"))
         self.assertNotIn("endpoints", spec["spec"])
         container = spec["spec"]["containers"][0]
         self.assertEqual(container["command"], ["/bin/bash"])
         self.assertEqual(container["args"][0], "-c")
         self.assertEqual(
-            spec["spec"]["containers"][0]["env"], {"SPCS_QUERY_WAREHOUSE": "WH"}
+            spec["spec"]["containers"][0]["env"],
+            {"SPCS_QUERY_WAREHOUSE": "WH", "SPCS_ROLE_VARIANTS": "OWNER,ABSENT"},
         )
 
     def test_evidence_is_private(self):
@@ -268,6 +273,24 @@ class CliTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             runner.parse_args(self.arguments + ["--cleanup-policy", "ignore"])
 
+    def test_role_variants_default_to_owner(self):
+        self.assertEqual(runner.parse_args(self.arguments).role_variants, ["OWNER"])
+
+    def test_role_variants_are_normalized(self):
+        args = runner.parse_args(
+            self.arguments + ["--role-variants", "owner, absent,PUBLIC"]
+        )
+        self.assertEqual(args.role_variants, ["OWNER", "ABSENT", "PUBLIC"])
+
+    def test_unknown_or_duplicate_role_variants_are_rejected(self):
+        for value in ("OWNER,BOGUS", "OWNER,owner", ""):
+            with (
+                self.subTest(value=value),
+                contextlib.redirect_stderr(io.StringIO()),
+                self.assertRaises(SystemExit),
+            ):
+                runner.parse_args(self.arguments + ["--role-variants", value])
+
     def test_exclusive_pool_acknowledgment_is_required(self):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             runner.parse_args(self.arguments[:-1])
@@ -306,6 +329,7 @@ class RecoveryTests(unittest.TestCase):
             jar=jar,
             evidence=directory / "result.json",
             cleanup_policy="warn",
+            role_variants=["OWNER"],
             egress=None,
         )
         self.stack.enter_context(
@@ -410,6 +434,38 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(result["outcome"], "PASS")
         self.assertTrue(result["test_passed"])
         self.assertTrue(result["cleanup_complete"])
+
+    def test_each_role_variant_gets_its_own_table_and_check(self):
+        self.args.role_variants = ["OWNER", "ABSENT", "PUBLIC"]
+        result = runner.run(self.args)
+        creates = [s for s in self.statements if s.startswith("CREATE TABLE")]
+        self.assertEqual(
+            [s.split()[2].split(".")[-1] for s in creates],
+            ["SMOKE_ROWS", "SMOKE_ROWS_ABSENT", "SMOKE_ROWS_PUBLIC"],
+        )
+        self.assertEqual(set(result["variants"]), {"OWNER", "ABSENT", "PUBLIC"})
+        self.assertTrue(all(v["exact_values"] for v in result["variants"].values()))
+        self.assertEqual(result["landed_rows"], 300)
+
+    def test_one_failing_variant_fails_run_but_records_all(self):
+        self.args.role_variants = ["OWNER", "ABSENT"]
+        original = self.sql
+
+        def sql(args, statement, **kwargs):
+            if (
+                statement.startswith('SELECT "number"')
+                and "SMOKE_ROWS_ABSENT" in statement
+            ):
+                self.statements.append(statement)
+                return []
+            return original(args, statement, **kwargs)
+
+        runner.sql.side_effect = sql
+        with self.assertRaises(RuntimeError):
+            runner.run(self.args)
+        variants = self.evidence()["variants"]
+        self.assertTrue(variants["OWNER"]["exact_values"])
+        self.assertEqual(variants["ABSENT"]["landed_rows"], 0)
 
     def test_cleanup_warning_preserves_test_pass(self):
         self.cleanup_error = RuntimeError("cleanup failed with secret")

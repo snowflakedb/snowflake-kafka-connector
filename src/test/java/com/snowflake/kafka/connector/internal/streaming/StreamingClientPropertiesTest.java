@@ -485,4 +485,47 @@ public class StreamingClientPropertiesTest {
         .doesNotContainKey("authorization_type")
         .doesNotContainKey("oauth_client_id");
   }
+
+  private static Properties spcsClientProperties(Path tempDir, String role) throws IOException {
+    Path token = tempDir.resolve("token");
+    Files.write(token, "ambient-token".getBytes(StandardCharsets.UTF_8));
+    Map<String, String> env = new HashMap<>();
+    env.put(SpcsEnvironment.ENV_HOST, "myaccount.us-east-1.snowflakecomputing.com");
+    env.put(SpcsEnvironment.ENV_ACCOUNT, "myaccount");
+    SpcsEnvironment.overrideForTests(env::get, token);
+    SnowflakeSinkConnectorConfigBuilder builder =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withAuthenticator(AuthenticatorType.SPCS.toConfigValue())
+            .withoutUrl();
+    builder = role == null ? builder.withoutRole() : builder.withRole(role);
+    Map<String, String> connectorConfig = builder.build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+    return StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+  }
+
+  /** SNOW-4392681: with no role configured, none is sent, so the service owner role applies. */
+  @Test
+  void shouldOmitRoleUnderSpcsWhenNoneConfigured(@TempDir Path tempDir) throws IOException {
+    assertThat(spcsClientProperties(tempDir, null)).doesNotContainKey("role");
+  }
+
+  @Test
+  void shouldSendConfiguredRoleUnderSpcs(@TempDir Path tempDir) throws IOException {
+    assertThat(spcsClientProperties(tempDir, "SOME_ROLE")).containsEntry("role", "SOME_ROLE");
+  }
+
+  @Test
+  void shouldSendConfiguredRoleForKeyPairAuthentication() {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig()
+            .withPrivateKey(Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()))
+            .withRole("KEYPAIR_ROLE")
+            .build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+
+    Properties clientProperties =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+
+    assertThat(clientProperties).containsEntry("role", "KEYPAIR_ROLE");
+  }
 }

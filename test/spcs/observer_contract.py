@@ -45,11 +45,25 @@ class ObserverTests(unittest.TestCase):
             profile.assert_not_called()
             connect.assert_not_called()
 
-    def test_smoke_uses_ambient_role_without_supplied_credentials(self):
+    def load_smoke(self):
         path = Path(__file__).resolve().parents[1] / "tests/spcs/test_spcs_ingestion.py"
         spec = importlib.util.spec_from_file_location("spcs_smoke", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        return module
+
+    def run_smoke(self, module, driver, create_connector, role_variant="OWNER"):
+        module.test_spcs_ingestion(
+            connector_version="v4",
+            role_variant=role_variant,
+            driver=driver,
+            name_salt="_test",
+            create_connector=create_connector,
+            wait_for_rows=Mock(),
+        )
+
+    def connector_config(self, role_variant):
+        module = self.load_smoke()
         driver = MagicMock()
         driver.snowflake_conn.cursor.return_value.__enter__.return_value.fetchone.return_value = None
         cursor = driver.snowflake_conn.cursor.return_value
@@ -59,10 +73,16 @@ class ObserverTests(unittest.TestCase):
         ]
         create_connector = Mock()
         with patch.object(module, "RecordProducer"):
-            module.test_spcs_ingestion("v4", driver, "_test", create_connector, Mock())
-        config = create_connector.call_args.kwargs["v4_config"]
+            self.run_smoke(module, driver, create_connector, role_variant)
+        return create_connector.call_args.kwargs["v4_config"]
+
+    def test_smoke_uses_ambient_role_without_supplied_credentials(self):
+        config = self.connector_config("OWNER")
         self.assertEqual(config["snowflake.authenticator"], "spcs")
         self.assertEqual(config["snowflake.role.name"], "SERVICE_OWNER")
+        self.assertEqual(
+            config["snowflake.topic2table.map"], "spcs_smoke_test_owner:SMOKE_ROWS"
+        )
         self.assertFalse(
             {
                 "snowflake.user.name",
@@ -72,6 +92,22 @@ class ObserverTests(unittest.TestCase):
             & config.keys()
         )
 
+    def test_absent_variant_sends_no_role(self):
+        config = self.connector_config("ABSENT")
+        self.assertNotIn("snowflake.role.name", config)
+        self.assertEqual(
+            config["snowflake.topic2table.map"],
+            "spcs_smoke_test_absent:SMOKE_ROWS_ABSENT",
+        )
+
+    def test_public_variant_sends_public_role(self):
+        config = self.connector_config("PUBLIC")
+        self.assertEqual(config["snowflake.role.name"], "PUBLIC")
+        self.assertEqual(
+            config["snowflake.topic2table.map"],
+            "spcs_smoke_test_public:SMOKE_ROWS_PUBLIC",
+        )
+
     def test_missing_table_fails_before_connector_creation(self):
         self.check_invalid_fixture(error=RuntimeError("credentials=do-not-print"))
 
@@ -79,10 +115,7 @@ class ObserverTests(unittest.TestCase):
         self.check_invalid_fixture(row=({}, "1"))
 
     def check_invalid_fixture(self, *, error=None, row=None):
-        path = Path(__file__).resolve().parents[1] / "tests/spcs/test_spcs_ingestion.py"
-        spec = importlib.util.spec_from_file_location("spcs_smoke", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = self.load_smoke()
         driver = MagicMock()
         cursor = driver.snowflake_conn.cursor.return_value.__enter__.return_value
         cursor.execute.side_effect = error
@@ -90,9 +123,7 @@ class ObserverTests(unittest.TestCase):
         create_connector = Mock()
         with patch.object(module, "RecordProducer") as producer:
             with self.assertRaises(pytest.fail.Exception) as failure:
-                module.test_spcs_ingestion(
-                    "v4", driver, "_test", create_connector, Mock()
-                )
+                self.run_smoke(module, driver, create_connector)
             self.assertIn("SMOKE_ROWS", str(failure.exception))
             self.assertNotIn("do-not-print", str(failure.exception))
             create_connector.assert_not_called()

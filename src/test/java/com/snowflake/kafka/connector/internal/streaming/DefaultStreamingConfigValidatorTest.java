@@ -87,4 +87,34 @@ class DefaultStreamingConfigValidatorTest {
 
     assertTrue(result.isEmpty(), "JsonConverter should be allowed regardless of schematization");
   }
+
+  /** SNOW-4392681: under SPCS the service owner role applies, so no role is required. */
+  @Test
+  void testMissingRoleAllowed_WhenAuthenticatorIsSpcs() {
+    Map<String, String> config = new HashMap<>();
+    config.put("snowflake.authenticator", "spcs");
+
+    ImmutableMap<String, String> result = validator.validate(config);
+
+    assertFalse(
+        result.containsKey("snowflake.role.name"), "role should be optional under spcs: " + result);
+  }
+
+  @Test
+  void testMissingRoleRejected_WhenAuthenticatorIsNotSpcs() {
+    Map<String, String> config = new HashMap<>();
+    config.put("snowflake.authenticator", "snowflake_jwt");
+
+    ImmutableMap<String, String> result = validator.validate(config);
+
+    assertTrue(
+        result.containsKey("snowflake.role.name"), "role should be required for snowflake_jwt");
+  }
+
+  @Test
+  void testMissingRoleRejected_WhenAuthenticatorIsAbsent() {
+    ImmutableMap<String, String> result = validator.validate(new HashMap<>());
+
+    assertTrue(result.containsKey("snowflake.role.name"), "role should be required by default");
+  }
 }

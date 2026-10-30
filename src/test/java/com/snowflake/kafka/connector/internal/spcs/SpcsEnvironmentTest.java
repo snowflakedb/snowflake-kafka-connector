@@ -35,6 +35,31 @@ public class SpcsEnvironmentTest {
 
   private static final String ACCOUNT = "myaccount";
 
+  /** The SPCS authenticator, however it is cased or padded, makes the role optional. */
+  @ParameterizedTest
+  @ValueSource(strings = {"spcs", "SPCS", "Spcs", " spcs ", "\tspcs"})
+  void isSpcsAuthenticatorShouldBeTrueForSpcs(String authenticator) {
+    Map<String, String> config = new HashMap<>();
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, authenticator);
+
+    assertThat(SpcsEnvironment.isSpcsAuthenticator(config)).isTrue();
+  }
+
+  /** An invalid value must not exempt the role; it is reported by authenticator validation. */
+  @ParameterizedTest
+  @ValueSource(strings = {"snowflake_jwt", "oauth", "not_an_authenticator"})
+  void isSpcsAuthenticatorShouldBeFalseForOtherAuthenticators(String authenticator) {
+    Map<String, String> config = new HashMap<>();
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR, authenticator);
+
+    assertThat(SpcsEnvironment.isSpcsAuthenticator(config)).isFalse();
+  }
+
+  @Test
+  void isSpcsAuthenticatorShouldBeFalseWhenAuthenticatorAbsent() {
+    assertThat(SpcsEnvironment.isSpcsAuthenticator(new HashMap<>())).isFalse();
+  }
+
   /** Simulates a container running inside SPCS, with a token file and the runtime env vars. */
   private Path simulateSpcs(String tokenValue) throws IOException {
     Path token = tempDir.resolve("token");

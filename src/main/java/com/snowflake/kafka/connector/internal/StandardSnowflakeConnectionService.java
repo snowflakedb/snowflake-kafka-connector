@@ -393,11 +393,26 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
     }
   }
 
+  /** Returns the session's current role, quoted so it is matched exactly against grants. */
+  private String currentRole() {
+    try (PreparedStatement stmt = conn.prepareStatement("select current_role()");
+        ResultSet result = stmt.executeQuery()) {
+      String role = result.next() ? result.getString(1) : null;
+      return role == null ? null : "\"" + role + "\"";
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2001.getException(e);
+    }
+  }
+
   @Override
   public boolean shouldEvolveSchema(String tableName, String role) {
     LOGGER.info("Checking schema evolution permission for table {}", tableName);
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
+    if (role == null || role.trim().isEmpty()) {
+      // No role configured (SPCS workload-identity authentication): check the session's role.
+      role = currentRole();
+    }
     InternalUtils.assertNotEmpty("role", role);
 
     String query = "show grants on table identifier(?)";
