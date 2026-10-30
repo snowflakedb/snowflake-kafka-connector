@@ -140,7 +140,10 @@ def specification(args, stage_path):
                             "'set -e; cd /work; tar xzf /mnt/harness/payload.tgz; "
                             "exec bash /work/run-e2e.sh'",
                         ],
-                        "env": {"SPCS_QUERY_WAREHOUSE": args.warehouse},
+                        "env": {
+                            "SPCS_QUERY_WAREHOUSE": args.warehouse,
+                            "SPCS_ROLE_VARIANTS": ",".join(args.role_variants),
+                        },
                         "volumeMounts": [
                             {"name": "harness", "mountPath": "/mnt/harness"},
                             {"name": "work", "mountPath": "/work"},
@@ -176,6 +179,14 @@ def wait_for_job(args, job):
             return status
         time.sleep(5)
     raise TimeoutError("SPCS job exceeded its deadline")
+
+
+# How the connector config sets snowflake.role.name. OWNER keeps the historical table name.
+ROLE_VARIANTS = ("OWNER", "ABSENT", "PUBLIC")
+
+
+def table_for(variant):
+    return "SMOKE_ROWS" if variant == "OWNER" else f"SMOKE_ROWS_{variant}"
 
 
 def verify(status, logs, values):
@@ -316,10 +327,12 @@ def run(args):
         sql(args, f"CREATE SCHEMA {schema} COMMENT = '{marker}'")
         schema_created = True
         evidence["phase"] = "create_table"
-        sql(
-            args,
-            f'CREATE TABLE {schema}.SMOKE_ROWS (RECORD_METADATA VARIANT, "number" VARCHAR)',
-        )
+        for variant in args.role_variants:
+            sql(
+                args,
+                f"CREATE TABLE {schema}.{table_for(variant)} "
+                '(RECORD_METADATA VARIANT, "number" VARCHAR)',
+            )
         evidence["phase"] = "upload_payload"
         with tempfile.TemporaryDirectory(dir=args.evidence.parent) as directory:
             payload = Path(directory) / "payload.tgz"
@@ -348,13 +361,27 @@ def run(args):
         diagnostics_attempted = True
         logs = capture_diagnostics(args, job, evidence)
         evidence["phase"] = "verify_rows"
-        values = [
-            row["number"]
-            for row in sql(args, f'SELECT "number" FROM {schema}.SMOKE_ROWS')
-        ]
-        evidence["landed_rows"] = len(values)
-        evidence["distinct_values"] = len(set(values))
-        verify(status, logs, values)
+        # Record every variant before judging any, so a failure still shows the others.
+        landed = {}
+        for variant in args.role_variants:
+            landed[variant] = [
+                row["number"]
+                for row in sql(
+                    args, f'SELECT "number" FROM {schema}.{table_for(variant)}'
+                )
+            ]
+        evidence["variants"] = {
+            variant: {
+                "landed_rows": len(values),
+                "distinct_values": len(set(values)),
+                "exact_values": sorted(values) == sorted(str(n) for n in range(1, 101)),
+            }
+            for variant, values in landed.items()
+        }
+        evidence["landed_rows"] = sum(len(v) for v in landed.values())
+        evidence["distinct_values"] = len(set(landed[args.role_variants[0]]))
+        for values in landed.values():
+            verify(status, logs, values)
         evidence["test_passed"] = True
         evidence["phase"] = "complete"
     except BaseException as error:
@@ -420,6 +447,12 @@ def parse_args(argv=None):
     parser.add_argument("--evidence", required=True, type=Path)
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument(
+        "--role-variants",
+        default="OWNER",
+        help="Comma-separated snowflake.role.name variants: "
+        + ", ".join(ROLE_VARIANTS),
+    )
+    parser.add_argument(
         "--cleanup-policy",
         choices=("warn", "fail"),
         default="warn",
@@ -434,6 +467,15 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     for name in ("database", "role", "pool", "warehouse"):
         setattr(args, name, identifier(getattr(args, name)))
+    args.role_variants = [v.strip().upper() for v in args.role_variants.split(",")]
+    if (
+        not args.role_variants
+        or any(v not in ROLE_VARIANTS for v in args.role_variants)
+        or len(set(args.role_variants)) != len(args.role_variants)
+    ):
+        parser.error(
+            "--role-variants must be distinct values from " + ", ".join(ROLE_VARIANTS)
+        )
     args.stage = qualified(args.stage)
     if args.egress:
         args.egress = identifier(args.egress)

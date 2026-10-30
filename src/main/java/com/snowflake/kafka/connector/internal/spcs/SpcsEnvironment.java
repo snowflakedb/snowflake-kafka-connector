@@ -111,6 +111,21 @@ public final class SpcsEnvironment {
     return env(ENV_HOST).isPresent() && Files.isReadable(tokenPath);
   }
 
+  /**
+   * Whether a (resolved) configuration selects SPCS workload-identity authentication. Under it the
+   * session's role is the service owner role, so {@code snowflake.role.name} is optional. An
+   * unrecognized authenticator returns false; it is reported by the authenticator validation.
+   */
+  public static boolean isSpcsAuthenticator(Map<String, String> config) {
+    try {
+      return AuthenticatorType.fromConfig(
+              config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTHENTICATOR))
+          .suppliesAmbientIdentity();
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
+  }
+
   public static Optional<String> host() {
     return env(ENV_HOST);
   }

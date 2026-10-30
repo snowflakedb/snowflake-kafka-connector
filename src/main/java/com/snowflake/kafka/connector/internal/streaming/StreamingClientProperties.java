@@ -127,7 +127,12 @@ public class StreamingClientProperties {
       // the generated service user's name, so it must not send one.
       clientProperties.put("user", config.getSnowflakeUser());
     }
-    clientProperties.put("role", config.getSnowflakeRole());
+    // A role is optional under SPCS workload-identity authentication; omit it rather than send
+    // null so the service user's default (service owner) role applies.
+    String role = config.getSnowflakeRole();
+    if (role != null && !role.trim().isEmpty()) {
+      clientProperties.put("role", role);
+    }
     // For ambient SPCS authentication, use SNOWFLAKE_ACCOUNT from the environment
     // rather than parsing the first label of the host URL.  The host is an undocumented
     // format verified on one deployment; SNOWFLAKE_ACCOUNT is the canonical identifier

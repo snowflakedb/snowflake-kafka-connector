@@ -97,7 +97,8 @@ public class ConnectorConfigDefinition {
             null,
             NON_EMPTY_STRING_VALIDATOR,
             HIGH,
-            "Snowflake role: snowflake.role.name",
+            "Snowflake role: snowflake.role.name. Required except with"
+                + " snowflake.authenticator=spcs, where the service owner role is used.",
             SNOWFLAKE_LOGIN_INFO_DOC,
             6,
             Width.NONE,
@@ -114,7 +115,8 @@ public class ConnectorConfigDefinition {
                 + " Snowflake then supplies the credential, so no key pair or OAuth client is"
                 + " configured, and snowflake.url.name, snowflake.user.name,"
                 + " snowflake.database.name and snowflake.schema.name are filled in from the"
-                + " service environment if not set. snowflake.role.name is still required.",
+                + " service environment if not set. snowflake.role.name is optional and"
+                + " overridden: the session uses the role of the service owner.",
             SNOWFLAKE_LOGIN_INFO_DOC,
             7,
             Width.NONE,

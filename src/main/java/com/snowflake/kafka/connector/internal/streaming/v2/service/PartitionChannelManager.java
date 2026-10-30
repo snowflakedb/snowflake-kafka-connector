@@ -216,7 +216,15 @@ public class PartitionChannelManager {
     final boolean shouldEvolveSchema =
         (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE)
             && shouldEvolveSchemaCache.computeIfAbsent(
-                tableName, t -> conn.shouldEvolveSchema(t, taskConfig.getSnowflakeRole()));
+                tableName,
+                t ->
+                    conn.shouldEvolveSchema(
+                        t,
+                        // Under SPCS the configured role is overridden, so check grants against
+                        // the session's effective role (null = current role).
+                        taskConfig.getAuthenticator().suppliesAmbientIdentity()
+                            ? null
+                            : taskConfig.getSnowflakeRole()));
 
     // Gated by a kill-switch (default on). When disabled, treat every table as VARIANT
     // RECORD_METADATA (4.0.x behavior) and skip the probe entirely.
