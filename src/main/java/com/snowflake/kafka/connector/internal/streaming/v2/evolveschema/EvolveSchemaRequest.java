@@ -21,7 +21,7 @@ public final class EvolveSchemaRequest {
   /**
    * @param schemaType {@link #SCHEMA_TYPE_KAFKA_CONNECT} or {@code AVRO}
    * @param schema the schema to evolve the table to
-   * @param channelName channel that saw the schema; GS returns 400 if it doesn't exist. May be null
+   * @param channelName channel that saw the schema; GS returns 404 if it doesn't exist. May be null
    * @param offsetToken offset of the record that carried the schema, recorded on the
    *     schema-evolution record. May be null
    * @param normalizeColumnNames whether GS normalizes field names into column names. Null uses the
