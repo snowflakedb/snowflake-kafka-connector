@@ -568,6 +568,10 @@ public class SnowflakeTelemetryServiceTest {
 
     // Schema evolution failure count
     assertEquals(0, dataNode.get(TelemetryConstants.SCHEMA_EVOLUTION_FAILURE_COUNT).asLong());
+    assertEquals(0, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_CALL_COUNT).asLong());
+    assertEquals(0, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_REJECTED_COUNT).asLong());
+    assertEquals(0, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_REDELIVERED_COUNT).asLong());
+    assertEquals(0, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_NOT_ENABLED_COUNT).asLong());
   }
 
   @ParameterizedTest

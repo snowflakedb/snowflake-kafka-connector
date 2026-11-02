@@ -766,17 +766,85 @@ class SnowpipeStreamingPartitionChannelTest {
     assertEquals(channelName, request.getValue().getChannelName());
     assertEquals("0", request.getValue().getOffsetToken());
     assertEquals("ID", request.getValue().getSchema().get("fields").get(0).get("field").asText());
+    assertEquals(1, channel.getSnowflakeTelemetryChannelStatus().getEvolveSchemaCallCount());
   }
 
   @Test
-  void insertRecord_evolveSchemaFails_doesNotAppend() {
+  void insertRecord_evolveSchemaRejected_sendsRecordToErrorHandler() {
+    EvolveSchemaException rejection =
+        new EvolveSchemaException(400, "ERR_EVOLVE_SCHEMA_INVALID_SCHEMA", "bad");
+    EvolveSchemaClient evolveSchemaClient = mock(EvolveSchemaClient.class);
+    when(evolveSchemaClient.evolveSchema(any(), any(), any(), any())).thenThrow(rejection);
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel(evolveSchemaClient);
+    channel.getChannel();
+    SinkRecord record = buildStructRecord(0);
+
+    assertTrue(channel.insertRecord(record));
+
+    verify(mockErrorHandler).handleError(rejection, record);
+    verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+    assertEquals(1, channel.getSnowflakeTelemetryChannelStatus().getEvolveSchemaRejectedCount());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaChannelNotFound_sendsRecordToErrorHandler() {
     EvolveSchemaClient evolveSchemaClient = mock(EvolveSchemaClient.class);
     when(evolveSchemaClient.evolveSchema(any(), any(), any(), any()))
-        .thenThrow(new EvolveSchemaException(400, "ERR_EVOLVE_SCHEMA_INVALID_SCHEMA", "bad"));
+        .thenThrow(new EvolveSchemaException(404, "ERR_EVOLVE_SCHEMA_CHANNEL_NOT_FOUND", "gone"));
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel(evolveSchemaClient);
+    channel.getChannel();
+    SinkRecord record = buildStructRecord(0);
+
+    assertTrue(channel.insertRecord(record));
+
+    verify(mockErrorHandler).handleError(any(EvolveSchemaException.class), eq(record));
+    verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaTransientFailure_leavesRecordForRedelivery() {
+    EvolveSchemaClient evolveSchemaClient = mock(EvolveSchemaClient.class);
+    when(evolveSchemaClient.evolveSchema(any(), any(), any(), any()))
+        .thenThrow(new EvolveSchemaException(503, "", "unavailable"))
+        .thenReturn(new EvolveSchemaResponse(List.of("ID"), null, null, null, true));
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel(evolveSchemaClient);
+    channel.getChannel();
+
+    assertFalse(channel.insertRecord(buildStructRecord(0)));
+    verify(mockErrorHandler, never()).handleError(any(), any());
+    verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+    assertEquals(1, channel.getSnowflakeTelemetryChannelStatus().getEvolveSchemaRedeliveredCount());
+
+    assertTrue(channel.insertRecord(buildStructRecord(0)));
+    verify(mockTaskMetrics, times(1)).markRecordsAppended(1L);
+  }
+
+  @Test
+  void insertRecord_evolveSchemaNotEnabled_appendsRecord() {
+    EvolveSchemaClient evolveSchemaClient = mock(EvolveSchemaClient.class);
+    when(evolveSchemaClient.evolveSchema(any(), any(), any(), any()))
+        .thenThrow(
+            new EvolveSchemaException(
+                403, EvolveSchemaException.ERR_EVOLVE_SCHEMA_NOT_ENABLED, "not enabled"));
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel(evolveSchemaClient);
+    channel.getChannel();
+
+    assertTrue(channel.insertRecord(buildStructRecord(0)));
+
+    verify(mockTaskMetrics, times(1)).markRecordsAppended(1L);
+    assertEquals(1, channel.getSnowflakeTelemetryChannelStatus().getEvolveSchemaNotEnabledCount());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaUnexpectedFailure_failsWithoutAppending() {
+    EvolveSchemaClient evolveSchemaClient = mock(EvolveSchemaClient.class);
+    when(evolveSchemaClient.evolveSchema(any(), any(), any(), any()))
+        .thenThrow(new EvolveSchemaException(401, "", "unauthorized"));
     SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel(evolveSchemaClient);
     channel.getChannel();
 
     assertThrows(EvolveSchemaException.class, () -> channel.insertRecord(buildStructRecord(0)));
+    verify(mockErrorHandler, never()).handleError(any(), any());
     verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
   }
 

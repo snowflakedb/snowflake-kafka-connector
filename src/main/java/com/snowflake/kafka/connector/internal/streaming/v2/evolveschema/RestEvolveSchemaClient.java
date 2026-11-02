@@ -25,7 +25,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -52,7 +51,6 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
   static final String TOKEN_TYPE_HEADER = "X-Snowflake-Authorization-Token-Type";
   private static final String SCOPED_TOKEN_TYPE = "OAUTH";
   private static final int HTTP_UNAUTHORIZED = 401;
-  private static final Set<Integer> TRANSIENT_STATUSES = Set.of(429, 500, 502, 503, 504);
 
   // Snowflake waits up to 60 seconds for the pipe's owning node to run the DDL and restart the
   // pipe, so the evolve-schema request gets longer than the hostname and token requests.
@@ -179,7 +177,9 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
         throw toEvolveSchemaException(transientStatus.statusCode, transientStatus.body);
       }
       throw new EvolveSchemaException(
-          "Evolve-schema request " + requestId + " failed: " + cause.getMessage(), cause);
+          "Evolve-schema request " + requestId + " failed: " + cause.getMessage(),
+          cause,
+          cause instanceof IOException);
     } catch (SnowflakeKafkaConnectorException e) {
       throw new EvolveSchemaException("Evolve-schema authentication failed: " + e.getMessage(), e);
     }
@@ -347,7 +347,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
   }
 
   private static boolean isTransient(int status) {
-    return TRANSIENT_STATUSES.contains(status);
+    return EvolveSchemaException.isTransientStatus(status);
   }
 
   private static HttpResponse.BodyHandler<String> ofString() {
@@ -371,7 +371,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
     return host.substring(0, ingest).replace('_', '-') + host.substring(ingest);
   }
 
-  /** A retryable non-2xx status: one of {@link #TRANSIENT_STATUSES}. */
+  /** A retryable non-2xx status: see {@link EvolveSchemaException#isTransientStatus}. */
   private static final class TransientStatusException extends IOException {
     private final int statusCode;
     private final String body;

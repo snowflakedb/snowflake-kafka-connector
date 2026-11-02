@@ -23,6 +23,17 @@ public class PipeSchemaEvolver {
   private final String database;
   private final String schema;
   private final Map<String, EvolvedSchemas> evolvedByPipe = new ConcurrentHashMap<>();
+  private volatile boolean notEnabled;
+
+  /** What {@link #evolveIfNeeded} did. */
+  public enum Result {
+    /** No call was needed: the schema was already evolved, or isn't a struct. */
+    NOT_NEEDED,
+    /** The pipe's table was evolved to the schema. */
+    EVOLVED,
+    /** Snowflake answered that evolve-schema is off for the account; the evolver is now off. */
+    NOT_ENABLED
+  }
 
   public PipeSchemaEvolver(EvolveSchemaClient client, String database, String schema) {
     this.client = client;
@@ -32,7 +43,8 @@ public class PipeSchemaEvolver {
 
   /**
    * Evolves {@code pipe}'s table to {@code columnSchema}, unless it was already evolved for {@code
-   * valueSchema}. Does nothing if {@code valueSchema} is not a struct.
+   * valueSchema}. Does nothing if {@code valueSchema} is not a struct, or once evolve-schema was
+   * found to be off for the account.
    *
    * @param pipe pipe the record is appended to
    * @param channelName channel the record is appended to
@@ -40,31 +52,47 @@ public class PipeSchemaEvolver {
    * @param valueSchema the record's value schema, used to recognize schemas already evolved
    * @param columnSchema the schema to send: {@code valueSchema} with top-level field names as the
    *     column names the connector writes
-   * @throws EvolveSchemaException if the call fails
+   * @return what was done
+   * @throws EvolveSchemaException if the call fails, other than because evolve-schema is off for
+   *     the account
    */
-  public void evolveIfNeeded(
+  public Result evolveIfNeeded(
       String pipe, String channelName, long offset, Schema valueSchema, Schema columnSchema) {
-    if (valueSchema == null || valueSchema.type() != Schema.Type.STRUCT) {
-      return;
+    if (notEnabled || valueSchema == null || valueSchema.type() != Schema.Type.STRUCT) {
+      return Result.NOT_NEEDED;
     }
     EvolvedSchemas evolved = evolvedByPipe.computeIfAbsent(pipe, p -> new EvolvedSchemas());
     synchronized (evolved) {
       // Converters reuse Schema instances, so the identity check skips hashing on most records.
-      if (valueSchema == evolved.last) {
-        return;
+      if (notEnabled || valueSchema == evolved.last) {
+        return Result.NOT_NEEDED;
       }
+      Result result = Result.NOT_NEEDED;
       if (!evolved.schemas.contains(valueSchema)) {
-        EvolveSchemaResponse response =
-            client.evolveSchema(
-                database,
-                schema,
-                pipe,
-                new EvolveSchemaRequest(
-                    EvolveSchemaRequest.SCHEMA_TYPE_KAFKA_CONNECT,
-                    ConnectSchemaJson.toJson(columnSchema),
-                    channelName,
-                    Long.toString(offset),
-                    false));
+        EvolveSchemaResponse response;
+        try {
+          response =
+              client.evolveSchema(
+                  database,
+                  schema,
+                  pipe,
+                  new EvolveSchemaRequest(
+                      EvolveSchemaRequest.SCHEMA_TYPE_KAFKA_CONNECT,
+                      ConnectSchemaJson.toJson(columnSchema),
+                      channelName,
+                      Long.toString(offset),
+                      false));
+        } catch (EvolveSchemaException e) {
+          if (!e.isNotEnabled()) {
+            throw e;
+          }
+          notEnabled = true;
+          LOGGER.warn(
+              "Evolve-schema is off for the account ({}); columns are added by the backend's"
+                  + " schema evolution instead",
+              e.getMessage());
+          return Result.NOT_ENABLED;
+        }
         LOGGER.info(
             "Evolved schema for pipe {} at channel {} offset {}: added={}, typeChanged={},"
                 + " madeNullable={}, pipeShutdown={}",
@@ -79,8 +107,10 @@ public class PipeSchemaEvolver {
           evolved.schemas.clear();
         }
         evolved.schemas.add(valueSchema);
+        result = Result.EVOLVED;
       }
       evolved.last = valueSchema;
+      return result;
     }
   }
 

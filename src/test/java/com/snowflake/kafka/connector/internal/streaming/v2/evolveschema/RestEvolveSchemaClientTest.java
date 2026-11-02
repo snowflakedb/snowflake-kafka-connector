@@ -189,6 +189,21 @@ class RestEvolveSchemaClientTest {
             e -> {
               assertThat(e.getStatusCode()).isEqualTo(503);
               assertThat(e.getErrorCode()).isEqualTo("UNAVAILABLE");
+              assertThat(e.isRetryable()).isTrue();
+            });
+    assertThat(server.requestsTo(EVOLVE_PATH)).hasSize(5);
+  }
+
+  @Test
+  void ioErrorsExhaustedAreRetryable() {
+    server.failures.put(EVOLVE_PATH, new IOException("connection reset"));
+
+    assertThatExceptionOfType(EvolveSchemaException.class)
+        .isThrownBy(() -> evolve(client(oauthCredential(null))))
+        .satisfies(
+            e -> {
+              assertThat(e.getStatusCode()).isEqualTo(EvolveSchemaException.NO_STATUS);
+              assertThat(e.isRetryable()).isTrue();
             });
     assertThat(server.requestsTo(EVOLVE_PATH)).hasSize(5);
   }
@@ -263,7 +278,11 @@ class RestEvolveSchemaClientTest {
 
     assertThatExceptionOfType(EvolveSchemaException.class)
         .isThrownBy(() -> evolve(client(oauthCredential(null))))
-        .satisfies(e -> assertThat(e.getStatusCode()).isEqualTo(401));
+        .satisfies(
+            e -> {
+              assertThat(e.getStatusCode()).isEqualTo(401);
+              assertThat(e.isRetryable()).isFalse();
+            });
   }
 
   @Test
@@ -281,6 +300,7 @@ class RestEvolveSchemaClientTest {
               assertThat(e.getStatusCode()).isEqualTo(400);
               assertThat(e.getErrorCode()).isEqualTo("ERR_EVOLVE_SCHEMA_INCOMPATIBLE_COLUMN_TYPE");
               assertThat(e.getMessage()).contains("cannot change NUMBER(38,0) to VARCHAR");
+              assertThat(e.isRetryable()).isFalse();
             });
     assertThat(server.requestsTo(EVOLVE_PATH)).hasSize(1);
   }
@@ -292,7 +312,11 @@ class RestEvolveSchemaClientTest {
 
     assertThatExceptionOfType(EvolveSchemaException.class)
         .isThrownBy(() -> evolve(client(oauthCredential(null))))
-        .satisfies(e -> assertThat(e.getStatusCode()).isEqualTo(403));
+        .satisfies(
+            e -> {
+              assertThat(e.getStatusCode()).isEqualTo(403);
+              assertThat(e.isNotEnabled()).isFalse();
+            });
     assertThat(server.requestsTo(EVOLVE_PATH)).isEmpty();
   }
 

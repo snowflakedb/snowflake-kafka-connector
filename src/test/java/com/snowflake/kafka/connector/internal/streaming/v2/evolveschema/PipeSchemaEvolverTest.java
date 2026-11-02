@@ -59,9 +59,48 @@ class PipeSchemaEvolverTest {
   }
 
   @Test
+  void reportsWhetherTheTableWasEvolved() {
+    Schema a = struct("a");
+
+    assertThat(evolver.evolveIfNeeded("P", "C", 0, a, a))
+        .isEqualTo(PipeSchemaEvolver.Result.EVOLVED);
+    assertThat(evolver.evolveIfNeeded("P", "C", 1, a, a))
+        .isEqualTo(PipeSchemaEvolver.Result.NOT_NEEDED);
+    assertThat(evolver.evolveIfNeeded("P", "C", 2, Schema.STRING_SCHEMA, Schema.STRING_SCHEMA))
+        .isEqualTo(PipeSchemaEvolver.Result.NOT_NEEDED);
+  }
+
+  @Test
+  void notEnabledTurnsTheEvolverOffForEveryPipe() {
+    client.nextFailure =
+        new EvolveSchemaException(
+            403, EvolveSchemaException.ERR_EVOLVE_SCHEMA_NOT_ENABLED, "not enabled");
+
+    assertThat(evolver.evolveIfNeeded("P", "C", 0, struct("a"), struct("a")))
+        .isEqualTo(PipeSchemaEvolver.Result.NOT_ENABLED);
+    assertThat(evolver.evolveIfNeeded("P", "C", 1, struct("b"), struct("b")))
+        .isEqualTo(PipeSchemaEvolver.Result.NOT_NEEDED);
+    assertThat(evolver.evolveIfNeeded("Q", "C2", 0, struct("c"), struct("c")))
+        .isEqualTo(PipeSchemaEvolver.Result.NOT_NEEDED);
+
+    assertThat(client.calls).hasSize(1);
+  }
+
+  @Test
+  void otherForbiddenErrorPropagatesAndKeepsTheEvolverOn() {
+    Schema a = struct("a");
+    client.nextFailure = new EvolveSchemaException(403, "", "forbidden");
+
+    assertThatExceptionOfType(EvolveSchemaException.class)
+        .isThrownBy(() -> evolver.evolveIfNeeded("P", "C", 0, a, a));
+    assertThat(evolver.evolveIfNeeded("P", "C", 0, a, a))
+        .isEqualTo(PipeSchemaEvolver.Result.EVOLVED);
+  }
+
+  @Test
   void failedCallIsRetriedOnNextRecord() {
     Schema a = struct("a");
-    client.failNext = true;
+    client.nextFailure = new EvolveSchemaException(503, null, "unavailable");
 
     assertThatExceptionOfType(EvolveSchemaException.class)
         .isThrownBy(() -> evolver.evolveIfNeeded("P", "C", 0, a, a));
@@ -103,15 +142,16 @@ class PipeSchemaEvolverTest {
 
   private static final class FakeClient implements EvolveSchemaClient {
     final List<Call> calls = new ArrayList<>();
-    boolean failNext;
+    EvolveSchemaException nextFailure;
 
     @Override
     public EvolveSchemaResponse evolveSchema(
         String database, String schema, String pipe, EvolveSchemaRequest request) {
       calls.add(new Call(database, schema, pipe, request));
-      if (failNext) {
-        failNext = false;
-        throw new EvolveSchemaException(503, null, "unavailable");
+      if (nextFailure != null) {
+        EvolveSchemaException failure = nextFailure;
+        nextFailure = null;
+        throw failure;
       }
       return new EvolveSchemaResponse(null, null, null, null, false);
     }
