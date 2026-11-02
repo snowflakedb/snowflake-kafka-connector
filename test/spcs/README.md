@@ -66,10 +66,10 @@ Build the connector normally. From `test/`, build the image:
 
 ```bash
 podman build --platform linux/amd64 -f docker/Dockerfile.apache-kafka \
-  --build-arg KAFKA_VERSION=4.1.1 --build-arg SCALA_VERSION=2.13 \
-  --build-arg JAVA_VERSION=17 -t localhost/kc-spcs-apache:4.1.1-java17 .
+  --build-arg KAFKA_VERSION=4.4.0 --build-arg SCALA_VERSION=2.13 \
+  --build-arg JAVA_VERSION=17 -t localhost/kc-spcs-apache:4.4.0-java17 .
 podman build --platform linux/amd64 -f spcs/Dockerfile \
-  --build-arg KAFKA_IMAGE=localhost/kc-spcs-apache:4.1.1-java17 \
+  --build-arg KAFKA_IMAGE=localhost/kc-spcs-apache:4.4.0-java17 \
   -t localhost/kc-spcs-smoke:1 .
 ```
 

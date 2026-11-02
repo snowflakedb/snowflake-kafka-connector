@@ -46,6 +46,6 @@ done
 [ "$ready" = true ]
 cd /work/test
 python -m pytest tests/spcs/test_spcs_ingestion.py --spcs \
-  --platform apache --platform-version 4.1.1 \
+  --platform apache --platform-version 4.4.0 \
   --kafka-address localhost:9092 --kafka-connect-address localhost:8083 \
   -q -o log_cli=false
