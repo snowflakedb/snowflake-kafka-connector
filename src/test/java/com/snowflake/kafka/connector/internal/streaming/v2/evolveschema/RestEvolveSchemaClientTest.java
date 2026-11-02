@@ -8,9 +8,12 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.net.Authenticator;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -191,6 +194,55 @@ class RestEvolveSchemaClientTest {
   }
 
   @Test
+  void timeoutIsNotRetried() {
+    server.failures.put(EVOLVE_PATH, new HttpTimeoutException("request timed out"));
+
+    assertThatExceptionOfType(EvolveSchemaException.class)
+        .isThrownBy(() -> evolve(client(oauthCredential(null))));
+    assertThat(server.requestsTo(EVOLVE_PATH)).hasSize(1);
+  }
+
+  @Test
+  void ioErrorIsRetried() throws Exception {
+    server.failures.put(EVOLVE_PATH, new IOException("connection reset"));
+    server.respond(EVOLVE_PATH, 200, OK_BODY);
+    server.failAfter = 1;
+
+    evolve(client(oauthCredential(null)));
+
+    assertThat(server.requestsTo(EVOLVE_PATH)).hasSize(2);
+  }
+
+  @Test
+  void nonRetryableServerErrorIsNotRetried() {
+    server.respond(EVOLVE_PATH, 501, "not implemented");
+
+    assertThatExceptionOfType(EvolveSchemaException.class)
+        .isThrownBy(() -> evolve(client(oauthCredential(null))))
+        .satisfies(e -> assertThat(e.getStatusCode()).isEqualTo(501));
+    assertThat(server.requestsTo(EVOLVE_PATH)).hasSize(1);
+  }
+
+  @Test
+  void unreadableSuccessResponseIsNotResent() {
+    server.respond(EVOLVE_PATH, 200, "not json");
+
+    assertThatExceptionOfType(EvolveSchemaException.class)
+        .isThrownBy(() -> evolve(client(oauthCredential(null))))
+        .withMessageContaining("succeeded, but its response can't be read");
+    assertThat(server.requestsTo(EVOLVE_PATH)).hasSize(1);
+  }
+
+  @Test
+  void httpClientUsesTheGivenProxyAuthenticator() {
+    Authenticator authenticator = new Authenticator() {};
+
+    assertThat(RestEvolveSchemaClient.httpClient(authenticator).authenticator())
+        .containsSame(authenticator);
+    assertThat(RestEvolveSchemaClient.httpClient(null).authenticator()).isEmpty();
+  }
+
+  @Test
   void refreshesScopedTokenOn401() throws Exception {
     server.respond(EVOLVE_PATH, 401, "expired");
     server.respond(EVOLVE_PATH, 200, OK_BODY);
@@ -309,6 +361,9 @@ class RestEvolveSchemaClientTest {
     final Map<String, Deque<HttpResponse<String>>> responses = new HashMap<>();
     final Map<HttpResponse<String>, String> bodies = new HashMap<>();
     final List<Recorded> requests = new ArrayList<>();
+    // Requests to these paths throw, for the first failAfter requests (all, if negative).
+    final Map<String, IOException> failures = new HashMap<>();
+    int failAfter = -1;
     String lastToken;
 
     @SuppressWarnings("unchecked")
@@ -318,6 +373,11 @@ class RestEvolveSchemaClientTest {
               invocation -> {
                 HttpRequest request = invocation.getArgument(0);
                 requests.add(new Recorded(request, readBody(request)));
+                IOException failure = failures.get(request.uri().getRawPath());
+                if (failure != null && failAfter != 0) {
+                  failAfter--;
+                  throw failure;
+                }
                 Deque<HttpResponse<String>> queue = responses.get(request.uri().getRawPath());
                 if (queue == null || queue.isEmpty()) {
                   throw new AssertionError("Unexpected request to " + request.uri());

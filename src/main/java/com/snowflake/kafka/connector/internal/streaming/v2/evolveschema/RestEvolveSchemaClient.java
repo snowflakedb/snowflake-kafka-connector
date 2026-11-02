@@ -7,23 +7,25 @@ import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
-import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
 import java.io.IOException;
+import java.net.Authenticator;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -38,7 +40,9 @@ import java.util.UUID;
  * </ol>
  *
  * <p>The streaming host and scoped token are cached; the token is refreshed shortly before it
- * expires, or after a 401. Transient failures (I/O errors, 429, 5xx) are retried with backoff.
+ * expires, or after a 401. Transient failures (I/O errors other than timeouts, 429, 500, 502, 503,
+ * 504) are retried with backoff, for at most {@link #MAX_RETRY_DURATION}, so that a call returns
+ * well within Kafka's default {@code max.poll.interval.ms} of 5 minutes.
  */
 public class RestEvolveSchemaClient implements EvolveSchemaClient {
 
@@ -48,9 +52,13 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
   static final String TOKEN_TYPE_HEADER = "X-Snowflake-Authorization-Token-Type";
   private static final String SCOPED_TOKEN_TYPE = "OAUTH";
   private static final int HTTP_UNAUTHORIZED = 401;
-  private static final int HTTP_TOO_MANY_REQUESTS = 429;
+  private static final Set<Integer> TRANSIENT_STATUSES = Set.of(429, 500, 502, 503, 504);
 
-  private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(2);
+  // Snowflake waits up to 60 seconds for the pipe's owning node to run the DDL and restart the
+  // pipe, so the evolve-schema request gets longer than the hostname and token requests.
+  private static final Duration EVOLVE_SCHEMA_TIMEOUT = Duration.ofSeconds(75);
+  private static final Duration ACCOUNT_REQUEST_TIMEOUT = Duration.ofSeconds(20);
+  private static final Duration MAX_RETRY_DURATION = Duration.ofSeconds(90);
   private static final Duration TOKEN_REFRESH_MARGIN = Duration.ofMinutes(5);
   // Used when the scoped token's expiry can't be read.
   private static final Duration DEFAULT_TOKEN_LIFETIME = Duration.ofMinutes(10);
@@ -65,7 +73,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
   private final String scheme;
   private final int port;
   private final Clock clock;
-  private final RetryPolicy<EvolveSchemaResponse> retryPolicy;
+  private final RetryPolicy<String> retryPolicy;
 
   private String streamingHost;
   private String scopedToken;
@@ -87,10 +95,13 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
     this.accountBaseUrl = scheme + "://" + accountHost + ":" + port;
     this.clock = clock;
     this.retryPolicy =
-        RetryPolicy.<EvolveSchemaResponse>builder()
-            .handle(IOException.class)
+        RetryPolicy.<String>builder()
+            // A timed-out request may still be running on Snowflake; retrying it would only add
+            // another full timeout.
+            .handleIf(e -> e instanceof IOException && !(e instanceof HttpTimeoutException))
             .withBackoff(initialRetryDelay, maxRetryDelay)
             .withMaxRetries(MAX_RETRIES)
+            .withMaxDuration(MAX_RETRY_DURATION)
             .onRetry(
                 event ->
                     LOGGER.warn(
@@ -106,21 +117,32 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
       throw SnowflakeErrors.ERROR_0017.getException();
     }
     SnowflakeURL url = new SnowflakeURL(config.getSnowflakeUrl());
-    String account =
-        config.getAuthenticator().suppliesAmbientIdentity()
-            ? SpcsEnvironment.account().orElseGet(url::getAccount)
-            : url.getAccount();
-    String hostWithPort = url.hostWithPort();
-    int port = Integer.parseInt(hostWithPort.substring(hostWithPort.lastIndexOf(':') + 1));
+    // The account only goes into a key-pair JWT, so the SPCS account lookup isn't needed here.
     return new RestEvolveSchemaClient(
-        HttpClient.newBuilder().proxy(ProxySelector.getDefault()).build(),
-        UserCredential.from(config, url, account),
+        httpClient(Authenticator.getDefault()),
+        UserCredential.from(config, url, url.getAccount()),
         url.getScheme(),
         url.getUrlWithoutPort(),
-        port,
+        url.getPort(),
         Clock.systemUTC(),
         INITIAL_DELAY,
         MAX_DELAY);
+  }
+
+  /**
+   * An HTTP client that uses the JVM's proxy settings, and {@code authenticator} for proxy
+   * credentials. {@code Utils.enableJVMProxy} installs those as the default {@link Authenticator},
+   * which, unlike {@code HttpURLConnection}, {@link HttpClient} ignores unless it's set on the
+   * builder.
+   *
+   * @param authenticator may be null
+   */
+  static HttpClient httpClient(Authenticator authenticator) {
+    HttpClient.Builder builder = HttpClient.newBuilder().proxy(ProxySelector.getDefault());
+    if (authenticator != null) {
+      builder.authenticator(authenticator);
+    }
+    return builder.build();
   }
 
   @Override
@@ -142,9 +164,11 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
     }
     String requestId = UUID.randomUUID().toString();
 
+    String responseBody;
     try {
-      return Failsafe.with(retryPolicy)
-          .get(ctx -> callEvolveSchema(path, body, requestId, ctx.getAttemptCount()));
+      responseBody =
+          Failsafe.with(retryPolicy)
+              .get(ctx -> callEvolveSchema(path, body, requestId, ctx.getAttemptCount()));
     } catch (FailsafeException e) {
       Throwable cause = e.getCause() == null ? e : e.getCause();
       if (cause instanceof InterruptedException) {
@@ -159,10 +183,18 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
     } catch (SnowflakeKafkaConnectorException e) {
       throw new EvolveSchemaException("Evolve-schema authentication failed: " + e.getMessage(), e);
     }
+    // Parsed outside the retry: the schema was applied, so an unreadable 2xx body must not resend
+    // the request, which would restart the pipe again.
+    try {
+      return MAPPER.readValue(responseBody, EvolveSchemaResponse.class);
+    } catch (IOException e) {
+      throw new EvolveSchemaException(
+          "Evolve-schema request " + requestId + " succeeded, but its response can't be read", e);
+    }
   }
 
-  private EvolveSchemaResponse callEvolveSchema(
-      String path, String body, String requestId, int retryCount)
+  /** Returns the body of a 2xx response. */
+  private String callEvolveSchema(String path, String body, String requestId, int retryCount)
       throws IOException, InterruptedException {
     HttpResponse<String> response = sendEvolveSchema(path, body, requestId, retryCount);
     if (response.statusCode() == HTTP_UNAUTHORIZED) {
@@ -177,7 +209,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
     if (status < 200 || status >= 300) {
       throw toEvolveSchemaException(status, response.body());
     }
-    return MAPPER.readValue(response.body(), EvolveSchemaResponse.class);
+    return response.body();
   }
 
   private HttpResponse<String> sendEvolveSchema(
@@ -197,7 +229,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
                 + "&retryCount="
                 + retryCount);
     HttpRequest request =
-        baseRequest(uri)
+        baseRequest(uri, EVOLVE_SCHEMA_TIMEOUT)
             .header("Authorization", "Bearer " + token)
             .header(TOKEN_TYPE_HEADER, SCOPED_TOKEN_TYPE)
             .header("Content-Type", "application/json")
@@ -214,7 +246,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
     String host = streamingHost();
     String userToken = credential.token();
     HttpRequest request =
-        baseRequest(URI.create(accountBaseUrl + "/oauth/token"))
+        baseRequest(URI.create(accountBaseUrl + "/oauth/token"), ACCOUNT_REQUEST_TIMEOUT)
             .header("Authorization", "Bearer " + userToken)
             .header(TOKEN_TYPE_HEADER, credential.tokenType())
             .header("Content-Type", "application/x-www-form-urlencoded")
@@ -232,7 +264,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
       return streamingHost;
     }
     HttpRequest request =
-        baseRequest(URI.create(accountBaseUrl + "/v2/streaming/hostname"))
+        baseRequest(URI.create(accountBaseUrl + "/v2/streaming/hostname"), ACCOUNT_REQUEST_TIMEOUT)
             .header("Authorization", "Bearer " + credential.token())
             .header(TOKEN_TYPE_HEADER, credential.tokenType())
             .GET()
@@ -261,10 +293,10 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
     return response.body();
   }
 
-  private HttpRequest.Builder baseRequest(URI uri) {
+  private HttpRequest.Builder baseRequest(URI uri, Duration timeout) {
     return HttpRequest.newBuilder()
         .uri(uri)
-        .timeout(REQUEST_TIMEOUT)
+        .timeout(timeout)
         .header("User-Agent", StreamingClientProperties.APPLICATION_NAME)
         .header("Accept", "application/json");
   }
@@ -315,7 +347,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
   }
 
   private static boolean isTransient(int status) {
-    return status >= 500 || status == HTTP_TOO_MANY_REQUESTS;
+    return TRANSIENT_STATUSES.contains(status);
   }
 
   private static HttpResponse.BodyHandler<String> ofString() {
@@ -339,7 +371,7 @@ public class RestEvolveSchemaClient implements EvolveSchemaClient {
     return host.substring(0, ingest).replace('_', '-') + host.substring(ingest);
   }
 
-  /** A retryable non-2xx status: 429 or 5xx. */
+  /** A retryable non-2xx status: one of {@link #TRANSIENT_STATUSES}. */
   private static final class TransientStatusException extends IOException {
     private final int statusCode;
     private final String body;
