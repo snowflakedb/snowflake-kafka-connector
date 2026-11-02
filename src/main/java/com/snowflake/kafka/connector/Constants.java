@@ -102,6 +102,14 @@ public final class Constants {
         "snowflake.feature.structured.record.metadata.enabled";
     public static final boolean SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA_DEFAULT = true;
 
+    // Unregistered, default off. When true, with server-side validation and schematization, the
+    // connector calls the SSv2 evolve-schema endpoint with each new record value schema before
+    // appending the record, so columns are typed from the Kafka Connect schema instead of inferred
+    // from JSON values.
+    public static final String SNOWFLAKE_FEATURE_EVOLVE_SCHEMA =
+        "snowflake.feature.evolve.schema.enabled";
+    public static final boolean SNOWFLAKE_FEATURE_EVOLVE_SCHEMA_DEFAULT = false;
+
     public static final String SNOWFLAKE_FEATURE_STRUCTURED_HEADERS =
         "snowflake.feature.structured.headers";
     public static final boolean SNOWFLAKE_FEATURE_STRUCTURED_HEADERS_DEFAULT = false;

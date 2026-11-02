@@ -45,6 +45,15 @@ public class SinkTaskConfigTest {
     assertEquals(50, config.getOpenChannelIoThreads());
     assertNotNull(config.getCachingConfig());
     assertNotNull(config.getMetadataConfig());
+    assertFalse(config.isEvolveSchemaEnabled());
+  }
+
+  @Test
+  public void from_evolveSchemaFlag_isParsed() {
+    Map<String, String> config = minimalConfig();
+    config.put(SNOWFLAKE_FEATURE_EVOLVE_SCHEMA, "true");
+
+    assertTrue(SinkTaskConfig.from(config).isEvolveSchemaEnabled());
   }
 
   @Test
