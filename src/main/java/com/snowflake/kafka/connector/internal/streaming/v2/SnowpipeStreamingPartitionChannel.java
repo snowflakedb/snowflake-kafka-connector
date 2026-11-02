@@ -28,6 +28,7 @@ import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelem
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetrySsv1Migration;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
+import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.EvolveSchemaException;
 import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.PipeSchemaEvolver;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
@@ -36,6 +37,7 @@ import com.snowflake.kafka.connector.internal.validation.ColumnSchema;
 import com.snowflake.kafka.connector.internal.validation.RowValidator;
 import com.snowflake.kafka.connector.internal.validation.ValidationResult;
 import com.snowflake.kafka.connector.records.SnowflakeSinkRecord;
+import java.net.HttpURLConnection;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -265,14 +267,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                 recordMetadataIsStructuredObject);
         if (!row.isEmpty()) {
           if (pipeSchemaEvolver.isPresent() && kafkaSinkRecord.value() != null) {
-            pipeSchemaEvolver
-                .get()
-                .evolveIfNeeded(
-                    pipeName,
-                    channelName,
-                    kafkaOffset,
-                    kafkaSinkRecord.valueSchema(),
-                    record.getSchema());
+            EvolveSchemaStep step = evolveSchema(kafkaSinkRecord, record);
+            if (step == EvolveSchemaStep.REDELIVER) {
+              // processedOffset is not advanced, so the redelivered record is processed again.
+              return false;
+            }
+            if (step == EvolveSchemaStep.SKIP) {
+              offsetTracker.recordProcessed(kafkaOffset);
+              return true;
+            }
           }
           if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE
               && rowValidator != null) {
@@ -304,6 +307,60 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     } catch (BackpressureException ex) {
       snowflakeTelemetryChannelStatus.incBackpressureRetryCount();
       throw ex;
+    }
+  }
+
+  /** What to do with a record after the evolve-schema call for its schema. */
+  private enum EvolveSchemaStep {
+    APPEND,
+    /** The record went to the error handler and is not appended. */
+    SKIP,
+    /** The call failed transiently; the record is left for Kafka to redeliver. */
+    REDELIVER
+  }
+
+  /**
+   * Evolves the pipe's table to {@code record}'s schema. A schema Snowflake rejects (400) or a
+   * pipe, table, or channel it can't find (404) sends the record to the error handler. A transient
+   * failure leaves the record for redelivery. Any other failure fails the task.
+   */
+  private EvolveSchemaStep evolveSchema(SinkRecord kafkaSinkRecord, SnowflakeSinkRecord record) {
+    try {
+      PipeSchemaEvolver.Result result =
+          pipeSchemaEvolver
+              .get()
+              .evolveIfNeeded(
+                  pipeName,
+                  channelName,
+                  kafkaSinkRecord.kafkaOffset(),
+                  kafkaSinkRecord.valueSchema(),
+                  record.getSchema());
+      if (result == PipeSchemaEvolver.Result.EVOLVED) {
+        snowflakeTelemetryChannelStatus.incEvolveSchemaCallCount();
+      } else if (result == PipeSchemaEvolver.Result.NOT_ENABLED) {
+        snowflakeTelemetryChannelStatus.incEvolveSchemaNotEnabledCount();
+      }
+      return EvolveSchemaStep.APPEND;
+    } catch (EvolveSchemaException e) {
+      if (e.isRetryable()) {
+        LOGGER.warn(
+            "Evolve-schema failed transiently for channel {} at offset {}; the record will be"
+                + " redelivered: {}",
+            channelName,
+            kafkaSinkRecord.kafkaOffset(),
+            e.getMessage());
+        snowflakeTelemetryChannelStatus.incEvolveSchemaRedeliveredCount();
+        return EvolveSchemaStep.REDELIVER;
+      }
+      if (e.getStatusCode() == HttpURLConnection.HTTP_BAD_REQUEST
+          || e.getStatusCode() == HttpURLConnection.HTTP_NOT_FOUND) {
+        snowflakeTelemetryChannelStatus.incEvolveSchemaRejectedCount();
+        streamingErrorHandler.handleError(e, kafkaSinkRecord);
+        // If we reach here, the error was tolerated (errors.tolerance=all)
+        snowflakeTelemetryChannelStatus.incErrorToleratedCount();
+        return EvolveSchemaStep.SKIP;
+      }
+      throw e;
     }
   }
 

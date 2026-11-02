@@ -112,6 +112,12 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   private final AtomicLong appendRowFallbackCount = new AtomicLong(0);
   private final AtomicLong schemaEvolutionFailureCount = new AtomicLong(0);
 
+  // Outcomes of the evolve-schema call made before appending a record with a new schema.
+  private final AtomicLong evolveSchemaCallCount = new AtomicLong(0);
+  private final AtomicLong evolveSchemaRejectedCount = new AtomicLong(0);
+  private final AtomicLong evolveSchemaRedeliveredCount = new AtomicLong(0);
+  private final AtomicLong evolveSchemaNotEnabledCount = new AtomicLong(0);
+
   private volatile String[] registeredMetricNames;
 
   /**
@@ -206,6 +212,13 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
     msg.put(TelemetryConstants.APPEND_ROW_FALLBACK_COUNT, this.appendRowFallbackCount.get());
     msg.put(
         TelemetryConstants.SCHEMA_EVOLUTION_FAILURE_COUNT, this.schemaEvolutionFailureCount.get());
+    msg.put(TelemetryConstants.EVOLVE_SCHEMA_CALL_COUNT, this.evolveSchemaCallCount.get());
+    msg.put(TelemetryConstants.EVOLVE_SCHEMA_REJECTED_COUNT, this.evolveSchemaRejectedCount.get());
+    msg.put(
+        TelemetryConstants.EVOLVE_SCHEMA_REDELIVERED_COUNT,
+        this.evolveSchemaRedeliveredCount.get());
+    msg.put(
+        TelemetryConstants.EVOLVE_SCHEMA_NOT_ENABLED_COUNT, this.evolveSchemaNotEnabledCount.get());
   }
 
   private void registerChannelJMXMetrics(MetricsJmxReporter reporter) {
@@ -341,6 +354,52 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
   /** Increments the schema evolution failure counter. Thread-safe. */
   public void incSchemaEvolutionFailureCount() {
     this.schemaEvolutionFailureCount.incrementAndGet();
+  }
+
+  /** Increments the count of evolve-schema calls that evolved a table. Thread-safe. */
+  public void incEvolveSchemaCallCount() {
+    this.evolveSchemaCallCount.incrementAndGet();
+  }
+
+  /**
+   * Increments the count of records sent to the error handler because Snowflake rejected their
+   * schema. Thread-safe.
+   */
+  public void incEvolveSchemaRejectedCount() {
+    this.evolveSchemaRejectedCount.incrementAndGet();
+  }
+
+  /**
+   * Increments the count of records left for redelivery after an evolve-schema call failed
+   * transiently. Thread-safe.
+   */
+  public void incEvolveSchemaRedeliveredCount() {
+    this.evolveSchemaRedeliveredCount.incrementAndGet();
+  }
+
+  /** Increments the count of evolve-schema calls answered with "not enabled". Thread-safe. */
+  public void incEvolveSchemaNotEnabledCount() {
+    this.evolveSchemaNotEnabledCount.incrementAndGet();
+  }
+
+  @VisibleForTesting
+  public long getEvolveSchemaCallCount() {
+    return this.evolveSchemaCallCount.get();
+  }
+
+  @VisibleForTesting
+  public long getEvolveSchemaRejectedCount() {
+    return this.evolveSchemaRejectedCount.get();
+  }
+
+  @VisibleForTesting
+  public long getEvolveSchemaRedeliveredCount() {
+    return this.evolveSchemaRedeliveredCount.get();
+  }
+
+  @VisibleForTesting
+  public long getEvolveSchemaNotEnabledCount() {
+    return this.evolveSchemaNotEnabledCount.get();
   }
 
   /** Updates SDK-reported metrics from a ChannelStatus response. */
