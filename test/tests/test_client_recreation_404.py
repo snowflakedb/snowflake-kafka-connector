@@ -7,11 +7,15 @@ SNOW-3670537). Verifies the connector recovers via the preCommit offset-fetch
 path (BatchOffsetFetcher -> triggerReopenForInvalidClient) and delivers every
 record without loss or duplication.
 
+Also covers a transient HTTP 404 from /v2/streaming/hostname while the
+replacement client is being built, which recreate retries as SfApiNotFoundError.
+
 Requires: --with-mitmproxy flag when running run_tests.sh.
 """
 
 import logging
 import os
+import time
 from time import sleep
 
 import pytest
@@ -22,6 +26,12 @@ from lib.utils import RecordProducer
 logger = logging.getLogger(__name__)
 
 RECORD_BATCH = 300
+# Bulk-channel-status 404 window: long enough for a few preCommit cycles to
+# invalidate the client and trigger recreate.
+BCS_FAULT_WINDOW_S = 15
+# Hostname 404 window: well inside StreamingClientPools.CLIENT_CREATION_MAX_DURATION
+# (6 minutes), so recreate must retry through it rather than fail the task.
+HOSTNAME_FAULT_WINDOW_S = 60
 CONNECTOR_CONFIG = {
     # Mirror the proven create_connector-based test (test_channel_invalidation_recovery): these
     # compatibility flags make the connector auto-create the destination table as topic.upper(),
@@ -145,3 +155,98 @@ def test_client_recreation_on_bulk_channel_status_404(
         "Test passed: exactly %d rows recovered after 404-on-bulk-channel-status injection",
         expected_total,
     )
+
+
+@pytest.mark.fault_injection
+@pytest.mark.skipif(
+    not os.environ.get("MITMPROXY_CONTROL_URL"),
+    reason="requires --with-mitmproxy (MITMPROXY_CONTROL_URL not set)",
+)
+@pytest.mark.parametrize("connector_version", ["v4"], indirect=True)
+def test_client_recreation_retries_hostname_404(
+    driver,
+    name_salt,
+    create_connector,
+    wait_for_rows,
+    mitmproxy,
+):
+    """
+    Verify recreate retries a transient hostname 404 instead of failing the task.
+
+    Phases:
+    1. Steady state: send records, verify they land.
+    2. Fault: inject 404 on :bulk-channel-status to invalidate the client, and
+       404 on /v2/streaming/hostname so building the replacement client fails.
+    3. Heal :bulk-channel-status after BCS_FAULT_WINDOW_S; keep the hostname
+       404 on until HOSTNAME_FAULT_WINDOW_S. No task may fail during this time.
+    4. Heal hostname, send more records, verify EXACTLY the sent total lands
+       and no task ever failed.
+    """
+    if mitmproxy is None:
+        pytest.skip("mitmproxy control API not reachable")
+
+    topic = f"test_client_recreation_retries_hostname_404{name_salt}"
+    table_name = topic.upper()
+    driver.createTopics(topic, partitionNum=1, replicationNum=1)
+
+    connector = create_connector(v4_config=CONNECTOR_CONFIG)
+    driver.wait_for_connector_running(connector.name)
+    producer = RecordProducer(driver, topic)
+
+    # --- Phase 1: Steady state ---
+    logger.info("Phase 1: Sending records in steady state")
+    producer.send(RECORD_BATCH)
+    wait_for_rows(table_name, RECORD_BATCH, connector_name=connector.name)
+
+    # --- Phase 2 + 3: Invalidate the client while hostname discovery 404s ---
+    mitmproxy.reset_counters()
+    mitmproxy.enable_404_hostname()
+    mitmproxy.enable_404_bulk_channel_status()
+    try:
+        fault_started = time.monotonic()
+        bcs_healed = False
+        while time.monotonic() - fault_started < HOSTNAME_FAULT_WINDOW_S:
+            elapsed = time.monotonic() - fault_started
+            if not bcs_healed and elapsed >= BCS_FAULT_WINDOW_S:
+                mitmproxy.disable_404_bulk_channel_status()
+                bcs_healed = True
+            failed_tasks = driver.get_failed_tasks(connector.name)
+            assert not failed_tasks, (
+                f"Task FAILED {elapsed:.0f}s into the hostname 404 window, inside the"
+                f" recreate budget: {failed_tasks}"
+            )
+            sleep(3)
+    finally:
+        mitmproxy.disable_404_bulk_channel_status()
+        mitmproxy.disable_404_hostname()
+
+    proxy_status = mitmproxy.get_status()
+    logger.info("Proxy status after fault window: %s", proxy_status)
+    assert proxy_status["injected_404_bcs_count"] > 0, (
+        f"No :bulk-channel-status 404s were injected, so the client was never"
+        f" invalidated. Proxy status: {proxy_status}"
+    )
+    assert proxy_status["injected_404_hostname_count"] > 0, (
+        f"No hostname 404s were injected, so recreate never hit the fault."
+        f" Proxy status: {proxy_status}"
+    )
+
+    # --- Phase 4: Post-heal ingestion + verify exact recovery ---
+    logger.info("Phase 4: Sending post-heal records")
+    producer.send(RECORD_BATCH)
+
+    expected_total = RECORD_BATCH * 2
+    wait_for_rows(
+        table_name,
+        expected_total,
+        connector_name=connector.name,
+        timeout=180,
+        max_consecutive_failures=1,
+    )
+
+    status = driver.get_connector_status(connector.name)
+    assert status["connector"]["state"] == "RUNNING", (
+        f"Connector not RUNNING after recovery: {status}"
+    )
+    failed_tasks = driver.get_failed_tasks(connector.name)
+    assert len(failed_tasks) == 0, f"Tasks failed after recovery: {failed_tasks}"

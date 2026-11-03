@@ -2,7 +2,7 @@ FROM mitmproxy/mitmproxy:11
 
 # Copy the addon script and the test-only leaf cert (SAN: mitmproxy,
 # mitmproxy-subdomain). The Connect worker trusts mitmproxy-ca.crt via SSL_CERT_FILE.
-COPY addon_410.py /addon/addon_410.py
+COPY addon.py /addon/addon.py
 COPY certs/mitmproxy.pem /certs/mitmproxy.pem
 
 # Expose: 8080 = HTTPS reverse proxy, 9080 = control API (plain HTTP)
@@ -18,5 +18,5 @@ ENTRYPOINT ["sh", "-c", "\
         --certs /certs/mitmproxy.pem \
         --set keep_host_header=false \
         --set upstream_cert=false \
-        -s /addon/addon_410.py \
+        -s /addon/addon.py \
 "]
