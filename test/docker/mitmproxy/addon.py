@@ -1,13 +1,18 @@
 """
-mitmproxy addon for E2E client recreation testing.
+mitmproxy addon for E2E streaming client fault-injection testing.
 
 Responsibilities:
-1. Return HTTP 410 on streaming API paths when fault injection is enabled
+1. Inject faults, each toggled independently:
+   - fault_410_streaming_except_hostname: HTTP 410 on every /v2/streaming/
+     path except /v2/streaming/hostname
+   - fault_404_bulk_channel_status: HTTP 404 on :bulk-channel-status
+   - fault_404_hostname: HTTP 404 on /v2/streaming/hostname
 2. Rewrite /v2/streaming/hostname response so the SDK routes subsequent
    streaming API calls to the proxy (via a Docker network alias)
 3. Rewrite the OAuth scope in /oauth/token requests to use the real subdomain
    (since Snowflake validates the scope against actual subdomain values)
-4. Expose control API on port 9080 (enable/disable 410, status, counters)
+4. Expose control API on port 9080 (enable/disable each fault, status,
+   counters)
 
 Usage:
   mitmdump --mode reverse:https://$UPSTREAM_HOST/ --listen-port 8080 \
@@ -35,18 +40,46 @@ def log(msg: str) -> None:
     print(f"[addon] {msg}", file=sys.stderr, flush=True)
 
 
-class FaultState:
-    """Thread-safe toggle for 410 injection with counters."""
+class ProxyState:
+    """Thread-safe state shared by all requests, independent of any fault."""
 
     def __init__(self):
-        self._enabled = False
         self._lock = threading.Lock()
-        self.injected_count = 0
         self.request_count = 0
         self.rewrite_count = 0
         # Stores the real subdomain returned by Snowflake so we can fix up
         # the OAuth scope in token exchange requests.
         self.real_subdomain = None
+
+    def inc_request(self):
+        with self._lock:
+            self.request_count += 1
+
+    def inc_rewrite(self):
+        with self._lock:
+            self.rewrite_count += 1
+
+    def to_dict(self) -> dict:
+        with self._lock:
+            return {
+                "request_count": self.request_count,
+                "rewrite_count": self.rewrite_count,
+                "real_subdomain": self.real_subdomain,
+            }
+
+    def reset_counters(self):
+        with self._lock:
+            self.request_count = 0
+            self.rewrite_count = 0
+
+
+class FaultState:
+    """Thread-safe on/off switch for one injected fault, with an injected count."""
+
+    def __init__(self):
+        self._enabled = False
+        self._lock = threading.Lock()
+        self.injected_count = 0
 
     @property
     def enabled(self) -> bool:
@@ -62,38 +95,17 @@ class FaultState:
         with self._lock:
             self.injected_count += 1
 
-    def inc_request(self):
-        with self._lock:
-            self.request_count += 1
-
-    def inc_rewrite(self):
-        with self._lock:
-            self.rewrite_count += 1
-
-    def to_dict(self) -> dict:
-        with self._lock:
-            return {
-                "enabled": self._enabled,
-                "injected_count": self.injected_count,
-                "request_count": self.request_count,
-                "rewrite_count": self.rewrite_count,
-                "real_subdomain": self.real_subdomain,
-            }
-
     def reset_counters(self):
         with self._lock:
             self.injected_count = 0
-            self.request_count = 0
-            self.rewrite_count = 0
 
 
-fault_state = FaultState()
-
-# Separate state for 404-on-bulk-channel-status injection (SNOW-3670537)
-fault_state_404_bcs = FaultState()
-
-# 404 on /v2/streaming/hostname.
-fault_state_404_hostname = FaultState()
+proxy_state = ProxyState()
+# Skips /v2/streaming/hostname: rebuilding the client after the simulated pipe
+# failover starts with hostname discovery, which must succeed.
+fault_410_streaming_except_hostname = FaultState()
+fault_404_bulk_channel_status = FaultState()
+fault_404_hostname = FaultState()
 
 
 class FaultAddon:
@@ -108,7 +120,7 @@ class FaultAddon:
         valid for that specific service instance).
         """
         path = flow.request.path
-        fault_state.inc_request()
+        proxy_state.inc_request()
 
         # Fix up OAuth scope: the SDK puts the subdomain_hostname (which we
         # rewrote to the Docker alias) as the scope value. Snowflake needs
@@ -120,18 +132,18 @@ class FaultAddon:
         # The hostname endpoint is only intercepted to inject the 404 on client
         # create; otherwise it must pass through so client recreation works.
         if "/v2/streaming/hostname" in path:
-            if fault_state_404_hostname.enabled:
+            if fault_404_hostname.enabled:
                 flow.response = http.Response.make(
                     404, b"Not Found", {"Content-Type": "text/plain"}
                 )
-                fault_state_404_hostname.inc_injected()
+                fault_404_hostname.inc_injected()
                 log(f"Injected 404 (hostname) on {flow.request.method} {path}")
             return
 
         # Streaming API calls must be routed to the real subdomain (the scoped
         # token is only valid for that specific service instance).
-        if path.startswith("/v2/streaming/") and fault_state.real_subdomain:
-            flow.request.host = fault_state.real_subdomain
+        if path.startswith("/v2/streaming/") and proxy_state.real_subdomain:
+            flow.request.host = proxy_state.real_subdomain
             flow.request.port = 443
             flow.request.scheme = "https"
 
@@ -139,28 +151,31 @@ class FaultAddon:
         if not path.startswith("/v2/streaming/"):
             return
 
-        if fault_state.enabled:
+        if fault_410_streaming_except_hostname.enabled:
             flow.response = http.Response.make(
                 410,
                 b"Gone",
                 {"Content-Type": "text/plain"},
             )
-            fault_state.inc_injected()
+            fault_410_streaming_except_hostname.inc_injected()
             log(f"Injected 410 on {flow.request.method} {path}")
 
         # Inject 404 on :bulk-channel-status when that fault mode is active.
-        if fault_state_404_bcs.enabled and ":bulk-channel-status" in path:
+        if (
+            fault_404_bulk_channel_status.enabled
+            and ":bulk-channel-status" in path
+        ):
             flow.response = http.Response.make(
                 404,
                 b"Not Found",
                 {"Content-Type": "text/plain"},
             )
-            fault_state_404_bcs.inc_injected()
+            fault_404_bulk_channel_status.inc_injected()
             log(f"Injected 404 (bulk-channel-status) on {flow.request.method} {path}")
 
     def _rewrite_oauth_scope(self, flow: http.HTTPFlow) -> None:
         """Replace the Docker alias in the OAuth scope with the real subdomain."""
-        real_subdomain = fault_state.real_subdomain
+        real_subdomain = proxy_state.real_subdomain
         if not real_subdomain:
             return
 
@@ -201,9 +216,9 @@ class FaultAddon:
             return
 
         real_subdomain = flow.response.text.strip()
-        fault_state.real_subdomain = real_subdomain
+        proxy_state.real_subdomain = real_subdomain
         flow.response.text = PROXY_SUBDOMAIN_ALIAS
-        fault_state.inc_rewrite()
+        proxy_state.inc_rewrite()
         log(f"Rewrote hostname: {real_subdomain} -> {PROXY_SUBDOMAIN_ALIAS}")
 
 
@@ -212,32 +227,33 @@ class ControlHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if self.path == "/enable-410":
-            fault_state.enabled = True
+            fault_410_streaming_except_hostname.enabled = True
             log("410 injection ENABLED")
             self._respond(200, {"status": "enabled"})
         elif self.path == "/disable-410":
-            fault_state.enabled = False
+            fault_410_streaming_except_hostname.enabled = False
             log("410 injection DISABLED")
             self._respond(200, {"status": "disabled"})
         elif self.path == "/reset-counters":
-            fault_state.reset_counters()
-            fault_state_404_bcs.reset_counters()
-            fault_state_404_hostname.reset_counters()
+            proxy_state.reset_counters()
+            fault_410_streaming_except_hostname.reset_counters()
+            fault_404_bulk_channel_status.reset_counters()
+            fault_404_hostname.reset_counters()
             self._respond(200, {"status": "reset"})
         elif self.path == "/enable-404-bcs":
-            fault_state_404_bcs.enabled = True
+            fault_404_bulk_channel_status.enabled = True
             log("404-bulk-channel-status injection ENABLED")
             self._respond(200, {"status": "enabled"})
         elif self.path == "/disable-404-bcs":
-            fault_state_404_bcs.enabled = False
+            fault_404_bulk_channel_status.enabled = False
             log("404-bulk-channel-status injection DISABLED")
             self._respond(200, {"status": "disabled"})
         elif self.path == "/enable-404-hostname":
-            fault_state_404_hostname.enabled = True
+            fault_404_hostname.enabled = True
             log("404-hostname injection ENABLED")
             self._respond(200, {"status": "enabled"})
         elif self.path == "/disable-404-hostname":
-            fault_state_404_hostname.enabled = False
+            fault_404_hostname.enabled = False
             log("404-hostname injection DISABLED")
             self._respond(200, {"status": "disabled"})
         else:
@@ -245,11 +261,15 @@ class ControlHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/status":
-            status = fault_state.to_dict()
-            status["injected_404_bcs_count"] = fault_state_404_bcs.injected_count
-            status["injected_404_hostname_count"] = (
-                fault_state_404_hostname.injected_count
+            status = proxy_state.to_dict()
+            status["enabled"] = fault_410_streaming_except_hostname.enabled
+            status["injected_count"] = (
+                fault_410_streaming_except_hostname.injected_count
             )
+            status["injected_404_bcs_count"] = (
+                fault_404_bulk_channel_status.injected_count
+            )
+            status["injected_404_hostname_count"] = fault_404_hostname.injected_count
             self._respond(200, status)
         else:
             self._respond(404, {"error": "not found"})
