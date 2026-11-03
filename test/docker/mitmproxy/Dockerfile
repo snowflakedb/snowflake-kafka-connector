@@ -1,17 +1,18 @@
 FROM mitmproxy/mitmproxy:11
 
-# Copy the addon script and the test-only leaf cert (SAN: mitmproxy,
-# mitmproxy-subdomain). The Connect worker trusts mitmproxy-ca.crt via SSL_CERT_FILE.
+# Test CA + leaf are generated at container start into separate volumes
+# (/certs-ca and /certs). The Connect worker mounts only the CA volume.
 COPY addon_410.py /addon/addon_410.py
-COPY certs/mitmproxy.pem /certs/mitmproxy.pem
+COPY generate_certs.py /addon/generate_certs.py
 
 # Expose: 8080 = HTTPS reverse proxy, 9080 = control API (plain HTTP)
 EXPOSE 8080 9080
 
 # Reverse proxy: TLS on the listen port, HTTPS to the real Snowflake host.
-# mitmproxy autodetects client TLS; --certs supplies the leaf for both Docker
-# aliases. keep_host_header=false sets the upstream Host to UPSTREAM_HOST.
+# generate_certs.py writes a leaf with SAN mitmproxy + mitmproxy-subdomain.
+# keep_host_header=false sets the upstream Host to UPSTREAM_HOST.
 ENTRYPOINT ["sh", "-c", "\
+    python3 /addon/generate_certs.py && \
     exec mitmdump \
         --mode reverse:https://${UPSTREAM_HOST}/ \
         --listen-port 8080 \
