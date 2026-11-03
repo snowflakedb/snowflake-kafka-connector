@@ -331,8 +331,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   /**
    * Handles a non-retryable {@link SFException} from appendRow by reopening the channel after a
    * short delay with jitter. Throws {@link ConnectException} if the circuit breaker ({@link
-   * #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded, which causes Kafka Connect to kill and restart
-   * the task.
+   * #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded, which causes Kafka Connect to fail the task.
    *
    * <p>This circuit breaker only covers channel-side failures. Patience for SDK client recreation
    * (pipe failover, HTTP 410, {@code SfApiNotFoundError} on client build) lives in {@link
@@ -762,8 +761,8 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * and {@code SfApiNotFoundError} while building the replacement client lives inside {@link
    * com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools#recreateClient}
    * (multi-minute Failsafe budget with exponential backoff). If {@code recreate} still fails after
-   * that budget, it throws and we translate to {@link ConnectException} so Kafka Connect fails and
-   * restarts the task — at that point the fault is not transient.
+   * that budget, it throws and we translate to {@link ConnectException} so Kafka Connect fails the
+   * task — at that point the fault is not transient.
    */
   private OpenChannelResult openChannelWithClientRecovery(final String channelName) {
     try {

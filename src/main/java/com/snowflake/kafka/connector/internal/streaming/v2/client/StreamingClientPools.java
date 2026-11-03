@@ -199,7 +199,7 @@ public class StreamingClientPools {
    * pipe-failover propagation windows (observed 2–4 min) and transient HTTP 404s from streaming
    * hostname discovery (observed up to 2 min), plus headroom. The last SDK exception is rethrown
    * when exhausted; callers are expected to convert that to a {@link ConnectException} so Kafka
-   * Connect fails and restarts the task.
+   * Connect fails the task.
    */
   static final Duration CLIENT_CREATION_MAX_DURATION = Duration.ofMinutes(6);
 
