@@ -19,8 +19,17 @@ def create_topics(driver: KafkaDriver, name_salt):
     def _create_one(topic, num_partitions, replication_factor, with_table):
         salted = f"{topic}{name_salt}"
         logger.info(f"Creating topic {salted}")
-        driver.createTopics(salted, num_partitions, replication_factor)
+        # Track before awaiting so a topic whose creation partially succeeded is
+        # still torn down.
         created_topics.append(salted)
+        # Block until the broker confirms creation. createTopics is otherwise
+        # fire-and-forget, so without this the caller can start producing before
+        # the topic exists and fail with _UNKNOWN_PARTITION. A creation timeout
+        # or error surfaces here instead of as a confusing downstream failure.
+        for future in driver.createTopics(
+            salted, num_partitions, replication_factor
+        ).values():
+            future.result()
         if with_table:
             driver.create_table(salted)
             created_tables.append(salted)
@@ -30,10 +39,16 @@ def create_topics(driver: KafkaDriver, name_salt):
         topics: List[str], *, num_partitions=1, replication_factor=1, with_tables=True
     ):
         with ThreadPoolExecutor(max_workers=10) as executor:
-            for t in topics:
+            futures = [
                 executor.submit(
                     _create_one, t, num_partitions, replication_factor, with_tables
                 )
+                for t in topics
+            ]
+            # Re-raise the first failure; the ThreadPoolExecutor context manager
+            # otherwise waits for tasks but swallows their exceptions.
+            for future in futures:
+                future.result()
         return [f"{t}{name_salt}" for t in topics]
 
     try:
