@@ -10,7 +10,6 @@ import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreationException;
 import dev.failsafe.Failsafe;
-import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedPredicate;
 import java.time.Duration;
@@ -162,22 +161,17 @@ public class StreamingClientPools {
       final SinkTaskConfig config,
       final StreamingClientProperties streamingClientProperties,
       final TaskMetrics taskMetrics) {
-    try {
-      return Failsafe.with(recreateClientRetryPolicy(pipeName))
-          .get(
-              () ->
-                  getPool(connectorName)
-                      .recreateClient(
-                          taskId,
-                          pipeName,
-                          invalidClient,
-                          config,
-                          streamingClientProperties,
-                          taskMetrics));
-    } catch (FailsafeException e) {
-      Throwable cause = e.getCause() != null ? e.getCause() : e;
-      throw ClientRecreationException.wrap(cause);
-    }
+    return Failsafe.with(recreateClientRetryPolicy(pipeName))
+        .get(
+            () ->
+                getPool(connectorName)
+                    .recreateClient(
+                        taskId,
+                        pipeName,
+                        invalidClient,
+                        config,
+                        streamingClientProperties,
+                        taskMetrics));
   }
 
   /**
@@ -199,7 +193,7 @@ public class StreamingClientPools {
    * pipe-failover propagation windows (observed 2–4 min) and transient HTTP 404s from streaming
    * hostname discovery (observed up to 2 min), plus headroom. The last SDK exception is rethrown
    * when exhausted; callers are expected to convert that to a {@link ConnectException} so Kafka
-   * Connect fails and restarts the task.
+   * Connect fails the task.
    */
   static final Duration CLIENT_CREATION_MAX_DURATION = Duration.ofMinutes(6);
 

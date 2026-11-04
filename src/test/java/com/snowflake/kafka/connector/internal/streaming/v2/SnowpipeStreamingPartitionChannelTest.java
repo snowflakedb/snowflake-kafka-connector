@@ -517,15 +517,15 @@ class SnowpipeStreamingPartitionChannelTest {
   void insertRecord_clientRecreateFails_throwsConnectExceptionToFailTask() {
     // When the pool's client recreation exhausts its retry budget (simulated here by the
     // recreator throwing), openChannelWithClientRecovery translates that into a ConnectException
-    // so Kafka Connect fails and restarts the task — rather than spinning forever on a client
-    // that the SDK has already given up on.
+    // so Kafka Connect fails the task — rather than spinning forever on a client that the SDK
+    // has already given up on.
     AtomicInteger recreateCallCount = new AtomicInteger();
     ClientRecreator clientRecreator =
         invalidClient -> {
           recreateCallCount.incrementAndGet();
-          // Simulates StreamingClientPools.recreateClient exhausting its Failsafe budget.
-          throw ClientRecreationException.wrap(
-              new SFException("InvalidClientError", "simulated failover exhausted", 410, ""));
+          // Simulates StreamingClientPools.recreateClient exhausting its Failsafe budget, which
+          // rethrows the last SDK exception unwrapped.
+          throw new SFException("InvalidClientError", "simulated failover exhausted", 410, "");
         };
 
     SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel(clientRecreator);
