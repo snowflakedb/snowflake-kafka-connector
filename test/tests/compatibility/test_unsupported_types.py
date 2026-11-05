@@ -109,8 +109,7 @@ def test_dt_vector(ingest_one_type_abort, ingestion_mode):
         )
     else:
         assert len(result.values) == 3, (
-            f"Expected 3 VECTOR rows, got {len(result.values)}; "
-            f"error={result.connector_error}"
+            f"Expected 3 VECTOR rows, got {len(result.values)}; {result.diagnostics}"
         )
 
 
@@ -137,7 +136,7 @@ def test_dt_structured_object(ingest_one_type_abort, ingestion_mode):
         # v4-compat and v4-ht accept structured OBJECT
         assert len(result.values) == 1, (
             f"Expected 1 row for structured OBJECT on {ingestion_mode}, "
-            f"got {len(result.values)}; error={result.connector_error}"
+            f"got {len(result.values)}; {result.diagnostics}"
         )
 
 
@@ -156,5 +155,5 @@ def test_dt_structured_array(ingest_one_type_abort, ingestion_mode):
         # v4-compat and v4-ht accept structured ARRAY
         assert len(result.values) == 1, (
             f"Expected 1 row for structured ARRAY on {ingestion_mode}, "
-            f"got {len(result.values)}; error={result.connector_error}"
+            f"got {len(result.values)}; {result.diagnostics}"
         )
