@@ -116,7 +116,7 @@ public class SnowflakeURL implements URL {
     return url;
   }
 
-  int getPort() {
+  public int getPort() {
     return port;
   }
 
