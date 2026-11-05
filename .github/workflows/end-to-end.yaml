@@ -36,13 +36,36 @@ on:
         default: false
 
 jobs:
+  change-scope:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      run_live: ${{ steps.scope.outputs.run_live }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - id: scope
+      env:
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: python3 .github/scripts/setup_change_scope.py
+
   functional:
+    needs: change-scope
     if: >
+      !cancelled() && (
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_functional)
+      (github.event_name == 'workflow_dispatch' && inputs.run_functional))
     runs-on: ubuntu-22.04
+    env:
+      RUN_LIVE: ${{ github.event_name != 'pull_request' || needs.change-scope.result != 'success' || needs.change-scope.outputs.run_live != 'false' }}
     name: >
       functional
       ${{ matrix.platform }} ${{ matrix.platform_version }},
@@ -109,18 +132,25 @@ jobs:
             marker_filter: 'not compatibility and not schema_evolution and not correctness and not pressure and not soak'
 
     steps:
+    - name: Report setup-only exemption
+      if: env.RUN_LIVE == 'false'
+      run: printf 'Setup-only changes; live functional tests not executed.\n' >> "$GITHUB_STEP_SUMMARY"
     - uses: actions/checkout@v4
+      if: env.RUN_LIVE != 'false'
 
     - name: Decrypt profile.json in Snowflake Cloud ${{ matrix.snowflake_cloud }}
+      if: env.RUN_LIVE != 'false'
       run: ./.github/scripts/decrypt_secret.sh ${{ matrix.snowflake_cloud }}
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
 
     - uses: ./.github/actions/build-connector
+      if: env.RUN_LIVE != 'false'
       with:
         platform: ${{ matrix.platform }}
 
     - uses: ./.github/actions/run-e2e-tests
+      if: env.RUN_LIVE != 'false'
       with:
         platform: ${{ matrix.platform }}
         platform-version: ${{ matrix.platform_version }}
@@ -131,28 +161,39 @@ jobs:
 
   fault_injection:
     # Exercises error-recovery paths using mitmproxy to inject HTTP 410 responses.
+    needs: change-scope
     if: >
+      !cancelled() && (
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection)
+      (github.event_name == 'workflow_dispatch' && inputs.run_fault_injection))
     runs-on: ubuntu-22.04
     name: fault_injection
+    env:
+      RUN_LIVE: ${{ github.event_name != 'pull_request' || needs.change-scope.result != 'success' || needs.change-scope.outputs.run_live != 'false' }}
     permissions:
       packages: read
     steps:
+    - name: Report setup-only exemption
+      if: env.RUN_LIVE == 'false'
+      run: printf 'Setup-only changes; live fault-injection tests not executed.\n' >> "$GITHUB_STEP_SUMMARY"
     - uses: actions/checkout@v4
+      if: env.RUN_LIVE != 'false'
 
     - name: Decrypt profile.json
+      if: env.RUN_LIVE != 'false'
       run: ./.github/scripts/decrypt_secret.sh AWS
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
 
     - uses: ./.github/actions/build-connector
+      if: env.RUN_LIVE != 'false'
       with:
         platform: apache
 
     - uses: ./.github/actions/run-e2e-tests
+      if: env.RUN_LIVE != 'false'
       with:
         platform: apache
         platform-version: '3.9.2'
