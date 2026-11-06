@@ -8,8 +8,10 @@ listener port:
   8080  connector tier (jvm.proxy.host / jvm.proxy.port)
   8081  worker JVM tier (-Dhttps.proxyHost, set on the worker by the overlay)
 
-Each test asserts which listener carried the JDBC and streaming SDK calls,
-so a connector that silently falls back to the other tier fails the test.
+The connector picks one proxy (jvm.proxy.*, else the worker's JVM proxy
+system properties) and gives the same one to JDBC and the streaming SDK.
+Each test asserts which listener carried the JDBC and SDK calls, so a
+connector that silently falls back to the other tier fails the test.
 """
 
 import json
@@ -24,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 RECORD_COUNT = 100
 UNREACHABLE_PROXY_PORT = 8099
+# JDK http.nonProxyHosts format, with wildcards. None of these match Snowflake.
+JDK_STYLE_NON_PROXY_HOSTS = "localhost|127.*|*.internal.example.com"
 
 # Calls the connector must make to ingest rows with JWT auth.
 EXPECTED_OPERATIONS = (
@@ -131,7 +135,12 @@ def test_connector_proxy_carries_jdbc_and_sdk_traffic(
 def test_worker_jvm_proxy_used_without_connector_proxy(
     driver, https_proxy, create_table, create_custom_connector, wait_for_rows
 ):
-    """Without jvm.proxy.*, JDBC and the SDK fall back to the worker's -Dhttps.proxyHost."""
+    """Without jvm.proxy.*, the worker's -Dhttps.proxyHost carries JDBC and SDK calls.
+
+    JDBC reads the system properties itself. The SDK has no other route out (the
+    worker sets no HTTPS_PROXY), so rows only land if the connector forwarded
+    the JVM proxy to the SDK.
+    """
     https_proxy.reset()
     _ingest_through_proxy(
         "https_proxy_jvm_tier",
@@ -149,6 +158,39 @@ def test_worker_jvm_proxy_used_without_connector_proxy(
     )
     _assert_no_snowflake_traffic(
         https_proxy.counts(CONNECTOR_TIER_PORT), CONNECTOR_TIER_PORT, status
+    )
+
+
+def test_jdk_style_non_proxy_hosts_reach_sdk_unchanged(
+    driver, https_proxy, create_table, create_custom_connector, wait_for_rows
+):
+    """jvm.nonProxy.hosts in JDK format (| separated, * wildcards) is accepted by JDBC and the SDK.
+
+    The connector passes the list to the SDK as no_proxy without converting it.
+    None of the entries match Snowflake, so all calls still go through the
+    connector tier.
+    """
+    https_proxy.reset()
+    _ingest_through_proxy(
+        "https_proxy_jdk_non_proxy_hosts",
+        {
+            "jvm.proxy.host": PROXY_HOST,
+            "jvm.proxy.port": str(CONNECTOR_TIER_PORT),
+            "jvm.nonProxy.hosts": JDK_STYLE_NON_PROXY_HOSTS,
+        },
+        driver,
+        create_table,
+        create_custom_connector,
+        wait_for_rows,
+    )
+
+    status = https_proxy.get_status()
+    logger.info("Proxy status: %s", status)
+    _assert_carried_all_traffic(
+        https_proxy.counts(CONNECTOR_TIER_PORT), CONNECTOR_TIER_PORT, status
+    )
+    _assert_no_snowflake_traffic(
+        https_proxy.counts(JVM_TIER_PORT), JVM_TIER_PORT, status
     )
 
 

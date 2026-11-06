@@ -215,7 +215,7 @@ On startup the worker trusts mitmproxy's generated CA: the JVM trust store cover
 ./run_tests.sh --platform=apache --platform-version=3.7.2 --with-https-proxy -- -m https_proxy
 ```
 
-The streaming SDK honors `https_proxy_url` and the `jvm_*` tier only from the release that contains snowflake-ingest-sdk#1146. Until the connector pins that release, build the connector against it with `SNOWPIPE_STREAMING_VERSION_OVERRIDE`.
+The connector resolves one proxy (`jvm.proxy.*`, else the worker's JVM proxy system properties) and sends it to the streaming SDK as `https_proxy_url` / `no_proxy` (JDK `nonProxyHosts` format, unchanged). The SDK reads these only from the release that contains snowflake-ingest-sdk#1146. Until the connector pins that release, build the connector against it with `SNOWPIPE_STREAMING_VERSION_OVERRIDE`.
 
 ## Debugging
 
