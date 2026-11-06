@@ -57,19 +57,19 @@ jobs:
         include:
           # ── New platforms: full suite split into 3 parallel groups ───────
           - platform: apache
-            platform_version: '4.1.1'
+            platform_version: '4.4.0'
             snowflake_cloud: 'AWS'
             java_test_version: '17'
             test_group: compatibility
             marker_filter: 'compatibility and not schema_evolution'
           - platform: apache
-            platform_version: '4.1.1'
+            platform_version: '4.4.0'
             snowflake_cloud: 'AWS'
             java_test_version: '17'
             test_group: schema_and_correctness
             marker_filter: 'schema_evolution or correctness'
           - platform: apache
-            platform_version: '4.1.1'
+            platform_version: '4.4.0'
             snowflake_cloud: 'AWS'
             java_test_version: '17'
             test_group: core
@@ -77,7 +77,7 @@ jobs:
 
           # ── Java 21 runtime coverage ──────────────────────────────────────
           # The connector is compiled to Java 11 bytecode but is increasingly run on
-          # newer Connect workers. Apache Kafka 4.1 fully supports Java 17 and 21 and
+          # newer Connect workers. Apache Kafka 4.4 fully supports Java 17 and 21 and
           # recommends running on the latest LTS, so this lane
           # exercises the shipped artifact on a Java 21 JVM without changing the compile
           # target. Only the core group runs here to bound CI cost; the 17 lanes above
@@ -86,7 +86,7 @@ jobs:
           # failure-log artifact name is derived from it and upload-artifact rejects
           # duplicate names.
           - platform: apache
-            platform_version: '4.1.1'
+            platform_version: '4.4.0'
             snowflake_cloud: 'AWS'
             java_test_version: '21'
             test_group: core_java21
