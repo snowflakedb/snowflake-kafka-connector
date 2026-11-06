@@ -9,6 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -242,5 +245,28 @@ class OAuthAccessTokenFetcherTest {
         });
     done.await();
     return body.toString();
+  }
+
+  @Test
+  void connectorProxySelectorBypassesMatchingHosts() throws Exception {
+    assertThat(
+            OAuthAccessTokenFetcher.bypassesProxy(
+                "api.snowflakecomputing.com", "*.snowflakecomputing.com"))
+        .isTrue();
+    assertThat(
+            OAuthAccessTokenFetcher.bypassesProxy(
+                "snowflakecomputing.com", "*.snowflakecomputing.com"))
+        .isFalse();
+    assertThat(OAuthAccessTokenFetcher.bypassesProxy("localhost", "localhost|*.example.com"))
+        .isTrue();
+
+    ProxySelector selector =
+        OAuthAccessTokenFetcher.connectorProxySelector(
+            "proxy.example.com", 3128, "*.snowflakecomputing.com|localhost");
+    assertThat(selector.select(URI.create("https://api.snowflakecomputing.com/oauth/token")))
+        .containsExactly(Proxy.NO_PROXY);
+    assertThat(selector.select(URI.create("https://oauth.example.com/token")))
+        .extracting(Proxy::type)
+        .containsExactly(Proxy.Type.HTTP);
   }
 }
