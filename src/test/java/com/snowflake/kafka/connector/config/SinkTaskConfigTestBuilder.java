@@ -74,6 +74,7 @@ public final class SinkTaskConfigTestBuilder {
         .oauthIncludeScope(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_INCLUDE_SCOPE_DEFAULT)
         .snowflakeDatabase("")
         .snowflakeSchema("")
+        .proxyConfig(ProxyConfig.none())
         .ssv1MigrationMode(Ssv1MigrationMode.SKIP)
         .ssv1MigrationIncludeConnectorName(false)
         .assertPartitionAssignmentEnabled(true)

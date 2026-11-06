@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
+import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
@@ -187,14 +188,15 @@ public class StreamingClientProperties {
    * nonProxyHosts} format.
    */
   private static void putProxy(Properties clientProperties, SinkTaskConfig config) {
-    String url = proxyUrl(config.getProxyHost(), config.getProxyPort());
+    ProxyConfig proxy = config.getProxyConfig();
+    String url = proxyUrl(proxy.getHost(), proxy.getPort());
     String noProxy;
     String user;
     String password;
     if (url != null) {
-      noProxy = config.getNonProxyHosts();
-      user = config.getProxyUsername();
-      password = config.getProxyPassword();
+      noProxy = proxy.getNonProxyHosts();
+      user = proxy.getUsername();
+      password = proxy.getPassword();
     } else {
       String httpsUrl =
           proxyUrl(

@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.oauth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -69,14 +70,17 @@ public class OAuthAccessTokenFetcher {
   private static final Duration MAX_DELAY = Duration.ofSeconds(8);
 
   /**
-   * Fetch an OAuth access token. Retries with exponential backoff on transient failures. Uses the
-   * JVM's default {@link ProxySelector}, so an existing {@code -Dhttps.proxyHost} still applies.
+   * Fetch an OAuth access token. Retries with exponential backoff on transient failures. Goes
+   * through the connector's {@code jvm.proxy.*} settings when host and port are set. Otherwise uses
+   * the JVM's default {@link ProxySelector}, so an existing {@code -Dhttps.proxyHost} still
+   * applies.
    *
    * @param url OAuth server URL (scheme, host, port, path)
    * @param clientId OAuth client ID
    * @param clientSecret OAuth client secret
    * @param refreshToken OAuth refresh token; empty selects client_credentials grant
    * @param scope explicit OAuth scope to request; empty sends no scope (KC v3 behavior)
+   * @param proxy the connector's proxy settings
    * @return the access token string
    * @throws SnowflakeKafkaConnectorException if the token fetch fails after all retries
    */
@@ -85,38 +89,20 @@ public class OAuthAccessTokenFetcher {
       String clientId,
       Password clientSecret,
       Optional<Password> refreshToken,
-      Optional<String> scope) {
-    return fetchAccessToken(
-        url, clientId, clientSecret, refreshToken, scope, null, null, null, null, null);
-  }
-
-  /**
-   * Fetch an OAuth access token through the connector's {@code jvm.proxy.*} settings when host and
-   * port are set. Otherwise uses the JVM's default {@link ProxySelector}.
-   */
-  public static String fetchAccessToken(
-      URL url,
-      String clientId,
-      Password clientSecret,
-      Optional<Password> refreshToken,
       Optional<String> scope,
-      String proxyHost,
-      String proxyPort,
-      String nonProxyHosts,
-      String proxyUser,
-      String proxyPassword) {
+      ProxyConfig proxy) {
     HttpClient.Builder builder = HttpClient.newBuilder();
-    if (!isBlank(proxyHost) && !isBlank(proxyPort)) {
+    if (proxy.isConfigured()) {
       int port;
       try {
-        port = Integer.parseInt(proxyPort.trim());
+        port = Integer.parseInt(proxy.getPort().trim());
       } catch (NumberFormatException e) {
         throw new IllegalArgumentException("jvm.proxy.port must be an integer", e);
       }
-      builder.proxy(connectorProxySelector(proxyHost.trim(), port, nonProxyHosts));
-      if (!isBlank(proxyUser) && !isBlank(proxyPassword)) {
-        String user = proxyUser;
-        String password = proxyPassword;
+      builder.proxy(connectorProxySelector(proxy.getHost().trim(), port, proxy.getNonProxyHosts()));
+      if (proxy.hasCredentials()) {
+        String user = proxy.getUsername();
+        String password = proxy.getPassword();
         builder.authenticator(
             new Authenticator() {
               @Override
