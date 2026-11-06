@@ -60,7 +60,7 @@ public class StreamingHttpsProxyConfigTest {
 
       assertThat(sdk)
           .containsEntry("https_proxy_url", "http://proxy.example.com:3128")
-          .containsEntry("no_proxy", "localhost,.internal.example.com")
+          .containsEntry("no_proxy", "localhost|*.internal.example.com")
           .containsEntry("proxy_user", "proxy-user")
           .containsEntry("proxy_password", "proxy-secret-value");
       assertThat(jdbc.getProperty(JdbcPropertyKeys.USE_PROXY)).isEqualTo("true");
@@ -77,7 +77,7 @@ public class StreamingHttpsProxyConfigTest {
   }
 
   @Test
-  void jvmSystemPropertiesAreASeparateSdkTier() {
+  void jvmSystemPropertiesAreUsedWhenConnectorProxyIsUnset() {
     String previousHttpsHost = System.getProperty(HTTPS_PROXY_HOST);
     String previousHttpsPort = System.getProperty(HTTPS_PROXY_PORT);
     String previousHttpHost = System.getProperty(HTTP_PROXY_HOST);
@@ -93,15 +93,38 @@ public class StreamingHttpsProxyConfigTest {
           StreamingClientProperties.from(SinkTaskConfig.from(baseConfig())).clientProperties;
 
       assertThat(sdk)
-          .containsEntry("jvm_https_proxy_url", "http://http-proxy.example.com:8080")
-          .containsEntry("jvm_no_proxy", ".snowflakecomputing.com")
-          .doesNotContainKey("https_proxy_url")
-          .doesNotContainKey("jvm_proxy_user");
+          .containsEntry("https_proxy_url", "http://http-proxy.example.com:8080")
+          .containsEntry("no_proxy", "*.snowflakecomputing.com")
+          .doesNotContainKey("proxy_user");
     } finally {
       restoreProperty(HTTPS_PROXY_HOST, previousHttpsHost);
       restoreProperty(HTTPS_PROXY_PORT, previousHttpsPort);
       restoreProperty(HTTP_PROXY_HOST, previousHttpHost);
       restoreProperty(HTTP_PROXY_PORT, previousHttpPort);
+      restoreProperty(HTTP_NON_PROXY_HOSTS, previousBypass);
+    }
+  }
+
+  @Test
+  void connectorProxyWinsOverJvmSystemProperties() {
+    String previousHost = System.getProperty(HTTPS_PROXY_HOST);
+    String previousPort = System.getProperty(HTTPS_PROXY_PORT);
+    String previousBypass = System.getProperty(HTTP_NON_PROXY_HOSTS);
+    System.setProperty(HTTPS_PROXY_HOST, "jvm-proxy.example.com");
+    System.setProperty(HTTPS_PROXY_PORT, "8443");
+    System.setProperty(HTTP_NON_PROXY_HOSTS, "*.jvm-only.example.com");
+    try {
+      Map<String, String> config = baseConfig();
+      config.put(JVM_PROXY_HOST, "proxy.example.com");
+      config.put(JVM_PROXY_PORT, "3128");
+      Properties sdk = StreamingClientProperties.from(SinkTaskConfig.from(config)).clientProperties;
+
+      assertThat(sdk)
+          .containsEntry("https_proxy_url", "http://proxy.example.com:3128")
+          .doesNotContainKey("no_proxy");
+    } finally {
+      restoreProperty(HTTPS_PROXY_HOST, previousHost);
+      restoreProperty(HTTPS_PROXY_PORT, previousPort);
       restoreProperty(HTTP_NON_PROXY_HOSTS, previousBypass);
     }
   }
@@ -120,7 +143,7 @@ public class StreamingHttpsProxyConfigTest {
       SinkTaskConfig parsed = SinkTaskConfig.from(baseConfig());
       Properties sdk = StreamingClientProperties.from(parsed).clientProperties;
 
-      assertThat(sdk).doesNotContainKey("https_proxy_url").doesNotContainKey("jvm_https_proxy_url");
+      assertThat(sdk).doesNotContainKey("https_proxy_url").doesNotContainKey("no_proxy");
       assertThat(InternalUtils.generateProxyParametersIfRequired(parsed)).isEmpty();
     } finally {
       restoreProperty(HTTPS_PROXY_HOST, previousHost);
@@ -131,7 +154,7 @@ public class StreamingHttpsProxyConfigTest {
   }
 
   @Test
-  void missingPortSkipsTheConnectorTier() {
+  void missingPortSkipsTheConnectorProxy() {
     Map<String, String> config = baseConfig();
     config.put(JVM_PROXY_HOST, "proxy.example.com");
 

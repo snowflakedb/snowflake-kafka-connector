@@ -160,20 +160,9 @@ public class StreamingClientProperties {
     clientProperties.put("host", url.getUrlWithoutPort());
     clientProperties.put("application", APPLICATION_NAME);
 
-    // Connector jvm.proxy.* is the https_proxy_url tier. The JVM system-property snapshot is a
-    // lower tier. The SDK uses one tier's URL, bypass list, and credentials together. Passwords
-    // stay on clientProperties, which is not logged; only parameterOverrides is logged below.
-    putProxyTier(
-        clientProperties,
-        "https_proxy_url",
-        "no_proxy",
-        "proxy_user",
-        "proxy_password",
-        proxyUrl(config.getProxyHost(), config.getProxyPort()),
-        toSdkNoProxy(config.getNonProxyHosts()),
-        blankToNull(config.getProxyUsername()),
-        blankToNull(config.getProxyPassword()));
-    putJvmProxySnapshot(clientProperties);
+    // Passwords stay on clientProperties, which is not logged; only parameterOverrides is logged
+    // below.
+    putProxy(clientProperties, config);
 
     String clientNamePrefix =
         STREAMING_CLIENT_V2_PREFIX_NAME
@@ -190,55 +179,51 @@ public class StreamingClientProperties {
     return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
   }
 
-  private static void putJvmProxySnapshot(Properties clientProperties) {
-    String url = null;
-    String user = null;
-    String password = null;
-    String httpsHost = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST));
-    String httpsPort = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT));
-    String httpHost = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST));
-    String httpPort = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT));
-    if (httpsHost != null && httpsPort != null) {
-      url = proxyUrl(httpsHost, httpsPort);
-      user = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER));
-      password = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD));
-    } else if (httpHost != null && httpPort != null) {
-      url = proxyUrl(httpHost, httpPort);
-      user = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER));
-      password = blankToNull(System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD));
+  /**
+   * Sends the SDK the same proxy the connector's JDBC and OAuth clients use: {@code jvm.proxy.*}
+   * when host and port are set, else the JVM's {@code https.proxyHost} (then {@code
+   * http.proxyHost}) system properties, else nothing, so the SDK falls back to {@code HTTPS_PROXY}
+   * / {@code NO_PROXY}. The bypass list is passed unchanged: the SDK reads the JDK {@code
+   * nonProxyHosts} format.
+   */
+  private static void putProxy(Properties clientProperties, SinkTaskConfig config) {
+    String url = proxyUrl(config.getProxyHost(), config.getProxyPort());
+    String noProxy;
+    String user;
+    String password;
+    if (url != null) {
+      noProxy = config.getNonProxyHosts();
+      user = config.getProxyUsername();
+      password = config.getProxyPassword();
+    } else {
+      String httpsUrl =
+          proxyUrl(
+              System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST),
+              System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT));
+      if (httpsUrl != null) {
+        url = httpsUrl;
+        user = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER);
+        password = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
+      } else {
+        url =
+            proxyUrl(
+                System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST),
+                System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT));
+        user = System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER);
+        password = System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD);
+      }
+      if (url == null) {
+        return;
+      }
+      noProxy = System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS);
     }
-    putProxyTier(
-        clientProperties,
-        "jvm_https_proxy_url",
-        "jvm_no_proxy",
-        "jvm_proxy_user",
-        "jvm_proxy_password",
-        url,
-        toSdkNoProxy(System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS)),
-        user,
-        password);
-  }
-
-  private static void putProxyTier(
-      Properties properties,
-      String urlKey,
-      String noProxyKey,
-      String userKey,
-      String passwordKey,
-      String url,
-      String noProxy,
-      String user,
-      String password) {
-    if (url == null) {
-      return;
+    clientProperties.put("https_proxy_url", url);
+    if (blankToNull(noProxy) != null) {
+      clientProperties.put("no_proxy", noProxy.trim());
     }
-    properties.put(urlKey, url);
-    if (noProxy != null) {
-      properties.put(noProxyKey, noProxy);
-    }
-    if (user != null && password != null) {
-      properties.put(userKey, user);
-      properties.put(passwordKey, password);
+    if (blankToNull(user) != null && blankToNull(password) != null) {
+      clientProperties.put("proxy_user", user);
+      clientProperties.put("proxy_password", password);
     }
   }
 
@@ -255,31 +240,6 @@ public class StreamingClientProperties {
       host = "[" + host + "]";
     }
     return "http://" + host + ":" + port;
-  }
-
-  /**
-   * Converts a JDK {@code |} bypass list into the SDK comma list. {@code *.host} becomes {@code
-   * .host}. Returns null when the list is empty.
-   */
-  static String toSdkNoProxy(String jvmNonProxyHosts) {
-    if (blankToNull(jvmNonProxyHosts) == null) {
-      return null;
-    }
-    StringBuilder converted = new StringBuilder();
-    for (String raw : jvmNonProxyHosts.split("\\|", -1)) {
-      String entry = raw.trim();
-      if (entry.isEmpty()) {
-        continue;
-      }
-      if (entry.startsWith("*.")) {
-        entry = "." + entry.substring(2);
-      }
-      if (converted.length() > 0) {
-        converted.append(',');
-      }
-      converted.append(entry);
-    }
-    return converted.length() == 0 ? null : converted.toString();
   }
 
   private static String blankToNull(String value) {

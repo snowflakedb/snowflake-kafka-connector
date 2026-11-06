@@ -544,7 +544,7 @@ public class StreamingClientPropertiesTest {
 
     assertThat(properties.clientProperties)
         .containsEntry("https_proxy_url", "http://proxy.example.com:3128")
-        .containsEntry("no_proxy", "localhost,.internal.example.com")
+        .containsEntry("no_proxy", "localhost|*.internal.example.com")
         .containsEntry("proxy_user", "proxy-user")
         .containsEntry("proxy_password", "proxy-secret-value");
     assertThat(properties.parameterOverrides).isEmpty();
@@ -561,15 +561,11 @@ public class StreamingClientPropertiesTest {
         .doesNotContainKey("https_proxy_url")
         .doesNotContainKey("no_proxy")
         .doesNotContainKey("proxy_user")
-        .doesNotContainKey("proxy_password")
-        .doesNotContainKey("jvm_https_proxy_url")
-        .doesNotContainKey("jvm_no_proxy")
-        .doesNotContainKey("jvm_proxy_user")
-        .doesNotContainKey("jvm_proxy_password");
+        .doesNotContainKey("proxy_password");
   }
 
   @Test
-  void jvmSystemPropertiesAreCopiedWithoutMutatingThem() {
+  void jvmSystemPropertiesAreUsedWhenConnectorProxyIsUnset() {
     String previousHost = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST);
     String previousPort = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT);
     String previousBypass = System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS);
@@ -587,11 +583,10 @@ public class StreamingClientPropertiesTest {
               .clientProperties;
 
       assertThat(clientProperties)
-          .containsEntry("jvm_https_proxy_url", "http://jvm-proxy.example.com:8443")
-          .containsEntry("jvm_no_proxy", ".snowflakecomputing.com,localhost")
-          .containsEntry("jvm_proxy_user", "jvm-user")
-          .containsEntry("jvm_proxy_password", "jvm-secret-value")
-          .doesNotContainKey("https_proxy_url");
+          .containsEntry("https_proxy_url", "http://jvm-proxy.example.com:8443")
+          .containsEntry("no_proxy", "*.snowflakecomputing.com|localhost")
+          .containsEntry("proxy_user", "jvm-user")
+          .containsEntry("proxy_password", "jvm-secret-value");
       assertThat(System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST))
           .isEqualTo("jvm-proxy.example.com");
     } finally {
