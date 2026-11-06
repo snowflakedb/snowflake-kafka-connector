@@ -100,20 +100,7 @@ public abstract class SinkTaskConfig {
   @Nullable
   public abstract String getSnowflakeSchema();
 
-  @Nullable
-  public abstract String getProxyHost();
-
-  @Nullable
-  public abstract String getProxyPort();
-
-  @Nullable
-  public abstract String getNonProxyHosts();
-
-  @Nullable
-  public abstract String getProxyUsername();
-
-  @Nullable
-  public abstract String getProxyPassword();
+  public abstract ProxyConfig getProxyConfig();
 
   @Nullable
   public abstract String getJdbcMap();
@@ -383,11 +370,13 @@ public abstract class SinkTaskConfig {
     Optional<String> oauthScope =
         optionalString(config.get(KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE));
 
-    String proxyHost = config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST);
-    String proxyPort = config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT);
-    String nonProxyHosts = config.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS);
-    String proxyUsername = config.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
-    String proxyPassword = config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
+    ProxyConfig proxyConfig =
+        ProxyConfig.create(
+            config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST),
+            config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT),
+            config.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS),
+            config.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME),
+            config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD));
     String jdbcMap = config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP);
 
     boolean assertPartitionAssignmentEnabled =
@@ -498,11 +487,7 @@ public abstract class SinkTaskConfig {
         .oauthIncludeScope(oauthIncludeScope)
         .snowflakeDatabase(snowflakeDatabase)
         .snowflakeSchema(snowflakeSchema)
-        .proxyHost(proxyHost)
-        .proxyPort(proxyPort)
-        .nonProxyHosts(nonProxyHosts)
-        .proxyUsername(proxyUsername)
-        .proxyPassword(proxyPassword)
+        .proxyConfig(proxyConfig)
         .jdbcMap(jdbcMap)
         .ssv1MigrationMode(ssv1MigrationMode)
         .ssv1MigrationIncludeConnectorName(ssv1MigrationIncludeConnectorName)
@@ -616,15 +601,7 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder snowflakeSchema(String snowflakeSchema);
 
-    public abstract Builder proxyHost(String proxyHost);
-
-    public abstract Builder proxyPort(String proxyPort);
-
-    public abstract Builder nonProxyHosts(String nonProxyHosts);
-
-    public abstract Builder proxyUsername(String proxyUsername);
-
-    public abstract Builder proxyPassword(String proxyPassword);
+    public abstract Builder proxyConfig(ProxyConfig proxyConfig);
 
     public abstract Builder jdbcMap(String jdbcMap);
 

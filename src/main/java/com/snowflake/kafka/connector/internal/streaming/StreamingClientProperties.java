@@ -18,8 +18,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
+import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
@@ -159,6 +161,10 @@ public class StreamingClientProperties {
     clientProperties.put("host", url.getUrlWithoutPort());
     clientProperties.put("application", APPLICATION_NAME);
 
+    // Passwords stay on clientProperties, which is not logged; only parameterOverrides is logged
+    // below.
+    putProxy(clientProperties, config);
+
     String clientNamePrefix =
         STREAMING_CLIENT_V2_PREFIX_NAME
             + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME);
@@ -172,6 +178,77 @@ public class StreamingClientProperties {
     }
 
     return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
+  }
+
+  /**
+   * Sends the SDK the same proxy the connector's JDBC and OAuth clients use: {@code jvm.proxy.*}
+   * when host and port are set, else the JVM's {@code https.proxyHost} (then {@code
+   * http.proxyHost}) system properties, else nothing, so the SDK falls back to {@code HTTPS_PROXY}
+   * / {@code NO_PROXY}. The bypass list is passed unchanged: the SDK reads the JDK {@code
+   * nonProxyHosts} format.
+   */
+  private static void putProxy(Properties clientProperties, SinkTaskConfig config) {
+    ProxyConfig proxy = config.getProxyConfig();
+    String url = proxyUrl(proxy.getHost(), proxy.getPort());
+    String noProxy;
+    String user;
+    String password;
+    if (url != null) {
+      noProxy = proxy.getNonProxyHosts();
+      user = proxy.getUsername();
+      password = proxy.getPassword();
+    } else {
+      String httpsUrl =
+          proxyUrl(
+              System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST),
+              System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT));
+      if (httpsUrl != null) {
+        url = httpsUrl;
+        user = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER);
+        password = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
+      } else {
+        url =
+            proxyUrl(
+                System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST),
+                System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT));
+        user = System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER);
+        password = System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD);
+      }
+      if (url == null) {
+        return;
+      }
+      noProxy = System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS);
+    }
+    clientProperties.put("https_proxy_url", url);
+    if (blankToNull(noProxy) != null) {
+      clientProperties.put("no_proxy", noProxy.trim());
+    }
+    if (blankToNull(user) != null && blankToNull(password) != null) {
+      clientProperties.put("proxy_user", user);
+      clientProperties.put("proxy_password", password);
+    }
+  }
+
+  /** {@code http://host:port}. Returns null when host or port is missing. */
+  static String proxyUrl(String host, String port) {
+    host = blankToNull(host);
+    port = blankToNull(port);
+    if (host == null || port == null) {
+      return null;
+    }
+    host = host.trim();
+    port = port.trim();
+    if (host.indexOf(':') >= 0 && !host.startsWith("[")) {
+      host = "[" + host + "]";
+    }
+    return "http://" + host + ":" + port;
+  }
+
+  private static String blankToNull(String value) {
+    if (value == null || value.trim().isEmpty()) {
+      return null;
+    }
+    return value;
   }
 
   /**

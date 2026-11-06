@@ -4,6 +4,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
+import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.oauth.OAuthAccessTokenFetcher;
 import com.snowflake.kafka.connector.internal.oauth.OAuthURL;
@@ -123,7 +124,8 @@ public class InternalUtils {
                 oauthClientId,
                 oauthClientSecret,
                 config.getOauthRefreshToken(),
-                resolveOauthScope(config)));
+                resolveOauthScope(config),
+                config.getProxyConfig()));
         break;
       case SNOWFLAKE_JWT:
         properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
@@ -228,22 +230,22 @@ public class InternalUtils {
    */
   protected static Properties generateProxyParametersIfRequired(SinkTaskConfig config) {
     Properties properties = new Properties();
-    // Set proxyHost and proxyPort only if both of them are present and are non null
-    if (config.getProxyHost() != null && config.getProxyPort() != null) {
+    // Connection properties apply only to this connector's jvm.proxy.* settings. When those
+    // are unset, add nothing so JDBC follows the JVM system properties.
+    ProxyConfig proxy = config.getProxyConfig();
+    if (proxy.isConfigured()) {
       properties.put(JdbcPropertyKeys.USE_PROXY, "true");
-      properties.put(JdbcPropertyKeys.PROXY_HOST, config.getProxyHost());
-      properties.put(JdbcPropertyKeys.PROXY_PORT, config.getProxyPort());
+      properties.put(JdbcPropertyKeys.PROXY_HOST, proxy.getHost());
+      properties.put(JdbcPropertyKeys.PROXY_PORT, proxy.getPort());
 
       // nonProxyHosts parameter is not required. Check if it was set or not.
-      if (config.getNonProxyHosts() != null) {
-        properties.put(JdbcPropertyKeys.NON_PROXY_HOSTS, config.getNonProxyHosts());
+      if (!isBlank(proxy.getNonProxyHosts())) {
+        properties.put(JdbcPropertyKeys.NON_PROXY_HOSTS, proxy.getNonProxyHosts());
       }
 
-      // For username and password, check if host and port are given.
-      // If they are given, check if username and password are non null
-      if (config.getProxyUsername() != null && config.getProxyPassword() != null) {
-        properties.put(JdbcPropertyKeys.PROXY_USER, config.getProxyUsername());
-        properties.put(JdbcPropertyKeys.PROXY_PASSWORD, config.getProxyPassword());
+      if (proxy.hasCredentials()) {
+        properties.put(JdbcPropertyKeys.PROXY_USER, proxy.getUsername());
+        properties.put(JdbcPropertyKeys.PROXY_PASSWORD, proxy.getPassword());
       }
     }
     return properties;
