@@ -25,6 +25,8 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionServiceFactory;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryLevel;
+import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
 import com.snowflake.kafka.connector.internal.streaming.DefaultStreamingConfigValidator;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -32,6 +34,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
@@ -88,6 +94,12 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   private final ConnectorConfigValidator connectorConfigValidator =
       new DefaultConnectorConfigValidator(new DefaultStreamingConfigValidator());
 
+  // Periodically re-polls server advisories while the connector runs (SNOW-3648284).
+  private ScheduledExecutorService advisoryPoller;
+
+  // test visibility: counts completed periodic poll cycles
+  private final AtomicInteger advisoryPollCount = new AtomicInteger();
+
   /** No-Arg constructor. Required by Kafka Connect framework */
   public SnowflakeStreamingSinkConnector() {
     setupComplete = false;
@@ -135,6 +147,10 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
 
+    // Fetch and log any server-side advisories for this connector version (SNOW-3648284).
+    logServerAdvisories();
+    startAdvisoryPolling();
+
     telemetryClient = conn.getTelemetryClient();
 
     telemetryClient.reportKafkaConnectStart(connectorStartTime, this.config);
@@ -156,6 +172,10 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
   public void stop() {
     LOGGER.info("SnowflakeStreamingSinkConnector connector stopping...");
     setupComplete = false;
+
+    if (advisoryPoller != null) {
+      advisoryPoller.shutdownNow();
+    }
 
     if (telemetryClient != null) {
       telemetryClient.reportKafkaConnectStop(connectorStartTime);
@@ -419,6 +439,93 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
 
   private static boolean isConfigProviderReference(String value) {
     return value != null && CONFIG_PROVIDER_PREFIX.matcher(value).find();
+  }
+
+  /** Request context sent to the GS advisory function; v1 carries only the connector version. */
+  static String advisoryRequestJson() {
+    return "{\"connectorVersion\":\"" + Utils.VERSION + "\"}";
+  }
+
+  /**
+   * Fetches server-side advisory messages for this connector version and logs each one at its
+   * declared level.
+   *
+   * <p>Mechanism errors (old GS without the function, JDBC/parse failures) never block startup:
+   * {@link com.snowflake.kafka.connector.internal.SnowflakeConnectionService#getKcAdvisoryMessages}
+   * is fail-safe and returns an empty list on any such error, and logs the failure itself.
+   */
+  private void logServerAdvisories() {
+    try {
+      fetchAndLogAdvisories();
+    } catch (Exception e) {
+      LOGGER.debug(
+          "Failed to fetch server advisories: {}", e.getMessage()); // mechanism error, never fail
+    }
+  }
+
+  /** Fetches the advisories for this connector version and logs each at its declared level. */
+  private List<AdvisoryMessage> fetchAndLogAdvisories() {
+    List<AdvisoryMessage> advisories = conn.getKcAdvisoryMessages(advisoryRequestJson());
+    for (AdvisoryMessage msg : advisories) {
+      AdvisoryLevel.fromString(msg.getLevel()).log(LOGGER, msg.getText());
+    }
+    return advisories;
+  }
+
+  /**
+   * Re-fetches and logs server-side advisories on a background thread while the connector is
+   * running. Each advisory is logged at its declared level (CRITICAL at ERROR).
+   *
+   * <p>Fetch and parse errors are caught so the scheduler keeps firing.
+   */
+  private void pollAdvisories() {
+    try {
+      fetchAndLogAdvisories();
+    } catch (Exception e) {
+      LOGGER.debug("Periodic advisory poll failed: {}", e.getMessage());
+    } finally {
+      advisoryPollCount.incrementAndGet();
+    }
+  }
+
+  /**
+   * Starts a background scheduler that periodically re-polls server advisories (SNOW-3648284). No
+   * scheduler is started when the poll interval is {@code <= 0}, which leaves advisory checking as
+   * startup-only.
+   */
+  private void startAdvisoryPolling() {
+    long intervalSeconds = advisoryPollIntervalSeconds(config);
+    if (intervalSeconds <= 0) {
+      LOGGER.info("Server advisory polling disabled (interval <= 0).");
+      return;
+    }
+    advisoryPoller =
+        Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, "kc-advisory-poller");
+              t.setDaemon(true);
+              return t;
+            });
+    advisoryPoller.scheduleAtFixedRate(
+        this::pollAdvisories, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
+    LOGGER.info("Server advisory polling every {}s.", intervalSeconds);
+  }
+
+  static long advisoryPollIntervalSeconds(Map<String, String> config) {
+    return Long.parseLong(
+        config.getOrDefault(
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS,
+            String.valueOf(
+                KafkaConnectorConfigParams
+                    .SNOWFLAKE_FEATURE_ADVISORY_POLL_INTERVAL_SECONDS_DEFAULT)));
+  }
+
+  /**
+   * @return the number of completed periodic advisory poll cycles.
+   *     <p>Package-private for testing.
+   */
+  int advisoryPollCountForTest() {
+    return advisoryPollCount.get();
   }
 
   /**
