@@ -183,6 +183,29 @@ public class SnowflakeAvroConverterTest {
   }
 
   @Test
+  public void withDefaults_disablesRuleServiceLoaderByDefault() {
+    Map<String, Object> configs = new HashMap<>();
+    configs.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://good:8081");
+
+    Map<String, Object> actual = SnowflakeAvroConverter.withDefaults(configs);
+
+    assertEquals(false, actual.get(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE));
+    assertEquals(
+        "http://good:8081", actual.get(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG));
+    assertFalse(configs.containsKey(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE));
+  }
+
+  @Test
+  public void withDefaults_userSetRuleServiceLoaderWins() {
+    Map<String, Object> configs = new HashMap<>();
+    configs.put(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE, "true");
+
+    Map<String, Object> actual = SnowflakeAvroConverter.withDefaults(configs);
+
+    assertEquals("true", actual.get(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE));
+  }
+
+  @Test
   public void fromConnectData_delegatesDirectly() {
     SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
     AvroConverter delegate = mock(AvroConverter.class);
@@ -195,5 +218,43 @@ public class SnowflakeAvroConverterTest {
 
     assertSame(expected, actual);
     verify(delegate).fromConnectData(TOPIC, null, "value");
+  }
+
+  @Test
+  public void delegateCalls_runWithAvroConverterContextClassLoader_andRestoreTheCallersLoader()
+      throws Exception {
+    SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
+    AvroConverter delegate = mock(AvroConverter.class);
+    byte[] wireBytes = wireBytesFor(42);
+    ClassLoader[] seenByDelegate = new ClassLoader[2];
+    when(registryClient.getById(42)).thenReturn(SchemaBuilder.record("R").fields().endRecord());
+    when(delegate.toConnectData(eq(TOPIC), any(byte[].class)))
+        .thenAnswer(
+            invocation -> {
+              seenByDelegate[0] = Thread.currentThread().getContextClassLoader();
+              return new SchemaAndValue(null, "converted");
+            });
+    when(delegate.fromConnectData(eq(TOPIC), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              seenByDelegate[1] = Thread.currentThread().getContextClassLoader();
+              return new byte[0];
+            });
+
+    ClassLoader callersLoader = new ClassLoader(null) {};
+    Thread thread = Thread.currentThread();
+    ClassLoader original = thread.getContextClassLoader();
+    thread.setContextClassLoader(callersLoader);
+    try {
+      SnowflakeAvroConverter converter = new SnowflakeAvroConverter(registryClient, delegate);
+      converter.toConnectData(TOPIC, wireBytes);
+      converter.fromConnectData(TOPIC, null, "value");
+
+      assertSame(AvroConverter.class.getClassLoader(), seenByDelegate[0]);
+      assertSame(AvroConverter.class.getClassLoader(), seenByDelegate[1]);
+      assertSame(callersLoader, thread.getContextClassLoader());
+    } finally {
+      thread.setContextClassLoader(original);
+    }
   }
 }
