@@ -98,4 +98,20 @@ public class ClientRecreationExceptionTest {
 
     assertThrows(IllegalArgumentException.class, () -> new ClientRecreationException(backpressure));
   }
+
+  @Test
+  void shouldRecognizeSfApiNotFoundError() {
+    SFException notFound = new SFException("SfApiNotFoundError", "not found", 404, "Not Found");
+
+    assertTrue(ClientRecreationException.isSfApiNotFoundError(notFound));
+    assertFalse(ClientRecreationException.isClientInvalidError(notFound));
+  }
+
+  @Test
+  void shouldNotTreatSfApiUserErrorAsNotFound() {
+    SFException userError =
+        new SFException("SfApiUserError", "HTTP 404, error_code=, message=,", 400, "Bad Request");
+
+    assertFalse(ClientRecreationException.isSfApiNotFoundError(userError));
+  }
 }

@@ -331,14 +331,13 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   /**
    * Handles a non-retryable {@link SFException} from appendRow by reopening the channel after a
    * short delay with jitter. Throws {@link ConnectException} if the circuit breaker ({@link
-   * #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded, which causes Kafka Connect to kill and restart
-   * the task.
+   * #MAX_CONSECUTIVE_RECOVERIES}) has been exceeded, which causes Kafka Connect to fail the task.
    *
    * <p>This circuit breaker only covers channel-side failures. Patience for SDK client recreation
-   * (pipe failover, HTTP 410) lives in {@link
+   * (pipe failover, HTTP 410, {@code SfApiNotFoundError} on client build) lives in {@link
    * com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools#recreateClient}
-   * — its Failsafe retry policy absorbs multi-minute failover windows, so this loop does not need
-   * its own large budget.
+   * — its Failsafe retry policy absorbs multi-minute windows of those errors, so this loop does not
+   * need its own large budget.
    */
   private void handleNonRetryableAppendRowFailure(SFException cause) {
     consecutiveRecoveryCount++;
@@ -759,11 +758,11 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * task spins forever rebuilding broken channels.
    *
    * <p>Single-shot retry at this layer by design — the patience for transient pipe-failover windows
-   * lives inside {@link
+   * and {@code SfApiNotFoundError} while building the replacement client lives inside {@link
    * com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools#recreateClient}
    * (multi-minute Failsafe budget with exponential backoff). If {@code recreate} still fails after
-   * that budget, it throws and we translate to {@link ConnectException} so Kafka Connect fails and
-   * restarts the task — at that point the fault is not transient.
+   * that budget, it throws and we translate to {@link ConnectException} so Kafka Connect fails the
+   * task — at that point the fault is not transient.
    */
   private OpenChannelResult openChannelWithClientRecovery(final String channelName) {
     try {
