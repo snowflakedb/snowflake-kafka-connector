@@ -230,7 +230,8 @@ public class InternalUtils {
    */
   protected static Properties generateProxyParametersIfRequired(SinkTaskConfig config) {
     Properties properties = new Properties();
-    // Connection properties apply only to this connector's jvm.proxy.* settings. When those
+    // Connection properties apply only to this connector's snowflake.https.proxy.* settings. When
+    // those
     // are unset, add nothing so JDBC follows the JVM system properties.
     ProxyConfig proxy = config.getProxyConfig();
     if (proxy.isConfigured()) {

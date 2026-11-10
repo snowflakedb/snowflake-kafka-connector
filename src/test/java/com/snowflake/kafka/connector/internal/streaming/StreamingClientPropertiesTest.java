@@ -532,12 +532,14 @@ public class StreamingClientPropertiesTest {
   @Test
   void connectorProxySettingsAreCopiedOntoSdkClientProperties() {
     Map<String, String> connectorConfig = streamingConfigWithKey();
-    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "proxy.example.com");
-    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "3128");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, "proxy.example.com");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
     connectorConfig.put(
-        KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS, "localhost|*.internal.example.com");
-    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, "proxy-user");
-    connectorConfig.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, "proxy-secret-value");
+        KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS,
+        "localhost|*.internal.example.com");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME, "proxy-user");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD, "proxy-secret-value");
 
     StreamingClientProperties properties =
         StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig));

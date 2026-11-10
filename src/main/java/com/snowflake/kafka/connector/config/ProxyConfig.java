@@ -13,8 +13,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
- * The connector's {@code jvm.proxy.*} settings. Any field may be null when unset. The bypass list
- * uses the JDK {@code http.nonProxyHosts} format.
+ * The connector's {@code snowflake.https.proxy.*} settings. Any field may be null when unset. The
+ * bypass list uses the JDK {@code http.nonProxyHosts} format.
  *
  * <p>{@link #create} rejects an invalid combination instead of ignoring it, so a proxy the operator
  * asked for is never dropped silently. {@link #validate} applies the same rules and reports every
@@ -93,30 +93,34 @@ public abstract class ProxyConfig {
     String trimmedPort = trimToNull(port);
 
     if ((trimmedHost == null) != (trimmedPort == null)) {
-      errors.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, HOST_AND_PORT_TOGETHER);
-      errors.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, HOST_AND_PORT_TOGETHER);
+      errors.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, HOST_AND_PORT_TOGETHER);
+      errors.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT, HOST_AND_PORT_TOGETHER);
     } else if (trimmedHost != null) {
       try {
         parsePort(trimmedPort);
       } catch (IllegalArgumentException e) {
-        errors.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, e.getMessage());
+        errors.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT, e.getMessage());
       }
       try {
         checkHost(trimmedHost);
       } catch (IllegalArgumentException e) {
-        errors.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, e.getMessage());
+        errors.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, e.getMessage());
       }
     }
 
     if (blankToNull(username) == null != (blankToNull(password) == null)) {
-      errors.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, USERNAME_AND_PASSWORD_TOGETHER);
-      errors.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, USERNAME_AND_PASSWORD_TOGETHER);
+      errors.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME,
+          USERNAME_AND_PASSWORD_TOGETHER);
+      errors.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD,
+          USERNAME_AND_PASSWORD_TOGETHER);
     }
 
     String invalidEntry = invalidNonProxyHostsEntry(nonProxyHosts);
     if (invalidEntry != null) {
       errors.put(
-          KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS,
+          KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS,
           invalidNonProxyHostsMessage(invalidEntry));
     }
     return errors;

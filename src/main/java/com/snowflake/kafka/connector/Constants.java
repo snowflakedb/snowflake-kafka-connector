@@ -185,11 +185,11 @@ public final class Constants {
     public static final String VALUE_CONVERTER_SCHEMA_REGISTRY_URL =
         "value.converter.schema.registry.url";
     // Proxy Info
-    public static final String JVM_PROXY_HOST = "jvm.proxy.host";
-    public static final String JVM_PROXY_PORT = "jvm.proxy.port";
-    public static final String JVM_NON_PROXY_HOSTS = "jvm.nonProxy.hosts";
-    public static final String JVM_PROXY_USERNAME = "jvm.proxy.username";
-    public static final String JVM_PROXY_PASSWORD = "jvm.proxy.password";
+    public static final String SNOWFLAKE_HTTPS_PROXY_HOST = "snowflake.https.proxy.host";
+    public static final String SNOWFLAKE_HTTPS_PROXY_PORT = "snowflake.https.proxy.port";
+    public static final String SNOWFLAKE_PROXY_BYPASS_HOSTS = "snowflake.proxy.bypasshosts";
+    public static final String SNOWFLAKE_HTTPS_PROXY_USERNAME = "snowflake.https.proxy.username";
+    public static final String SNOWFLAKE_HTTPS_PROXY_PASSWORD = "snowflake.https.proxy.password";
 
     // jvm proxy
     public static final String HTTP_USE_PROXY = "http.useProxy";

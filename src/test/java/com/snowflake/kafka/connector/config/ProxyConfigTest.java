@@ -1,10 +1,10 @@
 package com.snowflake.kafka.connector.config;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_HOST;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PASSWORD;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PORT;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_USERNAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -50,8 +50,8 @@ class ProxyConfigTest {
   void hostWithoutPortIsRejectedNotDropped() {
     assertThatThrownBy(() -> ProxyConfig.create("proxy.example.com", null, null, null, null))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(JVM_PROXY_HOST)
-        .hasMessageContaining(JVM_PROXY_PORT)
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_HOST)
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_PORT)
         .hasMessageContaining("must be provided together");
   }
 
@@ -67,19 +67,19 @@ class ProxyConfigTest {
     // A whitespace-only port used to pass connector validation and then be ignored silently.
     assertThatThrownBy(() -> ProxyConfig.create("proxy.example.com", " ", null, null, null))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(JVM_PROXY_PORT);
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_PORT);
     assertThat(ProxyConfig.validate("proxy.example.com", " ", null, null, null))
-        .containsKeys(JVM_PROXY_HOST, JVM_PROXY_PORT);
+        .containsKeys(SNOWFLAKE_HTTPS_PROXY_HOST, SNOWFLAKE_HTTPS_PROXY_PORT);
   }
 
   @Test
   void usernameWithoutPasswordAndPasswordWithoutUsernameAreRejected() {
     assertThatThrownBy(() -> ProxyConfig.create("h.example.com", "1", null, "user", null))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(JVM_PROXY_USERNAME);
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_USERNAME);
     assertThatThrownBy(() -> ProxyConfig.create("h.example.com", "1", null, null, "secret"))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(JVM_PROXY_PASSWORD);
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_PASSWORD);
     assertThat(ProxyConfig.create("h.example.com", "1", null, "user", "secret").hasCredentials())
         .isTrue();
   }
@@ -88,8 +88,8 @@ class ProxyConfigTest {
   @ValueSource(strings = {"abc", "3128.5", "0", "-1", "65536", "70000"})
   void aPortOutsideTheValidRangeIsRejected(String port) {
     assertThat(ProxyConfig.validate("proxy.example.com", port, null, null, null))
-        .containsOnlyKeys(JVM_PROXY_PORT)
-        .extractingByKey(JVM_PROXY_PORT)
+        .containsOnlyKeys(SNOWFLAKE_HTTPS_PROXY_PORT)
+        .extractingByKey(SNOWFLAKE_HTTPS_PROXY_PORT)
         .asString()
         .contains("proxy port must be an integer between 1 and 65535")
         .contains("'" + port + "'");
@@ -108,8 +108,8 @@ class ProxyConfigTest {
       })
   void aMalformedHostIsRejected(String host) {
     assertThat(ProxyConfig.validate(host, "3128", null, null, null))
-        .containsOnlyKeys(JVM_PROXY_HOST)
-        .extractingByKey(JVM_PROXY_HOST)
+        .containsOnlyKeys(SNOWFLAKE_HTTPS_PROXY_HOST)
+        .extractingByKey(SNOWFLAKE_HTTPS_PROXY_HOST)
         .asString()
         .contains("proxy host is not valid");
   }
@@ -121,11 +121,11 @@ class ProxyConfigTest {
 
     assertThat(errors)
         .containsOnlyKeys(
-            JVM_PROXY_HOST,
-            JVM_PROXY_PORT,
-            JVM_NON_PROXY_HOSTS,
-            JVM_PROXY_USERNAME,
-            JVM_PROXY_PASSWORD);
+            SNOWFLAKE_HTTPS_PROXY_HOST,
+            SNOWFLAKE_HTTPS_PROXY_PORT,
+            SNOWFLAKE_PROXY_BYPASS_HOSTS,
+            SNOWFLAKE_HTTPS_PROXY_USERNAME,
+            SNOWFLAKE_HTTPS_PROXY_PASSWORD);
   }
 
   @Test
@@ -162,8 +162,8 @@ class ProxyConfigTest {
   void aBypassEntryOutsideTheJdkFormatIsRejected(String list, String badEntry) {
     assertThat(ProxyConfig.invalidNonProxyHostsEntry(list)).isEqualTo(badEntry);
     assertThat(ProxyConfig.validate("p.example.com", "3128", list, null, null))
-        .containsOnlyKeys(JVM_NON_PROXY_HOSTS)
-        .extractingByKey(JVM_NON_PROXY_HOSTS)
+        .containsOnlyKeys(SNOWFLAKE_PROXY_BYPASS_HOSTS)
+        .extractingByKey(SNOWFLAKE_PROXY_BYPASS_HOSTS)
         .asString()
         .contains("'" + badEntry + "'")
         .contains("http.nonProxyHosts");

@@ -193,55 +193,58 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_SCOPE)
         // proxy
         .define(
-            KafkaConnectorConfigParams.JVM_PROXY_HOST,
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST,
             STRING,
             "",
             LOW,
-            "JVM option: https.proxyHost",
+            "Proxy host for HTTPS traffic to Snowflake (JDBC, OAuth and the streaming SDK). Set"
+                + " together with the port. If unset, the JVM's https.proxyHost is used.",
             PROXY_INFO_DOC,
             0,
             Width.NONE,
-            KafkaConnectorConfigParams.JVM_PROXY_HOST)
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST)
         .define(
-            KafkaConnectorConfigParams.JVM_PROXY_PORT,
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT,
             STRING,
             "",
             LOW,
-            "JVM option: https.proxyPort",
+            "Proxy port, 1 to 65535. Set together with the host.",
             PROXY_INFO_DOC,
             1,
             Width.NONE,
-            KafkaConnectorConfigParams.JVM_PROXY_PORT)
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT)
         .define(
-            KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS,
+            KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS,
             STRING,
             "",
             LOW,
-            "JVM option: http.nonProxyHosts",
+            "Hosts that bypass the proxy, in the JDK http.nonProxyHosts format: entries separated"
+                + " by '|', where '*' matches any characters, for example"
+                + " localhost|127.*|*.internal.example.com.",
             PROXY_INFO_DOC,
             2,
             Width.NONE,
-            KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS)
+            KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS)
         .define(
-            KafkaConnectorConfigParams.JVM_PROXY_USERNAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME,
             STRING,
             "",
             LOW,
-            "JVM proxy username",
+            "Proxy user name for basic authentication. Set together with the password.",
             PROXY_INFO_DOC,
             3,
             Width.NONE,
-            KafkaConnectorConfigParams.JVM_PROXY_USERNAME)
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME)
         .define(
-            KafkaConnectorConfigParams.JVM_PROXY_PASSWORD,
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD,
             PASSWORD,
             "",
             LOW,
-            "JVM proxy password",
+            "Proxy password for basic authentication. Set together with the user name.",
             PROXY_INFO_DOC,
             4,
             Width.NONE,
-            KafkaConnectorConfigParams.JVM_PROXY_PASSWORD)
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD)
         // Metadata
         .define(
             KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL,

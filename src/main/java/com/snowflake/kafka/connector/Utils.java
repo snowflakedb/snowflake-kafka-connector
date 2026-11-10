@@ -28,6 +28,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -177,14 +178,37 @@ public class Utils {
    * @param config connector configuration
    */
   public static ImmutableMap<String, String> validateProxySettings(Map<String, String> config) {
-    return ImmutableMap.copyOf(
-        ProxyConfig.validate(
-            config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST),
-            config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT),
-            config.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS),
-            config.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME),
-            config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD)));
+    Map<String, String> errors =
+        new LinkedHashMap<>(
+            ProxyConfig.validate(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST),
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT),
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS),
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME),
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD)));
+    // Kafka Connect ignores config keys it does not know, so a connector still configured with an
+    // old name would silently run without its proxy. Reject it, naming the new key. The error is
+    // reported against the new key because the old one is no longer a known config.
+    RENAMED_PROXY_KEYS.forEach(
+        (oldKey, newKey) -> {
+          if (ConnectorConfigTools.getProperty(config, oldKey) != null) {
+            errors.merge(
+                newKey,
+                oldKey + " was renamed to " + newKey + " and is no longer read; set " + newKey,
+                (existing, added) -> existing + "; " + added);
+          }
+        });
+    return ImmutableMap.copyOf(errors);
   }
+
+  /** Proxy config keys renamed from the old {@code jvm.*} names, by old name. */
+  private static final Map<String, String> RENAMED_PROXY_KEYS =
+      Map.of(
+          "jvm.proxy.host", KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST,
+          "jvm.proxy.port", KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT,
+          "jvm.nonProxy.hosts", KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS,
+          "jvm.proxy.username", KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME,
+          "jvm.proxy.password", KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD);
 
   /**
    * validates that given name is a valid snowflake object identifier

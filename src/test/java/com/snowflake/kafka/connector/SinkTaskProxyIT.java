@@ -44,10 +44,10 @@ public class SinkTaskProxyIT {
     ConnectorConfigTools.setDefaultValues(config);
 
     config.put(Utils.TASK_ID, "0");
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "wronghost");
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "9093"); // wrongport
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, "user");
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, "password");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, "wronghost");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT, "9093"); // wrongport
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME, "user");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD, "password");
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
     try {
       sinkTask.start(config);
@@ -71,10 +71,12 @@ public class SinkTaskProxyIT {
     ConnectorConfigTools.setDefaultValues(config);
 
     config.put(Utils.TASK_ID, "0");
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "test-proxy.example.com");
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, "8080");
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, proxyServer.getUsername());
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, proxyServer.getPassword());
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, "test-proxy.example.com");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT, "8080");
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME, proxyServer.getUsername());
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD, proxyServer.getPassword());
     TestUtils.resetProxyParametersInJVM();
 
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
@@ -89,7 +91,8 @@ public class SinkTaskProxyIT {
     }
 
     Assert.assertEquals(
-        "test-proxy.example.com", config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST));
+        "test-proxy.example.com",
+        config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST));
     assertUnset(KafkaConnectorConfigParams.HTTP_USE_PROXY);
     assertUnset(KafkaConnectorConfigParams.HTTP_PROXY_HOST);
     assertUnset(KafkaConnectorConfigParams.HTTPS_PROXY_HOST);
@@ -104,10 +107,12 @@ public class SinkTaskProxyIT {
 
     config.put(Utils.TASK_ID, "0");
     int proxyPort = proxyServer.getPort();
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_HOST, "localhost");
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_PORT, String.valueOf(proxyPort));
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_USERNAME, proxyServer.getUsername());
-    config.put(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD, proxyServer.getPassword());
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, "localhost");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT, String.valueOf(proxyPort));
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME, proxyServer.getUsername());
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD, proxyServer.getPassword());
     SnowflakeSinkTask sinkTask = new SnowflakeSinkTask();
 
     TestUtils.resetProxyParametersInJVM();

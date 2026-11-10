@@ -372,11 +372,11 @@ public abstract class SinkTaskConfig {
 
     ProxyConfig proxyConfig =
         ProxyConfig.create(
-            config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST),
-            config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT),
-            config.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS),
-            config.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME),
-            config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD));
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST),
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT),
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS),
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME),
+            config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD));
     String jdbcMap = config.get(KafkaConnectorConfigParams.SNOWFLAKE_JDBC_MAP);
 
     boolean assertPartitionAssignmentEnabled =

@@ -73,9 +73,9 @@ public class OAuthAccessTokenFetcher {
 
   /**
    * Fetch an OAuth access token. Retries with exponential backoff on transient failures. Goes
-   * through the connector's {@code jvm.proxy.*} settings when host and port are set. Otherwise uses
-   * the JVM's default {@link ProxySelector}, so an existing {@code -Dhttps.proxyHost} still
-   * applies.
+   * through the connector's {@code snowflake.https.proxy.*} settings when host and port are set.
+   * Otherwise uses the JVM's default {@link ProxySelector}, so an existing {@code
+   * -Dhttps.proxyHost} still applies.
    *
    * @param url OAuth server URL (scheme, host, port, path)
    * @param clientId OAuth client ID
@@ -100,7 +100,7 @@ public class OAuthAccessTokenFetcher {
       try {
         port = Integer.parseInt(proxy.getPort().trim());
       } catch (NumberFormatException e) {
-        throw new IllegalArgumentException("jvm.proxy.port must be an integer", e);
+        throw new IllegalArgumentException("snowflake.https.proxy.port must be an integer", e);
       }
       builder.proxy(connectorProxySelector(proxy.getHost().trim(), port, proxy.getNonProxyHosts()));
       if (proxy.hasCredentials()) {
@@ -158,7 +158,10 @@ public class OAuthAccessTokenFetcher {
         Utils.JDK_HTTP_AUTH_TUNNELING);
   }
 
-  /** HTTP proxy for {@code jvm.proxy.host} and {@code jvm.proxy.port}, honoring the bypass list. */
+  /**
+   * HTTP proxy for {@code snowflake.https.proxy.host} and {@code snowflake.https.proxy.port},
+   * honoring the bypass list.
+   */
   static ProxySelector connectorProxySelector(String host, int port, String nonProxyHosts) {
     InetSocketAddress address = new InetSocketAddress(host, port);
     Proxy proxy = new Proxy(Proxy.Type.HTTP, address);

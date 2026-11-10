@@ -184,9 +184,9 @@ public class StreamingClientProperties {
   private static final String HTTPS_DEFAULT_PROXY_PORT = "443";
 
   /**
-   * Sends the SDK the same proxy the connector's JDBC and OAuth clients use: {@code jvm.proxy.*}
-   * when host and port are set, else the JVM's {@code https.proxyHost} system property, else
-   * nothing, so the SDK falls back to {@code HTTPS_PROXY} / {@code NO_PROXY}.
+   * Sends the SDK the same proxy the connector's JDBC and OAuth clients use: {@code
+   * snowflake.https.proxy.*} when host and port are set, else the JVM's {@code https.proxyHost}
+   * system property, else nothing, so the SDK falls back to {@code HTTPS_PROXY} / {@code NO_PROXY}.
    *
    * <p>Only {@code https.*} is considered. All Snowflake traffic is HTTPS, and the JDK applies
    * {@code http.proxyHost} only to {@code http://} URLs, so JDBC and the OAuth fetch ignore it for
@@ -195,7 +195,8 @@ public class StreamingClientProperties {
    * passed unchanged: the SDK reads the JDK {@code nonProxyHosts} format.
    *
    * @throws IllegalArgumentException if a JVM proxy property holds an invalid port, host or bypass
-   *     entry (the {@code jvm.proxy.*} settings were already validated by {@link ProxyConfig})
+   *     entry (the {@code snowflake.https.proxy.*} settings were already validated by {@link
+   *     ProxyConfig})
    */
   private static void putProxy(Properties clientProperties, SinkTaskConfig config) {
     ProxyConfig proxy = config.getProxyConfig();

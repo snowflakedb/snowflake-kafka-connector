@@ -25,11 +25,11 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_PORT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_USER;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_HOST;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PASSWORD;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PORT;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_USERNAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS;
 import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKey;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,11 +52,11 @@ public class StreamingHttpsProxyConfigTest {
     System.clearProperty(HTTPS_PROXY_HOST);
     try {
       Map<String, String> config = baseConfig();
-      config.put(JVM_PROXY_HOST, "proxy.example.com");
-      config.put(JVM_PROXY_PORT, "3128");
-      config.put(JVM_NON_PROXY_HOSTS, "localhost|*.internal.example.com");
-      config.put(JVM_PROXY_USERNAME, "proxy-user");
-      config.put(JVM_PROXY_PASSWORD, "proxy-secret-value");
+      config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "proxy.example.com");
+      config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
+      config.put(SNOWFLAKE_PROXY_BYPASS_HOSTS, "localhost|*.internal.example.com");
+      config.put(SNOWFLAKE_HTTPS_PROXY_USERNAME, "proxy-user");
+      config.put(SNOWFLAKE_HTTPS_PROXY_PASSWORD, "proxy-secret-value");
       assertThat(Utils.validateProxySettings(config)).isEmpty();
 
       SinkTaskConfig parsed = SinkTaskConfig.from(config);
@@ -162,8 +162,8 @@ public class StreamingHttpsProxyConfigTest {
     System.setProperty(HTTP_NON_PROXY_HOSTS, "*.jvm-only.example.com");
     try {
       Map<String, String> config = baseConfig();
-      config.put(JVM_PROXY_HOST, "proxy.example.com");
-      config.put(JVM_PROXY_PORT, "3128");
+      config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "proxy.example.com");
+      config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
       Properties sdk = StreamingClientProperties.from(SinkTaskConfig.from(config)).clientProperties;
 
       assertThat(sdk)
@@ -203,21 +203,23 @@ public class StreamingHttpsProxyConfigTest {
   @Test
   void missingPortIsRejectedNotSkipped() {
     Map<String, String> config = baseConfig();
-    config.put(JVM_PROXY_HOST, "proxy.example.com");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "proxy.example.com");
 
-    assertThat(Utils.validateProxySettings(config)).containsKeys(JVM_PROXY_HOST, JVM_PROXY_PORT);
+    assertThat(Utils.validateProxySettings(config))
+        .containsKeys(SNOWFLAKE_HTTPS_PROXY_HOST, SNOWFLAKE_HTTPS_PROXY_PORT);
     assertThatThrownBy(() -> SinkTaskConfig.from(config))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(JVM_PROXY_PORT);
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_PORT);
   }
 
   @Test
   void blankPortIsRejectedNotSkipped() {
     Map<String, String> config = baseConfig();
-    config.put(JVM_PROXY_HOST, "proxy.example.com");
-    config.put(JVM_PROXY_PORT, " ");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "proxy.example.com");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, " ");
 
-    assertThat(Utils.validateProxySettings(config)).containsKeys(JVM_PROXY_HOST, JVM_PROXY_PORT);
+    assertThat(Utils.validateProxySettings(config))
+        .containsKeys(SNOWFLAKE_HTTPS_PROXY_HOST, SNOWFLAKE_HTTPS_PROXY_PORT);
     assertThatThrownBy(() -> SinkTaskConfig.from(config))
         .isInstanceOf(IllegalArgumentException.class);
   }
@@ -225,14 +227,14 @@ public class StreamingHttpsProxyConfigTest {
   @Test
   void nonProxyHostsOutsideTheJdkFormatAreRejected() {
     Map<String, String> config = baseConfig();
-    config.put(JVM_PROXY_HOST, "proxy.example.com");
-    config.put(JVM_PROXY_PORT, "3128");
-    config.put(JVM_NON_PROXY_HOSTS, "localhost,10.0.0.0/8");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "proxy.example.com");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
+    config.put(SNOWFLAKE_PROXY_BYPASS_HOSTS, "localhost,10.0.0.0/8");
 
-    assertThat(Utils.validateProxySettings(config)).containsOnlyKeys(JVM_NON_PROXY_HOSTS);
+    assertThat(Utils.validateProxySettings(config)).containsOnlyKeys(SNOWFLAKE_PROXY_BYPASS_HOSTS);
     assertThatThrownBy(() -> SinkTaskConfig.from(config))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining(JVM_NON_PROXY_HOSTS);
+        .hasMessageContaining(SNOWFLAKE_PROXY_BYPASS_HOSTS);
   }
 
   /**
