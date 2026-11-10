@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 
 import requests
 
@@ -29,6 +30,26 @@ class HttpsProxyControl:
         resp = requests.post(f"{self.base_url}/reset", timeout=5)
         resp.raise_for_status()
         logger.info("https-proxy counters reset")
+
+    def wait_until_quiet(self, quiet_seconds: float = 15, timeout: float = 120):
+        """Wait until the proxy has seen no new calls for ``quiet_seconds``.
+
+        A connector deleted at the end of one test can keep calling Snowflake for a
+        few seconds: its SDK client is invalidated once the test drops the table, and
+        the connector then recreates it. Those calls must not count against the next
+        test, so each test waits for them to stop before the counters are reset.
+        """
+        deadline = time.monotonic() + timeout
+        last = self.get_status()["counts"]
+        last_change = time.monotonic()
+        while time.monotonic() < deadline:
+            time.sleep(1)
+            current = self.get_status()["counts"]
+            if current != last:
+                last, last_change = current, time.monotonic()
+            elif time.monotonic() - last_change >= quiet_seconds:
+                return
+        logger.warning("https-proxy still busy after %ss; continuing", timeout)
 
     def is_reachable(self) -> bool:
         try:

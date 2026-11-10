@@ -48,6 +48,13 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _wait_for_the_previous_connector_to_go_quiet(https_proxy):
+    """Runs after the test's own teardown, which deletes its connector and table."""
+    yield
+    https_proxy.wait_until_quiet()
+
+
 def _connector_config(**proxy_config: str) -> dict:
     config = {
         "connector.class": "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector",
