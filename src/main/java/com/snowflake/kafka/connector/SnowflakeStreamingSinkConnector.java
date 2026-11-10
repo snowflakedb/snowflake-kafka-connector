@@ -241,6 +241,11 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     for (String invalidKey : invalidProxyParams.keySet()) {
       Utils.updateConfigErrorMessage(result, invalidKey, ": " + invalidProxyParams.get(invalidKey));
     }
+    if (!invalidProxyParams.isEmpty()) {
+      // Do not connect with settings already known to be invalid: parsing them below would throw
+      // instead of returning the per-key errors recorded above.
+      return result;
+    }
 
     // Skip live connection validation only when a credential is supplied through a config provider
     // (private key/passphrase or an OAuth credential); its placeholder cannot be resolved here.

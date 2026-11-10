@@ -258,6 +258,25 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
+  public void testConnectorValidateReportsInvalidProxyPerKeyWithoutConnecting() {
+    Map<String, String> config = getConfig();
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "127.0.0.1");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "abc");
+    config.put("jvm.proxy.username", "user");
+
+    // Returns the errors on the config values; it must not throw or try to reach Snowflake.
+    org.apache.kafka.common.config.Config result =
+        new SnowflakeStreamingSinkConnector().validate(config);
+
+    java.util.Map<String, java.util.List<String>> errors = new java.util.HashMap<>();
+    result.configValues().forEach(v -> errors.put(v.name(), v.errorMessages()));
+    assertThat(errors.get(SNOWFLAKE_HTTPS_PROXY_PORT))
+        .anyMatch(m -> m.contains("between 1 and 65535"));
+    assertThat(errors.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME))
+        .anyMatch(m -> m.contains("jvm.proxy.username was renamed to"));
+  }
+
+  @Test
   public void testNewProxyKeysAreAccepted() {
     Map<String, String> config = getConfig();
     config.put("snowflake.https.proxy.host", "127.0.0.1");
