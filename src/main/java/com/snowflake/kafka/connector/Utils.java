@@ -18,6 +18,7 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.io.BufferedReader;
@@ -176,38 +177,13 @@ public class Utils {
    * @param config connector configuration
    */
   public static ImmutableMap<String, String> validateProxySettings(Map<String, String> config) {
-    Map<String, String> invalidConfigParams = new HashMap<String, String>();
-
-    String host =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_HOST);
-    String port =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_PORT);
-
-    // either both host and port are provided or none of them are provided
-    if (host != null ^ port != null) {
-      invalidConfigParams.put(
-          KafkaConnectorConfigParams.JVM_PROXY_HOST,
-          "proxy host and port must be provided together");
-      invalidConfigParams.put(
-          KafkaConnectorConfigParams.JVM_PROXY_PORT,
-          "proxy host and port must be provided together");
-    } else if (host != null) {
-      String username =
-          ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
-      String password =
-          ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
-      // either both username and password are provided or none of them are provided
-      if (username != null ^ password != null) {
-        invalidConfigParams.put(
-            KafkaConnectorConfigParams.JVM_PROXY_USERNAME,
-            "proxy username and password must be provided together");
-        invalidConfigParams.put(
-            KafkaConnectorConfigParams.JVM_PROXY_PASSWORD,
-            "proxy username and password must be provided together");
-      }
-    }
-
-    return ImmutableMap.copyOf(invalidConfigParams);
+    return ImmutableMap.copyOf(
+        ProxyConfig.validate(
+            config.get(KafkaConnectorConfigParams.JVM_PROXY_HOST),
+            config.get(KafkaConnectorConfigParams.JVM_PROXY_PORT),
+            config.get(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS),
+            config.get(KafkaConnectorConfigParams.JVM_PROXY_USERNAME),
+            config.get(KafkaConnectorConfigParams.JVM_PROXY_PASSWORD)));
   }
 
   /**

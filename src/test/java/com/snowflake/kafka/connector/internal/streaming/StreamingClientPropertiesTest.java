@@ -22,7 +22,6 @@ import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKe
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.STREAMING_CLIENT_V2_PREFIX_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
@@ -50,9 +49,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 public class StreamingClientPropertiesTest {
 
@@ -565,56 +562,6 @@ public class StreamingClientPropertiesTest {
         .doesNotContainKey("no_proxy")
         .doesNotContainKey("proxy_user")
         .doesNotContainKey("proxy_password");
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-    "proxy.example.com, 3128, http://proxy.example.com:3128",
-    "'  proxy.example.com  ', ' 3128 ', http://proxy.example.com:3128",
-    "10.1.2.3, 8080, http://10.1.2.3:8080",
-    "::1, 3128, http://[::1]:3128",
-    "[::1], 3128, http://[::1]:3128",
-    "2001:db8::1, 443, http://[2001:db8::1]:443",
-    "proxy_host.example.com, 3128, http://proxy_host.example.com:3128",
-    "proxy.example.com, 1, http://proxy.example.com:1",
-    "proxy.example.com, 65535, http://proxy.example.com:65535",
-  })
-  void proxyUrlIsBuiltFromHostAndPort(String host, String port, String expected) {
-    assertThat(StreamingClientProperties.proxyUrl(host, port)).isEqualTo(expected);
-  }
-
-  @Test
-  void proxyUrlIsNullWhenHostOrPortIsMissing() {
-    assertThat(StreamingClientProperties.proxyUrl(null, "3128")).isNull();
-    assertThat(StreamingClientProperties.proxyUrl("proxy.example.com", null)).isNull();
-    assertThat(StreamingClientProperties.proxyUrl("", "3128")).isNull();
-    assertThat(StreamingClientProperties.proxyUrl("proxy.example.com", "  ")).isNull();
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"abc", "3128.5", "0", "-1", "65536", "70000"})
-  void proxyUrlRejectsAPortThatIsNotBetween1And65535(String port) {
-    assertThatThrownBy(() -> StreamingClientProperties.proxyUrl("proxy.example.com", port))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("proxy port must be an integer between 1 and 65535")
-        .hasMessageContaining("'" + port + "'");
-  }
-
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "bad host",
-        "http://proxy.example.com",
-        "proxy.example.com/",
-        "proxy.example.com/path",
-        "proxy.example.com?x=1",
-        "proxy.example.com#frag",
-        "user@proxy.example.com"
-      })
-  void proxyUrlRejectsAMalformedHost(String host) {
-    assertThatThrownBy(() -> StreamingClientProperties.proxyUrl(host, "3128"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("proxy host is not valid");
   }
 
   @Test

@@ -231,6 +231,51 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
+  public void testBlankPortIsRejectedNotIgnored() {
+    Map<String, String> config = getConfig();
+    config.put(JVM_PROXY_HOST, "127.0.0.1");
+    config.put(JVM_PROXY_PORT, " ");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(JVM_PROXY_PORT);
+  }
+
+  @Test
+  public void testNonNumericAndOutOfRangePortsAreRejected() {
+    for (String port : new String[] {"abc", "0", "65536"}) {
+      Map<String, String> config = getConfig();
+      config.put(JVM_PROXY_HOST, "127.0.0.1");
+      config.put(JVM_PROXY_PORT, port);
+      assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+          .isInstanceOf(SnowflakeKafkaConnectorException.class)
+          .hasMessageContaining(JVM_PROXY_PORT)
+          .hasMessageContaining("between 1 and 65535");
+    }
+  }
+
+  @Test
+  public void testMalformedProxyHostIsRejected() {
+    Map<String, String> config = getConfig();
+    config.put(JVM_PROXY_HOST, "proxy.example.com/");
+    config.put(JVM_PROXY_PORT, "3128");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(JVM_PROXY_HOST);
+  }
+
+  @Test
+  public void testNonProxyHostsOutsideTheJdkFormatAreRejected() {
+    Map<String, String> config = getConfig();
+    config.put(JVM_PROXY_HOST, "127.0.0.1");
+    config.put(JVM_PROXY_PORT, "3128");
+    config.put(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS, "localhost|10.0.0.0/8");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS)
+        .hasMessageContaining("10.0.0.0/8");
+  }
+
+  @Test
   public void testNonProxyHosts() {
     String oldNonProxyHosts = System.getProperty(HTTP_NON_PROXY_HOSTS);
     System.setProperty(HTTP_NON_PROXY_HOSTS, "host1.com|host2.com|localhost");

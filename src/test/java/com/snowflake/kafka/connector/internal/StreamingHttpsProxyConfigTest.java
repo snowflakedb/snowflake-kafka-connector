@@ -17,10 +17,14 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_USER;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_HOST;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_PORT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_USER;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_HOST;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PASSWORD;
@@ -28,6 +32,7 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_USERNAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKey;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
@@ -77,32 +82,74 @@ public class StreamingHttpsProxyConfigTest {
   }
 
   @Test
-  void jvmSystemPropertiesAreUsedWhenConnectorProxyIsUnset() {
-    String previousHttpsHost = System.getProperty(HTTPS_PROXY_HOST);
-    String previousHttpsPort = System.getProperty(HTTPS_PROXY_PORT);
-    String previousHttpHost = System.getProperty(HTTP_PROXY_HOST);
-    String previousHttpPort = System.getProperty(HTTP_PROXY_PORT);
-    String previousBypass = System.getProperty(HTTP_NON_PROXY_HOSTS);
-    System.setProperty(HTTPS_PROXY_HOST, "https-proxy.example.com");
-    System.setProperty(HTTPS_PROXY_PORT, "");
-    System.setProperty(HTTP_PROXY_HOST, "http-proxy.example.com");
-    System.setProperty(HTTP_PROXY_PORT, "8080");
-    System.setProperty(HTTP_NON_PROXY_HOSTS, "*.snowflakecomputing.com");
-    try {
-      Properties sdk =
-          StreamingClientProperties.from(SinkTaskConfig.from(baseConfig())).clientProperties;
+  void jvmHttpsProxyHostWithoutPortUsesTheJdkDefaultPort() {
+    withJvmProxyProperties(
+        Map.of(
+            HTTPS_PROXY_HOST, "https-proxy.example.com",
+            HTTPS_PROXY_PORT, "",
+            HTTP_PROXY_HOST, "http-proxy.example.com",
+            HTTP_PROXY_PORT, "8080",
+            HTTP_NON_PROXY_HOSTS, "*.snowflakecomputing.com"),
+        () -> {
+          Properties sdk =
+              StreamingClientProperties.from(SinkTaskConfig.from(baseConfig())).clientProperties;
 
-      assertThat(sdk)
-          .containsEntry("https_proxy_url", "http://http-proxy.example.com:8080")
-          .containsEntry("no_proxy", "*.snowflakecomputing.com")
-          .doesNotContainKey("proxy_user");
-    } finally {
-      restoreProperty(HTTPS_PROXY_HOST, previousHttpsHost);
-      restoreProperty(HTTPS_PROXY_PORT, previousHttpsPort);
-      restoreProperty(HTTP_PROXY_HOST, previousHttpHost);
-      restoreProperty(HTTP_PROXY_PORT, previousHttpPort);
-      restoreProperty(HTTP_NON_PROXY_HOSTS, previousBypass);
-    }
+          // The JDK sends https traffic through https.proxyHost on port 443 when no port is set,
+          // so the SDK must not skip it and fall through to http.proxyHost.
+          assertThat(sdk)
+              .containsEntry("https_proxy_url", "http://https-proxy.example.com:443")
+              .containsEntry("no_proxy", "*.snowflakecomputing.com")
+              .doesNotContainKey("proxy_user");
+        });
+  }
+
+  @Test
+  void jvmHttpProxyAloneIsIgnoredBecauseAllSnowflakeTrafficIsHttps() {
+    // The JDK applies http.proxyHost only to http:// URLs, so JDBC and the OAuth fetch go direct
+    // for Snowflake. The SDK must not use a proxy the other clients do not.
+    withJvmProxyProperties(
+        Map.of(
+            HTTP_PROXY_HOST, "http-proxy.example.com",
+            HTTP_PROXY_PORT, "8080",
+            HTTP_NON_PROXY_HOSTS, "localhost"),
+        () -> {
+          SinkTaskConfig parsed = SinkTaskConfig.from(baseConfig());
+          Properties sdk = StreamingClientProperties.from(parsed).clientProperties;
+
+          assertThat(sdk)
+              .doesNotContainKey("https_proxy_url")
+              .doesNotContainKey("no_proxy")
+              .doesNotContainKey("proxy_user");
+          assertThat(InternalUtils.generateProxyParametersIfRequired(parsed)).isEmpty();
+        });
+  }
+
+  @Test
+  void invalidJvmProxyPortIsRejectedNotIgnored() {
+    withJvmProxyProperties(
+        Map.of(HTTPS_PROXY_HOST, "https-proxy.example.com", HTTPS_PROXY_PORT, "abc"),
+        () ->
+            assertThatThrownBy(
+                    () -> StreamingClientProperties.from(SinkTaskConfig.from(baseConfig())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid JVM proxy settings")
+                .hasMessageContaining(HTTPS_PROXY_PORT)
+                .hasMessageContaining("'abc'"));
+  }
+
+  @Test
+  void jvmBypassListOutsideTheJdkFormatIsRejectedNotIgnored() {
+    withJvmProxyProperties(
+        Map.of(
+            HTTPS_PROXY_HOST, "https-proxy.example.com",
+            HTTPS_PROXY_PORT, "3128",
+            HTTP_NON_PROXY_HOSTS, "localhost|10.0.0.0/8"),
+        () ->
+            assertThatThrownBy(
+                    () -> StreamingClientProperties.from(SinkTaskConfig.from(baseConfig())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(HTTP_NON_PROXY_HOSTS)
+                .hasMessageContaining("'10.0.0.0/8'"));
   }
 
   @Test
@@ -154,13 +201,67 @@ public class StreamingHttpsProxyConfigTest {
   }
 
   @Test
-  void missingPortSkipsTheConnectorProxy() {
+  void missingPortIsRejectedNotSkipped() {
     Map<String, String> config = baseConfig();
     config.put(JVM_PROXY_HOST, "proxy.example.com");
 
-    assertThat(Utils.validateProxySettings(config)).containsKey(JVM_PROXY_HOST);
-    Properties sdk = StreamingClientProperties.from(SinkTaskConfig.from(config)).clientProperties;
-    assertThat(sdk).doesNotContainKey("https_proxy_url");
+    assertThat(Utils.validateProxySettings(config)).containsKeys(JVM_PROXY_HOST, JVM_PROXY_PORT);
+    assertThatThrownBy(() -> SinkTaskConfig.from(config))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(JVM_PROXY_PORT);
+  }
+
+  @Test
+  void blankPortIsRejectedNotSkipped() {
+    Map<String, String> config = baseConfig();
+    config.put(JVM_PROXY_HOST, "proxy.example.com");
+    config.put(JVM_PROXY_PORT, " ");
+
+    assertThat(Utils.validateProxySettings(config)).containsKeys(JVM_PROXY_HOST, JVM_PROXY_PORT);
+    assertThatThrownBy(() -> SinkTaskConfig.from(config))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void nonProxyHostsOutsideTheJdkFormatAreRejected() {
+    Map<String, String> config = baseConfig();
+    config.put(JVM_PROXY_HOST, "proxy.example.com");
+    config.put(JVM_PROXY_PORT, "3128");
+    config.put(JVM_NON_PROXY_HOSTS, "localhost,10.0.0.0/8");
+
+    assertThat(Utils.validateProxySettings(config)).containsOnlyKeys(JVM_NON_PROXY_HOSTS);
+    assertThatThrownBy(() -> SinkTaskConfig.from(config))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(JVM_NON_PROXY_HOSTS);
+  }
+
+  /**
+   * Runs {@code body} with exactly these JVM proxy system properties set (the other proxy
+   * properties are cleared), then restores whatever was there before.
+   */
+  private static void withJvmProxyProperties(Map<String, String> properties, Runnable body) {
+    String[] keys = {
+      HTTPS_PROXY_HOST,
+      HTTPS_PROXY_PORT,
+      HTTP_PROXY_HOST,
+      HTTP_PROXY_PORT,
+      HTTP_NON_PROXY_HOSTS,
+      HTTPS_PROXY_USER,
+      HTTPS_PROXY_PASSWORD,
+      HTTP_PROXY_USER,
+      HTTP_PROXY_PASSWORD
+    };
+    Map<String, String> previous = new HashMap<>();
+    for (String key : keys) {
+      previous.put(key, System.getProperty(key));
+      System.clearProperty(key);
+    }
+    try {
+      properties.forEach(System::setProperty);
+      body.run();
+    } finally {
+      previous.forEach(StreamingHttpsProxyConfigTest::restoreProperty);
+    }
   }
 
   private static Map<String, String> baseConfig() {

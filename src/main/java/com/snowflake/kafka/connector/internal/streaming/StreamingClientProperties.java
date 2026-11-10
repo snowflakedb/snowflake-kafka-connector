@@ -18,7 +18,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.google.common.base.Strings;
-import com.google.common.net.HostAndPort;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
@@ -29,8 +28,6 @@ import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
@@ -183,44 +180,53 @@ public class StreamingClientProperties {
     return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
   }
 
+  // JDK default when https.proxyHost has no https.proxyPort.
+  private static final String HTTPS_DEFAULT_PROXY_PORT = "443";
+
   /**
    * Sends the SDK the same proxy the connector's JDBC and OAuth clients use: {@code jvm.proxy.*}
-   * when host and port are set, else the JVM's {@code https.proxyHost} (then {@code
-   * http.proxyHost}) system properties, else nothing, so the SDK falls back to {@code HTTPS_PROXY}
-   * / {@code NO_PROXY}. The bypass list is passed unchanged: the SDK reads the JDK {@code
-   * nonProxyHosts} format.
+   * when host and port are set, else the JVM's {@code https.proxyHost} system property, else
+   * nothing, so the SDK falls back to {@code HTTPS_PROXY} / {@code NO_PROXY}.
+   *
+   * <p>Only {@code https.*} is considered. All Snowflake traffic is HTTPS, and the JDK applies
+   * {@code http.proxyHost} only to {@code http://} URLs, so JDBC and the OAuth fetch ignore it for
+   * Snowflake traffic. Reading it here would send the SDK through a proxy the other clients do not
+   * use. An {@code https.proxyHost} without a port gets the JDK default, 443. The bypass list is
+   * passed unchanged: the SDK reads the JDK {@code nonProxyHosts} format.
+   *
+   * @throws IllegalArgumentException if a JVM proxy property holds an invalid port, host or bypass
+   *     entry (the {@code jvm.proxy.*} settings were already validated by {@link ProxyConfig})
    */
   private static void putProxy(Properties clientProperties, SinkTaskConfig config) {
     ProxyConfig proxy = config.getProxyConfig();
-    String url = proxyUrl(proxy.getHost(), proxy.getPort());
+    String url;
     String noProxy;
     String user;
     String password;
-    if (url != null) {
+    if (proxy.isConfigured()) {
+      url = ProxyConfig.toUrl(proxy.getHost(), proxy.getPort());
       noProxy = proxy.getNonProxyHosts();
       user = proxy.getUsername();
       password = proxy.getPassword();
     } else {
-      String httpsUrl =
-          proxyUrl(
-              System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST),
-              System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT));
-      if (httpsUrl != null) {
-        url = httpsUrl;
-        user = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER);
-        password = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
-      } else {
-        url =
-            proxyUrl(
-                System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST),
-                System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT));
-        user = System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER);
-        password = System.getProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD);
-      }
+      url =
+          jvmProxyUrl(
+              KafkaConnectorConfigParams.HTTPS_PROXY_HOST,
+              KafkaConnectorConfigParams.HTTPS_PROXY_PORT,
+              HTTPS_DEFAULT_PROXY_PORT);
       if (url == null) {
         return;
       }
+      user = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER);
+      password = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
       noProxy = System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS);
+      String invalidEntry = ProxyConfig.invalidNonProxyHostsEntry(noProxy);
+      if (invalidEntry != null) {
+        throw new IllegalArgumentException(
+            KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS
+                + " (JVM property): "
+                + ProxyConfig.invalidNonProxyHostsMessage(invalidEntry));
+      }
     }
     clientProperties.put("https_proxy_url", url);
     if (blankToNull(noProxy) != null) {
@@ -233,61 +239,21 @@ public class StreamingClientProperties {
   }
 
   /**
-   * {@code http://host:port}. Guava's {@link HostAndPort} formats the authority (bracketing IPv6
-   * literals), and parsing the result as a {@link URI} rejects a host that would add a path, query,
-   * fragment or user info to the URL. Returns null when host or port is missing.
-   *
-   * @throws IllegalArgumentException if the port is not an integer from 1 to 65535, or the host is
-   *     not valid
+   * The proxy URL for a JVM proxy host/port property pair, or null when the host is unset. A blank
+   * port falls back to {@code defaultPort}, as the JDK does.
    */
-  static String proxyUrl(String host, String port) {
-    host = blankToNull(host);
-    port = blankToNull(port);
-    if (host == null || port == null) {
+  private static String jvmProxyUrl(String hostKey, String portKey, String defaultPort) {
+    String host = blankToNull(System.getProperty(hostKey));
+    if (host == null) {
       return null;
     }
-    host = host.trim();
-    port = port.trim();
-    int portNumber;
+    String port = blankToNull(System.getProperty(portKey));
     try {
-      portNumber = Integer.parseInt(port);
-    } catch (NumberFormatException e) {
-      throw invalidProxyPort(port, e);
-    }
-    if (portNumber < 1 || portNumber > 65535) {
-      throw invalidProxyPort(port, null);
-    }
-    String authority;
-    try {
-      authority = HostAndPort.fromParts(host, portNumber).toString();
+      return ProxyConfig.toUrl(host, port != null ? port : defaultPort);
     } catch (IllegalArgumentException e) {
-      throw invalidProxyHost(host, e);
+      throw new IllegalArgumentException(
+          "Invalid JVM proxy settings (" + hostKey + " / " + portKey + "): " + e.getMessage(), e);
     }
-    URI uri;
-    try {
-      uri = new URI("http://" + authority);
-    } catch (URISyntaxException e) {
-      throw invalidProxyHost(host, e);
-    }
-    boolean onlyHostAndPort =
-        authority.equals(uri.getRawAuthority())
-            && uri.getRawUserInfo() == null
-            && (uri.getRawPath() == null || uri.getRawPath().isEmpty())
-            && uri.getRawQuery() == null
-            && uri.getRawFragment() == null;
-    if (!onlyHostAndPort) {
-      throw invalidProxyHost(host, null);
-    }
-    return uri.toString();
-  }
-
-  private static IllegalArgumentException invalidProxyHost(String host, Exception cause) {
-    return new IllegalArgumentException("proxy host is not valid: '" + host + "'", cause);
-  }
-
-  private static IllegalArgumentException invalidProxyPort(String port, Exception cause) {
-    return new IllegalArgumentException(
-        "proxy port must be an integer between 1 and 65535, got '" + port + "'", cause);
   }
 
   private static String blankToNull(String value) {
