@@ -18,6 +18,7 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.google.common.base.Strings;
+import com.google.common.net.HostAndPort;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
@@ -28,6 +29,8 @@ import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
@@ -229,7 +232,14 @@ public class StreamingClientProperties {
     }
   }
 
-  /** {@code http://host:port}. Returns null when host or port is missing. */
+  /**
+   * {@code http://host:port}. Guava's {@link HostAndPort} formats the authority (bracketing IPv6
+   * literals), and parsing the result as a {@link URI} rejects a host that would add a path, query,
+   * fragment or user info to the URL. Returns null when host or port is missing.
+   *
+   * @throws IllegalArgumentException if the port is not an integer from 1 to 65535, or the host is
+   *     not valid
+   */
   static String proxyUrl(String host, String port) {
     host = blankToNull(host);
     port = blankToNull(port);
@@ -238,10 +248,46 @@ public class StreamingClientProperties {
     }
     host = host.trim();
     port = port.trim();
-    if (host.indexOf(':') >= 0 && !host.startsWith("[")) {
-      host = "[" + host + "]";
+    int portNumber;
+    try {
+      portNumber = Integer.parseInt(port);
+    } catch (NumberFormatException e) {
+      throw invalidProxyPort(port, e);
     }
-    return "http://" + host + ":" + port;
+    if (portNumber < 1 || portNumber > 65535) {
+      throw invalidProxyPort(port, null);
+    }
+    String authority;
+    try {
+      authority = HostAndPort.fromParts(host, portNumber).toString();
+    } catch (IllegalArgumentException e) {
+      throw invalidProxyHost(host, e);
+    }
+    URI uri;
+    try {
+      uri = new URI("http://" + authority);
+    } catch (URISyntaxException e) {
+      throw invalidProxyHost(host, e);
+    }
+    boolean onlyHostAndPort =
+        authority.equals(uri.getRawAuthority())
+            && uri.getRawUserInfo() == null
+            && (uri.getRawPath() == null || uri.getRawPath().isEmpty())
+            && uri.getRawQuery() == null
+            && uri.getRawFragment() == null;
+    if (!onlyHostAndPort) {
+      throw invalidProxyHost(host, null);
+    }
+    return uri.toString();
+  }
+
+  private static IllegalArgumentException invalidProxyHost(String host, Exception cause) {
+    return new IllegalArgumentException("proxy host is not valid: '" + host + "'", cause);
+  }
+
+  private static IllegalArgumentException invalidProxyPort(String port, Exception cause) {
+    return new IllegalArgumentException(
+        "proxy port must be an integer between 1 and 65535, got '" + port + "'", cause);
   }
 
   private static String blankToNull(String value) {
