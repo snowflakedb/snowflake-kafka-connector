@@ -4,7 +4,7 @@ mitmproxy addon for the forward-proxy E2E tests.
 Counts the Snowflake calls seen on each listener port, so a test can tell
 which proxy tier a connector used:
 
-  8080  connector tier (jvm.proxy.host / jvm.proxy.port)
+  8080  connector tier (snowflake.https.proxy.host / snowflake.https.proxy.port)
   8081  worker JVM tier (-Dhttps.proxyHost / -Dhttps.proxyPort)
 
 Control API on :9080:

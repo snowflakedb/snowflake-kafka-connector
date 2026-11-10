@@ -5,10 +5,10 @@ Requires --with-https-proxy (Apache platform). The Connect worker can only
 reach Snowflake through the https-proxy container, which counts calls per
 listener port:
 
-  8080  connector tier (jvm.proxy.host / jvm.proxy.port)
+  8080  connector tier (snowflake.https.proxy.host / snowflake.https.proxy.port)
   8081  worker JVM tier (-Dhttps.proxyHost, set on the worker by the overlay)
 
-The connector picks one proxy (jvm.proxy.*, else the worker's JVM proxy
+The connector picks one proxy (snowflake.https.proxy.*, else the worker's JVM proxy
 system properties) and gives the same one to JDBC and the streaming SDK.
 Each test asserts which listener carried the JDBC and SDK calls, so a
 connector that silently falls back to the other tier fails the test.
@@ -108,13 +108,13 @@ def _assert_no_snowflake_traffic(counts: dict, port: int, status: dict):
 def test_connector_proxy_carries_jdbc_and_sdk_traffic(
     driver, https_proxy, create_table, create_custom_connector, wait_for_rows
 ):
-    """jvm.proxy.* routes JDBC and SDK calls through the connector tier, not the worker JVM tier."""
+    """snowflake.https.proxy.* routes JDBC and SDK calls through the connector tier, not the worker JVM tier."""
     https_proxy.reset()
     _ingest_through_proxy(
         "https_proxy_connector_tier",
         {
-            "jvm.proxy.host": PROXY_HOST,
-            "jvm.proxy.port": str(CONNECTOR_TIER_PORT),
+            "snowflake.https.proxy.host": PROXY_HOST,
+            "snowflake.https.proxy.port": str(CONNECTOR_TIER_PORT),
         },
         driver,
         create_table,
@@ -135,7 +135,7 @@ def test_connector_proxy_carries_jdbc_and_sdk_traffic(
 def test_worker_jvm_proxy_used_without_connector_proxy(
     driver, https_proxy, create_table, create_custom_connector, wait_for_rows
 ):
-    """Without jvm.proxy.*, the worker's -Dhttps.proxyHost carries JDBC and SDK calls.
+    """Without snowflake.https.proxy.*, the worker's -Dhttps.proxyHost carries JDBC and SDK calls.
 
     JDBC reads the system properties itself. The SDK has no other route out (the
     worker sets no HTTPS_PROXY), so rows only land if the connector forwarded
@@ -164,7 +164,7 @@ def test_worker_jvm_proxy_used_without_connector_proxy(
 def test_jdk_style_non_proxy_hosts_reach_sdk_unchanged(
     driver, https_proxy, create_table, create_custom_connector, wait_for_rows
 ):
-    """jvm.nonProxy.hosts in JDK format (| separated, * wildcards) is accepted by JDBC and the SDK.
+    """snowflake.proxy.bypasshosts in JDK format (| separated, * wildcards) is accepted by JDBC and the SDK.
 
     The connector passes the list to the SDK as no_proxy without converting it.
     None of the entries match Snowflake, so all calls still go through the
@@ -174,9 +174,9 @@ def test_jdk_style_non_proxy_hosts_reach_sdk_unchanged(
     _ingest_through_proxy(
         "https_proxy_jdk_non_proxy_hosts",
         {
-            "jvm.proxy.host": PROXY_HOST,
-            "jvm.proxy.port": str(CONNECTOR_TIER_PORT),
-            "jvm.nonProxy.hosts": JDK_STYLE_NON_PROXY_HOSTS,
+            "snowflake.https.proxy.host": PROXY_HOST,
+            "snowflake.https.proxy.port": str(CONNECTOR_TIER_PORT),
+            "snowflake.proxy.bypasshosts": JDK_STYLE_NON_PROXY_HOSTS,
         },
         driver,
         create_table,
@@ -197,7 +197,7 @@ def test_jdk_style_non_proxy_hosts_reach_sdk_unchanged(
 def test_unreachable_connector_proxy_fails_without_fallback(
     driver, https_proxy, create_table, create_custom_connector
 ):
-    """A wrong jvm.proxy.port fails the connector instead of falling back to the worker JVM proxy."""
+    """A wrong snowflake.https.proxy.port fails the connector instead of falling back to the worker JVM proxy."""
     unsalted_name = "https_proxy_unreachable"
     https_proxy.reset()
     table = create_table(
@@ -206,8 +206,8 @@ def test_unreachable_connector_proxy_fails_without_fallback(
     driver.createTopics(table.name, partitionNum=1, replicationNum=1)
     config = _connector_config(
         **{
-            "jvm.proxy.host": PROXY_HOST,
-            "jvm.proxy.port": str(UNREACHABLE_PROXY_PORT),
+            "snowflake.https.proxy.host": PROXY_HOST,
+            "snowflake.https.proxy.port": str(UNREACHABLE_PROXY_PORT),
         }
     )
 
@@ -232,6 +232,41 @@ def test_unreachable_connector_proxy_fails_without_fallback(
         assert not driver.select_number_of_records(table.name), (
             "rows landed through an unreachable proxy"
         )
+
+    status = https_proxy.get_status()
+    logger.info("Proxy status: %s", status)
+    _assert_no_snowflake_traffic(
+        https_proxy.counts(JVM_TIER_PORT), JVM_TIER_PORT, status
+    )
+    _assert_no_snowflake_traffic(
+        https_proxy.counts(CONNECTOR_TIER_PORT), CONNECTOR_TIER_PORT, status
+    )
+
+
+def test_old_jvm_proxy_keys_are_rejected(
+    driver, https_proxy, create_table, create_custom_connector
+):
+    """The jvm.proxy.* names were renamed to snowflake.https.proxy.*.
+
+    Kafka Connect ignores keys it does not know, so a connector left on the old
+    names would silently run without its proxy. It must be rejected instead,
+    and validation must stop before it opens any connection.
+    """
+    unsalted_name = "https_proxy_old_keys"
+    https_proxy.reset()
+    table = create_table(
+        unsalted_name, columns='(record_metadata variant, "seq" varchar)'
+    )
+    driver.createTopics(table.name, partitionNum=1, replicationNum=1)
+    config = _connector_config(
+        **{
+            "jvm.proxy.host": PROXY_HOST,
+            "jvm.proxy.port": str(CONNECTOR_TIER_PORT),
+        }
+    )
+
+    with pytest.raises(RuntimeError):
+        create_custom_connector(unsalted_name, config)
 
     status = https_proxy.get_status()
     logger.info("Proxy status: %s", status)

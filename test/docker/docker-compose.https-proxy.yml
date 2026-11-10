@@ -8,7 +8,7 @@
 # silently succeeding.
 #
 # https-proxy listens on two ports so tests can tell the proxy tiers apart:
-#   8080  connector tier: tests set jvm.proxy.host=https-proxy, jvm.proxy.port=8080
+#   8080  connector tier: tests set snowflake.https.proxy.host=https-proxy, snowflake.https.proxy.port=8080
 #   8081  worker JVM tier: the worker starts with -Dhttps.proxyHost=https-proxy -Dhttps.proxyPort=8081
 #   9080  control API (per-port call counters)
 
