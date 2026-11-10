@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.oauth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
@@ -26,6 +27,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -91,6 +93,7 @@ public class OAuthAccessTokenFetcher {
       Optional<Password> refreshToken,
       Optional<String> scope,
       ProxyConfig proxy) {
+    allowProxyBasicAuthForHttpsTunnels(proxy);
     HttpClient.Builder builder = HttpClient.newBuilder();
     if (proxy.isConfigured()) {
       int port;
@@ -118,6 +121,41 @@ public class OAuthAccessTokenFetcher {
       builder.proxy(ProxySelector.getDefault());
     }
     return fetchAccessToken(url, clientId, clientSecret, refreshToken, scope, builder.build());
+  }
+
+  /**
+   * Lets the JDK answer a proxy's 407 with Basic credentials when tunneling HTTPS. By default the
+   * JDK disables Basic for tunnels ({@code jdk.http.auth.tunneling.disabledSchemes=Basic}), so the
+   * token request would fail with a 407 even though the per-client {@code Authenticator} supplies
+   * the credentials. JDBC and the streaming SDK send proxy credentials themselves and are not
+   * affected.
+   *
+   * <p>The setting is JVM-wide and the JDK reads it once, on the first {@code java.net.http} use in
+   * the process, so it only takes effect if no earlier code in the worker has used that client. An
+   * operator-supplied value is never overridden; set {@code
+   * -Djdk.http.auth.tunneling.disabledSchemes=} on the worker to get this behavior regardless of
+   * load order.
+   */
+  static void allowProxyBasicAuthForHttpsTunnels(ProxyConfig proxy) {
+    if (!proxy.isConfigured() || !proxy.hasCredentials()) {
+      return;
+    }
+    String current = System.getProperty(Utils.JDK_HTTP_AUTH_TUNNELING);
+    if (current != null) {
+      if (current.toLowerCase(Locale.ROOT).contains("basic")) {
+        LOGGER.warn(
+            "{} is set to '{}' on this JVM, so Basic proxy authentication for the OAuth token"
+                + " request over an HTTPS tunnel stays disabled",
+            Utils.JDK_HTTP_AUTH_TUNNELING,
+            current);
+      }
+      return;
+    }
+    System.setProperty(Utils.JDK_HTTP_AUTH_TUNNELING, "");
+    LOGGER.info(
+        "Enabled Basic proxy authentication for HTTPS tunnels by clearing {}, which the OAuth token"
+            + " request needs for an authenticated proxy. The setting applies to the whole JVM.",
+        Utils.JDK_HTTP_AUTH_TUNNELING);
   }
 
   /** HTTP proxy for {@code jvm.proxy.host} and {@code jvm.proxy.port}, honoring the bypass list. */
