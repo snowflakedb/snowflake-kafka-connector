@@ -145,7 +145,7 @@ class ProxyConfigTest {
         " localhost | 127.* "
       })
   void aJdkFormatBypassListIsValid(String list) {
-    assertThat(ProxyConfig.invalidNonProxyHostsEntry(list)).isNull();
+    assertThat(ProxyConfig.invalidBypassHostsEntry(list)).isNull();
     assertThat(ProxyConfig.validate("p.example.com", "3128", list, null, null)).isEmpty();
   }
 
@@ -160,7 +160,7 @@ class ProxyConfigTest {
         "ok|a@b;a@b"
       })
   void aBypassEntryOutsideTheJdkFormatIsRejected(String list, String badEntry) {
-    assertThat(ProxyConfig.invalidNonProxyHostsEntry(list)).isEqualTo(badEntry);
+    assertThat(ProxyConfig.invalidBypassHostsEntry(list)).isEqualTo(badEntry);
     assertThat(ProxyConfig.validate("p.example.com", "3128", list, null, null))
         .containsOnlyKeys(SNOWFLAKE_PROXY_BYPASS_HOSTS)
         .extractingByKey(SNOWFLAKE_PROXY_BYPASS_HOSTS)

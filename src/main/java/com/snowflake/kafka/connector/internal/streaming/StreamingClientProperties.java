@@ -221,12 +221,12 @@ public class StreamingClientProperties {
       user = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER);
       password = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
       noProxy = System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS);
-      String invalidEntry = ProxyConfig.invalidNonProxyHostsEntry(noProxy);
+      String invalidEntry = ProxyConfig.invalidBypassHostsEntry(noProxy);
       if (invalidEntry != null) {
         throw new IllegalArgumentException(
             KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS
                 + " (JVM property): "
-                + ProxyConfig.invalidNonProxyHostsMessage(invalidEntry));
+                + ProxyConfig.invalidBypassHostsMessage(invalidEntry));
       }
     }
     clientProperties.put("https_proxy_url", url);

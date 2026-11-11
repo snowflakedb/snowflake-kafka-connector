@@ -117,11 +117,11 @@ public abstract class ProxyConfig {
           USERNAME_AND_PASSWORD_TOGETHER);
     }
 
-    String invalidEntry = invalidNonProxyHostsEntry(nonProxyHosts);
+    String invalidEntry = invalidBypassHostsEntry(nonProxyHosts);
     if (invalidEntry != null) {
       errors.put(
           KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS,
-          invalidNonProxyHostsMessage(invalidEntry));
+          invalidBypassHostsMessage(invalidEntry));
     }
     return errors;
   }
@@ -160,28 +160,28 @@ public abstract class ProxyConfig {
    * block such as {@code 10.0.0.0/8} is not valid. Empty entries are ignored.
    */
   @Nullable
-  public static String invalidNonProxyHostsEntry(@Nullable String nonProxyHosts) {
+  public static String invalidBypassHostsEntry(@Nullable String nonProxyHosts) {
     if (nonProxyHosts == null) {
       return null;
     }
     for (String entry : nonProxyHosts.split("\\|", -1)) {
       String trimmed = entry.trim();
-      if (!trimmed.isEmpty() && !trimmed.chars().allMatch(ProxyConfig::isNonProxyHostsChar)) {
+      if (!trimmed.isEmpty() && !trimmed.chars().allMatch(ProxyConfig::isBypassHostsChar)) {
         return trimmed;
       }
     }
     return null;
   }
 
-  /** The message used when {@link #invalidNonProxyHostsEntry} finds a bad entry. */
-  public static String invalidNonProxyHostsMessage(String entry) {
+  /** The message used when {@link #invalidBypassHostsEntry} finds a bad entry. */
+  public static String invalidBypassHostsMessage(String entry) {
     return "invalid entry '"
         + entry
         + "': use the JDK http.nonProxyHosts format, entries separated by '|' that are host"
         + " names or IP addresses, where '*' matches any characters";
   }
 
-  private static boolean isNonProxyHostsChar(int c) {
+  private static boolean isBypassHostsChar(int c) {
     return (c >= 'a' && c <= 'z')
         || (c >= 'A' && c <= 'Z')
         || (c >= '0' && c <= '9')
