@@ -18,8 +18,10 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import com.google.common.base.Strings;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
+import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.PrivateKeyTool;
@@ -159,6 +161,10 @@ public class StreamingClientProperties {
     clientProperties.put("host", url.getUrlWithoutPort());
     clientProperties.put("application", APPLICATION_NAME);
 
+    // Passwords stay on clientProperties, which is not logged; only parameterOverrides is logged
+    // below.
+    putProxy(clientProperties, config);
+
     String clientNamePrefix =
         STREAMING_CLIENT_V2_PREFIX_NAME
             + (config.getConnectorName() != null ? config.getConnectorName() : DEFAULT_CLIENT_NAME);
@@ -172,6 +178,90 @@ public class StreamingClientProperties {
     }
 
     return new StreamingClientProperties(clientProperties, clientNamePrefix, parameterOverrides);
+  }
+
+  // JDK default when https.proxyHost has no https.proxyPort.
+  private static final String HTTPS_DEFAULT_PROXY_PORT = "443";
+
+  /**
+   * Sends the SDK the same proxy the connector's JDBC and OAuth clients use: {@code
+   * snowflake.https.proxy.*} when host and port are set, else the JVM's {@code https.proxyHost}
+   * system property, else nothing, so the SDK falls back to {@code HTTPS_PROXY} / {@code NO_PROXY}.
+   *
+   * <p>Only {@code https.*} is considered. All Snowflake traffic is HTTPS, and the JDK applies
+   * {@code http.proxyHost} only to {@code http://} URLs, so JDBC and the OAuth fetch ignore it for
+   * Snowflake traffic. Reading it here would send the SDK through a proxy the other clients do not
+   * use. An {@code https.proxyHost} without a port gets the JDK default, 443. The bypass list is
+   * passed unchanged: the SDK reads the JDK {@code nonProxyHosts} format.
+   *
+   * @throws IllegalArgumentException if a JVM proxy property holds an invalid port, host or bypass
+   *     entry (the {@code snowflake.https.proxy.*} settings were already validated by {@link
+   *     ProxyConfig})
+   */
+  private static void putProxy(Properties clientProperties, SinkTaskConfig config) {
+    ProxyConfig proxy = config.getProxyConfig();
+    String url;
+    String noProxy;
+    String user;
+    String password;
+    if (proxy.isConfigured()) {
+      url = ProxyConfig.toUrl(proxy.getHost(), proxy.getPort());
+      noProxy = proxy.getNonProxyHosts();
+      user = proxy.getUsername();
+      password = proxy.getPassword();
+    } else {
+      url =
+          jvmProxyUrl(
+              KafkaConnectorConfigParams.HTTPS_PROXY_HOST,
+              KafkaConnectorConfigParams.HTTPS_PROXY_PORT,
+              HTTPS_DEFAULT_PROXY_PORT);
+      if (url == null) {
+        return;
+      }
+      user = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER);
+      password = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
+      noProxy = System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS);
+      String invalidEntry = ProxyConfig.invalidBypassHostsEntry(noProxy);
+      if (invalidEntry != null) {
+        throw new IllegalArgumentException(
+            KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS
+                + " (JVM property): "
+                + ProxyConfig.invalidBypassHostsMessage(invalidEntry));
+      }
+    }
+    clientProperties.put("https_proxy_url", url);
+    if (blankToNull(noProxy) != null) {
+      clientProperties.put("no_proxy", noProxy.trim());
+    }
+    if (blankToNull(user) != null && blankToNull(password) != null) {
+      clientProperties.put("proxy_user", user);
+      clientProperties.put("proxy_password", password);
+    }
+  }
+
+  /**
+   * The proxy URL for a JVM proxy host/port property pair, or null when the host is unset. A blank
+   * port falls back to {@code defaultPort}, as the JDK does.
+   */
+  private static String jvmProxyUrl(String hostKey, String portKey, String defaultPort) {
+    String host = blankToNull(System.getProperty(hostKey));
+    if (host == null) {
+      return null;
+    }
+    String port = blankToNull(System.getProperty(portKey));
+    try {
+      return ProxyConfig.toUrl(host, port != null ? port : defaultPort);
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          "Invalid JVM proxy settings (" + hostKey + " / " + portKey + "): " + e.getMessage(), e);
+    }
+  }
+
+  private static String blankToNull(String value) {
+    if (value == null || value.trim().isEmpty()) {
+      return null;
+    }
+    return value;
   }
 
   /**

@@ -140,9 +140,6 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
                 KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_CONFIG,
                 KafkaConnectorConfigParams.ENABLE_MDC_LOGGING_DEFAULT)));
 
-    // enable proxy
-    Utils.enableJVMProxy(config);
-
     // create a persisted connection, and validate snowflake connection
     // config as a side effect
     conn = SnowflakeConnectionServiceFactory.builder().setProperties(config).build();
@@ -262,7 +259,12 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
     Map<String, String> invalidProxyParams = Utils.validateProxySettings(connectorConfigs);
 
     for (String invalidKey : invalidProxyParams.keySet()) {
-      Utils.updateConfigErrorMessage(result, invalidKey, invalidProxyParams.get(invalidKey));
+      Utils.updateConfigErrorMessage(result, invalidKey, ": " + invalidProxyParams.get(invalidKey));
+    }
+    if (!invalidProxyParams.isEmpty()) {
+      // Do not connect with settings already known to be invalid: parsing them below would throw
+      // instead of returning the per-key errors recorded above.
+      return result;
     }
 
     // Skip live connection validation only when a credential is supplied through a config provider
@@ -271,10 +273,6 @@ public class SnowflakeStreamingSinkConnector extends SinkConnector {
         || isUsingConfigProviderForOAuth(connectorConfigs)) {
       return result;
     }
-
-    // Apply proxy settings before the test connection so the OAuth token fetch (which uses the JVM
-    // default ProxySelector) sees the same proxy/nonProxyHosts config as runtime does in start().
-    Utils.enableJVMProxy(connectorConfigs);
 
     // We don't validate name, since it is not included in the return value
     // so just put a test connector here

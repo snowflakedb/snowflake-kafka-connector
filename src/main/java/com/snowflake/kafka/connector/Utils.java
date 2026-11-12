@@ -18,17 +18,17 @@ package com.snowflake.kafka.connector;
 
 import com.google.common.collect.ImmutableMap;
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
+import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -178,97 +178,37 @@ public class Utils {
    * @param config connector configuration
    */
   public static ImmutableMap<String, String> validateProxySettings(Map<String, String> config) {
-    Map<String, String> invalidConfigParams = new HashMap<String, String>();
-
-    String host =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_HOST);
-    String port =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_PORT);
-
-    // either both host and port are provided or none of them are provided
-    if (host != null ^ port != null) {
-      invalidConfigParams.put(
-          KafkaConnectorConfigParams.JVM_PROXY_HOST,
-          "proxy host and port must be provided together");
-      invalidConfigParams.put(
-          KafkaConnectorConfigParams.JVM_PROXY_PORT,
-          "proxy host and port must be provided together");
-    } else if (host != null) {
-      String username =
-          ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
-      String password =
-          ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
-      // either both username and password are provided or none of them are provided
-      if (username != null ^ password != null) {
-        invalidConfigParams.put(
-            KafkaConnectorConfigParams.JVM_PROXY_USERNAME,
-            "proxy username and password must be provided together");
-        invalidConfigParams.put(
-            KafkaConnectorConfigParams.JVM_PROXY_PASSWORD,
-            "proxy username and password must be provided together");
-      }
-    }
-
-    return ImmutableMap.copyOf(invalidConfigParams);
+    Map<String, String> errors =
+        new LinkedHashMap<>(
+            ProxyConfig.validate(
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST),
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT),
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS),
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME),
+                config.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD)));
+    // Kafka Connect ignores config keys it does not know, so a connector still configured with an
+    // old name would silently run without its proxy. Reject it, naming the new key. The error is
+    // reported against the new key because the old one is no longer a known config.
+    RENAMED_PROXY_KEYS.forEach(
+        (oldKey, newKey) -> {
+          if (ConnectorConfigTools.getProperty(config, oldKey) != null) {
+            errors.merge(
+                newKey,
+                oldKey + " was renamed to " + newKey + " and is no longer read; set " + newKey,
+                (existing, added) -> existing + "; " + added);
+          }
+        });
+    return ImmutableMap.copyOf(errors);
   }
 
-  /**
-   * Enable JVM proxy
-   *
-   * @param config connector configuration
-   */
-  public static void enableJVMProxy(Map<String, String> config) {
-    String host =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_HOST);
-    String port =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_PORT);
-    String nonProxyHosts =
-        ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS);
-    if (host != null && port != null) {
-      LOGGER.info(
-          "enable jvm proxy: {}:{} and bypass proxy for hosts: {}", host, port, nonProxyHosts);
-
-      // enable https proxy
-      System.setProperty(KafkaConnectorConfigParams.HTTP_USE_PROXY, "true");
-      System.setProperty(KafkaConnectorConfigParams.HTTP_PROXY_HOST, host);
-      System.setProperty(KafkaConnectorConfigParams.HTTP_PROXY_PORT, port);
-      System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST, host);
-      System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PORT, port);
-
-      // If the user provided the jvm.nonProxy.hosts configuration then we
-      // will append that to the list provided by the JVM argument
-      // -Dhttp.nonProxyHosts and not override it altogether, if it exists.
-      if (nonProxyHosts != null) {
-        nonProxyHosts =
-            (System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS) != null)
-                ? System.getProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS)
-                    + "|"
-                    + nonProxyHosts
-                : nonProxyHosts;
-        System.setProperty(KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS, nonProxyHosts);
-      }
-
-      // set username and password
-      String username =
-          ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_USERNAME);
-      String password =
-          ConnectorConfigTools.getProperty(config, KafkaConnectorConfigParams.JVM_PROXY_PASSWORD);
-      if (username != null && password != null) {
-        Authenticator.setDefault(
-            new Authenticator() {
-              @Override
-              public PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(username, password.toCharArray());
-              }
-            });
-        System.setProperty(JDK_HTTP_AUTH_TUNNELING, "");
-        System.setProperty(KafkaConnectorConfigParams.HTTP_PROXY_USER, username);
-        System.setProperty(KafkaConnectorConfigParams.HTTP_PROXY_PASSWORD, password);
-        System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER, username);
-        System.setProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD, password);
-      }
-    }
-  }
+  /** Proxy config keys renamed from the old {@code jvm.*} names, by old name. */
+  private static final Map<String, String> RENAMED_PROXY_KEYS =
+      Map.of(
+          "jvm.proxy.host", KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST,
+          "jvm.proxy.port", KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT,
+          "jvm.nonProxy.hosts", KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS,
+          "jvm.proxy.username", KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME,
+          "jvm.proxy.password", KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD);
 
   /**
    * validates that given name is a valid snowflake object identifier

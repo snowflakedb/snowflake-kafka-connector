@@ -8,18 +8,35 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.snowflake.kafka.connector.Utils;
+import com.snowflake.kafka.connector.config.ProxyConfig;
+import com.snowflake.kafka.connector.internal.EmbeddedProxyServer;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.security.KeyStore;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
 import org.apache.kafka.common.config.types.Password;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
 class OAuthAccessTokenFetcherTest {
@@ -242,5 +259,223 @@ class OAuthAccessTokenFetcherTest {
         });
     done.await();
     return body.toString();
+  }
+
+  @Test
+  void connectorProxySelectorBypassesMatchingHosts() throws Exception {
+    assertThat(
+            OAuthAccessTokenFetcher.bypassesProxy(
+                "api.snowflakecomputing.com", "*.snowflakecomputing.com"))
+        .isTrue();
+    assertThat(
+            OAuthAccessTokenFetcher.bypassesProxy(
+                "snowflakecomputing.com", "*.snowflakecomputing.com"))
+        .isFalse();
+    assertThat(OAuthAccessTokenFetcher.bypassesProxy("localhost", "localhost|*.example.com"))
+        .isTrue();
+
+    ProxySelector selector =
+        OAuthAccessTokenFetcher.connectorProxySelector(
+            "proxy.example.com", 3128, "*.snowflakecomputing.com|localhost");
+    assertThat(selector.select(URI.create("https://api.snowflakecomputing.com/oauth/token")))
+        .containsExactly(Proxy.NO_PROXY);
+    assertThat(selector.select(URI.create("https://oauth.example.com/token")))
+        .extracting(Proxy::type)
+        .containsExactly(Proxy.Type.HTTP);
+  }
+
+  private static final String TUNNELING_DISABLED_SCHEMES = Utils.JDK_HTTP_AUTH_TUNNELING;
+  private static final String PROXY_USER = "proxy-user";
+  private static final String PROXY_PASSWORD = "proxy-secret";
+
+  @Test
+  void fetchAccessToken_proxyRequiringBasicAuth_returnsTokenWithJdkDefaults(@TempDir Path tempDir)
+      throws Exception {
+    assertThat(fetchThroughAuthenticatingProxy(tempDir)).isEqualTo("proxied-token");
+  }
+
+  @Test
+  void allowProxyBasicAuthForHttpsTunnels_clearsDefaultWhenProxyHasCredentials() {
+    withTunnelingProperty(
+        null,
+        () -> {
+          OAuthAccessTokenFetcher.allowProxyBasicAuthForHttpsTunnels(
+              ProxyConfig.create("proxy.example.com", "3128", null, "user", "secret"));
+          assertThat(System.getProperty(TUNNELING_DISABLED_SCHEMES)).isEqualTo("");
+        });
+  }
+
+  @Test
+  void allowProxyBasicAuthForHttpsTunnels_leavesOperatorValueAlone() {
+    withTunnelingProperty(
+        "Basic,Digest",
+        () -> {
+          OAuthAccessTokenFetcher.allowProxyBasicAuthForHttpsTunnels(
+              ProxyConfig.create("proxy.example.com", "3128", null, "user", "secret"));
+          assertThat(System.getProperty(TUNNELING_DISABLED_SCHEMES)).isEqualTo("Basic,Digest");
+        });
+  }
+
+  @Test
+  void allowProxyBasicAuthForHttpsTunnels_doesNothingWithoutProxyCredentials() {
+    withTunnelingProperty(
+        null,
+        () -> {
+          OAuthAccessTokenFetcher.allowProxyBasicAuthForHttpsTunnels(ProxyConfig.none());
+          OAuthAccessTokenFetcher.allowProxyBasicAuthForHttpsTunnels(
+              ProxyConfig.create("proxy.example.com", "3128", null, null, null));
+          OAuthAccessTokenFetcher.allowProxyBasicAuthForHttpsTunnels(
+              ProxyConfig.create(null, null, null, "user", "secret"));
+          assertThat(System.getProperty(TUNNELING_DISABLED_SCHEMES)).isNull();
+        });
+  }
+
+  /**
+   * Runs {@code body} with the tunneling property set to {@code value} (null = unset), then
+   * restores it.
+   */
+  private static void withTunnelingProperty(String value, Runnable body) {
+    String previous = System.getProperty(TUNNELING_DISABLED_SCHEMES);
+    try {
+      if (value == null) {
+        System.clearProperty(TUNNELING_DISABLED_SCHEMES);
+      } else {
+        System.setProperty(TUNNELING_DISABLED_SCHEMES, value);
+      }
+      body.run();
+    } finally {
+      if (previous == null) {
+        System.clearProperty(TUNNELING_DISABLED_SCHEMES);
+      } else {
+        System.setProperty(TUNNELING_DISABLED_SCHEMES, previous);
+      }
+    }
+  }
+
+  /**
+   * Fetches a token from a local HTTPS endpoint through {@link EmbeddedProxyServer}, which demands
+   * Basic proxy credentials on CONNECT, with {@code jdk.http.auth.tunneling.disabledSchemes} left
+   * at the JDK default (Basic disabled for HTTPS tunnels). The JDK reads that setting once per JVM,
+   * on the first {@code java.net.http} use, and the other tests in this class use it. So the fetch
+   * runs in a fresh child JVM, and the result does not depend on test order.
+   */
+  private static String fetchThroughAuthenticatingProxy(Path tempDir) throws Exception {
+    EmbeddedProxyServer proxy = new EmbeddedProxyServer(PROXY_USER, PROXY_PASSWORD);
+    HttpsServer tokenEndpoint = null;
+    try {
+      SSLContext serverContext = selfSignedServerContext(tempDir);
+      tokenEndpoint =
+          HttpsServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+      tokenEndpoint.setHttpsConfigurator(new HttpsConfigurator(serverContext));
+      tokenEndpoint.createContext(
+          "/oauth/token-request",
+          exchange -> {
+            try (InputStream body = exchange.getRequestBody()) {
+              body.readAllBytes();
+            }
+            byte[] response =
+                "{\"access_token\": \"proxied-token\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, response.length);
+            try (OutputStream out = exchange.getResponseBody()) {
+              out.write(response);
+            }
+          });
+      tokenEndpoint.start();
+      proxy.start();
+
+      Process child =
+          new ProcessBuilder(
+                  Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                  "-cp",
+                  System.getProperty("java.class.path"),
+                  "-Djavax.net.ssl.trustStore=" + tempDir.resolve("trust.p12"),
+                  "-Djavax.net.ssl.trustStorePassword=changeit",
+                  ProxiedFetchMain.class.getName(),
+                  "https://localhost:"
+                      + tokenEndpoint.getAddress().getPort()
+                      + "/oauth/token-request",
+                  String.valueOf(proxy.getPort()),
+                  PROXY_USER,
+                  PROXY_PASSWORD)
+              .redirectErrorStream(true)
+              .start();
+      String output = new String(child.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+      assertThat(child.waitFor()).as("child JVM output: %s", output).isZero();
+      return output.lines().reduce((first, second) -> second).orElse("");
+    } finally {
+      if (tokenEndpoint != null) {
+        tokenEndpoint.stop(0);
+      }
+      if (proxy.isRunning()) {
+        proxy.stop();
+      }
+    }
+  }
+
+  /** Entry point for the child JVM: fetches a token through the proxy and prints it. */
+  public static final class ProxiedFetchMain {
+    public static void main(String[] args) {
+      System.out.println(
+          OAuthAccessTokenFetcher.fetchAccessToken(
+              OAuthURL.from(args[0]),
+              "client_id",
+              new Password("client_secret"),
+              Optional.empty(),
+              Optional.empty(),
+              ProxyConfig.create("127.0.0.1", args[1], null, args[2], args[3])));
+    }
+  }
+
+  /**
+   * Server SSL context for a throwaway self-signed certificate for localhost. Also writes {@code
+   * trust.p12}, a trust store holding just that certificate, next to the key store.
+   */
+  private static SSLContext selfSignedServerContext(Path tempDir) throws Exception {
+    Path keystorePath = tempDir.resolve("server.p12");
+    char[] password = "changeit".toCharArray();
+    Process keytool =
+        new ProcessBuilder(
+                Path.of(System.getProperty("java.home"), "bin", "keytool").toString(),
+                "-genkeypair",
+                "-alias",
+                "server",
+                "-keyalg",
+                "RSA",
+                "-keysize",
+                "2048",
+                "-validity",
+                "1",
+                "-dname",
+                "CN=localhost",
+                "-ext",
+                "san=dns:localhost,ip:127.0.0.1",
+                "-storetype",
+                "PKCS12",
+                "-keystore",
+                keystorePath.toString(),
+                "-storepass",
+                "changeit")
+            .redirectErrorStream(true)
+            .start();
+    String output = new String(keytool.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    assertThat(keytool.waitFor()).as("keytool: %s", output).isZero();
+
+    KeyStore keyStore = KeyStore.getInstance("PKCS12");
+    try (InputStream in = java.nio.file.Files.newInputStream(keystorePath)) {
+      keyStore.load(in, password);
+    }
+    KeyStore trustStore = KeyStore.getInstance("PKCS12");
+    trustStore.load(null, null);
+    trustStore.setCertificateEntry("server", keyStore.getCertificate("server"));
+    try (OutputStream out = java.nio.file.Files.newOutputStream(tempDir.resolve("trust.p12"))) {
+      trustStore.store(out, password);
+    }
+
+    KeyManagerFactory keyManagers =
+        KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+    keyManagers.init(keyStore, password);
+    SSLContext server = SSLContext.getInstance("TLS");
+    server.init(keyManagers.getKeyManagers(), null, null);
+    return server;
   }
 }

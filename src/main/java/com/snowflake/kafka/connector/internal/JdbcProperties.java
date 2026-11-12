@@ -30,7 +30,7 @@ public class JdbcProperties {
    *
    * @param connectionProperties snowflake.database.name, snowflake.schema,name,
    *     snowflake.private.key etc.
-   * @param proxyProperties jvm.proxy.xxx
+   * @param proxyProperties the snowflake.https.proxy.* settings
    * @param jdbcPropertiesMap snowflake.jdbc.map
    */
   static JdbcProperties create(

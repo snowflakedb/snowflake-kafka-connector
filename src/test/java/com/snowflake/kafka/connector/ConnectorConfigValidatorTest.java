@@ -2,18 +2,11 @@ package com.snowflake.kafka.connector;
 
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_LOG_ENABLE_CONFIG;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_HOST;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_PORT;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTPS_PROXY_USER;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_NON_PROXY_HOSTS;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_HOST;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_PROXY_PORT;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.HTTP_USE_PROXY;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_HOST;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PORT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_SCHEMA_NAME;
@@ -21,6 +14,7 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME;
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -214,62 +208,153 @@ public class ConnectorConfigValidatorTest {
   @Test
   public void testCorrectProxyHost() {
     Map<String, String> config = getConfig();
-    config.put(JVM_PROXY_HOST, "127.0.0.1");
-    config.put(JVM_PROXY_PORT, "3128");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "127.0.0.1");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
     connectorConfigValidator.validateConfig(config);
   }
 
   @Test
   public void testEmptyPort() {
     Map<String, String> config = getConfig();
-    config.put(JVM_PROXY_HOST, "127.0.0.1");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "127.0.0.1");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(JVM_PROXY_HOST);
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_HOST);
   }
 
   @Test
   public void testEmptyHost() {
     Map<String, String> config = getConfig();
-    config.put(JVM_PROXY_PORT, "3128");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
     assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
         .isInstanceOf(SnowflakeKafkaConnectorException.class)
-        .hasMessageContaining(JVM_PROXY_PORT);
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_PORT);
+  }
+
+  @Test
+  public void testRenamedProxyKeysAreRejectedNotSilentlyIgnored() {
+    // Kafka Connect ignores unknown keys, so an old name would otherwise run without its proxy.
+    Map<String, String> config = getConfig();
+    config.put("jvm.proxy.host", "127.0.0.1");
+    config.put("jvm.proxy.port", "3128");
+    config.put("jvm.nonProxy.hosts", "localhost");
+    config.put("jvm.proxy.username", "user");
+    config.put("jvm.proxy.password", "secret");
+
+    assertThat(Utils.validateProxySettings(config))
+        .containsOnlyKeys(
+            SNOWFLAKE_HTTPS_PROXY_HOST,
+            SNOWFLAKE_HTTPS_PROXY_PORT,
+            KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS,
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME,
+            KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD)
+        .containsEntry(
+            SNOWFLAKE_HTTPS_PROXY_HOST,
+            "jvm.proxy.host was renamed to snowflake.https.proxy.host and is no longer read;"
+                + " set snowflake.https.proxy.host");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining("jvm.proxy.host was renamed to snowflake.https.proxy.host");
+  }
+
+  @Test
+  public void testConnectorValidateReportsInvalidProxyPerKeyWithoutConnecting() {
+    Map<String, String> config = getConfig();
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "127.0.0.1");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "abc");
+    config.put("jvm.proxy.username", "user");
+
+    // Returns the errors on the config values; it must not throw or try to reach Snowflake.
+    org.apache.kafka.common.config.Config result =
+        new SnowflakeStreamingSinkConnector().validate(config);
+
+    java.util.Map<String, java.util.List<String>> errors = new java.util.HashMap<>();
+    result.configValues().forEach(v -> errors.put(v.name(), v.errorMessages()));
+    assertThat(errors.get(SNOWFLAKE_HTTPS_PROXY_PORT))
+        .anyMatch(m -> m.contains("between 1 and 65535"));
+    assertThat(errors.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME))
+        .anyMatch(m -> m.contains("jvm.proxy.username was renamed to"));
+  }
+
+  @Test
+  public void testNewProxyKeysAreAccepted() {
+    Map<String, String> config = getConfig();
+    config.put("snowflake.https.proxy.host", "127.0.0.1");
+    config.put("snowflake.https.proxy.port", "3128");
+    config.put("snowflake.proxy.bypasshosts", "localhost|127.*");
+    config.put("snowflake.https.proxy.username", "user");
+    config.put("snowflake.https.proxy.password", "secret");
+
+    assertThat(Utils.validateProxySettings(config)).isEmpty();
+    connectorConfigValidator.validateConfig(config);
+  }
+
+  @Test
+  public void testBlankPortIsRejectedNotIgnored() {
+    Map<String, String> config = getConfig();
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "127.0.0.1");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, " ");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_PORT);
+  }
+
+  @Test
+  public void testNonNumericAndOutOfRangePortsAreRejected() {
+    for (String port : new String[] {"abc", "0", "65536"}) {
+      Map<String, String> config = getConfig();
+      config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "127.0.0.1");
+      config.put(SNOWFLAKE_HTTPS_PROXY_PORT, port);
+      assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+          .isInstanceOf(SnowflakeKafkaConnectorException.class)
+          .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_PORT)
+          .hasMessageContaining("between 1 and 65535");
+    }
+  }
+
+  @Test
+  public void testMalformedProxyHostIsRejected() {
+    Map<String, String> config = getConfig();
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "proxy.example.com/");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SNOWFLAKE_HTTPS_PROXY_HOST);
+  }
+
+  @Test
+  public void testNonProxyHostsOutsideTheJdkFormatAreRejected() {
+    Map<String, String> config = getConfig();
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "127.0.0.1");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS, "localhost|10.0.0.0/8");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS)
+        .hasMessageContaining("10.0.0.0/8");
   }
 
   @Test
   public void testNonProxyHosts() {
-    String oldNonProxyHosts =
-        (System.getProperty(HTTP_NON_PROXY_HOSTS) != null)
-            ? System.getProperty(HTTP_NON_PROXY_HOSTS)
-            : null;
-
+    String oldNonProxyHosts = System.getProperty(HTTP_NON_PROXY_HOSTS);
     System.setProperty(HTTP_NON_PROXY_HOSTS, "host1.com|host2.com|localhost");
-    Map<String, String> config = getConfig();
-    config.put(JVM_PROXY_HOST, "127.0.0.1");
-    config.put(JVM_PROXY_PORT, "3128");
-    config.put(
-        KafkaConnectorConfigParams.JVM_NON_PROXY_HOSTS, "*.snowflakecomputing.com|*.amazonaws.com");
-    Utils.enableJVMProxy(config);
-    String mergedNonProxyHosts = System.getProperty(HTTP_NON_PROXY_HOSTS);
-    Assert.assertTrue(
-        mergedNonProxyHosts.equals(
-            "host1.com|host2.com|localhost|*.snowflakecomputing.com|*.amazonaws.com"));
-
-    if (oldNonProxyHosts != null) {
-      System.setProperty(HTTP_NON_PROXY_HOSTS, oldNonProxyHosts);
-    } else {
-      System.clearProperty(HTTP_NON_PROXY_HOSTS);
+    try {
+      Map<String, String> config = getConfig();
+      config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "127.0.0.1");
+      config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
+      config.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_PROXY_BYPASS_HOSTS,
+          "*.snowflakecomputing.com|*.amazonaws.com");
+      Assert.assertTrue(Utils.validateProxySettings(config).isEmpty());
+      Assert.assertEquals(
+          "host1.com|host2.com|localhost", System.getProperty(HTTP_NON_PROXY_HOSTS));
+    } finally {
+      if (oldNonProxyHosts != null) {
+        System.setProperty(HTTP_NON_PROXY_HOSTS, oldNonProxyHosts);
+      } else {
+        System.clearProperty(HTTP_NON_PROXY_HOSTS);
+      }
     }
-
-    // clear properties to prevent other tests from failing
-    System.clearProperty(HTTP_USE_PROXY);
-    System.clearProperty(HTTP_PROXY_HOST);
-    System.clearProperty(HTTP_PROXY_PORT);
-    System.clearProperty(HTTPS_PROXY_HOST);
-    System.clearProperty(HTTPS_PROXY_PORT);
-    System.clearProperty(HTTPS_PROXY_USER);
-    System.clearProperty(HTTPS_PROXY_PASSWORD);
   }
 
   @Test

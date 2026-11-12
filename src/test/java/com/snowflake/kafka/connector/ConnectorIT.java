@@ -1,11 +1,11 @@
 package com.snowflake.kafka.connector;
 
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_HOST;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PASSWORD;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_PORT;
-import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JVM_PROXY_USERNAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.NAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PASSWORD;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT;
+import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_USERNAME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_METADATA_ALL;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_METADATA_CREATETIME;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_METADATA_OFFSET_AND_PARTITION;
@@ -43,8 +43,8 @@ public class ConnectorIT {
     SNOWFLAKE_METADATA_CREATETIME,
     SNOWFLAKE_TOPICS2TABLE_MAP,
     SNOWFLAKE_PRIVATE_KEY,
-    JVM_PROXY_PORT,
-    JVM_PROXY_HOST,
+    SNOWFLAKE_HTTPS_PROXY_PORT,
+    SNOWFLAKE_HTTPS_PROXY_HOST,
     SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
   };
 
@@ -103,8 +103,8 @@ public class ConnectorIT {
         new HashSet<>(
             Arrays.asList(
                 SNOWFLAKE_PRIVATE_KEY,
-                JVM_PROXY_PORT,
-                JVM_PROXY_HOST,
+                SNOWFLAKE_HTTPS_PROXY_PORT,
+                SNOWFLAKE_HTTPS_PROXY_HOST,
                 SNOWFLAKE_PRIVATE_KEY_PASSPHRASE,
                 SNOWFLAKE_METADATA_ALL));
 
@@ -292,56 +292,58 @@ public class ConnectorIT {
   @Test
   public void testErrorProxyHostConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(JVM_PROXY_HOST, "localhost");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "localhost");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {JVM_PROXY_HOST, JVM_PROXY_PORT});
+    assertPropHasError(
+        validateMap, new String[] {SNOWFLAKE_HTTPS_PROXY_HOST, SNOWFLAKE_HTTPS_PROXY_PORT});
   }
 
   @Test
   public void testErrorProxyPortConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(JVM_PROXY_PORT, "8080");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "8080");
     Map<String, ConfigValue> validateMap = toValidateMap(config);
-    assertPropHasError(validateMap, new String[] {JVM_PROXY_HOST, JVM_PROXY_PORT});
+    assertPropHasError(
+        validateMap, new String[] {SNOWFLAKE_HTTPS_PROXY_HOST, SNOWFLAKE_HTTPS_PROXY_PORT});
   }
 
   @Test
   public void testProxyHostPortConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(JVM_PROXY_HOST, "localhost");
-    config.put(JVM_PROXY_PORT, "8080");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "localhost");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "8080");
     Utils.validateProxySettings(config);
   }
 
   @Test
   public void testErrorProxyUsernameConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(JVM_PROXY_HOST, "localhost");
-    config.put(JVM_PROXY_PORT, "8080");
-    config.put(JVM_PROXY_USERNAME, "user");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "localhost");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "8080");
+    config.put(SNOWFLAKE_HTTPS_PROXY_USERNAME, "user");
 
     Map<String, String> invalidConfigs = Utils.validateProxySettings(config);
-    assert invalidConfigs.containsKey(JVM_PROXY_USERNAME);
+    assert invalidConfigs.containsKey(SNOWFLAKE_HTTPS_PROXY_USERNAME);
   }
 
   @Test
   public void testErrorProxyPasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(JVM_PROXY_HOST, "localhost");
-    config.put(JVM_PROXY_PORT, "8080");
-    config.put(JVM_PROXY_PASSWORD, "pass");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "localhost");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "8080");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PASSWORD, "pass");
 
     Map<String, String> invalidConfigs = Utils.validateProxySettings(config);
-    assert invalidConfigs.containsKey(JVM_PROXY_PASSWORD);
+    assert invalidConfigs.containsKey(SNOWFLAKE_HTTPS_PROXY_PASSWORD);
   }
 
   @Test
   public void testProxyUsernamePasswordConfig() {
     Map<String, String> config = getCorrectConfig();
-    config.put(JVM_PROXY_HOST, "localhost");
-    config.put(JVM_PROXY_PORT, "3128");
-    config.put(JVM_PROXY_USERNAME, "admin");
-    config.put(JVM_PROXY_PASSWORD, "test");
+    config.put(SNOWFLAKE_HTTPS_PROXY_HOST, "localhost");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PORT, "3128");
+    config.put(SNOWFLAKE_HTTPS_PROXY_USERNAME, "admin");
+    config.put(SNOWFLAKE_HTTPS_PROXY_PASSWORD, "test");
     Utils.validateProxySettings(config);
   }
 
