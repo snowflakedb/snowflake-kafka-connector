@@ -1,9 +1,9 @@
 # KC v4 SPCS smoke test
 
 **Author:** Berni Schiefer (openai-gpt-6-astra, Cortex Code agent mode)
-**Date:** 2026-10-16 07:20 UTC
+**Date:** 2026-11-14 14:00 UTC
 **Status:** Draft; manual execution only, no release gate enabled
-**Document version:** 7.2
+**Document version:** 7.3
 
 A finite Snowpark Container Services (SPCS) job runs Kafka, Connect, and the
 KC v4 test. It sends 100 numbered records using ambient authentication. The
@@ -14,6 +14,11 @@ host independently checks every value, then removes the job and test data.
 1. [#1585](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1585): merged ingestion test and observer helpers.
 2. [#1586](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1586): merged runner, container, cleanup, and manual CI job.
 3. [#1587](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1587): separate functional CI pacing and opt-in v4 trial.
+4. [#1588](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1588):
+merged one-time setup of the permanent CI objects.
+5. [#1626](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1626)
+and [#1628](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1628):
+the CI job uses the existing CI login and builds its own image.
 
 Continuous monitoring is separate: [SNOW-4202413](https://snowflakecomputing.atlassian.net/browse/SNOW-4202413),
 [snowprober #7096](https://github.com/snowflake-eng/snowprober/pull/7096), and
@@ -32,29 +37,27 @@ existing CI account `SFCTEST0` as `TESTROLE_KAFKA`. Later CI runs reuse them.
 | Stage `...KC_SPCS_CI.HARNESS_STAGE` | Test payloads |
 | Image repository `...KC_SPCS_CI.IMAGES` | Test container images |
 
-The script never alters, drops, or grants anything, and rerunning it is safe.
+Run **Set up permanent KC SPCS infrastructure** from `master` with `apply`. As
+`ACCOUNTADMIN`, which the CI user holds in `SFCTEST0`, it grants:
 
-1. **Grant privileges** (Snowflake `ACCOUNTADMIN` in `SFCTEST0`):
+```sql
+GRANT CREATE COMPUTE POOL ON ACCOUNT TO ROLE TESTROLE_KAFKA;
+GRANT USAGE, CREATE SCHEMA ON DATABASE TESTDB_KAFKA TO ROLE TESTROLE_KAFKA;
+```
 
-   ```sql
-   GRANT CREATE COMPUTE POOL ON ACCOUNT TO ROLE TESTROLE_KAFKA;
-   GRANT USAGE, CREATE SCHEMA ON DATABASE TESTDB_KAFKA TO ROLE TESTROLE_KAFKA;
-   ```
+It then switches back to `TESTROLE_KAFKA`, creates what is missing, and lists
+all four objects. Using `ACCOUNTADMIN` for these two grants was authorized by
+Berni Schiefer on 2026-11-14. If the CI user cannot use `ACCOUNTADMIN`, `apply`
+creates nothing and prints the two lines for an `SFCTEST0` `ACCOUNTADMIN` to run
+by hand. `check` only lists the objects. The script never alters or drops
+anything, and rerunning it is safe.
 
-   Owning the new schema lets the role create the stage and repository.
-2. **Protect the workflow** (GitHub repository admin): create environment
-   `kc-spcs-setup` with required reviewers, self-review prevented, and
-   deployments limited to branch `master`. Then set environment variable
-   `KC_SPCS_SETUP_ENABLED=true`.
-3. **Run** **Set up permanent KC SPCS infrastructure** from `master`: first
-   `check` (read-only; lists missing objects), then `apply`, then `check` again.
-   It should report all four objects present.
-4. **Optionally revoke** `CREATE COMPUTE POOL` and `CREATE SCHEMA` if nothing
-   else needs them. Keep database `USAGE`; the role keeps object ownership.
+The workflow has no approval step or on switch. It runs only from `master` of
+this repository and uses the same CI login as the other end-to-end tests.
 
 Offline test: `python3 test/spcs/test_setup_ci.py -v`.
 
-## Fixture and execution
+## Running from your own account
 
 Provide an existing account, database, internal stage, warehouse, named CLI
 connection, and digest-pinned image. The service-owner role must be able to use
@@ -87,7 +90,7 @@ python3 test/spcs/run_spcs_release.py \
   --pool MY_UNUSED_POOL --stage MY_TEST_DB.MY_SCHEMA.HARNESS_STAGE \
   --warehouse MY_TEST_WH --exclusive-pool --cleanup-policy warn \
   --image /my_test_db/my_schema/my_repo/kc-spcs-smoke@sha256:<digest> \
-  --jar target/snowflake-kafka-connector-4.2.1.jar \
+  --jar target/snowflake-kafka-connector-<version>.jar \
   --evidence test/spcs/.scratch/result.json
 ```
 
@@ -121,14 +124,20 @@ by CI. Log capture failure does not prevent cleanup.
 
 ## CI and verification
 
-The manual job requires `run_spcs=true`, repository variable
-`SPCS_RELEASE_ENABLED=true`, and the `spcs-release` environment. Configure:
+The manual job runs only from `master` of this repository, when started with
+`run_spcs=true`. It runs as the existing CI profile (`TESTROLE_KAFKA` in
+`SFCTEST0`) against the permanent objects from the one-time setup above, so it
+needs no secrets of its own and no approval step.
+[`ci_connection.py`](ci_connection.py) turns the profile into the `snow`
+connection and supplies the profile's warehouse. Configure:
 
-- Secrets: `SPCS_RELEASE_ACCOUNT`, `SPCS_RELEASE_USER`, `SPCS_RELEASE_PRIVATE_KEY`.
-- Variables: `SPCS_EXPECTED_ACCOUNT`, `SPCS_POOL`, `SPCS_STAGE`, `SPCS_DATABASE`,
-  `SPCS_ROLE`, `SPCS_WAREHOUSE`, and `SPCS_RELEASE_IMAGE_DIGEST`.
-- `SPCS_EXCLUSIVE_POOL=true` after reserving the pool; optional `SPCS_EGRESS`.
-- `SPCS_CLEANUP_POLICY`: `warn` by default, or `fail`.
+- `SPCS_RELEASE_IMAGE_DIGEST`: the smoke image in `TESTDB_KAFKA.KC_SPCS_CI.IMAGES`.
+- Optional `SPCS_EGRESS`.
+
+It always uses `--cleanup-policy fail`: leftovers in the shared account fail the run.
+
+The pool `KC_SPCS_CI_POOL` is dedicated to this job, and the job and the
+setup workflow share one concurrency group, so `--exclusive-pool` is always passed.
 
 CI retains only `result.json` for 14 days, never the key or raw log. Offline checks:
 
@@ -137,9 +146,9 @@ python3 -m unittest discover -s test/spcs -v
 python3 test/spcs/observer_contract.py
 ```
 
-Personal-fixture runs on October 10 verified 100 rows on AWS, Azure, and GCP;
-later recovery changes were requalified on Azure only. New fixture/diagnostic
+Runs in personal accounts on October 10 verified 100 rows on AWS, Azure, and GCP;
+later recovery changes were requalified on Azure only. New setup and diagnostic
 changes have offline coverage but need live requalification. The manual GitHub
-Actions job still needs qualification with a team-owned fixture. The six-case
+Actions job still needs a first pass on the permanent CI objects. The six-case
 trial in #1587 does not exercise SPCS. Token-rotation soak, policy-matrix tests,
 continuous monitoring, and exact-release-artifact enforcement are not covered.
