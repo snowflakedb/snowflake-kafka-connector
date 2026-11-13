@@ -239,9 +239,15 @@ public class Utils {
     String appName = config.getOrDefault(KafkaConnectorConfigParams.NAME, "");
     // If appName is empty the following call will throw error
     // Application names are always sanitized for backward compatibility
-    String validAppName = deriveTableName(appName, true);
+    String validAppName = deriveTableName(appName, true, true);
 
     config.put(KafkaConnectorConfigParams.NAME, validAppName);
+  }
+
+  /** Resolves a topic to a table name with the hash suffix enabled. */
+  public static String getTableName(
+      String topic, TopicToTableResolver resolver, boolean enableSanitization) {
+    return getTableName(topic, resolver, enableSanitization, true);
   }
 
   /**
@@ -251,10 +257,11 @@ public class Utils {
    * @param topic input topic name
    * @param resolver topic-to-table resolver
    * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @param appendHash if true, append a disambiguating hash to sanitized names
    * @return table name
    */
   public static String getTableName(
-      String topic, TopicToTableResolver resolver, boolean enableSanitization) {
+      String topic, TopicToTableResolver resolver, boolean enableSanitization, boolean appendHash) {
     if (topic == null || topic.isEmpty()) {
       throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
     }
@@ -264,7 +271,7 @@ public class Utils {
       return resolved;
     }
 
-    return deriveTableName(topic, enableSanitization);
+    return deriveTableName(topic, enableSanitization, appendHash);
   }
 
   /**
@@ -272,9 +279,11 @@ public class Utils {
    *
    * @param topic input topic name
    * @param enableSanitization if true, sanitize invalid identifiers; if false, pass through
+   * @param appendHash if true, append a disambiguating hash to sanitized names
    * @return derived table name
    */
-  private static String deriveTableName(String topic, boolean enableSanitization) {
+  private static String deriveTableName(
+      String topic, boolean enableSanitization, boolean appendHash) {
     if (topic == null || topic.isEmpty()) {
       throw SnowflakeErrors.ERROR_0020.getException("topic name: " + topic);
     }
@@ -316,8 +325,11 @@ public class Utils {
       index++;
     }
 
-    result.append(PLACE_HOLDER);
-    result.append(hash);
+    // Hash suffix disambiguates topics that sanitize to the same name.
+    if (appendHash) {
+      result.append(PLACE_HOLDER);
+      result.append(hash);
+    }
 
     // Uppercase the sanitized result when sanitization is enabled
     return result.toString().toUpperCase(Locale.ROOT);
