@@ -6,22 +6,30 @@ which proxy tier a connector used:
 
   8080  connector tier (snowflake.https.proxy.host / snowflake.https.proxy.port)
   8081  worker JVM tier (-Dhttps.proxyHost / -Dhttps.proxyPort)
+  8082  a second connector's proxy, for tests that run two connectors at once
 
 Control API on :9080:
-  GET  /status  {"counts": {"8080": {...}, "8081": {...}}, "connect_hosts": {...}}
+  GET  /status  {"counts": {"8080": {...}, ...}, "connect_hosts": {...}, "pipes": {...}}
+                pipes: streaming pipe names seen in SDK request paths, per port
   POST /reset   clears all counters
 """
 
 import json
+import re
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import unquote
 
 from mitmproxy import http
 
 LOCK = threading.Lock()
 COUNTS = {}
 CONNECT_HOSTS = {}
+# Streaming pipe names seen in SDK request paths, per listener port, so a test running several
+# connectors can tell whose traffic went through which listener.
+PIPES = {}
+_PIPE_IN_PATH = re.compile(r"/pipes/([^/:?]+)")
 
 
 def log(msg: str) -> None:
@@ -72,11 +80,23 @@ def http_connect(flow: http.HTTPFlow) -> None:
         hosts[host] = hosts.get(host, 0) + 1
 
 
+def _pipe(flow: http.HTTPFlow) -> str | None:
+    match = _PIPE_IN_PATH.search(flow.request.path)
+    if match is None:
+        return None
+    return unquote(match.group(1)).strip('"').lower()
+
+
 def request(flow: http.HTTPFlow) -> None:
+    listener = _listener(flow)
+    pipe = _pipe(flow)
+    if pipe is not None:
+        with LOCK:
+            pipes = PIPES.setdefault(listener, {})
+            pipes[pipe] = pipes.get(pipe, 0) + 1
     operations = _operations(flow)
     if not operations:
         return
-    listener = _listener(flow)
     with LOCK:
         counts = COUNTS.setdefault(listener, {})
         for operation in operations:
@@ -92,6 +112,7 @@ class _ControlHandler(BaseHTTPRequestHandler):
             body = {
                 "counts": {k: dict(v) for k, v in COUNTS.items()},
                 "connect_hosts": {k: dict(v) for k, v in CONNECT_HOSTS.items()},
+                "pipes": {k: dict(v) for k, v in PIPES.items()},
             }
         self._respond(200, body)
 
@@ -102,6 +123,7 @@ class _ControlHandler(BaseHTTPRequestHandler):
         with LOCK:
             COUNTS.clear()
             CONNECT_HOSTS.clear()
+            PIPES.clear()
         log("counters reset")
         self._respond(200, {"status": "reset"})
 

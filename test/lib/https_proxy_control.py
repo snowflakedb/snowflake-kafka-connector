@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 CONNECTOR_TIER_PORT = 8080
 JVM_TIER_PORT = 8081
+# A second connector-level proxy, for tests that run two connectors with different proxies.
+SECOND_CONNECTOR_TIER_PORT = 8082
 PROXY_HOST = "https-proxy"
 
 
@@ -25,6 +27,10 @@ class HttpsProxyControl:
     def counts(self, port: int) -> dict:
         """Snowflake call counts seen on one listener port, e.g. {"jdbc_login": 1}."""
         return self.get_status()["counts"].get(str(port), {})
+
+    def pipes(self, port: int) -> dict:
+        """Streaming pipe names (lower case) seen in SDK request paths on one listener port."""
+        return self.get_status().get("pipes", {}).get(str(port), {})
 
     def reset(self):
         resp = requests.post(f"{self.base_url}/reset", timeout=5)

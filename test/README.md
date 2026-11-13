@@ -208,6 +208,7 @@ Both tests verify that the exact expected row count appears in Snowflake.
 
 - `8080`: connector tier. Tests set `snowflake.https.proxy.host=https-proxy` and `snowflake.https.proxy.port=8080`.
 - `8081`: worker JVM tier. The worker starts with `-Dhttp.useProxy=true -Dhttps.proxyHost=https-proxy -Dhttps.proxyPort=8081`.
+- `8082`: a second connector proxy, so a test can run two connectors in the same worker with different proxies and check each one's traffic stays on its own port (the counter also records the pipe names seen per port).
 
 On startup the worker trusts mitmproxy's generated CA: the JVM trust store covers JDBC, and `SSL_CERT_FILE` covers the Rust SDK (`docker/scripts/https-proxy-entrypoint.sh`).
 

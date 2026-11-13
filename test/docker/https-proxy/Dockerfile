@@ -5,10 +5,11 @@ FROM mitmproxy/mitmproxy:11
 # the Connect worker reads it from the shared volume to build its trust stores.
 COPY proxy_counter.py /addon/proxy_counter.py
 
-EXPOSE 8080 8081 9080
+EXPOSE 8080 8081 8082 9080
 
 ENTRYPOINT ["mitmdump", \
     "--mode", "regular@8080", \
     "--mode", "regular@8081", \
+    "--mode", "regular@8082", \
     "--set", "confdir=/certs", \
     "-s", "/addon/proxy_counter.py"]
