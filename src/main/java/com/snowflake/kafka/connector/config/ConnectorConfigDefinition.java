@@ -354,9 +354,10 @@ public class ConnectorConfigDefinition {
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION)
         .define(
-            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE,
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES,
             BOOLEAN,
-            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_DEFAULT,
+            KafkaConnectorConfigParams
+                .SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES_DEFAULT,
             MEDIUM,
             "When snowflake.validation=server_side, enable ERROR_LOGGING on existing target tables"
                 + " that do not have it, so rejected rows are persisted in the table's error table."
@@ -367,7 +368,7 @@ public class ConnectorConfigDefinition {
             CONNECTOR_CONFIG_DOC,
             3,
             Width.NONE,
-            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE)
+            KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES)
         .define(
             KafkaConnectorConfigParams.SNOWFLAKE_SSV1_OFFSET_MIGRATION,
             STRING,

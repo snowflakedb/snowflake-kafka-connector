@@ -176,7 +176,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           continue;
         }
         if (!conn.hasErrorLoggingEnabled(tableName)) {
-          if (taskConfig.isValidationEnableErrorTable()) {
+          if (taskConfig.isValidationEnableErrorTableOnExistingTables()) {
             LOGGER.info(
                 "Table '{}' does not have ERROR_LOGGING enabled, enabling it so invalid records"
                     + " are persisted in the error table.",

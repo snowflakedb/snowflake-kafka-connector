@@ -52,9 +52,9 @@ public abstract class SinkTaskConfig {
 
   /**
    * Whether ERROR_LOGGING is enabled on existing target tables under server-side validation. See
-   * {@link KafkaConnectorConfigParams#SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE}.
+   * {@link KafkaConnectorConfigParams#SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES}.
    */
-  public abstract boolean isValidationEnableErrorTable();
+  public abstract boolean isValidationEnableErrorTableOnExistingTables();
 
   public abstract TableType getAutocreatedTableType();
 
@@ -302,12 +302,14 @@ public abstract class SinkTaskConfig {
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT));
 
-    boolean validationEnableErrorTable =
+    boolean validationEnableErrorTableOnExistingTables =
         Boolean.parseBoolean(
             config.getOrDefault(
-                KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE,
+                KafkaConnectorConfigParams
+                    .SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES,
                 String.valueOf(
-                    KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_DEFAULT)));
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES_DEFAULT)));
 
     int openChannelIoThreads =
         Optional.ofNullable(
@@ -489,7 +491,7 @@ public abstract class SinkTaskConfig {
         .enableSchematization(enableSchematization)
         .enableColumnIdentifierNormalization(enableColumnIdentifierNormalization)
         .validation(validation)
-        .validationEnableErrorTable(validationEnableErrorTable)
+        .validationEnableErrorTableOnExistingTables(validationEnableErrorTableOnExistingTables)
         .openChannelIoThreads(openChannelIoThreads)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
         .cachingConfig(cachingConfig)
@@ -578,7 +580,8 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder validation(SnowflakeValidation validation);
 
-    public abstract Builder validationEnableErrorTable(boolean validationEnableErrorTable);
+    public abstract Builder validationEnableErrorTableOnExistingTables(
+        boolean validationEnableErrorTableOnExistingTables);
 
     public abstract Builder openChannelIoThreads(int openChannelIoThreads);
 
