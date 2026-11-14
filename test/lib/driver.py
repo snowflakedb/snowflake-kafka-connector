@@ -735,6 +735,11 @@ class KafkaDriver:
                     overrides = [existing_overrides] + extra_overrides
             rest_request["config"][override_key] = ",".join(overrides)
 
+        if os.environ.get("KC_V4_ONLY") == "1":
+            from lib.v4_qualification import require_v4_config
+
+            require_v4_config(rest_request["config"])
+
         MAX_RETRY = 9
         retry = 0
         delete_url = (
