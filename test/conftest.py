@@ -32,6 +32,8 @@ from lib.fixtures.table import (  # noqa: F401
 from lib.fixtures.function import connector_version, name_salt  # noqa: F401
 from lib import mitmproxy_control
 
+pytest_plugins = ["lib.v4_qualification"]
+
 logger = logging.getLogger(__name__)
 
 

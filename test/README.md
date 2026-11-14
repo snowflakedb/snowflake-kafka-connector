@@ -44,6 +44,31 @@ cd test
 ./run_tests.sh --platform=apache --platform-version=3.7.2 --cloud=AWS        # Target specific Snowflake cloud
 ```
 
+### Audited v4-only qualification
+
+Version 1.1, 2026-11-14 16:00 UTC.
+
+The manual `v4-qualification.yml` workflow runs one reserved cloud/platform lane.
+It does not change draft-PR policy or enable SPCS. The explicit test list in
+`lib/v4_qualification.py` currently selects 79 of 337 collected cases: core (1),
+JSON type compatibility (76), and schema/correctness (2). This is broader than
+the six-case trial, not full-suite coverage. Existing skips and expected failures
+remain visible in JUnit; they are not passing coverage.
+
+```bash
+./run_tests.sh --platform=apache --platform-version=4.1.1 --java-version=17 \
+  --cloud=AWS --v4-only-group=compatibility --logs-dir="$PWD/qualification"
+```
+
+The runner disables legacy downloads, mounts an empty v3 plugin directory,
+checks the staged JAR and worker version, and rejects legacy connector creation.
+It retains collection decisions, artifact checksum, and JUnit results. Cases run
+sequentially with five-second setup pacing and stop on the first failure;
+assertions and deadlines are unchanged. Reserve the account across other jobs
+before dispatching. Migration, unaudited, pressure, soak, fault-injection, and
+SPCS tests are excluded. Add cases only after reviewing their fixtures and
+connector-creation paths.
+
 ### Supported Versions
 
 **Confluent Platform:**

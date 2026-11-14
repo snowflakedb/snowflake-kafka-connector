@@ -70,6 +70,7 @@ usage() {
     echo "  --profile            Enable JVM profiling (JFR, GC logs, JMX, async-profiler)"
     echo "  --with-mitmproxy     Enable mitmproxy for fault injection tests (410 injection)"
     echo "  --v4-trial           Run only six v4 compatibility cases; do not load KC v3"
+    echo "  --v4-only-group=NAME Audited core, compatibility, or schema_and_correctness lane"
     echo "  --keep               Keep containers running after tests"
     echo "  -i, --interactive    Start infra, then drop into a bash shell in the test-runner"
     echo "  --rebuild            Force rebuild of images"
@@ -111,6 +112,7 @@ INTERACTIVE="false"
 FORCE_REBUILD="false"
 LOGS_DIR=""
 V4_TRIAL="false"
+V4_ONLY_GROUP=""
 PASSTHROUGH_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -142,6 +144,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --with-mitmproxy)
             MITMPROXY_ENABLED="true"
+            shift
+            ;;
+        --v4-only-group=*)
+            V4_ONLY_GROUP="${1#*=}"
             shift
             ;;
         --v4-trial)
@@ -186,6 +192,22 @@ if [ "$V4_TRIAL" = "true" ]; then
         error_exit "--v4-trial does not accept additional pytest arguments"
     fi
     PASSTHROUGH_ARGS=(tests/compatibility/test_unsupported_types.py --v4-trial --functional-test-delay 5)
+fi
+
+if [ -n "$V4_ONLY_GROUP" ]; then
+    case "$V4_ONLY_GROUP" in
+        core|compatibility|schema_and_correctness) ;;
+        *) error_exit "Unknown v4-only group" ;;
+    esac
+    if [ "$V4_TRIAL" = true ] || [ "${#PASSTHROUGH_ARGS[@]}" -ne 0 ] || \
+       [ "$INTERACTIVE" = true ] || [ "$KEEP_RUNNING" = true ] || \
+       [ "$MITMPROXY_ENABLED" = true ] || [ "$PROFILE_ENABLED" = true ]; then
+        error_exit "v4-only qualification rejects trial, pytest overrides, interactive, keep, proxy and profiling modes"
+    fi
+    [ -n "$LOGS_DIR" ] || error_exit "v4-only qualification requires --logs-dir"
+    mkdir -p "$LOGS_DIR"
+    LOGS_DIR="$(cd "$LOGS_DIR" && pwd)"
+    PASSTHROUGH_ARGS=(tests --v4-only-group "$V4_ONLY_GROUP" --functional-test-delay 5 -x)
 fi
 
 # Validate required arguments
@@ -348,6 +370,14 @@ if [ "$PLATFORM" = "apache" ]; then
         error_exit "Connector plugin JAR not found in $TARGET_DIR/. Run './build_runtime_jar.sh . package apache' first."
     fi
 
+    if [ -n "$V4_ONLY_GROUP" ]; then
+        candidates=()
+        for candidate in "$TARGET_DIR"/snowflake-kafka-connector-*.jar; do
+            [[ "$candidate" =~ snowflake-kafka-connector-[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?\.jar$ ]] && candidates+=("$candidate")
+        done
+        [ "${#candidates[@]}" -eq 1 ] || error_exit "Expected exactly one connector build artifact"
+        PLUGIN_JAR="${candidates[0]}"
+    fi
     info "Using Apache connector JAR: $PLUGIN_JAR"
     cp "$PLUGIN_JAR" "$PLUGIN_DIR/"
 
@@ -360,11 +390,21 @@ elif [ "$PLATFORM" = "confluent" ]; then
         error_exit "Connector plugin zip not found in $TARGET_DIR/components/packages/. Run './build_runtime_jar.sh . package confluent' first."
     fi
 
+    if [ -n "$V4_ONLY_GROUP" ]; then
+        shopt -s nullglob
+        candidates=("$TARGET_DIR"/components/packages/snowflakeinc-snowflake-kafka-connector-*.zip)
+        shopt -u nullglob
+        [ "${#candidates[@]}" -eq 1 ] || error_exit "Expected exactly one connector build archive"
+        PLUGIN_ZIP="${candidates[0]}"
+    fi
     info "Extracting Confluent connector zip: $PLUGIN_ZIP"
     unzip -q "$PLUGIN_ZIP" -d "$PLUGIN_DIR"
 fi
 
 info "Plugin prepared in $PLUGIN_DIR"
+if [ -n "$V4_ONLY_GROUP" ]; then
+    python3 "$SCRIPT_DIR/scripts/qualification_artifact.py" "$PLUGIN_DIR" > "$LOGS_DIR/artifact.json"
+fi
 
 # Build protobuf dependencies
 EXTRA_JARS_DIR="/tmp/kafka-connect-extra-jars"
@@ -387,7 +427,7 @@ compile_protobuf_dependencies() {
 
 compile_protobuf_dependencies
 
-if [ "$V4_TRIAL" = "true" ]; then
+if [ "$V4_TRIAL" = "true" ] || [ -n "$V4_ONLY_GROUP" ]; then
     # Mount a new empty directory rather than the cached legacy plugin.
     V3_PLUGIN_DIR=$(mktemp -d "$TARGET_DIR/e2e-empty-v3.XXXXXX")
     info "KC v4-only trial: legacy connector download disabled"
@@ -534,7 +574,9 @@ trap 'exit 143' TERM
 
 # Start services
 info "Starting services: $START_SERVICES"
-docker compose $COMPOSE_FILES up -d $START_SERVICES
+RECREATE_ARGS=()
+if [ -n "$V4_ONLY_GROUP" ]; then RECREATE_ARGS=(--force-recreate); fi
+docker compose $COMPOSE_FILES up -d "${RECREATE_ARGS[@]}" $START_SERVICES
 
 # Wait for services
 info "Waiting for services to be healthy..."
@@ -616,6 +658,13 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     SUMMARY_DIR="$(dirname "$GITHUB_STEP_SUMMARY")"
     SUMMARY_FILE="$(basename "$GITHUB_STEP_SUMMARY")"
     RUN_FLAGS+=(-v "${SUMMARY_DIR}:/github_step_summary" -e "GITHUB_STEP_SUMMARY=/github_step_summary/${SUMMARY_FILE}")
+fi
+
+if [ -n "$V4_ONLY_GROUP" ]; then
+    [ -n "$LOGS_DIR" ] || error_exit "v4-only qualification requires --logs-dir"
+    mkdir -p "$LOGS_DIR"
+    RUN_FLAGS+=(-v "$LOGS_DIR:/qualification")
+    PASSTHROUGH_ARGS+=(--v4-artifact /qualification/artifact.json --v4-inventory /qualification/inventory.json --junitxml /qualification/results.xml)
 fi
 
 # Run tests (or drop into a shell with --interactive)

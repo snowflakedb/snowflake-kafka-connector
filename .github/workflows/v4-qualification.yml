@@ -1,0 +1,107 @@
+name: KC v4 functional qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      group:
+        description: Audited functional lane (one at a time)
+        type: choice
+        options: [core, compatibility, schema_and_correctness]
+        default: core
+      platform:
+        description: Kafka runtime
+        type: choice
+        options: [apache, confluent]
+        default: apache
+      cloud:
+        description: Approved existing CI fixture
+        type: choice
+        options: [AWS, AZURE, GCP]
+        default: AWS
+      fixture_reserved:
+        description: Fixture owner approved this window; no other live lanes overlap
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - run: >-
+        pip install requests certifi 'confluent-kafka[avro,json,protobuf]==2.13.0'
+        avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0'
+        'pytest==8.3.5' 'PyYAML==6.0.3' 'ruff==0.15.0'
+    - run: python3 test/scripts/v4_qualification_contract.py
+    - run: python3 test/scripts/functional_pacing_contract.py
+    - run: python3 test/scripts/workflow_contract.py
+    - run: ruff check test/tests test/lib test/conftest.py test/spcs test/scripts
+    - run: ruff format --check test/tests test/lib test/conftest.py test/spcs test/scripts
+
+  functional:
+    if: github.event_name == 'workflow_dispatch' && inputs.fixture_reserved
+    needs: contracts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    concurrency:
+      # The existing trial uses this same AWS group. Other workflows still need reservation.
+      group: kc-v4-functional-trial-${{ inputs.cloud == 'AWS' && 'aws' || inputs.cloud }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+    - uses: actions/checkout@v4
+    - name: Decrypt approved fixture profile
+      env:
+        CLOUD: ${{ inputs.cloud }}
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+      run: |
+        case "$CLOUD" in
+          GCP) profile_cloud=GCS ;;
+          AWS|AZURE) profile_cloud="$CLOUD" ;;
+          *) exit 1 ;;
+        esac
+        ./.github/scripts/decrypt_secret.sh "$profile_cloud"
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: ${{ inputs.platform }}
+    - uses: docker/login-action@v3
+      if: inputs.platform == 'apache'
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+    - name: Run one audited lane
+      env:
+        PLATFORM: ${{ inputs.platform }}
+        CLOUD: ${{ inputs.cloud }}
+        GROUP: ${{ inputs.group }}
+        SNOWFLAKE_CREDENTIAL_FILE: ${{ github.workspace }}/profile.json
+      run: |
+        set -euo pipefail
+        case "$PLATFORM" in
+          apache) version=4.1.1 ;;
+          confluent) version=8.2.0 ;;
+          *) exit 1 ;;
+        esac
+        test/run_tests.sh --platform="$PLATFORM" --platform-version="$version" \
+          --java-version=17 --cloud="$CLOUD" --v4-only-group="$GROUP" \
+          --logs-dir="$GITHUB_WORKSPACE/qualification"
+    - name: Preserve collection inventory and test outcomes
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: v4-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+        path: |
+          qualification/inventory.json
+          qualification/artifact.json
+          qualification/results.xml
+        if-no-files-found: error
+        retention-days: 14
