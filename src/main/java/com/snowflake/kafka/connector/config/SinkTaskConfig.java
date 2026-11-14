@@ -50,6 +50,12 @@ public abstract class SinkTaskConfig {
 
   public abstract boolean isEnableSchematization();
 
+  /**
+   * Whether ERROR_LOGGING is enabled on existing target tables under server-side validation. See
+   * {@link KafkaConnectorConfigParams#SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE}.
+   */
+  public abstract boolean isValidationEnableErrorTable();
+
   public abstract TableType getAutocreatedTableType();
 
   public abstract Optional<String> getIcebergCreateTableOptions();
@@ -296,6 +302,13 @@ public abstract class SinkTaskConfig {
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT));
 
+    boolean validationEnableErrorTable =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE,
+                String.valueOf(
+                    KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_DEFAULT)));
+
     int openChannelIoThreads =
         Optional.ofNullable(
                 config.get(KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS))
@@ -476,6 +489,7 @@ public abstract class SinkTaskConfig {
         .enableSchematization(enableSchematization)
         .enableColumnIdentifierNormalization(enableColumnIdentifierNormalization)
         .validation(validation)
+        .validationEnableErrorTable(validationEnableErrorTable)
         .openChannelIoThreads(openChannelIoThreads)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
         .cachingConfig(cachingConfig)
@@ -563,6 +577,8 @@ public abstract class SinkTaskConfig {
         boolean enableColumnIdentifierNormalization);
 
     public abstract Builder validation(SnowflakeValidation validation);
+
+    public abstract Builder validationEnableErrorTable(boolean validationEnableErrorTable);
 
     public abstract Builder openChannelIoThreads(int openChannelIoThreads);
 

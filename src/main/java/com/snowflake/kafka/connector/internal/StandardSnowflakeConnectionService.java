@@ -550,6 +550,21 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   }
 
   @Override
+  public void enableErrorLogging(String tableName) {
+    checkConnection();
+    InternalUtils.assertNotEmpty("tableName", tableName);
+
+    try (PreparedStatement stmt =
+        conn.prepareStatement("alter table identifier(?) set error_logging = true")) {
+      stmt.setString(1, quoteIdentifier(tableName));
+      stmt.execute();
+    } catch (SQLException e) {
+      throw SnowflakeErrors.ERROR_2008.getException(e);
+    }
+    LOGGER.info("Enabled ERROR_LOGGING on table {}", tableName);
+  }
+
+  @Override
   public List<String> getStructuredObjectFieldNames(String tableName, String columnName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);

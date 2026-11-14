@@ -152,6 +152,11 @@ public enum SnowflakeErrors {
       "2007",
       "Failed to create table",
       "Failed to create table on Snowflake, please check that you have permission to do so."),
+  ERROR_2008(
+      "2008",
+      "Failed to enable error logging",
+      "Failed to enable ERROR_LOGGING on table, please check that you have permission to alter the"
+          + " table or set `snowflake.validation.enable.error.table=false`."),
   ERROR_2015(
       "2015", "Failed to append columns", "Failed to append columns during schema evolution"),
   ERROR_2016("2016", "Failed to drop NOT NULL", "Failed to drop NOT NULL during schema evolution"),
