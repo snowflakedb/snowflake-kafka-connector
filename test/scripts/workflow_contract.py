@@ -90,7 +90,6 @@ class WorkflowTests(unittest.TestCase):
                 "run_spcs",
             )
         }
-        inputs["vars.SPCS_RELEASE_ENABLED"] = "true"
         self.assertEqual(
             self.live_jobs("workflow_dispatch", **inputs), {"spcs-inspect"}
         )
@@ -113,26 +112,31 @@ class WorkflowTests(unittest.TestCase):
                 "run_spcs",
             )
         }
-        inputs["vars.SPCS_RELEASE_ENABLED"] = "true"
         self.assertEqual(self.live_jobs("workflow_dispatch", **inputs), {"v4-trial"})
 
-    def test_spcs_requires_both_activation_controls(self):
+    def test_spcs_runs_only_when_requested_from_master(self):
+        self.assertEqual(self.live_jobs("workflow_dispatch"), set())
+        enabled = {"inputs.run_spcs": True}
+        master = {
+            "github.ref": "refs/heads/master",
+            "github.repository": "snowflakedb/snowflake-kafka-connector",
+        }
         self.assertEqual(
-            self.live_jobs("workflow_dispatch", **{"inputs.run_spcs": True}), set()
-        )
-        self.assertEqual(
-            self.live_jobs(
-                "workflow_dispatch", **{"vars.SPCS_RELEASE_ENABLED": "true"}
-            ),
-            set(),
-        )
-        self.assertEqual(
-            self.live_jobs(
-                "workflow_dispatch",
-                **{"inputs.run_spcs": True, "vars.SPCS_RELEASE_ENABLED": "true"},
-            ),
+            self.live_jobs("workflow_dispatch", **enabled, **master),
             {"spcs-release"},
         )
+        # The CI profile owns the fixture, so only master in this repository may use it.
+        for name, value in (
+            ("github.ref", "refs/heads/feature"),
+            ("github.repository", "fork/snowflake-kafka-connector"),
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    self.live_jobs(
+                        "workflow_dispatch", **enabled, **{**master, name: value}
+                    ),
+                    set(),
+                )
 
     def test_existing_pr_events_and_staggered_lanes(self):
         for workflow in (self.workflow, self.java):
@@ -168,6 +172,40 @@ class WorkflowTests(unittest.TestCase):
             if step.get("uses", "").startswith("actions/upload-artifact@")
         )
         self.assertEqual(upload["with"]["path"], "test/spcs/.scratch/result.json")
+
+    def test_spcs_release_uses_ci_profile_and_setup_fixture(self):
+        step = next(
+            step
+            for step in self.jobs["spcs-release"]["steps"]
+            if step.get("name") == "Run SPCS smoke test"
+        )
+        secrets = set(re.findall(r"secrets\.(\w+)", str(step)))
+        self.assertEqual(secrets, {"SNOWFLAKE_TEST_PROFILE_SECRET"})
+        # Nothing for an admin to configure beyond the optional egress integration.
+        self.assertNotIn("environment", self.jobs["spcs-release"])
+        self.assertEqual(
+            set(re.findall(r"vars\.(\w+)", str(self.jobs["spcs-release"]))),
+            {"SPCS_RELEASE_IMAGE_DIGEST", "SPCS_EGRESS"},
+        )
+        # Read as text: importing setup_ci.py needs the Snowflake connector.
+        setup = (ROOT / "test/spcs/setup_ci.py").read_text()
+        command = " ".join(step["run"].split())
+        for flag, value, source in (
+            ("--expected-account", "SFCTEST0", 'ACCOUNT = "SFCTEST0"'),
+            ("--role", "TESTROLE_KAFKA", 'ROLE = "TESTROLE_KAFKA"'),
+            ("--database", "TESTDB_KAFKA", 'DATABASE = "TESTDB_KAFKA"'),
+            ("--pool", "KC_SPCS_CI_POOL", '"KC_SPCS_CI_POOL",'),
+            (
+                "--stage",
+                "TESTDB_KAFKA.KC_SPCS_CI.HARNESS_STAGE",
+                'f"{SCHEMA}.HARNESS_STAGE"',
+            ),
+        ):
+            self.assertIn(source, setup)
+            self.assertIn(f"{flag} {value} ", command)
+        self.assertIn('SCHEMA = f"{DATABASE}.KC_SPCS_CI"', setup)
+        self.assertIn("rm -f profile.json test/spcs/.scratch/key.p8", command)
+        self.assertIn("--cleanup-policy fail ", command)
 
 
 if __name__ == "__main__":

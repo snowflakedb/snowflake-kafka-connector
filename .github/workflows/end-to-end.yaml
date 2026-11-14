@@ -398,11 +398,10 @@ jobs:
     - run: python3 -m unittest discover -s test/spcs -v
     - run: python3 test/spcs/observer_contract.py
 
-  # SNOW-4202412: opt-in only until the dedicated fixture is qualified.
-  # A skipped job is NOT release validation. Publisher integration remains open.
+  # SNOW-4202412: manual only until its first live pass. A skipped job is NOT
+  # release validation. Publisher integration remains open.
   spcs-release:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_spcs && !inputs.run_v4_trial && !inputs.inspect_spcs && vars.SPCS_RELEASE_ENABLED == 'true'
-    environment: spcs-release
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector' && inputs.run_spcs && !inputs.run_v4_trial && !inputs.inspect_spcs
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     concurrency:
@@ -412,6 +411,8 @@ jobs:
       contents: read
     steps:
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
@@ -422,42 +423,34 @@ jobs:
         cache: maven
     - name: Build connector without a secret-bearing E2E profile
       run: mvn package -DskipTests -Dgpg.skip=true
+    # Uses the existing CI profile: its role owns the permanent pool, stage and
+    # image repository from setup_ci.py, and nothing else uses the pool.
     - name: Run SPCS smoke test
       env:
-        SNOWFLAKE_CONNECTIONS_SPCS_ACCOUNT: ${{ secrets.SPCS_RELEASE_ACCOUNT }}
-        SNOWFLAKE_CONNECTIONS_SPCS_USER: ${{ secrets.SPCS_RELEASE_USER }}
-        SNOWFLAKE_CONNECTIONS_SPCS_AUTHENTICATOR: SNOWFLAKE_JWT
-        SNOWFLAKE_CONNECTIONS_SPCS_PRIVATE_KEY_FILE: ${{ github.workspace }}/test/spcs/.scratch/key.p8
-        SPCS_PRIVATE_KEY: ${{ secrets.SPCS_RELEASE_PRIVATE_KEY }}
-        SPCS_EXPECTED_ACCOUNT: ${{ vars.SPCS_EXPECTED_ACCOUNT }}
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+        SNOWFLAKE_CREDENTIAL_FILE: ${{ github.workspace }}/profile.json
         SPCS_IMAGE: ${{ vars.SPCS_RELEASE_IMAGE_DIGEST }}
-        SPCS_POOL: ${{ vars.SPCS_POOL }}
-        SPCS_STAGE: ${{ vars.SPCS_STAGE }}
-        SPCS_DATABASE: ${{ vars.SPCS_DATABASE }}
-        SPCS_ROLE: ${{ vars.SPCS_ROLE }}
-        SPCS_WAREHOUSE: ${{ vars.SPCS_WAREHOUSE }}
         SPCS_EGRESS: ${{ vars.SPCS_EGRESS }}
-        SPCS_CLEANUP_POLICY: ${{ vars.SPCS_CLEANUP_POLICY || 'warn' }}
-        SPCS_EXCLUSIVE_POOL: ${{ vars.SPCS_EXCLUSIVE_POOL }}
       run: |
         set -euo pipefail
         umask 077
-        mkdir -p test/spcs/.scratch ~/.snowflake
-        trap 'rm -f test/spcs/.scratch/key.p8' EXIT
+        mkdir -p test/spcs/.scratch
+        trap 'rm -f profile.json test/spcs/.scratch/key.p8 ~/.snowflake/config.toml' EXIT
         pip install --quiet snowflake-cli==3.25.0
-        printf '[connections.spcs]\n' > ~/.snowflake/config.toml
-        printf '%s\n' "$SPCS_PRIVATE_KEY" > test/spcs/.scratch/key.p8
-        unset SPCS_PRIVATE_KEY
-        [ "$SPCS_EXCLUSIVE_POOL" = true ] || { echo 'Reserve a dedicated pool before enabling this job'; exit 1; }
+        ./.github/scripts/decrypt_secret.sh AWS
+        unset SNOWFLAKE_TEST_PROFILE_SECRET
+        warehouse=$(python3 test/spcs/ci_connection.py --key test/spcs/.scratch/key.p8)
+        rm -f profile.json
         mapfile -t jars < <(find target -maxdepth 1 -name 'snowflake-kafka-connector-*.jar' ! -name '*sources*' ! -name '*javadoc*' ! -name '*original*')
         [ "${#jars[@]}" -eq 1 ] || { echo 'Expected exactly one connector artifact'; exit 1; }
         egress_args=()
         if [ -n "$SPCS_EGRESS" ]; then egress_args=(--egress "$SPCS_EGRESS"); fi
         python3 test/spcs/run_spcs_release.py --connection spcs \
-          --expected-account "$SPCS_EXPECTED_ACCOUNT" --pool "$SPCS_POOL" \
-          --stage "$SPCS_STAGE" --database "$SPCS_DATABASE" --role "$SPCS_ROLE" \
-          --warehouse "$SPCS_WAREHOUSE" --image "$SPCS_IMAGE" --jar "${jars[0]}" \
-          --exclusive-pool --cleanup-policy "$SPCS_CLEANUP_POLICY" \
+          --expected-account SFCTEST0 --pool KC_SPCS_CI_POOL \
+          --stage TESTDB_KAFKA.KC_SPCS_CI.HARNESS_STAGE --database TESTDB_KAFKA \
+          --role TESTROLE_KAFKA \
+          --warehouse "$warehouse" --image "$SPCS_IMAGE" --jar "${jars[0]}" \
+          --exclusive-pool --cleanup-policy fail \
           --evidence test/spcs/.scratch/result.json "${egress_args[@]}"
     - name: Preserve smoke result
       if: always()

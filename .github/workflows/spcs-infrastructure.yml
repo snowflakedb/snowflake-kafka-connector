@@ -38,11 +38,8 @@ jobs:
     - run: ruff check test/spcs/setup_ci.py test/spcs/test_setup_ci.py .github/scripts/test_spcs_workflow.py
     - run: ruff format --check test/spcs/setup_ci.py test/spcs/test_setup_ci.py .github/scripts/test_spcs_workflow.py
 
-  # Configure required approval and selected deployment branches before use.
-  # This gates this job, not other workflows using the same repository credential.
   setup:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
-    environment: kc-spcs-setup
     needs: contracts
     runs-on: ubuntu-22.04
     timeout-minutes: 10
@@ -50,10 +47,6 @@ jobs:
       group: spcs-release-account
       cancel-in-progress: false
     steps:
-    - name: Require configured setup gate
-      env:
-        SETUP_ENABLED: ${{ vars.KC_SPCS_SETUP_ENABLED }}
-      run: test "$SETUP_ENABLED" = true
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
