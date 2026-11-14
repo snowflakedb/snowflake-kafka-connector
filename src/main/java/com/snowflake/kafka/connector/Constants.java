@@ -54,6 +54,10 @@ public final class Constants {
     // Validation
     public static final String SNOWFLAKE_VALIDATION = "snowflake.validation";
     public static final String SNOWFLAKE_VALIDATION_DEFAULT = "server_side";
+    public static final String SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES =
+        "snowflake.validation.enable.error.table.on.existing.tables";
+    public static final boolean SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES_DEFAULT =
+        true;
 
     // Snowpipe Streaming Classic (SSv1) offset migration
     public static final String SNOWFLAKE_SSV1_OFFSET_MIGRATION =

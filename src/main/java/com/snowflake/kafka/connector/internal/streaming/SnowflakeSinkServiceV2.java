@@ -176,6 +176,14 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           continue;
         }
         if (!conn.hasErrorLoggingEnabled(tableName)) {
+          if (taskConfig.isValidationEnableErrorTableOnExistingTables()) {
+            LOGGER.info(
+                "Table '{}' does not have ERROR_LOGGING enabled, enabling it so invalid records"
+                    + " are persisted in the error table.",
+                tableName);
+            conn.enableErrorLogging(tableName);
+            continue;
+          }
           LOGGER.warn(
               "Table '{}' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
                   + " invalid records will be silently dropped. Run: ALTER TABLE \"{}\" SET"

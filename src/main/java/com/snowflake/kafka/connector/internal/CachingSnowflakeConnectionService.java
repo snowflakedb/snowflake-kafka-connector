@@ -175,6 +175,12 @@ public class CachingSnowflakeConnectionService implements SnowflakeConnectionSer
   }
 
   @Override
+  public void enableErrorLogging(String tableName) {
+    delegate.enableErrorLogging(tableName);
+    errorLoggingCache.invalidate(tableName);
+  }
+
+  @Override
   public boolean isTableCompatible(String tableName) {
     return delegate.isTableCompatible(tableName);
   }

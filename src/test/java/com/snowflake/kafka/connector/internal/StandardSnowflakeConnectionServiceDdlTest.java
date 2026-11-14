@@ -550,6 +550,33 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     assertFalse(svc.hasErrorLoggingEnabled("my_table"));
   }
 
+  @Test
+  public void testEnableErrorLogging_issuesAlterTable() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    when(conn.prepareStatement("alter table identifier(?) set error_logging = true"))
+        .thenReturn(stmt);
+
+    createServiceWithMockConnection(conn).enableErrorLogging("my_table");
+
+    verify(stmt).execute();
+  }
+
+  @Test
+  public void testEnableErrorLogging_sqlFailureThrows() throws Exception {
+    Connection conn = mock(Connection.class);
+    when(conn.isClosed()).thenReturn(false);
+    PreparedStatement stmt = mock(PreparedStatement.class);
+    when(stmt.execute()).thenThrow(new java.sql.SQLException("insufficient privileges"));
+    when(conn.prepareStatement("alter table identifier(?) set error_logging = true"))
+        .thenReturn(stmt);
+
+    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
+    org.junit.jupiter.api.Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class, () -> svc.enableErrorLogging("my_table"));
+  }
+
   // ---- createIcebergTableWithOnlyMetadataColumn: VARIANT-first with OBJECT fallback ----
 
   @Test
