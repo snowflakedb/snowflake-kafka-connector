@@ -182,7 +182,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .topicToTableResolver(
                 new StaticTopicToTableResolver(
                     Map.of("topic_ok", "table_ok", "topic_bad", "table_bad")))
-            .validationEnableErrorTable(false)
+            .validationEnableErrorTableOnExistingTables(false)
             .build();
 
     SnowflakeSinkServiceV2 service =
@@ -220,7 +220,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
             .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
-            .validationEnableErrorTable(false)
+            .validationEnableErrorTableOnExistingTables(false)
             .build();
 
     SnowflakeSinkServiceV2 service =
@@ -326,7 +326,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .connectorName("test-connector")
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
-            .validationEnableErrorTable(false)
+            .validationEnableErrorTableOnExistingTables(false)
             .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
             .build();
     SnowflakeConnectionService mockConn = mockConnWithTable("table1", false);
