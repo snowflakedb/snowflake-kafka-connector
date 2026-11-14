@@ -53,6 +53,7 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   static final String CHANNEL_OPEN_COUNT = "channel-open-count";
   static final String BACKPRESSURE_REWIND_COUNT = "backpressure-rewind-count";
   static final String INFLIGHT_CAP_WAIT_COUNT = "inflight-cap-wait-count";
+  static final String INFLIGHT_CAP_REWIND_COUNT = "inflight-cap-rewind-count";
 
   // Gauges
   static final String ASSIGNED_PARTITIONS = "assigned-partitions";
@@ -85,6 +86,7 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   private final Counter channelOpenCount;
   private final Counter backpressureRewindCount;
   private final Counter inflightCapWaitCount;
+  private final Counter inflightCapRewindCount;
 
   // Gauges (backed by atomics)
   private final AtomicInteger assignedPartitions;
@@ -153,6 +155,9 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
     this.inflightCapWaitCount =
         registry.counter(
             taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, INFLIGHT_CAP_WAIT_COUNT));
+    this.inflightCapRewindCount =
+        registry.counter(
+            taskMetricName(taskMetricPrefix, TASK_SUB_DOMAIN, INFLIGHT_CAP_REWIND_COUNT));
 
     // Gauges
     registry.register(
@@ -247,6 +252,11 @@ public class SnowflakeSinkTaskMetrics implements TaskMetrics {
   @Override
   public void incInflightCapWaitCount() {
     inflightCapWaitCount.inc();
+  }
+
+  @Override
+  public void incInflightCapRewindCount() {
+    inflightCapRewindCount.inc();
   }
 
   // ---- TaskMetrics interface (throughput) ----

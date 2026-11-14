@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal.streaming;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -53,6 +55,10 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
+import org.apache.log4j.AppenderSkeleton;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.spi.LoggingEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,8 +83,12 @@ class SnowflakeSinkServiceV2Test {
   private MutableClock clock;
   private FakeSleeper sleeper;
 
+  private CapturingAppender logAppender;
+
   @BeforeEach
   void setUp() {
+    logAppender = new CapturingAppender();
+    Logger.getLogger(SnowflakeSinkServiceV2.class).addAppender(logAppender);
     mockTaskMetrics = mock(TaskMetrics.class);
     clock = new MutableClock(Instant.now());
     sleeper = new FakeSleeper(clock);
@@ -107,6 +117,7 @@ class SnowflakeSinkServiceV2Test {
 
   @AfterEach
   void tearDown() {
+    Logger.getLogger(SnowflakeSinkServiceV2.class).removeAppender(logAppender);
     ThreadPools.closeForTask(CONNECTOR_NAME);
   }
 
@@ -514,7 +525,7 @@ class SnowflakeSinkServiceV2Test {
     verify(channel1).insertRecord(r1);
     verify(mockSinkTaskContext, never()).offset(any(Map.class));
     verify(mockTaskMetrics).incInflightCapWaitCount();
-    verify(mockTaskMetrics, never()).incBackpressureRewindCount();
+    verify(mockTaskMetrics, never()).incInflightCapRewindCount();
     assertEquals(Instant.MIN, limited.backpressureUntil);
     assertFalse(limited.isTaskInflightCapped());
   }
@@ -545,7 +556,9 @@ class SnowflakeSinkServiceV2Test {
     verify(channel1, never()).insertRecord(any());
     verify(mockSinkTaskContext).offset(Map.of(tp0, 1000L, tp1, 2000L));
     verify(mockTaskMetrics).incInflightCapWaitCount();
-    verify(mockTaskMetrics).incBackpressureRewindCount();
+    verify(mockTaskMetrics).incInflightCapRewindCount();
+    verify(mockTaskMetrics, never()).incBackpressureRewindCount();
+    assertEquals(0, logAppender.count(Level.INFO, "Rewinding offsets"));
     assertEquals(Instant.MIN, limited.backpressureUntil);
     assertTrue(limited.isTaskInflightCapped());
   }
@@ -575,7 +588,7 @@ class SnowflakeSinkServiceV2Test {
     // 10 rechecks exhaust the first put, then the second put starts capped and waits once.
     assertEquals(11, sleeper.sleeps.size());
     verify(mockTaskMetrics, times(2)).incInflightCapWaitCount();
-    verify(mockTaskMetrics, times(1)).incBackpressureRewindCount();
+    verify(mockTaskMetrics, times(1)).incInflightCapRewindCount();
     verify(mockSinkTaskContext, times(1)).offset(Map.of(tp0, 1000L));
     verify(channel0, times(1)).insertRecord(record);
     assertFalse(limited.isTaskInflightCapped());
@@ -597,7 +610,7 @@ class SnowflakeSinkServiceV2Test {
     verify(mockChannelManager, times(2)).sumInflightUsage();
     assertEquals(List.of(SnowflakeSinkServiceV2.INFLIGHT_RECHECK_INTERVAL), sleeper.sleeps);
     verify(mockTaskMetrics).incInflightCapWaitCount();
-    verify(mockTaskMetrics, never()).incBackpressureRewindCount();
+    verify(mockTaskMetrics, never()).incInflightCapRewindCount();
     verify(channel0).insertRecord(record);
     verify(mockSinkTaskContext, never()).offset(any(Map.class));
     assertFalse(limited.isTaskInflightCapped());
@@ -617,7 +630,8 @@ class SnowflakeSinkServiceV2Test {
     verify(mockChannelManager, times(11)).sumInflightUsage();
     verify(channel0, never()).insertRecord(any());
     verify(mockSinkTaskContext).offset(Map.of(tp0, 1000L));
-    verify(mockTaskMetrics).incBackpressureRewindCount();
+    verify(mockTaskMetrics, never()).incBackpressureRewindCount();
+    verify(mockTaskMetrics).incInflightCapRewindCount();
     assertEquals(Instant.MIN, limited.backpressureUntil);
     assertTrue(limited.isTaskInflightCapped());
   }
@@ -708,7 +722,7 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
-  void insertFailsTaskWhenUsageUnavailableLongerThanLimit() {
+  void insertFailsTaskWhenUsageStaysUnavailableLongerThanLimit() {
     SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
     TopicPartition tp0 = new TopicPartition(TOPIC, 0);
     TopicPartitionChannel channel0 = mockChannel("ch_0", false);
@@ -717,22 +731,79 @@ class SnowflakeSinkServiceV2Test {
         new InflightUsageUnavailableException("ffi", new RuntimeException("x"));
     when(mockChannelManager.sumInflightUsage()).thenThrow(failure);
     List<SinkRecord> batch = Collections.singletonList(recordFor(TOPIC, 0, 1000));
+    Instant start = clock.instant();
 
-    // Unavailable from t0, the first put waits until t0 + 1s and rewinds.
-    limited.insert(batch);
-    clock.advance(
-        SnowflakeSinkServiceV2.MAX_INFLIGHT_USAGE_UNAVAILABLE.minus(
-            SnowflakeSinkServiceV2.MAX_INFLIGHT_WAIT_PER_PUT));
-    int sleepsBefore = sleeper.sleeps.size();
+    // Every put waits 1s on failing reads and rewinds, so the reads never pause for long.
+    ConnectException thrown = null;
+    for (int put = 0; put < 400 && thrown == null; put++) {
+      try {
+        limited.insert(batch);
+      } catch (ConnectException e) {
+        thrown = e;
+      }
+    }
 
-    // The read at exactly t0 + 5 minutes still waits, the next one is past the limit.
-    ConnectException thrown = assertThrows(ConnectException.class, () -> limited.insert(batch));
-
-    assertEquals(sleepsBefore + 1, sleeper.sleeps.size());
-    assertEquals(ConnectException.class, thrown.getClass());
+    assertNotNull(thrown);
     assertSame(failure, thrown.getCause());
     assertTrue(thrown.getMessage().contains("5 minutes"), thrown.getMessage());
+    Duration elapsed = Duration.between(start, clock.instant());
+    assertTrue(
+        elapsed.compareTo(SnowflakeSinkServiceV2.MAX_INFLIGHT_USAGE_UNAVAILABLE) > 0
+            && elapsed.compareTo(
+                    SnowflakeSinkServiceV2.MAX_INFLIGHT_USAGE_UNAVAILABLE.plus(
+                        SnowflakeSinkServiceV2.INFLIGHT_RECHECK_INTERVAL))
+                <= 0,
+        elapsed.toString());
+    // One ERROR at the start of the run and at most one per minute after it.
+    assertEquals(6, logAppender.count(Level.ERROR, "Task inflight usage unavailable"));
     verify(channel0, never()).insertRecord(any());
+  }
+
+  @Test
+  void insertStartsNewUnavailableStretchAfterIdleGap() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.sumInflightUsage())
+        .thenThrow(new InflightUsageUnavailableException("ffi", new RuntimeException("x")));
+    List<SinkRecord> batch = Collections.singletonList(recordFor(TOPIC, 0, 1000));
+
+    limited.insert(batch);
+    // No put reads the usage for longer than the stretch gap, as on an idle topic.
+    clock.advance(SnowflakeSinkServiceV2.MAX_INFLIGHT_USAGE_UNAVAILABLE.plusMinutes(1));
+    limited.insert(batch);
+
+    verify(mockSinkTaskContext, times(2)).offset(Map.of(tp0, 1000L));
+    assertTrue(limited.isTaskInflightCapped());
+  }
+
+  @Test
+  void insertLogsReachedCapAtMostOncePerLogInterval() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    // Each put first reads a reached cap, then reads usage below it after one recheck.
+    AtomicInteger reads = new AtomicInteger();
+    when(mockChannelManager.sumInflightUsage())
+        .thenAnswer(
+            invocation ->
+                reads.getAndIncrement() % 2 == 0 ? new InflightUsage(50, 0) : InflightUsage.NONE);
+    List<SinkRecord> batch = Collections.singletonList(recordFor(TOPIC, 0, 1000));
+
+    for (int put = 0; put < 30; put++) {
+      limited.insert(batch);
+    }
+    assertEquals(1, logAppender.count(Level.WARN, "Task inflight cap reached"));
+    assertEquals(0, logAppender.count(Level.INFO, "resuming appends"));
+
+    clock.advance(SnowflakeSinkServiceV2.INFLIGHT_LOG_INTERVAL);
+    limited.insert(batch);
+
+    assertEquals(2, logAppender.count(Level.WARN, "Task inflight cap reached"));
+    assertEquals(1, logAppender.count(Level.WARN, "Reached 30 times since the last report"));
+    verify(channel0, times(31)).insertRecord(any());
   }
 
   @Test
@@ -1358,5 +1429,30 @@ class SnowflakeSinkServiceV2Test {
 
   private static SinkRecord recordFor(String topic, int partition, long offset) {
     return SinkRecordBuilder.forTopicPartition(topic, partition).withOffset(offset).build();
+  }
+
+  private static final class CapturingAppender extends AppenderSkeleton {
+    private final List<LoggingEvent> events = Collections.synchronizedList(new ArrayList<>());
+
+    @Override
+    protected void append(LoggingEvent event) {
+      events.add(event);
+    }
+
+    @Override
+    public void close() {}
+
+    @Override
+    public boolean requiresLayout() {
+      return false;
+    }
+
+    long count(Level level, String fragment) {
+      synchronized (events) {
+        return events.stream()
+            .filter(e -> e.getLevel().equals(level) && e.getRenderedMessage().contains(fragment))
+            .count();
+      }
+    }
   }
 }
