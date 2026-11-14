@@ -185,7 +185,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("environment", self.jobs["spcs-release"])
         self.assertEqual(
             set(re.findall(r"vars\.(\w+)", str(self.jobs["spcs-release"]))),
-            {"SPCS_RELEASE_IMAGE_DIGEST", "SPCS_EGRESS"},
+            {"SPCS_EGRESS"},
         )
         # Read as text: importing setup_ci.py needs the Snowflake connector.
         setup = (ROOT / "test/spcs/setup_ci.py").read_text()
@@ -204,7 +204,12 @@ class WorkflowTests(unittest.TestCase):
             self.assertIn(source, setup)
             self.assertIn(f"{flag} {value} ", command)
         self.assertIn('SCHEMA = f"{DATABASE}.KC_SPCS_CI"', setup)
-        self.assertIn("rm -f profile.json test/spcs/.scratch/key.p8", command)
+        # The key stays outside the image build context and is always removed.
+        self.assertIn("key=$RUNNER_TEMP/key.p8", command)
+        self.assertIn('rm -f profile.json "$key"', command)
+        # Each run tests the image it just built, by digest.
+        self.assertIn('image=$(test/spcs/publish_image.sh "$GITHUB_SHA")', command)
+        self.assertIn('--image "$image" ', command)
         self.assertIn("--cleanup-policy fail ", command)
 
 

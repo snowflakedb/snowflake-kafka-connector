@@ -424,23 +424,26 @@ jobs:
     - name: Build connector without a secret-bearing E2E profile
       run: mvn package -DskipTests -Dgpg.skip=true
     # Uses the existing CI profile: its role owns the permanent pool, stage and
-    # image repository from setup_ci.py, and nothing else uses the pool.
+    # image repository from setup_ci.py, and nothing else uses the pool. Each run
+    # builds and pushes its own image and tests that exact digest.
     - name: Run SPCS smoke test
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
         SNOWFLAKE_CREDENTIAL_FILE: ${{ github.workspace }}/profile.json
-        SPCS_IMAGE: ${{ vars.SPCS_RELEASE_IMAGE_DIGEST }}
         SPCS_EGRESS: ${{ vars.SPCS_EGRESS }}
       run: |
         set -euo pipefail
         umask 077
         mkdir -p test/spcs/.scratch
-        trap 'rm -f profile.json test/spcs/.scratch/key.p8 ~/.snowflake/config.toml' EXIT
+        # The key stays outside the repository, which is the image build context.
+        key=$RUNNER_TEMP/key.p8
+        trap 'rm -f profile.json "$key" ~/.snowflake/config.toml' EXIT
         pip install --quiet snowflake-cli==3.25.0
         ./.github/scripts/decrypt_secret.sh AWS
         unset SNOWFLAKE_TEST_PROFILE_SECRET
-        warehouse=$(python3 test/spcs/ci_connection.py --key test/spcs/.scratch/key.p8)
+        warehouse=$(python3 test/spcs/ci_connection.py --key "$key")
         rm -f profile.json
+        image=$(test/spcs/publish_image.sh "$GITHUB_SHA")
         mapfile -t jars < <(find target -maxdepth 1 -name 'snowflake-kafka-connector-*.jar' ! -name '*sources*' ! -name '*javadoc*' ! -name '*original*')
         [ "${#jars[@]}" -eq 1 ] || { echo 'Expected exactly one connector artifact'; exit 1; }
         egress_args=()
@@ -449,7 +452,7 @@ jobs:
           --expected-account SFCTEST0 --pool KC_SPCS_CI_POOL \
           --stage TESTDB_KAFKA.KC_SPCS_CI.HARNESS_STAGE --database TESTDB_KAFKA \
           --role TESTROLE_KAFKA \
-          --warehouse "$warehouse" --image "$SPCS_IMAGE" --jar "${jars[0]}" \
+          --warehouse "$warehouse" --image "$image" --jar "${jars[0]}" \
           --exclusive-pool --cleanup-policy fail \
           --evidence test/spcs/.scratch/result.json "${egress_args[@]}"
     - name: Preserve smoke result
