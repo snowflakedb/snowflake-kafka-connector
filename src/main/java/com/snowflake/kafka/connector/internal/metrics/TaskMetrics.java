@@ -41,6 +41,10 @@ public interface TaskMetrics {
 
   void incBackpressureRewindCount();
 
+  void incInflightCapWaitCount();
+
+  void incInflightCapRewindCount();
+
   // ---- throughput ----
 
   void markPutRecords(long count);

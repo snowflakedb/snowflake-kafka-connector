@@ -206,6 +206,31 @@ public class SnowflakeSinkTaskMetricsTest {
   }
 
   @Test
+  public void testInflightCapRewindCount() {
+    createMetrics();
+    metrics.incInflightCapRewindCount();
+    assertEquals(
+        1,
+        metricRegistry
+            .getCounters()
+            .get(taskMetricName(PREFIX, TASK_SUB_DOMAIN, INFLIGHT_CAP_REWIND_COUNT))
+            .getCount());
+  }
+
+  @Test
+  public void testInflightCapWaitCount() {
+    createMetrics();
+    metrics.incInflightCapWaitCount();
+    metrics.incInflightCapWaitCount();
+    assertEquals(
+        2,
+        metricRegistry
+            .getCounters()
+            .get(taskMetricName(PREFIX, TASK_SUB_DOMAIN, INFLIGHT_CAP_WAIT_COUNT))
+            .getCount());
+  }
+
+  @Test
   public void testChannelOpenCount() {
     createMetrics();
     metrics.channelOpenCount().inc();
