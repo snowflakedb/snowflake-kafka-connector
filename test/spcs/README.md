@@ -3,7 +3,7 @@
 **Author:** Berni Schiefer (openai-gpt-6-astra, Cortex Code agent mode)
 **Date:** 2026-11-14 14:00 UTC
 **Status:** Draft; manual execution only, no release gate enabled
-**Document version:** 7.3
+**Document version:** 7.4
 
 A finite Snowpark Container Services (SPCS) job runs Kafka, Connect, and the
 KC v4 test. It sends 100 numbered records using ambient authentication. The
@@ -129,10 +129,12 @@ The manual job runs only from `master` of this repository, when started with
 `SFCTEST0`) against the permanent objects from the one-time setup above, so it
 needs no secrets of its own and no approval step.
 [`ci_connection.py`](ci_connection.py) turns the profile into the `snow`
-connection and supplies the profile's warehouse. Configure:
-
-- `SPCS_RELEASE_IMAGE_DIGEST`: the smoke image in `TESTDB_KAFKA.KC_SPCS_CI.IMAGES`.
-- Optional `SPCS_EGRESS`.
+connection and supplies the profile's warehouse.
+[`publish_image.sh`](publish_image.sh) then builds the test image from this
+commit, pushes it to `TESTDB_KAFKA.KC_SPCS_CI.IMAGES`, and the run tests that
+exact digest. Nothing needs to be configured; `SPCS_EGRESS` is an optional
+repository variable naming an existing external access integration, only if the
+container ever needs one.
 
 It always uses `--cleanup-policy fail`: leftovers in the shared account fail the run.
 
