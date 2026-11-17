@@ -136,12 +136,6 @@ exact digest. Nothing needs to be configured; `SPCS_EGRESS` is an optional
 repository variable naming an existing external access integration, only if the
 container ever needs one.
 
-[`ci_connection.py`](ci_connection.py) turns the profile into the `snow`
-connection and supplies the profile's warehouse. Configure:
-
-- `SPCS_RELEASE_IMAGE_DIGEST`: the smoke image in `TESTDB_KAFKA.KC_SPCS_CI.IMAGES`.
-- Optional `SPCS_EGRESS`.
-
 It always uses `--cleanup-policy fail`: leftovers in the shared account fail the run.
 
 The pool `KC_SPCS_CI_POOL` is dedicated to this job, and the job and the

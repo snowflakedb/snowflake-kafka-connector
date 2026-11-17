@@ -430,7 +430,6 @@ jobs:
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
         SNOWFLAKE_CREDENTIAL_FILE: ${{ github.workspace }}/profile.json
-
         SPCS_EGRESS: ${{ vars.SPCS_EGRESS }}
       run: |
         set -euo pipefail
@@ -454,7 +453,6 @@ jobs:
           --stage TESTDB_KAFKA.KC_SPCS_CI.HARNESS_STAGE --database TESTDB_KAFKA \
           --role TESTROLE_KAFKA \
           --warehouse "$warehouse" --image "$image" --jar "${jars[0]}" \
-
           --exclusive-pool --cleanup-policy fail \
           --evidence test/spcs/.scratch/result.json "${egress_args[@]}"
     - name: Preserve smoke result
