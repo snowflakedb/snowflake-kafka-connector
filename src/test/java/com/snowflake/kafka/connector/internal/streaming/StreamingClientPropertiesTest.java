@@ -49,6 +49,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 public class StreamingClientPropertiesTest {
@@ -212,6 +213,39 @@ public class StreamingClientPropertiesTest {
     // verify client name prefix and empty parameter overrides
     assertThat(result.clientNamePrefix).isEqualTo(STREAMING_CLIENT_V2_PREFIX_NAME + "testName");
     assertThat(result.parameterOverrides).isEmpty();
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "true, server_side, true, true",
+    "false, server_side, true, false",
+    "true, client_side, true, false",
+    "true, server_side, false, false"
+  })
+  void enablesTheSdkEvolveSchemaApiOnlyWhenTheConnectorEvolvesSchemas(
+      boolean evolveSchema, String validation, boolean schematization, boolean expected) {
+    Map<String, String> connectorConfig = new HashMap<>();
+    connectorConfig.put(KafkaConnectorConfigParams.NAME, "testName");
+    connectorConfig.put(Utils.TASK_ID, "0");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_URL_NAME,
+        "https://testaccount.us-east-1.snowflakecomputing.com");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+        Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()));
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_EVOLVE_SCHEMA, String.valueOf(evolveSchema));
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, validation);
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_ENABLE_SCHEMATIZATION, String.valueOf(schematization));
+
+    Properties clientProps =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig)).clientProperties;
+
+    assertThat(clientProps.getProperty(StreamingClientProperties.ENABLE_EVOLVE_SCHEMA_API))
+        .isEqualTo(expected ? "true" : null);
   }
 
   @Test

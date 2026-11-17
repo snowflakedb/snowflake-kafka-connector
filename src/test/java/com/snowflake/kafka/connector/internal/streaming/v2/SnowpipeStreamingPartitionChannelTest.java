@@ -7,18 +7,23 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.ChannelStatusBatch;
+import com.snowflake.ingest.streaming.EvolveSchemaResult;
 import com.snowflake.ingest.streaming.OpenChannelResult;
 import com.snowflake.ingest.streaming.SFException;
+import com.snowflake.ingest.streaming.SchemaType;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestElasticChannel;
@@ -33,6 +38,7 @@ import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
+import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.PipeSchemaEvolver;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationResponse;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
@@ -55,13 +61,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 class SnowpipeStreamingPartitionChannelTest {
 
@@ -668,6 +679,13 @@ class SnowpipeStreamingPartitionChannelTest {
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel(
       ClientRecreator clientRecreator, TaskMetrics taskMetrics) {
+    return createPartitionChannel(clientRecreator, taskMetrics, Optional.empty());
+  }
+
+  private SnowpipeStreamingPartitionChannel createPartitionChannel(
+      ClientRecreator clientRecreator,
+      TaskMetrics taskMetrics,
+      Optional<PipeSchemaEvolver> pipeSchemaEvolver) {
     final PartitionOffsetTracker offsetTracker =
         new PartitionOffsetTracker(channelName, offset -> {});
     final SnowflakeTelemetryChannelStatus telemetryChannelStatus =
@@ -687,9 +705,10 @@ class SnowpipeStreamingPartitionChannelTest {
         SinkTaskConfigTestBuilder.builder()
             .connectorName(CONNECTOR_NAME)
             .taskId("0")
-            .enableSchematization(false)
+            .enableSchematization(pipeSchemaEvolver.isPresent())
             .enableColumnIdentifierNormalization(true)
             .validation(SnowflakeValidation.SERVER_SIDE)
+            .evolveSchemaEnabled(pipeSchemaEvolver.isPresent())
             .build();
 
     return new SnowpipeStreamingPartitionChannel(
@@ -708,7 +727,8 @@ class SnowpipeStreamingPartitionChannelTest {
         false,
         false,
         mock(SnowflakeConnectionService.class),
-        Optional.empty());
+        Optional.empty(),
+        pipeSchemaEvolver);
   }
 
   @Test
@@ -721,6 +741,87 @@ class SnowpipeStreamingPartitionChannelTest {
 
     assertTrue(processed);
     verify(mockTaskMetrics, times(1)).markRecordsAppended(1L);
+  }
+
+  @Test
+  void insertRecord_evolveSchemaEnabled_evolvesBeforeAppend() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    channel.getChannel();
+
+    assertTrue(channel.insertRecord(buildStructRecord(0)));
+    assertTrue(channel.insertRecord(buildStructRecord(1)));
+
+    ArgumentCaptor<String> schemaJson = ArgumentCaptor.forClass(String.class);
+    InOrder inOrder = inOrder(trackingClient, mockTaskMetrics);
+    inOrder
+        .verify(trackingClient)
+        .evolveSchema(eq(SchemaType.KAFKA_CONNECT), schemaJson.capture(), eq(false));
+    inOrder.verify(mockTaskMetrics, times(2)).markRecordsAppended(1L);
+    verify(trackingClient, times(1)).evolveSchema(any(), any(), eq(false));
+    assertTrue(schemaJson.getValue().contains("\"field\":\"ID\""), schemaJson.getValue());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaFails_doesNotAppend() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    trackingClient.evolveSchemaFailure =
+        new SFException("SfApiUserError", "ERR_EVOLVE_SCHEMA_INVALID_SCHEMA", 400, "Bad Request");
+    channel.getChannel();
+
+    assertThrows(SFException.class, () -> channel.insertRecord(buildStructRecord(0)));
+    verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaEnabled_skipsTombstone() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    channel.getChannel();
+
+    channel.insertRecord(
+        SinkRecordBuilder.forTopicPartition(TOPIC_NAME, PARTITION)
+            .withValueSchema(STRUCT_SCHEMA)
+            .withValue(null)
+            .withOffset(0)
+            .build());
+
+    verify(trackingClient, never()).evolveSchema(any(), any(), eq(false));
+  }
+
+  @Test
+  void insertRecord_evolveSchemaEnabled_evolvesAgainAfterChannelReopens() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    channel.getChannel();
+    channel.insertRecord(buildStructRecord(0));
+
+    // The append fails once, so the channel reopens; the table may have been recreated.
+    trackingClientSupplier.setNonRetryableAppendRowFailures(1);
+    channel.insertRecord(buildStructRecord(1));
+    channel.insertRecord(buildStructRecord(2));
+
+    assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
+    verify(trackingClient, times(2)).evolveSchema(any(), any(), eq(false));
+  }
+
+  private static final Schema STRUCT_SCHEMA =
+      SchemaBuilder.struct().field("id", Schema.INT64_SCHEMA).build();
+
+  private SinkRecord buildStructRecord(long offset) {
+    return SinkRecordBuilder.forTopicPartition(TOPIC_NAME, PARTITION)
+        .withSchemaAndValue(
+            new SchemaAndValue(STRUCT_SCHEMA, new Struct(STRUCT_SCHEMA).put("id", offset)))
+        .withOffset(offset)
+        .build();
+  }
+
+  /** A channel with an evolver, on a spy of the tracking client so its calls can be verified. */
+  private SnowpipeStreamingPartitionChannel createEvolveSchemaChannel() {
+    trackingClient = spy(trackingClient);
+    return createPartitionChannel(
+        invalidClient -> {
+          throw new UnsupportedOperationException("ClientRecreator not wired in this test");
+        },
+        mockTaskMetrics,
+        Optional.of(new PipeSchemaEvolver()));
   }
 
   @Test
@@ -1457,6 +1558,18 @@ class SnowpipeStreamingPartitionChannelTest {
     @Override
     public SnowflakeStreamingIngestElasticChannel getElasticChannel() {
       throw new UnsupportedOperationException();
+    }
+
+    /** When set, {@link #evolveSchema} throws it. */
+    volatile RuntimeException evolveSchemaFailure;
+
+    @Override
+    public EvolveSchemaResult evolveSchema(
+        final SchemaType schemaType, final String schemaJson, final boolean normalizeColumnNames) {
+      if (evolveSchemaFailure != null) {
+        throw evolveSchemaFailure;
+      }
+      return mock(EvolveSchemaResult.class);
     }
   }
 

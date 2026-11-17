@@ -158,6 +158,12 @@ public abstract class SinkTaskConfig {
    */
   public abstract boolean isStructuredRecordMetadataEnabled();
 
+  /**
+   * Whether new record value schemas are sent to the SSv2 evolve-schema endpoint before appending.
+   * See {@link KafkaConnectorConfigParams#SNOWFLAKE_FEATURE_EVOLVE_SCHEMA}.
+   */
+  public abstract boolean isEvolveSchemaEnabled();
+
   /** Convenience overload that calls {@link #from(Map, boolean)} with {@code false}. */
   public static SinkTaskConfig from(Map<String, String> raw) {
     return from(raw, false);
@@ -407,6 +413,11 @@ public abstract class SinkTaskConfig {
             .orElse(
                 KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_STRUCTURED_RECORD_METADATA_DEFAULT);
 
+    boolean evolveSchemaEnabled =
+        Optional.ofNullable(config.get(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_EVOLVE_SCHEMA))
+            .map(Boolean::parseBoolean)
+            .orElse(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_EVOLVE_SCHEMA_DEFAULT);
+
     TableType autocreatedTableType =
         TableType.fromConfig(config.get(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE))
             .orElse(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE_DEFAULT);
@@ -497,6 +508,7 @@ public abstract class SinkTaskConfig {
         .validationErrorTableNameEnabled(validationErrorTableNameEnabled)
         .normalizeTimeEnabled(normalizeTimeEnabled)
         .structuredRecordMetadataEnabled(structuredRecordMetadataEnabled)
+        .evolveSchemaEnabled(evolveSchemaEnabled)
         .autocreatedTableType(autocreatedTableType)
         .icebergCreateTableOptions(icebergCreateTableOptions);
 
@@ -628,6 +640,8 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder structuredRecordMetadataEnabled(
         boolean structuredRecordMetadataEnabled);
+
+    public abstract Builder evolveSchemaEnabled(boolean evolveSchemaEnabled);
 
     public abstract SinkTaskConfig build();
   }

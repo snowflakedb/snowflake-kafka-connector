@@ -2,7 +2,9 @@ package com.snowflake.kafka.connector.internal.streaming;
 
 import com.snowflake.ingest.streaming.ChannelStatus;
 import com.snowflake.ingest.streaming.ChannelStatusBatch;
+import com.snowflake.ingest.streaming.EvolveSchemaResult;
 import com.snowflake.ingest.streaming.OpenChannelResult;
+import com.snowflake.ingest.streaming.SchemaType;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestClient;
 import com.snowflake.ingest.streaming.SnowflakeStreamingIngestElasticChannel;
 import java.time.Duration;
@@ -112,6 +114,12 @@ public class FakeSnowflakeStreamingIngestClient implements SnowflakeStreamingIng
 
   @Override
   public CompletableFuture<Void> waitForFlush(final Duration timeoutDuration) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public EvolveSchemaResult evolveSchema(
+      final SchemaType schemaType, final String schemaJson, final boolean normalizeColumnNames) {
     throw new UnsupportedOperationException();
   }
 
