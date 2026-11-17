@@ -82,7 +82,7 @@ public class SnowflakeInternalStage {
       SnowflakeConnectionImpl conn, long expirationTimeMillis, Properties proxyProperties) {
     this.conn = conn;
     this.expirationTimeMillis = expirationTimeMillis;
-    this.proxyProperties = proxyProperties;
+    this.proxyProperties = InternalUtils.withEmptyNonProxyHostsIfMissing(proxyProperties);
   }
 
   /**

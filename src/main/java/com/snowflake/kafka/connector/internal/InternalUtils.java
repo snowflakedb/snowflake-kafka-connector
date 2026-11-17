@@ -314,6 +314,25 @@ public class InternalUtils {
     return proxyProperties;
   }
 
+  /**
+   * Returns a copy of proxyProperties with nonProxyHosts set to empty when a proxy is used and
+   * nonProxyHosts is not configured. An empty value still sends every host through the proxy.
+   *
+   * <p>Workaround for JDBC 4.x passing a null nonProxyHosts to the Azure SDK, which throws a
+   * NullPointerException in uploadWithoutConnection for Azure stages.
+   */
+  static Properties withEmptyNonProxyHostsIfMissing(Properties proxyProperties) {
+    Properties result = new Properties();
+    if (proxyProperties == null) {
+      return result;
+    }
+    result.putAll(proxyProperties);
+    if ("true".equals(result.getProperty(SFSessionProperty.USE_PROXY.getPropertyKey()))) {
+      result.putIfAbsent(SFSessionProperty.NON_PROXY_HOSTS.getPropertyKey(), "");
+    }
+    return result;
+  }
+
   protected static Properties parseJdbcPropertiesMap(Map<String, String> conf) {
     String jdbcConfigMapInput = conf.get(SnowflakeSinkConnectorConfig.SNOWFLAKE_JDBC_MAP);
     if (jdbcConfigMapInput == null) {
