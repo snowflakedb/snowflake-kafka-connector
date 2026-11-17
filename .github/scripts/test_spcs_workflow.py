@@ -29,8 +29,10 @@ class WorkflowTests(unittest.TestCase):
         contracts, setup = (document["jobs"][key] for key in ("contracts", "setup"))
         self.assertEqual(set(document["jobs"]), {"contracts", "setup"})
         self.assertNotIn("secrets.", str(contracts))
-        self.assertNotIn("environment", contracts)
-        self.assertEqual(setup["environment"], "kc-spcs-setup")
+        # No approval environment or switch: setup is idempotent and only adds
+        # objects, and the master and repository gate below is the protection.
+        self.assertNotIn("environment", str(document))
+        self.assertNotIn("vars.", str(document))
         self.assertEqual(setup["needs"], "contracts")
         self.assertLessEqual(int(setup["timeout-minutes"]), 10)
         self.assertEqual(
@@ -46,17 +48,6 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("upload-artifact", str(setup))
         self.assertNotIn("run_spcs_release", str(document))
         self.assertNotIn("build-connector", str(document))
-        gate = setup["steps"][0]
-        self.assertEqual(
-            gate["env"], {"SETUP_ENABLED": "${{ vars.KC_SPCS_SETUP_ENABLED }}"}
-        )
-        for enabled in ("", "false", "true"):
-            result = subprocess.run(
-                ["/bin/bash", "-c", gate["run"]],
-                env={"SETUP_ENABLED": enabled},
-                check=False,
-            )
-            self.assertEqual(result.returncode == 0, enabled == "true")
 
     def test_setup_shell_cleanup_and_exit_propagation(self):
         setup = workflow("spcs-infrastructure.yml")["jobs"]["setup"]
