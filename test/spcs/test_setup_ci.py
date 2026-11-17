@@ -19,14 +19,26 @@ SHOW_TO_NAME = {
 
 
 class FakeCursor:
-    def __init__(self, existing=(), account="SFCTEST0", owner="TESTROLE_KAFKA"):
+    def __init__(
+        self, existing=(), account="SFCTEST0", owner="TESTROLE_KAFKA", admin=True
+    ):
         self.objects = {name: owner for name in existing}
         self.account = account
+        self.admin = admin
+        self.role = "TESTROLE_KAFKA"
         self.statements = []
 
     def execute(self, sql):
         self.statements.append(sql)
-        if sql.startswith("SELECT"):
+        if sql.startswith("USE ROLE "):
+            if sql == "USE ROLE ACCOUNTADMIN" and not self.admin:
+                raise setup_ci.snowflake.connector.ProgrammingError("not granted")
+            self.role = sql.removeprefix("USE ROLE ")
+            self.result = [("status",)], []
+        elif sql.startswith("GRANT"):
+            assert self.role == "ACCOUNTADMIN", sql
+            self.result = [("status",)], []
+        elif sql.startswith("SELECT"):
             self.result = [("A",), ("R",)], [(self.account, "TESTROLE_KAFKA")]
         elif sql in SHOW_TO_NAME:
             name = SHOW_TO_NAME[sql]
@@ -36,6 +48,7 @@ class FakeCursor:
                 data.append((name, self.objects[name], MARKER))
             self.result = [("name",), ("owner",), ("comment",)], data
         elif sql.startswith("CREATE"):
+            assert self.role == "TESTROLE_KAFKA", sql
             name = sql.split(" IF NOT EXISTS ")[1].split()[0].rsplit(".", 1)[-1]
             self.objects.setdefault(name, "TESTROLE_KAFKA")
             self.result = [("status",)], []
@@ -59,6 +72,29 @@ class SetupTest(unittest.TestCase):
     def test_check_is_read_only(self):
         cursor = FakeCursor()
         self.assertEqual(run(cursor, apply=False), 4)
+        for verb in ("CREATE", "GRANT", "USE ROLE"):
+            self.assertFalse(any(s.startswith(verb) for s in cursor.statements), verb)
+
+    def test_apply_grants_exactly_two_privileges_as_accountadmin_first(self):
+        cursor = FakeCursor()
+        run(cursor, apply=True)
+        self.assertEqual(
+            cursor.statements[1:5],
+            [
+                "USE ROLE ACCOUNTADMIN",
+                "GRANT CREATE COMPUTE POOL ON ACCOUNT TO ROLE TESTROLE_KAFKA",
+                "GRANT USAGE, CREATE SCHEMA ON DATABASE TESTDB_KAFKA TO ROLE TESTROLE_KAFKA",
+                "USE ROLE TESTROLE_KAFKA",
+            ],
+        )
+        self.assertEqual(sum(s.startswith("GRANT") for s in cursor.statements), 2)
+
+    def test_apply_without_accountadmin_creates_nothing_and_names_the_grants(self):
+        cursor = FakeCursor(admin=False)
+        with self.assertRaises(RuntimeError) as raised:
+            run(cursor, apply=True)
+        self.assertIn(setup_ci.GRANTS[0], str(raised.exception))
+        self.assertIn(setup_ci.GRANTS[1], str(raised.exception))
         self.assertFalse(any(s.startswith("CREATE") for s in cursor.statements))
 
     def test_apply_creates_pool_first_with_one_node_limit(self):
@@ -76,10 +112,10 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(run(cursor, apply=True), 0)
         self.assertFalse(any(s.startswith("CREATE") for s in cursor.statements))
 
-    def test_never_alters_drops_or_grants(self):
+    def test_never_alters_or_drops(self):
         cursor = FakeCursor()
         run(cursor, apply=True)
-        for verb in ("ALTER", "DROP", "GRANT", "REPLACE"):
+        for verb in ("ALTER", "DROP", "REPLACE", "REVOKE"):
             self.assertFalse(any(verb in s for s in cursor.statements), verb)
 
     def test_rejects_wrong_account(self):

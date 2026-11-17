@@ -1,7 +1,8 @@
-"""One-time setup of the fixed KC SPCS CI fixture.
+"""One-time setup of the permanent KC SPCS CI objects.
 
-`check` (default) only reads. `apply` creates missing objects with IF NOT EXISTS.
-Never alters, drops, or grants, so rerunning is always safe.
+`check` (default) only reads. `apply` first grants TESTROLE_KAFKA the two
+privileges it needs, as ACCOUNTADMIN, then creates missing objects with IF NOT
+EXISTS as TESTROLE_KAFKA. It never alters or drops, so rerunning is safe.
 """
 
 import argparse
@@ -18,6 +19,14 @@ ROLE = "TESTROLE_KAFKA"
 DATABASE = "TESTDB_KAFKA"
 SCHEMA = f"{DATABASE}.KC_SPCS_CI"
 MARKER = "Kafka Connector SPCS validation: permanent CI infrastructure"
+
+# Granted by `apply` as ACCOUNTADMIN, which the CI user holds in SFCTEST0.
+# Using ACCOUNTADMIN here was authorized by Berni Schiefer (2026-11-14): these
+# two grants are all it does, and GRANT is a no-op when already granted.
+GRANTS = (
+    f"GRANT CREATE COMPUTE POOL ON ACCOUNT TO ROLE {ROLE}",
+    f"GRANT USAGE, CREATE SCHEMA ON DATABASE {DATABASE} TO ROLE {ROLE}",
+)
 
 # (kind, name, SHOW statement, CREATE options). Pool first: if account-level
 # creation is denied, nothing else is created. Only one node can ever run.
@@ -60,11 +69,30 @@ def find(cursor, name, show):
     return bool(found)
 
 
+def grant(cursor):
+    try:
+        cursor.execute("USE ROLE ACCOUNTADMIN")
+    except snowflake.connector.Error as error:
+        raise RuntimeError(
+            "the CI user cannot use ACCOUNTADMIN; an SFCTEST0 ACCOUNTADMIN must run: "
+            + "; ".join(GRANTS)
+        ) from error
+    try:
+        for statement in GRANTS:
+            cursor.execute(statement)
+            print(f"granted: {statement}", flush=True)
+    finally:
+        # Objects must be created, and therefore owned, by the CI role.
+        cursor.execute(f"USE ROLE {ROLE}")
+
+
 def setup(cursor, apply):
     """Return the number of objects still missing."""
     (identity,) = rows(cursor, "SELECT CURRENT_ACCOUNT() AS A, CURRENT_ROLE() AS R")
     if (identity["a"], identity["r"]) != (ACCOUNT, ROLE):
         raise RuntimeError(f"connected as {identity}, expected {ACCOUNT}/{ROLE}")
+    if apply:
+        grant(cursor)
     missing = 0
     schema_exists = True
     for kind, name, show, options in OBJECTS:
