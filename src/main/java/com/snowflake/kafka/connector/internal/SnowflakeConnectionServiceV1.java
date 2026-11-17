@@ -31,9 +31,9 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+import net.snowflake.client.api.driver.SnowflakeDriver;
+import net.snowflake.client.internal.api.implementation.connection.SnowflakeConnectionImpl;
+import net.snowflake.client.internal.jdbc.cloud.storage.StageInfo;
 
 /**
  * Implementation of Snowflake Connection Service interface which includes all handshake between KC
@@ -99,7 +99,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
     long credentialExpireTimeMillis = CREDENTIAL_EXPIRY_TIMEOUT_MILLIS;
     this.internalStage =
         new SnowflakeInternalStage(
-            (SnowflakeConnectionV1) this.conn, credentialExpireTimeMillis, proxyProperties);
+            (SnowflakeConnectionImpl) this.conn, credentialExpireTimeMillis, proxyProperties);
     this.telemetry =
         SnowflakeTelemetryServiceFactory.builder(conn, ingestionMethodConfig)
             .setAppName(this.connectorName)
@@ -841,13 +841,19 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       final String tableName, final String stageName, final List<String> files) {
     InternalUtils.assertNotEmpty("tableName", tableName);
     InternalUtils.assertNotEmpty("stageName", stageName);
-    SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
+    SnowflakeConnectionImpl sfconn = (SnowflakeConnectionImpl) conn;
 
     for (String name : files) {
       // get
       InputStream file;
       try {
-        file = sfconn.downloadStream(stageName, name, true);
+        file =
+            sfconn.downloadStream(
+                stageName,
+                name,
+                net.snowflake.client.api.connection.DownloadStreamConfig.builder()
+                    .setDecompress(true)
+                    .build());
       } catch (Exception e) {
         throw SnowflakeErrors.ERROR_2002.getException(e, this.telemetry);
       }
@@ -855,10 +861,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       try {
         sfconn.uploadStream(
             "%" + tableName,
-            FileNameUtils.getPrefixFromFileName(name),
-            file,
             FileNameUtils.removePrefixAndGZFromFileName(name),
-            true);
+            file,
+            net.snowflake.client.api.connection.UploadStreamConfig.builder()
+                .setDestPrefix(FileNameUtils.getPrefixFromFileName(name))
+                .setCompressData(true)
+                .build());
       } catch (SQLException e) {
         throw SnowflakeErrors.ERROR_2003.getException(e, this.telemetry);
       }
@@ -920,7 +928,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   // TODO - move to test-only class
   public void put(final String stageName, final String fileName, final String content) {
     InternalUtils.assertNotEmpty("stageName", stageName);
-    SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
+    SnowflakeConnectionImpl sfconn = (SnowflakeConnectionImpl) conn;
     InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
     try {
       InternalUtils.backoffAndRetry(
@@ -929,10 +937,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
           () -> {
             sfconn.uploadStream(
                 stageName,
-                FileNameUtils.getPrefixFromFileName(fileName),
-                input,
                 FileNameUtils.removePrefixAndGZFromFileName(fileName),
-                true);
+                input,
+                net.snowflake.client.api.connection.UploadStreamConfig.builder()
+                    .setDestPrefix(FileNameUtils.getPrefixFromFileName(fileName))
+                    .setCompressData(true)
+                    .build());
             return true;
           });
     } catch (Exception e) {
@@ -969,7 +979,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
   @Override
   public void putToTableStage(final String tableName, final String fileName, final byte[] content) {
     InternalUtils.assertNotEmpty("tableName", tableName);
-    SnowflakeConnectionV1 sfconn = (SnowflakeConnectionV1) conn;
+    SnowflakeConnectionImpl sfconn = (SnowflakeConnectionImpl) conn;
     InputStream input = new ByteArrayInputStream(content);
 
     try {
@@ -979,10 +989,12 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
           () -> {
             sfconn.uploadStream(
                 "%" + tableName,
-                FileNameUtils.getPrefixFromFileName(fileName),
-                input,
                 FileNameUtils.removePrefixAndGZFromFileName(fileName),
-                true);
+                input,
+                net.snowflake.client.api.connection.UploadStreamConfig.builder()
+                    .setDestPrefix(FileNameUtils.getPrefixFromFileName(fileName))
+                    .setCompressData(true)
+                    .build());
             return true;
           });
     } catch (Exception e) {

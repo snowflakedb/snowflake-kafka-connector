@@ -8,14 +8,14 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import net.snowflake.client.core.OCSPMode;
-import net.snowflake.client.core.SFStatement;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
-import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
-import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
-import net.snowflake.client.jdbc.SnowflakeSQLException;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+import net.snowflake.client.api.exception.SnowflakeSQLException;
+import net.snowflake.client.internal.api.implementation.connection.SnowflakeConnectionImpl;
+import net.snowflake.client.internal.core.OCSPMode;
+import net.snowflake.client.internal.core.SFStatement;
+import net.snowflake.client.internal.jdbc.SnowflakeFileTransferAgent;
+import net.snowflake.client.internal.jdbc.SnowflakeFileTransferConfig;
+import net.snowflake.client.internal.jdbc.SnowflakeFileTransferMetadataV1;
+import net.snowflake.client.internal.jdbc.cloud.storage.StageInfo;
 import net.snowflake.client.jdbc.internal.apache.commons.io.FilenameUtils;
 
 /**
@@ -71,7 +71,7 @@ public class SnowflakeInternalStage {
   // This will work on all three clouds since we only care about fetching stageType
   public static String dummyPutCommandToGetStageType = "PUT file:///tmp/dummyFileName @%s";
 
-  private final SnowflakeConnectionV1 conn;
+  private final SnowflakeConnectionImpl conn;
   private final long expirationTimeMillis;
   // Proxy parameters that we set while calling the snowflake JDBC.
   // Also required to pass in the uploadWithoutConnection API in the SnowflakeFileTransferConfig
@@ -79,7 +79,7 @@ public class SnowflakeInternalStage {
   private final Properties proxyProperties;
 
   public SnowflakeInternalStage(
-      SnowflakeConnectionV1 conn, long expirationTimeMillis, Properties proxyProperties) {
+      SnowflakeConnectionImpl conn, long expirationTimeMillis, Properties proxyProperties) {
     this.conn = conn;
     this.expirationTimeMillis = expirationTimeMillis;
     this.proxyProperties = proxyProperties;

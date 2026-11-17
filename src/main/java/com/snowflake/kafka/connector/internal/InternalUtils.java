@@ -16,7 +16,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
-import net.snowflake.client.core.SFSessionProperty;
+import net.snowflake.client.internal.core.SFSessionProperty;
 import net.snowflake.client.jdbc.internal.apache.commons.codec.binary.Base64;
 import net.snowflake.client.jdbc.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import net.snowflake.ingest.connection.IngestStatus;
