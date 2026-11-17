@@ -18,6 +18,7 @@ import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreator;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
+import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.PipeSchemaEvolver;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Collection;
@@ -71,6 +72,9 @@ public class PartitionChannelManager {
   private final Map<String, Boolean> recordMetadataStructuredObjectCache =
       new ConcurrentHashMap<>();
 
+  // Shared by the task's channels so each pipe is evolved once per distinct schema.
+  private final Optional<PipeSchemaEvolver> pipeSchemaEvolver;
+
   /**
    * Offset resets submitted by channel init / recovery on the IO thread. Drained by SSV2.insert on
    * the task thread so that sinkTaskContext.offset() is only ever called from the task thread.
@@ -93,6 +97,7 @@ public class PartitionChannelManager {
     this.metricsJmxReporter = metricsJmxReporter;
     this.taskMetrics = taskMetrics;
     this.conn = conn;
+    this.pipeSchemaEvolver = createPipeSchemaEvolver(taskConfig);
     this.partitionChannelBuilder = this::buildChannel;
     this.partitionChannels = new ConcurrentHashMap<>();
   }
@@ -100,6 +105,14 @@ public class PartitionChannelManager {
   @VisibleForTesting
   PartitionChannelManager(
       SinkTaskConfig taskConfig, PartitionChannelBuilder partitionChannelBuilder) {
+    this(taskConfig, partitionChannelBuilder, Optional.empty());
+  }
+
+  @VisibleForTesting
+  PartitionChannelManager(
+      SinkTaskConfig taskConfig,
+      PartitionChannelBuilder partitionChannelBuilder,
+      Optional<PipeSchemaEvolver> pipeSchemaEvolver) {
     this.taskConfig = taskConfig;
     this.partitionChannelBuilder = partitionChannelBuilder;
     this.partitionChannels = new ConcurrentHashMap<>();
@@ -109,6 +122,19 @@ public class PartitionChannelManager {
     this.metricsJmxReporter = Optional.empty();
     this.taskMetrics = null;
     this.conn = null;
+    this.pipeSchemaEvolver = pipeSchemaEvolver;
+  }
+
+  /** Returns an evolver when {@link PipeSchemaEvolver#isEnabled} is true for {@code taskConfig}. */
+  private static Optional<PipeSchemaEvolver> createPipeSchemaEvolver(SinkTaskConfig taskConfig) {
+    if (!PipeSchemaEvolver.isEnabled(taskConfig)) {
+      return Optional.empty();
+    }
+    LOGGER.info(
+        "Evolve-schema enabled for connector: {}, task: {}",
+        taskConfig.getConnectorName(),
+        taskConfig.getTaskId());
+    return Optional.of(new PipeSchemaEvolver());
   }
 
   /** Gets a unique identifier consisting of connector name, topic name and partition number. */
@@ -160,6 +186,9 @@ public class PartitionChannelManager {
           tableName,
           pipeName);
 
+      // A closed channel is restarted here after the table was checked or created again, so the
+      // table may be new: evolve it again for each schema.
+      pipeSchemaEvolver.ifPresent(evolver -> evolver.forgetPipe(pipeName));
       final TopicPartitionChannel partitionChannel =
           partitionChannelBuilder.build(topicPartition, tableName, channelName, pipeName);
 
@@ -266,7 +295,8 @@ public class PartitionChannelManager {
         shouldEvolveSchema,
         isRecordMetadataStructuredObject,
         this.conn,
-        ssv1ChannelName);
+        ssv1ChannelName,
+        pipeSchemaEvolver);
   }
 
   /**

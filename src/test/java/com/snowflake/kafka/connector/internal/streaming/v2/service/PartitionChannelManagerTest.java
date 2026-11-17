@@ -29,6 +29,7 @@ import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
+import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.PipeSchemaEvolver;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Arrays;
 import java.util.Collections;
@@ -95,6 +96,28 @@ class PartitionChannelManagerTest {
     assertEquals(2, manager.getPartitionChannels().size());
     assertTrue(manager.getChannel(tp0).isPresent());
     assertTrue(manager.getChannel(tp1).isPresent());
+  }
+
+  @Test
+  void startPartitionsForgetsTheSchemasEvolvedForThePipe() {
+    PipeSchemaEvolver evolver = mock(PipeSchemaEvolver.class);
+    PartitionChannelManager evolvingManager =
+        new PartitionChannelManager(
+            testConfig(Collections.emptyMap()),
+            (topicPartition, tableName, channelName, pipeName) -> {
+              TopicPartitionChannel channel = mock(TopicPartitionChannel.class);
+              when(channel.getChannelName()).thenReturn(channelName);
+              return channel;
+            },
+            Optional.of(evolver));
+    Map<String, String> tableToPipe = new HashMap<>();
+    tableToPipe.put(TOPIC, "pipe_" + TOPIC);
+
+    // A closed channel is restarted this way, after the table was checked or created again.
+    evolvingManager.startPartitions(
+        Collections.singletonList(new TopicPartition(TOPIC, 0)), tableToPipe);
+
+    verify(evolver).forgetPipe("pipe_" + TOPIC);
   }
 
   @Test

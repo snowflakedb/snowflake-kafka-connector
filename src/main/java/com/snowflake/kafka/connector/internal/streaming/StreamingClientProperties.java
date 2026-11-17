@@ -28,6 +28,7 @@ import com.snowflake.kafka.connector.internal.PrivateKeyTool;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeURL;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
+import com.snowflake.kafka.connector.internal.streaming.v2.evolveschema.PipeSchemaEvolver;
 import java.security.PrivateKey;
 import java.util.Base64;
 import java.util.HashMap;
@@ -49,6 +50,9 @@ public class StreamingClientProperties {
    * outbound User-Agent as {@code (app=<value>)} for connector version attribution.
    */
   public static final String APPLICATION_NAME = "SnowflakeKafkaConnector/" + Utils.VERSION;
+
+  /** SDK client property that turns on the experimental {@code evolveSchema} API. */
+  static final String ENABLE_EVOLVE_SCHEMA_API = "enable_evolve_schema_api";
 
   private static final KCLogger LOGGER = new KCLogger(StreamingClientProperties.class.getName());
   public final Properties clientProperties;
@@ -160,6 +164,10 @@ public class StreamingClientProperties {
     clientProperties.put("account", account);
     clientProperties.put("host", url.getUrlWithoutPort());
     clientProperties.put("application", APPLICATION_NAME);
+    // The SDK's evolveSchema is experimental and off unless the client is created with it on.
+    if (PipeSchemaEvolver.isEnabled(config)) {
+      clientProperties.put(ENABLE_EVOLVE_SCHEMA_API, "true");
+    }
 
     // Passwords stay on clientProperties, which is not logged; only parameterOverrides is logged
     // below.
