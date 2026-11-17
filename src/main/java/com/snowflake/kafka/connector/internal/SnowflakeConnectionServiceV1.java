@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import net.snowflake.client.jdbc.ErrorCode;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 import net.snowflake.client.jdbc.cloud.storage.StageInfo;
@@ -128,6 +129,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
+      throwIfTransient(e);
       throw SnowflakeErrors.ERROR_2007.getException(e);
     }
 
@@ -240,6 +242,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
+      throwIfTransient(e);
       throw SnowflakeErrors.ERROR_2009.getException(e);
     }
     LOGGER.info("create pipe: {}", pipeName);
@@ -267,6 +270,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.execute();
       stmt.close();
     } catch (SQLException e) {
+      throwIfTransient(e);
       throw SnowflakeErrors.ERROR_2008.getException(e);
     }
     LOGGER.info("create stage {}", stageName);
@@ -295,6 +299,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.execute();
       exist = true;
     } catch (SQLException e) {
+      throwIfTransient(e);
       LOGGER.debug("stage {} doesn't exists", stageName);
       exist = false;
     } finally {
@@ -322,6 +327,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.execute();
       exist = true;
     } catch (SQLException e) {
+      throwIfTransient(e);
       LOGGER.debug("pipe {} doesn't exist", pipeName);
       exist = false;
     } finally {
@@ -372,6 +378,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       }
       compatible = hasMeta && hasContent && allNullable;
     } catch (SQLException e) {
+      throwIfTransient(e);
       LOGGER.debug("Table {} doesn't exist. Exception {}", tableName, e.getStackTrace());
       compatible = false;
     } finally {
@@ -709,6 +716,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       }
 
     } catch (SQLException e) {
+      throwIfTransient(e);
       LOGGER.debug("pipe {} doesn't exists ", pipeName);
       compatible = false;
     } finally {
@@ -903,6 +911,7 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
       stmt.close();
       resultSet.close();
     } catch (SQLException e) {
+      throwIfTransient(e);
       throw SnowflakeErrors.ERROR_2001.getException(e, this.telemetry);
     }
     LOGGER.info("list stage {} retrieved {} file names", stageName, result.size());
@@ -1052,6 +1061,18 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         .build();
   }
 
+  /**
+   * Throws {@link SnowflakeErrors#ERROR_2020} if JDBC gave up on a transient network or HTTP error
+   * (e.g. a 503 after its retries). Callers must not read such a failure as "object missing" or
+   * "incompatible", since Snowflake could not answer.
+   */
+  @VisibleForTesting
+  static void throwIfTransient(SQLException e) {
+    if (e.getErrorCode() == ErrorCode.NETWORK_ERROR.getMessageCode()) {
+      throw SnowflakeErrors.ERROR_2020.getException(e);
+    }
+  }
+
   /** make sure connection is not closed */
   private void checkConnection() {
     try {
@@ -1198,7 +1219,8 @@ public class SnowflakeConnectionServiceV1 implements SnowflakeConnectionService 
         rows.add(new DescribeTableRow(columnName, type, comment));
       }
       return Optional.of(rows);
-    } catch (Exception e) {
+    } catch (SQLException e) {
+      throwIfTransient(e);
       LOGGER.debug("table {} doesn't exist", tableName);
       return Optional.empty();
     } finally {

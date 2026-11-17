@@ -191,7 +191,8 @@ public enum SnowflakeErrors {
   ERROR_2007(
       "2007",
       "Failed to create table",
-      "Failed to create table on Snowflake, please check that you have permission to do so."),
+      "Failed to create table on Snowflake. See the message below for the cause, e.g. missing"
+          + " privileges or an invalid table definition."),
   ERROR_2008(
       "2008",
       "Failed to create stage",
@@ -232,6 +233,10 @@ public enum SnowflakeErrors {
       "2019",
       "Failed to add RECORD_METADATA column for iceberg",
       "Failed to add RECORD_METADATA column with required format for iceberg."),
+  ERROR_2020(
+      "2020",
+      "Transient Snowflake service error",
+      "Snowflake JDBC exhausted its retries on a transient network or HTTP error (e.g. 503)."),
 
   // Snowpipe related issues 3---
   ERROR_3001("3001", "Failed to ingest file", "Exception reported by Ingest SDK"),

@@ -50,6 +50,7 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
@@ -68,6 +69,7 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   private static final long ONE_HOUR = 60 * 60 * 1000L;
   private static final long TEN_MINUTES = 10 * 60 * 1000L;
   protected static final long CLEAN_TIME = 60 * 1000L; // one minutes
+  private static final long INIT_RETRY_TIMEOUT_MS = ONE_HOUR;
 
   // Set in config (Time based flush) in seconds
   private long flushTime;
@@ -79,6 +81,8 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
   private long recordNum;
   private final SnowflakeConnectionService conn;
   private final Map<String, ServiceContext> pipes;
+  // When setup started failing on transient Snowflake errors; 0 while it is not failing.
+  @VisibleForTesting long initRetryStartMs = 0;
   private final RecordService recordService;
   private boolean isStopped;
   private final SnowflakeTelemetryService telemetryService;
@@ -637,6 +641,34 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
       LOGGER.info("pipe: {} - service started", pipeName);
     }
 
+    /**
+     * A transient Snowflake error during setup becomes a {@link RetriableException}: Kafka Connect
+     * keeps polling (so the task stays in its consumer group) and redelivers the batch. Records
+     * already buffered are skipped on redelivery by {@code processedOffset}. Fails the task once
+     * setup has kept failing for {@link #INIT_RETRY_TIMEOUT_MS}.
+     */
+    private RuntimeException retryOrFailInit(SnowflakeKafkaConnectorException e) {
+      if (!e.checkErrorCode(SnowflakeErrors.ERROR_2020)) {
+        return e;
+      }
+      long now = System.currentTimeMillis();
+      if (initRetryStartMs == 0) {
+        initRetryStartMs = now;
+      }
+      if (now - initRetryStartMs > INIT_RETRY_TIMEOUT_MS) {
+        LOGGER.error(
+            "Setup of pipe {} kept failing on transient Snowflake errors for {} ms, failing task",
+            pipeName,
+            now - initRetryStartMs);
+        return e;
+      }
+      LOGGER.warn(
+          "Setup of pipe {} failed on a transient Snowflake error, will retry: {}",
+          pipeName,
+          e.getMessage());
+      return new RetriableException(e);
+    }
+
     private void init(long recordOffset) {
       LOGGER.info("init pipe: {}", pipeName);
       SnowflakeTelemetryPipeCreation pipeCreation =
@@ -814,7 +846,12 @@ class SnowflakeSinkServiceV1 implements SnowflakeSinkService {
         LOGGER.info("Initializing with offset: {}", record.kafkaOffset());
         // This will only be called once at the beginning when an offset arrives for first time
         // after connector starts/rebalance
-        init(record.kafkaOffset());
+        try {
+          init(record.kafkaOffset());
+        } catch (SnowflakeKafkaConnectorException e) {
+          throw retryOrFailInit(e);
+        }
+        initRetryStartMs = 0;
         metricsJmxReporter.start();
         this.hasInitialized = true;
       }

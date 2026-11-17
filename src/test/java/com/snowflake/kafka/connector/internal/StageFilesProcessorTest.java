@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyList;
@@ -96,6 +97,14 @@ class StageFilesProcessorTest {
             currentTime::get,
             SnowflakeSinkConnectorConfig.SNOWPIPE_FILE_CLEANER_INTERVAL_SECONDS_DEFAULT);
     register = new StageFilesProcessor.ProgressRegisterImpl(victim);
+  }
+
+  @Test
+  void fileProcessor_TransientErrorInPrerequisiteCheck_DoesNotFailStart() {
+    createFileProcessor(1);
+    when(conn.tableExist(TABLE_NAME)).thenThrow(SnowflakeErrors.ERROR_2020.getException());
+
+    assertThatCode(() -> victim.trackFilesAsync().close()).doesNotThrowAnyException();
   }
 
   @Test

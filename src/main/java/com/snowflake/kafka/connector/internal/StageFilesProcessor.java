@@ -573,14 +573,25 @@ class StageFilesProcessor {
     Supplier<Boolean> pipeCompatible =
         () -> conn.pipeExist(pipeName) && conn.isPipeCompatible(tableName, stageName, pipeName);
 
-    if (tableCompatible.get()) {
-      result = CleanerPrerequisites.TABLE_COMPATIBLE;
-      if (stageCompatible.get()) {
-        result = CleanerPrerequisites.STAGE_COMPATIBLE;
-        if (pipeCompatible.get()) {
-          result = CleanerPrerequisites.PIPE_COMPATIBLE;
+    try {
+      if (tableCompatible.get()) {
+        result = CleanerPrerequisites.TABLE_COMPATIBLE;
+        if (stageCompatible.get()) {
+          result = CleanerPrerequisites.STAGE_COMPATIBLE;
+          if (pipeCompatible.get()) {
+            result = CleanerPrerequisites.PIPE_COMPATIBLE;
+          }
         }
       }
+    } catch (SnowflakeKafkaConnectorException e) {
+      if (!e.checkErrorCode(SnowflakeErrors.ERROR_2020)) {
+        throw e;
+      }
+      // Runs from open() and the cleaner; a transient Snowflake error must fail neither.
+      LOGGER.warn(
+          "Could not check table/stage/pipe for pipe {} after a transient Snowflake error: {}",
+          pipeName,
+          e.getMessage());
     }
     return result;
   }
