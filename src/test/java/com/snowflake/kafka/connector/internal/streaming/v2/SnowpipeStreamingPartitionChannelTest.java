@@ -762,14 +762,134 @@ class SnowpipeStreamingPartitionChannelTest {
   }
 
   @Test
-  void insertRecord_evolveSchemaFails_doesNotAppend() {
+  void insertRecord_evolveSchemaRejected_sendsRecordToErrorHandler() {
     SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
     trackingClient.evolveSchemaFailure =
-        new SFException("SfApiUserError", "ERR_EVOLVE_SCHEMA_INVALID_SCHEMA", 400, "Bad Request");
+        sdkError("SfApiUserError", 400, "ERR_EVOLVE_SCHEMA_INVALID_SCHEMA");
+    channel.getChannel();
+    SinkRecord record = buildStructRecord(0);
+
+    assertTrue(channel.insertRecord(record));
+
+    verify(mockErrorHandler).handleError(trackingClient.evolveSchemaFailure, record);
+    verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaPipeNotFound_sendsRecordToErrorHandler() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    // The SDK reports Snowflake's 404s as SfApiUserError too.
+    trackingClient.evolveSchemaFailure =
+        sdkError("SfApiUserError", 400, "ERR_PIPE_DOES_NOT_EXIST_OR_NOT_AUTHORIZED");
+    channel.getChannel();
+    SinkRecord record = buildStructRecord(0);
+
+    assertTrue(channel.insertRecord(record));
+
+    verify(mockErrorHandler).handleError(trackingClient.evolveSchemaFailure, record);
+    verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaRetriesExhausted_leavesRecordForRedelivery() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    trackingClient.evolveSchemaFailure = sdkError("HttpRetriesExhaustedError", 500, null);
+    channel.getChannel();
+
+    assertFalse(channel.insertRecord(buildStructRecord(0)));
+
+    verify(mockErrorHandler, never()).handleError(any(), any());
+    verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaNotEnabled_appendsRecord() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    trackingClient.evolveSchemaFailure =
+        sdkError("EvolveSchemaNotEnabled", 403, "ERR_EVOLVE_SCHEMA_NOT_ENABLED");
+    channel.getChannel();
+
+    assertTrue(channel.insertRecord(buildStructRecord(0)));
+    assertTrue(channel.insertRecord(buildStructRecord(1)));
+
+    // The evolver is off after the first answer, so the second record doesn't call again.
+    verify(trackingClient, times(1)).evolveSchema(any(), any(), eq(false));
+    verify(mockTaskMetrics, times(2)).markRecordsAppended(1L);
+  }
+
+  @Test
+  void insertRecord_evolveSchemaUnexpectedFailure_failsWithoutAppending() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    trackingClient.evolveSchemaFailure = sdkError("InvalidRequest", 400, null);
     channel.getChannel();
 
     assertThrows(SFException.class, () -> channel.insertRecord(buildStructRecord(0)));
+    verify(mockErrorHandler, never()).handleError(any(), any());
     verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+  }
+
+  @Test
+  void insertRecord_evolveSchemaClientInvalid_reopensChannelAndRedelivers() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    trackingClient.evolveSchemaFailure = sdkError("InvalidClientError", 409, null);
+    channel.getChannel();
+
+    assertFalse(channel.insertRecord(buildStructRecord(0)));
+    assertEquals(2, trackingClientSupplier.getTotalChannelsCreated());
+    verify(mockTaskMetrics, never()).markRecordsAppended(anyLong());
+
+    // The redelivered record evolves and appends on the reopened channel.
+    trackingClient.evolveSchemaFailure = null;
+    assertTrue(channel.insertRecord(buildStructRecord(0)));
+    verify(mockTaskMetrics).markRecordsAppended(1L);
+  }
+
+  @Test
+  void insertRecord_evolveSchemaRetriesExhaustedTooOften_failsTask() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    trackingClient.evolveSchemaFailure = sdkError("HttpRetriesExhaustedError", 500, null);
+    channel.getChannel();
+
+    for (int i = 0;
+        i < SnowpipeStreamingPartitionChannel.MAX_CONSECUTIVE_EVOLVE_SCHEMA_REDELIVERIES;
+        i++) {
+      assertFalse(channel.insertRecord(buildStructRecord(0)));
+    }
+    assertThrows(ConnectException.class, () -> channel.insertRecord(buildStructRecord(0)));
+  }
+
+  @Test
+  void insertRecord_evolveSchemaSuccess_resetsTheRedeliveryCount() {
+    SnowpipeStreamingPartitionChannel channel = createEvolveSchemaChannel();
+    SFException exhausted = sdkError("HttpRetriesExhaustedError", 500, null);
+    trackingClient.evolveSchemaFailure = exhausted;
+    channel.getChannel();
+    for (int i = 0;
+        i < SnowpipeStreamingPartitionChannel.MAX_CONSECUTIVE_EVOLVE_SCHEMA_REDELIVERIES;
+        i++) {
+      assertFalse(channel.insertRecord(buildStructRecord(0)));
+    }
+
+    trackingClient.evolveSchemaFailure = null;
+    assertTrue(channel.insertRecord(buildStructRecord(0)));
+    trackingClient.evolveSchemaFailure = exhausted;
+
+    // A new schema fails again, but the count started over after the success.
+    assertFalse(channel.insertRecord(buildRecordWithSchema(1, OTHER_STRUCT_SCHEMA)));
+  }
+
+  private static final Schema OTHER_STRUCT_SCHEMA =
+      SchemaBuilder.struct().field("other", Schema.INT64_SCHEMA).build();
+
+  private SinkRecord buildRecordWithSchema(long offset, Schema schema) {
+    return SinkRecordBuilder.forTopicPartition(TOPIC_NAME, PARTITION)
+        .withSchemaAndValue(new SchemaAndValue(schema, new Struct(schema).put("other", offset)))
+        .withOffset(offset)
+        .build();
+  }
+
+  private static SFException sdkError(String errorCodeName, int status, String snowflakeCode) {
+    return new SFException(errorCodeName, "evolve-schema failed", status, "", snowflakeCode);
   }
 
   @Test
