@@ -65,7 +65,7 @@ class WorkflowTests(unittest.TestCase):
                     self.live_jobs(
                         "pull_request", **{"github.event.pull_request.draft": draft}
                     ),
-                    {"functional", "fault_injection"},
+                    {"functional", "fault_injection", "https_proxy"},
                 )
         self.assertNotIn("if", self.java["jobs"]["build_and_test"])
 
@@ -88,6 +88,7 @@ class WorkflowTests(unittest.TestCase):
                 "run_stress",
                 "run_soak_with_chaos",
                 "run_spcs",
+                "run_https_proxy",
             )
         }
         self.assertEqual(
@@ -95,7 +96,7 @@ class WorkflowTests(unittest.TestCase):
         )
 
     def test_push_and_schedule_keep_broad_coverage(self):
-        expected = {"functional", "fault_injection", "core_legacy", "stress"}
+        expected = {"functional", "fault_injection", "https_proxy", "core_legacy", "stress"}
         self.assertEqual(self.live_jobs("push"), expected)
         self.assertEqual(self.live_jobs("schedule"), expected | {"soak_with_chaos"})
 
@@ -110,6 +111,7 @@ class WorkflowTests(unittest.TestCase):
                 "run_stress",
                 "run_soak_with_chaos",
                 "run_spcs",
+                "run_https_proxy",
             )
         }
         self.assertEqual(self.live_jobs("workflow_dispatch", **inputs), {"v4-trial"})
