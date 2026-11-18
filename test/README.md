@@ -202,6 +202,22 @@ When `-m pressure` is set, pytest selects only the pressure-marked tests:
 
 Both tests verify that the exact expected row count appears in Snowflake.
 
+## Forward Proxy Tests
+
+`--with-https-proxy` (Apache only) puts the Connect worker on an internal Docker network with no internet route. The only way out is the `https-proxy` container (mitmproxy, `docker/https-proxy/`), so a call that skips the proxy fails rather than quietly succeeding. The proxy listens on two ports and counts Snowflake calls per port:
+
+- `8080`: connector tier. Tests set `snowflake.https.proxy.host=https-proxy` and `snowflake.https.proxy.port=8080`.
+- `8081`: worker JVM tier. The worker starts with `-Dhttp.useProxy=true -Dhttps.proxyHost=https-proxy -Dhttps.proxyPort=8081`.
+- `8082`: a second connector proxy, so a test can run two connectors in the same worker with different proxies and check each one's traffic stays on its own port (the counter also records the pipe names seen per port).
+
+On startup the worker trusts mitmproxy's generated CA: the JVM trust store covers JDBC, and `SSL_CERT_FILE` covers the Rust SDK (`docker/scripts/https-proxy-entrypoint.sh`).
+
+```bash
+./run_tests.sh --platform=apache --platform-version=3.7.2 --with-https-proxy -- -m https_proxy
+```
+
+The connector resolves one proxy (`snowflake.https.proxy.*`, else the worker's JVM proxy system properties) and sends it to the streaming SDK as `https_proxy_url` / `no_proxy` (JDK `nonProxyHosts` format, unchanged). The SDK reads these only from the release that contains snowflake-ingest-sdk#1146. Until the connector pins that release, build the connector against it with `SNOWPIPE_STREAMING_VERSION_OVERRIDE`.
+
 ## Debugging
 
 ### View logs

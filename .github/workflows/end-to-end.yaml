@@ -42,6 +42,10 @@ on:
         description: 'SPCS release test (SNOW-4202412)'
         type: boolean
         default: false
+      run_https_proxy:
+        description: 'forward-proxy tests'
+        type: boolean
+        default: false
 
 jobs:
   spcs-inspect:
@@ -252,6 +256,38 @@ jobs:
         with-mitmproxy: 'true'
         marker-filter: 'fault_injection'
         test-group: fault-injection
+
+  https_proxy:
+    # Verifies that the connector routes JDBC and SDK traffic through the configured forward proxy.
+    if: >
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_https_proxy && !inputs.run_v4_trial && !inputs.inspect_spcs)
+    runs-on: ubuntu-22.04
+    name: https_proxy
+    permissions:
+      packages: read
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Decrypt profile.json
+      run: ./.github/scripts/decrypt_secret.sh AWS
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+
+    - uses: ./.github/actions/build-connector
+      with:
+        platform: apache
+
+    - uses: ./.github/actions/run-e2e-tests
+      with:
+        platform: apache
+        platform-version: '3.9.2'
+        snowflake-cloud: AWS
+        with-https-proxy: 'true'
+        marker-filter: 'https_proxy'
+        test-group: https-proxy
 
   core_legacy:
     # Runs the core e2e suite on older Kafka platform versions.

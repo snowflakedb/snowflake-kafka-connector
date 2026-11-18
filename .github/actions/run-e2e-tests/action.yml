@@ -39,6 +39,10 @@ inputs:
     description: "Enable mitmproxy reverse proxy for fault injection tests"
     required: false
     default: 'false'
+  with-https-proxy:
+    description: "Isolate the Connect worker behind a forward proxy (apache only)"
+    required: false
+    default: 'false'
   jmx:
     description: "Enable JMX metrics scraping via the Jolokia javaagent (sets KAFKA_OPTS so the connector JVM exposes MBeans on port 8778)"
     required: false
@@ -76,6 +80,7 @@ runs:
         LOGS_DIR: "${{ github.workspace }}/test-logs"
         MARKER_FILTER: ${{ inputs.pressure == 'true' && 'pressure' || inputs['marker-filter'] }}
         MITMPROXY_FLAG: ${{ inputs['with-mitmproxy'] == 'true' && '--with-mitmproxy' || '' }}
+        HTTPS_PROXY_FLAG: ${{ inputs['with-https-proxy'] == 'true' && '--with-https-proxy' || '' }}
         V4_TRIAL: ${{ inputs['v4-trial'] }}
         FUNCTIONAL_TEST_DELAY: ${{ inputs['functional-test-delay'] }}
         JMX_FLAG: ${{ inputs.jmx == 'true' && '--jmx' || '' }}
@@ -92,6 +97,7 @@ runs:
           --java-version="$JAVA_VERSION" \
           --logs-dir="$LOGS_DIR" \
           $MITMPROXY_FLAG \
+          $HTTPS_PROXY_FLAG \
           $JMX_FLAG \
           "${TEST_ARGS[@]}"
 
