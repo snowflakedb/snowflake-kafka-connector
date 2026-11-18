@@ -15,7 +15,16 @@ SHOW_TO_NAME = {
     "SHOW SCHEMAS LIKE 'KC_SPCS_CI' IN DATABASE TESTDB_KAFKA": "KC_SPCS_CI",
     "SHOW STAGES LIKE 'HARNESS_STAGE' IN SCHEMA TESTDB_KAFKA.KC_SPCS_CI": "HARNESS_STAGE",
     "SHOW IMAGE REPOSITORIES LIKE 'IMAGES' IN SCHEMA TESTDB_KAFKA.KC_SPCS_CI": "IMAGES",
+    "SHOW NETWORK RULES LIKE 'KC_SPCS_CI_POOL_INGRESS' IN SCHEMA TESTDB_KAFKA.KC_SPCS_CI": "KC_SPCS_CI_POOL_INGRESS",
 }
+POLICY = "CI_USER_NP"
+POLICIES = (POLICY, "ACCOUNT_NP")
+ALTERS = [
+    f"ALTER NETWORK POLICY {p} ADD ALLOWED_NETWORK_RULE_LIST="
+    "('TESTDB_KAFKA.KC_SPCS_CI.KC_SPCS_CI_POOL_INGRESS')"
+    for p in POLICIES
+]
+ALTER_POLICY = ALTERS[0]
 
 
 class FakeCursor:
@@ -36,6 +45,20 @@ class FakeCursor:
             self.role = sql.removeprefix("USE ROLE ")
             self.result = [("status",)], []
         elif sql.startswith("GRANT"):
+            assert self.role == "ACCOUNTADMIN", sql
+            self.result = [("status",)], []
+        elif sql == "SELECT CURRENT_USER() AS U":
+            self.result = [("U",)], [("CI_USER",)]
+        elif sql.startswith("SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN USER"):
+            assert self.role == "ACCOUNTADMIN", sql
+            self.result = [("key",), ("value",)], [("NETWORK_POLICY", POLICIES[0])]
+        elif sql == "SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN ACCOUNT":
+            assert self.role == "ACCOUNTADMIN", sql
+            self.result = [("key",), ("value",)], [("NETWORK_POLICY", POLICIES[1])]
+        elif sql in [f"DESCRIBE NETWORK POLICY {p}" for p in POLICIES]:
+            assert self.role == "ACCOUNTADMIN", sql
+            self.result = [("name",), ("value",)], [("ALLOWED_NETWORK_RULE_LIST", "[]")]
+        elif sql in ALTERS:
             assert self.role == "ACCOUNTADMIN", sql
             self.result = [("status",)], []
         elif sql.startswith("SELECT"):
@@ -71,7 +94,7 @@ def run(cursor, apply):
 class SetupTest(unittest.TestCase):
     def test_check_is_read_only(self):
         cursor = FakeCursor()
-        self.assertEqual(run(cursor, apply=False), 4)
+        self.assertEqual(run(cursor, apply=False), 5)
         for verb in ("CREATE", "GRANT", "USE ROLE"):
             self.assertFalse(any(s.startswith(verb) for s in cursor.statements), verb)
 
@@ -101,7 +124,7 @@ class SetupTest(unittest.TestCase):
         cursor = FakeCursor()
         self.assertEqual(run(cursor, apply=True), 0)
         creates = [s for s in cursor.statements if s.startswith("CREATE")]
-        self.assertEqual(len(creates), 4)
+        self.assertEqual(len(creates), 5)
         self.assertTrue(creates[0].startswith("CREATE COMPUTE POOL IF NOT EXISTS"))
         self.assertIn("MIN_NODES=1 MAX_NODES=1", creates[0])
         self.assertIn("INITIALLY_SUSPENDED=TRUE", creates[0])
@@ -112,11 +135,17 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(run(cursor, apply=True), 0)
         self.assertFalse(any(s.startswith("CREATE") for s in cursor.statements))
 
-    def test_never_alters_or_drops(self):
+    def test_only_alter_adds_pool_rule_to_user_and_account_policies(self):
         cursor = FakeCursor()
         run(cursor, apply=True)
-        for verb in ("ALTER", "DROP", "REPLACE", "REVOKE"):
+        self.assertEqual([s for s in cursor.statements if "ALTER" in s], ALTERS)
+        for verb in ("DROP", "REPLACE", "REVOKE", "REMOVE", "SET "):
             self.assertFalse(any(verb in s for s in cursor.statements), verb)
+
+    def test_policy_untouched_until_rule_exists(self):
+        cursor = FakeCursor(admin=True)
+        run(cursor, apply=False)
+        self.assertNotIn(ALTER_POLICY, cursor.statements)
 
     def test_rejects_wrong_account(self):
         with self.assertRaises(RuntimeError):
