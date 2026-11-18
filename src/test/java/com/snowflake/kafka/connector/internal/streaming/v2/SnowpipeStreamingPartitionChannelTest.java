@@ -54,6 +54,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
@@ -307,6 +308,56 @@ class SnowpipeStreamingPartitionChannelTest {
     }
     partitionChannel.closeChannelAsync().get(5, TimeUnit.SECONDS);
     assertTrue(partitionChannel.isChannelClosed());
+
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+  }
+
+  @Test
+  void getInflightUsageReportsBeanValuesOfClosedChannelUntilTheReadFails() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    partitionChannel.closeChannelAsync().get(5, TimeUnit.SECONDS);
+    assertTrue(partitionChannel.isChannelClosed());
+    AtomicBoolean readFails = new AtomicBoolean();
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans()
+            .register(
+                inflightName(FakeInflightMBeans.ROWS),
+                () -> {
+                  if (readFails.get()) {
+                    throw new javax.management.MBeanException(
+                        new Exception("channel pointer gone"));
+                  }
+                  return 5L;
+                })
+            .gauge(trackingClient.getClientName(), channelName, FakeInflightMBeans.BYTES, 500)) {
+      // Beans still registered and readable are reported although the channel is closed. The
+      // reported usage may overstate what is still in flight, which only makes the cap stricter.
+      assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+
+      readFails.set(true);
+
+      assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+    }
+  }
+
+  @Test
+  void getInflightUsageIsZeroOnceBeansAreGoneWhenChannelClosedWhileBeansWerePresent()
+      throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    FakeInflightMBeans beans =
+        new FakeInflightMBeans().channel(trackingClient.getClientName(), channelName, 5, 500);
+    try {
+      assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+      partitionChannel.closeChannelAsync().get(5, TimeUnit.SECONDS);
+      assertTrue(partitionChannel.isChannelClosed());
+
+      assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+    } finally {
+      beans.close();
+    }
 
     assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
   }
