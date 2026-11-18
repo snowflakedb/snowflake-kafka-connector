@@ -134,6 +134,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     this.batchOffsetFetcher = batchOffsetFetcherFactory.get();
     this.channelManager = channelManagerFactory.get();
 
+    ensureErrorLoggingOnExistingTables();
     // Log validation configuration for operator visibility
     logValidationConfiguration();
 
@@ -147,13 +148,51 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   }
 
   /**
-   * Perform pre-flight safety checks on validation configuration. Verifies that error handling is
-   * properly configured to prevent silent data loss or task crashes.
+   * Under server-side validation, enables ERROR_LOGGING on existing target tables that lack it so
+   * rejected rows are persisted in the table's error table. Only warns when {@link
+   * SinkTaskConfig#isValidationEnableErrorTableOnExistingTables()} is false. Tables that do not
+   * exist yet are skipped because they are created with ERROR_LOGGING enabled.
    *
-   * <p>Safety checks: - If validation disabled: Warn that SSv2 Error Table is required to prevent
-   * task crashes - If validation enabled: Verify DLQ or tolerance=none for safe error handling
-   *
-   * @throws IllegalStateException if configuration is unsafe and would cause data loss
+   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException if
+   *     ERROR_LOGGING cannot be enabled
+   */
+  private void ensureErrorLoggingOnExistingTables() {
+    if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE) {
+      return;
+    }
+    // Check each target table for ERROR_LOGGING.
+    // Note: makes up to 3 network calls per table (tableExist + isIcebergTable +
+    // hasErrorLoggingEnabled). Acceptable at startup; only runs once per task constructor.
+    Set<String> uniqueTables = new HashSet<>(taskConfig.getTopicToTableResolver().tableNames());
+    for (String tableName : uniqueTables) {
+      if (!conn.tableExist(tableName)) {
+        // Table doesn't exist yet — will be auto-created with ERROR_LOGGING = TRUE
+        continue;
+      }
+      if (!conn.hasErrorLoggingEnabled(tableName)) {
+        if (taskConfig.isValidationEnableErrorTableOnExistingTables()) {
+          LOGGER.info(
+              "Table '{}' does not have ERROR_LOGGING enabled, enabling it so invalid records"
+                  + " are persisted in the error table.",
+              tableName);
+          conn.enableErrorLogging(tableName);
+          continue;
+        }
+        LOGGER.warn(
+            "Table '{}' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
+                + " invalid records will be silently dropped. Run: ALTER TABLE \"{}\" SET"
+                + " ERROR_LOGGING = TRUE",
+            tableName,
+            tableName);
+      } else {
+        LOGGER.info("Table '{}' has ERROR_LOGGING enabled — error table is active.", tableName);
+      }
+    }
+  }
+
+  /**
+   * Logs whether client-side validation error handling is safe: failures route to the DLQ topic or
+   * abort the task, rather than being silently dropped. No-op under server-side validation.
    */
   private void logValidationConfiguration() {
     String errorsTolerance =
@@ -166,34 +205,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     boolean tolerateAll = "all".equalsIgnoreCase(errorsTolerance);
 
     if (taskConfig.getValidation() != SnowflakeValidation.CLIENT_SIDE) {
-      // Check each target table for ERROR_LOGGING.
-      // Note: makes up to 3 network calls per table (tableExist + isIcebergTable +
-      // hasErrorLoggingEnabled). Acceptable at startup; only runs once per task constructor.
-      Set<String> uniqueTables = new HashSet<>(taskConfig.getTopicToTableResolver().tableNames());
-      for (String tableName : uniqueTables) {
-        if (!conn.tableExist(tableName)) {
-          // Table doesn't exist yet — will be auto-created with ERROR_LOGGING = TRUE
-          continue;
-        }
-        if (!conn.hasErrorLoggingEnabled(tableName)) {
-          if (taskConfig.isValidationEnableErrorTableOnExistingTables()) {
-            LOGGER.info(
-                "Table '{}' does not have ERROR_LOGGING enabled, enabling it so invalid records"
-                    + " are persisted in the error table.",
-                tableName);
-            conn.enableErrorLogging(tableName);
-            continue;
-          }
-          LOGGER.warn(
-              "Table '{}' does not have ERROR_LOGGING enabled. In v4 high-throughput mode,"
-                  + " invalid records will be silently dropped. Run: ALTER TABLE \"{}\" SET"
-                  + " ERROR_LOGGING = TRUE",
-              tableName,
-              tableName);
-        } else {
-          LOGGER.info("Table '{}' has ERROR_LOGGING enabled — error table is active.", tableName);
-        }
-      }
       return;
     }
 

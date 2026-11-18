@@ -560,6 +560,7 @@ public class StandardSnowflakeConnectionServiceDdlTest {
 
     createServiceWithMockConnection(conn).enableErrorLogging("my_table");
 
+    verify(stmt).setString(1, "\"my_table\"");
     verify(stmt).execute();
   }
 
