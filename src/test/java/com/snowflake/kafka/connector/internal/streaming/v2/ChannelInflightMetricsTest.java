@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.management.InstanceNotFoundException;
 import javax.management.JMException;
 import javax.management.MBeanException;
@@ -58,12 +59,39 @@ class ChannelInflightMetricsTest {
             "a,b=c:d*?", "conn_\"q\"_\\0", ChannelInflightMetrics.INFLIGHT_ROWS));
   }
 
+  private static InflightUsage read(String clientName, String channelName)
+      throws InstanceNotFoundException {
+    return ChannelInflightMetrics.read(ChannelInflightMetrics.beanNames(clientName, channelName));
+  }
+
+  @Test
+  void beanNamesReadLiveValuesOnEveryReadAndKeepClientAndChannel() throws Exception {
+    AtomicLong rows = new AtomicLong(1);
+    AtomicLong bytes = new AtomicLong(10);
+    beans
+        .register(
+            FakeInflightMBeans.sdkObjectName("client_a", "conn_topic_0", FakeInflightMBeans.ROWS),
+            rows::get)
+        .register(
+            FakeInflightMBeans.sdkObjectName("client_a", "conn_topic_0", FakeInflightMBeans.BYTES),
+            bytes::get);
+    ChannelInflightMetrics.InflightBeanNames names =
+        ChannelInflightMetrics.beanNames("client_a", "conn_topic_0");
+
+    assertEquals(new InflightUsage(1, 10), ChannelInflightMetrics.read(names));
+    rows.set(4);
+    bytes.set(40);
+
+    assertEquals(new InflightUsage(4, 40), ChannelInflightMetrics.read(names));
+    assertEquals("client_a", names.clientName());
+    assertEquals("conn_topic_0", names.channelName());
+  }
+
   @Test
   void readsRowsAndBytesForOneChannel() throws Exception {
     beans.channel("client_a", "conn_topic_0", 7, 700);
 
-    assertEquals(
-        new InflightUsage(7, 700), ChannelInflightMetrics.read("client_a", "conn_topic_0"));
+    assertEquals(new InflightUsage(7, 700), read("client_a", "conn_topic_0"));
   }
 
   @ParameterizedTest
@@ -72,7 +100,7 @@ class ChannelInflightMetricsTest {
     String channelName = "conn_\"quoted\"_0";
     beans.channel(clientName, channelName, 3, 30);
 
-    assertEquals(new InflightUsage(3, 30), ChannelInflightMetrics.read(clientName, channelName));
+    assertEquals(new InflightUsage(3, 30), read(clientName, channelName));
   }
 
   @Test
@@ -91,17 +119,16 @@ class ChannelInflightMetricsTest {
                 "snowflake.ingest.sdk:clientName=client_a,channel=conn_topic_0,name=inflight_bytes"),
             () -> 990.0);
 
-    assertEquals(new InflightUsage(1, 10), ChannelInflightMetrics.read("client_a", "conn_topic_0"));
-    assertEquals(new InflightUsage(2, 20), ChannelInflightMetrics.read("client_b", "conn_topic_0"));
-    assertEquals(new InflightUsage(3, 30), ChannelInflightMetrics.read("client_a", "conn_topic_1"));
+    assertEquals(new InflightUsage(1, 10), read("client_a", "conn_topic_0"));
+    assertEquals(new InflightUsage(2, 20), read("client_b", "conn_topic_0"));
+    assertEquals(new InflightUsage(3, 30), read("client_a", "conn_topic_1"));
   }
 
   @Test
   void missingBeanThrowsInstanceNotFound() {
     InstanceNotFoundException thrown =
         assertThrows(
-            InstanceNotFoundException.class,
-            () -> ChannelInflightMetrics.read("missing_client", "missing_channel"));
+            InstanceNotFoundException.class, () -> read("missing_client", "missing_channel"));
     assertTrue(thrown.getMessage().contains("inflight_rows"), thrown.getMessage());
   }
 
@@ -110,9 +137,7 @@ class ChannelInflightMetricsTest {
     beans.gauge("client_a", "conn_topic_0", FakeInflightMBeans.ROWS, 1);
 
     InstanceNotFoundException thrown =
-        assertThrows(
-            InstanceNotFoundException.class,
-            () -> ChannelInflightMetrics.read("client_a", "conn_topic_0"));
+        assertThrows(InstanceNotFoundException.class, () -> read("client_a", "conn_topic_0"));
     assertTrue(thrown.getMessage().contains("inflight_bytes"), thrown.getMessage());
   }
 
@@ -150,8 +175,7 @@ class ChannelInflightMetricsTest {
 
     InflightUsageUnavailableException thrown =
         assertThrows(
-            InflightUsageUnavailableException.class,
-            () -> ChannelInflightMetrics.read("client_a", "conn_topic_0"));
+            InflightUsageUnavailableException.class, () -> read("client_a", "conn_topic_0"));
     assertSame(failure, thrown.getCause());
     assertTrue(thrown.getMessage().contains("inflight_bytes"), thrown.getMessage());
     assertTrue(thrown.getMessage().contains("conn_topic_0"), thrown.getMessage());
@@ -168,8 +192,7 @@ class ChannelInflightMetricsTest {
 
     InflightUsageUnavailableException thrown =
         assertThrows(
-            InflightUsageUnavailableException.class,
-            () -> ChannelInflightMetrics.read("client_a", "conn_topic_0"));
+            InflightUsageUnavailableException.class, () -> read("client_a", "conn_topic_0"));
     RuntimeMBeanException wrapped =
         assertInstanceOf(RuntimeMBeanException.class, thrown.getCause());
     assertSame(failure, wrapped.getCause());
@@ -185,8 +208,7 @@ class ChannelInflightMetricsTest {
 
     InflightUsageUnavailableException thrown =
         assertThrows(
-            InflightUsageUnavailableException.class,
-            () -> ChannelInflightMetrics.read("client_a", "conn_topic_0"));
+            InflightUsageUnavailableException.class, () -> read("client_a", "conn_topic_0"));
     assertTrue(thrown.getMessage().contains("inflight_bytes"), thrown.getMessage());
     assertTrue(thrown.getMessage().contains(String.valueOf(value)), thrown.getMessage());
   }
@@ -198,8 +220,7 @@ class ChannelInflightMetricsTest {
         () -> "12");
 
     ConnectException thrown =
-        assertThrows(
-            ConnectException.class, () -> ChannelInflightMetrics.read("client_a", "conn_topic_0"));
+        assertThrows(ConnectException.class, () -> read("client_a", "conn_topic_0"));
     assertEquals(ConnectException.class, thrown.getClass());
     assertTrue(thrown.getMessage().contains("not numeric"), thrown.getMessage());
   }

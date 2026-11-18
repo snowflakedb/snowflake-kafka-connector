@@ -16,10 +16,11 @@ import org.apache.kafka.connect.errors.ConnectException;
  * snowpipe-streaming publishes on the platform MBeanServer. Each gauge counts what a channel has
  * accepted and Snowflake has not yet acknowledged.
  *
- * <p>Contract of the SDK beans: every {@code Value} read returns the exact current value of that
- * channel instance at read time, or throws (channel gone, FFI failure). A limit checked against
- * these values before appending can therefore be exceeded by at most what is appended after the
- * check.
+ * <p>Contract of the SDK beans: a {@code Value} read includes everything this task has appended to
+ * the channel instance, and reflects Snowflake acknowledgements within about 100 ms, or throws
+ * (channel gone, read failure). A late acknowledgement can only overstate usage. A limit checked
+ * against these values before appending can therefore be exceeded by at most what is appended after
+ * the check.
  */
 public final class ChannelInflightMetrics {
 
@@ -62,21 +63,49 @@ public final class ChannelInflightMetrics {
     }
   }
 
+  /** The ObjectNames of the two inflight gauges of one channel on one SDK client. */
+  public static final class InflightBeanNames {
+    private final String clientName;
+    private final String channelName;
+    private final ObjectName rows;
+    private final ObjectName bytes;
+
+    private InflightBeanNames(String clientName, String channelName) {
+      this.clientName = clientName;
+      this.channelName = channelName;
+      this.rows = objectName(clientName, channelName, INFLIGHT_ROWS);
+      this.bytes = objectName(clientName, channelName, INFLIGHT_BYTES);
+    }
+
+    public String clientName() {
+      return clientName;
+    }
+
+    public String channelName() {
+      return channelName;
+    }
+  }
+
   /**
-   * Reads both gauges for the channel {@code channelName} opened on the SDK client {@code
-   * clientName}.
+   * Builds the gauge names of the channel {@code channelName} opened on the SDK client {@code
+   * clientName}. Names do not change while the channel and client stay the same, so callers build
+   * them once and reuse them for every read.
+   */
+  public static InflightBeanNames beanNames(String clientName, String channelName) {
+    return new InflightBeanNames(clientName, channelName);
+  }
+
+  /**
+   * Reads both gauges named by {@code names}.
    *
    * @throws InstanceNotFoundException if either bean is not registered
    * @throws InflightUsageUnavailableException if a bean fails to produce a value, or produces a
    *     negative or non-finite one
    * @throws ConnectException if a bean produces a non-numeric value
    */
-  public static InflightUsage read(String clientName, String channelName)
-      throws InstanceNotFoundException {
+  public static InflightUsage read(InflightBeanNames names) throws InstanceNotFoundException {
     MBeanServer server = ManagementFactory.getPlatformMBeanServer();
-    return new InflightUsage(
-        readGauge(server, clientName, channelName, INFLIGHT_ROWS),
-        readGauge(server, clientName, channelName, INFLIGHT_BYTES));
+    return new InflightUsage(readGauge(server, names.rows), readGauge(server, names.bytes));
   }
 
   /** The failure for a bean that is missing while its channel and client are open. */
@@ -114,10 +143,8 @@ public final class ChannelInflightMetrics {
     }
   }
 
-  private static long readGauge(
-      MBeanServer server, String clientName, String channelName, String metricName)
+  private static long readGauge(MBeanServer server, ObjectName name)
       throws InstanceNotFoundException {
-    ObjectName name = objectName(clientName, channelName, metricName);
     final Object value;
     try {
       value = server.getAttribute(name, VALUE_ATTRIBUTE);

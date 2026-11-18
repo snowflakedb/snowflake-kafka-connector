@@ -520,10 +520,10 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     // Task-level caps, checked before any record of this batch is appended. Every appendRow of
-    // this task runs below on this thread and the SDK gauges are exact at read time, so per task
-    // the summed inflight usage can exceed a cap by at most this one batch. While capped the task
-    // thread waits for usage to drop, and only rewinds the whole batch if it does not drop within
-    // MAX_INFLIGHT_WAIT_PER_PUT, which bounds Kafka refetches to one per wait.
+    // this task runs below on this thread and the SDK gauges include its appends at once, so per
+    // task the summed inflight usage can exceed a cap by at most this one batch. While capped the
+    // task thread waits for usage to drop, and only rewinds the whole batch if it does not drop
+    // within MAX_INFLIGHT_WAIT_PER_PUT, which bounds Kafka refetches to one per wait.
     if (!skipAllPartitions
         && !records.isEmpty()
         && (taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0)
