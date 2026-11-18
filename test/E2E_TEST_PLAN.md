@@ -307,6 +307,27 @@ The `test_schema_evolution_config_variants` test already covers `evo=True, schem
 | 🔴 | Server-side SE with Avro SR | v4 | Avro SR | **P2.** FR6. Avro provides explicit schema; server-side SE may behave differently than JSON. | `test_schema_evolution_ht.py` |
 | 🔴 | Concurrent SE from multiple partitions | v4 | JSON | **P1.** Race condition in ALTER TABLE from multiple tasks. Cannot be caught by unit tests. | `test_schema_evolution_ht.py` |
 
+#### 3.3.3 Server-Side Evolve-Schema with Kafka Connect Schemas
+
+With `snowflake.feature.evolve.schema.enabled=true` and `snowflake.validation=server_side`, the connector sends each new record value schema to the SDK's `evolveSchema` before appending, so new columns get the declared types. Tests that count evolve-schema calls read the connector's `evolve-schema` JMX gauges and need `--jmx`. Fault tests need `--with-mitmproxy`.
+
+| Status | Test | Version | Format | Notes | File |
+|:------:|------|---------|--------|-------|------|
+| 🟢 | New fields get declared types; a second schema adds only its new columns; declined schema to DLQ | v4 | JSON | | `schema_evolution/test_se_evolve_schema_typed.py` |
+| 🟢 | Not enabled (403): falls back to value-inferred types | v4 | JSON | mitmproxy | `schema_evolution/test_se_evolve_schema_typed.py` |
+| 🟢 | JsonConverter types, Debezium types, exact field names | v4 | JSON | | `schema_evolution/test_se_evolve_schema_json.py` |
+| 🟢 | Skipped records: nested struct change, key schema, schemaless/null/tombstone, non-struct value | v4 | JSON | JMX | `schema_evolution/test_se_evolve_schema_json.py` |
+| 🟢 | Avro evolutions: add optional, add with default, remove NOT NULL field, loosen, tighten, widen, incompatible, rename | v4 | Avro SR | Confluent | `schema_evolution/test_se_evolve_schema_registry.py` |
+| 🟢 | Avro logical types, primitives and containers | v4 | Avro SR | Confluent. Avro `timestamp-micros` arrives as INT64 | `schema_evolution/test_se_evolve_schema_registry.py` |
+| 🟢 | Schema Registry outage: cached IDs flow, new IDs fail in the converter | v4 | Avro SR | Confluent, JMX | `schema_evolution/test_se_evolve_schema_registry.py` |
+| 🟢 | Schema cache: interleaved versions, many versions, two topics into one table, outcome counters | v4 | JSON | JMX | `schema_evolution/test_se_evolve_schema_cache.py` |
+| 🟢 | Restart or rebalance mid-evolve; failed call then the same schema | v4 | JSON | mitmproxy | `schema_evolution/test_se_evolve_schema_cache.py` |
+| 🟢 | Errors: declined schema by `errors.tolerance`, schema evolution disabled, missing `EVOLVE SCHEMA` | v4 | JSON | | `schema_evolution/test_se_evolve_schema_errors.py` |
+| 🟢 | Flags and rollout: flag change, cooldown after 403, old and new connectors, enabled for some accounts | v4 | JSON | JMX or mitmproxy | `schema_evolution/test_se_evolve_schema_errors.py` |
+| 🟢 | Retries: 503, 429, and 401 retried; retries run out then redelivered | v4 | JSON | mitmproxy | `schema_evolution/test_se_evolve_schema_errors.py` |
+| 🟢 | Managed Iceberg v2 and v3 column types; map field on v2 to the DLQ | v4 | JSON | | `iceberg/test_iceberg_evolve_schema.py` |
+| 🟢 | Scale: 1,999 columns, 8 tasks, throughput across pipe restarts, flag on vs off, churn, 1-hour soak | v4 | JSON | `pressure`, `soak`; JMX | `pressure/test_evolve_schema_scale.py` |
+
 ---
 
 ### 3.4 RECORD_CONTENT Mode

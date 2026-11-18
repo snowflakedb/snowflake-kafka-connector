@@ -90,6 +90,10 @@ class IcebergTable(Table):
     Storage"), so it is omitted in that case — Snowflake constructs the path.
     """
 
+    def __init__(self, driver: KafkaDriver, name: str, iceberg_version: int = 3):
+        super().__init__(driver, name)
+        self.iceberg_version = iceberg_version
+
     def create(self, columns: str):
         managed = ICEBERG_EXTERNAL_VOLUME.upper() == "SNOWFLAKE_MANAGED"
         base_location = "" if managed else f"BASE_LOCATION = '{self.name}' "
@@ -99,7 +103,7 @@ class IcebergTable(Table):
             f"EXTERNAL_VOLUME = '{ICEBERG_EXTERNAL_VOLUME}' "
             f"CATALOG = 'SNOWFLAKE' "
             f"{base_location}"
-            f"ICEBERG_VERSION = 3"
+            f"ICEBERG_VERSION = {self.iceberg_version}"
         )
 
     def drop(self):
@@ -173,11 +177,15 @@ def create_iceberg_table(
     topics_to_cleanup: List[str] = []
 
     def _create(
-        unsalted_name: str = None, *, columns: str, cleanup_topic: bool = True
+        unsalted_name: str = None,
+        *,
+        columns: str,
+        cleanup_topic: bool = True,
+        iceberg_version: int = 3,
     ) -> IcebergTable:
         unsalted_name = unsalted_name or request.node.originalname
         table_name = unsalted_name + name_salt
-        table = IcebergTable(driver, table_name)
+        table = IcebergTable(driver, table_name, iceberg_version)
         table.create(columns)
         created_tables.append(table)
         if cleanup_topic:

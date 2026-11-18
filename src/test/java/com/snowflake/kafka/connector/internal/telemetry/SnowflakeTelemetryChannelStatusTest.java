@@ -55,6 +55,35 @@ public class SnowflakeTelemetryChannelStatusTest {
   }
 
   @Test
+  public void testEvolveSchemaGaugesFollowCounters() {
+    MetricRegistry metricRegistry = new MetricRegistry();
+    SnowflakeTelemetryChannelStatus status =
+        new SnowflakeTelemetryChannelStatus(
+            tableName,
+            connectorName,
+            channelName,
+            1234,
+            Optional.of(new MetricsJmxReporter(metricRegistry, TEST_CONNECTOR_NAME)),
+            new AtomicLong(-1),
+            new AtomicLong(-1),
+            new AtomicLong(-1),
+            new AtomicLong(0),
+            new AtomicLong(0));
+
+    status.incEvolveSchemaCallCount();
+    status.incEvolveSchemaCallCount();
+    status.incEvolveSchemaRejectedCount();
+    status.incEvolveSchemaRedeliveredCount();
+    status.incEvolveSchemaNotEnabledCount();
+
+    String prefix = "channel:" + channelName + "/evolve-schema/";
+    assertEquals(2L, metricRegistry.getGauges().get(prefix + "call-count").getValue());
+    assertEquals(1L, metricRegistry.getGauges().get(prefix + "rejected-count").getValue());
+    assertEquals(1L, metricRegistry.getGauges().get(prefix + "redelivered-count").getValue());
+    assertEquals(1L, metricRegistry.getGauges().get(prefix + "not-enabled-count").getValue());
+  }
+
+  @Test
   public void testDisabledJmx() {
     MetricRegistry metricRegistry = Mockito.spy(MetricRegistry.class);
     MetricsJmxReporter metricsJmxReporter =

@@ -151,6 +151,8 @@ jobs:
             test_group: schema_and_correctness
             start_offset: 30
             marker_filter: 'schema_evolution or correctness'
+            # The evolve-schema tests read the connector's JMX counters through Jolokia.
+            jmx: 'true'
           - platform: apache
             platform_version: '4.1.1'
             snowflake_cloud: 'AWS'
@@ -189,6 +191,8 @@ jobs:
             test_group: schema_and_correctness
             start_offset: 150
             marker_filter: 'schema_evolution or correctness'
+            # The evolve-schema tests read the connector's JMX counters through Jolokia.
+            jmx: 'true'
           - platform: confluent
             platform_version: '8.2.0'
             snowflake_cloud: 'AWS'
@@ -220,6 +224,7 @@ jobs:
         marker-filter: ${{ matrix.marker_filter }}
         test-group: ${{ matrix.test_group }}
         functional-test-delay: '5'
+        jmx: ${{ matrix.jmx || 'false' }}
 
   fault_injection:
     # Exercises error-recovery paths using mitmproxy to inject HTTP 410 responses.
@@ -252,6 +257,7 @@ jobs:
         with-mitmproxy: 'true'
         marker-filter: 'fault_injection'
         test-group: fault-injection
+        jmx: 'true'
 
   core_legacy:
     # Runs the core e2e suite on older Kafka platform versions.

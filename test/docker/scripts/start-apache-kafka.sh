@@ -14,6 +14,9 @@ mkdir -p $LOG_DIR
 echo "Java version:"
 java -version
 
+# CONNECT_KAFKA_OPTS, when set, is the Connect worker's KAFKA_OPTS (run_tests.sh --jmx puts the
+# Jolokia agent there). The broker runs in the same container, so it can't share KAFKA_OPTS:
+# both JVMs would try to bind the agent's port.
 # CONNECT_OFFSET_FLUSH_INTERVAL_MS, when set, overrides offset.flush.interval.ms in connect-distributed.properties.
 CONNECT_DISTRIBUTED_CONFIG="$KAFKA_HOME/config/connect-distributed.properties"
 if [ -n "${CONNECT_OFFSET_FLUSH_INTERVAL_MS:-}" ]; then
@@ -65,7 +68,7 @@ if [ "${KRAFT_MODE:-false}" = "true" ]; then
     sleep 5
 
     echo "=== Starting Kafka Connect ==="
-    $KAFKA_HOME/bin/connect-distributed.sh $KAFKA_HOME/config/connect-distributed.properties > $LOG_DIR/kc.log 2>&1 &
+    KAFKA_OPTS="${CONNECT_KAFKA_OPTS:-}" $KAFKA_HOME/bin/connect-distributed.sh $KAFKA_HOME/config/connect-distributed.properties > $LOG_DIR/kc.log 2>&1 &
     KC_PID=$!
 
     echo "Waiting for Kafka Connect..."
@@ -118,7 +121,7 @@ else
     sleep 5
 
     echo "=== Starting Kafka Connect ==="
-    $KAFKA_HOME/bin/connect-distributed.sh $KAFKA_HOME/config/connect-distributed.properties > $LOG_DIR/kc.log 2>&1 &
+    KAFKA_OPTS="${CONNECT_KAFKA_OPTS:-}" $KAFKA_HOME/bin/connect-distributed.sh $KAFKA_HOME/config/connect-distributed.properties > $LOG_DIR/kc.log 2>&1 &
     KC_PID=$!
 
     echo "Waiting for Kafka Connect..."

@@ -7,6 +7,9 @@ Responsibilities:
      path except /v2/streaming/hostname
    - fault_404_bulk_channel_status: HTTP 404 on :bulk-channel-status
    - fault_404_hostname: HTTP 404 on /v2/streaming/hostname
+   - evolve_schema_fault: a configurable status and error code on :evolve-schema,
+     optionally for one pipe and a fixed number of responses
+   Also counts :evolve-schema requests per pipe.
 2. Rewrite /v2/streaming/hostname response so the SDK routes subsequent
    streaming API calls to the proxy (via a Docker network alias)
 3. Rewrite the OAuth scope in /oauth/token requests to use the real subdomain
@@ -26,7 +29,7 @@ import os
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import parse_qs, unquote, urlencode
 
 from mitmproxy import http
 
@@ -100,7 +103,76 @@ class FaultState:
             self.injected_count = 0
 
 
+class EvolveSchemaFault:
+    """Thread-safe rule for :evolve-schema responses, and per-pipe request counts.
+
+    The rule is a status and an error code, written into the body the way Snowflake writes it.
+    It applies to pipes whose name contains `pipe` (case-insensitive; every pipe if empty), and
+    to the next `times` matching requests (every one if None).
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._rule = None
+        self.injected_count = 0
+        self.requests_by_pipe = {}
+
+    def set_rule(self, status: int, error_code: str, pipe: str = "", times=None):
+        with self._lock:
+            self._rule = {
+                "status": int(status),
+                "error_code": error_code,
+                "pipe": (pipe or "").upper(),
+                "remaining": times,
+            }
+
+    def clear_rule(self):
+        with self._lock:
+            self._rule = None
+
+    def on_request(self, pipe: str):
+        """Counts the request; returns (status, body) to inject, or None to forward it."""
+        with self._lock:
+            self.requests_by_pipe[pipe] = self.requests_by_pipe.get(pipe, 0) + 1
+            rule = self._rule
+            if rule is None or rule["pipe"] not in pipe.upper():
+                return None
+            if rule["remaining"] is not None:
+                if rule["remaining"] <= 0:
+                    return None
+                rule["remaining"] -= 1
+            self.injected_count += 1
+            body = {
+                "code": str(rule["status"]),
+                "error_code": rule["error_code"],
+                "message": "injected by the e2e mitmproxy",
+            }
+            return rule["status"], json.dumps(body).encode()
+
+    def to_dict(self) -> dict:
+        with self._lock:
+            return {
+                "evolve_schema_rule": dict(self._rule) if self._rule else None,
+                "evolve_schema_injected_count": self.injected_count,
+                "evolve_schema_requests": dict(self.requests_by_pipe),
+            }
+
+    def reset_counters(self):
+        with self._lock:
+            self.injected_count = 0
+            self.requests_by_pipe = {}
+
+
+def evolve_schema_pipe(path: str):
+    """The decoded pipe name of an :evolve-schema path, or None for other paths."""
+    route = path.split("?", 1)[0]
+    if not route.endswith(":evolve-schema"):
+        return None
+    return unquote(route.rsplit("/pipes/", 1)[-1][: -len(":evolve-schema")]).strip('"')
+
+
 proxy_state = ProxyState()
+evolve_schema_fault = EvolveSchemaFault()
 # Skips /v2/streaming/hostname: rebuilding the client after the simulated pipe
 # failover starts with hostname discovery, which must succeed.
 fault_410_streaming_except_hostname = FaultState()
@@ -150,6 +222,17 @@ class FaultAddon:
         # Only inject 410 on streaming API paths
         if not path.startswith("/v2/streaming/"):
             return
+
+        pipe = evolve_schema_pipe(path)
+        if pipe is not None:
+            injected = evolve_schema_fault.on_request(pipe)
+            if injected is not None:
+                status, body = injected
+                flow.response = http.Response.make(
+                    status, body, {"Content-Type": "application/json"}
+                )
+                log(f"Injected {status} (evolve-schema) on {flow.request.method} {path}")
+                return
 
         if fault_410_streaming_except_hostname.enabled:
             flow.response = http.Response.make(
@@ -239,7 +322,27 @@ class ControlHandler(BaseHTTPRequestHandler):
             fault_410_streaming_except_hostname.reset_counters()
             fault_404_bulk_channel_status.reset_counters()
             fault_404_hostname.reset_counters()
+            evolve_schema_fault.reset_counters()
             self._respond(200, {"status": "reset"})
+        elif self.path == "/evolve-schema-fault":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                rule = json.loads(self.rfile.read(length) or b"{}")
+                evolve_schema_fault.set_rule(
+                    rule["status"],
+                    rule["error_code"],
+                    rule.get("pipe", ""),
+                    rule.get("times"),
+                )
+            except (KeyError, ValueError) as e:
+                self._respond(400, {"error": f"bad rule: {e}"})
+                return
+            log(f"evolve-schema fault ENABLED: {rule}")
+            self._respond(200, {"status": "enabled"})
+        elif self.path == "/evolve-schema-fault/clear":
+            evolve_schema_fault.clear_rule()
+            log("evolve-schema fault DISABLED")
+            self._respond(200, {"status": "disabled"})
         elif self.path == "/enable-404-bcs":
             fault_404_bulk_channel_status.enabled = True
             log("404-bulk-channel-status injection ENABLED")
@@ -270,6 +373,7 @@ class ControlHandler(BaseHTTPRequestHandler):
                 fault_404_bulk_channel_status.injected_count
             )
             status["injected_404_hostname_count"] = fault_404_hostname.injected_count
+            status.update(evolve_schema_fault.to_dict())
             self._respond(200, status)
         else:
             self._respond(404, {"error": "not found"})

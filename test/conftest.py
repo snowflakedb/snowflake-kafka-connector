@@ -30,7 +30,7 @@ from lib.fixtures.table import (  # noqa: F401
     iceberg_external_volume,
 )
 from lib.fixtures.function import connector_version, name_salt  # noqa: F401
-from lib import mitmproxy_control
+from lib import jmx, mitmproxy_control
 
 logger = logging.getLogger(__name__)
 
@@ -320,7 +320,14 @@ def mitmproxy():
         ctrl.disable_410()
         ctrl.disable_404_hostname()
         ctrl.disable_404_bulk_channel_status()
+        ctrl.clear_evolve_schema_fault()
     return ctrl
+
+
+@pytest.fixture(scope="session")
+def jolokia():
+    """Session-scoped Jolokia client for the connector's JMX metrics. None without --jmx."""
+    return jmx.from_env()
 
 
 @pytest.fixture(scope="session")

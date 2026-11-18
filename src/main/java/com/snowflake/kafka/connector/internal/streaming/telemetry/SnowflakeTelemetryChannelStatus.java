@@ -40,12 +40,18 @@ import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.Object
  * <p>Most of the data sent to Snowflake is aggregated data.
  */
 public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo {
-  public static final long NUM_METRICS = 7; // update when new metrics are added
+  public static final long NUM_METRICS = 11; // update when new metrics are added
 
   static final String CHANNEL_RECOVERY_COUNT = "channel-recovery-count";
   static final String OFFSET_GAP_COUNT = "offset-gap-count";
   static final String OFFSET_GAP_MISSING_RECORD_COUNT = "offset-gap-missing-record-count";
   static final String RECOVERY_SKIP_CONFLICT_COUNT = "recovery-skip-conflict-count";
+
+  // Evolve-schema outcomes, in the EVOLVE_SCHEMA_SUB_DOMAIN category.
+  static final String EVOLVE_SCHEMA_CALL_COUNT = "call-count";
+  static final String EVOLVE_SCHEMA_REJECTED_COUNT = "rejected-count";
+  static final String EVOLVE_SCHEMA_REDELIVERED_COUNT = "redelivered-count";
+  static final String EVOLVE_SCHEMA_NOT_ENABLED_COUNT = "not-enabled-count";
 
   // channel properties
   private final String connectorName;
@@ -241,6 +247,18 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, OFFSET_GAP_MISSING_RECORD_COUNT),
           channelMetricName(
               this.channelName, MetricsUtil.OFFSET_SUB_DOMAIN, RECOVERY_SKIP_CONFLICT_COUNT),
+          channelMetricName(
+              this.channelName, MetricsUtil.EVOLVE_SCHEMA_SUB_DOMAIN, EVOLVE_SCHEMA_CALL_COUNT),
+          channelMetricName(
+              this.channelName, MetricsUtil.EVOLVE_SCHEMA_SUB_DOMAIN, EVOLVE_SCHEMA_REJECTED_COUNT),
+          channelMetricName(
+              this.channelName,
+              MetricsUtil.EVOLVE_SCHEMA_SUB_DOMAIN,
+              EVOLVE_SCHEMA_REDELIVERED_COUNT),
+          channelMetricName(
+              this.channelName,
+              MetricsUtil.EVOLVE_SCHEMA_SUB_DOMAIN,
+              EVOLVE_SCHEMA_NOT_ENABLED_COUNT),
         };
 
     @SuppressWarnings("unchecked")
@@ -253,6 +271,10 @@ public class SnowflakeTelemetryChannelStatus extends SnowflakeTelemetryBasicInfo
           (Gauge<Long>) this.offsetGapCount::get,
           (Gauge<Long>) this.offsetGapMissingRecordCount::get,
           (Gauge<Long>) this.recoverySkipConflictCount::get,
+          (Gauge<Long>) this.evolveSchemaCallCount::get,
+          (Gauge<Long>) this.evolveSchemaRejectedCount::get,
+          (Gauge<Long>) this.evolveSchemaRedeliveredCount::get,
+          (Gauge<Long>) this.evolveSchemaNotEnabledCount::get,
         };
 
     for (int i = 0; i < registeredMetricNames.length; i++) {
