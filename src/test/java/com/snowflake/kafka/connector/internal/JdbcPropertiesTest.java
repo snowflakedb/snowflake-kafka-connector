@@ -71,4 +71,36 @@ public class JdbcPropertiesTest {
               assertEquals("0031", ex.getCode());
             });
   }
+
+  @Test
+  public void shouldEnableOcspFailOpenByDefault() {
+    Properties connection = new Properties();
+    connection.put("user", "test_user");
+
+    JdbcProperties jdbcProperties = JdbcProperties.create(connection);
+
+    assertEquals("true", jdbcProperties.getProperty("ocspFailOpen"));
+  }
+
+  @Test
+  public void shouldKeepUserConfiguredOcspSetting() {
+    for (String[] setting :
+        new String[][] {
+          {"ocspFailOpen", "false"},
+          {"disableOCSPChecks", "true"},
+          {"insecureMode", "true"}
+        }) {
+      Properties connection = new Properties();
+      connection.put("user", "test_user");
+      Properties jdbcMap = new Properties();
+      jdbcMap.put(setting[0], setting[1]);
+
+      JdbcProperties jdbcProperties = JdbcProperties.create(connection, new Properties(), jdbcMap);
+
+      assertEquals(setting[1], jdbcProperties.getProperty(setting[0]));
+      if (!setting[0].equals("ocspFailOpen")) {
+        assertTrue(jdbcProperties.getProperty("ocspFailOpen") == null);
+      }
+    }
+  }
 }
