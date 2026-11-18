@@ -92,6 +92,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private final String pipeName;
 
   private volatile SnowflakeStreamingIngestClient streamingClient;
+
+  /** The inflight bean names resolved for the SDK channel and client last read. */
+  private volatile ResolvedInflightBeans inflightBeans;
+
   private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
@@ -947,12 +951,16 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   /**
-   * Reads the SDK's per-channel inflight gauges over JMX. A channel that is still opening, failed
-   * to open, or is closed, or whose client is closed, has nothing to report and returns {@link
-   * InflightUsage#NONE}, also when it closes during the read. The SDK registers a channel's beans
-   * inside openChannel before returning and unregisters them when the channel closes or is dropped
-   * or its client closes, so a bean missing for an open channel on an open client is a registration
-   * failure.
+   * Reads the SDK's per-channel inflight gauges over JMX. A channel that is still opening or failed
+   * to open has nothing to report and returns {@link InflightUsage#NONE}. So does a channel that is
+   * closed or whose client is closed, also when it closes during the read. The SDK registers a
+   * channel's beans inside openChannel before returning and unregisters them when the channel
+   * closes or is dropped or its client closes, so a bean missing for an open channel on an open
+   * client is a registration failure.
+   *
+   * <p>The bean names are resolved once for each SDK channel instance and client, and reused by
+   * every later read. A read does no other work on the channel or client. They are only asked
+   * whether they are closed when a read fails.
    *
    * @throws ConnectException if a bean is missing while the channel and its client are open
    * @throws InflightUsageUnavailableException if a read fails while the channel and its client are
@@ -965,34 +973,55 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       return InflightUsage.NONE;
     }
     SnowflakeStreamingIngestChannel sdkChannel = future.join();
-    if (sdkChannel.isClosed()) {
-      return InflightUsage.NONE;
-    }
     // streamingClient is replaced before a channel is reopened on a recreated client, so once the
     // channel future is complete it is the client that owns the channel.
     SnowflakeStreamingIngestClient client = this.streamingClient;
-    final String clientName;
-    try {
-      clientName = client.getClientName();
-    } catch (SFException e) {
-      if (sdkChannel.isClosed() || client.isClosed()) {
-        return InflightUsage.NONE;
+    ResolvedInflightBeans resolved = this.inflightBeans;
+    if (resolved == null || resolved.sdkChannel != sdkChannel || resolved.client != client) {
+      final String clientName;
+      try {
+        clientName = client.getClientName();
+      } catch (SFException e) {
+        if (sdkChannel.isClosed() || client.isClosed()) {
+          return InflightUsage.NONE;
+        }
+        throw new InflightUsageUnavailableException(
+            "Failed to read the client name of open channel " + channelName, e);
       }
-      throw new InflightUsageUnavailableException(
-          "Failed to read the client name of open channel " + channelName, e);
+      resolved =
+          new ResolvedInflightBeans(
+              sdkChannel, client, ChannelInflightMetrics.beanNames(clientName, channelName));
+      this.inflightBeans = resolved;
     }
     try {
-      return ChannelInflightMetrics.read(clientName, channelName);
+      return ChannelInflightMetrics.read(resolved.names);
     } catch (InstanceNotFoundException e) {
       if (sdkChannel.isClosed() || client.isClosed()) {
         return InflightUsage.NONE;
       }
-      throw ChannelInflightMetrics.missingBeanForOpenChannel(clientName, channelName, e);
+      throw ChannelInflightMetrics.missingBeanForOpenChannel(
+          resolved.names.clientName(), channelName, e);
     } catch (InflightUsageUnavailableException e) {
       if (sdkChannel.isClosed() || client.isClosed()) {
         return InflightUsage.NONE;
       }
       throw e;
+    }
+  }
+
+  /** Inflight bean names, valid for exactly the SDK channel and client they were resolved for. */
+  private static final class ResolvedInflightBeans {
+    final SnowflakeStreamingIngestChannel sdkChannel;
+    final SnowflakeStreamingIngestClient client;
+    final ChannelInflightMetrics.InflightBeanNames names;
+
+    ResolvedInflightBeans(
+        SnowflakeStreamingIngestChannel sdkChannel,
+        SnowflakeStreamingIngestClient client,
+        ChannelInflightMetrics.InflightBeanNames names) {
+      this.sdkChannel = sdkChannel;
+      this.client = client;
+      this.names = names;
     }
   }
 
