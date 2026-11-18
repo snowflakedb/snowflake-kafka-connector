@@ -27,7 +27,7 @@ Neither smoke-test PR enables those probers or blocks release publishing.
 
 ## One-time setup: enable SPCS provisioning in CI
 
-[`setup_ci.py`](setup_ci.py) creates four permanent objects, once, in the
+[`setup_ci.py`](setup_ci.py) creates five permanent objects, once, in the
 existing CI account `SFCTEST0` as `TESTROLE_KAFKA`. Later CI runs reuse them.
 
 | Object | Purpose |
@@ -36,6 +36,7 @@ existing CI account `SFCTEST0` as `TESTROLE_KAFKA`. Later CI runs reuse them.
 | Schema `TESTDB_KAFKA.KC_SPCS_CI` | Holds the two objects below |
 | Stage `...KC_SPCS_CI.HARNESS_STAGE` | Test payloads |
 | Image repository `...KC_SPCS_CI.IMAGES` | Test container images |
+| Network rule `...KC_SPCS_CI.KC_SPCS_CI_POOL_INGRESS` | `TYPE=COMPUTE_POOL`, allows `KC_SPCS_CI_POOL` only |
 
 Run **Set up permanent KC SPCS infrastructure** from `master` with `apply`. As
 `ACCOUNTADMIN`, which the CI user holds in `SFCTEST0`, it grants:
@@ -46,10 +47,16 @@ GRANT USAGE, CREATE SCHEMA ON DATABASE TESTDB_KAFKA TO ROLE TESTROLE_KAFKA;
 ```
 
 It then switches back to `TESTROLE_KAFKA`, creates what is missing, and lists
-all four objects. Using `ACCOUNTADMIN` for these two grants was authorized by
+all five objects. Last, as `ACCOUNTADMIN`, it adds the network rule to the CI
+user's network policy and the account's network policy, if not already there.
+Without this, every call the connector makes from SPCS gets HTTP 401 ("Incoming
+request with IP/Token is not allowed", error 390422): with
+`enableCustomCredentials`, only `COMPUTE_POOL` rules can admit SPCS traffic, and
+IPv4 rules such as `0.0.0.0/0` never match. In `SFCTEST0` the account policy is
+the one applied. Adding the rule was authorized by Berni Schiefer on 2026-11-18. Using `ACCOUNTADMIN` for these two grants was authorized by
 Berni Schiefer on 2026-11-14. If the CI user cannot use `ACCOUNTADMIN`, `apply`
 creates nothing and prints the two lines for an `SFCTEST0` `ACCOUNTADMIN` to run
-by hand. `check` only lists the objects. The script never alters or drops
+by hand. `check` only lists the objects. The script never drops or removes
 anything, and rerunning it is safe.
 
 The workflow has no approval step or on switch. It runs only from `master` of

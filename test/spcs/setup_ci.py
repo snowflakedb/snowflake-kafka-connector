@@ -2,7 +2,9 @@
 
 `check` (default) only reads. `apply` first grants TESTROLE_KAFKA the two
 privileges it needs, as ACCOUNTADMIN, then creates missing objects with IF NOT
-EXISTS as TESTROLE_KAFKA. It never alters or drops, so rerunning is safe.
+EXISTS as TESTROLE_KAFKA. Finally, as ACCOUNTADMIN, it adds the pool's network
+rule to the user and account network policies if absent. It never drops or
+removes anything, so rerunning is safe.
 """
 
 import argparse
@@ -51,6 +53,12 @@ OBJECTS = (
         f"SHOW IMAGE REPOSITORIES LIKE 'IMAGES' IN SCHEMA {SCHEMA}",
         "",
     ),
+    (
+        "NETWORK RULE",
+        f"{SCHEMA}.KC_SPCS_CI_POOL_INGRESS",
+        f"SHOW NETWORK RULES LIKE 'KC_SPCS_CI_POOL_INGRESS' IN SCHEMA {SCHEMA}",
+        "TYPE=COMPUTE_POOL MODE=INGRESS VALUE_LIST=('KC_SPCS_CI_POOL')",
+    ),
 )
 
 
@@ -86,6 +94,41 @@ def grant(cursor):
         cursor.execute(f"USE ROLE {ROLE}")
 
 
+# SPCS jobs with enableCustomCredentials match only COMPUTE_POOL network rules,
+# so a network policy without one rejects them with 401 (390422). In SFCTEST0
+# the account-level policy was the one applied, not the CI user's. Adding this
+# rule to both was authorized by Berni Schiefer (2026-11-18); nothing is removed.
+POOL_RULE = f"{SCHEMA}.KC_SPCS_CI_POOL_INGRESS"
+
+
+def policy_param(cursor, scope):
+    found = rows(cursor, f"SHOW PARAMETERS LIKE 'NETWORK_POLICY' IN {scope}")
+    return [row["value"] for row in found if row["value"]]
+
+
+def allow_pool(cursor):
+    (user,) = rows(cursor, "SELECT CURRENT_USER() AS U")
+    cursor.execute("USE ROLE ACCOUNTADMIN")
+    try:
+        user_policies = policy_param(cursor, f'USER "{user["u"]}"')
+        account_policies = policy_param(cursor, "ACCOUNT")
+        print(f"user network policy: {user_policies or 'none'}", flush=True)
+        print(f"account network policy: {account_policies or 'none'}", flush=True)
+        for policy in dict.fromkeys(user_policies + account_policies):
+            rules = rows(cursor, f"DESCRIBE NETWORK POLICY {policy}")
+            print(f"policy {policy}: {rules}", flush=True)
+            if any(POOL_RULE.rsplit(".", 1)[-1] in str(r.get("value")) for r in rules):
+                print(f"{POOL_RULE} already in {policy}", flush=True)
+                continue
+            cursor.execute(
+                f"ALTER NETWORK POLICY {policy} "
+                f"ADD ALLOWED_NETWORK_RULE_LIST=('{POOL_RULE}')"
+            )
+            print(f"added {POOL_RULE} to {policy}", flush=True)
+    finally:
+        cursor.execute(f"USE ROLE {ROLE}")
+
+
 def setup(cursor, apply):
     """Return the number of objects still missing."""
     (identity,) = rows(cursor, "SELECT CURRENT_ACCOUNT() AS A, CURRENT_ROLE() AS R")
@@ -108,6 +151,8 @@ def setup(cursor, apply):
         missing += not exists
         if kind == "SCHEMA":
             schema_exists = exists
+    if apply and not missing:
+        allow_pool(cursor)
     return missing
 
 
