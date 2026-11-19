@@ -552,30 +552,33 @@ public class StandardSnowflakeConnectionServiceDdlTest {
 
   @Test
   public void testEnableErrorLogging_issuesAlterTable() throws Exception {
-    Connection conn = mock(Connection.class);
-    when(conn.isClosed()).thenReturn(false);
-    PreparedStatement stmt = mock(PreparedStatement.class);
-    when(conn.prepareStatement("alter table identifier(?) set error_logging = true"))
-        .thenReturn(stmt);
+    service.enableErrorLogging("my_table");
 
-    createServiceWithMockConnection(conn).enableErrorLogging("my_table");
+    assertThat(captureAlterSql()).isEqualTo("alter table identifier(?) set error_logging = true");
+    verify(mockAlterStmt).setString(1, "\"my_table\"");
+    verify(mockAlterStmt).execute();
+  }
 
-    verify(stmt).setString(1, "\"my_table\"");
-    verify(stmt).execute();
+  @Test
+  public void testEnableErrorLogging_icebergTableIssuesAlterIcebergTable() throws Exception {
+    ResultSet icebergRs = mock(ResultSet.class);
+    when(icebergRs.next()).thenReturn(true);
+    when(mockShowStmt.executeQuery()).thenReturn(icebergRs);
+
+    service.enableErrorLogging("my_table");
+
+    assertThat(captureAlterSql())
+        .isEqualTo("alter iceberg table identifier(?) set error_logging = true");
+    verify(mockAlterStmt).setString(1, "\"my_table\"");
+    verify(mockAlterStmt).execute();
   }
 
   @Test
   public void testEnableErrorLogging_sqlFailureThrows() throws Exception {
-    Connection conn = mock(Connection.class);
-    when(conn.isClosed()).thenReturn(false);
-    PreparedStatement stmt = mock(PreparedStatement.class);
-    when(stmt.execute()).thenThrow(new java.sql.SQLException("insufficient privileges"));
-    when(conn.prepareStatement("alter table identifier(?) set error_logging = true"))
-        .thenReturn(stmt);
+    when(mockAlterStmt.execute()).thenThrow(new SQLException("insufficient privileges"));
 
-    StandardSnowflakeConnectionService svc = createServiceWithMockConnection(conn);
     org.junit.jupiter.api.Assertions.assertThrows(
-        SnowflakeKafkaConnectorException.class, () -> svc.enableErrorLogging("my_table"));
+        SnowflakeKafkaConnectorException.class, () -> service.enableErrorLogging("my_table"));
   }
 
   // ---- createIcebergTableWithOnlyMetadataColumn: VARIANT-first with OBJECT fallback ----

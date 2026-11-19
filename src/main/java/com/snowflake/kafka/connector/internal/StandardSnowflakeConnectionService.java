@@ -553,9 +553,11 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   public void enableErrorLogging(String tableName) {
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
+    // Iceberg tables require ALTER ICEBERG TABLE instead of ALTER TABLE.
+    String alterKeyword = isIcebergTable(tableName) ? "alter iceberg table" : "alter table";
 
     try (PreparedStatement stmt =
-        conn.prepareStatement("alter table identifier(?) set error_logging = true")) {
+        conn.prepareStatement(alterKeyword + " identifier(?) set error_logging = true")) {
       stmt.setString(1, quoteIdentifier(tableName));
       stmt.execute();
     } catch (SQLException e) {
