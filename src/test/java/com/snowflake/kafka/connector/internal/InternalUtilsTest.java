@@ -337,6 +337,7 @@ public class InternalUtilsTest {
     assertEquals("on", props.getProperty(InternalUtils.JDBC_SSL));
     assertEquals("true", props.getProperty(InternalUtils.JDBC_SESSION_KEEP_ALIVE));
     assertEquals("json", props.getProperty(InternalUtils.JDBC_QUERY_RESULT_FORMAT));
+    assertEquals("1", props.getProperty(InternalUtils.JDBC_MULTI_STATEMENT_COUNT));
   }
 
   @Test

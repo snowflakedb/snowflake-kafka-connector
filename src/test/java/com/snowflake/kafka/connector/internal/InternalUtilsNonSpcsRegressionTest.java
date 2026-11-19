@@ -67,6 +67,7 @@ public class InternalUtilsNonSpcsRegressionTest {
                 + " must not add or remove properties here")
         .containsExactly(
             "JDBC_QUERY_RESULT_FORMAT",
+            "MULTI_STATEMENT_COUNT",
             "allowUnderscoresInHost",
             "authenticator",
             "client_session_keep_alive",
