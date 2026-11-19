@@ -11,9 +11,9 @@ def json_connector_config(
     """Build a v4 connector config for JSON ingestion into an iceberg table.
 
     ``table_type`` selects the auto-creation behavior (snowflake | iceberg | none).
-    ``iceberg_create_table_options`` are SQL clauses spliced into the auto-created Iceberg
-    table's CREATE after the column list (e.g. "EXTERNAL_VOLUME='v' ICEBERG_VERSION=3"); only
-    valid when ``table_type='iceberg'``. Leave None to use account/schema/db defaults.
+    ``iceberg_create_table_options`` are the allowlisted table options for the auto-created
+    Iceberg table (e.g. "EXTERNAL_VOLUME='v' ICEBERG_VERSION=3"), only valid when
+    ``table_type='iceberg'``. Leave None to use account/schema/db defaults.
     """
     config = {
         **V4_CONFIG_TEMPLATE,

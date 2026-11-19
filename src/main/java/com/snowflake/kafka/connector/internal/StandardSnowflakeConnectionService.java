@@ -3,6 +3,7 @@ package com.snowflake.kafka.connector.internal;
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.config.IcebergCreateTableOptions;
 import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
 import com.snowflake.kafka.connector.internal.advisory.KcAdvisoryResponse;
 import com.snowflake.kafka.connector.internal.schemaevolution.ColumnInfos;
@@ -101,15 +102,19 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   @Override
   public void createIcebergTableWithOnlyMetadataColumn(
       final String tableName, final String createTableOptions) {
+    // The options are parsed against an allowlist and re-serialized from their typed form, so the
+    // raw configuration text never reaches the DDL. They go right after the column list so that
+    // CLUSTER BY lands in its required position.
+    final String optionsSql;
+    try {
+      optionsSql = IcebergCreateTableOptions.parse(createTableOptions).toSql();
+    } catch (IllegalArgumentException e) {
+      throw SnowflakeErrors.ERROR_0034.getException(e.getMessage());
+    }
+    String optionsClause = optionsSql.isEmpty() ? "" : " " + optionsSql;
+
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
-
-    // Operator-supplied clauses (external volume, iceberg version, cluster by, base location, ...)
-    // are spliced right after the column list so positional clauses like CLUSTER BY land correctly.
-    String optionsClause =
-        (createTableOptions == null || createTableOptions.trim().isEmpty())
-            ? ""
-            : " " + createTableOptions.trim();
 
     // Prefer a VARIANT RECORD_METADATA: it tolerates the variable Kafka metadata map and needs no
     // client-side conforming. VARIANT is only allowed on Iceberg format v3+ (with
@@ -122,7 +127,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
           "Created Iceberg table {} (createTableOptions='{}') with VARIANT RECORD_METADATA, schema"
               + " evolution and error logging enabled",
           tableName,
-          createTableOptions);
+          optionsSql);
       return;
     } catch (SQLException e) {
       if (e.getErrorCode() != ERR_ICEBERG_DATATYPE_NOT_SUPPORTED) {
@@ -148,7 +153,7 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
         "Created Iceberg table {} (createTableOptions='{}') with structured OBJECT RECORD_METADATA,"
             + " schema evolution and error logging enabled",
         tableName,
-        createTableOptions);
+        optionsSql);
   }
 
   /** Builds and executes the managed-Iceberg CREATE with the given RECORD_METADATA column DDL. */

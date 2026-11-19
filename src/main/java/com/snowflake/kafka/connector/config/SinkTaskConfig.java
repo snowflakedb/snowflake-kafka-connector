@@ -440,6 +440,8 @@ public abstract class SinkTaskConfig {
               + autocreatedTableType.configValue()
               + ")");
     }
+    // Fail at configuration time on options that the table auto-creation would reject.
+    icebergCreateTableOptions.ifPresent(IcebergCreateTableOptions::parse);
 
     // client_side validation cannot model the structured RECORD_METADATA column of managed Iceberg
     // tables; client-side schema evolution also relies on ALTER ADD COLUMN, which is a server-side

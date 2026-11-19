@@ -545,12 +545,19 @@ public class ConnectorConfigDefinition {
             STRING,
             KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS_DEFAULT,
             LOW,
-            "SQL clauses spliced into the auto-created Iceberg table's CREATE statement after the"
-                + " column list (e.g. \"EXTERNAL_VOLUME='v' ICEBERG_VERSION=3 CLUSTER BY (id)\")."
-                + " Lets operators set any managed-Iceberg create option without a per-option knob."
-                + " Only valid when snowflake.autocreate.table.type=iceberg. Do NOT include"
-                + " CATALOG, ENABLE_SCHEMA_EVOLUTION or ERROR_LOGGING -- the"
-                + " connector always supplies those. Ignored if the table already exists.",
+            "Table options for the auto-created Iceberg table, as space-separated KEY = value"
+                + " pairs plus an optional CLUSTER BY (key, ...) clause, for example"
+                + " \"EXTERNAL_VOLUME = 'v' ICEBERG_VERSION = 3\". Supported keys: EXTERNAL_VOLUME,"
+                + " BASE_LOCATION, TARGET_FILE_SIZE, CATALOG_SYNC, COMMENT and"
+                + " ICEBERG_MERGE_ON_READ_BEHAVIOR (single-quoted strings), ICEBERG_VERSION,"
+                + " DATA_RETENTION_TIME_IN_DAYS and MAX_DATA_EXTENSION_TIME_IN_DAYS (integers),"
+                + " CHANGE_TRACKING and ENABLE_DATA_COMPACTION (TRUE or FALSE),"
+                + " STORAGE_SERIALIZATION_POLICY (COMPATIBLE or OPTIMIZED). CLUSTER BY keys are"
+                + " column paths with an optional ::TYPE cast, such as"
+                + " RECORD_METADATA:\"offset\"::NUMBER. Statement delimiters, comments and other"
+                + " options are rejected. Only valid when snowflake.autocreate.table.type=iceberg."
+                + " CATALOG, ENABLE_SCHEMA_EVOLUTION and ERROR_LOGGING are always set by the"
+                + " connector and are rejected. Ignored if the table already exists.",
             CONNECTOR_CONFIG_DOC,
             16,
             Width.NONE,
