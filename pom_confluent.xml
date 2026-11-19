@@ -74,7 +74,7 @@
         <jackson.version>2.18.12</jackson.version>
         <commons-compress.version>1.27.1</commons-compress.version>
         <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
-        <snowflake-jdbc.version>3.28.0</snowflake-jdbc.version>
+        <snowflake-jdbc.version>4.4.1</snowflake-jdbc.version>
         <snowflake-ingest-sdk.version>4.4.6</snowflake-ingest-sdk.version>
         <slf4j-api.version>2.0.17</slf4j-api.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
@@ -675,6 +675,12 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <version>2.14.0</version>
+            <scope>test</scope>
+        </dependency>
         <!--Mockito for unit test-->
         <dependency>
             <groupId>org.mockito</groupId>

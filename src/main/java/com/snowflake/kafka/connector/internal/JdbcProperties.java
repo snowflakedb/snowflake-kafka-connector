@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import java.util.Properties;
+import net.snowflake.client.internal.core.SFSessionProperty;
 
 /** Wrapper class for all snowflake jdbc properties */
 public class JdbcProperties {
@@ -51,6 +52,7 @@ public class JdbcProperties {
     detectOverrides(proxyAndConnection, jdbcPropertiesMap);
 
     Properties combinedProperties = mergeProperties(proxyAndConnection, jdbcPropertiesMap);
+    enableOcspFailOpenUnlessConfigured(combinedProperties);
 
     return new JdbcProperties(combinedProperties, proxyProperties);
   }
@@ -58,6 +60,27 @@ public class JdbcProperties {
   /** Test method */
   static JdbcProperties create(Properties connectionProperties) {
     return create(connectionProperties, new Properties(), new Properties());
+  }
+
+  /**
+   * JDBC 4.4+ turns OCSP revocation checking off unless ocspFailOpen is set, while JDBC 3.x
+   * defaulted to fail-open. Keep the previous behavior unless the user chose an OCSP setting in
+   * snowflake.jdbc.map.
+   */
+  private static void enableOcspFailOpenUnlessConfigured(Properties properties) {
+    String[] ocspKeys = {
+      SFSessionProperty.OCSP_FAIL_OPEN.getPropertyKey(),
+      SFSessionProperty.DISABLE_OCSP_CHECKS.getPropertyKey(),
+      SFSessionProperty.INSECURE_MODE.getPropertyKey()
+    };
+    for (String key : properties.stringPropertyNames()) {
+      for (String ocspKey : ocspKeys) {
+        if (ocspKey.equalsIgnoreCase(key)) {
+          return;
+        }
+      }
+    }
+    properties.put(SFSessionProperty.OCSP_FAIL_OPEN.getPropertyKey(), "true");
   }
 
   private static void detectOverrides(Properties proxyAndConnection, Properties jdbcPropertiesMap) {

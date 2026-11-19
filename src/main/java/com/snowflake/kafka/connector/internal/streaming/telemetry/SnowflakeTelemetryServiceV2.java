@@ -21,9 +21,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.snowflake.kafka.connector.internal.streaming.IngestionMethodConfig;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.sql.Connection;
+import net.snowflake.client.internal.jdbc.telemetry.Telemetry;
+import net.snowflake.client.internal.jdbc.telemetry.TelemetryClient;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
-import net.snowflake.client.jdbc.telemetry.Telemetry;
-import net.snowflake.client.jdbc.telemetry.TelemetryClient;
 
 /**
  * This is the implementation of Telemetry Service for Snowpipe Streaming. Sends data related to

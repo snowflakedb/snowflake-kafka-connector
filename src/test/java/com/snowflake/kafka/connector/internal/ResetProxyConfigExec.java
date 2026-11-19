@@ -1,6 +1,6 @@
 package com.snowflake.kafka.connector.internal;
 
-import net.snowflake.client.jdbc.SnowflakeSQLException;
+import net.snowflake.client.api.exception.SnowflakeSQLException;
 
 public class ResetProxyConfigExec {
   public static void main(String[] args) throws SnowflakeSQLException {

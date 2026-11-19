@@ -8,15 +8,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import net.snowflake.client.core.OCSPMode;
-import net.snowflake.client.core.SFSessionProperty;
-import net.snowflake.client.core.SFStatement;
-import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-import net.snowflake.client.jdbc.SnowflakeFileTransferAgent;
-import net.snowflake.client.jdbc.SnowflakeFileTransferConfig;
-import net.snowflake.client.jdbc.SnowflakeFileTransferMetadataV1;
-import net.snowflake.client.jdbc.SnowflakeSQLException;
-import net.snowflake.client.jdbc.cloud.storage.StageInfo;
+import net.snowflake.client.api.exception.SnowflakeSQLException;
+import net.snowflake.client.internal.api.implementation.connection.SnowflakeConnectionImpl;
+import net.snowflake.client.internal.core.OCSPMode;
+import net.snowflake.client.internal.core.SFSessionProperty;
+import net.snowflake.client.internal.core.SFStatement;
+import net.snowflake.client.internal.jdbc.SnowflakeFileTransferAgent;
+import net.snowflake.client.internal.jdbc.SnowflakeFileTransferConfig;
+import net.snowflake.client.internal.jdbc.SnowflakeFileTransferMetadataV1;
+import net.snowflake.client.internal.jdbc.cloud.storage.StageInfo;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -68,7 +68,7 @@ public class InternalStageIT {
     long startTime, fileNumber = 50;
     SnowflakeInternalStage agent =
         new SnowflakeInternalStage(
-            (SnowflakeConnectionV1) service.getConnection(), 30 * 60 * 1000L, null);
+            (SnowflakeConnectionImpl) service.getConnection(), 30 * 60 * 1000L, null);
 
     // PUT two files to stageName1
     startTime = System.currentTimeMillis();
@@ -159,7 +159,7 @@ public class InternalStageIT {
 
     SnowflakeInternalStage agent =
         new SnowflakeInternalStage(
-            (SnowflakeConnectionV1) proxyConnectionService.getConnection(),
+            (SnowflakeConnectionImpl) proxyConnectionService.getConnection(),
             30 * 60 * 1000L, // cache expiration time
             proxyProperties); // proxy parameters used in JDBC
 
@@ -180,7 +180,7 @@ public class InternalStageIT {
     // credential expires in 30 seconds
     SnowflakeInternalStage agent =
         new SnowflakeInternalStage(
-            (SnowflakeConnectionV1) service.getConnection(), 30 * 1000L, null);
+            (SnowflakeConnectionImpl) service.getConnection(), 30 * 1000L, null);
 
     // PUT two files to stageName1
     agent.putWithCache(stageName4, "testCacheFileName1", "Any cache", stageType);
@@ -203,7 +203,7 @@ public class InternalStageIT {
   public void testCredentialExpire() throws Exception {
     List<String> filesToDelete = service.listStage(stageNameExpire, "testExpire");
     service.purgeStage(stageNameExpire, filesToDelete);
-    SnowflakeConnectionV1 conn = (SnowflakeConnectionV1) service.getConnection();
+    SnowflakeConnectionImpl conn = (SnowflakeConnectionImpl) service.getConnection();
 
     String fullFilePath = "testExpire1";
     String data = "Any cache";

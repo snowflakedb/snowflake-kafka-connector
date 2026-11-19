@@ -2,10 +2,10 @@ package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.getConfFromFileName;
 
-import com.snowflake.client.jdbc.SnowflakeDriver;
 import com.snowflake.kafka.connector.Utils;
 import java.sql.Connection;
 import java.util.Properties;
+import net.snowflake.client.api.driver.SnowflakeDriver;
 
 /** Connection to test environment generated from a profile file stored locally. */
 public class TestSnowflakeConnection {
