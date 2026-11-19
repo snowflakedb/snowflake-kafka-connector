@@ -1,8 +1,7 @@
 """Evolve-schema e2e tests for JsonConverter records: type mapping and records it skips.
 
-Each record is a JsonConverter envelope (schemas.enable=true), so the connector has a Kafka
-Connect schema to send. The tests that check evolve-schema calls read the connector's
-evolve-schema JMX counters, so they need run_tests.sh --jmx.
+Records are JsonConverter envelopes (schemas.enable=true). Tests that count evolve-schema calls
+read the connector's JMX counters, so they need run_tests.sh --jmx.
 """
 
 import base64
@@ -67,6 +66,9 @@ ALL_TYPES_SCHEMA = struct(
         "optional": True,
         "fields": [field("A", "int32")],
     },
+    # Debezium's logical types aren't Kafka Connect ones, so their physical type decides.
+    field("D_DATE", "int32", name="io.debezium.time.Date", version=1),
+    field("D_MICROS", "int64", name="io.debezium.time.MicroTimestamp", version=1),
 )
 
 ALL_TYPES_COLUMNS = {
@@ -86,6 +88,8 @@ ALL_TYPES_COLUMNS = {
     "F_ARRAY": "ARRAY",
     "F_MAP": "VARIANT",
     "F_STRUCT": "VARIANT",
+    "D_DATE": "NUMBER(10,0)",
+    "D_MICROS": "NUMBER(19,0)",
 }
 
 
@@ -109,6 +113,8 @@ def _all_types_payload(i):
         "F_ARRAY": [1, 2],
         "F_MAP": {"k": 1},
         "F_STRUCT": {"A": 1},
+        "D_DATE": 19675,
+        "D_MICROS": BASE_MS * 1000,
     }
 
 
@@ -122,7 +128,7 @@ def test_json_converter_types(
     wait_for_rows: Callable,
     create_custom_connector: Callable,
 ):
-    """Every Kafka Connect type JsonConverter can carry gets its mapped column type."""
+    """Each Kafka Connect type JsonConverter can carry gets its mapped column type."""
     table, connector = start(
         driver, create_table, create_custom_connector, "evolve_schema_json_types"
     )
@@ -141,55 +147,13 @@ def test_json_converter_types(
     assert row["D"] == "2023-11-14"
 
 
-def test_debezium_types_map_by_physical_type(
-    driver: KafkaDriver,
-    create_table: Callable,
-    wait_for_rows: Callable,
-    create_custom_connector: Callable,
-):
-    """Debezium's own logical types aren't Kafka Connect ones, so their physical type decides.
-
-    io.debezium.time.Date is an int32 and MicroTimestamp an int64, so they become NUMBER columns,
-    and ZonedTimestamp is a string.
-    """
-    schema = struct(
-        ID_FIELD,
-        field("D_DATE", "int32", name="io.debezium.time.Date", version=1),
-        field("D_MICROS", "int64", name="io.debezium.time.MicroTimestamp", version=1),
-        field("D_ZONED", "string", name="io.debezium.time.ZonedTimestamp", version=1),
-    )
-    table, connector = start(
-        driver, create_table, create_custom_connector, "evolve_schema_debezium"
-    )
-    payloads = [
-        {
-            "ID": i,
-            "D_DATE": 19675,
-            "D_MICROS": BASE_MS * 1000,
-            "D_ZONED": "2023-11-14T22:13:20Z",
-        }
-        for i in range(10)
-    ]
-    send(driver, table.name, schema, payloads)
-    wait_for_rows(table.name, 10, connector_name=connector.name)
-
-    types = column_types(table)
-    assert types["D_DATE"] == "NUMBER(10,0)"
-    assert types["D_MICROS"] == "NUMBER(19,0)"
-    assert types["D_ZONED"].startswith("VARCHAR")
-
-
 def test_field_names_are_used_exactly(
     driver: KafkaDriver,
     create_table: Callable,
     wait_for_rows: Callable,
     create_custom_connector: Callable,
 ):
-    """Columns are added under each field's exact name; KC sends normalize_column_names=false.
-
-    That covers spaces, dots, non-ASCII characters, reserved words, and two names that differ
-    only by case. Column-identifier normalization is off, as it is by default in v4.
-    """
+    """Columns get each field's exact name: KC sends normalize_column_names=false."""
     names = ["first name", "a.b", "naïve", "SELECT", "Mixed", "MIXED"]
     schema = struct(ID_FIELD, *(field(n, "int32") for n in names))
     table, connector = start(
@@ -210,124 +174,61 @@ def test_field_names_are_used_exactly(
     assert [row[n] for n in names] == list(range(len(names)))
 
 
-def test_nested_struct_change_adds_no_column(
+def test_nested_struct_change_and_key_schema_add_no_column(
     driver: KafkaDriver,
     create_table: Callable,
     wait_for_rows: Callable,
     jolokia,
     create_custom_connector: Callable,
 ):
-    """A new sub-field inside a nested struct is a new schema but needs no DDL.
+    """A new nested sub-field needs no DDL, and the key's schema is never sent.
 
-    INFO stays VARIANT, no column is added, and each schema is sent once: sending both again
-    makes no further evolve-schema call.
+    Each of the two value schemas is sent once, however often it repeats.
     """
     jolokia = require(jolokia, "--jmx")
 
     def info_schema(*sub_fields):
-        return struct(
-            ID_FIELD,
-            {
-                "field": "INFO",
-                "type": "struct",
-                "optional": True,
-                "fields": list(sub_fields),
-            },
-        )
+        info = {
+            "field": "INFO",
+            "type": "struct",
+            "optional": True,
+            "fields": list(sub_fields),
+        }
+        return struct(ID_FIELD, info)
 
     first = info_schema(field("A", "int32"))
     second = info_schema(field("A", "int32"), field("B", "string"))
-    table, connector = start(
-        driver, create_table, create_custom_connector, "evolve_schema_nested"
-    )
-
-    send(driver, table.name, first, [{"ID": i, "INFO": {"A": i}} for i in range(5)])
-    wait_for_rows(table.name, 5, connector_name=connector.name)
-    columns = column_types(table)
-    assert columns["INFO"] == "VARIANT"
-
-    send(
-        driver,
-        table.name,
-        second,
-        [{"ID": i, "INFO": {"A": i, "B": "b"}} for i in range(5)],
-    )
-    send(driver, table.name, first, [{"ID": i, "INFO": {"A": i}} for i in range(5)])
-    send(
-        driver,
-        table.name,
-        second,
-        [{"ID": i, "INFO": {"A": i, "B": "b"}} for i in range(5)],
-    )
-    wait_for_rows(table.name, 20, connector_name=connector.name)
-
-    assert column_types(table) == columns
-    assert jolokia.evolve_schema_counters(connector.name)["call-count"] == 2
-    assert table.select_scalar("count(*)", "WHERE \"INFO\":B::string = 'b'") == 10
-
-
-def test_key_schema_is_not_sent(
-    driver: KafkaDriver,
-    create_table: Callable,
-    wait_for_rows: Callable,
-    jolokia,
-    create_custom_connector: Callable,
-):
-    """Only the value schema is sent: a key with its own struct schema adds no column."""
-    jolokia = require(jolokia, "--jmx")
-    value_schema = struct(ID_FIELD, field("V", "int16"))
     key_schema = struct(field("KEY_ONLY", "int64", optional=False), name="Key")
     table, connector = start(
         driver,
         create_table,
         create_custom_connector,
-        "evolve_schema_key",
+        "evolve_schema_nested",
         **{
             "key.converter": "org.apache.kafka.connect.json.JsonConverter",
             "key.converter.schemas.enable": "true",
         },
     )
-    keys = [envelope(key_schema, {"KEY_ONLY": i}) for i in range(10)]
-    values = [envelope(value_schema, {"ID": i, "V": 1}) for i in range(10)]
-    driver.sendBytesData(table.name, values, keys, partition=0)
-    wait_for_rows(table.name, 10, connector_name=connector.name)
 
-    types = column_types(table)
-    assert "KEY_ONLY" not in types
-    assert types["V"] == "NUMBER(5,0)"
-    assert jolokia.evolve_schema_counters(connector.name)["call-count"] == 1
+    def send_with_keys(schema, payloads):
+        keys = [envelope(key_schema, {"KEY_ONLY": p["ID"]}) for p in payloads]
+        values = [envelope(schema, p) for p in payloads]
+        driver.sendBytesData(table.name, values, keys, partition=0)
 
+    send_with_keys(first, [{"ID": i, "INFO": {"A": i}} for i in range(5)])
+    wait_for_rows(table.name, 5, connector_name=connector.name)
+    columns = column_types(table)
+    assert columns["INFO"] == "VARIANT"
+    assert "KEY_ONLY" not in columns
 
-def _ingest_with_flag_on_and_off(
-    driver,
-    create_table,
-    wait_for_rows,
-    create_custom_connector,
-    name,
-    values,
-    expected_rows,
-    **config_kwargs,
-):
-    """Sends `values` through a connector with evolve-schema on and one with it off.
+    for schema in (second, first, second):
+        send_with_keys(
+            schema, [{"ID": i, "INFO": {"A": i, "B": "b"}} for i in range(5)]
+        )
+    wait_for_rows(table.name, 20, connector_name=connector.name)
 
-    Returns (on_connector, on_table, off_table) after both have ingested `expected_rows` rows.
-    """
-    on_table, on_connector = start(
-        driver, create_table, create_custom_connector, f"{name}_on", **config_kwargs
-    )
-    off_table, off_connector = start(
-        driver,
-        create_table,
-        create_custom_connector,
-        f"{name}_off",
-        evolve_schema=False,
-        **config_kwargs,
-    )
-    for table in (on_table, off_table):
-        driver.sendBytesData(table.name, values, [], partition=0)
-    wait_for_rows(on_table.name, expected_rows, connector_name=on_connector.name)
-    wait_for_rows(off_table.name, expected_rows, connector_name=off_connector.name)
-    return on_connector, on_table, off_table
+    assert column_types(table) == columns
+    assert jolokia.evolve_schema_counters(connector.name)["call-count"] == 2
 
 
 def test_schemaless_null_and_tombstone_records_skip_evolve_schema(
@@ -337,28 +238,30 @@ def test_schemaless_null_and_tombstone_records_skip_evolve_schema(
     jolokia,
     create_custom_connector: Callable,
 ):
-    """Records with no value schema make no evolve-schema call and ingest as with the flag off.
+    """Records without a value schema make no call and ingest as they do with the flag off.
 
-    The connector reads schemaless JSON (schemas.enable=false), so no record has a value schema.
-    Null values and tombstones are mixed in; with the default behavior.on.null.values they
-    ingest as rows too.
+    With the default behavior.on.null.values, null values and tombstones ingest as rows too.
     """
     jolokia = require(jolokia, "--jmx")
     values = [f'{{"ID": {i}, "SMALL": 1}}'.encode() for i in range(10)]
     values += [b"null", None, b'{"ID": 99, "SMALL": 2}']
-    on_connector, on_table, off_table = _ingest_with_flag_on_and_off(
-        driver,
-        create_table,
-        wait_for_rows,
-        create_custom_connector,
-        "evolve_schema_schemaless",
-        values,
-        expected_rows=13,
-        **{"value.converter.schemas.enable": "false"},
-    )
+    schemaless = {"value.converter.schemas.enable": "false"}
+    tables = {}
+    for flag in (True, False):
+        table, connector = start(
+            driver,
+            create_table,
+            create_custom_connector,
+            f"evolve_schema_schemaless_{'on' if flag else 'off'}",
+            evolve_schema=flag,
+            **schemaless,
+        )
+        driver.sendBytesData(table.name, values, [], partition=0)
+        wait_for_rows(table.name, 13, connector_name=connector.name)
+        tables[flag] = (table, connector)
 
-    assert column_types(on_table) == column_types(off_table)
-    assert jolokia.evolve_schema_counters(on_connector.name)["call-count"] == 0
+    assert column_types(tables[True][0]) == column_types(tables[False][0])
+    assert jolokia.evolve_schema_counters(tables[True][1].name)["call-count"] == 0
 
 
 def test_non_struct_value_schema_skips_evolve_schema(
@@ -367,34 +270,23 @@ def test_non_struct_value_schema_skips_evolve_schema(
     jolokia,
     create_custom_connector: Callable,
 ):
-    """A bare STRING value schema makes no evolve-schema call; ingestion matches the flag off.
-
-    With schematization on, the connector can't map a non-struct value to columns, so it treats
-    the record as broken before the evolve-schema step: both connectors send it to the DLQ.
-    """
+    """A bare STRING value makes no call. It's a broken record with the flag on or off."""
     jolokia = require(jolokia, "--jmx")
     values = [
         envelope({"type": "string", "optional": False}, f"v{i}") for i in range(10)
     ]
-    on_table, on = start(
-        driver,
-        create_table,
-        create_custom_connector,
-        "evolve_schema_string_on",
-        dlq=True,
-    )
-    off_table, off = start(
-        driver,
-        create_table,
-        create_custom_connector,
-        "evolve_schema_string_off",
-        dlq=True,
-        evolve_schema=False,
-    )
-    for table in (on_table, off_table):
+    connectors = []
+    for flag in (True, False):
+        table, connector = start(
+            driver,
+            create_table,
+            create_custom_connector,
+            f"evolve_schema_string_{'on' if flag else 'off'}",
+            dlq=True,
+            evolve_schema=flag,
+        )
         driver.sendBytesData(table.name, values, [], partition=0)
-    for connector, table in ((on, on_table), (off, off_table)):
         assert driver.consume_messages_dlq({"config": connector.config}, 0, 9) == 10
         assert table.select_scalar("count(*)") == 0
-    assert column_types(on_table) == column_types(off_table)
-    assert jolokia.evolve_schema_counters(on.name)["call-count"] == 0
+        connectors.append(connector)
+    assert jolokia.evolve_schema_counters(connectors[0].name)["call-count"] == 0

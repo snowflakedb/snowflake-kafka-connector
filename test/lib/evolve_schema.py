@@ -5,6 +5,7 @@ sends each new value schema to the SDK's evolveSchema before appending. Columns 
 the types the schema declares, not types guessed from JSON values.
 """
 
+import contextlib
 import json
 import time
 from pathlib import Path
@@ -28,6 +29,7 @@ BASE_MS = 1700000000000  # 2023-11-14 22:13:20 UTC
 
 # Error codes Snowflake answers evolve-schema with; see the GS evolve-schema endpoint.
 ERR_NOT_ENABLED = "ERR_EVOLVE_SCHEMA_NOT_ENABLED"
+ERR_UNAVAILABLE = "ERR_SERVICE_UNAVAILABLE"
 
 TABLE_COLUMNS = "(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = TRUE"
 
@@ -134,6 +136,19 @@ def update_config(driver: KafkaDriver, connector_name: str, new_config: dict):
     url = f"http://{driver.kafkaConnectAddress}/connectors/{connector_name}/config"
     response = requests.put(url, json=new_config, timeout=30)
     assert response.ok, f"Config update failed: {response.status_code} {response.text}"
+
+
+@contextlib.contextmanager
+def injected_fault(
+    mitmproxy, pipe: str, status: int, error_code: str, times: int = None
+):
+    """Injects an evolve-schema fault for `pipe` inside the block, with fresh counters."""
+    mitmproxy.reset_counters()
+    mitmproxy.set_evolve_schema_fault(status, error_code, pipe=pipe, times=times)
+    try:
+        yield
+    finally:
+        mitmproxy.clear_evolve_schema_fault()
 
 
 def require(client, flag: str):

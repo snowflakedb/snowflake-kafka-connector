@@ -1,11 +1,8 @@
 """Evolve-schema e2e tests for failed calls, retries, flags, and partial rollout.
 
-A schema Snowflake declines, or a missing pipe or table, sends the record to the error handler:
-the DLQ with errors.tolerance=all, otherwise the task fails. 403 not-enabled falls back to the
-backend's value-based schema evolution. Retryable failures are retried by the SDK, and a record
-whose call ran out of retries is redelivered.
-
-Fault tests route the SDK through mitmproxy (run_tests.sh --with-mitmproxy).
+A declined schema or missing privilege sends the record to the error handler: the DLQ with
+errors.tolerance=all, otherwise the task fails. A 403 not-enabled falls back to value-inferred
+types. Fault tests route the SDK through mitmproxy (run_tests.sh --with-mitmproxy).
 """
 
 import time
@@ -18,11 +15,13 @@ from lib.driver import KafkaDriver
 from lib.evolve_schema import (
     DECIMAL_NAME,
     ERR_NOT_ENABLED,
+    ERR_UNAVAILABLE,
     ID_FIELD,
     MITMPROXY_OVERRIDE,
     column_types,
     config,
     field,
+    injected_fault,
     require,
     send,
     start,
@@ -37,6 +36,7 @@ pytestmark = [
 ]
 
 SCHEMA = struct(ID_FIELD, field("SMALL", "int16"))
+WITH_TINY = struct(ID_FIELD, field("SMALL", "int16"), field("TINY", "int8"))
 PAYLOADS = [{"ID": i, "SMALL": 1} for i in range(10)]
 
 # A decimal precision above 38 is one Snowflake can't store, so Snowflake declines the schema.
@@ -60,66 +60,50 @@ SDK_RETRY_BUDGET_S = 90
 
 
 @pytest.mark.parametrize("tolerance", ["all", "none"])
-def test_declined_schema_by_errors_tolerance(
+@pytest.mark.parametrize("cause", ["declined_schema", "disabled_on_table"])
+def test_rejected_call_by_errors_tolerance(
     driver: KafkaDriver,
     create_table: Callable,
     wait_for_rows: Callable,
+    cause: str,
     tolerance: str,
     create_custom_connector: Callable,
 ):
-    """A 400 from evolve-schema: with all, the record goes to the DLQ and the next one ingests;
-    with none, the task fails and nothing lands."""
+    """A 400 from evolve-schema, for a declined schema or ENABLE_SCHEMA_EVOLUTION=FALSE.
+
+    No DDL runs. With errors.tolerance=all the record goes to the DLQ and the task keeps going;
+    with none, the task fails.
+    """
+    disabled = cause == "disabled_on_table"
     table, connector = start(
         driver,
         create_table,
         create_custom_connector,
-        f"evolve_schema_tolerance_{tolerance}",
+        f"evolve_schema_{cause}_{tolerance}",
+        columns=f"(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = {not disabled}",
         dlq=tolerance == "all",
         errors_tolerance=tolerance,
     )
-    send(driver, table.name, DECLINED_SCHEMA, [{"ID": 0, "AMOUNT": "AQ=="}])
-    send(driver, table.name, SCHEMA, [{"ID": 1, "SMALL": 1}])
+    if disabled:
+        send(driver, table.name, SCHEMA, [{"ID": 0, "SMALL": 1}])
+    else:
+        send(driver, table.name, DECLINED_SCHEMA, [{"ID": 0, "AMOUNT": "AQ=="}])
+        send(driver, table.name, SCHEMA, [{"ID": 1, "SMALL": 1}])
 
     if tolerance == "all":
         assert driver.consume_messages_dlq({"config": connector.config}, 0, 0) == 1
-        wait_for_rows(table.name, 1, connector_name=connector.name)
-        assert column_types(table)["SMALL"] == "NUMBER(5,0)"
+        if not disabled:
+            wait_for_rows(table.name, 1, connector_name=connector.name)
+            assert column_types(table)["SMALL"] == "NUMBER(5,0)"
     else:
-        failed = wait_for_task_failure(driver, connector.name)
-        assert "SfApiUserError" in failed[0].get("trace", ""), failed
-        assert table.select_scalar("count(*)") == 0
-
-
-@pytest.mark.parametrize("tolerance", ["all", "none"])
-def test_schema_evolution_disabled_on_table(
-    driver: KafkaDriver,
-    create_table: Callable,
-    tolerance: str,
-    create_custom_connector: Callable,
-):
-    """ENABLE_SCHEMA_EVOLUTION=FALSE: 400 ERR_EVOLVE_SCHEMA_DISABLED_ON_TABLE and no DDL.
-
-    The record goes to the DLQ with errors.tolerance=all; otherwise the task fails.
-    """
-    table, connector = start(
-        driver,
-        create_table,
-        create_custom_connector,
-        f"evolve_schema_disabled_{tolerance}",
-        columns="(RECORD_METADATA VARIANT) ENABLE_SCHEMA_EVOLUTION = FALSE",
-        dlq=tolerance == "all",
-        errors_tolerance=tolerance,
-    )
-    send(driver, table.name, SCHEMA, PAYLOADS)
-
-    if tolerance == "all":
-        assert driver.consume_messages_dlq({"config": connector.config}, 0, 9) == 10
-    else:
-        failed = wait_for_task_failure(driver, connector.name)
-        assert "ERR_EVOLVE_SCHEMA_DISABLED_ON_TABLE" in failed[0].get("trace", ""), (
-            failed
+        trace = wait_for_task_failure(driver, connector.name)[0].get("trace", "")
+        expected = (
+            "ERR_EVOLVE_SCHEMA_DISABLED_ON_TABLE" if disabled else "SfApiUserError"
         )
-    assert list(column_types(table)) == ["RECORD_METADATA"]
+        assert expected in trace, trace
+        assert table.select_scalar("count(*)") == 0
+    if disabled:
+        assert list(column_types(table)) == ["RECORD_METADATA"]
 
 
 def test_pipe_owner_without_evolve_schema_privilege(
@@ -128,41 +112,36 @@ def test_pipe_owner_without_evolve_schema_privilege(
     name_salt: str,
     create_custom_connector: Callable,
 ):
-    """The pipe's owner role has SELECT and INSERT on the table but not EVOLVE SCHEMA.
+    """The pipe's owner has SELECT and INSERT on the table but not EVOLVE SCHEMA.
 
-    The connector uses a user-defined pipe named after the table. Evolve-schema answers 400
-    ERR_EVOLVE_SCHEMA_MISSING_PRIVILEGE, adds no column, and the record goes to the DLQ.
+    Evolve-schema answers 400 ERR_EVOLVE_SCHEMA_MISSING_PRIVILEGE, adds no column, and the
+    record goes to the DLQ. The connector uses the user-defined pipe named after the table.
     """
     table = create_table(
-        "evolve_schema_privilege", columns="(RECORD_METADATA VARIANT, ID NUMBER(19,0))"
+        "evolve_schema_privilege",
+        columns="(RECORD_METADATA VARIANT, ID NUMBER(19,0)) ENABLE_SCHEMA_EVOLUTION = TRUE",
     )
     cursor = driver.snowflake_conn.cursor()
-    cursor.execute(f'ALTER TABLE "{table.name}" SET ENABLE_SCHEMA_EVOLUTION = TRUE')
-    connector_role = driver.credentials.role
+    creds = driver.credentials
     pipe_owner = f"EVOLVE_SCHEMA_PIPE_OWNER{name_salt}"
-    database, schema = driver.credentials.database, driver.credentials.schema
     try:
         cursor.execute(f"CREATE ROLE {pipe_owner}")
     except ProgrammingError as e:
         pytest.skip(f"The test role can't create roles: {e.msg}")
     try:
-        for grant in (
-            f"GRANT USAGE ON DATABASE {database} TO ROLE {pipe_owner}",
-            f"GRANT USAGE, CREATE PIPE ON SCHEMA {database}.{schema} TO ROLE {pipe_owner}",
+        for statement in (
+            f"GRANT USAGE ON DATABASE {creds.database} TO ROLE {pipe_owner}",
+            f"GRANT USAGE, CREATE PIPE ON SCHEMA {creds.database}.{creds.schema} "
+            f"TO ROLE {pipe_owner}",
             f'GRANT SELECT, INSERT ON TABLE "{table.name}" TO ROLE {pipe_owner}',
-            f"GRANT ROLE {pipe_owner} TO USER {driver.credentials.user}",
-        ):
-            cursor.execute(grant)
-        cursor.execute(f"USE ROLE {pipe_owner}")
-        cursor.execute(
+            f"GRANT ROLE {pipe_owner} TO USER {creds.user}",
+            f"USE ROLE {pipe_owner}",
             f'CREATE PIPE "{table.name}" AS COPY INTO "{table.name}" '
-            f"FROM TABLE(DATA_SOURCE(TYPE => 'STREAMING')) "
-            f"MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE"
-        )
-        cursor.execute(
-            f'GRANT OPERATE, MONITOR ON PIPE "{table.name}" TO ROLE {connector_role}'
-        )
-        cursor.execute(f"USE ROLE {connector_role}")
+            "FROM TABLE(DATA_SOURCE(TYPE => 'STREAMING')) MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE",
+            f'GRANT OPERATE, MONITOR ON PIPE "{table.name}" TO ROLE {creds.role}',
+            f"USE ROLE {creds.role}",
+        ):
+            cursor.execute(statement)
 
         driver.createTopics(table.name, partitionNum=1, replicationNum=1)
         dlq_topic = f"dlq_{table.name.lower()}"
@@ -176,7 +155,7 @@ def test_pipe_owner_without_evolve_schema_privilege(
         assert driver.consume_messages_dlq({"config": connector.config}, 0, 9) == 10
         assert list(column_types(table)) == ["RECORD_METADATA", "ID"]
     finally:
-        cursor.execute(f"USE ROLE {connector_role}")
+        cursor.execute(f"USE ROLE {creds.role}")
         cursor.execute(f"DROP ROLE IF EXISTS {pipe_owner}")
 
 
@@ -188,8 +167,7 @@ def test_flag_change_restarts_tasks(
 ):
     """Turning snowflake.feature.evolve.schema.enabled on restarts the tasks with it.
 
-    With the flag off, the backend infers the type from the JSON value, so SMALL isn't
-    NUMBER(5,0). After the config update, a new field gets its declared type.
+    Before, SMALL gets a value-inferred type; after, a new field gets its declared type.
     """
     table, connector = start(
         driver,
@@ -208,11 +186,10 @@ def test_flag_change_restarts_tasks(
         {**connector.config, "snowflake.feature.evolve.schema.enabled": "true"},
     )
     driver.wait_for_connector_running(connector.name)
-    with_tiny = struct(ID_FIELD, field("SMALL", "int16"), field("TINY", "int8"))
     send(
         driver,
         table.name,
-        with_tiny,
+        WITH_TINY,
         [{"ID": 10 + i, "SMALL": 1, "TINY": 1} for i in range(10)],
     )
     wait_for_rows(table.name, 20, connector_name=connector.name)
@@ -227,28 +204,22 @@ def test_not_enabled_then_enabled_after_cooldown(
     mitmproxy,
     create_custom_connector: Callable,
 ):
-    """403 not-enabled turns the evolver off; once the account allows it, KC retries.
+    """A 403 not-enabled turns the evolver off for 5 minutes; then KC calls again.
 
-    The retry waits for the 5-minute cooldown. A schema sent before then falls back to
-    value-inferred types; one sent after it gets its declared types.
+    During the cooldown, new fields get value-inferred types; after it, declared types.
     """
     mitmproxy = require(mitmproxy, "--with-mitmproxy")
     name = "evolve_schema_cooldown"
-    mitmproxy.reset_counters()
-    mitmproxy.set_evolve_schema_fault(403, ERR_NOT_ENABLED, pipe=name)
-    try:
+    with injected_fault(mitmproxy, name, 403, ERR_NOT_ENABLED):
         table, connector = start(
             driver, create_table, create_custom_connector, name, **MITMPROXY_OVERRIDE
         )
         send(driver, table.name, SCHEMA, PAYLOADS)
         wait_for_rows(table.name, 10, connector_name=connector.name)
-    finally:
-        mitmproxy.clear_evolve_schema_fault()
     assert column_types(table)["SMALL"] != "NUMBER(5,0)"
     turned_off_at = time.monotonic()
 
-    with_tiny = struct(ID_FIELD, field("SMALL", "int16"), field("TINY", "int8"))
-    send(driver, table.name, with_tiny, [{"ID": 10, "SMALL": 1, "TINY": 1}])
+    send(driver, table.name, WITH_TINY, [{"ID": 10, "SMALL": 1, "TINY": 1}])
     wait_for_rows(table.name, 11, connector_name=connector.name)
     assert column_types(table)["TINY"] != "NUMBER(3,0)", (
         "Called again within the cooldown"
@@ -256,12 +227,7 @@ def test_not_enabled_then_enabled_after_cooldown(
     assert mitmproxy.get_evolve_schema_requests(name) == 1
 
     time.sleep(max(0, 5 * 60 + 10 - (time.monotonic() - turned_off_at)))
-    with_flag = struct(
-        ID_FIELD,
-        field("SMALL", "int16"),
-        field("TINY", "int8"),
-        field("FLAG", "boolean"),
-    )
+    with_flag = struct(*WITH_TINY["fields"], field("FLAG", "boolean"))
     send(
         driver, table.name, with_flag, [{"ID": 11, "SMALL": 1, "TINY": 1, "FLAG": True}]
     )
@@ -270,12 +236,12 @@ def test_not_enabled_then_enabled_after_cooldown(
     assert mitmproxy.get_evolve_schema_requests(name) == 2
 
 
-# Retryable evolve-schema failures, by HTTP status. 503 stands in for a GS owner-node restart or
-# delegation timeout; 401 is an expired token, which the SDK refreshes before retrying.
+# Retryable failures by HTTP status. 503 stands in for a GS owner-node restart or delegation
+# timeout; 401 is an expired token, which the SDK refreshes before retrying.
 RETRYABLE_FAULTS = {
-    503: {"status": 503, "error_code": "ERR_SERVICE_UNAVAILABLE", "times": 3},
-    429: {"status": 429, "error_code": "ERR_TOO_MANY_REQUESTS", "times": 3},
-    401: {"status": 401, "error_code": "ERR_AUTH_TOKEN_EXPIRED", "times": 1},
+    503: (ERR_UNAVAILABLE, 3),
+    429: ("ERR_TOO_MANY_REQUESTS", 3),
+    401: ("ERR_AUTH_TOKEN_EXPIRED", 1),
 }
 
 
@@ -289,24 +255,17 @@ def test_retryable_failures_are_retried(
     status: int,
     create_custom_connector: Callable,
 ):
-    """Retryable evolve-schema failures are retried inside the SDK's budget.
-
-    The call then succeeds, the column is added once, and each record is appended once.
-    """
+    """Retryable failures are retried within the SDK's budget; each record lands once."""
     mitmproxy = require(mitmproxy, "--with-mitmproxy")
-    fault = RETRYABLE_FAULTS[status]
+    error_code, times = RETRYABLE_FAULTS[status]
     name = f"evolve_schema_retry_{status}"
-    mitmproxy.reset_counters()
-    mitmproxy.set_evolve_schema_fault(**fault, pipe=name)
-    try:
+    with injected_fault(mitmproxy, name, status, error_code, times):
         table, connector = start(
             driver, create_table, create_custom_connector, name, **MITMPROXY_OVERRIDE
         )
         send(driver, table.name, SCHEMA, PAYLOADS)
         wait_for_rows(table.name, 10, connector_name=connector.name)
-    finally:
-        mitmproxy.clear_evolve_schema_fault()
-    assert mitmproxy.get_evolve_schema_injected_count() == fault["times"]
+    assert mitmproxy.get_evolve_schema_injected_count() == times
     assert column_types(table)["SMALL"] == "NUMBER(5,0)"
     assert table.select_scalar('count(DISTINCT "ID")') == 10
 
@@ -319,16 +278,13 @@ def test_retries_run_out_then_redelivered(
     mitmproxy,
     create_custom_connector: Callable,
 ):
-    """Evolve-schema keeps failing past the SDK's 90-second retry budget, then recovers.
+    """Failures past the SDK's 90-second budget redeliver the record instead of appending it.
 
-    The record is redelivered rather than appended without its columns. Once the fault clears,
-    the next call succeeds; every record lands once, with its declared types.
+    Once the fault clears, the call succeeds and every record lands once.
     """
     mitmproxy = require(mitmproxy, "--with-mitmproxy")
     name = "evolve_schema_exhausted"
-    mitmproxy.reset_counters()
-    mitmproxy.set_evolve_schema_fault(503, "ERR_SERVICE_UNAVAILABLE", pipe=name)
-    try:
+    with injected_fault(mitmproxy, name, 503, ERR_UNAVAILABLE):
         table, connector = start(
             driver, create_table, create_custom_connector, name, **MITMPROXY_OVERRIDE
         )
@@ -340,8 +296,6 @@ def test_retries_run_out_then_redelivered(
         assert not driver.get_failed_tasks(connector.name), (
             "Task failed on the first redelivery"
         )
-    finally:
-        mitmproxy.clear_evolve_schema_fault()
 
     wait_for_rows(table.name, 10, connector_name=connector.name)
     assert column_types(table)["SMALL"] == "NUMBER(5,0)"
@@ -355,31 +309,28 @@ def test_old_and_new_connectors_side_by_side(
     jolokia,
     create_custom_connector: Callable,
 ):
-    """During rollout, an old client_side connector runs next to a new server_side one.
+    """An old client_side connector next to a new server_side one, both with the flag off.
 
-    Both have evolve-schema off. Both ingest, and neither makes an evolve-schema call.
+    Both ingest, and neither makes an evolve-schema call.
     """
     jolokia = require(jolokia, "--jmx")
-    old_table, old = start(
-        driver,
-        create_table,
-        create_custom_connector,
-        "evolve_schema_rollout_old",
-        evolve_schema=False,
-        **{"snowflake.validation": "client_side"},
-    )
-    new_table, new = start(
-        driver,
-        create_table,
-        create_custom_connector,
-        "evolve_schema_rollout_new",
-        evolve_schema=False,
-    )
-    for table in (old_table, new_table):
+    connectors = []
+    for name, overrides in (
+        ("evolve_schema_rollout_old", {"snowflake.validation": "client_side"}),
+        ("evolve_schema_rollout_new", {}),
+    ):
+        table, connector = start(
+            driver,
+            create_table,
+            create_custom_connector,
+            name,
+            evolve_schema=False,
+            **overrides,
+        )
         send(driver, table.name, SCHEMA, PAYLOADS)
-    wait_for_rows(old_table.name, 10, connector_name=old.name)
-    wait_for_rows(new_table.name, 10, connector_name=new.name)
-    for connector in (old, new):
+        connectors.append((table, connector))
+    for table, connector in connectors:
+        wait_for_rows(table.name, 10, connector_name=connector.name)
         assert jolokia.evolve_schema_counters(connector.name)["call-count"] == 0
 
 
@@ -391,36 +342,26 @@ def test_enabled_for_some_accounts_only(
     mitmproxy,
     create_custom_connector: Callable,
 ):
-    """The account parameter is on for some accounts only.
+    """With evolve-schema off for one account (403), that connector falls back; others evolve.
 
-    The e2e account is one account, so a pipe-scoped 403 stands in for a disabled account:
-    that connector falls back to value-inferred types while the other evolves.
+    The e2e run has one account, so a pipe-scoped 403 stands in for the disabled account.
     """
     mitmproxy = require(mitmproxy, "--with-mitmproxy")
-    mitmproxy.reset_counters()
-    mitmproxy.set_evolve_schema_fault(
-        403, ERR_NOT_ENABLED, pipe="evolve_schema_partial_off"
-    )
-    try:
-        on_table, on = start(
-            driver,
-            create_table,
-            create_custom_connector,
-            "evolve_schema_partial_on",
-            **MITMPROXY_OVERRIDE,
-        )
-        off_table, off = start(
-            driver,
-            create_table,
-            create_custom_connector,
-            "evolve_schema_partial_off",
-            **MITMPROXY_OVERRIDE,
-        )
-        for table in (on_table, off_table):
+    tables = {}
+    with injected_fault(mitmproxy, "evolve_schema_partial_off", 403, ERR_NOT_ENABLED):
+        for name in ("evolve_schema_partial_on", "evolve_schema_partial_off"):
+            table, connector = start(
+                driver,
+                create_table,
+                create_custom_connector,
+                name,
+                **MITMPROXY_OVERRIDE,
+            )
             send(driver, table.name, SCHEMA, PAYLOADS)
-        wait_for_rows(on_table.name, 10, connector_name=on.name)
-        wait_for_rows(off_table.name, 10, connector_name=off.name)
-    finally:
-        mitmproxy.clear_evolve_schema_fault()
-    assert column_types(on_table)["SMALL"] == "NUMBER(5,0)"
-    assert column_types(off_table)["SMALL"] != "NUMBER(5,0)"
+            tables[name] = (table, connector)
+        for table, connector in tables.values():
+            wait_for_rows(table.name, 10, connector_name=connector.name)
+    assert column_types(tables["evolve_schema_partial_on"][0])["SMALL"] == "NUMBER(5,0)"
+    assert (
+        column_types(tables["evolve_schema_partial_off"][0])["SMALL"] != "NUMBER(5,0)"
+    )

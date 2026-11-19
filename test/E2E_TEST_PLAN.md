@@ -313,8 +313,7 @@ With `snowflake.feature.evolve.schema.enabled=true` and `snowflake.validation=se
 
 | Status | Test | Version | Format | Notes | File |
 |:------:|------|---------|--------|-------|------|
-| 🟢 | New fields get declared types; a second schema adds only its new columns; declined schema to DLQ | v4 | JSON | | `schema_evolution/test_se_evolve_schema_typed.py` |
-| 🟢 | Not enabled (403): falls back to value-inferred types | v4 | JSON | mitmproxy | `schema_evolution/test_se_evolve_schema_typed.py` |
+| 🟢 | New fields get declared types; a second schema adds only its new columns | v4 | JSON | | `schema_evolution/test_se_evolve_schema_typed.py` |
 | 🟢 | JsonConverter types, Debezium types, exact field names | v4 | JSON | | `schema_evolution/test_se_evolve_schema_json.py` |
 | 🟢 | Skipped records: nested struct change, key schema, schemaless/null/tombstone, non-struct value | v4 | JSON | JMX | `schema_evolution/test_se_evolve_schema_json.py` |
 | 🟢 | Avro evolutions: add optional, add with default, remove NOT NULL field, loosen, tighten, widen, incompatible, rename | v4 | Avro SR | Confluent | `schema_evolution/test_se_evolve_schema_registry.py` |

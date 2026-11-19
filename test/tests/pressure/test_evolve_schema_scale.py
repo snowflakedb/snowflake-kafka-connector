@@ -49,12 +49,10 @@ class _SchemaProducer:
     `records_per_s`, sending is paced to that rate; otherwise it's as fast as Kafka accepts.
     """
 
-    def __init__(
-        self, driver, topic, version_for, batch=500, partitions=1, records_per_s=None
-    ):
+    def __init__(self, driver, topic, version_for, batch=500, records_per_s=None):
         self._driver, self._topic = driver, topic
         self._version_for = version_for
-        self._batch, self._partitions = batch, partitions
+        self._batch = batch
         self._records_per_s = records_per_s
         self.sent = 0
         self.versions = set()
@@ -74,8 +72,7 @@ class _SchemaProducer:
                 envelope(schema, _payload(version, self.sent + i))
                 for i in range(self._batch)
             ]
-            partition = (self.sent // self._batch) % self._partitions
-            self._driver.sendBytesData(self._topic, values, [], partition=partition)
+            self._driver.sendBytesData(self._topic, values, [], partition=0)
             self.sent += self._batch
             if self._records_per_s:
                 ahead = self.sent / self._records_per_s - (time.monotonic() - started)
