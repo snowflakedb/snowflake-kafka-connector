@@ -166,6 +166,15 @@ public interface SnowflakeConnectionService {
   boolean hasErrorLoggingEnabled(String tableName);
 
   /**
+   * Enables ERROR_LOGGING on an existing table via ALTER TABLE.
+   *
+   * @param tableName table name
+   * @throws com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException if the ALTER
+   *     fails
+   */
+  void enableErrorLogging(String tableName);
+
+  /**
    * Returns the names of sub-fields declared by a structured OBJECT column. Queries {@code
    * INFORMATION_SCHEMA.FIELDS} for the given table and column within the session's current
    * schema/database. Returns an empty list if the table or column is absent or has no declared

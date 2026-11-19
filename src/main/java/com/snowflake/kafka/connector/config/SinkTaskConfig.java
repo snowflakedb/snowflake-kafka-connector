@@ -50,6 +50,12 @@ public abstract class SinkTaskConfig {
 
   public abstract boolean isEnableSchematization();
 
+  /**
+   * Whether ERROR_LOGGING is enabled on existing target tables under server-side validation. See
+   * {@link KafkaConnectorConfigParams#SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES}.
+   */
+  public abstract boolean isValidationEnableErrorTableOnExistingTables();
+
   public abstract TableType getAutocreatedTableType();
 
   public abstract Optional<String> getIcebergCreateTableOptions();
@@ -296,6 +302,15 @@ public abstract class SinkTaskConfig {
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
                 KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION_DEFAULT));
 
+    boolean validationEnableErrorTableOnExistingTables =
+        Boolean.parseBoolean(
+            config.getOrDefault(
+                KafkaConnectorConfigParams
+                    .SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_VALIDATION_ENABLE_ERROR_TABLE_ON_EXISTING_TABLES_DEFAULT)));
+
     int openChannelIoThreads =
         Optional.ofNullable(
                 config.get(KafkaConnectorConfigParams.SNOWFLAKE_OPEN_CHANNEL_IO_THREADS))
@@ -476,6 +491,7 @@ public abstract class SinkTaskConfig {
         .enableSchematization(enableSchematization)
         .enableColumnIdentifierNormalization(enableColumnIdentifierNormalization)
         .validation(validation)
+        .validationEnableErrorTableOnExistingTables(validationEnableErrorTableOnExistingTables)
         .openChannelIoThreads(openChannelIoThreads)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
         .cachingConfig(cachingConfig)
@@ -563,6 +579,9 @@ public abstract class SinkTaskConfig {
         boolean enableColumnIdentifierNormalization);
 
     public abstract Builder validation(SnowflakeValidation validation);
+
+    public abstract Builder validationEnableErrorTableOnExistingTables(
+        boolean validationEnableErrorTableOnExistingTables);
 
     public abstract Builder openChannelIoThreads(int openChannelIoThreads);
 

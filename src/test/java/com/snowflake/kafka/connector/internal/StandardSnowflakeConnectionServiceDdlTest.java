@@ -550,6 +550,37 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     assertFalse(svc.hasErrorLoggingEnabled("my_table"));
   }
 
+  @Test
+  public void testEnableErrorLogging_issuesAlterTable() throws Exception {
+    service.enableErrorLogging("my_table");
+
+    assertThat(captureAlterSql()).isEqualTo("alter table identifier(?) set error_logging = true");
+    verify(mockAlterStmt).setString(1, "\"my_table\"");
+    verify(mockAlterStmt).execute();
+  }
+
+  @Test
+  public void testEnableErrorLogging_icebergTableIssuesAlterIcebergTable() throws Exception {
+    ResultSet icebergRs = mock(ResultSet.class);
+    when(icebergRs.next()).thenReturn(true);
+    when(mockShowStmt.executeQuery()).thenReturn(icebergRs);
+
+    service.enableErrorLogging("my_table");
+
+    assertThat(captureAlterSql())
+        .isEqualTo("alter iceberg table identifier(?) set error_logging = true");
+    verify(mockAlterStmt).setString(1, "\"my_table\"");
+    verify(mockAlterStmt).execute();
+  }
+
+  @Test
+  public void testEnableErrorLogging_sqlFailureThrows() throws Exception {
+    when(mockAlterStmt.execute()).thenThrow(new SQLException("insufficient privileges"));
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        SnowflakeKafkaConnectorException.class, () -> service.enableErrorLogging("my_table"));
+  }
+
   // ---- createIcebergTableWithOnlyMetadataColumn: VARIANT-first with OBJECT fallback ----
 
   @Test

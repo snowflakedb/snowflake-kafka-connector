@@ -8,6 +8,8 @@ import com.snowflake.kafka.connector.config.SinkTaskConfig;
 import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
+import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import java.util.ArrayList;
 import java.util.List;
@@ -180,6 +182,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .topicToTableResolver(
                 new StaticTopicToTableResolver(
                     Map.of("topic_ok", "table_ok", "topic_bad", "table_bad")))
+            .validationEnableErrorTableOnExistingTables(false)
             .build();
 
     SnowflakeSinkServiceV2 service =
@@ -217,6 +220,7 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
             .taskId("0")
             .validation(SnowflakeValidation.SERVER_SIDE)
             .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
+            .validationEnableErrorTableOnExistingTables(false)
             .build();
 
     SnowflakeSinkServiceV2 service =
@@ -294,6 +298,107 @@ public class SnowflakeSinkServiceV2ValidationLoggingTest {
     assertFalse(
         testAppender.containsMessage(Level.WARN, "ERROR_LOGGING"),
         "Iceberg table with ERROR_LOGGING enabled should not warn");
+  }
+
+  /** Missing ERROR_LOGGING on an existing table is enabled when the flag is on (default). */
+  @Test
+  public void testServerSideEnablesErrorLoggingOnExistingTable() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
+            .build();
+    SnowflakeConnectionService mockConn = mockConnWithTable("table1", false);
+
+    assertNotNull(newService(mockConn, config));
+
+    verify(mockConn).enableErrorLogging("table1");
+    assertFalse(testAppender.containsMessage(Level.WARN, "does not have ERROR_LOGGING"));
+  }
+
+  /** The flag off keeps the table untouched. */
+  @Test
+  public void testServerSideDoesNotAlterTableWhenFlagDisabled() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .validationEnableErrorTableOnExistingTables(false)
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
+            .build();
+    SnowflakeConnectionService mockConn = mockConnWithTable("table1", false);
+
+    assertNotNull(newService(mockConn, config));
+
+    verify(mockConn, never()).enableErrorLogging(anyString());
+  }
+
+  /** A table that already has ERROR_LOGGING is not altered. */
+  @Test
+  public void testServerSideDoesNotAlterTableWithErrorLogging() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
+            .build();
+    SnowflakeConnectionService mockConn = mockConnWithTable("table1", true);
+
+    assertNotNull(newService(mockConn, config));
+
+    verify(mockConn, never()).enableErrorLogging(anyString());
+  }
+
+  /** Client-side validation never alters tables. */
+  @Test
+  public void testClientSideDoesNotAlterTable() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.CLIENT_SIDE)
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
+            .build();
+    SnowflakeConnectionService mockConn = mockConnWithTable("table1", false);
+
+    assertNotNull(newService(mockConn, config));
+
+    verify(mockConn, never()).enableErrorLogging(anyString());
+  }
+
+  /** A failure to enable ERROR_LOGGING fails the task rather than starting without a DLQ. */
+  @Test
+  public void testServerSideFailsWhenEnablingErrorLoggingFails() {
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName("test-connector")
+            .taskId("0")
+            .validation(SnowflakeValidation.SERVER_SIDE)
+            .topicToTableResolver(new StaticTopicToTableResolver(Map.of("topic1", "table1")))
+            .build();
+    SnowflakeConnectionService mockConn = mockConnWithTable("table1", false);
+    doThrow(SnowflakeErrors.ERROR_2008.getException()).when(mockConn).enableErrorLogging("table1");
+
+    assertThrows(SnowflakeKafkaConnectorException.class, () -> newService(mockConn, config));
+  }
+
+  private SnowflakeConnectionService mockConnWithTable(String table, boolean errorLogging) {
+    SnowflakeConnectionService mockConn = mock(SnowflakeConnectionService.class);
+    when(mockConn.isClosed()).thenReturn(false);
+    when(mockConn.getTelemetryClient()).thenReturn(null);
+    when(mockConn.tableExist(table)).thenReturn(true);
+    when(mockConn.hasErrorLoggingEnabled(table)).thenReturn(errorLogging);
+    return mockConn;
+  }
+
+  private SnowflakeSinkServiceV2 newService(
+      SnowflakeConnectionService mockConn, SinkTaskConfig config) {
+    return new SnowflakeSinkServiceV2(
+        mockConn, config, null, null, java.util.Optional.empty(), mock(TaskMetrics.class));
   }
 
   /** Helper to create SnowflakeSinkServiceV2 with minimal mocked dependencies. */
