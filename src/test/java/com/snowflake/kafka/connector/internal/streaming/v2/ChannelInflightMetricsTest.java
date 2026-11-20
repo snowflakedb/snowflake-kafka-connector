@@ -255,8 +255,9 @@ class ChannelInflightMetricsTest {
 
   @Test
   void bundledSdkFailsCapabilityCheck() {
-    // The pinned snowpipe-streaming 1.9.0 predates the per-channel inflight JMX beans. Flip this
-    // test when the pom moves to a release that ships com.snowflake.ingest.streaming.JmxMetrics.
+    // The pinned snowpipe-streaming release does not ship the per-channel inflight JMX beans.
+    // Flip this test when the pom moves to a release that ships
+    // com.snowflake.ingest.streaming.JmxMetrics.
     assertEquals("com.snowflake.ingest.streaming.JmxMetrics", ChannelInflightMetrics.SDK_JMX_CLASS);
     assertThrows(ConnectException.class, () -> ChannelInflightMetrics.requireSdkSupport(1, 0));
   }

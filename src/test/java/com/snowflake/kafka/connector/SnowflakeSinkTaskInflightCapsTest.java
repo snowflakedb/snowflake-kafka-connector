@@ -14,8 +14,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class SnowflakeSinkTaskInflightCapsTest {
 
-  // The pinned snowpipe-streaming 1.9.0 does not publish the per-channel inflight JMX beans, so
-  // start() must refuse an enabled cap before it opens any connection.
+  // The pinned snowpipe-streaming release does not publish the per-channel inflight JMX beans,
+  // so start() must refuse an enabled cap before it opens any connection.
   @ParameterizedTest
   @ValueSource(
       strings = {
