@@ -83,7 +83,8 @@ public class SnowflakeTelemetryService {
     dataObjectNode.put(AUTHENTICATOR_TYPE, resolveAuthenticatorType(userProvidedConfig));
     String proxyHost =
         userProvidedConfig.get(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST);
-    dataObjectNode.put("snowflake.https.proxy.configured", proxyHost != null && !proxyHost.isBlank());
+    dataObjectNode.put(
+        "snowflake.https.proxy.configured", proxyHost != null && !proxyHost.isBlank());
 
     send(TelemetryType.KAFKA_START, dataObjectNode);
   }

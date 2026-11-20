@@ -355,7 +355,8 @@ public class SnowflakeTelemetryServiceTest {
   public void testReportKafkaConnectStart_proxyConfigured() {
     // given
     Map<String, String> connectorConfig = createConnectorConfig();
-    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, "myproxy.example.com");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, "myproxy.example.com");
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT, "8080");
     SnowflakeTelemetryService snowflakeTelemetryService =
         createSnowflakeTelemetryService(connectorConfig);
