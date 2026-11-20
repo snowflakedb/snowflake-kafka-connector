@@ -260,7 +260,8 @@ public class SnowflakeTelemetryService {
           KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
           KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
           KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
-          KafkaConnectorConfigParams.CACHE_PIPE_EXISTS);
+          KafkaConnectorConfigParams.CACHE_PIPE_EXISTS,
+          KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_EVOLVE_SCHEMA);
 
   /**
    * Copies allowlisted user-provided connector config into the kafka_start telemetry payload.

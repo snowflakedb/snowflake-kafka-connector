@@ -80,6 +80,7 @@ public class SnowflakeTelemetryServiceTest {
     connectorConfig.put(
         KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS, "true");
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION, "server_side");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_EVOLVE_SCHEMA, "true");
     connectorConfig.put(
         KafkaConnectorConfigParams.SNOWFLAKE_OAUTH_CLIENT_SECRET, "test-client-secret");
     connectorConfig.put(
@@ -131,7 +132,8 @@ public class SnowflakeTelemetryServiceTest {
             KafkaConnectorConfigParams.ENABLE_TASK_FAIL_ON_AUTHORIZATION_ERRORS,
             KafkaConnectorConfigParams.SNOWFLAKE_VALIDATION,
             KafkaConnectorConfigParams.CACHE_TABLE_EXISTS,
-            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS);
+            KafkaConnectorConfigParams.CACHE_PIPE_EXISTS,
+            KafkaConnectorConfigParams.SNOWFLAKE_FEATURE_EVOLVE_SCHEMA);
     List<String> omittedKeys =
         List.of(
             KafkaConnectorConfigParams.SNOWFLAKE_DATABASE_NAME,
