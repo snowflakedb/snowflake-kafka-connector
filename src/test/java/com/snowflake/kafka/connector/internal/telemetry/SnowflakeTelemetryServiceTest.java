@@ -351,6 +351,58 @@ public class SnowflakeTelemetryServiceTest {
     assertFalse(sentData.get(0).getMessage().toString().contains("spoofed"));
   }
 
+  @Test
+  public void testReportKafkaConnectStart_proxyConfigured() {
+    // given
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, "myproxy.example.com");
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_PORT, "8080");
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then
+    JsonNode dataNode =
+        this.mockTelemetryClient.getSentTelemetryData().get(0).getMessage().get("data");
+    assertTrue(dataNode.get("snowflake.https.proxy.configured").asBoolean());
+  }
+
+  @Test
+  public void testReportKafkaConnectStart_proxyNotConfigured() {
+    // given: no proxy keys in config
+    Map<String, String> connectorConfig = createConnectorConfig();
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then
+    JsonNode dataNode =
+        this.mockTelemetryClient.getSentTelemetryData().get(0).getMessage().get("data");
+    assertFalse(dataNode.get("snowflake.https.proxy.configured").asBoolean());
+  }
+
+  @Test
+  public void testReportKafkaConnectStart_blankProxyHostTreatedAsNotConfigured() {
+    // given: blank host is semantically absent
+    Map<String, String> connectorConfig = createConnectorConfig();
+    connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_HTTPS_PROXY_HOST, "   ");
+    SnowflakeTelemetryService snowflakeTelemetryService =
+        createSnowflakeTelemetryService(connectorConfig);
+
+    // when
+    snowflakeTelemetryService.reportKafkaConnectStart(System.currentTimeMillis(), connectorConfig);
+
+    // then
+    JsonNode dataNode =
+        this.mockTelemetryClient.getSentTelemetryData().get(0).getMessage().get("data");
+    assertFalse(dataNode.get("snowflake.https.proxy.configured").asBoolean());
+  }
+
   @ParameterizedTest
   @EnumSource(value = IngestionMethodConfig.class)
   public void testReportKafkaConnectStop(IngestionMethodConfig ingestionMethodConfig) {
