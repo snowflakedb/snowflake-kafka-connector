@@ -83,6 +83,41 @@ class MitmproxyControl:
         """Return the number of 404 responses injected on /v2/streaming/hostname."""
         return self.get_status()["injected_404_hostname_count"]
 
+    def set_evolve_schema_fault(
+        self, status: int, error_code: str, *, pipe: str = "", times: int | None = None
+    ):
+        """Answer :evolve-schema requests with `status` and `error_code`.
+
+        Only pipes whose name contains `pipe` (case-insensitive) are affected, every pipe if it's
+        empty. With `times`, only the next `times` matching requests are answered this way.
+        """
+        rule = {
+            "status": status,
+            "error_code": error_code,
+            "pipe": pipe,
+            "times": times,
+        }
+        resp = requests.post(
+            f"{self.base_url}/evolve-schema-fault", json=rule, timeout=5
+        )
+        resp.raise_for_status()
+        logger.info("evolve-schema fault enabled: %s", rule)
+
+    def clear_evolve_schema_fault(self):
+        """Forward :evolve-schema requests unchanged again."""
+        resp = requests.post(f"{self.base_url}/evolve-schema-fault/clear", timeout=5)
+        resp.raise_for_status()
+        logger.info("evolve-schema fault disabled")
+
+    def get_evolve_schema_requests(self, pipe: str) -> int:
+        """Number of :evolve-schema requests seen for pipes whose name contains `pipe`."""
+        requests_by_pipe = self.get_status()["evolve_schema_requests"]
+        return sum(n for p, n in requests_by_pipe.items() if pipe.upper() in p.upper())
+
+    def get_evolve_schema_injected_count(self) -> int:
+        """Number of :evolve-schema responses injected since the last counter reset."""
+        return self.get_status()["evolve_schema_injected_count"]
+
     def is_reachable(self) -> bool:
         """Check if the control API is reachable."""
         try:

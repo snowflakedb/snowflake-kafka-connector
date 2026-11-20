@@ -493,6 +493,17 @@ public class SnowflakeTelemetryServiceTest {
     channelStatus.incRecoveryCount();
     channelStatus.incRecoveryCount();
 
+    // Evolve-schema outcome counts, distinct so a swapped field fails
+    for (int i = 0; i < 4; i++) {
+      channelStatus.incEvolveSchemaCallCount();
+    }
+    for (int i = 0; i < 3; i++) {
+      channelStatus.incEvolveSchemaRejectedCount();
+    }
+    channelStatus.incEvolveSchemaRedeliveredCount();
+    channelStatus.incEvolveSchemaRedeliveredCount();
+    channelStatus.incEvolveSchemaNotEnabledCount();
+
     partitionUsage = channelStatus;
 
     // when
@@ -568,10 +579,12 @@ public class SnowflakeTelemetryServiceTest {
 
     // Schema evolution failure count
     assertEquals(0, dataNode.get(TelemetryConstants.SCHEMA_EVOLUTION_FAILURE_COUNT).asLong());
-    assertEquals(0, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_CALL_COUNT).asLong());
-    assertEquals(0, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_REJECTED_COUNT).asLong());
-    assertEquals(0, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_REDELIVERED_COUNT).asLong());
-    assertEquals(0, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_NOT_ENABLED_COUNT).asLong());
+
+    // Evolve-schema outcome counts
+    assertEquals(4, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_CALL_COUNT).asLong());
+    assertEquals(3, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_REJECTED_COUNT).asLong());
+    assertEquals(2, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_REDELIVERED_COUNT).asLong());
+    assertEquals(1, dataNode.get(TelemetryConstants.EVOLVE_SCHEMA_NOT_ENABLED_COUNT).asLong());
   }
 
   @ParameterizedTest

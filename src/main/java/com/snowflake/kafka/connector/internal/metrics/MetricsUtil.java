@@ -9,6 +9,9 @@ public class MetricsUtil {
   // file count related constants
   public static final String OFFSET_SUB_DOMAIN = "offsets";
 
+  /** Outcomes of the evolve-schema call made before appending a record with a new schema. */
+  public static final String EVOLVE_SCHEMA_SUB_DOMAIN = "evolve-schema";
+
   /**
    * Offset number that is most recent inside the buffer (In memory buffer)
    *
