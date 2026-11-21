@@ -33,6 +33,7 @@ public class InternalUtils {
   static final String JDBC_WAREHOUSE = "warehouse"; // for test only
   static final String JDBC_TOKEN = JdbcPropertyKeys.TOKEN;
   static final String JDBC_QUERY_RESULT_FORMAT = "JDBC_QUERY_RESULT_FORMAT";
+  static final String JDBC_MULTI_STATEMENT_COUNT = "MULTI_STATEMENT_COUNT";
   // internal parameters
 
   private static final KCLogger LOGGER = new KCLogger(InternalUtils.class.getName());
@@ -163,6 +164,9 @@ public class InternalUtils {
     properties.put(JDBC_SESSION_KEEP_ALIVE, "true");
     // SNOW-989387 - Set query resultset format to JSON as a workaround
     properties.put(JDBC_QUERY_RESULT_FORMAT, "json");
+    // Every connector query is a single statement. Pinning the session to one statement per call
+    // makes the server reject stacked statements, and overrides any user or account default.
+    properties.put(JDBC_MULTI_STATEMENT_COUNT, "1");
     properties.put(JdbcPropertyKeys.ALLOW_UNDERSCORES_IN_HOST, "true");
 
     if (!properties.containsKey(JDBC_SCHEMA)) {
