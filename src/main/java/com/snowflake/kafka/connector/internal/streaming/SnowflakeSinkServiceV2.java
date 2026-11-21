@@ -668,11 +668,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
-  @VisibleForTesting
-  boolean isTaskInflightCapped() {
-    return taskInflightCapped;
-  }
-
   /**
    * Whether this task's summed inflight rows or bytes are at or above a configured cap. A cap of 0
    * is disabled. Logs WARN at most once per {@link #INFLIGHT_LOG_INTERVAL} while the task keeps
@@ -718,14 +713,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
       taskInflightCapped = true;
       return true;
-    }
-    if (taskInflightCapped) {
-      LOGGER.debug(
-          "Task inflight usage below caps, resuming appends: rows {} (cap {}), bytes {} (cap {})",
-          usage.getRows(),
-          maxRows,
-          usage.getBytes(),
-          maxBytes);
     }
     taskInflightCapped = false;
     return false;

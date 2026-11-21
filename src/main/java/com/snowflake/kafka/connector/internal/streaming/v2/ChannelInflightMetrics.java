@@ -65,44 +65,18 @@ public final class ChannelInflightMetrics {
 
   /** The ObjectNames of the two inflight gauges of one channel on one SDK client. */
   public static final class InflightBeanNames {
-    private final String clientName;
-    private final String channelName;
-    private final ObjectName rows;
-    private final ObjectName bytes;
+    final String clientName;
+    final ObjectName rows;
+    final ObjectName bytes;
 
-    private InflightBeanNames(String clientName, String channelName) {
+    InflightBeanNames(String clientName, String channelName) {
       this.clientName = clientName;
-      this.channelName = channelName;
       this.rows = objectName(clientName, channelName, INFLIGHT_ROWS);
       this.bytes = objectName(clientName, channelName, INFLIGHT_BYTES);
     }
-
-    public String clientName() {
-      return clientName;
-    }
-
-    public String channelName() {
-      return channelName;
-    }
   }
 
-  /**
-   * Builds the gauge names of the channel {@code channelName} opened on the SDK client {@code
-   * clientName}. Names do not change while the channel and client stay the same, so callers build
-   * them once and reuse them for every read.
-   */
-  public static InflightBeanNames beanNames(String clientName, String channelName) {
-    return new InflightBeanNames(clientName, channelName);
-  }
-
-  /**
-   * Reads both gauges named by {@code names}.
-   *
-   * @throws InstanceNotFoundException if either bean is not registered
-   * @throws InflightUsageUnavailableException if a bean fails to produce a value, or produces a
-   *     negative or non-finite one
-   * @throws ConnectException if a bean produces a non-numeric value
-   */
+  /** Reads both gauges named by {@code names}. */
   public static InflightUsage read(InflightBeanNames names) throws InstanceNotFoundException {
     MBeanServer server = ManagementFactory.getPlatformMBeanServer();
     return new InflightUsage(readGauge(server, names.rows), readGauge(server, names.bytes));
@@ -154,13 +128,11 @@ public final class ChannelInflightMetrics {
       throw new InflightUsageUnavailableException(
           "Failed to read JMX attribute " + VALUE_ATTRIBUTE + " of " + name, e);
     }
-    if (!(value instanceof Number)) {
-      throw new ConnectException(
-          "JMX attribute " + VALUE_ATTRIBUTE + " of " + name + " is not numeric: " + value);
-    }
-    double number = ((Number) value).doubleValue();
-    // NaN would truncate to 0 and lift the cap, a negative value would offset other channels.
-    if (!Double.isFinite(number) || number < 0) {
+    // A non-finite value would truncate to 0 and lift the cap, a negative one would offset other
+    // channels.
+    if (!(value instanceof Number)
+        || !Double.isFinite(((Number) value).doubleValue())
+        || ((Number) value).doubleValue() < 0) {
       throw new InflightUsageUnavailableException(
           "JMX attribute " + VALUE_ATTRIBUTE + " of " + name + " is not a valid count: " + value,
           null);
