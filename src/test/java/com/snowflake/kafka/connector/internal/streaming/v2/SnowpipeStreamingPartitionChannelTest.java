@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -31,6 +32,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
@@ -54,6 +56,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
+import javax.management.ObjectName;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -165,6 +168,193 @@ class SnowpipeStreamingPartitionChannelTest {
     // No SDK channel was ever opened or closed
     assertEquals(0, trackingClientSupplier.getTotalChannelsCreated());
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
+  }
+
+  @Test
+  void getInflightUsageIsZeroWithoutJmxWhileChannelIsOpening() throws Exception {
+    CountDownLatch blockExecutor = new CountDownLatch(1);
+    openChannelIoExecutor.submit(
+        () -> {
+          blockExecutor.await();
+          return null;
+        });
+
+    try {
+      SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+      assertTrue(partitionChannel.isInitializing(), "open must still be pending");
+      // No beans are registered, so any JMX read would throw. The preemptive timeout turns a read
+      // that blocks on the pending open into a failure instead of a hang.
+      assertEquals(
+          InflightUsage.NONE,
+          assertTimeoutPreemptively(Duration.ofSeconds(5), partitionChannel::getInflightUsage));
+    } finally {
+      blockExecutor.countDown();
+    }
+  }
+
+  @Test
+  void getInflightUsageReadsBeansForOpenedChannelOnItsClient() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans()
+            .channel(trackingClient.getClientName(), channelName, 5, 500)
+            .channel("other_client_" + pipeName, channelName, 9, 900)
+            .channel(trackingClient.getClientName(), channelName + "_other", 8, 800)) {
+      assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+    }
+  }
+
+  @Test
+  void getInflightUsageReadsBeansOfRecreatedClientAfterReopen() throws Exception {
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(
+            pipeName, new TrackingIngestClientSupplier(), "recreated_client_" + pipeName);
+    SnowpipeStreamingPartitionChannel partitionChannel =
+        createPartitionChannel(invalidClient -> newClient);
+    partitionChannel.getChannel();
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans()
+            .channel(trackingClient.getClientName(), channelName, 1, 10)
+            .channel(newClient.getClientName(), channelName, 5, 500)) {
+      // The names are resolved and reused for the original client first.
+      assertEquals(new InflightUsage(1, 10), partitionChannel.getInflightUsage());
+      trackingClientSupplier.markClientInvalid();
+      partitionChannel.triggerReopenForInvalidClient();
+      partitionChannel.getChannel();
+
+      assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+    }
+  }
+
+  @Test
+  void getInflightUsageIsZeroOnceChannelClosedAndItsBeansAreGone() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    FakeInflightMBeans beans =
+        new FakeInflightMBeans().channel(trackingClient.getClientName(), channelName, 5, 500);
+    try {
+      assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+      partitionChannel.closeChannelAsync().get(5, TimeUnit.SECONDS);
+      assertTrue(partitionChannel.isChannelClosed());
+    } finally {
+      beans.close();
+    }
+
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+  }
+
+  @Test
+  void getInflightUsageFailsLoudWhenOpenChannelLosesItsBeans() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans().channel(trackingClient.getClientName(), channelName, 5, 500)) {
+      assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+    }
+
+    ConnectException thrown =
+        assertThrows(ConnectException.class, partitionChannel::getInflightUsage);
+    assertTrue(thrown.getMessage().contains(channelName), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains(trackingClient.getClientName()), thrown.getMessage());
+  }
+
+  @Test
+  void getInflightUsageIsZeroWhenBeanReadFailsAfterChannelCloses() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    partitionChannel.closeChannelAsync().get(5, TimeUnit.SECONDS);
+    assertTrue(partitionChannel.isChannelClosed());
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans()
+            .register(
+                inflightName(FakeInflightMBeans.ROWS),
+                () -> {
+                  throw new javax.management.MBeanException(new Exception("channel pointer gone"));
+                })) {
+      assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+    }
+  }
+
+  @Test
+  void getInflightUsageFailsLoudWhenOpenedChannelOnOpenClientHasNoBeans() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+
+    ConnectException thrown =
+        assertThrows(ConnectException.class, partitionChannel::getInflightUsage);
+    assertTrue(thrown.getMessage().contains(channelName), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains(trackingClient.getClientName()), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains("registration"), thrown.getMessage());
+  }
+
+  @Test
+  void getInflightUsageIsZeroWhenClientClosedBeforeNamesAreResolved() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    trackingClient.markClosed();
+
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+  }
+
+  @Test
+  void getInflightUsageIsZeroWhenBeanReadFailsAfterClientCloses() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    String clientName = trackingClient.getClientName();
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans()
+            .register(
+                FakeInflightMBeans.sdkObjectName(clientName, channelName, FakeInflightMBeans.ROWS),
+                () -> {
+                  trackingClient.markClosed();
+                  throw new javax.management.MBeanException(new Exception("channel pointer gone"));
+                })) {
+      assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+    }
+  }
+
+  @Test
+  void getInflightUsageIsUnavailableWhenBeanReadFailsOnOpenChannel() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+    javax.management.MBeanException failure =
+        new javax.management.MBeanException(new Exception("ffi failure"));
+
+    try (FakeInflightMBeans beans =
+        new FakeInflightMBeans()
+            .register(
+                FakeInflightMBeans.sdkObjectName(
+                    trackingClient.getClientName(), channelName, FakeInflightMBeans.ROWS),
+                () -> {
+                  throw failure;
+                })) {
+      InflightUsageUnavailableException thrown =
+          assertThrows(InflightUsageUnavailableException.class, partitionChannel::getInflightUsage);
+      assertSame(failure, thrown.getCause());
+    }
+  }
+
+  @Test
+  void getInflightUsageIsUnavailableWhenOpenClientNameUnreadable() {
+    SFException failure = new SFException("InternalError", "name unavailable", 0, "");
+    trackingClient =
+        new TrackingStreamingIngestClient(pipeName, trackingClientSupplier) {
+          @Override
+          public String getClientName() {
+            throw failure;
+          }
+        };
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.getChannel();
+
+    InflightUsageUnavailableException thrown =
+        assertThrows(InflightUsageUnavailableException.class, partitionChannel::getInflightUsage);
+    assertSame(failure, thrown.getCause());
   }
 
   /**
@@ -644,6 +834,10 @@ class SnowpipeStreamingPartitionChannelTest {
         .withSchemaAndValue(schemaAndValue)
         .withOffset(offset)
         .build();
+  }
+
+  private ObjectName inflightName(String metric) {
+    return FakeInflightMBeans.sdkObjectName(trackingClient.getClientName(), channelName, metric);
   }
 
   private SnowpipeStreamingPartitionChannel createPartitionChannel() {
@@ -1334,14 +1528,37 @@ class SnowpipeStreamingPartitionChannelTest {
   static class TrackingStreamingIngestClient implements SnowflakeStreamingIngestClient {
 
     private final String pipeName;
+    private final String clientName;
     private final TrackingIngestClientSupplier supplier;
     private final ConcurrentHashMap<String, TrackingStreamingIngestChannel> channels =
         new ConcurrentHashMap<>();
+    private volatile boolean closed;
+    private final AtomicInteger getClientNameCalls = new AtomicInteger();
+    private final AtomicInteger isClosedCalls = new AtomicInteger();
 
     TrackingStreamingIngestClient(
         final String pipeName, final TrackingIngestClientSupplier supplier) {
+      this(pipeName, supplier, "tracking_client_" + pipeName);
+    }
+
+    TrackingStreamingIngestClient(
+        final String pipeName, final TrackingIngestClientSupplier supplier, String clientName) {
       this.pipeName = pipeName;
       this.supplier = supplier;
+      this.clientName = clientName;
+    }
+
+    int getClientNameCalls() {
+      return getClientNameCalls.get();
+    }
+
+    int isClosedCalls() {
+      return isClosedCalls.get();
+    }
+
+    /** Marks the client closed: isClosed() is true and getClientName() throws, like the SDK. */
+    void markClosed() {
+      this.closed = true;
     }
 
     @Override
@@ -1426,7 +1643,8 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public boolean isClosed() {
-      return false;
+      isClosedCalls.incrementAndGet();
+      return closed;
     }
 
     @Override
@@ -1451,7 +1669,11 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public String getClientName() {
-      throw new UnsupportedOperationException();
+      getClientNameCalls.incrementAndGet();
+      if (closed) {
+        throw new SFException("ClosedClientError", "Test simulated closed client", 0, "");
+      }
+      return clientName;
     }
 
     @Override
@@ -1467,6 +1689,7 @@ class SnowpipeStreamingPartitionChannelTest {
     private final String channelName;
     private final TrackingIngestClientSupplier supplier;
     private volatile boolean closed = false;
+    private final AtomicInteger isClosedCalls = new AtomicInteger();
 
     TrackingStreamingIngestChannel(
         final String pipeName,
@@ -1502,8 +1725,13 @@ class SnowpipeStreamingPartitionChannelTest {
       return channelName;
     }
 
+    int isClosedCalls() {
+      return isClosedCalls.get();
+    }
+
     @Override
     public boolean isClosed() {
+      isClosedCalls.incrementAndGet();
       return closed;
     }
 

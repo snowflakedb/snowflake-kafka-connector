@@ -23,6 +23,7 @@ import com.snowflake.kafka.connector.internal.schemaevolution.SchemaEvolutionTar
 import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.schemaevolution.ValidationResultMapper;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -47,6 +48,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.management.InstanceNotFoundException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -90,6 +92,10 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private final String pipeName;
 
   private volatile SnowflakeStreamingIngestClient streamingClient;
+
+  /** The inflight bean names resolved for the SDK channel and client last read. */
+  private volatile CachedInflightBeanNames inflightBeanNames;
+
   private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
@@ -944,6 +950,73 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     return channelName;
   }
 
+  /**
+   * Reads the SDK's per-channel inflight gauges over JMX. A channel that is still opening or failed
+   * to open has nothing to report and returns {@link InflightUsage#NONE}. So does a channel that is
+   * closed or whose client is closed, also when it closes during the read. The SDK registers a
+   * channel's beans inside openChannel before returning and unregisters them when the channel
+   * closes or is dropped or its client closes, so a bean missing for an open channel on an open
+   * client is a registration failure.
+   *
+   * <p>The bean names are resolved once for each SDK channel instance and client, and reused by
+   * every later read. A read does no other work on the channel or client. They are only asked
+   * whether they are closed when a read fails.
+   *
+   * @throws ConnectException if a bean is missing while the channel and its client are open
+   * @throws InflightUsageUnavailableException if a read fails while the channel and its client are
+   *     open
+   */
+  private static final class CachedInflightBeanNames {
+    final SnowflakeStreamingIngestClient client;
+    final ChannelInflightMetrics.InflightBeanNames names;
+
+    CachedInflightBeanNames(
+        SnowflakeStreamingIngestClient client, ChannelInflightMetrics.InflightBeanNames names) {
+      this.client = client;
+      this.names = names;
+    }
+  }
+
+  @Override
+  public InflightUsage getInflightUsage() {
+    CompletableFuture<SnowflakeStreamingIngestChannel> future = this.channel;
+    if (!future.isDone() || future.isCompletedExceptionally()) {
+      return InflightUsage.NONE;
+    }
+    SnowflakeStreamingIngestChannel sdkChannel = future.join();
+    SnowflakeStreamingIngestClient client = this.streamingClient;
+    CachedInflightBeanNames cached = this.inflightBeanNames;
+    ChannelInflightMetrics.InflightBeanNames names;
+    try {
+      if (cached == null || cached.client != client) {
+        names = new ChannelInflightMetrics.InflightBeanNames(client.getClientName(), channelName);
+        this.inflightBeanNames = new CachedInflightBeanNames(client, names);
+      } else {
+        names = cached.names;
+      }
+    } catch (SFException e) {
+      if (sdkChannel.isClosed() || client.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw new InflightUsageUnavailableException(
+          "Failed to read the client name of open channel " + channelName, e);
+    }
+    try {
+      return ChannelInflightMetrics.read(names);
+    } catch (InstanceNotFoundException e) {
+      if (sdkChannel.isClosed() || client.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw ChannelInflightMetrics.missingBeanForOpenChannel(names.clientName, channelName, e);
+    } catch (InflightUsageUnavailableException e) {
+      if (sdkChannel.isClosed() || client.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw e;
+    }
+  }
+
+  /** Inflight bean names, valid for exactly the SDK channel and client they were resolved for. */
   /**
    * Blocks until the channel initialization future completes and returns the underlying SDK
    * channel.

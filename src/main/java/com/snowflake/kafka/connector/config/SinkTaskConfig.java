@@ -28,7 +28,6 @@ import org.apache.kafka.common.config.types.Password;
  */
 @AutoValue
 public abstract class SinkTaskConfig {
-
   public abstract String getConnectorName();
 
   public abstract String getTaskId();
@@ -68,6 +67,19 @@ public abstract class SinkTaskConfig {
 
   @Nullable
   public abstract String getStreamingClientProviderOverrideMap();
+
+  /**
+   * Task-level cap on summed per-channel SDK inflight rows. {@code 0} disables the cap. See {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS}.
+   */
+  public abstract long getMaxTaskInflightRows();
+
+  /**
+   * Task-level cap on summed per-channel SDK inflight bytes, converted from {@link
+   * KafkaConnectorConfigParams#SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES}. {@code 0} disables
+   * the cap.
+   */
+  public abstract long getMaxTaskInflightBytes();
 
   public abstract CachingConfig getCachingConfig();
 
@@ -320,6 +332,22 @@ public abstract class SinkTaskConfig {
     String streamingClientProviderOverrideMap =
         config.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
 
+    long maxTaskInflightRows =
+        Long.parseLong(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS_DEFAULT)));
+    long maxTaskInflightBytes =
+        Long.parseLong(
+                config.getOrDefault(
+                    KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES,
+                    String.valueOf(
+                        KafkaConnectorConfigParams
+                            .SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES_DEFAULT)))
+            * (1024L * 1024L);
+
     CachingConfig cachingConfig = CachingConfig.fromConfig(config);
     SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(config);
 
@@ -494,6 +522,8 @@ public abstract class SinkTaskConfig {
         .validationEnableErrorTableOnExistingTables(validationEnableErrorTableOnExistingTables)
         .openChannelIoThreads(openChannelIoThreads)
         .streamingClientProviderOverrideMap(streamingClientProviderOverrideMap)
+        .maxTaskInflightRows(maxTaskInflightRows)
+        .maxTaskInflightBytes(maxTaskInflightBytes)
         .cachingConfig(cachingConfig)
         .metadataConfig(metadataConfig)
         .snowflakeUrl(snowflakeUrl)
@@ -587,6 +617,10 @@ public abstract class SinkTaskConfig {
 
     public abstract Builder streamingClientProviderOverrideMap(
         String streamingClientProviderOverrideMap);
+
+    public abstract Builder maxTaskInflightRows(long maxTaskInflightRows);
+
+    public abstract Builder maxTaskInflightBytes(long maxTaskInflightBytes);
 
     public abstract Builder cachingConfig(CachingConfig cachingConfig);
 
