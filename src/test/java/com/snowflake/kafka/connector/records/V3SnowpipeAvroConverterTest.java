@@ -401,7 +401,7 @@ class V3SnowpipeAvroConverterTest {
 
   /**
    * Runs {@code payload} through the converter and the KC v4 {@code RECORD_CONTENT} path with
-   * schematization off, and asserts the resulting document equals the KC 3.x one exactly.
+   * schematization off, and asserts the resulting document equals the KC v3 one exactly.
    */
   private JsonNode assertRecordContentMatchesKc3(
       V3SnowpipeAvroConverter converter, byte[] payload, Schema readerSchema) throws Exception {
