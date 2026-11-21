@@ -497,13 +497,35 @@ public class StandardSnowflakeConnectionServiceDdlTest {
     verify(mockJdbcConn).prepareStatement(sqlCaptor.capture());
     String sql = sqlCaptor.getValue();
 
-    // options land right after the column list, before the connector-mandatory clauses so
-    // positional clauses like CLUSTER BY are valid.
+    // options are re-serialized and land right after the column list, before the
+    // connector-mandatory clauses, with CLUSTER BY first.
     assertThat(sql)
         .contains(
-            ") EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3 CLUSTER BY (id) catalog = 'SNOWFLAKE'");
+            ") CLUSTER BY (id) EXTERNAL_VOLUME = 'my_vol' ICEBERG_VERSION = 3"
+                + " catalog = 'SNOWFLAKE'");
     assertThat(sql.toLowerCase()).contains("enable_schema_evolution = true");
     assertThat(sql.toLowerCase()).contains("error_logging = true");
+  }
+
+  @Test
+  public void createIcebergTable_invalidOptions_rejectedBeforeAnySql() throws SQLException {
+    for (String options :
+        Arrays.asList(
+            "EXTERNAL_VOLUME='v'; SELECT 1; --",
+            "EXTERNAL_VOLUME='v' --",
+            "EXTERNAL_VOLUME='v' /* x */",
+            "CATALOG='OTHER'",
+            "ERROR_LOGGING=false",
+            "EXTERNAL_VOLUME='v",
+            "EXTERNAL_VOLUME='a' external_volume='b'")) {
+      SnowflakeKafkaConnectorException ex =
+          assertThrows(
+              SnowflakeKafkaConnectorException.class,
+              () -> service.createIcebergTableWithOnlyMetadataColumn("test_table", options),
+              options);
+      assertEquals("0034", ex.getCode(), options);
+    }
+    verify(mockJdbcConn, never()).prepareStatement(anyString());
   }
 
   @Test

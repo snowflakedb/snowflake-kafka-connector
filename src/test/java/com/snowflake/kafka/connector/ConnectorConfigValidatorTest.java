@@ -358,6 +358,29 @@ public class ConnectorConfigValidatorTest {
   }
 
   @Test
+  public void testIllegalIcebergCreateTableOptions() {
+    Map<String, String> config = getConfig();
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS,
+        "EXTERNAL_VOLUME='v' -- catalog = 'X'");
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS);
+  }
+
+  @Test
+  public void testValidIcebergCreateTableOptions() {
+    Map<String, String> config = getConfig();
+    config.put(KafkaConnectorConfigParams.SNOWFLAKE_AUTOCREATE_TABLE_TYPE, "iceberg");
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS,
+        "EXTERNAL_VOLUME='v' ICEBERG_VERSION=3");
+    assertThatCode(() -> connectorConfigValidator.validateConfig(config))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
   public void testIllegalTopicMap() {
     Map<String, String> config = getConfig();
     config.put(SNOWFLAKE_TOPICS2TABLE_MAP, "$@#$#@%^$12312");

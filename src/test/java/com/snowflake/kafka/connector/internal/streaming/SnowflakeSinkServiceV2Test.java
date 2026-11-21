@@ -676,6 +676,46 @@ class SnowflakeSinkServiceV2Test {
   }
 
   @Test
+  void createTableIfNotExists_icebergType_nonSchematized_v3OnlyInsideComment_throws() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.ICEBERG)
+            .enableSchematization(false)
+            .icebergCreateTableOptions(Optional.of("COMMENT='ICEBERG_VERSION=3'"))
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("ICEBERG_VERSION=3");
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
+  void createTableIfNotExists_icebergType_invalidOptions_throwsWithoutCreate() {
+    SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
+    when(conn.tableExist("t1")).thenReturn(false);
+    SinkTaskConfig config =
+        SinkTaskConfigTestBuilder.builder()
+            .connectorName(CONNECTOR_NAME)
+            .taskId("0")
+            .autocreatedTableType(TableType.ICEBERG)
+            .enableSchematization(false)
+            .icebergCreateTableOptions(Optional.of("ICEBERG_VERSION=3; SELECT 1"))
+            .build();
+    SnowflakeSinkServiceV2 svc = newService(conn, config);
+
+    assertThatThrownBy(() -> svc.createTableIfNotExists("t1"))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining("snowflake.iceberg.create.table.options");
+    verify(conn, never()).createIcebergTableWithOnlyMetadataColumn(anyString(), anyString());
+  }
+
+  @Test
   void createTableIfNotExists_icebergType_nonSchematized_withV3_creates() {
     SnowflakeConnectionService conn = mock(SnowflakeConnectionService.class);
     when(conn.tableExist("t1")).thenReturn(false);
