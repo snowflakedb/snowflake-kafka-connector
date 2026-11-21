@@ -27,6 +27,8 @@ services:
       # File-based Snowpipe v3 can block in ingestFiles for ~1 minute; the default 5s
       # strands the bumped offset and causes duplicates on v3 -> v4 migration (SNOW-3608128).
       CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS: ${CONNECT_TASK_SHUTDOWN_GRACEFUL_TIMEOUT_MS:-300000}
+      # Worker env, not connector config: redirects SDK traffic for local deployments.
+      SNOWFLAKE_KAFKA_CONNECTOR_TEST_STREAMING_URL: ${SNOWPIPE_STREAMING_URL:-}
     volumes:
       - ${CONNECTOR_PLUGIN_PATH:-/tmp/sf-kafka-connect-plugin}:/usr/local/share/kafka/plugins/snowflake-connector
       - ${V3_PLUGIN_PATH:-/tmp/sf-kafka-connect-v3}:/usr/local/share/kafka/plugins/snowflake-connector-v3

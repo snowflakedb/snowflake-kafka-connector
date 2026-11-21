@@ -17,9 +17,11 @@ import static com.snowflake.kafka.connector.internal.TestUtils.getConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
+import com.snowflake.kafka.connector.config.ConnectorConfigDefinition;
 import com.snowflake.kafka.connector.config.SnowflakeSinkConnectorConfigBuilder;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
@@ -553,8 +555,63 @@ public class ConnectorConfigValidatorTest {
     config.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "ACCOUNTADMIN");
     config.put(
         KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
-        "a:b,c:d,e:100,f:true");
+        "max_append_request_buffer_duration_ms:500,ENABLE_ROWSET_COMPRESSION:true");
     connectorConfigValidator.validateConfig(config);
+    assertThat(
+            ConnectorConfigDefinition.getConfig()
+                .validateAll(config)
+                .get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
+                .errorMessages())
+        .isEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "scheme:http,host:other.example.com,port:8080",
+        "HOST:other.example.com",
+        "max_append_request_buffer_duration_ms:500,host:other.example.com",
+        "private_key:abc",
+        "a:b"
+      })
+  public void testStreamingProviderOverrideConfig_rejectsKeysOutsideTuningAllowlist(
+      String overrideMap) {
+    Map<String, String> config = getConfig();
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, overrideMap);
+
+    assertThatThrownBy(() -> connectorConfigValidator.validateConfig(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
+        .hasMessageContaining("Unsupported key");
+    assertThat(
+            ConnectorConfigDefinition.getConfig()
+                .validateAll(config)
+                .get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
+                .errorMessages())
+        .singleElement()
+        .asString()
+        .contains("Unsupported key");
+  }
+
+  @Test
+  public void testStreamingProviderOverrideConfig_rejectionDoesNotEchoLineBreaks() {
+    Map<String, String> config = getConfig();
+    config.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        "host\r\n[main] INFO injected:other.example.com");
+
+    Throwable thrown = catchThrowable(() -> connectorConfigValidator.validateConfig(config));
+    List<String> configDefErrors =
+        ConnectorConfigDefinition.getConfig()
+            .validateAll(config)
+            .get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
+            .errorMessages();
+
+    assertThat(thrown).isInstanceOf(SnowflakeKafkaConnectorException.class);
+    assertThat(thrown.getMessage()).doesNotContain("\n[main] INFO injected");
+    assertThat(configDefErrors).isNotEmpty().noneMatch(m -> m.matches("(?s).*[\\r\\n]\\[main.*"));
   }
 
   @Test

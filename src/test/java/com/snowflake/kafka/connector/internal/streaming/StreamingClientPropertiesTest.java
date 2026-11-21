@@ -22,6 +22,8 @@ import static com.snowflake.kafka.connector.internal.TestUtils.generatePrivateKe
 import static com.snowflake.kafka.connector.internal.TestUtils.getConnectorConfigurationForStreaming;
 import static com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties.STREAMING_CLIENT_V2_PREFIX_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
@@ -37,24 +39,29 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.PrivateKey;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import org.apache.kafka.common.config.types.Password;
+import org.apache.log4j.AppenderSkeleton;
+import org.apache.log4j.Logger;
+import org.apache.log4j.spi.LoggingEvent;
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class StreamingClientPropertiesTest {
 
-  private static final String EXAMPLE_PARAM1 = "EXAMPLE_PARAM1".toLowerCase(Locale.ROOT);
-  private static final String EXAMPLE_PARAM2 = "EXAMPLE_PARAM2".toLowerCase(Locale.ROOT);
+  private static final String EXAMPLE_PARAM1 = "max_append_request_buffer_duration_ms";
+  private static final String EXAMPLE_PARAM2 = "data_http_timeout_seconds";
 
   @AfterEach
   void resetSpcsOverride() {
@@ -225,7 +232,8 @@ public class StreamingClientPropertiesTest {
         KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
         Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()));
     connectorConfig.put(
-        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "EXAMPLE_PARAM1:1,EXAMPLE_PARAM2:2");
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        "MAX_APPEND_REQUEST_BUFFER_DURATION_MS:1,DATA_HTTP_TIMEOUT_SECONDS:2");
 
     Map<String, Object> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(EXAMPLE_PARAM1, "1");
@@ -250,7 +258,8 @@ public class StreamingClientPropertiesTest {
         KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
         Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()));
     connectorConfig.put(
-        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "EXAMPLE_PARAM1:1,EXAMPLE_PARAM2:2");
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+        "MAX_APPEND_REQUEST_BUFFER_DURATION_MS:1,DATA_HTTP_TIMEOUT_SECONDS:2");
 
     Map<String, Object> expectedParameterOverrides = new HashMap<>();
     expectedParameterOverrides.put(EXAMPLE_PARAM1, "1");
@@ -273,7 +282,7 @@ public class StreamingClientPropertiesTest {
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_ROLE_NAME, "testRole");
     connectorConfig.put(KafkaConnectorConfigParams.SNOWFLAKE_USER_NAME, "testUser");
     connectorConfig.put(
-        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "EXAMPLE_PARAM2:10000000");
+        SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, "DATA_HTTP_TIMEOUT_SECONDS:10000000");
 
     SnowflakeURL parsedUrl = new SnowflakeURL(testUrl);
     Properties expectedProps = new Properties();
@@ -615,5 +624,153 @@ public class StreamingClientPropertiesTest {
             .build();
     connectorConfig.put(Utils.TASK_ID, "0");
     return connectorConfig;
+  }
+
+  private static Map<String, String> configWithOverrideMap(String overrideMap) {
+    Map<String, String> connectorConfig =
+        SnowflakeSinkConnectorConfigBuilder.streamingConfig().build();
+    connectorConfig.put(Utils.TASK_ID, "0");
+    connectorConfig.put(
+        KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY,
+        Base64.getEncoder().encodeToString(generatePrivateKey().getEncoded()));
+    connectorConfig.put(SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP, overrideMap);
+    return connectorConfig;
+  }
+
+  @Test
+  void shouldNormalizeAllowedOverrideKeysToLowerCase() {
+    Map<String, String> connectorConfig =
+        configWithOverrideMap(
+            " Max_Append_Request_Buffer_Duration_Ms : 250 ,ENABLE_ROWSET_COMPRESSION:false");
+
+    StreamingClientProperties result =
+        StreamingClientProperties.from(SinkTaskConfig.from(connectorConfig));
+
+    assertThat(result.parameterOverrides)
+        .containsOnly(
+            Map.entry("max_append_request_buffer_duration_ms", "250"),
+            Map.entry("enable_rowset_compression", "false"));
+  }
+
+  /**
+   * The SDK merges the override map over the client properties, so any of these keys would let a
+   * connector config editor send authenticated requests and row payloads to another endpoint or
+   * replace the identity and credentials the connector sends.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "scheme:http",
+        "host:other.example.com",
+        "port:8080",
+        "HOST:other.example.com",
+        " Scheme :http",
+        "url:other",
+        "ssl:off",
+        "account:other",
+        "user:other",
+        "role:other",
+        "private_key:abc",
+        "private_key_file:/tmp/key",
+        "authorization_type:pat",
+        "personal_access_token:abc",
+        "oauth_token_endpoint:other",
+        "oauth_client_secret:abc",
+        "spcs_token_path:/tmp/token",
+        "file_upload_endpoint:other",
+        "data_header_overrides:x",
+        "replace_underscore_with_dash_in_host:false",
+        "encode_streaming_url_components:false",
+        "application:other",
+        "max_append_request_buffer_duration_ms:1000,host:other.example.com",
+        "unknown_param:1",
+        "MAX_CLIENT_LAG:1"
+      })
+  void shouldRejectOverrideKeysOutsideTheTuningAllowlist(String overrideMap) {
+    SinkTaskConfig config = SinkTaskConfig.from(configWithOverrideMap(overrideMap));
+
+    assertThatThrownBy(() -> StreamingClientProperties.from(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining(SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
+        .hasMessageContaining("Unsupported key");
+  }
+
+  @Test
+  void shouldRejectOverrideKeysThatDifferOnlyInCase() {
+    SinkTaskConfig config =
+        SinkTaskConfig.from(
+            configWithOverrideMap(
+                "max_append_request_buffer_duration_ms:1,MAX_APPEND_REQUEST_BUFFER_DURATION_MS:2"));
+
+    assertThatThrownBy(() -> StreamingClientProperties.from(config))
+        .isInstanceOf(SnowflakeKafkaConnectorException.class)
+        .hasMessageContaining("more than once");
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "max_append_request_buffer_duration_ms:1\n[main] INFO injected",
+        "max_append_request_buffer_duration_ms:1\r[main] INFO injected",
+        "max_append_request_buffer_duration_ms\n[main] INFO injected:1",
+        "max_append_request_buffer_duration_ms\r\n[main] INFO injected:1"
+      })
+  void shouldNotSplitLogLinesFromOverrideMap(String overrideMap) {
+    SinkTaskConfig config = SinkTaskConfig.from(configWithOverrideMap(overrideMap));
+
+    List<String> logged = new ArrayList<>();
+    Throwable thrown;
+    CapturingAppender appender = new CapturingAppender(logged);
+    Logger.getRootLogger().addAppender(appender);
+    try {
+      thrown = catchThrowable(() -> StreamingClientProperties.from(config));
+    } finally {
+      Logger.getRootLogger().removeAppender(appender);
+    }
+
+    assertThat(thrown).isInstanceOf(SnowflakeKafkaConnectorException.class);
+    logged.add(thrown.getMessage());
+    assertThat(logged)
+        .as("no log record or error message may start a line with override map text")
+        .noneMatch(message -> message.matches("(?s).*[\\r\\n]\\[main\\] INFO injected.*"));
+  }
+
+  @Test
+  void shouldNotLogOverrideValues() {
+    SinkTaskConfig config =
+        SinkTaskConfig.from(configWithOverrideMap("max_append_request_buffer_duration_ms:4321"));
+
+    List<String> logged = new ArrayList<>();
+    CapturingAppender appender = new CapturingAppender(logged);
+    Logger.getRootLogger().addAppender(appender);
+    try {
+      StreamingClientProperties.from(config);
+    } finally {
+      Logger.getRootLogger().removeAppender(appender);
+    }
+
+    assertThat(logged).anyMatch(m -> m.contains("max_append_request_buffer_duration_ms"));
+    assertThat(logged).noneMatch(m -> m.contains("4321"));
+  }
+
+  private static class CapturingAppender extends AppenderSkeleton {
+    private final List<String> messages;
+
+    CapturingAppender(List<String> messages) {
+      this.messages = messages;
+    }
+
+    @Override
+    protected void append(LoggingEvent event) {
+      messages.add(event.getRenderedMessage());
+    }
+
+    @Override
+    public void close() {}
+
+    @Override
+    public boolean requiresLayout() {
+      return false;
+    }
   }
 }

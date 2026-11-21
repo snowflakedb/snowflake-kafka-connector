@@ -80,8 +80,8 @@ def test_client_recreation_on_pipe_failover(
     )
     driver.createTopics(topic, partitionNum=NUM_PARTITIONS, replicationNum=1)
 
-    # Streaming traffic is routed to https://mitmproxy:8080 via
-    # snowflake.streaming.client.provider.override.map in the connector config.
+    # Streaming traffic is routed to https://mitmproxy:8080 by the
+    # SNOWFLAKE_KAFKA_CONNECTOR_TEST_STREAMING_URL worker env var (compose overlay).
     # The Connect worker trusts the test CA through SSL_CERT_FILE (compose overlay).
     driver.createConnector(
         name_salt=name_salt,
