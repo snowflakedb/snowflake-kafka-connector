@@ -17,7 +17,7 @@ import org.apache.kafka.connect.storage.Converter;
 
 /**
  * A sink-only {@code value.converter} for Confluent Schema Registry Avro that produces the record
- * value in the JSON shape the Kafka connector 3.x {@code SnowflakeAvroConverter} wrote to {@code
+ * value in the JSON shape the Kafka Connector v3 {@code SnowflakeAvroConverter} wrote to {@code
  * RECORD_CONTENT} in Snowpipe mode. Records are returned without a Connect schema, so they are
  * stored as a single {@code RECORD_CONTENT} document and require {@code
  * snowflake.enable.schematization=false}.

@@ -15,9 +15,9 @@ import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 
 /**
- * Reference implementation of the KC 3.x {@code SnowflakeAvroConverter} decoding: Confluent wire
+ * Reference implementation of the KC v3 {@code SnowflakeAvroConverter} decoding: Confluent wire
  * format, writer schema from the registry, optional reader schema, {@code GenericRecord.toString()}
- * parsed as JSON. Returns the {@code RECORD_CONTENT} document KC 3.x wrote in Snowpipe mode.
+ * parsed as JSON. Returns the {@code RECORD_CONTENT} document KC v3 wrote in Snowpipe mode.
  */
 final class V3SnowpipeAvroReferenceDecoder {
   private final SchemaRegistryClient registry;
