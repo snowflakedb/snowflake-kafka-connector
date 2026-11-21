@@ -28,7 +28,6 @@ import org.apache.kafka.common.config.types.Password;
  */
 @AutoValue
 public abstract class SinkTaskConfig {
-
   public abstract String getConnectorName();
 
   public abstract String getTaskId();
@@ -334,18 +333,20 @@ public abstract class SinkTaskConfig {
         config.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP);
 
     long maxTaskInflightRows =
-        parseNonNegativeLong(
-            config,
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS,
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS_DEFAULT);
+        Long.parseLong(
+            config.getOrDefault(
+                KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS,
+                String.valueOf(
+                    KafkaConnectorConfigParams
+                        .SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS_DEFAULT)));
     long maxTaskInflightBytes =
-        megabytesToBytes(
-            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES,
-            parseNonNegativeLong(
-                config,
-                KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES,
-                KafkaConnectorConfigParams
-                    .SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES_DEFAULT));
+        Long.parseLong(
+                config.getOrDefault(
+                    KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES,
+                    String.valueOf(
+                        KafkaConnectorConfigParams
+                            .SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES_DEFAULT)))
+            * (1024L * 1024L);
 
     CachingConfig cachingConfig = CachingConfig.fromConfig(config);
     SnowflakeMetadataConfig metadataConfig = new SnowflakeMetadataConfig(config);
@@ -556,34 +557,6 @@ public abstract class SinkTaskConfig {
     prometheusMetricsPort.ifPresent(b::prometheusMetricsPort);
     prometheusMetricsHost.ifPresent(b::prometheusMetricsHost);
     return b;
-  }
-
-  private static long parseNonNegativeLong(
-      Map<String, String> config, String key, long defaultValue) {
-    String raw = config.get(key);
-    if (raw == null || raw.isBlank()) {
-      return defaultValue;
-    }
-    final long parsed;
-    try {
-      parsed = Long.parseLong(raw.trim());
-    } catch (NumberFormatException e) {
-      throw new IllegalArgumentException(key + " must be a long; got '" + raw + "'", e);
-    }
-    if (parsed < 0L) {
-      throw new IllegalArgumentException(
-          key + " must be 0 (disabled) or a positive number; got " + parsed);
-    }
-    return parsed;
-  }
-
-  private static long megabytesToBytes(String key, long megabytes) {
-    try {
-      return Math.multiplyExact(megabytes, 1024L * 1024L);
-    } catch (ArithmeticException e) {
-      throw new IllegalArgumentException(
-          key + " is too large to express in bytes; got " + megabytes, e);
-    }
   }
 
   private static Optional<String> optionalString(String value) {

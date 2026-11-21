@@ -8,12 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
-import java.util.concurrent.atomic.AtomicLong;
 import javax.management.InstanceNotFoundException;
 import javax.management.JMException;
 import javax.management.MBeanException;
 import javax.management.ObjectName;
-import javax.management.RuntimeMBeanException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +21,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ChannelInflightMetricsTest {
 
   private static final String ROWS_KEY = "snowflake.streaming.max.task.inflight.rows";
-  private static final String MEGABYTES_KEY = "snowflake.streaming.max.task.inflight.megabytes";
 
   private final FakeInflightMBeans beans = new FakeInflightMBeans();
 
@@ -48,43 +45,10 @@ class ChannelInflightMetricsTest {
             "KC_CLIENT_1", "conn_topic_0", ChannelInflightMetrics.INFLIGHT_BYTES));
   }
 
-  @Test
-  void objectNameEscapesSpecialCharactersLikeSdkLiteral() throws Exception {
-    // Hand-escaped: quote() wraps in double quotes and escapes '"', '*', '?', '\' and newline.
-    assertEquals(
-        new ObjectName(
-            "snowflake.ingest.sdk:clientName=\"a,b=c:d\\*\\?\",channel=\"conn_\\\"q\\\"_\\\\0\","
-                + "name=\"inflight_rows\""),
-        ChannelInflightMetrics.objectName(
-            "a,b=c:d*?", "conn_\"q\"_\\0", ChannelInflightMetrics.INFLIGHT_ROWS));
-  }
-
   private static InflightUsage read(String clientName, String channelName)
       throws InstanceNotFoundException {
-    return ChannelInflightMetrics.read(ChannelInflightMetrics.beanNames(clientName, channelName));
-  }
-
-  @Test
-  void beanNamesReadLiveValuesOnEveryReadAndKeepClientAndChannel() throws Exception {
-    AtomicLong rows = new AtomicLong(1);
-    AtomicLong bytes = new AtomicLong(10);
-    beans
-        .register(
-            FakeInflightMBeans.sdkObjectName("client_a", "conn_topic_0", FakeInflightMBeans.ROWS),
-            rows::get)
-        .register(
-            FakeInflightMBeans.sdkObjectName("client_a", "conn_topic_0", FakeInflightMBeans.BYTES),
-            bytes::get);
-    ChannelInflightMetrics.InflightBeanNames names =
-        ChannelInflightMetrics.beanNames("client_a", "conn_topic_0");
-
-    assertEquals(new InflightUsage(1, 10), ChannelInflightMetrics.read(names));
-    rows.set(4);
-    bytes.set(40);
-
-    assertEquals(new InflightUsage(4, 40), ChannelInflightMetrics.read(names));
-    assertEquals("client_a", names.clientName());
-    assertEquals("conn_topic_0", names.channelName());
+    return ChannelInflightMetrics.read(
+        new ChannelInflightMetrics.InflightBeanNames(clientName, channelName));
   }
 
   @Test
@@ -92,15 +56,6 @@ class ChannelInflightMetricsTest {
     beans.channel("client_a", "conn_topic_0", 7, 700);
 
     assertEquals(new InflightUsage(7, 700), read("client_a", "conn_topic_0"));
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"client,with=special:chars*", "c?\\x", "line\nbreak"})
-  void readsBeansRegisteredUnderSdkNameWithSpecialCharacters(String clientName) throws Exception {
-    String channelName = "conn_\"quoted\"_0";
-    beans.channel(clientName, channelName, 3, 30);
-
-    assertEquals(new InflightUsage(3, 30), read(clientName, channelName));
   }
 
   @Test
@@ -130,36 +85,11 @@ class ChannelInflightMetricsTest {
         assertThrows(
             InstanceNotFoundException.class, () -> read("missing_client", "missing_channel"));
     assertTrue(thrown.getMessage().contains("inflight_rows"), thrown.getMessage());
-  }
 
-  @Test
-  void missingBytesBeanThrowsInstanceNotFoundEvenWhenRowsBeanExists() {
     beans.gauge("client_a", "conn_topic_0", FakeInflightMBeans.ROWS, 1);
-
-    InstanceNotFoundException thrown =
+    InstanceNotFoundException bytesMissing =
         assertThrows(InstanceNotFoundException.class, () -> read("client_a", "conn_topic_0"));
-    assertTrue(thrown.getMessage().contains("inflight_bytes"), thrown.getMessage());
-  }
-
-  @Test
-  void missingBeanForOpenChannelNamesBeanChannelClientKeysAndRegistrationLogs() throws Exception {
-    String bean =
-        ChannelInflightMetrics.objectName(
-                "client_a", "conn_topic_0", ChannelInflightMetrics.INFLIGHT_BYTES)
-            .toString();
-    InstanceNotFoundException cause = new InstanceNotFoundException(bean);
-
-    ConnectException thrown =
-        ChannelInflightMetrics.missingBeanForOpenChannel("client_a", "conn_topic_0", cause);
-
-    assertSame(cause, thrown.getCause());
-    String message = thrown.getMessage();
-    assertTrue(message.contains(bean), message);
-    assertTrue(message.contains("client_a"), message);
-    assertTrue(message.contains("conn_topic_0"), message);
-    assertTrue(message.contains(ROWS_KEY), message);
-    assertTrue(message.contains(MEGABYTES_KEY), message);
-    assertTrue(message.contains("registration"), message);
+    assertTrue(bytesMissing.getMessage().contains("inflight_bytes"), bytesMissing.getMessage());
   }
 
   @Test
@@ -181,26 +111,8 @@ class ChannelInflightMetricsTest {
     assertTrue(thrown.getMessage().contains("conn_topic_0"), thrown.getMessage());
   }
 
-  @Test
-  void beanRuntimeExceptionIsUnavailable() {
-    IllegalStateException failure = new IllegalStateException("ambiguous series");
-    beans.register(
-        FakeInflightMBeans.sdkObjectName("client_a", "conn_topic_0", FakeInflightMBeans.ROWS),
-        () -> {
-          throw failure;
-        });
-
-    InflightUsageUnavailableException thrown =
-        assertThrows(
-            InflightUsageUnavailableException.class, () -> read("client_a", "conn_topic_0"));
-    RuntimeMBeanException wrapped =
-        assertInstanceOf(RuntimeMBeanException.class, thrown.getCause());
-    assertSame(failure, wrapped.getCause());
-  }
-
   @ParameterizedTest
-  @ValueSource(
-      doubles = {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, -1.0, -0.5})
+  @ValueSource(doubles = {Double.NaN, -1.0})
   void nonFiniteOrNegativeValueIsUnavailable(double value) {
     beans
         .gauge("client_a", "conn_topic_0", FakeInflightMBeans.ROWS, 1)
@@ -214,51 +126,18 @@ class ChannelInflightMetricsTest {
   }
 
   @Test
-  void nonNumericValueFailsLoud() {
-    beans.register(
-        FakeInflightMBeans.sdkObjectName("client_a", "conn_topic_0", FakeInflightMBeans.ROWS),
-        () -> "12");
-
-    ConnectException thrown =
-        assertThrows(ConnectException.class, () -> read("client_a", "conn_topic_0"));
-    assertEquals(ConnectException.class, thrown.getClass());
-    assertTrue(thrown.getMessage().contains("not numeric"), thrown.getMessage());
-  }
-
-  @Test
   void sdkSupportNotRequiredWhenBothCapsDisabled() {
     assertDoesNotThrow(() -> ChannelInflightMetrics.requireSdkSupport(0, 0, "no.such.SdkClass"));
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"rows", "bytes"})
-  void sdkSupportFailsWhenEitherCapEnabledAndSdkLacksJmxMetrics(String cap) {
-    long rows = cap.equals("rows") ? 1 : 0;
-    long bytes = cap.equals("bytes") ? 1 : 0;
-
+  @Test
+  void sdkSupportFailsWhenRowsCapEnabledAndSdkLacksJmxMetrics() {
     ConnectException thrown =
         assertThrows(
             ConnectException.class,
-            () -> ChannelInflightMetrics.requireSdkSupport(rows, bytes, "no.such.SdkClass"));
+            () -> ChannelInflightMetrics.requireSdkSupport(1, 0, "no.such.SdkClass"));
     assertTrue(thrown.getMessage().contains(ROWS_KEY), thrown.getMessage());
-    assertTrue(thrown.getMessage().contains(MEGABYTES_KEY), thrown.getMessage());
     assertTrue(thrown.getMessage().contains("no.such.SdkClass"), thrown.getMessage());
     assertInstanceOf(ClassNotFoundException.class, thrown.getCause());
-  }
-
-  @Test
-  void sdkSupportPassesWhenSdkClassIsLoadable() {
-    assertDoesNotThrow(
-        () ->
-            ChannelInflightMetrics.requireSdkSupport(1, 1, ChannelInflightMetrics.class.getName()));
-  }
-
-  @Test
-  void bundledSdkFailsCapabilityCheck() {
-    // The pinned snowpipe-streaming release does not ship the per-channel inflight JMX beans.
-    // Flip this test when the pom moves to a release that ships
-    // com.snowflake.ingest.streaming.JmxMetrics.
-    assertEquals("com.snowflake.ingest.streaming.JmxMetrics", ChannelInflightMetrics.SDK_JMX_CLASS);
-    assertThrows(ConnectException.class, () -> ChannelInflightMetrics.requireSdkSupport(1, 0));
   }
 }

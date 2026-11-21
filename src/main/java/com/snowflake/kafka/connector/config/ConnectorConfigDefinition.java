@@ -435,21 +435,11 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS_DEFAULT,
             atLeast(0L),
             LOW,
-            "Task-level cap on rows accepted by this task's Snowpipe Streaming channels and not yet"
-                + " acknowledged by Snowflake, summed across every channel the task owns (which may"
-                + " span multiple SDK clients). 0 disables the cap. Checked once at the start of"
-                + " every put, before any record of that batch is appended. The SDK values include"
-                + " this task's own appends immediately and reflect Snowflake acknowledgements"
-                + " within about 100 ms. When the sum is at or above the cap, or a read fails for"
-                + " an open channel, the task waits, re-checking every 100 ms for up to 1 second,"
-                + " then inserts the whole batch once under the cap, or appends nothing from it"
-                + " and rewinds it. Reads failing for more than 5 minutes, with no minute-long"
-                + " pause between failures, fail the task. The"
-                + " task can exceed the cap by at most one put batch, which is at most the consumer"
-                + " max.poll.records rows. The cap applies per task, so a worker running N tasks of"
-                + " this connector can hold up to N times the cap. Requires a snowpipe-streaming"
-                + " version that publishes per-channel inflight JMX beans, otherwise the task fails"
-                + " to start.",
+            "Limit on rows this task has sent to Snowpipe Streaming that Snowflake has not yet"
+                + " acknowledged, summed over the task's channels. 0 disables the limit. The task"
+                + " checks it before each batch. Requires a snowpipe-streaming SDK that publishes"
+                + " inflight JMX beans. See the megabytes setting for the wait and rewind"
+                + " behavior.",
             CONNECTOR_CONFIG_DOC,
             7,
             Width.NONE,
@@ -458,24 +448,16 @@ public class ConnectorConfigDefinition {
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES,
             LONG,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES_DEFAULT,
-            atLeast(0L),
+            between(0L, Long.MAX_VALUE >> 20),
             LOW,
-            "Task-level cap, in MiB, on bytes accepted by this task's Snowpipe Streaming channels"
-                + " and not yet acknowledged by Snowflake, summed across every channel the task"
-                + " owns (which may span multiple SDK clients). 0 disables the cap. Checked once at"
-                + " the start of every put, before any record of that batch is appended. The SDK"
-                + " values include this task's own appends immediately and reflect Snowflake"
-                + " acknowledgements within about 100 ms. When the sum is at or above the cap, or a"
-                + " read fails for an open channel, the task waits, re-checking every 100 ms for up"
-                + " to 1 second, then inserts the whole batch once under the cap, or appends"
-                + " nothing from it and rewinds it. Reads failing for more than 5 minutes, with no"
-                + " minute-long pause between failures, fail the task. The task can exceed the cap"
-                + " by at most the SDK-accounted"
-                + " bytes of one put batch of at most max.poll.records records (consumer fetch"
-                + " sizes bound compressed Kafka bytes, not SDK-accounted bytes). The cap applies"
-                + " per task, so a worker running N tasks of this connector can hold up to N times"
-                + " the cap. Requires a snowpipe-streaming version that publishes per-channel"
-                + " inflight JMX beans, otherwise the task fails to start.",
+            "Limit, in MiB, on bytes this task has sent to Snowpipe Streaming that Snowflake has"
+                + " not yet acknowledged, summed over the task's channels. 0 disables the limit."
+                + " When the total is at or over either limit, the task waits up to 1 second"
+                + " re-checking every 100 ms. If it is still over, the task rewinds the batch so"
+                + " Kafka redelivers it. The task can exceed a limit by at most one batch of at"
+                + " most max.poll.records records. Limits are per task. Requires a"
+                + " snowpipe-streaming SDK that publishes inflight JMX beans, otherwise the task"
+                + " fails to start.",
             CONNECTOR_CONFIG_DOC,
             8,
             Width.NONE,

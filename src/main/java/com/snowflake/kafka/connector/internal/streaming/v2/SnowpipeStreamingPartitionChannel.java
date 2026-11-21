@@ -94,7 +94,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private volatile SnowflakeStreamingIngestClient streamingClient;
 
   /** The inflight bean names resolved for the SDK channel and client last read. */
-  private volatile ResolvedInflightBeans inflightBeans;
+  private volatile CachedInflightBeanNames inflightBeanNames;
 
   private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
@@ -966,6 +966,17 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * @throws InflightUsageUnavailableException if a read fails while the channel and its client are
    *     open
    */
+  private static final class CachedInflightBeanNames {
+    final SnowflakeStreamingIngestClient client;
+    final ChannelInflightMetrics.InflightBeanNames names;
+
+    CachedInflightBeanNames(
+        SnowflakeStreamingIngestClient client, ChannelInflightMetrics.InflightBeanNames names) {
+      this.client = client;
+      this.names = names;
+    }
+  }
+
   @Override
   public InflightUsage getInflightUsage() {
     CompletableFuture<SnowflakeStreamingIngestChannel> future = this.channel;
@@ -973,34 +984,30 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
       return InflightUsage.NONE;
     }
     SnowflakeStreamingIngestChannel sdkChannel = future.join();
-    // streamingClient is replaced before a channel is reopened on a recreated client, so once the
-    // channel future is complete it is the client that owns the channel.
     SnowflakeStreamingIngestClient client = this.streamingClient;
-    ResolvedInflightBeans resolved = this.inflightBeans;
-    if (resolved == null || resolved.sdkChannel != sdkChannel || resolved.client != client) {
-      final String clientName;
-      try {
-        clientName = client.getClientName();
-      } catch (SFException e) {
-        if (sdkChannel.isClosed() || client.isClosed()) {
-          return InflightUsage.NONE;
-        }
-        throw new InflightUsageUnavailableException(
-            "Failed to read the client name of open channel " + channelName, e);
+    CachedInflightBeanNames cached = this.inflightBeanNames;
+    ChannelInflightMetrics.InflightBeanNames names;
+    try {
+      if (cached == null || cached.client != client) {
+        names = new ChannelInflightMetrics.InflightBeanNames(client.getClientName(), channelName);
+        this.inflightBeanNames = new CachedInflightBeanNames(client, names);
+      } else {
+        names = cached.names;
       }
-      resolved =
-          new ResolvedInflightBeans(
-              sdkChannel, client, ChannelInflightMetrics.beanNames(clientName, channelName));
-      this.inflightBeans = resolved;
+    } catch (SFException e) {
+      if (sdkChannel.isClosed() || client.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw new InflightUsageUnavailableException(
+          "Failed to read the client name of open channel " + channelName, e);
     }
     try {
-      return ChannelInflightMetrics.read(resolved.names);
+      return ChannelInflightMetrics.read(names);
     } catch (InstanceNotFoundException e) {
       if (sdkChannel.isClosed() || client.isClosed()) {
         return InflightUsage.NONE;
       }
-      throw ChannelInflightMetrics.missingBeanForOpenChannel(
-          resolved.names.clientName(), channelName, e);
+      throw ChannelInflightMetrics.missingBeanForOpenChannel(names.clientName, channelName, e);
     } catch (InflightUsageUnavailableException e) {
       if (sdkChannel.isClosed() || client.isClosed()) {
         return InflightUsage.NONE;
@@ -1010,21 +1017,6 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   /** Inflight bean names, valid for exactly the SDK channel and client they were resolved for. */
-  private static final class ResolvedInflightBeans {
-    final SnowflakeStreamingIngestChannel sdkChannel;
-    final SnowflakeStreamingIngestClient client;
-    final ChannelInflightMetrics.InflightBeanNames names;
-
-    ResolvedInflightBeans(
-        SnowflakeStreamingIngestChannel sdkChannel,
-        SnowflakeStreamingIngestClient client,
-        ChannelInflightMetrics.InflightBeanNames names) {
-      this.sdkChannel = sdkChannel;
-      this.client = client;
-      this.names = names;
-    }
-  }
-
   /**
    * Blocks until the channel initialization future completes and returns the underlying SDK
    * channel.
