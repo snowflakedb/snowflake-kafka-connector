@@ -54,11 +54,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("upload-artifact", str(setup))
         self.assertNotIn("run_spcs_release", str(document))
         self.assertNotIn("build-connector", str(document))
-        # A schedule (the nightly preflight) may only check, never apply.
-        self.assertIn(
-            "(github.event_name == 'schedule' && inputs.action == 'check')",
-            setup["if"],
-        )
+        # The nightly preflight runs on a schedule.
+        self.assertIn("github.event_name == 'schedule'", setup["if"])
 
     def test_nightly_checks_first_and_reports_only_scheduled_failures(self):
         document = workflow("spcs-nightly.yml")
@@ -72,7 +69,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(
             preflight["uses"], "./.github/workflows/spcs-infrastructure.yml"
         )
-        self.assertEqual(preflight["with"], {"action": "check"})
+        self.assertEqual(preflight["with"], {"action": "apply"})
         for restriction in (
             "refs/heads/master",
             "snowflakedb/snowflake-kafka-connector",
@@ -86,7 +83,6 @@ class WorkflowTests(unittest.TestCase):
             {"JIRA_BASE_URL", "JIRA_USER_EMAIL", "JIRA_API_TOKEN"},
         )
         self.assertNotIn("SNOWFLAKE_TEST_PROFILE_SECRET", str(report))
-        self.assertNotIn("apply", str(document))
 
     def test_smoke_runs_only_from_master_of_this_repository(self):
         smoke = workflow("spcs-smoke.yml")

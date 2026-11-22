@@ -21,7 +21,7 @@ and [#1628](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1628):
 the CI job uses the existing CI login and builds its own image.
 6. [#1632](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1632):
 setup adds the pool's network rule to the user and account network policies.
-7. This change: nightly run with a read-only preflight and Jira failure routing.
+7. This change: nightly run with a self-repairing setup step and Jira failure routing.
 
 Continuous monitoring is separate: [SNOW-4202413](https://snowflakecomputing.atlassian.net/browse/SNOW-4202413),
 [snowprober #7096](https://github.com/snowflake-eng/snowprober/pull/7096), and
@@ -61,8 +61,8 @@ Berni Schiefer on 2026-11-14. If the CI user cannot use `ACCOUNTADMIN`, `apply`
 creates nothing and prints the two lines for an `SFCTEST0` `ACCOUNTADMIN` to run
 by hand. `check` only reads: it lists the objects and, once all exist, confirms
 that each applied network policy contains the network rule, and prints
-`MISSING: ...` with exit code 3 for any that does not. The nightly run uses it
-as its preflight. The script never drops or removes
+`MISSING: ...` with exit code 3 for any that does not. The nightly run starts
+with `apply`, so drift repairs itself. The script never drops or removes
 anything, and rerunning it is safe.
 
 The workflow has no approval step or on switch. It runs only from `master` of
@@ -142,9 +142,12 @@ workflows call it, and both run only from `master` of this repository:
 
 - **Nightly**: [`spcs-nightly.yml`](../../.github/workflows/spcs-nightly.yml)
   at 06:00 UTC, separate from the 20:00 UTC end-to-end nightly. It first runs
-  setup with `check` (read-only; a schedule can never `apply`), so a network
-  policy that lost the pool rule fails fast with a clear message instead of
-  HTTP 401 inside the job. The fix is a manual `apply`.
+  setup with `apply`, which repairs drift before the job starts. SFCTEST0's
+  account network policy has been swapped without notice (Nov 2026), which
+  otherwise causes HTTP 401 inside the job. Each repair adds only the pool rule
+  and shows as a `self-repair` warning annotation on the run. The preflight
+  fails, and reports, only if it cannot repair, for example if the CI user
+  loses `ACCOUNTADMIN`.
 - **Manual**: Kafka Connector end-to-end tests with `run_spcs=true`.
 
 A failed scheduled run calls [`report_failure.py`](report_failure.py). It

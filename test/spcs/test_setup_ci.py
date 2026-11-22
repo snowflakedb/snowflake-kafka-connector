@@ -151,6 +151,18 @@ class SetupTest(unittest.TestCase):
         for verb in ("DROP", "REPLACE", "REVOKE", "REMOVE", "SET "):
             self.assertFalse(any(verb in s for s in cursor.statements), verb)
 
+    def test_apply_repair_is_announced_as_a_workflow_warning(self):
+        cursor = FakeCursor(SHOW_TO_NAME.values())
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(setup_ci.setup(cursor, apply=True), 0)
+        for policy in POLICIES:
+            self.assertIn(
+                "::warning::self-repair: added "
+                f"TESTDB_KAFKA.KC_SPCS_CI.KC_SPCS_CI_POOL_INGRESS to {policy}\n",
+                output.getvalue(),
+            )
+
     def test_policy_untouched_until_rule_exists(self):
         cursor = FakeCursor(admin=True)
         run(cursor, apply=False)

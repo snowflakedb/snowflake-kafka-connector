@@ -2,7 +2,7 @@
 
 `check` (default) only reads. It lists the objects and, when all exist, reads
 the user and account network policies as ACCOUNTADMIN to confirm each contains
-the pool's network rule. The nightly smoke test runs it first. `apply` first
+the pool's network rule. `apply`, which the nightly smoke test runs first,
 grants TESTROLE_KAFKA the two privileges it needs, as ACCOUNTADMIN, then
 creates missing objects with IF NOT EXISTS as TESTROLE_KAFKA. Finally, as
 ACCOUNTADMIN, it adds the pool's network rule to the user and account network
@@ -138,7 +138,8 @@ def allow_pool(cursor, apply):
                 f"ALTER NETWORK POLICY {policy} "
                 f"ADD ALLOWED_NETWORK_RULE_LIST=('{POOL_RULE}')"
             )
-            print(f"added {POOL_RULE} to {policy}", flush=True)
+            # A workflow annotation, so a nightly repair is seen, not silent.
+            print(f"::warning::self-repair: added {POOL_RULE} to {policy}", flush=True)
     finally:
         cursor.execute(f"USE ROLE {ROLE}")
     return missing

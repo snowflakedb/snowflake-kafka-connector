@@ -435,7 +435,7 @@ jobs:
     - run: python3 test/spcs/observer_contract.py
 
   # SNOW-4202412: manual run from master. spcs-nightly.yml runs the same
-  # workflow every night, after a read-only preflight.
+  # workflow every night, after a self-repairing setup step.
   spcs-release:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector' && inputs.run_spcs && !inputs.run_v4_trial && !inputs.inspect_spcs
     permissions:

@@ -12,13 +12,15 @@ permissions:
   contents: read
 
 jobs:
-  # Read-only: fails with a clear message if the account network policy lost
-  # the pool rule, instead of letting the smoke test hit HTTP 401.
+  # Self-repair: apply only adds what is missing (objects, grants, the pool
+  # rule in the user and account network policies) and never removes anything.
+  # SFCTEST0's account policy changes without notice; a repair is logged as a
+  # warning annotation so it stays visible.
   preflight:
     if: github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
     uses: ./.github/workflows/spcs-infrastructure.yml
     with:
-      action: check
+      action: apply
     secrets: inherit
 
   smoke:

@@ -49,9 +49,9 @@ def message(environ):
         f"Nightly KC SPCS smoke test failed: {environ['RUN_URL']}\n"
         f"Commit: {environ['GITHUB_SHA']}\n"
         f"Failed stage: {environ['FAILED_STAGE']}\n\n"
-        "A failed preflight usually means the SFCTEST0 network policy changed: "
-        "run 'Set up permanent KC SPCS infrastructure' with apply. Otherwise "
-        "download the spcs-smoke-result artifact and follow 'Result and "
+        "A failed preflight means setup apply could not repair the SFCTEST0 "
+        "objects, grants or network policies (for example, the CI user lost "
+        "ACCOUNTADMIN); its log names the step. Otherwise download the spcs-smoke-result artifact and follow 'Result and "
         "recovery' in test/spcs/README.md."
     )
 
