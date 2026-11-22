@@ -1,15 +1,23 @@
 """TEST ONLY: offline tests for report_failure.py using a fake Jira (no network)."""
 
 from contextlib import redirect_stdout
+import base64
 import io
+import json
 from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
+import urllib.error
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import report_failure  # noqa: E402
 
+SECRETS = {
+    "JIRA_BASE_URL": "https://jira.example/",
+    "JIRA_USER_EMAIL": "ci@example.com",
+    "JIRA_API_TOKEN": "synthetic-token",
+}
 ENVIRON = {
     "RUN_URL": "https://github.com/o/r/actions/runs/1",
     "GITHUB_SHA": "abc123",
@@ -108,6 +116,72 @@ class ReportTest(unittest.TestCase):
             self.assertEqual(report_failure.main(["--check"]), 0)
             check.assert_called_once()
             report.assert_not_called()
+
+    def test_check_requires_permission_to_set_the_assignee(self):
+        problems = self.check(FakeJira(denied={"ASSIGN_ISSUES"}))
+        self.assertEqual(problems, ["missing SNOW permission ASSIGN_ISSUES"])
+
+    def test_without_flag_main_reports_and_never_only_checks(self):
+        with (
+            patch.dict(report_failure.os.environ, {**SECRETS, **ENVIRON}),
+            patch.object(report_failure, "check") as check,
+            patch.object(
+                report_failure, "report", return_value="created SNOW-1"
+            ) as report,
+            redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(report_failure.main([]), 0)
+            report.assert_called_once()
+            check.assert_not_called()
+
+    def test_request_uses_base_url_basic_auth_and_parses_json(self):
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        with (
+            patch.dict(report_failure.os.environ, SECRETS),
+            patch.object(
+                report_failure.urllib.request,
+                "urlopen",
+                return_value=Response(b'{"key": "SNOW-9"}'),
+            ) as urlopen,
+        ):
+            result = report_failure.request("POST", "/rest/api/2/issue", {"a": 1})
+        self.assertEqual(result, {"key": "SNOW-9"})
+        call = urlopen.call_args.args[0]
+        self.assertEqual(call.full_url, "https://jira.example/rest/api/2/issue")
+        self.assertEqual(call.get_method(), "POST")
+        self.assertEqual(json.loads(call.data), {"a": 1})
+        expected = base64.b64encode(b"ci@example.com:synthetic-token").decode()
+        self.assertEqual(call.get_header("Authorization"), f"Basic {expected}")
+
+    def test_http_error_prints_only_the_status(self):
+        error = urllib.error.HTTPError(
+            "https://jira.example", 401, "synthetic-token in body", {}, None
+        )
+        output = io.StringIO()
+        with (
+            patch.dict(report_failure.os.environ, {**SECRETS, **ENVIRON}),
+            patch.object(report_failure, "report", side_effect=error),
+            redirect_stdout(output),
+        ):
+            self.assertEqual(report_failure.main([]), 1)
+        self.assertIn("Jira request failed: 401", output.getvalue())
+        self.assertNotIn("synthetic-token", output.getvalue())
+
+    def test_unreadable_response_fails_cleanly(self):
+        for error in (ValueError("not json"), KeyError("issues")):
+            with (
+                self.subTest(error=type(error).__name__),
+                patch.dict(report_failure.os.environ, {**SECRETS, **ENVIRON}),
+                patch.object(report_failure, "report", side_effect=error),
+                redirect_stdout(io.StringIO()),
+            ):
+                self.assertEqual(report_failure.main([]), 1)
 
     def test_missing_token_fails_without_calling_jira(self):
         with (

@@ -29,7 +29,8 @@ FIELDS = {
     "labels": [LABEL],
 }
 SUMMARY = "Kafka connector nightly SPCS smoke test is failing"
-PERMISSIONS = ("BROWSE_PROJECTS", "CREATE_ISSUES", "ADD_COMMENTS")
+# ASSIGN_ISSUES: creating with an assignee needs it, or Jira rejects the issue.
+PERMISSIONS = ("BROWSE_PROJECTS", "CREATE_ISSUES", "ASSIGN_ISSUES", "ADD_COMMENTS")
 
 
 def request(method, path, body=None):
@@ -54,9 +55,13 @@ def message(environ):
         f"Nightly KC SPCS smoke test failed: {environ['RUN_URL']}\n"
         f"Commit: {environ['GITHUB_SHA']}\n"
         f"Failed stage: {environ['FAILED_STAGE']}\n\n"
-        "A failed preflight means setup apply could not repair the SFCTEST0 "
-        "objects, grants or network policies (for example, the CI user lost "
-        "ACCOUNTADMIN); its log names the step. Otherwise download the spcs-smoke-result artifact and follow 'Result and "
+        "preflight (failure): its contracts job or setup apply failed; apply "
+        "repairs SFCTEST0 objects, grants and network policies, so this "
+        "usually means it could not (for example, the CI user lost "
+        "ACCOUNTADMIN). The log names the step.\n"
+        "(cancelled): another SPCS run took the shared concurrency slot; "
+        "rerun the nightly.\n"
+        "smoke (failure): download the spcs-smoke-result artifact and follow 'Result and "
         "recovery' in test/spcs/README.md."
     )
 
@@ -126,8 +131,9 @@ def main(argv=None):
             print("Jira reporting is ready.", flush=True)
         else:
             print(report(os.environ), flush=True)
-    except OSError as error:
-        # HTTPError bodies can echo request data; print only the status.
+    except (OSError, ValueError, KeyError) as error:
+        # HTTPError bodies can echo request data; print only the status, or
+        # the error type for unreadable or unexpected responses.
         print(
             f"::error::Jira request failed: {getattr(error, 'code', type(error).__name__)}"
         )

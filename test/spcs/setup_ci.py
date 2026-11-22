@@ -120,7 +120,6 @@ def allow_pool(cursor, apply):
         print(f"account network policy: {account_policies or 'none'}", flush=True)
         for policy in dict.fromkeys(user_policies + account_policies):
             rules = rows(cursor, f"DESCRIBE NETWORK POLICY {policy}")
-            print(f"policy {policy}: {rules}", flush=True)
             if any(POOL_RULE.rsplit(".", 1)[-1] in str(r.get("value")) for r in rules):
                 print(f"{POOL_RULE} already in {policy}", flush=True)
                 continue

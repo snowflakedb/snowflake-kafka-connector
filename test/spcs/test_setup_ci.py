@@ -181,8 +181,14 @@ class SetupTest(unittest.TestCase):
 
     def test_check_passes_when_policies_have_the_rule(self):
         allowed = '[{"fullyQualifiedRuleName":"TESTDB_KAFKA.KC_SPCS_CI.KC_SPCS_CI_POOL_INGRESS"}]'
-        cursor = FakeCursor(SHOW_TO_NAME.values(), allowed=allowed)
-        self.assertEqual(run(cursor, apply=False), 0)
+        for apply in (False, True):
+            cursor = FakeCursor(SHOW_TO_NAME.values(), allowed=allowed)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(setup_ci.setup(cursor, apply=apply), 0)
+            # Action logs are public: never print the policies' contents.
+            self.assertNotIn("ALLOWED_NETWORK_RULE_LIST", output.getvalue())
+            self.assertNotIn("fullyQualifiedRuleName", output.getvalue())
 
     def test_rejects_wrong_account(self):
         with self.assertRaises(RuntimeError):

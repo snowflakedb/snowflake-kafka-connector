@@ -90,7 +90,10 @@ class WorkflowTests(unittest.TestCase):
             self.assertIn(restriction, preflight["if"])
         self.assertEqual(smoke["needs"], "preflight")
         self.assertEqual(smoke["uses"], "./.github/workflows/spcs-smoke.yml")
-        self.assertEqual(report["if"], "failure() && github.event_name == 'schedule'")
+        self.assertEqual(
+            report["if"],
+            "(failure() || cancelled()) && github.event_name == 'schedule'",
+        )
         self.assertEqual(
             set(re.findall(r"secrets\.(\w+)", str(report))),
             {"JIRA_BASE_URL", "JIRA_USER_EMAIL", "JIRA_API_TOKEN"},

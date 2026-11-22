@@ -146,8 +146,8 @@ workflows call it, and both run only from `master` of this repository:
   account network policy has been swapped without notice (Nov 2026), which
   otherwise causes HTTP 401 inside the job. Each repair adds only the pool rule
   and shows as a `self-repair` warning annotation on the run. The preflight
-  fails, and reports, only if it cannot repair, for example if the CI user
-  loses `ACCOUNTADMIN`.
+  fails, and reports, if it cannot repair (for example, the CI user loses
+  `ACCOUNTADMIN`) or if its contracts job fails.
 - **Manual**: Kafka Connector end-to-end tests with `run_spcs=true`.
 
 A failed scheduled run calls [`report_failure.py`](report_failure.py). It
@@ -196,7 +196,7 @@ continuous monitoring, and exact-release-artifact enforcement are not covered.
 | Situation | What happens |
 |---|---|
 | A permanent object, grant, or the pool rule in a network policy is missing | The nightly's `apply` step adds it and logs a `self-repair` warning on the run. No ticket. |
-| The test fails, or `apply` cannot repair (for example, the CI user lost `ACCOUNTADMIN`) | The run is red and one SNOW ticket labelled `kc-spcs-nightly-failure` gets a comment, or is created if none is open, assigned to `triage-data_pipelines-snowpipe-streaming-v2-dl`. |
+| The test fails, `apply` cannot repair (for example, the CI user lost `ACCOUNTADMIN`), the setup contracts fail, or the run is cancelled because another SPCS run took the shared concurrency slot | The run is red (grey if cancelled) and one SNOW ticket labelled `kc-spcs-nightly-failure` gets a comment, or is created if none is open, assigned to `triage-data_pipelines-snowpipe-streaming-v2-dl`. |
 | The Jira token expired or is wrong | The test result is unaffected, but on a failing night the `report-failure` job also goes red with `Jira request failed: 401`. Renew the token (below). |
 | Triage closes the ticket | The next failure opens a new one. |
 
@@ -206,8 +206,8 @@ Tickets and comments are filed as the Jira account in the `JIRA_USER_EMAIL`
 secret, using that account's API token. It was first set up with Berni
 Schiefer's account as a stopgap; the intended long-term owner is a member of
 the Kafka connector team or a service account. The account needs to browse,
-create, and comment on SNOW issues, and to assign them to the triage DL; the
-check below confirms all of this. Changing the account needs no code change.
+create, assign, and comment on SNOW issues, and the triage DL must be
+assignable in SNOW; the check below confirms all of this. Changing the account needs no code change.
 
 ### Set up, take over, or renew
 
