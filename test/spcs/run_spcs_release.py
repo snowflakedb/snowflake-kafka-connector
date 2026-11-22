@@ -97,8 +97,16 @@ def preflight(args):
         raise RuntimeError("Wrong service-owner role")
     pools = sql(args, "SHOW COMPUTE POOLS")
     pool = next((pool for pool in pools if pool["name"] == args.pool), None)
-    if pool is None or pool["num_services"] or pool["num_jobs"]:
+    if pool is None:
         raise RuntimeError("Select an existing unused compute pool")
+    if pool["num_services"] or pool["num_jobs"]:
+        # Nothing else uses the CI pool, so this means a run overlapped or a
+        # killed run left a job behind. The job name is in that run's evidence.
+        raise RuntimeError(
+            f"Pool {args.pool} is not unused: {pool['num_services']} services, "
+            f"{pool['num_jobs']} jobs. Another run or a leftover job holds it; "
+            "see 'Result and recovery' in test/spcs/README.md"
+        )
     if pool["state"] != "SUSPENDED" or str(pool["auto_resume"]).lower() != "true":
         raise RuntimeError("Select an unused suspended pool with auto_resume enabled")
     sql(args, f"DESCRIBE STAGE {args.stage}")

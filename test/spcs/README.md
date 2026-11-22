@@ -1,9 +1,9 @@
 # KC v4 SPCS smoke test
 
-**Author:** Berni Schiefer (openai-gpt-6-astra, Cortex Code agent mode)
-**Date:** 2026-11-14 14:00 UTC
-**Status:** Draft; manual execution only, no release gate enabled
-**Document version:** 7.4
+**Author:** Berni Schiefer (claude-opus-5-5, Cortex Code agent mode)
+**Date:** 2026-11-22 14:00 UTC
+**Status:** Runs nightly and on demand; no release gate enabled
+**Document version:** 8.0
 
 A finite Snowpark Container Services (SPCS) job runs Kafka, Connect, and the
 KC v4 test. It sends 100 numbered records using ambient authentication. The
@@ -19,6 +19,9 @@ merged one-time setup of the permanent CI objects.
 5. [#1626](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1626)
 and [#1628](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1628):
 the CI job uses the existing CI login and builds its own image.
+6. [#1632](https://github.com/snowflakedb/snowflake-kafka-connector/pull/1632):
+setup adds the pool's network rule to the user and account network policies.
+7. This change: nightly run with a read-only preflight and Jira failure routing.
 
 Continuous monitoring is separate: [SNOW-4202413](https://snowflakecomputing.atlassian.net/browse/SNOW-4202413),
 [snowprober #7096](https://github.com/snowflake-eng/snowprober/pull/7096), and
@@ -56,7 +59,10 @@ IPv4 rules such as `0.0.0.0/0` never match. In `SFCTEST0` the account policy is
 the one applied. Adding the rule was authorized by Berni Schiefer on 2026-11-18. Using `ACCOUNTADMIN` for these two grants was authorized by
 Berni Schiefer on 2026-11-14. If the CI user cannot use `ACCOUNTADMIN`, `apply`
 creates nothing and prints the two lines for an `SFCTEST0` `ACCOUNTADMIN` to run
-by hand. `check` only lists the objects. The script never drops or removes
+by hand. `check` only reads: it lists the objects and, once all exist, confirms
+that each applied network policy contains the network rule, and prints
+`MISSING: ...` with exit code 3 for any that does not. The nightly run uses it
+as its preflight. The script never drops or removes
 anything, and rerunning it is safe.
 
 The workflow has no approval step or on switch. It runs only from `master` of
@@ -131,8 +137,26 @@ by CI. Log capture failure does not prevent cleanup.
 
 ## CI and verification
 
-The manual job runs only from `master` of this repository, when started with
-`run_spcs=true`. It runs as the existing CI profile (`TESTROLE_KAFKA` in
+[`spcs-smoke.yml`](../../.github/workflows/spcs-smoke.yml) holds the job. Two
+workflows call it, and both run only from `master` of this repository:
+
+- **Nightly**: [`spcs-nightly.yml`](../../.github/workflows/spcs-nightly.yml)
+  at 06:00 UTC, separate from the 20:00 UTC end-to-end nightly. It first runs
+  setup with `check` (read-only; a schedule can never `apply`), so a network
+  policy that lost the pool rule fails fast with a clear message instead of
+  HTTP 401 inside the job. The fix is a manual `apply`.
+- **Manual**: Kafka Connector end-to-end tests with `run_spcs=true`.
+
+A failed scheduled run calls [`report_failure.py`](report_failure.py). It
+comments on the open SNOW ticket labelled `kc-spcs-nightly-failure`, or creates
+one: a Bug assigned to `triage-data_pipelines-snowpipe-streaming-v2-dl`,
+component "Connectors - Kafka Push (Kafka Connector)", Area "Data Ingestion".
+One ticket collects repeated failures until triage closes it. Manual runs do
+not file tickets. Reporting needs the `JIRA_BASE_URL`, `JIRA_USER_EMAIL` and
+`JIRA_API_TOKEN` repository secrets; without the token the report job fails
+visibly in the run.
+
+The job It runs as the existing CI profile (`TESTROLE_KAFKA` in
 `SFCTEST0`) against the permanent objects from the one-time setup above, so it
 needs no secrets of its own and no approval step.
 [`ci_connection.py`](ci_connection.py) turns the profile into the `snow`
@@ -158,6 +182,7 @@ python3 test/spcs/observer_contract.py
 Runs in personal accounts on October 10 verified 100 rows on AWS, Azure, and GCP;
 later recovery changes were requalified on Azure only. New setup and diagnostic
 changes have offline coverage but need live requalification. The manual GitHub
-Actions job still needs a first pass on the permanent CI objects. The six-case
+Actions job passed on the permanent CI objects on 2026-11-18 and 2026-11-22
+(100 of 100 rows, cleanup complete). The six-case
 trial in #1587 does not exercise SPCS. Token-rotation soak, policy-matrix tests,
 continuous monitoring, and exact-release-artifact enforcement are not covered.

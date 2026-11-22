@@ -1,0 +1,72 @@
+name: KC SPCS smoke test
+
+# Called by the manual run_spcs job in end-to-end.yaml and by spcs-nightly.yml,
+# so both run the same steps (SNOW-4202412).
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    concurrency:
+      group: spcs-release-account
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - uses: actions/setup-java@v4
+      with:
+        distribution: zulu
+        java-version: '11'
+        cache: maven
+    - name: Build connector without a secret-bearing E2E profile
+      run: mvn package -DskipTests -Dgpg.skip=true
+    # Uses the existing CI profile: its role owns the permanent pool, stage and
+    # image repository from setup_ci.py, and nothing else uses the pool. Each run
+    # builds and pushes its own image and tests that exact digest.
+    - name: Run SPCS smoke test
+      env:
+        SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
+        SNOWFLAKE_CREDENTIAL_FILE: ${{ github.workspace }}/profile.json
+        SPCS_EGRESS: ${{ vars.SPCS_EGRESS }}
+      run: |
+        set -euo pipefail
+        umask 077
+        mkdir -p test/spcs/.scratch
+        # The key stays outside the repository, which is the image build context.
+        key=$RUNNER_TEMP/key.p8
+        trap 'rm -f profile.json "$key" ~/.snowflake/config.toml' EXIT
+        pip install --quiet snowflake-cli==3.25.0
+        ./.github/scripts/decrypt_secret.sh AWS
+        unset SNOWFLAKE_TEST_PROFILE_SECRET
+        warehouse=$(python3 test/spcs/ci_connection.py --key "$key")
+        rm -f profile.json
+        image=$(test/spcs/publish_image.sh "$GITHUB_SHA")
+        mapfile -t jars < <(find target -maxdepth 1 -name 'snowflake-kafka-connector-*.jar' ! -name '*sources*' ! -name '*javadoc*' ! -name '*original*')
+        [ "${#jars[@]}" -eq 1 ] || { echo 'Expected exactly one connector artifact'; exit 1; }
+        egress_args=()
+        if [ -n "$SPCS_EGRESS" ]; then egress_args=(--egress "$SPCS_EGRESS"); fi
+        python3 test/spcs/run_spcs_release.py --connection spcs \
+          --expected-account SFCTEST0 --pool KC_SPCS_CI_POOL \
+          --stage TESTDB_KAFKA.KC_SPCS_CI.HARNESS_STAGE --database TESTDB_KAFKA \
+          --role TESTROLE_KAFKA \
+          --warehouse "$warehouse" --image "$image" --jar "${jars[0]}" \
+          --exclusive-pool --cleanup-policy fail \
+          --evidence test/spcs/.scratch/result.json "${egress_args[@]}"
+    - name: Preserve smoke result
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: spcs-smoke-result
+        path: test/spcs/.scratch/result.json
+        include-hidden-files: true
+        retention-days: 14

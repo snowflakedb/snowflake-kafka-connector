@@ -1,0 +1,49 @@
+name: KC SPCS nightly smoke test
+
+# SNOW-4202412. Separate from the 20:00 UTC end-to-end nightly so an SPCS
+# failure is reported on its own. Failures go to the Snowpipe Streaming triage
+# DL through one Jira ticket that collects a comment per failed night.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Read-only: fails with a clear message if the account network policy lost
+  # the pool rule, instead of letting the smoke test hit HTTP 401.
+  preflight:
+    if: github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
+    uses: ./.github/workflows/spcs-infrastructure.yml
+    with:
+      action: check
+    secrets: inherit
+
+  smoke:
+    needs: preflight
+    uses: ./.github/workflows/spcs-smoke.yml
+    secrets: inherit
+
+  report-failure:
+    needs: [preflight, smoke]
+    # Manual runs report in the Actions UI only.
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Report to the Snowpipe Streaming triage DL
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        FAILED_STAGE: ${{ needs.preflight.result != 'success' && 'preflight' || 'smoke' }}
+      run: python3 test/spcs/report_failure.py
