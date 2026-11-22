@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
+    inputs:
+      check_jira:
+        description: 'Only check the Jira reporting secrets (files nothing)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -17,7 +22,7 @@ jobs:
   # SFCTEST0's account policy changes without notice; a repair is logged as a
   # warning annotation so it stays visible.
   preflight:
-    if: github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
+    if: github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector' && !inputs.check_jira
     uses: ./.github/workflows/spcs-infrastructure.yml
     with:
       action: apply
@@ -49,3 +54,22 @@ jobs:
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         FAILED_STAGE: ${{ needs.preflight.result != 'success' && 'preflight' || 'smoke' }}
       run: python3 test/spcs/report_failure.py
+
+  # Manual: confirm the Jira secrets work after setting or handing them over.
+  check-jira:
+    if: github.event_name == 'workflow_dispatch' && inputs.check_jira && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Check Jira reporting secrets
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      run: python3 test/spcs/report_failure.py --check

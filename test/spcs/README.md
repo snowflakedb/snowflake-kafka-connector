@@ -3,7 +3,7 @@
 **Author:** Berni Schiefer (claude-opus-5-5, Cortex Code agent mode)
 **Date:** 2026-11-22 14:00 UTC
 **Status:** Runs nightly and on demand; no release gate enabled
-**Document version:** 8.0
+**Document version:** 8.1
 
 A finite Snowpark Container Services (SPCS) job runs Kafka, Connect, and the
 KC v4 test. It sends 100 numbered records using ambient authentication. The
@@ -155,11 +155,10 @@ comments on the open SNOW ticket labelled `kc-spcs-nightly-failure`, or creates
 one: a Bug assigned to `triage-data_pipelines-snowpipe-streaming-v2-dl`,
 component "Connectors - Kafka Push (Kafka Connector)", Area "Data Ingestion".
 One ticket collects repeated failures until triage closes it. Manual runs do
-not file tickets. Reporting needs the `JIRA_BASE_URL`, `JIRA_USER_EMAIL` and
-`JIRA_API_TOKEN` repository secrets; without the token the report job fails
-visibly in the run.
+not file tickets. Reporting needs three repository secrets; see
+[Owning the nightly and Jira reporting](#owning-the-nightly-and-jira-reporting).
 
-The job It runs as the existing CI profile (`TESTROLE_KAFKA` in
+The job runs as the existing CI profile (`TESTROLE_KAFKA` in
 `SFCTEST0`) against the permanent objects from the one-time setup above, so it
 needs no secrets of its own and no approval step.
 [`ci_connection.py`](ci_connection.py) turns the profile into the `snow`
@@ -189,3 +188,71 @@ Actions job passed on the permanent CI objects on 2026-11-18 and 2026-11-22
 (100 of 100 rows, cleanup complete). The six-case
 trial in #1587 does not exercise SPCS. Token-rotation soak, policy-matrix tests,
 continuous monitoring, and exact-release-artifact enforcement are not covered.
+
+## Owning the nightly and Jira reporting
+
+### What runs by itself and what needs a person
+
+| Situation | What happens |
+|---|---|
+| A permanent object, grant, or the pool rule in a network policy is missing | The nightly's `apply` step adds it and logs a `self-repair` warning on the run. No ticket. |
+| The test fails, or `apply` cannot repair (for example, the CI user lost `ACCOUNTADMIN`) | The run is red and one SNOW ticket labelled `kc-spcs-nightly-failure` gets a comment, or is created if none is open, assigned to `triage-data_pipelines-snowpipe-streaming-v2-dl`. |
+| The Jira token expired or is wrong | The test result is unaffected, but on a failing night the `report-failure` job also goes red with `Jira request failed: 401`. Renew the token (below). |
+| Triage closes the ticket | The next failure opens a new one. |
+
+### The Jira account
+
+Tickets and comments are filed as the Jira account in the `JIRA_USER_EMAIL`
+secret, using that account's API token. It was first set up with Berni
+Schiefer's account as a stopgap; the intended long-term owner is a member of
+the Kafka connector team or a service account. The account needs to browse,
+create, and comment on SNOW issues, and to assign them to the triage DL; the
+check below confirms all of this. Changing the account needs no code change.
+
+### Set up, take over, or renew
+
+Anyone with push access to this repository can do this. The GitHub settings
+page hides secrets from non-admins, but the `gh` CLI works.
+
+1. **The new owner creates an API token** at
+   <https://id.atlassian.com/manage-profile/security/api-tokens>, signed in as
+   the account that will own reporting. Use **Create API token**, not the
+   scoped variant: scoped tokens need a different API URL and do not work with
+   this script (requires validation if Atlassian changes this). Name it
+   `kc-spcs-nightly`, choose the longest expiry offered, and put the expiry date
+   in your calendar. Never send the token to anyone; set it yourself in step 2.
+2. **Set the secrets.** Each command prompts for the value, so it stays out of
+   shell history:
+
+   ```bash
+   gh secret set JIRA_USER_EMAIL -R snowflakedb/snowflake-kafka-connector  # the owner's Atlassian email
+   gh secret set JIRA_API_TOKEN -R snowflakedb/snowflake-kafka-connector   # the token from step 1
+   ```
+
+   `JIRA_BASE_URL` is already set. Only if it is ever missing:
+   `gh secret set JIRA_BASE_URL -R snowflakedb/snowflake-kafka-connector --body https://snowflakecomputing.atlassian.net`.
+3. **Check it works.** This files nothing:
+
+   ```bash
+   gh workflow run spcs-nightly.yml -R snowflakedb/snowflake-kafka-connector --ref master -f check_jira=true
+   gh run watch -R snowflakedb/snowflake-kafka-connector \
+     "$(gh run list -R snowflakedb/snowflake-kafka-connector -w spcs-nightly.yml -L 1 --json databaseId --jq '.[0].databaseId')"
+   ```
+
+   The `check-jira` job must be green, and its log must show
+   `Jira account: <the new owner>` and `Jira reporting is ready.` Otherwise it
+   names each missing permission, or says the triage DL cannot be assigned.
+4. **The previous owner revokes their old token** on the same Atlassian page.
+5. **Renew before expiry** by repeating steps 1 to 3 with the same account.
+
+An open `kc-spcs-nightly-failure` ticket carries over: the new account keeps
+commenting on it, because the ticket is found by its label, not its reporter.
+
+### Troubleshooting the report job
+
+| Message | Cause and fix |
+|---|---|
+| `Cannot report to Jira; secrets not set: ...` | Step 2 for the named secrets. |
+| `Jira request failed: 401` | Token wrong, expired, or not owned by the `JIRA_USER_EMAIL` account. Steps 1 to 3. |
+| `Jira request failed: 400` or `403` | Run the check (step 3). If it passes, the component, Area, or assignee IDs in `FIELDS` in [`report_failure.py`](report_failure.py) may have changed in Jira. |
+

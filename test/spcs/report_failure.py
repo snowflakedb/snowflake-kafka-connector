@@ -3,6 +3,10 @@
 Comments on the open nightly-failure ticket if there is one, otherwise creates
 it, so repeated failures stay on one ticket until triage closes it. Uses the
 JIRA_BASE_URL, JIRA_USER_EMAIL and JIRA_API_TOKEN repository secrets.
+
+`--check` files nothing: it confirms the token works, the account may create
+and comment on SNOW issues, and the triage DL can be assigned. Run it after
+setting or handing over the secrets (see test/spcs/README.md).
 """
 
 import base64
@@ -25,6 +29,7 @@ FIELDS = {
     "labels": [LABEL],
 }
 SUMMARY = "Kafka connector nightly SPCS smoke test is failing"
+PERMISSIONS = ("BROWSE_PROJECTS", "CREATE_ISSUES", "ADD_COMMENTS")
 
 
 def request(method, path, body=None):
@@ -76,7 +81,33 @@ def report(environ, call=request):
     return f"created {created['key']}"
 
 
-def main():
+def check(call=request):
+    """Return the problems that would stop a report; empty means ready."""
+    me = call("GET", "/rest/api/3/myself")
+    print(f"Jira account: {me.get('displayName')} ({me.get('accountId')})", flush=True)
+    problems = []
+    granted = call(
+        "GET",
+        "/rest/api/3/mypermissions?"
+        + urllib.parse.urlencode(
+            {"projectKey": "SNOW", "permissions": ",".join(PERMISSIONS)}
+        ),
+    )["permissions"]
+    for name in PERMISSIONS:
+        if not granted.get(name, {}).get("havePermission"):
+            problems.append(f"missing SNOW permission {name}")
+    assignee = FIELDS["assignee"]["id"]
+    if not call(
+        "GET",
+        "/rest/api/3/user/assignable/search?"
+        + urllib.parse.urlencode({"project": "SNOW", "accountId": assignee}),
+    ):
+        problems.append("the triage DL cannot be assigned SNOW issues by this account")
+    return problems
+
+
+def main(argv=None):
+    checking = (sys.argv[1:] if argv is None else argv) == ["--check"]
     missing = [
         name
         for name in ("JIRA_BASE_URL", "JIRA_USER_EMAIL", "JIRA_API_TOKEN")
@@ -86,7 +117,15 @@ def main():
         print(f"::error::Cannot report to Jira; secrets not set: {', '.join(missing)}")
         return 1
     try:
-        print(report(os.environ), flush=True)
+        if checking:
+            problems = check()
+            for problem in problems:
+                print(f"::error::{problem}", flush=True)
+            if problems:
+                return 1
+            print("Jira reporting is ready.", flush=True)
+        else:
+            print(report(os.environ), flush=True)
     except OSError as error:
         # HTTPError bodies can echo request data; print only the status.
         print(

@@ -62,7 +62,20 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(set(document["on"]), {"schedule", "workflow_dispatch"})
         self.assertEqual(document["permissions"], {"contents": "read"})
         jobs = document["jobs"]
-        self.assertEqual(set(jobs), {"preflight", "smoke", "report-failure"})
+        self.assertEqual(
+            set(jobs), {"preflight", "smoke", "report-failure", "check-jira"}
+        )
+        self.assertTrue(jobs["preflight"]["if"].endswith("&& !inputs.check_jira"))
+        check = jobs["check-jira"]
+        for restriction in (
+            "workflow_dispatch",
+            "inputs.check_jira",
+            "refs/heads/master",
+            "snowflakedb/snowflake-kafka-connector",
+        ):
+            self.assertIn(restriction, check["if"])
+        self.assertIn("report_failure.py --check", str(check))
+        self.assertNotIn("SNOWFLAKE_TEST_PROFILE_SECRET", str(check))
         preflight, smoke, report = (
             jobs[key] for key in ("preflight", "smoke", "report-failure")
         )
