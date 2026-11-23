@@ -36,3 +36,4 @@ CLAUDE.md
 profile.txt
 profile_qa3.json
 profiling-results*/
+.scratch-venv/
