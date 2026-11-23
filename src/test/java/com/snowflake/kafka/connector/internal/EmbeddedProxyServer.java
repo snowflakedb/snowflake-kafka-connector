@@ -26,6 +26,7 @@ import java.util.Base64;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,7 @@ public class EmbeddedProxyServer extends ExternalResource {
   private ServerSocket serverSocket;
   private ExecutorService executor;
   private volatile boolean running;
+  private final AtomicInteger authenticatedConnects = new AtomicInteger();
 
   public EmbeddedProxyServer(final String username, final String password) {
     this.username = username;
@@ -125,6 +127,7 @@ public class EmbeddedProxyServer extends ExternalResource {
 
       // Handle CONNECT (HTTPS tunneling)
       if (requestLine.startsWith("CONNECT ")) {
+        authenticatedConnects.incrementAndGet();
         handleConnect(requestLine, client, out);
       } else {
         // For non-CONNECT, just close — tests only need CONNECT for Snowflake HTTPS
@@ -275,6 +278,11 @@ public class EmbeddedProxyServer extends ExternalResource {
 
   public final String getPassword() {
     return password;
+  }
+
+  /** Number of CONNECT requests that passed proxy authentication and were tunneled. */
+  public final int getAuthenticatedConnectCount() {
+    return authenticatedConnects.get();
   }
 
   @Override

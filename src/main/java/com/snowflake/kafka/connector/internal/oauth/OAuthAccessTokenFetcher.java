@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.internal.oauth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
@@ -75,7 +76,8 @@ public class OAuthAccessTokenFetcher {
    * Fetch an OAuth access token. Retries with exponential backoff on transient failures. Goes
    * through the connector's {@code snowflake.https.proxy.*} settings when host and port are set.
    * Otherwise uses the JVM's default {@link ProxySelector}, so an existing {@code
-   * -Dhttps.proxyHost} still applies.
+   * -Dhttps.proxyHost} still applies, together with {@code https.proxyUser} and {@code
+   * https.proxyPassword} when the proxy asks for credentials.
    *
    * @param url OAuth server URL (scheme, host, port, path)
    * @param clientId OAuth client ID
@@ -104,27 +106,52 @@ public class OAuthAccessTokenFetcher {
       }
       builder.proxy(connectorProxySelector(proxy.getHost().trim(), port, proxy.getNonProxyHosts()));
       if (proxy.hasCredentials()) {
-        String user = proxy.getUsername();
-        String password = proxy.getPassword();
-        builder.authenticator(
-            new Authenticator() {
-              @Override
-              protected PasswordAuthentication getPasswordAuthentication() {
-                if (getRequestorType() == RequestorType.PROXY) {
-                  return new PasswordAuthentication(user, password.toCharArray());
-                }
-                return null;
-              }
-            });
+        builder.authenticator(proxyAuthenticator(proxy.getUsername(), proxy.getPassword()));
       }
     } else {
       builder.proxy(ProxySelector.getDefault());
+      jvmProxyAuthenticator().ifPresent(builder::authenticator);
     }
     return fetchAccessToken(url, clientId, clientSecret, refreshToken, scope, builder.build());
   }
 
   /**
-   * Lets the JDK answer a proxy's 407 with Basic credentials when tunneling HTTPS. By default the
+   * Credentials for the JVM's {@code https.proxyHost}, from {@code https.proxyUser} and {@code
+   * https.proxyPassword}. Empty unless all three are set: the JDK's HTTP client does not read these
+   * properties itself, unlike JDBC and the streaming SDK.
+   */
+  static Optional<Authenticator> jvmProxyAuthenticator() {
+    String host = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_HOST);
+    String user = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_USER);
+    String password = System.getProperty(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD);
+    if (isBlank(host) || isBlank(user) || isBlank(password)) {
+      return Optional.empty();
+    }
+    return Optional.of(proxyAuthenticator(user, password));
+  }
+
+  /**
+   * Answers proxy challenges only, never a challenge from the token endpoint. The client's proxy
+   * selector routes to a single proxy, so a proxy challenge can only come from that proxy. The
+   * requesting host can't be checked: for an HTTPS tunnel the JDK reports the target host, not the
+   * proxy.
+   */
+  static Authenticator proxyAuthenticator(String user, String password) {
+    return new Authenticator() {
+      @Override
+      protected PasswordAuthentication getPasswordAuthentication() {
+        if (getRequestorType() == RequestorType.PROXY) {
+          return new PasswordAuthentication(user, password.toCharArray());
+        }
+        return null;
+      }
+    };
+  }
+
+  /**
+   * Lets the JDK answer a proxy's 407 with Basic credentials when tunneling HTTPS, whenever the
+   * token request has proxy credentials to send (from {@code snowflake.https.proxy.*} or, when
+   * those are unset, from {@code https.proxyUser} and {@code https.proxyPassword}). By default the
    * JDK disables Basic for tunnels ({@code jdk.http.auth.tunneling.disabledSchemes=Basic}), so the
    * token request would fail with a 407 even though the per-client {@code Authenticator} supplies
    * the credentials. JDBC and the streaming SDK send proxy credentials themselves and are not
@@ -137,7 +164,9 @@ public class OAuthAccessTokenFetcher {
    * load order.
    */
   static void allowProxyBasicAuthForHttpsTunnels(ProxyConfig proxy) {
-    if (!proxy.isConfigured() || !proxy.hasCredentials()) {
+    boolean sendsProxyCredentials =
+        proxy.isConfigured() ? proxy.hasCredentials() : jvmProxyAuthenticator().isPresent();
+    if (!sendsProxyCredentials) {
       return;
     }
     String current = System.getProperty(Utils.JDK_HTTP_AUTH_TUNNELING);

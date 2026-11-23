@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.Utils;
 import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.internal.EmbeddedProxyServer;
@@ -16,8 +17,10 @@ import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Authenticator;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URI;
@@ -28,6 +31,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
@@ -291,7 +298,56 @@ class OAuthAccessTokenFetcherTest {
   @Test
   void fetchAccessToken_proxyRequiringBasicAuth_returnsTokenWithJdkDefaults(@TempDir Path tempDir)
       throws Exception {
-    assertThat(fetchThroughAuthenticatingProxy(tempDir)).isEqualTo("proxied-token");
+    ChildFetch fetch = fetchThroughAuthenticatingProxy(tempDir, ProxySource.CONNECTOR_PROPERTIES);
+    assertThat(fetch.exitCode()).as("child JVM output: %s", fetch.output()).isZero();
+    assertThat(fetch.lastLine()).isEqualTo("proxied-token");
+  }
+
+  @Test
+  void fetchAccessToken_jvmProxyRequiringBasicAuth_returnsTokenWithJdkDefaults(
+      @TempDir Path tempDir) throws Exception {
+    ChildFetch fetch = fetchThroughAuthenticatingProxy(tempDir, ProxySource.JVM_PROPERTIES);
+    assertThat(fetch.exitCode()).as("child JVM output: %s", fetch.output()).isZero();
+    assertThat(fetch.lastLine()).isEqualTo("proxied-token");
+    assertThat(fetch.authenticatedConnects())
+        .as("the token request must reach the endpoint through the proxy")
+        .isPositive();
+  }
+
+  @Test
+  void fetchAccessToken_jvmProxyWithoutCredentials_failsProxyAuthentication(@TempDir Path tempDir)
+      throws Exception {
+    ChildFetch fetch =
+        fetchThroughAuthenticatingProxy(tempDir, ProxySource.JVM_PROPERTIES_WITHOUT_CREDENTIALS);
+    assertThat(fetch.exitCode()).as("child JVM output: %s", fetch.output()).isNotZero();
+    assertThat(fetch.authenticatedConnects()).isZero();
+  }
+
+  @Test
+  void jvmProxyAuthenticator_presentOnlyWhenHostUserAndPasswordAreSet() {
+    withSystemProperties(
+        jvmProxy("proxy.example.com", "user", "secret"),
+        () -> assertThat(OAuthAccessTokenFetcher.jvmProxyAuthenticator()).isPresent());
+    withSystemProperties(
+        jvmProxy(null, "user", "secret"),
+        () -> assertThat(OAuthAccessTokenFetcher.jvmProxyAuthenticator()).isEmpty());
+    withSystemProperties(
+        jvmProxy("proxy.example.com", " ", "secret"),
+        () -> assertThat(OAuthAccessTokenFetcher.jvmProxyAuthenticator()).isEmpty());
+    withSystemProperties(
+        jvmProxy("proxy.example.com", "user", null),
+        () -> assertThat(OAuthAccessTokenFetcher.jvmProxyAuthenticator()).isEmpty());
+  }
+
+  @Test
+  void proxyAuthenticator_answersProxyChallengesOnly() {
+    Authenticator authenticator = OAuthAccessTokenFetcher.proxyAuthenticator("user", "secret");
+
+    PasswordAuthentication proxyAnswer =
+        challenge(authenticator, Authenticator.RequestorType.PROXY);
+    assertThat(proxyAnswer.getUserName()).isEqualTo("user");
+    assertThat(proxyAnswer.getPassword()).isEqualTo("secret".toCharArray());
+    assertThat(challenge(authenticator, Authenticator.RequestorType.SERVER)).isNull();
   }
 
   @Test
@@ -303,6 +359,33 @@ class OAuthAccessTokenFetcherTest {
               ProxyConfig.create("proxy.example.com", "3128", null, "user", "secret"));
           assertThat(System.getProperty(TUNNELING_DISABLED_SCHEMES)).isEqualTo("");
         });
+  }
+
+  @Test
+  void allowProxyBasicAuthForHttpsTunnels_clearsDefaultWhenJvmProxyHasCredentials() {
+    withSystemProperties(
+        jvmProxy("proxy.example.com", "user", "secret"),
+        () ->
+            withTunnelingProperty(
+                null,
+                () -> {
+                  OAuthAccessTokenFetcher.allowProxyBasicAuthForHttpsTunnels(ProxyConfig.none());
+                  assertThat(System.getProperty(TUNNELING_DISABLED_SCHEMES)).isEqualTo("");
+                }));
+  }
+
+  @Test
+  void allowProxyBasicAuthForHttpsTunnels_connectorProxyWithoutCredentialsIgnoresJvmCredentials() {
+    withSystemProperties(
+        jvmProxy("proxy.example.com", "user", "secret"),
+        () ->
+            withTunnelingProperty(
+                null,
+                () -> {
+                  OAuthAccessTokenFetcher.allowProxyBasicAuthForHttpsTunnels(
+                      ProxyConfig.create("other.example.com", "3128", null, null, null));
+                  assertThat(System.getProperty(TUNNELING_DISABLED_SCHEMES)).isNull();
+                }));
   }
 
   @Test
@@ -330,25 +413,83 @@ class OAuthAccessTokenFetcherTest {
         });
   }
 
+  private static PasswordAuthentication challenge(
+      Authenticator authenticator, Authenticator.RequestorType type) {
+    return authenticator.requestPasswordAuthenticationInstance(
+        "proxy.example.com", null, 3128, "http", "proxy", "Basic", null, type);
+  }
+
+  /** JVM proxy properties for {@link #withSystemProperties}; a null value leaves it unset. */
+  private static Map<String, String> jvmProxy(String host, String user, String password) {
+    Map<String, String> properties = new HashMap<>();
+    properties.put(KafkaConnectorConfigParams.HTTPS_PROXY_HOST, host);
+    properties.put(KafkaConnectorConfigParams.HTTPS_PROXY_USER, user);
+    properties.put(KafkaConnectorConfigParams.HTTPS_PROXY_PASSWORD, password);
+    return properties;
+  }
+
+  /** Runs {@code body} with the given system properties (null = unset), then restores them. */
+  private static void withSystemProperties(Map<String, String> properties, Runnable body) {
+    Map<String, String> previous = new HashMap<>();
+    properties.keySet().forEach(key -> previous.put(key, System.getProperty(key)));
+    try {
+      properties.forEach(OAuthAccessTokenFetcherTest::setOrClear);
+      body.run();
+    } finally {
+      previous.forEach(OAuthAccessTokenFetcherTest::setOrClear);
+    }
+  }
+
+  private static void setOrClear(String key, String value) {
+    if (value == null) {
+      System.clearProperty(key);
+    } else {
+      System.setProperty(key, value);
+    }
+  }
+
   /**
    * Runs {@code body} with the tunneling property set to {@code value} (null = unset), then
    * restores it.
    */
   private static void withTunnelingProperty(String value, Runnable body) {
-    String previous = System.getProperty(TUNNELING_DISABLED_SCHEMES);
-    try {
-      if (value == null) {
-        System.clearProperty(TUNNELING_DISABLED_SCHEMES);
-      } else {
-        System.setProperty(TUNNELING_DISABLED_SCHEMES, value);
-      }
-      body.run();
-    } finally {
-      if (previous == null) {
-        System.clearProperty(TUNNELING_DISABLED_SCHEMES);
-      } else {
-        System.setProperty(TUNNELING_DISABLED_SCHEMES, previous);
-      }
+    Map<String, String> property = new HashMap<>();
+    property.put(TUNNELING_DISABLED_SCHEMES, value);
+    withSystemProperties(property, body);
+  }
+
+  /** Where the child JVM's token request gets its proxy settings from. */
+  private enum ProxySource {
+    CONNECTOR_PROPERTIES,
+    JVM_PROPERTIES,
+    JVM_PROPERTIES_WITHOUT_CREDENTIALS
+  }
+
+  private static final class ChildFetch {
+    private final int exitCode;
+    private final String output;
+    private final int authenticatedConnects;
+
+    ChildFetch(int exitCode, String output, int authenticatedConnects) {
+      this.exitCode = exitCode;
+      this.output = output;
+      this.authenticatedConnects = authenticatedConnects;
+    }
+
+    int exitCode() {
+      return exitCode;
+    }
+
+    String output() {
+      return output;
+    }
+
+    int authenticatedConnects() {
+      return authenticatedConnects;
+    }
+
+    String lastLine() {
+      return output.lines().reduce((first, second) -> second).orElse("");
     }
   }
 
@@ -359,7 +500,8 @@ class OAuthAccessTokenFetcherTest {
    * on the first {@code java.net.http} use, and the other tests in this class use it. So the fetch
    * runs in a fresh child JVM, and the result does not depend on test order.
    */
-  private static String fetchThroughAuthenticatingProxy(Path tempDir) throws Exception {
+  private static ChildFetch fetchThroughAuthenticatingProxy(Path tempDir, ProxySource source)
+      throws Exception {
     EmbeddedProxyServer proxy = new EmbeddedProxyServer(PROXY_USER, PROXY_PASSWORD);
     HttpsServer tokenEndpoint = null;
     try {
@@ -383,25 +525,39 @@ class OAuthAccessTokenFetcherTest {
       tokenEndpoint.start();
       proxy.start();
 
-      Process child =
-          new ProcessBuilder(
+      String tokenUrl =
+          "https://localhost:" + tokenEndpoint.getAddress().getPort() + "/oauth/token-request";
+      List<String> command =
+          new ArrayList<>(
+              List.of(
                   Path.of(System.getProperty("java.home"), "bin", "java").toString(),
                   "-cp",
                   System.getProperty("java.class.path"),
                   "-Djavax.net.ssl.trustStore=" + tempDir.resolve("trust.p12"),
-                  "-Djavax.net.ssl.trustStorePassword=changeit",
-                  ProxiedFetchMain.class.getName(),
-                  "https://localhost:"
-                      + tokenEndpoint.getAddress().getPort()
-                      + "/oauth/token-request",
-                  String.valueOf(proxy.getPort()),
-                  PROXY_USER,
-                  PROXY_PASSWORD)
-              .redirectErrorStream(true)
-              .start();
+                  "-Djavax.net.ssl.trustStorePassword=changeit"));
+      if (source == ProxySource.CONNECTOR_PROPERTIES) {
+        command.add(ProxiedFetchMain.class.getName());
+        command.addAll(
+            List.of(tokenUrl, String.valueOf(proxy.getPort()), PROXY_USER, PROXY_PASSWORD));
+      } else {
+        command.add("-Dhttps.proxyHost=127.0.0.1");
+        command.add("-Dhttps.proxyPort=" + proxy.getPort());
+        // Without this the JDK bypasses the proxy for localhost, where the token endpoint runs.
+        // Only
+        // an empty value removes the default (localhost|127.*|...); the JDK appends it to any
+        // non-empty one.
+        command.add("-Dhttp.nonProxyHosts=");
+        if (source == ProxySource.JVM_PROPERTIES) {
+          command.add("-Dhttps.proxyUser=" + PROXY_USER);
+          command.add("-Dhttps.proxyPassword=" + PROXY_PASSWORD);
+        }
+        command.add(JvmProxiedFetchMain.class.getName());
+        command.add(tokenUrl);
+      }
+
+      Process child = new ProcessBuilder(command).redirectErrorStream(true).start();
       String output = new String(child.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-      assertThat(child.waitFor()).as("child JVM output: %s", output).isZero();
-      return output.lines().reduce((first, second) -> second).orElse("");
+      return new ChildFetch(child.waitFor(), output, proxy.getAuthenticatedConnectCount());
     } finally {
       if (tokenEndpoint != null) {
         tokenEndpoint.stop(0);
@@ -412,7 +568,7 @@ class OAuthAccessTokenFetcherTest {
     }
   }
 
-  /** Entry point for the child JVM: fetches a token through the proxy and prints it. */
+  /** Child JVM entry point: fetches a token through the connector's proxy settings. */
   public static final class ProxiedFetchMain {
     public static void main(String[] args) {
       System.out.println(
@@ -423,6 +579,20 @@ class OAuthAccessTokenFetcherTest {
               Optional.empty(),
               Optional.empty(),
               ProxyConfig.create("127.0.0.1", args[1], null, args[2], args[3])));
+    }
+  }
+
+  /** Child JVM entry point: fetches a token with no connector proxy, so the JVM's proxy applies. */
+  public static final class JvmProxiedFetchMain {
+    public static void main(String[] args) {
+      System.out.println(
+          OAuthAccessTokenFetcher.fetchAccessToken(
+              OAuthURL.from(args[0]),
+              "client_id",
+              new Password("client_secret"),
+              Optional.empty(),
+              Optional.empty(),
+              ProxyConfig.none()));
     }
   }
 

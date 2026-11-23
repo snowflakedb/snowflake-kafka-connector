@@ -10,6 +10,7 @@
 # https-proxy listens on two ports so tests can tell the proxy tiers apart:
 #   8080  connector tier: tests set snowflake.https.proxy.host=https-proxy, snowflake.https.proxy.port=8080
 #   8081  worker JVM tier: the worker starts with -Dhttps.proxyHost=https-proxy -Dhttps.proxyPort=8081
+#         and -Dhttps.proxyUser / -Dhttps.proxyPassword; this listener requires those Basic credentials
 #   8082  second connector proxy: used with 8080 to run two connectors with different proxies
 #   9080  control API (per-port call counters)
 
@@ -23,6 +24,9 @@ services:
     networks:
       - default
       - proxied
+    environment:
+      JVM_TIER_PROXY_USER: jvm-proxy-user
+      JVM_TIER_PROXY_PASSWORD: jvm-proxy-secret
     volumes:
       - https-proxy-certs:/certs
     healthcheck:
@@ -40,6 +44,8 @@ services:
     environment:
       JVM_PROXY_HOST: https-proxy
       JVM_PROXY_PORT: "8081"
+      JVM_PROXY_USER: jvm-proxy-user
+      JVM_PROXY_PASSWORD: jvm-proxy-secret
     volumes:
       - https-proxy-certs:/proxy-certs:ro
       - ./scripts/https-proxy-entrypoint.sh:/opt/https-proxy-entrypoint.sh:ro

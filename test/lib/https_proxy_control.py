@@ -28,6 +28,10 @@ class HttpsProxyControl:
         """Snowflake call counts seen on one listener port, e.g. {"jdbc_login": 1}."""
         return self.get_status()["counts"].get(str(port), {})
 
+    def proxy_auth(self, port: int) -> dict:
+        """CONNECT requests an authenticating listener accepted or refused, e.g. {"accepted": 3, "rejected": 1}."""
+        return self.get_status().get("proxy_auth", {}).get(str(port), {})
+
     def pipes(self, port: int) -> dict:
         """Streaming pipe names (lower case) seen in SDK request paths on one listener port."""
         return self.get_status().get("pipes", {}).get(str(port), {})

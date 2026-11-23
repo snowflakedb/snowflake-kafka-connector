@@ -4,7 +4,8 @@
 # The worker sits on an internal-only network, so every Snowflake call must go
 # through the https-proxy container. This script makes the worker trust the
 # mitmproxy CA (JVM trust store for JDBC, SSL_CERT_FILE for the Rust SDK) and
-# points the JVM proxy system properties at the worker-tier listener.
+# points the JVM proxy system properties at the worker-tier listener, with the
+# Basic credentials that listener requires.
 
 set -e
 
@@ -29,7 +30,8 @@ export KAFKA_OPTS="${KAFKA_OPTS:-} \
 -Djavax.net.ssl.trustStorePassword=$TRUSTSTORE_PASSWORD \
 -Dhttp.useProxy=true \
 -Dhttps.proxyHost=$JVM_PROXY_HOST -Dhttps.proxyPort=$JVM_PROXY_PORT \
--Dhttp.proxyHost=$JVM_PROXY_HOST -Dhttp.proxyPort=$JVM_PROXY_PORT"
+-Dhttp.proxyHost=$JVM_PROXY_HOST -Dhttp.proxyPort=$JVM_PROXY_PORT \
+-Dhttps.proxyUser=$JVM_PROXY_USER -Dhttps.proxyPassword=$JVM_PROXY_PASSWORD"
 
 echo "https-proxy overlay: KAFKA_OPTS=$KAFKA_OPTS"
 exec /bin/bash /opt/start.sh
