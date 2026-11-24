@@ -2,6 +2,7 @@ package com.snowflake.kafka.connector.records;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -79,6 +80,57 @@ public class SnowflakeAvroConverterTest {
     assertSame(actual.schema(), actualStruct.schema());
     assertEquals("hello", actualStruct.get("a"));
     verify(delegate).toConnectData(TOPIC, wireBytes);
+  }
+
+  @Test
+  public void toConnectData_attachesTheWireHeaderSchemaIdToTheConnectSchema() throws Exception {
+    SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
+    AvroConverter delegate = mock(AvroConverter.class);
+    Schema avroSchema =
+        SchemaBuilder.record("MyRecord")
+            .fields()
+            .name("a")
+            .type()
+            .stringType()
+            .noDefault()
+            .endRecord();
+    org.apache.kafka.connect.data.Schema connectSchema =
+        org.apache.kafka.connect.data.SchemaBuilder.struct()
+            .name("MyRecord")
+            .parameter("existing.parameter", "kept")
+            .field("a", org.apache.kafka.connect.data.Schema.STRING_SCHEMA)
+            .build();
+    Struct struct = new Struct(connectSchema).put("a", "hello");
+
+    when(registryClient.getById(42)).thenReturn(avroSchema);
+    when(delegate.toConnectData(eq(TOPIC), any(byte[].class)))
+        .thenReturn(new SchemaAndValue(connectSchema, struct));
+
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter(registryClient, delegate);
+    SchemaAndValue actual = converter.toConnectData(TOPIC, wireBytesFor(42, (byte) 1, (byte) 2));
+
+    Map<String, String> parameters = actual.schema().parameters();
+    assertEquals("42", parameters.get(SnowflakeAvroConverter.AVRO_SCHEMA_ID_PARAMETER_KEY));
+    assertEquals("kept", parameters.get("existing.parameter"));
+  }
+
+  @Test
+  public void toConnectData_nonStructConnectSchema_attachesNothing() throws Exception {
+    // A top-level Avro type other than a record converts to a non-STRUCT Connect schema. The
+    // converter returns it unchanged, so such a record carries no Avro schema and no schema id.
+    SchemaRegistryClient registryClient = mock(SchemaRegistryClient.class);
+    AvroConverter delegate = mock(AvroConverter.class);
+    SchemaAndValue expected =
+        new SchemaAndValue(org.apache.kafka.connect.data.Schema.STRING_SCHEMA, "converted");
+
+    when(registryClient.getById(42)).thenReturn(Schema.create(Schema.Type.STRING));
+    when(delegate.toConnectData(eq(TOPIC), any(byte[].class))).thenReturn(expected);
+
+    SnowflakeAvroConverter converter = new SnowflakeAvroConverter(registryClient, delegate);
+    SchemaAndValue actual = converter.toConnectData(TOPIC, wireBytesFor(42, (byte) 1, (byte) 2));
+
+    assertSame(expected, actual);
+    assertNull(actual.schema().parameters());
   }
 
   @Test
