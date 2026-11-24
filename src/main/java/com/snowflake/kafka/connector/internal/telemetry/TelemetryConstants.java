@@ -57,6 +57,10 @@ public final class TelemetryConstants {
   public static final String BACKPRESSURE_RETRY_COUNT = "backpressure_retry_count";
   public static final String APPEND_ROW_FALLBACK_COUNT = "append_row_fallback_count";
   public static final String SCHEMA_EVOLUTION_FAILURE_COUNT = "schema_evolution_failure_count";
+  public static final String EVOLVE_SCHEMA_CALL_COUNT = "evolve_schema_call_count";
+  public static final String EVOLVE_SCHEMA_REJECTED_COUNT = "evolve_schema_rejected_count";
+  public static final String EVOLVE_SCHEMA_REDELIVERED_COUNT = "evolve_schema_redelivered_count";
+  public static final String EVOLVE_SCHEMA_NOT_ENABLED_COUNT = "evolve_schema_not_enabled_count";
   // SSv1 offset migration
   public static final String SSV1_MIGRATION_MODE = "ssv1_migration_mode";
   public static final String SSV1_MIGRATION_OUTCOME = "ssv1_migration_outcome";

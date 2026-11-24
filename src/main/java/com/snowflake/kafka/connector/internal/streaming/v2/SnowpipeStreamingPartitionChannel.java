@@ -265,15 +265,15 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
                 recordMetadataIsStructuredObject);
         if (!row.isEmpty()) {
           if (pipeSchemaEvolver.isPresent() && kafkaSinkRecord.value() != null) {
-            pipeSchemaEvolver
-                .get()
-                .evolveIfNeeded(
-                    streamingClient,
-                    pipeName,
-                    channelName,
-                    kafkaOffset,
-                    kafkaSinkRecord.valueSchema(),
-                    record.getSchema());
+            EvolveSchemaStep step = evolveSchema(kafkaSinkRecord, record);
+            if (step == EvolveSchemaStep.REDELIVER) {
+              // processedOffset is not advanced, and the caller rewinds Kafka to this record.
+              return false;
+            }
+            if (step == EvolveSchemaStep.SKIP) {
+              offsetTracker.recordProcessed(kafkaOffset);
+              return true;
+            }
           }
           if (taskConfig.getValidation() == SnowflakeValidation.CLIENT_SIDE
               && rowValidator != null) {
@@ -305,6 +305,99 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
     } catch (BackpressureException ex) {
       snowflakeTelemetryChannelStatus.incBackpressureRetryCount();
       throw ex;
+    }
+  }
+
+  /** What to do with a record after the evolve-schema call for its schema. */
+  private enum EvolveSchemaStep {
+    APPEND,
+    /** The record went to the error handler and is not appended. */
+    SKIP,
+    /** The call failed transiently; the record is left for Kafka to redeliver. */
+    REDELIVER
+  }
+
+  /** The SDK's error code name for a call whose retries for transient failures ran out. */
+  private static final String HTTP_RETRIES_EXHAUSTED_ERROR = "HttpRetriesExhaustedError";
+
+  /**
+   * Max consecutive redeliveries after exhausted evolve-schema retries before failing the task.
+   * Each call can take about 3 minutes of SDK retries, so this fails the task after an outage of
+   * about 15 minutes instead of stalling the partition silently.
+   */
+  static final int MAX_CONSECUTIVE_EVOLVE_SCHEMA_REDELIVERIES = 5;
+
+  /** Consecutive redeliveries after exhausted evolve-schema retries; reset by a successful call. */
+  private int consecutiveEvolveSchemaRedeliveries = 0;
+
+  /**
+   * Evolves the pipe's table to {@code record}'s schema. A request Snowflake declines ({@code
+   * SfApiUserError}: an invalid schema, or a pipe, table, or channel it can't find) sends the
+   * record to the error handler. A client-invalid error reopens the channel, which recreates the
+   * client, and exhausted retries leave the record for redelivery; both are bounded. Any other
+   * failure fails the task.
+   */
+  private EvolveSchemaStep evolveSchema(SinkRecord kafkaSinkRecord, SnowflakeSinkRecord record) {
+    try {
+      // Wait for an open or reopen in flight, which may replace the client, as appendRow does.
+      getChannel();
+      PipeSchemaEvolver.Result result =
+          pipeSchemaEvolver
+              .get()
+              .evolveIfNeeded(
+                  streamingClient,
+                  pipeName,
+                  channelName,
+                  kafkaSinkRecord.kafkaOffset(),
+                  kafkaSinkRecord.valueSchema(),
+                  record.getSchema());
+      consecutiveEvolveSchemaRedeliveries = 0;
+      if (result == PipeSchemaEvolver.Result.EVOLVED) {
+        snowflakeTelemetryChannelStatus.incEvolveSchemaCallCount();
+      } else if (result == PipeSchemaEvolver.Result.NOT_ENABLED) {
+        snowflakeTelemetryChannelStatus.incEvolveSchemaNotEnabledCount();
+      }
+      return EvolveSchemaStep.APPEND;
+    } catch (SFException e) {
+      if (ClientRecreationException.isClientInvalidError(e)) {
+        // Like a client-invalid appendRow: reopening recreates the client and rewinds Kafka.
+        recoverChannel(e, "EVOLVE_SCHEMA_CLIENT_INVALID");
+        return EvolveSchemaStep.REDELIVER;
+      }
+      if (HTTP_RETRIES_EXHAUSTED_ERROR.equals(e.getErrorCodeName())) {
+        consecutiveEvolveSchemaRedeliveries++;
+        if (consecutiveEvolveSchemaRedeliveries > MAX_CONSECUTIVE_EVOLVE_SCHEMA_REDELIVERIES) {
+          throw new ConnectException(
+              String.format(
+                  "Channel %s: evolve-schema failed after its retries %d times in a row",
+                  channelName, MAX_CONSECUTIVE_EVOLVE_SCHEMA_REDELIVERIES),
+              e);
+        }
+        LOGGER.warn(
+            "Evolve-schema failed transiently for channel {} at offset {} ({}/{}); the record will"
+                + " be redelivered: {}",
+            channelName,
+            kafkaSinkRecord.kafkaOffset(),
+            consecutiveEvolveSchemaRedeliveries,
+            MAX_CONSECUTIVE_EVOLVE_SCHEMA_REDELIVERIES,
+            e.getMessage());
+        snowflakeTelemetryChannelStatus.incEvolveSchemaRedeliveredCount();
+        return EvolveSchemaStep.REDELIVER;
+      }
+      if (PipeSchemaEvolver.SF_API_USER_ERROR.equals(e.getErrorCodeName())) {
+        LOGGER.warn(
+            "Evolve-schema declined for channel {} at offset {} ({}): {}",
+            channelName,
+            kafkaSinkRecord.kafkaOffset(),
+            e.getSnowflakeErrorCode(),
+            e.getMessage());
+        snowflakeTelemetryChannelStatus.incEvolveSchemaRejectedCount();
+        streamingErrorHandler.handleError(e, kafkaSinkRecord);
+        // If we reach here, the error was tolerated (errors.tolerance=all)
+        snowflakeTelemetryChannelStatus.incErrorToleratedCount();
+        return EvolveSchemaStep.SKIP;
+      }
+      throw e;
     }
   }
 
@@ -398,6 +491,20 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
    * need its own large budget.
    */
   private void handleNonRetryableAppendRowFailure(SFException cause) {
+    recoverChannel(cause, "APPEND_ROW_FALLBACK");
+    snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
+  }
+
+  /**
+   * Reopens the channel after a short delay with jitter, for {@link
+   * #handleNonRetryableAppendRowFailure} and client-invalid evolve-schema errors. Both count toward
+   * {@link #MAX_CONSECUTIVE_RECOVERIES}.
+   *
+   * @param cause the error that triggered recovery
+   * @param reason reason for the recovery, used for logging
+   * @throws ConnectException if the circuit breaker has been exceeded
+   */
+  private void recoverChannel(SFException cause, String reason) {
     consecutiveRecoveryCount++;
     if (consecutiveRecoveryCount > MAX_CONSECUTIVE_RECOVERIES) {
       LOGGER.error(
@@ -426,8 +533,7 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
         this.channelName,
         consecutiveRecoveryCount,
         MAX_CONSECUTIVE_RECOVERIES);
-    reopenChannel("APPEND_ROW_FALLBACK");
-    snowflakeTelemetryChannelStatus.incAppendRowFallbackCount();
+    reopenChannel(reason);
   }
 
   private static void closeChannelWithoutFlushing(SnowflakeStreamingIngestChannel channel) {
