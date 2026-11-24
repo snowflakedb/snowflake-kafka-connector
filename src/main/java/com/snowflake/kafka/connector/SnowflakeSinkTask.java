@@ -144,11 +144,6 @@ public class SnowflakeSinkTask extends SinkTask {
     // Parse raw config once into typed structure; validates required fields and applies defaults
     final SinkTaskConfig config = SinkTaskConfig.from(parsedConfig);
 
-    // Fail at start, not on the first put, when a task inflight cap is enabled against an SDK
-    // that cannot report inflight usage.
-    ChannelInflightMetrics.requireSdkSupport(
-        config.getMaxTaskInflightRows(), config.getMaxTaskInflightBytes());
-
     // get task id and start time
     this.taskStartTime = System.currentTimeMillis();
     this.taskConfigId = config.getTaskId();
@@ -163,6 +158,12 @@ public class SnowflakeSinkTask extends SinkTask {
         config.isPrometheusMetricsEnabled(),
         config.getPrometheusMetricsPort(),
         config.getPrometheusMetricsHost());
+
+    // Fail at start, not on the first put, when a task inflight cap is enabled against an SDK
+    // that cannot report inflight usage. After the bootstrap knobs, because the first check
+    // bootstraps the SDK core, which reads them only once.
+    ChannelInflightMetrics.requireSdkSupport(
+        config.getMaxTaskInflightRows(), config.getMaxTaskInflightBytes());
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 

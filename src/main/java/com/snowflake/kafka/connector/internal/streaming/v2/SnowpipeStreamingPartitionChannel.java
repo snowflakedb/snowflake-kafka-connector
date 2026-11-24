@@ -48,7 +48,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.management.InstanceNotFoundException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -93,8 +92,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
 
   private volatile SnowflakeStreamingIngestClient streamingClient;
 
-  /** The inflight bean names resolved for the SDK channel and client last read. */
-  private volatile CachedInflightBeanNames inflightBeanNames;
+  /** The inflight reader resolved for the SDK channel instance last read. */
+  private volatile BoundInflightReader inflightReader;
+
+  /** Resolves the inflight reader of each SDK channel instance. */
+  @VisibleForTesting
+  ChannelInflightMetrics.InflightReaderFactory inflightReaders = ChannelInflightMetrics.SDK_READERS;
 
   private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
@@ -951,72 +954,62 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   /**
-   * Reads the SDK's per-channel inflight gauges over JMX. A channel that is still opening or failed
-   * to open has nothing to report and returns {@link InflightUsage#NONE}. So does a channel that is
-   * closed or whose client is closed, also when it closes during the read. The SDK registers a
-   * channel's beans inside openChannel before returning and unregisters them when the channel
-   * closes or is dropped or its client closes, so a bean missing for an open channel on an open
-   * client is a registration failure.
+   * Reads the SDK channel's inflight rows and bytes. A channel that is still opening, failed to
+   * open, or was closed by this connector has nothing to report and returns {@link
+   * InflightUsage#NONE}. So does a read that fails because the SDK channel or its client closed, or
+   * the channel reopened, during the read.
    *
-   * <p>The bean names are resolved once for each SDK channel instance and client, and reused by
-   * every later read. A read does no other work on the channel or client. They are only asked
-   * whether they are closed when a read fails.
+   * <p>The reader is resolved once for each SDK channel instance. A reopen binds a new reader to
+   * the new instance.
    *
-   * @throws ConnectException if a bean is missing while the channel and its client are open
    * @throws InflightUsageUnavailableException if a read fails while the channel and its client are
    *     open
    */
-  private static final class CachedInflightBeanNames {
-    final SnowflakeStreamingIngestClient client;
-    final ChannelInflightMetrics.InflightBeanNames names;
-
-    CachedInflightBeanNames(
-        SnowflakeStreamingIngestClient client, ChannelInflightMetrics.InflightBeanNames names) {
-      this.client = client;
-      this.names = names;
-    }
-  }
-
   @Override
   public InflightUsage getInflightUsage() {
     CompletableFuture<SnowflakeStreamingIngestChannel> future = this.channel;
-    if (!future.isDone() || future.isCompletedExceptionally()) {
+    if (cancelled.get() || !future.isDone() || future.isCompletedExceptionally()) {
       return InflightUsage.NONE;
     }
     SnowflakeStreamingIngestChannel sdkChannel = future.join();
-    SnowflakeStreamingIngestClient client = this.streamingClient;
-    CachedInflightBeanNames cached = this.inflightBeanNames;
-    ChannelInflightMetrics.InflightBeanNames names;
     try {
-      if (cached == null || cached.client != client) {
-        names = new ChannelInflightMetrics.InflightBeanNames(client.getClientName(), channelName);
-        this.inflightBeanNames = new CachedInflightBeanNames(client, names);
-      } else {
-        names = cached.names;
+      BoundInflightReader bound = this.inflightReader;
+      if (bound == null || bound.sdkChannel != sdkChannel) {
+        bound = new BoundInflightReader(sdkChannel, inflightReaders.forChannel(sdkChannel));
+        this.inflightReader = bound;
       }
-    } catch (SFException e) {
-      if (sdkChannel.isClosed() || client.isClosed()) {
+      long rows = bound.reader.rows();
+      long bytes = bound.reader.bytes();
+      // A negative count would offset other channels and lift the cap.
+      if (rows < 0 || bytes < 0) {
+        throw new IllegalStateException(
+            "negative inflight usage: rows " + rows + ", bytes " + bytes);
+      }
+      return new InflightUsage(rows, bytes);
+    } catch (IllegalStateException e) {
+      if (cancelled.get()
+          || this.channel != future
+          || sdkChannel.isClosed()
+          || this.streamingClient.isClosed()) {
         return InflightUsage.NONE;
       }
       throw new InflightUsageUnavailableException(
-          "Failed to read the client name of open channel " + channelName, e);
-    }
-    try {
-      return ChannelInflightMetrics.read(names);
-    } catch (InstanceNotFoundException e) {
-      if (sdkChannel.isClosed() || client.isClosed()) {
-        return InflightUsage.NONE;
-      }
-      throw ChannelInflightMetrics.missingBeanForOpenChannel(names.clientName, channelName, e);
-    } catch (InflightUsageUnavailableException e) {
-      if (sdkChannel.isClosed() || client.isClosed()) {
-        return InflightUsage.NONE;
-      }
-      throw e;
+          "Failed to read the inflight usage of open channel " + channelName, e);
     }
   }
 
-  /** Inflight bean names, valid for exactly the SDK channel and client they were resolved for. */
+  /** An inflight reader, valid for exactly the SDK channel instance it was resolved for. */
+  private static final class BoundInflightReader {
+    final SnowflakeStreamingIngestChannel sdkChannel;
+    final ChannelInflightMetrics.InflightReader reader;
+
+    BoundInflightReader(
+        SnowflakeStreamingIngestChannel sdkChannel, ChannelInflightMetrics.InflightReader reader) {
+      this.sdkChannel = sdkChannel;
+      this.reader = reader;
+    }
+  }
+
   /**
    * Blocks until the channel initialization future completes and returns the underlying SDK
    * channel.

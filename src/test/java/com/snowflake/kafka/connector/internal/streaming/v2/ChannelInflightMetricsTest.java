@@ -6,124 +6,78 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
-import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
-import javax.management.InstanceNotFoundException;
-import javax.management.JMException;
-import javax.management.MBeanException;
-import javax.management.ObjectName;
+import com.snowflake.ingest.streaming.SnowflakeStreamingIngestChannel;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 class ChannelInflightMetricsTest {
 
   private static final String ROWS_KEY = "snowflake.streaming.max.task.inflight.rows";
-
-  private final FakeInflightMBeans beans = new FakeInflightMBeans();
+  private static final String MEGABYTES_KEY = "snowflake.streaming.max.task.inflight.megabytes";
 
   @AfterEach
-  void tearDown() throws JMException {
-    beans.close();
+  void tearDown() {
+    FakeInflightSdk.readers = FakeInflightSdk.Reader::new;
+  }
+
+  // --- reading through the SDK reader API ---
+
+  @Test
+  void readerReadsRowsAndBytesOfTheResolvedSdkReader() throws Exception {
+    FakeInflightSdk.Reader sdkReader = new FakeInflightSdk.Reader();
+    sdkReader.rows = 7;
+    sdkReader.bytes = 700;
+    FakeInflightSdk.readers = () -> sdkReader;
+
+    ChannelInflightMetrics.InflightReader reader =
+        ChannelInflightMetrics.readersOf(FakeInflightSdk.SinkRegistered.class)
+            .forChannel(mock(SnowflakeStreamingIngestChannel.class));
+
+    assertEquals(7, reader.rows());
+    assertEquals(700, reader.bytes());
+    sdkReader.rows = 8;
+    assertEquals(8, reader.rows());
   }
 
   @Test
-  void objectNameMatchesSdkLayoutLiteralForBothGauges() throws Exception {
-    assertEquals(
-        new ObjectName(
-            "snowflake.ingest.sdk:clientName=\"KC_CLIENT_1\",channel=\"conn_topic_0\","
-                + "name=\"inflight_rows\""),
-        ChannelInflightMetrics.objectName(
-            "KC_CLIENT_1", "conn_topic_0", ChannelInflightMetrics.INFLIGHT_ROWS));
-    assertEquals(
-        new ObjectName(
-            "snowflake.ingest.sdk:clientName=\"KC_CLIENT_1\",channel=\"conn_topic_0\","
-                + "name=\"inflight_bytes\""),
-        ChannelInflightMetrics.objectName(
-            "KC_CLIENT_1", "conn_topic_0", ChannelInflightMetrics.INFLIGHT_BYTES));
-  }
+  void readerPassesTheSdkIllegalStateExceptionThroughUnwrapped() throws Exception {
+    FakeInflightSdk.Reader sdkReader = new FakeInflightSdk.Reader();
+    IllegalStateException failure = new IllegalStateException("no inflight gauge pushed");
+    sdkReader.failure = failure;
+    FakeInflightSdk.readers = () -> sdkReader;
 
-  private static InflightUsage read(String clientName, String channelName)
-      throws InstanceNotFoundException {
-    return ChannelInflightMetrics.read(
-        new ChannelInflightMetrics.InflightBeanNames(clientName, channelName));
+    ChannelInflightMetrics.InflightReader reader =
+        ChannelInflightMetrics.readersOf(FakeInflightSdk.SinkRegistered.class)
+            .forChannel(mock(SnowflakeStreamingIngestChannel.class));
+
+    assertSame(failure, assertThrows(IllegalStateException.class, reader::rows));
+    assertSame(failure, assertThrows(IllegalStateException.class, reader::bytes));
   }
 
   @Test
-  void readsRowsAndBytesForOneChannel() throws Exception {
-    beans.channel("client_a", "conn_topic_0", 7, 700);
+  void readerResolutionPassesTheSdkIllegalArgumentExceptionThrough() throws Exception {
+    ChannelInflightMetrics.InflightReaderFactory readers =
+        ChannelInflightMetrics.readersOf(FakeInflightSdk.SinkRegistered.class);
 
-    assertEquals(new InflightUsage(7, 700), read("client_a", "conn_topic_0"));
+    assertThrows(IllegalArgumentException.class, () -> readers.forChannel(null));
   }
 
   @Test
-  void readsOnlyTheRequestedClientAndChannel() throws Exception {
-    beans
-        .channel("client_a", "conn_topic_0", 1, 10)
-        .channel("client_b", "conn_topic_0", 2, 20)
-        .channel("client_a", "conn_topic_1", 3, 30)
-        // Unquoted near-duplicate of client_a/conn_topic_0, a distinct ObjectName.
-        .register(
-            new ObjectName(
-                "snowflake.ingest.sdk:clientName=client_a,channel=conn_topic_0,name=inflight_rows"),
-            () -> 99.0)
-        .register(
-            new ObjectName(
-                "snowflake.ingest.sdk:clientName=client_a,channel=conn_topic_0,name=inflight_bytes"),
-            () -> 990.0);
-
-    assertEquals(new InflightUsage(1, 10), read("client_a", "conn_topic_0"));
-    assertEquals(new InflightUsage(2, 20), read("client_b", "conn_topic_0"));
-    assertEquals(new InflightUsage(3, 30), read("client_a", "conn_topic_1"));
-  }
-
-  @Test
-  void missingBeanThrowsInstanceNotFound() {
-    InstanceNotFoundException thrown =
+  void sdkReadersReportNoReaderWhenTheSdkOnTheClasspathHasNone() {
+    // The test classpath bundles an SDK without the reader API.
+    IllegalStateException thrown =
         assertThrows(
-            InstanceNotFoundException.class, () -> read("missing_client", "missing_channel"));
-    assertTrue(thrown.getMessage().contains("inflight_rows"), thrown.getMessage());
-
-    beans.gauge("client_a", "conn_topic_0", FakeInflightMBeans.ROWS, 1);
-    InstanceNotFoundException bytesMissing =
-        assertThrows(InstanceNotFoundException.class, () -> read("client_a", "conn_topic_0"));
-    assertTrue(bytesMissing.getMessage().contains("inflight_bytes"), bytesMissing.getMessage());
+            IllegalStateException.class,
+            () ->
+                ChannelInflightMetrics.SDK_READERS.forChannel(
+                    mock(SnowflakeStreamingIngestChannel.class)));
+    assertTrue(thrown.getMessage().contains("no inflight readers"), thrown.getMessage());
   }
 
-  @Test
-  void beanMBeanExceptionIsUnavailable() {
-    MBeanException failure = new MBeanException(new Exception("ffi failure"), "ffi");
-    beans
-        .gauge("client_a", "conn_topic_0", FakeInflightMBeans.ROWS, 1)
-        .register(
-            FakeInflightMBeans.sdkObjectName("client_a", "conn_topic_0", FakeInflightMBeans.BYTES),
-            () -> {
-              throw failure;
-            });
-
-    InflightUsageUnavailableException thrown =
-        assertThrows(
-            InflightUsageUnavailableException.class, () -> read("client_a", "conn_topic_0"));
-    assertSame(failure, thrown.getCause());
-    assertTrue(thrown.getMessage().contains("inflight_bytes"), thrown.getMessage());
-    assertTrue(thrown.getMessage().contains("conn_topic_0"), thrown.getMessage());
-  }
-
-  @ParameterizedTest
-  @ValueSource(doubles = {Double.NaN, -1.0})
-  void nonFiniteOrNegativeValueIsUnavailable(double value) {
-    beans
-        .gauge("client_a", "conn_topic_0", FakeInflightMBeans.ROWS, 1)
-        .gauge("client_a", "conn_topic_0", FakeInflightMBeans.BYTES, value);
-
-    InflightUsageUnavailableException thrown =
-        assertThrows(
-            InflightUsageUnavailableException.class, () -> read("client_a", "conn_topic_0"));
-    assertTrue(thrown.getMessage().contains("inflight_bytes"), thrown.getMessage());
-    assertTrue(thrown.getMessage().contains(String.valueOf(value)), thrown.getMessage());
-  }
+  // --- requireSdkSupport ---
 
   @Test
   void sdkSupportNotRequiredWhenBothCapsDisabled() {
@@ -139,5 +93,67 @@ class ChannelInflightMetricsTest {
     assertTrue(thrown.getMessage().contains(ROWS_KEY), thrown.getMessage());
     assertTrue(thrown.getMessage().contains("no.such.SdkClass"), thrown.getMessage());
     assertInstanceOf(ClassNotFoundException.class, thrown.getCause());
+  }
+
+  @Test
+  void sdkSupportPassesWhenSdkHasReadersAndMetricsSinkRegistered() {
+    assertDoesNotThrow(
+        () ->
+            ChannelInflightMetrics.requireSdkSupport(
+                1, 1, FakeInflightSdk.SinkRegistered.class.getName()));
+  }
+
+  @Test
+  void sdkSupportFailsWhenSdkProvidesNoInflightReaders() {
+    ConnectException thrown =
+        assertThrows(
+            ConnectException.class,
+            () ->
+                ChannelInflightMetrics.requireSdkSupport(
+                    0, 1, FakeInflightSdk.WithoutReader.class.getName()));
+    assertTrue(thrown.getMessage().contains(ROWS_KEY), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains(MEGABYTES_KEY), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains("inflightReader"), thrown.getMessage());
+    assertInstanceOf(NoSuchMethodException.class, thrown.getCause());
+  }
+
+  @Test
+  void sdkSupportFailsWhenMetricsSinkDidNotRegister() {
+    ConnectException thrown =
+        assertThrows(
+            ConnectException.class,
+            () ->
+                ChannelInflightMetrics.requireSdkSupport(
+                    0, 1, FakeInflightSdk.SinkFailed.class.getName()));
+    assertTrue(thrown.getMessage().contains(ROWS_KEY), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains(MEGABYTES_KEY), thrown.getMessage());
+    assertTrue(
+        thrown.getMessage().contains("Curated metrics are not pushed to Java"),
+        thrown.getMessage());
+  }
+
+  @Test
+  void sdkSupportFailsWhenSdkCannotReportMetricsSink() {
+    ConnectException thrown =
+        assertThrows(
+            ConnectException.class,
+            () ->
+                ChannelInflightMetrics.requireSdkSupport(
+                    1, 0, FakeInflightSdk.WithoutSinkCheck.class.getName()));
+    assertTrue(thrown.getMessage().contains(ROWS_KEY), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains(MEGABYTES_KEY), thrown.getMessage());
+    assertInstanceOf(NoSuchMethodException.class, thrown.getCause());
+  }
+
+  @Test
+  void sdkSupportFailsWhenMetricsSinkCheckThrows() {
+    ConnectException thrown =
+        assertThrows(
+            ConnectException.class,
+            () ->
+                ChannelInflightMetrics.requireSdkSupport(
+                    1, 0, FakeInflightSdk.SinkCheckThrows.class.getName()));
+    assertEquals("Failed to check the snowpipe-streaming JMX metrics sink", thrown.getMessage());
+    assertInstanceOf(IllegalStateException.class, thrown.getCause());
   }
 }
