@@ -66,8 +66,10 @@ public class BatchOffsetFetcher {
    *
    * @param partitions the partitions to query
    * @param channelLookup function to look up the TopicPartitionChannel for a given partition
-   * @return map of TopicPartition to the offset safe to commit to Kafka (committed + 1), only
-   *     containing entries where a valid offset was found
+   * @return map of TopicPartition to the offset safe to commit to Kafka: committed + 1, or the
+   *     channel's {@link TopicPartitionChannel#getOffsetSafeToCommitWithoutStatus()} when its
+   *     status has no offset token or could not be read. Partitions without a channel, and channels
+   *     that know no safe offset, are left out
    */
   public Map<TopicPartition, Long> getCommittedOffsets(
       Collection<TopicPartition> partitions,
@@ -142,9 +144,28 @@ public class BatchOffsetFetcher {
                   channelsByPartition.size(),
                   e);
             }
+            channelsByPartition.forEach(
+                (topicPartition, channel) ->
+                    putIfKnown(
+                        result, topicPartition, channel.getOffsetSafeToCommitWithoutStatus()));
           }
         },
         ioExecutor);
+  }
+
+  /**
+   * Adds {@code offset} unless it is {@link
+   * TopicPartitionChannel#NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE}.
+   *
+   * <p>Every channel reports an offset whenever it knows one. Kafka Connect commits a partition
+   * missing from {@code preCommit} at its last rewind target, which can be past rows the channel
+   * appended or dropped and Snowflake never committed.
+   */
+  private static void putIfKnown(
+      Map<TopicPartition, Long> result, TopicPartition topicPartition, long offset) {
+    if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+      result.put(topicPartition, offset);
+    }
   }
 
   /**
@@ -174,17 +195,18 @@ public class BatchOffsetFetcher {
 
           ChannelStatus status = batch.getChannelStatusBatch().get(channelName);
           if (status == null) {
-            // This should never happen but we can still recover by simply skipping this channel.
-            // There is no obligation to return any committed offsets in `preCommit`.
+            // This should never happen. The channel still reports the offset it knows is safe.
             LOGGER.warn("No status returned for channel: {}", channelName);
+            putIfKnown(result, topicPartition, channel.getOffsetSafeToCommitWithoutStatus());
             return;
           }
           long offset = channel.processChannelStatus(status, tolerateErrors);
           LOGGER.debug(
               "Fetched snowflake committed offset: [{}] for channel [{}]", offset, channelName);
-          if (offset != NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
-            result.put(topicPartition, offset);
+          if (offset == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE) {
+            offset = channel.getOffsetSafeToCommitWithoutStatus();
           }
+          putIfKnown(result, topicPartition, offset);
         });
     return result;
   }

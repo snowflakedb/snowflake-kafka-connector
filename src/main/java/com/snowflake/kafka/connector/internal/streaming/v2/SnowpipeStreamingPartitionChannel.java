@@ -981,6 +981,12 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   }
 
   @Override
+  public long getOffsetSafeToCommitWithoutStatus() {
+    // The same offset resetAfterRecovery rewinds to when the reopened channel has no token.
+    return offsetTracker.consumerGroupOffsetRef().get();
+  }
+
+  @Override
   public long processChannelStatus(final ChannelStatus status, final boolean tolerateErrors) {
     logChannelStatus(status);
 
