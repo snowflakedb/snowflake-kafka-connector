@@ -125,7 +125,7 @@ public class InternalUtils {
                 oauthClientSecret,
                 config.getOauthRefreshToken(),
                 resolveOauthScope(config),
-                config.getProxyConfig()));
+                jdbcHttpClientProperties(config)));
         break;
       case SNOWFLAKE_JWT:
         properties.put(JdbcPropertyKeys.AUTHENTICATOR, SNOWFLAKE_JWT);
@@ -249,6 +249,17 @@ public class InternalUtils {
         properties.put(JdbcPropertyKeys.PROXY_PASSWORD, proxy.getPassword());
       }
     }
+    return properties;
+  }
+
+  /**
+   * The properties the JDBC connection gets that decide how the driver reaches the network: the
+   * proxy settings and {@code snowflake.jdbc.map}. The OAuth token request uses them to get the
+   * same HTTP client as the connection.
+   */
+  private static Properties jdbcHttpClientProperties(SinkTaskConfig config) {
+    Properties properties = generateProxyParametersIfRequired(config);
+    properties.putAll(parseJdbcPropertiesMap(config));
     return properties;
   }
 
