@@ -437,8 +437,8 @@ public class ConnectorConfigDefinition {
             LOW,
             "Limit on rows this task has sent to Snowpipe Streaming that Snowflake has not yet"
                 + " acknowledged, summed over the task's channels. 0 disables the limit. The task"
-                + " checks it before each batch. Requires a snowpipe-streaming SDK that publishes"
-                + " inflight JMX beans. See the megabytes setting for the wait and rewind"
+                + " checks it before each batch. Requires a snowpipe-streaming SDK that reports"
+                + " inflight usage in process. See the megabytes setting for the wait and rewind"
                 + " behavior.",
             CONNECTOR_CONFIG_DOC,
             7,
@@ -456,8 +456,8 @@ public class ConnectorConfigDefinition {
                 + " re-checking every 100 ms. If it is still over, the task rewinds the batch so"
                 + " Kafka redelivers it. The task can exceed a limit by at most one batch of at"
                 + " most max.poll.records records. Limits are per task. Requires a"
-                + " snowpipe-streaming SDK that publishes inflight JMX beans, otherwise the task"
-                + " fails to start.",
+                + " snowpipe-streaming SDK that reports inflight usage in process, otherwise the"
+                + " task fails to start.",
             CONNECTOR_CONFIG_DOC,
             8,
             Width.NONE,
