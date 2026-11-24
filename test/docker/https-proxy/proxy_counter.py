@@ -67,18 +67,23 @@ def _operations(flow: http.HTTPFlow) -> list:
     method = flow.request.method
     host = flow.request.pretty_host.lower()
 
+    # The connector's OAuth token request goes out on the JDBC driver's HTTP client, so it
+    # carries the driver's user agent. The endpoint may be any IdP (CI uses Okta), so it is
+    # recognized by its grant_type form body rather than its path.
+    if (
+        method == "POST"
+        and flow.request.headers.get("user-agent", "").startswith("JDBC/")
+        and "grant_type=" in (flow.request.get_text(strict=False) or "")
+    ):
+        return ["connector_oauth_token"]
     # JDBC (connector's Snowflake connection)
     if method == "POST" and path.endswith("/session/v1/login-request"):
         return ["jdbc_login"]
     if method == "POST" and path.endswith("/queries/v1/query-request"):
         return ["jdbc_query"]
-    # The connector's OAuth token request goes out on the JDBC driver's HTTP client, so it
-    # carries the driver's user agent; the SDK's own token request does not.
-    if method == "POST" and path.endswith("/oauth/token-request"):
-        if flow.request.headers.get("user-agent", "").startswith("JDBC/"):
-            return ["connector_oauth_token"]
-        return ["sdk_initial_auth"]
     # Streaming SDK
+    if method == "POST" and path.endswith("/oauth/token-request"):
+        return ["sdk_initial_auth"]
     if method == "GET" and path.endswith("/v2/streaming/hostname"):
         return ["sdk_get_subdomain_name"]
     if method == "POST" and path.endswith("/oauth/token"):
