@@ -93,6 +93,10 @@ class SnowflakeSinkServiceV2Test {
     sleeper = new FakeSleeper(clock);
     mockChannelManager = mock(PartitionChannelManager.class);
     when(mockChannelManager.drainPendingOffsetResets(any())).thenReturn(Map.of());
+    // A cached sum at every cap: each cap decision below is made on sumInflightUsage(), a read of
+    // every channel, exactly as without the cache. Tests of the cache override this.
+    when(mockChannelManager.sumInflightUsageReadingAppended(any()))
+        .thenReturn(new InflightUsage(Long.MAX_VALUE, Long.MAX_VALUE));
     mockBatchOffsetFetcher = mock(BatchOffsetFetcher.class);
     mockSinkTaskContext = mock(SinkTaskContext.class);
     // insert() asserts that record partitions and rewinds are within the current assignment; the
@@ -495,6 +499,93 @@ class SnowflakeSinkServiceV2Test {
 
     // All partitions rewound
     verify(mockSinkTaskContext).offset(Map.of(tp0, 100L, tp1, 200L));
+  }
+
+  @Test
+  void insertUnderCapFromCachedSumReadsNoOtherChannel() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.sumInflightUsageReadingAppended(any()))
+        .thenReturn(new InflightUsage(49, 0));
+    SinkRecord r0 = recordFor(TOPIC, 0, 1000);
+
+    limited.insert(Collections.singletonList(r0));
+
+    verify(mockChannelManager, never()).sumInflightUsage();
+    assertTrue(sleeper.sleeps.isEmpty());
+    verify(channel0).insertRecord(r0);
+  }
+
+  @Test
+  void insertRereadsEveryChannelWhenCachedSumReachesCapAndProceedsWithoutWaiting() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    // Cached usage of a channel that Snowflake has acknowledged since its last read.
+    when(mockChannelManager.sumInflightUsageReadingAppended(any()))
+        .thenReturn(new InflightUsage(50, 0));
+    when(mockChannelManager.sumInflightUsage()).thenReturn(new InflightUsage(10, 0));
+    SinkRecord r0 = recordFor(TOPIC, 0, 1000);
+
+    limited.insert(Collections.singletonList(r0));
+
+    verify(mockChannelManager, times(1)).sumInflightUsage();
+    assertTrue(sleeper.sleeps.isEmpty());
+    verify(channel0).insertRecord(r0);
+    verify(mockTaskMetrics, never()).incInflightCapWaitCount();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void nextCapCheckReadsThePartitionsOfThePreviousBatchOnce() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    TopicPartitionChannel channel1 = mockChannel("ch_1", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
+    List<Set<TopicPartition>> checked = new ArrayList<>();
+    when(mockChannelManager.sumInflightUsageReadingAppended(any()))
+        .thenAnswer(
+            invocation -> {
+              checked.add(new HashSet<>((Set<TopicPartition>) invocation.getArgument(0)));
+              return new InflightUsage(1, 0);
+            });
+
+    limited.insert(Arrays.asList(recordFor(TOPIC, 0, 1000), recordFor(TOPIC, 1, 2000)));
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 1, 2001)));
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 1, 2002)));
+
+    assertEquals(Arrays.asList(Set.of(), Set.of(tp0, tp1), Set.of(tp1)), checked);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void closingPartitionsDropsThemFromTheNextCapCheck() {
+    SnowflakeSinkServiceV2 limited = serviceWithTaskInflightCaps(50, 0);
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    TopicPartitionChannel channel0 = mockChannel("ch_0", false);
+    TopicPartitionChannel channel1 = mockChannel("ch_1", false);
+    when(mockChannelManager.getChannel(tp0)).thenReturn(Optional.of(channel0));
+    when(mockChannelManager.getChannel(tp1)).thenReturn(Optional.of(channel1));
+    List<Set<TopicPartition>> checked = new ArrayList<>();
+    when(mockChannelManager.sumInflightUsageReadingAppended(any()))
+        .thenAnswer(
+            invocation -> {
+              checked.add(new HashSet<>((Set<TopicPartition>) invocation.getArgument(0)));
+              return new InflightUsage(1, 0);
+            });
+
+    limited.insert(Arrays.asList(recordFor(TOPIC, 0, 1000), recordFor(TOPIC, 1, 2000)));
+    limited.close(Collections.singletonList(tp0));
+    limited.insert(Collections.singletonList(recordFor(TOPIC, 1, 2001)));
+
+    assertEquals(Arrays.asList(Set.of(), Set.of(tp1)), checked);
   }
 
   @Test

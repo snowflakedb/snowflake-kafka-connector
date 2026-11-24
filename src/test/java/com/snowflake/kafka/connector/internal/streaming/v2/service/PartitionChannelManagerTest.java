@@ -13,6 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -109,6 +110,87 @@ class PartitionChannelManagerTest {
 
     assertSame(
         failure, assertThrows(InflightUsageUnavailableException.class, manager::sumInflightUsage));
+  }
+
+  @Test
+  void readingAppendedReadsOnlyAppendedChannelsAndCountsTheRestAtTheirLastRead() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    TopicPartition tp2 = new TopicPartition(TOPIC, 2);
+    startPartitions(tp0, tp1, tp2);
+    TopicPartitionChannel ch0 = createdChannels.get(tp0);
+    TopicPartitionChannel ch1 = createdChannels.get(tp1);
+    TopicPartitionChannel ch2 = createdChannels.get(tp2);
+    when(ch0.getInflightUsage()).thenReturn(new InflightUsage(1, 10), new InflightUsage(4, 40));
+    when(ch1.getInflightUsage()).thenReturn(new InflightUsage(2, 20));
+
+    // tp2 was never read and never appended to: it counts as 0 and is not read.
+    assertEquals(
+        new InflightUsage(3, 30), manager.sumInflightUsageReadingAppended(Set.of(tp0, tp1)));
+    // Only tp0 was appended to since: tp1 counts with its last read.
+    assertEquals(new InflightUsage(6, 60), manager.sumInflightUsageReadingAppended(Set.of(tp0)));
+    assertEquals(new InflightUsage(6, 60), manager.sumInflightUsageReadingAppended(Set.of()));
+
+    verify(ch0, times(2)).getInflightUsage();
+    verify(ch1, times(1)).getInflightUsage();
+    verify(ch2, never()).getInflightUsage();
+  }
+
+  @Test
+  void fullReadResetsTheLastReadsToCurrentUsage() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    startPartitions(tp0, tp1);
+    when(createdChannels.get(tp0).getInflightUsage())
+        .thenReturn(new InflightUsage(9, 90), new InflightUsage(1, 10));
+    when(createdChannels.get(tp1).getInflightUsage()).thenReturn(new InflightUsage(2, 20));
+    manager.sumInflightUsageReadingAppended(Set.of(tp0, tp1));
+
+    // Acknowledgements lowered tp0. A full read sees it and later sums count it.
+    assertEquals(new InflightUsage(3, 30), manager.sumInflightUsage());
+    assertEquals(new InflightUsage(3, 30), manager.sumInflightUsageReadingAppended(Set.of()));
+  }
+
+  @Test
+  void readingAppendedPropagatesReadFailureOfAnAppendedChannel() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    startPartitions(tp0);
+    InflightUsageUnavailableException failure =
+        new InflightUsageUnavailableException("read", new IllegalStateException("cause"));
+    when(createdChannels.get(tp0).getInflightUsage()).thenThrow(failure);
+
+    assertSame(
+        failure,
+        assertThrows(
+            InflightUsageUnavailableException.class,
+            () -> manager.sumInflightUsageReadingAppended(Set.of(tp0))));
+  }
+
+  @Test
+  void readingAppendedIgnoresPartitionsWithoutAChannel() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    startPartitions(tp0);
+
+    assertEquals(
+        InflightUsage.NONE,
+        manager.sumInflightUsageReadingAppended(Set.of(new TopicPartition(TOPIC, 9))));
+    verify(createdChannels.get(tp0), never()).getInflightUsage();
+  }
+
+  @Test
+  void closeAndCloseAllDropLastReadsFromTheSum() {
+    TopicPartition tp0 = new TopicPartition(TOPIC, 0);
+    TopicPartition tp1 = new TopicPartition(TOPIC, 1);
+    startPartitions(tp0, tp1);
+    when(createdChannels.get(tp0).getInflightUsage()).thenReturn(new InflightUsage(5, 50));
+    when(createdChannels.get(tp1).getInflightUsage()).thenReturn(new InflightUsage(1, 10));
+    manager.sumInflightUsageReadingAppended(Set.of(tp0, tp1));
+
+    manager.close(Collections.singletonList(tp0));
+    assertEquals(new InflightUsage(1, 10), manager.sumInflightUsageReadingAppended(Set.of()));
+
+    manager.closeAll();
+    assertEquals(InflightUsage.NONE, manager.sumInflightUsageReadingAppended(Set.of()));
   }
 
   @Test

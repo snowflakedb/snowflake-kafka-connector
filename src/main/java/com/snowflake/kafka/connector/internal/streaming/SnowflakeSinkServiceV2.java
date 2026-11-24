@@ -111,6 +111,12 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
   /** When a reached task inflight cap was last logged at WARN. */
   private Instant lastInflightCapLog = Instant.MIN;
 
+  /**
+   * Partitions this task may have appended to since their channel's inflight usage was last read.
+   * Used only on the task thread.
+   */
+  private final Set<TopicPartition> appendedSinceInflightRead = new HashSet<>();
+
   /** Times the task became capped since the last WARN. */
   private long inflightCapTripsSinceLog = 0;
 
@@ -532,6 +538,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       skipAllPartitions = true;
       inflightCapRewind = true;
     }
+    if (!skipAllPartitions
+        && (taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0)) {
+      // The next cap check reads these channels again, since this batch may append to them.
+      appendedSinceInflightRead.addAll(partitions);
+    }
 
     boolean newBackpressure = false;
 
@@ -625,6 +636,11 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
   }
 
+  private static boolean reachesCap(InflightUsage usage, long maxRows, long maxBytes) {
+    return (maxRows > 0 && usage.getRows() >= maxRows)
+        || (maxBytes > 0 && usage.getBytes() >= maxBytes);
+  }
+
   /** Sleeps the calling thread. */
   @FunctionalInterface
   interface Sleeper {
@@ -684,7 +700,13 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     long maxBytes = taskConfig.getMaxTaskInflightBytes();
     final InflightUsage usage;
     try {
-      usage = channelManager.sumInflightUsage();
+      InflightUsage cached =
+          channelManager.sumInflightUsageReadingAppended(appendedSinceInflightRead);
+      appendedSinceInflightRead.clear();
+      // Acknowledgements since a channel's last read can only lower its usage, so a cached sum
+      // under both caps proves the true sum is under them. A cached sum at a cap is decided on a
+      // read of every channel.
+      usage = reachesCap(cached, maxRows, maxBytes) ? channelManager.sumInflightUsage() : cached;
     } catch (InflightUsageUnavailableException e) {
       recordInflightUnavailable(e, maxRows, maxBytes);
       taskInflightCapped = true;
@@ -692,9 +714,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
     inflightUnavailableSince = null;
     inflightUnavailableLast = null;
-    boolean rowsReached = maxRows > 0 && usage.getRows() >= maxRows;
-    boolean bytesReached = maxBytes > 0 && usage.getBytes() >= maxBytes;
-    if (rowsReached || bytesReached) {
+    if (reachesCap(usage, maxRows, maxBytes)) {
       if (!taskInflightCapped) {
         inflightCapTripsSinceLog++;
         Instant now = clock.instant();
@@ -875,6 +895,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
+    appendedSinceInflightRead.clear();
     channelManager.closeAll();
   }
 
@@ -892,6 +913,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void close(Collection<TopicPartition> partitions) {
+    appendedSinceInflightRead.removeAll(partitions);
     channelManager.close(partitions);
   }
 
