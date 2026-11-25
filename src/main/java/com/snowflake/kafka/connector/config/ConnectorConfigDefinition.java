@@ -548,6 +548,7 @@ public class ConnectorConfigDefinition {
             "SQL clauses spliced into the auto-created Iceberg table's CREATE statement after the"
                 + " column list (e.g. \"EXTERNAL_VOLUME='v' ICEBERG_VERSION=3 CLUSTER BY (id)\")."
                 + " Lets operators set any managed-Iceberg create option without a per-option knob."
+                + " Statement delimiters and SQL comments ('--', '/*', '//') are rejected."
                 + " Only valid when snowflake.autocreate.table.type=iceberg. Do NOT include"
                 + " CATALOG, ENABLE_SCHEMA_EVOLUTION or ERROR_LOGGING -- the"
                 + " connector always supplies those. Ignored if the table already exists.",

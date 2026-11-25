@@ -9,6 +9,7 @@ import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.JMX_OPT;
 import static com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams.SNOWFLAKE_PRIVATE_KEY;
 import static com.snowflake.kafka.connector.Utils.isValidSnowflakeApplicationName;
+import static com.snowflake.kafka.connector.Utils.validateIcebergCreateTableOptions;
 import static com.snowflake.kafka.connector.Utils.validateProxySettings;
 
 import com.google.common.collect.ImmutableMap;
@@ -171,6 +172,14 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
             JMX_OPT,
             Utils.formatString("Kafka config: {} should either be true or false", JMX_OPT));
       }
+    }
+
+    try {
+      validateIcebergCreateTableOptions(
+          config.get(KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS));
+    } catch (IllegalArgumentException e) {
+      invalidConfigParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS, e.getMessage());
     }
 
     validateCacheConfig(config, invalidConfigParams);
