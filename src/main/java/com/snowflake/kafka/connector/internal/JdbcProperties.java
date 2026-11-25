@@ -1,6 +1,9 @@
 package com.snowflake.kafka.connector.internal;
 
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Properties;
+import java.util.Set;
 
 /** Wrapper class for all snowflake jdbc properties */
 public class JdbcProperties {
@@ -47,13 +50,31 @@ public class JdbcProperties {
     return new JdbcProperties(combinedProperties, proxyProperties);
   }
 
+  /**
+   * Keys are compared case-insensitively and ignoring surrounding whitespace: the driver resolves
+   * its own properties case-insensitively and forwards unknown keys as session parameters, so a
+   * case variant of a connector-owned key would still reach the session.
+   */
   private static void detectOverrides(Properties proxyAndConnection, Properties jdbcPropertiesMap) {
+    Set<String> reservedKeys = new HashSet<>();
+    proxyAndConnection.keySet().forEach(k -> reservedKeys.add(normalizeKey(k)));
+    Set<String> seenKeys = new HashSet<>();
     jdbcPropertiesMap.forEach(
         (k, v) -> {
-          if (proxyAndConnection.containsKey(k)) {
-            throw SnowflakeErrors.ERROR_0031.getException("Duplicated property: " + k);
+          String key = normalizeKey(k);
+          if (reservedKeys.contains(key)) {
+            throw SnowflakeErrors.ERROR_0031.getException(
+                "Duplicated property: " + k + " is set by the connector");
+          }
+          if (!seenKeys.add(key)) {
+            throw SnowflakeErrors.ERROR_0031.getException(
+                "Duplicated property: " + k + " is set more than once in snowflake.jdbc.map");
           }
         });
+  }
+
+  private static String normalizeKey(Object key) {
+    return String.valueOf(key).trim().toUpperCase(Locale.ROOT);
   }
 
   private static Properties mergeProperties(
