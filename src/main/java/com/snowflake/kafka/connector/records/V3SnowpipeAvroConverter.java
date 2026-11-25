@@ -4,11 +4,12 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
+import java.io.Closeable;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
-import org.apache.avro.generic.GenericContainer;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -18,8 +19,8 @@ import org.apache.kafka.connect.storage.Converter;
 /**
  * A sink-only {@code value.converter} for Confluent Schema Registry Avro that produces the record
  * value in the JSON shape the Kafka Connector v3 {@code SnowflakeAvroConverter} wrote to {@code
- * RECORD_CONTENT} in Snowpipe mode. Records are returned without a Connect schema, so they are
- * stored as a single {@code RECORD_CONTENT} document and require {@code
+ * RECORD_CONTENT} in Snowpipe mode. Only Avro records are accepted. Records are returned without a
+ * Connect schema, so they are stored as a single {@code RECORD_CONTENT} document and require {@code
  * snowflake.enable.schematization=false}.
  *
  * <p>Supports the optional {@value #READER_SCHEMA_CONFIG} property: an Avro schema that every
@@ -27,7 +28,7 @@ import org.apache.kafka.connect.storage.Converter;
  * Schema Registry connection, authentication, and TLS settings are the standard Confluent
  * deserializer properties.
  */
-public final class V3SnowpipeAvroConverter implements Converter {
+public final class V3SnowpipeAvroConverter implements Converter, Closeable {
 
   /** Optional Avro reader schema, as JSON, applied to every record. */
   public static final String READER_SCHEMA_CONFIG = "reader.schema";
@@ -51,10 +52,13 @@ public final class V3SnowpipeAvroConverter implements Converter {
     this.readerSchema = parseReaderSchema(configs.get(READER_SCHEMA_CONFIG));
     Map<String, Object> deserializerConfigs = withDefaults(configs);
     deserializerConfigs.remove(READER_SCHEMA_CONFIG);
-    // Generic records with raw logical-type values are the input the value mapper expects.
-    deserializerConfigs.put(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG, false);
-    deserializerConfigs.put(
-        KafkaAvroDeserializerConfig.AVRO_USE_LOGICAL_TYPE_CONVERTERS_CONFIG, false);
+    // The value mapper reproduces the KC v3 rendering from generic records whose date, time,
+    // timestamp, and decimal values are still raw Avro values. Specific records or converted
+    // logical values would change that rendering, so these settings can't be turned on.
+    requireFalse(deserializerConfigs, KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG);
+    requireFalse(
+        deserializerConfigs, KafkaAvroDeserializerConfig.AVRO_USE_LOGICAL_TYPE_CONVERTERS_CONFIG);
+    close();
     this.deserializer =
         registryOverride == null
             ? new KafkaAvroDeserializer()
@@ -77,9 +81,10 @@ public final class V3SnowpipeAvroConverter implements Converter {
   }
 
   /**
-   * Converts a Confluent-framed Avro payload. A null payload is a tombstone. Malformed payloads,
-   * unknown schema ids, Schema Registry failures, and records that can't be resolved to the reader
-   * schema throw {@link DataException}.
+   * Converts a Confluent-framed Avro record. A null payload is a tombstone. Malformed payloads,
+   * unknown schema ids, Schema Registry failures, data that isn't an Avro record, records that
+   * can't be resolved to the reader schema, and values that can't be mapped throw {@link
+   * DataException}.
    */
   @Override
   public SchemaAndValue toConnectData(String topic, byte[] value) {
@@ -93,19 +98,34 @@ public final class V3SnowpipeAvroConverter implements Converter {
     }
     Object datum;
     try {
-      datum =
-          readerSchema == null
-              ? deserializer.deserialize(topic, headers, value)
-              : deserializer.deserialize(topic, headers, value, readerSchema);
+      if (readerSchema == null) {
+        datum =
+            headers == null
+                ? deserializer.deserialize(topic, value)
+                : deserializer.deserialize(topic, headers, value);
+      } else {
+        datum =
+            headers == null
+                ? deserializer.deserialize(topic, value, readerSchema)
+                : deserializer.deserialize(topic, headers, value, readerSchema);
+      }
     } catch (RuntimeException e) {
       throw new DataException("Failed to deserialize Avro data for topic " + topic, e);
     }
     if (datum == null) {
       return SchemaAndValue.NULL;
     }
-    Schema schema =
-        datum instanceof GenericContainer ? ((GenericContainer) datum).getSchema() : null;
-    return new SchemaAndValue(null, V3SnowpipeAvroValueMapper.toValue(schema, datum));
+    if (!(datum instanceof GenericRecord)) {
+      throw new DataException(
+          "Expected an Avro record for topic " + topic + " but got " + datum.getClass().getName());
+    }
+    GenericRecord record = (GenericRecord) datum;
+    try {
+      return new SchemaAndValue(
+          null, V3SnowpipeAvroValueMapper.toValue(record.getSchema(), record));
+    } catch (RuntimeException e) {
+      throw new DataException("Failed to convert Avro record for topic " + topic, e);
+    }
   }
 
   /** Always throws: this converter only reads records. */
@@ -114,6 +134,23 @@ public final class V3SnowpipeAvroConverter implements Converter {
       String topic, org.apache.kafka.connect.data.Schema schema, Object value) {
     throw new UnsupportedOperationException(
         getClass().getName() + " only converts records read from Kafka");
+  }
+
+  /** Closes the Schema Registry client. Safe to call more than once. */
+  @Override
+  public void close() {
+    if (deserializer != null) {
+      deserializer.close();
+      deserializer = null;
+    }
+  }
+
+  private static void requireFalse(Map<String, Object> configs, String name) {
+    Object configured = configs.get(name);
+    if (configured != null && !"false".equalsIgnoreCase(configured.toString().trim())) {
+      throw new ConfigException(name, configured, "must be false for this converter");
+    }
+    configs.put(name, false);
   }
 
   private static Schema parseReaderSchema(Object configured) {

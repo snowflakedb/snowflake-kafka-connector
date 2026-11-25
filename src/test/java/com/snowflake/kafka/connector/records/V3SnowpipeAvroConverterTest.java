@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -14,8 +17,10 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.snowflake.kafka.connector.Utils;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.testutil.MockSchemaRegistry;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
+import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -250,16 +255,19 @@ class V3SnowpipeAvroConverterTest {
             .requiredString("id")
             .requiredString("dropped")
             .requiredInt("count")
+            .requiredInt("ratio")
             .endRecord();
     String readerJson =
         "{\"type\":\"record\",\"name\":\"Event\",\"namespace\":\"t\",\"fields\":["
             + "{\"name\":\"id\",\"type\":\"string\"},"
             + "{\"name\":\"count\",\"type\":\"long\"},"
+            + "{\"name\":\"ratio\",\"type\":\"double\"},"
             + "{\"name\":\"source\",\"type\":\"string\",\"default\":\"legacy\"}]}";
     GenericRecord record = new GenericData.Record(writer);
     record.put("id", "e1");
     record.put("dropped", "gone");
     record.put("count", 3);
+    record.put("ratio", 2);
 
     V3SnowpipeAvroConverter converter =
         converter(
@@ -268,7 +276,8 @@ class V3SnowpipeAvroConverterTest {
         assertRecordContentMatchesKc3(
             converter, serializer.serialize(TOPIC, record), new Schema.Parser().parse(readerJson));
 
-    assertEquals("{\"id\":\"e1\",\"count\":3,\"source\":\"legacy\"}", actual.toString());
+    assertEquals(
+        "{\"id\":\"e1\",\"count\":3,\"ratio\":2,\"source\":\"legacy\"}", actual.toString());
   }
 
   @Test
@@ -397,6 +406,131 @@ class V3SnowpipeAvroConverterTest {
         true,
         V3SnowpipeAvroConverter.withDefaults(userSet)
             .get(AbstractKafkaSchemaSerDeConfig.RULE_SERVICE_LOADER_ENABLE));
+  }
+
+  @Test
+  void valueThatCannotBeMappedFailsWithDataException() {
+    Schema decimal = LogicalTypes.decimal(10, 2).addToSchema(Schema.create(Schema.Type.BYTES));
+    Schema schema =
+        SchemaBuilder.record("Row")
+            .namespace("t")
+            .fields()
+            .name("v")
+            .type(decimal)
+            .noDefault()
+            .endRecord();
+    GenericRecord record = new GenericData.Record(schema);
+    record.put("v", ByteBuffer.wrap(new byte[0]));
+    byte[] payload = serializer.serialize(TOPIC, record);
+
+    DataException e =
+        assertThrows(
+            DataException.class,
+            () -> converter(Collections.emptyMap()).toConnectData(TOPIC, payload));
+    assertTrue(e.getMessage().contains(TOPIC));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("nonRecordValues")
+  void nonRecordValuesAreRejected(String name, Object value) {
+    byte[] payload = serializer.serialize(TOPIC, value);
+    assertThrows(
+        DataException.class, () -> converter(Collections.emptyMap()).toConnectData(TOPIC, payload));
+  }
+
+  static Stream<Arguments> nonRecordValues() {
+    return Stream.of(
+        Arguments.of("string", "s"),
+        Arguments.of("int", 7),
+        Arguments.of("bytes", ByteBuffer.wrap(new byte[] {1, 2})));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("settingsThatMustBeFalse")
+  void settingsThatChangeTheRenderingCannotBeTurnedOn(String name) {
+    V3SnowpipeAvroConverter converter = new V3SnowpipeAvroConverter(registry);
+    Map<String, Object> on = registryConfig();
+    on.put(name, "true");
+    assertThrows(ConfigException.class, () -> converter.configure(on, false));
+
+    Map<String, Object> off = registryConfig();
+    off.put(name, false);
+    new V3SnowpipeAvroConverter(registry).configure(off, false);
+  }
+
+  static Stream<Arguments> settingsThatMustBeFalse() {
+    return Stream.of(
+        Arguments.of(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG),
+        Arguments.of(KafkaAvroDeserializerConfig.AVRO_USE_LOGICAL_TYPE_CONVERTERS_CONFIG));
+  }
+
+  @Test
+  void closeClosesTheRegistryClient() throws Exception {
+    SchemaRegistryClient client = spy(registry);
+    V3SnowpipeAvroConverter converter = new V3SnowpipeAvroConverter(client);
+    converter.configure(registryConfig(), false);
+
+    converter.close();
+
+    verify(client).close();
+  }
+
+  @Test
+  void reconfiguringClosesThePreviousClientAndCloseIsIdempotent() throws Exception {
+    SchemaRegistryClient client = spy(registry);
+    V3SnowpipeAvroConverter converter = new V3SnowpipeAvroConverter(client);
+    converter.configure(registryConfig(), false);
+    converter.configure(registryConfig(), false);
+    verify(client, times(1)).close();
+
+    converter.close();
+    converter.close();
+    verify(client, times(2)).close();
+  }
+
+  @Test
+  void closeBeforeConfigureDoesNothing() {
+    new V3SnowpipeAvroConverter(registry).close();
+  }
+
+  @Test
+  void keyConverterStoresTheKeyInKc3ShapeInMetadata() throws Exception {
+    Schema keySchema =
+        SchemaBuilder.record("Key")
+            .namespace("t")
+            .fields()
+            .requiredString("k")
+            .name("u")
+            .type()
+            .unionOf()
+            .nullType()
+            .and()
+            .stringType()
+            .and()
+            .intType()
+            .endUnion()
+            .nullDefault()
+            .endRecord();
+    GenericRecord key = new GenericData.Record(keySchema);
+    key.put("k", "id1");
+    key.put("u", 3);
+    KafkaAvroSerializer keySerializer = new KafkaAvroSerializer(registry);
+    keySerializer.configure(registryConfig(), true);
+    V3SnowpipeAvroConverter keyConverter = new V3SnowpipeAvroConverter(registry);
+    keyConverter.configure(registryConfig(), true);
+
+    SchemaAndValue convertedKey =
+        keyConverter.toConnectData(TOPIC, keySerializer.serialize(TOPIC, key));
+    SinkRecord sinkRecord =
+        new SinkRecord(TOPIC, 0, convertedKey.schema(), convertedKey.value(), null, null, 0);
+    Map<String, Object> metadata =
+        SnowflakeSinkRecord.from(sinkRecord, new SnowflakeMetadataConfig(), false, false)
+            .getMetadata();
+
+    Map<String, Object> expectedKey = new LinkedHashMap<>();
+    expectedKey.put("k", "id1");
+    expectedKey.put("u", 3);
+    assertEquals(expectedKey, metadata.get("key"));
   }
 
   /**

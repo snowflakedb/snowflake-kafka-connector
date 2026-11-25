@@ -12,7 +12,6 @@ import java.util.Map;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericContainer;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 
@@ -44,13 +43,6 @@ final class V3SnowpipeAvroValueMapper {
     if (datum == null) {
       return null;
     }
-    if (schema == null) {
-      if (datum instanceof GenericContainer) {
-        return toValue(((GenericContainer) datum).getSchema(), datum);
-      }
-      return datum instanceof CharSequence ? datum.toString() : datum;
-    }
-
     Schema effective =
         schema.getType() == Schema.Type.UNION
             ? schema.getTypes().get(GenericData.get().resolveUnion(schema, datum))
