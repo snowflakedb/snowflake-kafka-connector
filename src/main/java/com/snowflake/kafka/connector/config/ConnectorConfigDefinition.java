@@ -430,6 +430,39 @@ public class ConnectorConfigDefinition {
             Width.NONE,
             KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP)
         .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS,
+            LONG,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS_DEFAULT,
+            atLeast(0L),
+            LOW,
+            "Limit on rows this task has sent to Snowpipe Streaming that Snowflake has not yet"
+                + " acknowledged, summed over the task's channels. 0 disables the limit. The task"
+                + " checks it before each batch. Requires a snowpipe-streaming SDK that reports"
+                + " inflight usage in process. See the megabytes setting for the wait and rewind"
+                + " behavior.",
+            CONNECTOR_CONFIG_DOC,
+            7,
+            Width.NONE,
+            "Max Task Inflight Rows")
+        .define(
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES,
+            LONG,
+            KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES_DEFAULT,
+            between(0L, Long.MAX_VALUE >> 20),
+            LOW,
+            "Limit, in MiB, on bytes this task has sent to Snowpipe Streaming that Snowflake has"
+                + " not yet acknowledged, summed over the task's channels. 0 disables the limit."
+                + " When the total is at or over either limit, the task waits up to 1 second"
+                + " re-checking every 100 ms. If it is still over, the task rewinds the batch so"
+                + " Kafka redelivers it. The task can exceed a limit by at most one batch of at"
+                + " most max.poll.records records. Limits are per task. Requires a"
+                + " snowpipe-streaming SDK that reports inflight usage in process, otherwise the"
+                + " task fails to start.",
+            CONNECTOR_CONFIG_DOC,
+            8,
+            Width.NONE,
+            "Max Task Inflight Megabytes")
+        .define(
             KafkaConnectorConfigParams.ERRORS_TOLERANCE_CONFIG,
             STRING,
             KafkaConnectorConfigParams.ERRORS_TOLERANCE_DEFAULT,

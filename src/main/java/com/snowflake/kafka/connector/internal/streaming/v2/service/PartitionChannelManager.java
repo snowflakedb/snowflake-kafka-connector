@@ -12,6 +12,7 @@ import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.StreamingClientProperties;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.ClientRecreator;
@@ -22,6 +23,7 @@ import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1Migrati
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -77,6 +79,15 @@ public class PartitionChannelManager {
    */
   private final ConcurrentHashMap<TopicPartition, Long> pendingOffsetResets =
       new ConcurrentHashMap<>();
+
+  /**
+   * The inflight usage each channel last read, keyed by channel identity, and its sum. Guarded by
+   * this manager's monitor.
+   */
+  private final Map<TopicPartitionChannel, InflightUsage> lastReadUsage = new IdentityHashMap<>();
+
+  private long lastReadRows;
+  private long lastReadBytes;
 
   public PartitionChannelManager(
       SnowflakeTelemetryService telemetryService,
@@ -339,6 +350,7 @@ public class PartitionChannelManager {
     CompletableFuture.allOf(futures).join();
 
     partitionChannels.clear();
+    forgetAllLastReads();
 
     LOGGER.info(
         "Completed closing all partition channels for connector: {}, task: {}",
@@ -366,6 +378,7 @@ public class PartitionChannelManager {
         taskConfig.getTaskId());
 
     partitions.forEach(pendingOffsetResets::remove);
+    partitions.forEach(partition -> getChannel(partition).ifPresent(this::forgetLastRead));
 
     CompletableFuture<?>[] futures =
         partitions.stream()
@@ -441,6 +454,66 @@ public class PartitionChannelManager {
 
   public Map<String, TopicPartitionChannel> getPartitionChannels() {
     return partitionChannels;
+  }
+
+  /**
+   * Inflight rows and bytes summed across every channel owned by this task, including channels on
+   * different SDK clients (different pipes). Reads every channel, and resets the usage that {@link
+   * #sumInflightUsageReadingAppended} sums to what this read found.
+   */
+  public synchronized InflightUsage sumInflightUsage() {
+    lastReadUsage.clear();
+    lastReadRows = 0;
+    lastReadBytes = 0;
+    for (TopicPartitionChannel channel : partitionChannels.values()) {
+      recordRead(channel, channel.getInflightUsage());
+    }
+    return new InflightUsage(lastReadRows, lastReadBytes);
+  }
+
+  /**
+   * Inflight rows and bytes summed across every channel owned by this task, reading only the
+   * channels of {@code appendedPartitions}. Every other channel counts with the usage it last read,
+   * or 0 if it was never read. The cost is independent of how many channels the task owns.
+   *
+   * <p>A channel's usage rises only through this task's appends and falls as Snowflake acknowledges
+   * them, or to 0 when its channel closes or reopens. When {@code appendedPartitions} holds every
+   * partition appended to since its channel was last read, the result is therefore at least the
+   * true sum.
+   */
+  public synchronized InflightUsage sumInflightUsageReadingAppended(
+      Set<TopicPartition> appendedPartitions) {
+    for (TopicPartition topicPartition : appendedPartitions) {
+      TopicPartitionChannel channel = partitionChannels.get(getChannelName(topicPartition));
+      if (channel != null) {
+        recordRead(channel, channel.getInflightUsage());
+      }
+    }
+    return new InflightUsage(lastReadRows, lastReadBytes);
+  }
+
+  private void recordRead(TopicPartitionChannel channel, InflightUsage usage) {
+    InflightUsage previous = lastReadUsage.put(channel, usage);
+    if (previous != null) {
+      lastReadRows -= previous.getRows();
+      lastReadBytes -= previous.getBytes();
+    }
+    lastReadRows += usage.getRows();
+    lastReadBytes += usage.getBytes();
+  }
+
+  private synchronized void forgetLastRead(TopicPartitionChannel channel) {
+    InflightUsage previous = lastReadUsage.remove(channel);
+    if (previous != null) {
+      lastReadRows -= previous.getRows();
+      lastReadBytes -= previous.getBytes();
+    }
+  }
+
+  private synchronized void forgetAllLastReads() {
+    lastReadUsage.clear();
+    lastReadRows = 0;
+    lastReadBytes = 0;
   }
 
   @VisibleForTesting

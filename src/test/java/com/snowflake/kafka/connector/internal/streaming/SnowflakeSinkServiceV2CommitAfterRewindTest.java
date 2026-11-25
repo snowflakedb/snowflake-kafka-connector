@@ -18,6 +18,7 @@ import com.snowflake.kafka.connector.config.SinkTaskConfigTestBuilder;
 import com.snowflake.kafka.connector.config.SnowflakeValidation;
 import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.SnowpipeStreamingPartitionChannel;
@@ -28,7 +29,10 @@ import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChan
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import com.snowflake.kafka.connector.internal.telemetry.SnowflakeTelemetryService;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -108,6 +112,30 @@ class SnowflakeSinkServiceV2CommitAfterRewindTest {
   }
 
   @Test
+  void capRewindOfChannelWithoutTokenDoesNotCommitPastAppendedRows() {
+    SnowflakeStreamingIngestChannel sdkChannel = sdkChannel(Long.MAX_VALUE);
+    SnowflakeStreamingIngestClient client = mock(SnowflakeStreamingIngestClient.class);
+    when(client.openChannel(channelName, null))
+        .thenReturn(new OpenChannelResult(sdkChannel, statusWithoutToken(channelName)));
+    SinkTaskConfig config = config(1);
+    PartitionChannelManager channelManager = channelManager(realChannel(client, config));
+    // The first batch finds the task under its cap. Afterwards the appended rows stay inflight.
+    when(channelManager.sumInflightUsage())
+        .thenReturn(InflightUsage.NONE)
+        .thenReturn(new InflightUsage(100, 0));
+    SnowflakeSinkServiceV2 service = service(config, channelManager);
+
+    service.insert(records(0, 99));
+    service.insert(records(100, 120));
+    assertEquals(100, sinkTaskContext.offset(tp), "the capped batch rewinds to its first record");
+
+    assertEquals(
+        0,
+        offsetKafkaConnectCommits(service),
+        "rows 0-99 are appended but not committed in Snowflake, so Kafka must not commit past 0");
+  }
+
+  @Test
   void reopenOfChannelWithoutTokenDoesNotCommitPastDroppedRows() {
     long failingOffset = 80;
     SnowflakeStreamingIngestChannel firstSdkChannel = sdkChannel(failingOffset);
@@ -116,7 +144,7 @@ class SnowflakeSinkServiceV2CommitAfterRewindTest {
     when(client.openChannel(channelName, null))
         .thenReturn(new OpenChannelResult(firstSdkChannel, statusWithoutToken(channelName)))
         .thenReturn(new OpenChannelResult(secondSdkChannel, statusWithoutToken(channelName)));
-    SinkTaskConfig config = config();
+    SinkTaskConfig config = config(0);
     SnowflakeSinkServiceV2 service = service(config, channelManager(realChannel(client, config)));
 
     // Rows 0-79 are appended, row 80 fails and the channel reopens without flushing them.
@@ -139,11 +167,12 @@ class SnowflakeSinkServiceV2CommitAfterRewindTest {
     return preCommit.getOrDefault(tp, sinkTaskContext.offset(tp));
   }
 
-  private SinkTaskConfig config() {
+  private SinkTaskConfig config(long maxTaskInflightRows) {
     return SinkTaskConfigTestBuilder.builder()
         .connectorName(connectorName)
         .taskId("0")
         .validation(SnowflakeValidation.SERVER_SIDE)
+        .maxTaskInflightRows(maxTaskInflightRows)
         .build();
   }
 
@@ -206,6 +235,9 @@ class SnowflakeSinkServiceV2CommitAfterRewindTest {
 
   private PartitionChannelManager channelManager(SnowpipeStreamingPartitionChannel channel) {
     PartitionChannelManager manager = mock(PartitionChannelManager.class);
+    // A cached sum at every cap, so each cap decision reads every channel through sumInflightUsage.
+    when(manager.sumInflightUsageReadingAppended(any()))
+        .thenReturn(new InflightUsage(Long.MAX_VALUE, Long.MAX_VALUE));
     when(manager.getChannel(tp)).thenReturn(Optional.of(channel));
     when(manager.getChannel(channelName)).thenReturn(Optional.of(channel));
     Map<String, TopicPartitionChannel> channels = new ConcurrentHashMap<>();
@@ -242,6 +274,9 @@ class SnowflakeSinkServiceV2CommitAfterRewindTest {
             () -> fetcher,
             () -> channelManager,
             TaskMetrics.noop());
+    AdvancingClock clock = new AdvancingClock();
+    service.clock = clock;
+    service.sleeper = clock::advance;
     return service;
   }
 
@@ -278,5 +313,29 @@ class SnowflakeSinkServiceV2CommitAfterRewindTest {
               .build());
     }
     return records;
+  }
+
+  /** A clock that only moves when the service sleeps, so the cap wait ends without real time. */
+  private static final class AdvancingClock extends Clock {
+    private Instant now = Instant.parse("2026-01-01T00:00:00Z");
+
+    void advance(java.time.Duration duration) {
+      now = now.plus(duration);
+    }
+
+    @Override
+    public Instant instant() {
+      return now;
+    }
+
+    @Override
+    public ZoneId getZone() {
+      return ZoneOffset.UTC;
+    }
+
+    @Override
+    public Clock withZone(ZoneId zone) {
+      return this;
+    }
   }
 }

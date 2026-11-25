@@ -30,6 +30,7 @@ import com.snowflake.kafka.connector.internal.metrics.SnowflakeSinkTaskMetrics;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.SnowflakeSinkServiceV2;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.PeriodicTelemetryReporter;
+import com.snowflake.kafka.connector.internal.streaming.v2.ChannelInflightMetrics;
 import com.snowflake.kafka.connector.internal.streaming.v2.SdkBootstrapConfig;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import java.util.Arrays;
@@ -157,6 +158,12 @@ public class SnowflakeSinkTask extends SinkTask {
         config.isPrometheusMetricsEnabled(),
         config.getPrometheusMetricsPort(),
         config.getPrometheusMetricsHost());
+
+    // Fail at start, not on the first put, when a task inflight cap is enabled against an SDK
+    // that cannot report inflight usage. After the bootstrap knobs, because the first check
+    // bootstraps the SDK core, which reads them only once.
+    ChannelInflightMetrics.requireSdkSupport(
+        config.getMaxTaskInflightRows(), config.getMaxTaskInflightBytes());
 
     this.authorizationExceptionTracker.updateStateOnTaskStart(parsedConfig);
 

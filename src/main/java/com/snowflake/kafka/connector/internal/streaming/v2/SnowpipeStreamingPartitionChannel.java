@@ -23,6 +23,7 @@ import com.snowflake.kafka.connector.internal.schemaevolution.SchemaEvolutionTar
 import com.snowflake.kafka.connector.internal.schemaevolution.SnowflakeSchemaEvolutionService;
 import com.snowflake.kafka.connector.internal.schemaevolution.ValidationResultMapper;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelCreation;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
@@ -90,6 +91,14 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   private final String pipeName;
 
   private volatile SnowflakeStreamingIngestClient streamingClient;
+
+  /** The inflight reader resolved for the SDK channel instance last read. */
+  private volatile BoundInflightReader inflightReader;
+
+  /** Resolves the inflight reader of each SDK channel instance. */
+  @VisibleForTesting
+  ChannelInflightMetrics.InflightReaderFactory inflightReaders = ChannelInflightMetrics.SDK_READERS;
+
   private final ClientRecreator clientRecreator;
   private final ExecutorService openChannelIoExecutor;
 
@@ -942,6 +951,63 @@ public class SnowpipeStreamingPartitionChannel implements TopicPartitionChannel 
   @Override
   public String getChannelName() {
     return channelName;
+  }
+
+  /**
+   * Reads the SDK channel's inflight rows and bytes. A channel that is still opening, failed to
+   * open, or was closed by this connector has nothing to report and returns {@link
+   * InflightUsage#NONE}. So does a read that fails because the SDK channel or its client closed, or
+   * the channel reopened, during the read.
+   *
+   * <p>The reader is resolved once for each SDK channel instance. A reopen binds a new reader to
+   * the new instance.
+   *
+   * @throws InflightUsageUnavailableException if a read fails while the channel and its client are
+   *     open
+   */
+  @Override
+  public InflightUsage getInflightUsage() {
+    CompletableFuture<SnowflakeStreamingIngestChannel> future = this.channel;
+    if (cancelled.get() || !future.isDone() || future.isCompletedExceptionally()) {
+      return InflightUsage.NONE;
+    }
+    SnowflakeStreamingIngestChannel sdkChannel = future.join();
+    try {
+      BoundInflightReader bound = this.inflightReader;
+      if (bound == null || bound.sdkChannel != sdkChannel) {
+        bound = new BoundInflightReader(sdkChannel, inflightReaders.forChannel(sdkChannel));
+        this.inflightReader = bound;
+      }
+      long rows = bound.reader.rows();
+      long bytes = bound.reader.bytes();
+      // A negative count would offset other channels and lift the cap.
+      if (rows < 0 || bytes < 0) {
+        throw new IllegalStateException(
+            "negative inflight usage: rows " + rows + ", bytes " + bytes);
+      }
+      return new InflightUsage(rows, bytes);
+    } catch (IllegalStateException e) {
+      if (cancelled.get()
+          || this.channel != future
+          || sdkChannel.isClosed()
+          || this.streamingClient.isClosed()) {
+        return InflightUsage.NONE;
+      }
+      throw new InflightUsageUnavailableException(
+          "Failed to read the inflight usage of open channel " + channelName, e);
+    }
+  }
+
+  /** An inflight reader, valid for exactly the SDK channel instance it was resolved for. */
+  private static final class BoundInflightReader {
+    final SnowflakeStreamingIngestChannel sdkChannel;
+    final ChannelInflightMetrics.InflightReader reader;
+
+    BoundInflightReader(
+        SnowflakeStreamingIngestChannel sdkChannel, ChannelInflightMetrics.InflightReader reader) {
+      this.sdkChannel = sdkChannel;
+      this.reader = reader;
+    }
   }
 
   /**

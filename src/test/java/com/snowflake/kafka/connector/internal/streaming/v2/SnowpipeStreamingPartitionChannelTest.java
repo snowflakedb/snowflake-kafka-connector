@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -31,6 +32,7 @@ import com.snowflake.kafka.connector.internal.SnowflakeConnectionService;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
 import com.snowflake.kafka.connector.internal.streaming.InMemorySinkTaskContext;
 import com.snowflake.kafka.connector.internal.streaming.StreamingErrorHandler;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.telemetry.SnowflakeTelemetryChannelStatus;
 import com.snowflake.kafka.connector.internal.streaming.v2.channel.PartitionOffsetTracker;
 import com.snowflake.kafka.connector.internal.streaming.v2.migration.Ssv1MigrationMode;
@@ -82,8 +84,11 @@ class SnowpipeStreamingPartitionChannelTest {
   private TrackingStreamingIngestClient trackingClient;
   private InMemorySinkTaskContext sinkTaskContext;
 
+  private FakeInflightReaders fakeReaders;
+
   @BeforeEach
   void setUp() {
+    fakeReaders = new FakeInflightReaders();
     // Generate unique names to avoid StreamingClientPools caching issues between tests
     final String uniqueId = UUID.randomUUID().toString().substring(0, 8);
     channelName = "test_channel_" + uniqueId;
@@ -165,6 +170,218 @@ class SnowpipeStreamingPartitionChannelTest {
     // No SDK channel was ever opened or closed
     assertEquals(0, trackingClientSupplier.getTotalChannelsCreated());
     assertEquals(0, trackingClientSupplier.getCloseCallCount());
+  }
+
+  @Test
+  void getInflightUsageIsZeroWithoutJmxWhileChannelIsOpening() throws Exception {
+    CountDownLatch blockExecutor = new CountDownLatch(1);
+    openChannelIoExecutor.submit(
+        () -> {
+          blockExecutor.await();
+          return null;
+        });
+
+    try {
+      SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+      assertTrue(partitionChannel.isInitializing(), "open must still be pending");
+      // No beans are registered, so any JMX read would throw. The preemptive timeout turns a read
+      // that blocks on the pending open into a failure instead of a hang.
+      assertEquals(
+          InflightUsage.NONE,
+          assertTimeoutPreemptively(Duration.ofSeconds(5), partitionChannel::getInflightUsage));
+    } finally {
+      blockExecutor.countDown();
+    }
+  }
+
+  @Test
+  void getInflightUsageReadsTheReaderOfTheOpenedSdkChannel() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.inflightReaders = fakeReaders;
+    SnowflakeStreamingIngestChannel sdkChannel = partitionChannel.getChannel();
+    fakeReaders.readerFor(sdkChannel).set(5, 500);
+
+    assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+    fakeReaders.readerFor(sdkChannel).set(6, 600);
+    assertEquals(new InflightUsage(6, 600), partitionChannel.getInflightUsage());
+    // Resolved once for the instance and reused by every later read.
+    assertEquals(1, fakeReaders.resolutions);
+  }
+
+  @Test
+  void getInflightUsageReadsTheReaderOfTheNewInstanceAfterReopen() {
+    TrackingStreamingIngestClient newClient =
+        new TrackingStreamingIngestClient(
+            pipeName, new TrackingIngestClientSupplier(), "recreated_client_" + pipeName);
+    SnowpipeStreamingPartitionChannel partitionChannel =
+        createPartitionChannel(invalidClient -> newClient);
+    partitionChannel.inflightReaders = fakeReaders;
+    SnowflakeStreamingIngestChannel first = partitionChannel.getChannel();
+    fakeReaders.readerFor(first).set(1, 10);
+    assertEquals(new InflightUsage(1, 10), partitionChannel.getInflightUsage());
+
+    trackingClientSupplier.markClientInvalid();
+    partitionChannel.triggerReopenForInvalidClient();
+    SnowflakeStreamingIngestChannel second = partitionChannel.getChannel();
+    // The reader of the old instance throws on every read, like the SDK's after a reopen.
+    fakeReaders.readerFor(first).failure = new IllegalStateException("closed, reopened");
+    fakeReaders.readerFor(second).set(5, 500);
+
+    assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+    assertEquals(2, fakeReaders.resolutions);
+  }
+
+  @Test
+  void getInflightUsageIsZeroOnceChannelClosedWithoutReading() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.inflightReaders = fakeReaders;
+    SnowflakeStreamingIngestChannel sdkChannel = partitionChannel.getChannel();
+    fakeReaders.readerFor(sdkChannel).set(5, 500);
+    assertEquals(new InflightUsage(5, 500), partitionChannel.getInflightUsage());
+
+    partitionChannel.closeChannelAsync().get(5, TimeUnit.SECONDS);
+    fakeReaders.readerFor(sdkChannel).failure = new IllegalStateException("closed, reopened");
+
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+    assertEquals(1, fakeReaders.readerFor(sdkChannel).reads);
+  }
+
+  @Test
+  void getInflightUsageIsZeroForChannelClosedFromAnotherThread() throws Exception {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.inflightReaders = fakeReaders;
+    SnowflakeStreamingIngestChannel sdkChannel = partitionChannel.getChannel();
+    fakeReaders.readerFor(sdkChannel).set(5, 500);
+
+    Thread stopper = new Thread(() -> partitionChannel.closeChannelAsync().join());
+    stopper.start();
+    stopper.join(5000);
+
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+  }
+
+  @Test
+  void getInflightUsageIsZeroWhenChannelClosesDuringTheRead() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.inflightReaders = fakeReaders;
+    SnowflakeStreamingIngestChannel sdkChannel = partitionChannel.getChannel();
+    // The close lands between the state check and the read, so the SDK reader finds the instance
+    // closed.
+    fakeReaders.readerFor(sdkChannel).beforeRead =
+        () -> {
+          partitionChannel.closeChannelAsync().join();
+          throw new IllegalStateException("closed, reopened");
+        };
+
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+  }
+
+  @Test
+  void getInflightUsageIsZeroWhenClientClosesDuringTheRead() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.inflightReaders = fakeReaders;
+    SnowflakeStreamingIngestChannel sdkChannel = partitionChannel.getChannel();
+    fakeReaders.readerFor(sdkChannel).beforeRead =
+        () -> {
+          trackingClient.markClosed();
+          throw new IllegalStateException("closed, reopened");
+        };
+
+    assertEquals(InflightUsage.NONE, partitionChannel.getInflightUsage());
+  }
+
+  @Test
+  void getInflightUsageIsUnavailableWhenReadFailsOnOpenChannel() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.inflightReaders = fakeReaders;
+    SnowflakeStreamingIngestChannel sdkChannel = partitionChannel.getChannel();
+    IllegalStateException failure = new IllegalStateException("no inflight gauge pushed");
+    fakeReaders.readerFor(sdkChannel).failure = failure;
+
+    InflightUsageUnavailableException thrown =
+        assertThrows(InflightUsageUnavailableException.class, partitionChannel::getInflightUsage);
+    assertSame(failure, thrown.getCause());
+    assertTrue(thrown.getMessage().contains(channelName), thrown.getMessage());
+  }
+
+  @Test
+  void getInflightUsageIsUnavailableWhenReaderResolutionFailsOnOpenChannel() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    IllegalStateException failure = new IllegalStateException("failed JMX registration");
+    partitionChannel.inflightReaders =
+        channel -> {
+          throw failure;
+        };
+    partitionChannel.getChannel();
+
+    InflightUsageUnavailableException thrown =
+        assertThrows(InflightUsageUnavailableException.class, partitionChannel::getInflightUsage);
+    assertSame(failure, thrown.getCause());
+  }
+
+  @Test
+  void getInflightUsageIsUnavailableWhenReaderReportsANegativeCount() {
+    SnowpipeStreamingPartitionChannel partitionChannel = createPartitionChannel();
+    partitionChannel.inflightReaders = fakeReaders;
+    SnowflakeStreamingIngestChannel sdkChannel = partitionChannel.getChannel();
+    fakeReaders.readerFor(sdkChannel).set(1, -1);
+
+    InflightUsageUnavailableException thrown =
+        assertThrows(InflightUsageUnavailableException.class, partitionChannel::getInflightUsage);
+    assertTrue(thrown.getCause().getMessage().contains("negative"), thrown.getMessage());
+  }
+
+  /** Fake inflight readers, one per SDK channel instance, created on first use. */
+  private static final class FakeInflightReaders
+      implements ChannelInflightMetrics.InflightReaderFactory {
+    private final Map<SnowflakeStreamingIngestChannel, FakeInflightReader> readers =
+        new java.util.IdentityHashMap<>();
+    int resolutions;
+
+    synchronized FakeInflightReader readerFor(SnowflakeStreamingIngestChannel channel) {
+      return readers.computeIfAbsent(channel, c -> new FakeInflightReader());
+    }
+
+    @Override
+    public synchronized ChannelInflightMetrics.InflightReader forChannel(
+        SnowflakeStreamingIngestChannel channel) {
+      resolutions++;
+      return readerFor(channel);
+    }
+  }
+
+  /** Returns its counts, or runs {@link #beforeRead} and throws {@link #failure}. */
+  private static final class FakeInflightReader implements ChannelInflightMetrics.InflightReader {
+    volatile long rows;
+    volatile long bytes;
+    volatile RuntimeException failure;
+    volatile Runnable beforeRead;
+    volatile int reads;
+
+    void set(long rows, long bytes) {
+      this.rows = rows;
+      this.bytes = bytes;
+    }
+
+    @Override
+    public long rows() {
+      reads++;
+      if (beforeRead != null) {
+        beforeRead.run();
+      }
+      if (failure != null) {
+        throw failure;
+      }
+      return rows;
+    }
+
+    @Override
+    public long bytes() {
+      if (failure != null) {
+        throw failure;
+      }
+      return bytes;
+    }
   }
 
   /**
@@ -1334,14 +1551,37 @@ class SnowpipeStreamingPartitionChannelTest {
   static class TrackingStreamingIngestClient implements SnowflakeStreamingIngestClient {
 
     private final String pipeName;
+    private final String clientName;
     private final TrackingIngestClientSupplier supplier;
     private final ConcurrentHashMap<String, TrackingStreamingIngestChannel> channels =
         new ConcurrentHashMap<>();
+    private volatile boolean closed;
+    private final AtomicInteger getClientNameCalls = new AtomicInteger();
+    private final AtomicInteger isClosedCalls = new AtomicInteger();
 
     TrackingStreamingIngestClient(
         final String pipeName, final TrackingIngestClientSupplier supplier) {
+      this(pipeName, supplier, "tracking_client_" + pipeName);
+    }
+
+    TrackingStreamingIngestClient(
+        final String pipeName, final TrackingIngestClientSupplier supplier, String clientName) {
       this.pipeName = pipeName;
       this.supplier = supplier;
+      this.clientName = clientName;
+    }
+
+    int getClientNameCalls() {
+      return getClientNameCalls.get();
+    }
+
+    int isClosedCalls() {
+      return isClosedCalls.get();
+    }
+
+    /** Marks the client closed: isClosed() is true and getClientName() throws, like the SDK. */
+    void markClosed() {
+      this.closed = true;
     }
 
     @Override
@@ -1426,7 +1666,8 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public boolean isClosed() {
-      return false;
+      isClosedCalls.incrementAndGet();
+      return closed;
     }
 
     @Override
@@ -1451,7 +1692,11 @@ class SnowpipeStreamingPartitionChannelTest {
 
     @Override
     public String getClientName() {
-      throw new UnsupportedOperationException();
+      getClientNameCalls.incrementAndGet();
+      if (closed) {
+        throw new SFException("ClosedClientError", "Test simulated closed client", 0, "");
+      }
+      return clientName;
     }
 
     @Override
@@ -1467,6 +1712,7 @@ class SnowpipeStreamingPartitionChannelTest {
     private final String channelName;
     private final TrackingIngestClientSupplier supplier;
     private volatile boolean closed = false;
+    private final AtomicInteger isClosedCalls = new AtomicInteger();
 
     TrackingStreamingIngestChannel(
         final String pipeName,
@@ -1502,8 +1748,13 @@ class SnowpipeStreamingPartitionChannelTest {
       return channelName;
     }
 
+    int isClosedCalls() {
+      return isClosedCalls.get();
+    }
+
     @Override
     public boolean isClosed() {
+      isClosedCalls.incrementAndGet();
       return closed;
     }
 

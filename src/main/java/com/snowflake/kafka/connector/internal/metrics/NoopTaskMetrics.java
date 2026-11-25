@@ -61,6 +61,12 @@ enum NoopTaskMetrics implements TaskMetrics {
   public void incBackpressureRewindCount() {}
 
   @Override
+  public void incInflightCapWaitCount() {}
+
+  @Override
+  public void incInflightCapRewindCount() {}
+
+  @Override
   public void markPutRecords(long count) {}
 
   @Override

@@ -18,13 +18,16 @@ import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeSinkService;
 import com.snowflake.kafka.connector.internal.metrics.MetricsJmxReporter;
 import com.snowflake.kafka.connector.internal.metrics.TaskMetrics;
+import com.snowflake.kafka.connector.internal.streaming.channel.InflightUsage;
 import com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel;
 import com.snowflake.kafka.connector.internal.streaming.v2.BackpressureException;
+import com.snowflake.kafka.connector.internal.streaming.v2.InflightUsageUnavailableException;
 import com.snowflake.kafka.connector.internal.streaming.v2.client.StreamingClientPools;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.BatchOffsetFetcher;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager;
 import com.snowflake.kafka.connector.internal.streaming.v2.service.ThreadPools;
 import com.snowflake.kafka.connector.streaming.iceberg.IcebergDDLTypes;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -38,6 +41,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 
@@ -78,6 +82,52 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   /** Timestamp until which all inserts are skipped due to backpressure. */
   @VisibleForTesting Instant backpressureUntil = Instant.MIN;
+
+  /** Longest stretch of consecutive unavailable inflight reads before the task fails. */
+  static final Duration MAX_INFLIGHT_USAGE_UNAVAILABLE = Duration.ofMinutes(5);
+
+  /** How often a capped put re-reads the task inflight usage. */
+  static final Duration INFLIGHT_RECHECK_INTERVAL = Duration.ofMillis(100);
+
+  /** Longest a put waits for the task inflight usage to drop before rewinding its batch. */
+  static final Duration MAX_INFLIGHT_WAIT_PER_PUT = Duration.ofSeconds(1);
+
+  /**
+   * A run of unavailable inflight reads ends after this long without a failed read, so an idle
+   * stretch between two failures does not count toward {@link #MAX_INFLIGHT_USAGE_UNAVAILABLE}.
+   */
+  static final Duration INFLIGHT_UNAVAILABLE_STRETCH_GAP = Duration.ofMinutes(1);
+
+  /** Minimum interval between two task inflight cap WARN logs, and between two ERROR logs. */
+  static final Duration INFLIGHT_LOG_INTERVAL = Duration.ofMinutes(1);
+
+  @VisibleForTesting Clock clock = Clock.systemUTC();
+
+  @VisibleForTesting Sleeper sleeper = duration -> Thread.sleep(duration.toMillis());
+
+  /** When the last unavailable inflight read was logged at ERROR. */
+  private Instant lastInflightUnavailableLog = Instant.MIN;
+
+  /** When a reached task inflight cap was last logged at WARN. */
+  private Instant lastInflightCapLog = Instant.MIN;
+
+  /**
+   * Partitions this task may have appended to since their channel's inflight usage was last read.
+   * Used only on the task thread.
+   */
+  private final Set<TopicPartition> appendedSinceInflightRead = new HashSet<>();
+
+  /** Times the task became capped since the last WARN. */
+  private long inflightCapTripsSinceLog = 0;
+
+  /** Whether the last task inflight cap check found a cap reached or the usage unavailable. */
+  private boolean taskInflightCapped = false;
+
+  /** First of the current run of unavailable inflight reads, or null after a readable one. */
+  private Instant inflightUnavailableSince = null;
+
+  /** Last unavailable inflight read of the current run. */
+  private Instant inflightUnavailableLast = null;
 
   public SnowflakeSinkServiceV2(
       SnowflakeConnectionService conn,
@@ -465,6 +515,37 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
           initializingPartitions);
     }
 
+    // If still in cooldown from a recent backpressure event, treat all partitions as
+    // backpressured so we skip the entire batch and give the SDK time to drain.
+    boolean skipAllPartitions = false;
+    boolean inflightCapRewind = false;
+    if (clock.instant().isBefore(backpressureUntil)) {
+      LOGGER.debug(
+          "Backpressure cooldown active until {}. Skipping entire batch.", backpressureUntil);
+      skipAllPartitions = true;
+    }
+
+    // Task-level caps, checked before any record of this batch is appended. Every appendRow of
+    // this task runs below on this thread and the SDK gauges include its appends at once, so per
+    // task the summed inflight usage can exceed a cap by at most this one batch. While capped the
+    // task thread waits for usage to drop, and only rewinds the whole batch if it does not drop
+    // within MAX_INFLIGHT_WAIT_PER_PUT, which bounds Kafka refetches to one per wait.
+    if (!skipAllPartitions
+        && !records.isEmpty()
+        && (taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0)
+        && !awaitTaskInflightCapacity()) {
+      taskMetrics.incInflightCapRewindCount();
+      skipAllPartitions = true;
+      inflightCapRewind = true;
+    }
+    if (!skipAllPartitions
+        && (taskConfig.getMaxTaskInflightRows() > 0 || taskConfig.getMaxTaskInflightBytes() > 0)) {
+      // The next cap check reads these channels again, since this batch may append to them.
+      appendedSinceInflightRead.addAll(partitions);
+    }
+
+    boolean newBackpressure = false;
+
     Map<TopicPartition, Long> offsetsToRewindTo = new HashMap<>();
 
     // Drain offset resets submitted by channel init / recovery on the IO thread.
@@ -487,16 +568,6 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
       }
     }
 
-    // If still in cooldown from a recent backpressure event, treat all partitions as
-    // backpressured so we skip the entire batch and give the SDK time to drain.
-    boolean skipAllPartitions = false;
-    if (Instant.now().isBefore(backpressureUntil)) {
-      LOGGER.debug(
-          "Backpressure cooldown active until {}. Skipping entire batch.", backpressureUntil);
-      skipAllPartitions = true;
-    }
-
-    boolean newBackpressure = false;
     for (SinkRecord record : records) {
       // check if it needs to handle null value records
       if (shouldSkipNullValue(record)) {
@@ -535,7 +606,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
     }
 
     if (newBackpressure) {
-      backpressureUntil = Instant.now().plus(BACKPRESSURE_COOLDOWN);
+      backpressureUntil = clock.instant().plus(BACKPRESSURE_COOLDOWN);
       LOGGER.info("Backpressure cooldown set until {}", backpressureUntil);
     }
 
@@ -555,8 +626,148 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
                 + assignment
                 + ")");
       }
-      LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsToRewindTo);
+      if (inflightCapRewind) {
+        // Throttling rewinds about once a second while capped, and the cap WARN reports them.
+        LOGGER.debug("Rewinding offsets for skipped partitions: {}", offsetsToRewindTo);
+      } else {
+        LOGGER.info("Rewinding offsets for skipped partitions: {}", offsetsToRewindTo);
+      }
       sinkTaskContext.offset(offsetsToRewindTo);
+    }
+  }
+
+  private static boolean reachesCap(InflightUsage usage, long maxRows, long maxBytes) {
+    return (maxRows > 0 && usage.getRows() >= maxRows)
+        || (maxBytes > 0 && usage.getBytes() >= maxBytes);
+  }
+
+  /** Sleeps the calling thread. */
+  @FunctionalInterface
+  interface Sleeper {
+    void sleep(Duration duration) throws InterruptedException;
+  }
+
+  /**
+   * Waits until this task's inflight usage is under both caps, re-checking every {@link
+   * #INFLIGHT_RECHECK_INTERVAL} for at most {@link #MAX_INFLIGHT_WAIT_PER_PUT}. Unreadable usage
+   * counts as capped.
+   *
+   * @return true if usage is under both caps, false if still capped after the wait or interrupted
+   *     (the interrupt flag is restored)
+   */
+  private boolean awaitTaskInflightCapacity() {
+    Instant deadline = clock.instant().plus(MAX_INFLIGHT_WAIT_PER_PUT);
+    boolean waited = false;
+    while (true) {
+      boolean capped;
+      try {
+        capped = taskInflightCapReached();
+      } catch (InflightUsageUnavailableException e) {
+        capped = true;
+      }
+      if (!capped) {
+        return true;
+      }
+      if (!waited) {
+        waited = true;
+        taskMetrics.incInflightCapWaitCount();
+      }
+      if (!clock.instant().isBefore(deadline)) {
+        return false;
+      }
+      try {
+        sleeper.sleep(INFLIGHT_RECHECK_INTERVAL);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return false;
+      }
+    }
+  }
+
+  /**
+   * Whether this task's summed inflight rows or bytes are at or above a configured cap. A cap of 0
+   * is disabled. Logs WARN at most once per {@link #INFLIGHT_LOG_INTERVAL} while the task keeps
+   * hitting a cap.
+   *
+   * @throws InflightUsageUnavailableException if the usage cannot be read, after marking the task
+   *     capped
+   * @throws ConnectException if the usage has been unavailable, with no gap of {@link
+   *     #INFLIGHT_UNAVAILABLE_STRETCH_GAP} between failed reads, for longer than {@link
+   *     #MAX_INFLIGHT_USAGE_UNAVAILABLE}
+   */
+  private boolean taskInflightCapReached() {
+    long maxRows = taskConfig.getMaxTaskInflightRows();
+    long maxBytes = taskConfig.getMaxTaskInflightBytes();
+    final InflightUsage usage;
+    try {
+      InflightUsage cached =
+          channelManager.sumInflightUsageReadingAppended(appendedSinceInflightRead);
+      appendedSinceInflightRead.clear();
+      // Acknowledgements since a channel's last read can only lower its usage, so a cached sum
+      // under both caps proves the true sum is under them. A cached sum at a cap is decided on a
+      // read of every channel.
+      usage = reachesCap(cached, maxRows, maxBytes) ? channelManager.sumInflightUsage() : cached;
+    } catch (InflightUsageUnavailableException e) {
+      recordInflightUnavailable(e, maxRows, maxBytes);
+      taskInflightCapped = true;
+      throw e;
+    }
+    inflightUnavailableSince = null;
+    inflightUnavailableLast = null;
+    if (reachesCap(usage, maxRows, maxBytes)) {
+      if (!taskInflightCapped) {
+        inflightCapTripsSinceLog++;
+        Instant now = clock.instant();
+        if (!now.isBefore(lastInflightCapLog.plus(INFLIGHT_LOG_INTERVAL))) {
+          LOGGER.warn(
+              "Task inflight cap reached, pausing appends: rows {} (cap {}), bytes {} (cap {})."
+                  + " Reached {} times since the last report.",
+              usage.getRows(),
+              maxRows,
+              usage.getBytes(),
+              maxBytes,
+              inflightCapTripsSinceLog);
+          lastInflightCapLog = now;
+          inflightCapTripsSinceLog = 0;
+        }
+      }
+      taskInflightCapped = true;
+      return true;
+    }
+    taskInflightCapped = false;
+    return false;
+  }
+
+  private void recordInflightUnavailable(
+      InflightUsageUnavailableException e, long maxRows, long maxBytes) {
+    Instant now = clock.instant();
+    if (inflightUnavailableLast == null
+        || Duration.between(inflightUnavailableLast, now)
+                .compareTo(INFLIGHT_UNAVAILABLE_STRETCH_GAP)
+            > 0) {
+      inflightUnavailableSince = now;
+    } else if (Duration.between(inflightUnavailableSince, now)
+            .compareTo(MAX_INFLIGHT_USAGE_UNAVAILABLE)
+        > 0) {
+      throw new ConnectException(
+          String.format(
+              "Task inflight usage has been unavailable since %s, longer than %d minutes, while"
+                  + " %s or %s is enabled. Failing the task so it restarts.",
+              inflightUnavailableSince,
+              MAX_INFLIGHT_USAGE_UNAVAILABLE.toMinutes(),
+              KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_ROWS,
+              KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_MAX_TASK_INFLIGHT_MEGABYTES),
+          e);
+    }
+    inflightUnavailableLast = now;
+    if (!now.isBefore(lastInflightUnavailableLog.plus(INFLIGHT_LOG_INTERVAL))) {
+      lastInflightUnavailableLog = now;
+      LOGGER.error(
+          String.format(
+              "Task inflight usage unavailable since %s, treating the task inflight cap as"
+                  + " reached (caps: rows %d, bytes %d)",
+              inflightUnavailableSince, maxRows, maxBytes),
+          e);
     }
   }
 
@@ -684,6 +895,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
 
   @Override
   public void closeAll() {
+    appendedSinceInflightRead.clear();
     channelManager.closeAll();
   }
 
@@ -701,6 +913,7 @@ public class SnowflakeSinkServiceV2 implements SnowflakeSinkService {
    */
   @Override
   public void close(Collection<TopicPartition> partitions) {
+    appendedSinceInflightRead.removeAll(partitions);
     channelManager.close(partitions);
   }
 
