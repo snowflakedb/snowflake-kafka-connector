@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl coreutils 
 # Same core Python dependencies as docker/Dockerfile.test-runner.
 RUN pip install --no-cache-dir requests certifi \
     'confluent-kafka[avro,json,protobuf]==2.13.0' avro-python3 kafka-python-ng \
-    'snowflake-connector-python==4.2.0' 'pytest==8.3.5'
+    'snowflake-connector-python==5.2.0' 'pytest==8.3.5'
 COPY apache_properties/kraft-server.properties /opt/kafka/config/kraft-server.properties
 COPY apache_properties/connect-distributed.properties /opt/kafka/config/connect-distributed.properties
 COPY connect-log4j.properties /opt/kafka/config/connect-log4j.properties
