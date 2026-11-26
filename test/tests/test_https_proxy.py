@@ -6,7 +6,9 @@ reach Snowflake through the https-proxy container, which counts calls per
 listener port:
 
   8080  connector tier (snowflake.https.proxy.host / snowflake.https.proxy.port)
-  8081  worker JVM tier (-Dhttps.proxyHost, set on the worker by the overlay)
+  8081  worker JVM tier (-Dhttps.proxyHost, set on the worker by the overlay). It
+        requires the Basic credentials the overlay also sets on the worker
+        (-Dhttps.proxyUser / -Dhttps.proxyPassword).
   8082  a second connector's proxy, for two connectors with different proxies
 
 The connector picks one proxy (snowflake.https.proxy.*, else the worker's JVM proxy
@@ -47,6 +49,8 @@ SNOWFLAKE_OPERATIONS = EXPECTED_OPERATIONS + (
     "jdbc_query",
     "sdk_token_downscoping",
     "sdk_get_pipe_info",
+    "sdk_initial_auth",
+    "connector_oauth_token",
 )
 
 pytestmark = [
@@ -62,7 +66,7 @@ def _wait_for_the_previous_connector_to_go_quiet(https_proxy):
     https_proxy.wait_until_quiet()
 
 
-def _connector_config(**proxy_config: str) -> dict:
+def _connector_config(auth_config: dict | None = None, **proxy_config: str) -> dict:
     config = {
         "connector.class": "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector",
         "topics": "SNOWFLAKE_TEST_TOPIC",
@@ -81,8 +85,29 @@ def _connector_config(**proxy_config: str) -> dict:
         "errors.tolerance": "none",
         "errors.log.enable": "true",
     }
+    if auth_config:
+        config.pop("snowflake.private.key")
+        config.update(auth_config)
     config.update(proxy_config)
     return config
+
+
+def _oauth_config(credentials) -> dict:
+    """Connector auth from profile.json OAuth credentials, replacing the private key."""
+    if not (
+        credentials.oauth_client_id
+        and credentials.oauth_client_secret
+        and credentials.oauth_refresh_token
+        and credentials.oauth_token_endpoint
+    ):
+        pytest.fail("OAuth credentials not present in profile.json")
+    return {
+        "snowflake.authenticator": "oauth",
+        "snowflake.oauth.client.id": credentials.oauth_client_id,
+        "snowflake.oauth.client.secret": credentials.oauth_client_secret,
+        "snowflake.oauth.refresh.token": credentials.oauth_refresh_token,
+        "snowflake.oauth.token.endpoint": credentials.oauth_token_endpoint,
+    }
 
 
 def _ingest_through_proxy(
@@ -92,13 +117,14 @@ def _ingest_through_proxy(
     create_table,
     create_custom_connector,
     wait_for_rows,
+    auth_config=None,
 ):
     table = create_table(
         unsalted_name, columns='(record_metadata variant, "seq" varchar)'
     )
     driver.createTopics(table.name, partitionNum=1, replicationNum=1)
     connector = create_custom_connector(
-        unsalted_name, _connector_config(**proxy_config)
+        unsalted_name, _connector_config(auth_config, **proxy_config)
     )
     driver.wait_for_connector_running(connector.name, timeout=120)
 
@@ -110,6 +136,13 @@ def _ingest_through_proxy(
 def _assert_carried_all_traffic(counts: dict, port: int, status: dict):
     missing = [op for op in EXPECTED_OPERATIONS if counts.get(op, 0) == 0]
     assert not missing, f"proxy port {port} never saw {missing}; proxy status: {status}"
+
+
+def _assert_jvm_tier_authenticated(https_proxy, status: dict):
+    accepted = https_proxy.proxy_auth(JVM_TIER_PORT).get("accepted", 0)
+    assert accepted > 0, (
+        f"proxy port {JVM_TIER_PORT} accepted no proxy credentials; proxy status: {status}"
+    )
 
 
 def _assert_no_traffic_on_any_port(https_proxy, status: dict):
@@ -158,7 +191,8 @@ def test_worker_jvm_proxy_used_without_connector_proxy(
 
     JDBC reads the system properties itself. The SDK has no other route out (the
     worker sets no HTTPS_PROXY), so rows only land if the connector forwarded
-    the JVM proxy to the SDK.
+    the JVM proxy to the SDK. The listener requires Basic credentials, so both
+    clients must also send -Dhttps.proxyUser / -Dhttps.proxyPassword.
     """
     https_proxy.reset()
     _ingest_through_proxy(
@@ -175,8 +209,90 @@ def test_worker_jvm_proxy_used_without_connector_proxy(
     _assert_carried_all_traffic(
         https_proxy.counts(JVM_TIER_PORT), JVM_TIER_PORT, status
     )
+    _assert_jvm_tier_authenticated(https_proxy, status)
     _assert_no_snowflake_traffic(
         https_proxy.counts(CONNECTOR_TIER_PORT), CONNECTOR_TIER_PORT, status
+    )
+
+
+def test_oauth_through_authenticated_worker_jvm_proxy(
+    driver,
+    https_proxy,
+    credentials,
+    create_table,
+    create_custom_connector,
+    wait_for_rows,
+):
+    """With OAuth and only the worker's JVM proxy, the token request also uses its credentials.
+
+    The connector fetches the OAuth token for JDBC on the driver's own HTTP client,
+    so the token request picks the same proxy and credentials as the JDBC connection.
+    Without the credentials the listener answers it with 407 and the connector never
+    gets a JDBC connection.
+    """
+    https_proxy.reset()
+    _ingest_through_proxy(
+        "https_proxy_jvm_tier_oauth",
+        {},
+        driver,
+        create_table,
+        create_custom_connector,
+        wait_for_rows,
+        auth_config=_oauth_config(credentials),
+    )
+
+    status = https_proxy.get_status()
+    logger.info("Proxy status: %s", status)
+    counts = https_proxy.counts(JVM_TIER_PORT)
+    assert counts.get("connector_oauth_token", 0) > 0, (
+        f"proxy port {JVM_TIER_PORT} never saw the connector's OAuth token request; "
+        f"proxy status: {status}"
+    )
+    _assert_carried_all_traffic(counts, JVM_TIER_PORT, status)
+    _assert_jvm_tier_authenticated(https_proxy, status)
+    _assert_no_snowflake_traffic(
+        https_proxy.counts(CONNECTOR_TIER_PORT), CONNECTOR_TIER_PORT, status
+    )
+
+
+def test_oauth_through_connector_proxy_without_credentials(
+    driver,
+    https_proxy,
+    credentials,
+    create_table,
+    create_custom_connector,
+    wait_for_rows,
+):
+    """With OAuth and snowflake.https.proxy.* but no proxy credentials, the token request uses that proxy.
+
+    The connector tier listener does not ask for credentials, so the token request
+    must go through it without any, and must not fall back to the worker JVM tier,
+    which would refuse it.
+    """
+    https_proxy.reset()
+    _ingest_through_proxy(
+        "https_proxy_connector_tier_oauth",
+        {
+            "snowflake.https.proxy.host": PROXY_HOST,
+            "snowflake.https.proxy.port": str(CONNECTOR_TIER_PORT),
+        },
+        driver,
+        create_table,
+        create_custom_connector,
+        wait_for_rows,
+        auth_config=_oauth_config(credentials),
+    )
+
+    status = https_proxy.get_status()
+    logger.info("Proxy status: %s", status)
+    counts = https_proxy.counts(CONNECTOR_TIER_PORT)
+    assert counts.get("connector_oauth_token", 0) > 0, (
+        f"proxy port {CONNECTOR_TIER_PORT} never saw the connector's OAuth token request; "
+        f"proxy status: {status}"
+    )
+    _assert_carried_all_traffic(counts, CONNECTOR_TIER_PORT, status)
+    _assert_no_snowflake_traffic(
+        https_proxy.counts(JVM_TIER_PORT), JVM_TIER_PORT, status
     )
 
 

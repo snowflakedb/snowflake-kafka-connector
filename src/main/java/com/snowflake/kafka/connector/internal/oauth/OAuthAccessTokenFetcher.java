@@ -2,8 +2,6 @@ package com.snowflake.kafka.connector.internal.oauth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.snowflake.kafka.connector.Utils;
-import com.snowflake.kafka.connector.config.ProxyConfig;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
 import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
@@ -11,27 +9,27 @@ import com.snowflake.kafka.connector.internal.URL;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import java.io.IOException;
-import java.net.Authenticator;
-import java.net.InetSocketAddress;
-import java.net.PasswordAuthentication;
-import java.net.Proxy;
-import java.net.ProxySelector;
-import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
+import java.util.Properties;
 import java.util.stream.Collectors;
+import net.snowflake.client.api.exception.SnowflakeSQLException;
+import net.snowflake.client.internal.core.HttpClientSettingsKey;
+import net.snowflake.client.internal.core.HttpUtil;
+import net.snowflake.client.internal.core.SFException;
+import net.snowflake.client.internal.core.SFSession;
+import net.snowflake.client.jdbc.internal.apache.http.client.methods.CloseableHttpResponse;
+import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpPost;
+import net.snowflake.client.jdbc.internal.apache.http.entity.ContentType;
+import net.snowflake.client.jdbc.internal.apache.http.entity.StringEntity;
+import net.snowflake.client.jdbc.internal.apache.http.impl.client.CloseableHttpClient;
+import net.snowflake.client.jdbc.internal.apache.http.util.EntityUtils;
 import org.apache.kafka.common.config.types.Password;
 
 /**
@@ -72,19 +70,22 @@ public class OAuthAccessTokenFetcher {
   private static final Duration MAX_DELAY = Duration.ofSeconds(8);
 
   /**
-   * Fetch an OAuth access token. Retries with exponential backoff on transient failures. Goes
-   * through the connector's {@code snowflake.https.proxy.*} settings when host and port are set.
-   * Otherwise uses the JVM's default {@link ProxySelector}, so an existing {@code
-   * -Dhttps.proxyHost} still applies.
+   * Fetch an OAuth access token. Retries with exponential backoff on transient failures. The
+   * request is sent with the HTTP client the Snowflake JDBC driver builds for {@code
+   * jdbcProperties}, so it reaches the token endpoint exactly the way the JDBC connection reaches
+   * Snowflake: the same proxy selection, proxy credentials, bypass list, TLS settings and
+   * certificate revocation checks. The client is shared with the driver and stays open.
    *
    * @param url OAuth server URL (scheme, host, port, path)
    * @param clientId OAuth client ID
    * @param clientSecret OAuth client secret
    * @param refreshToken OAuth refresh token; empty selects client_credentials grant
    * @param scope explicit OAuth scope to request; empty sends no scope (KC v3 behavior)
-   * @param proxy the connector's proxy settings
+   * @param jdbcProperties the properties that select the driver's HTTP client settings, i.e. the
+   *     proxy and {@code snowflake.jdbc.map} properties passed to the JDBC connection
    * @return the access token string
-   * @throws SnowflakeKafkaConnectorException if the token fetch fails after all retries
+   * @throws SnowflakeKafkaConnectorException if the driver rejects {@code jdbcProperties} or the
+   *     token fetch fails after all retries
    */
   public static String fetchAccessToken(
       URL url,
@@ -92,117 +93,28 @@ public class OAuthAccessTokenFetcher {
       Password clientSecret,
       Optional<Password> refreshToken,
       Optional<String> scope,
-      ProxyConfig proxy) {
-    allowProxyBasicAuthForHttpsTunnels(proxy);
-    HttpClient.Builder builder = HttpClient.newBuilder();
-    if (proxy.isConfigured()) {
-      int port;
-      try {
-        port = Integer.parseInt(proxy.getPort().trim());
-      } catch (NumberFormatException e) {
-        throw new IllegalArgumentException("snowflake.https.proxy.port must be an integer", e);
-      }
-      builder.proxy(connectorProxySelector(proxy.getHost().trim(), port, proxy.getNonProxyHosts()));
-      if (proxy.hasCredentials()) {
-        String user = proxy.getUsername();
-        String password = proxy.getPassword();
-        builder.authenticator(
-            new Authenticator() {
-              @Override
-              protected PasswordAuthentication getPasswordAuthentication() {
-                if (getRequestorType() == RequestorType.PROXY) {
-                  return new PasswordAuthentication(user, password.toCharArray());
-                }
-                return null;
-              }
-            });
-      }
-    } else {
-      builder.proxy(ProxySelector.getDefault());
-    }
-    return fetchAccessToken(url, clientId, clientSecret, refreshToken, scope, builder.build());
+      Properties jdbcProperties) {
+    CloseableHttpClient httpClient = HttpUtil.getHttpClient(jdbcHttpClientSettings(jdbcProperties));
+    return fetchAccessToken(url, clientId, clientSecret, refreshToken, scope, httpClient);
   }
 
   /**
-   * Lets the JDK answer a proxy's 407 with Basic credentials when tunneling HTTPS. By default the
-   * JDK disables Basic for tunnels ({@code jdk.http.auth.tunneling.disabledSchemes=Basic}), so the
-   * token request would fail with a 407 even though the per-client {@code Authenticator} supplies
-   * the credentials. JDBC and the streaming SDK send proxy credentials themselves and are not
-   * affected.
-   *
-   * <p>The setting is JVM-wide and the JDK reads it once, on the first {@code java.net.http} use in
-   * the process, so it only takes effect if no earlier code in the worker has used that client. An
-   * operator-supplied value is never overridden; set {@code
-   * -Djdk.http.auth.tunneling.disabledSchemes=} on the worker to get this behavior regardless of
-   * load order.
+   * The driver's HTTP client settings for {@code jdbcProperties}, resolved by the driver's own
+   * session logic rather than a copy of it, so the token request cannot drift from the JDBC
+   * connection when the driver changes how it reads proxy settings.
    */
-  static void allowProxyBasicAuthForHttpsTunnels(ProxyConfig proxy) {
-    if (!proxy.isConfigured() || !proxy.hasCredentials()) {
-      return;
-    }
-    String current = System.getProperty(Utils.JDK_HTTP_AUTH_TUNNELING);
-    if (current != null) {
-      if (current.toLowerCase(Locale.ROOT).contains("basic")) {
-        LOGGER.warn(
-            "{} is set to '{}' on this JVM, so Basic proxy authentication for the OAuth token"
-                + " request over an HTTPS tunnel stays disabled",
-            Utils.JDK_HTTP_AUTH_TUNNELING,
-            current);
+  static HttpClientSettingsKey jdbcHttpClientSettings(Properties jdbcProperties) {
+    SFSession session = new SFSession();
+    try {
+      for (Map.Entry<Object, Object> property : jdbcProperties.entrySet()) {
+        session.addSFSessionProperty(property.getKey().toString(), property.getValue());
       }
-      return;
+      return session.getHttpClientKey();
+    } catch (SFException e) {
+      throw SnowflakeErrors.ERROR_1004.getException(e.getMessage());
+    } catch (SnowflakeSQLException e) {
+      throw SnowflakeErrors.ERROR_1004.getException(e);
     }
-    System.setProperty(Utils.JDK_HTTP_AUTH_TUNNELING, "");
-    LOGGER.info(
-        "Enabled Basic proxy authentication for HTTPS tunnels by clearing {}, which the OAuth token"
-            + " request needs for an authenticated proxy. The setting applies to the whole JVM.",
-        Utils.JDK_HTTP_AUTH_TUNNELING);
-  }
-
-  /**
-   * HTTP proxy for {@code snowflake.https.proxy.host} and {@code snowflake.https.proxy.port},
-   * honoring the bypass list.
-   */
-  static ProxySelector connectorProxySelector(String host, int port, String nonProxyHosts) {
-    InetSocketAddress address = new InetSocketAddress(host, port);
-    Proxy proxy = new Proxy(Proxy.Type.HTTP, address);
-    return new ProxySelector() {
-      @Override
-      public List<Proxy> select(URI uri) {
-        String destination = uri == null ? null : uri.getHost();
-        if (bypassesProxy(destination, nonProxyHosts)) {
-          return List.of(Proxy.NO_PROXY);
-        }
-        return List.of(proxy);
-      }
-
-      @Override
-      public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {}
-    };
-  }
-
-  /**
-   * JDK {@code http.nonProxyHosts} match: {@code |} separates entries, {@code *} is a wildcard, and
-   * the pattern is matched against the whole host, ignoring case.
-   */
-  static boolean bypassesProxy(String host, String nonProxyHosts) {
-    if (host == null || isBlank(nonProxyHosts)) {
-      return false;
-    }
-    for (String raw : nonProxyHosts.split("\\|", -1)) {
-      String pattern = raw.trim();
-      if (pattern.isEmpty()) {
-        continue;
-      }
-      String regex = Pattern.quote(pattern).replace("*", "\\E.*\\Q");
-      if (host.matches("(?i)" + regex)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean isBlank(String value) {
-    return value == null || value.trim().isEmpty();
   }
 
   static String fetchAccessToken(
@@ -211,7 +123,7 @@ public class OAuthAccessTokenFetcher {
       Password clientSecret,
       Optional<Password> refreshToken,
       Optional<String> scope,
-      HttpClient httpClient) {
+      CloseableHttpClient httpClient) {
     String basicAuth =
         BASIC_AUTH_HEADER_PREFIX
             + Base64.getEncoder()
@@ -241,14 +153,6 @@ public class OAuthAccessTokenFetcher {
 
     URI tokenUri = buildTokenUri(url);
 
-    HttpRequest request =
-        HttpRequest.newBuilder()
-            .uri(tokenUri)
-            .header("Content-Type", OAUTH_CONTENT_TYPE_HEADER)
-            .header("Authorization", basicAuth)
-            .POST(HttpRequest.BodyPublishers.ofString(formBody))
-            .build();
-
     RetryPolicy<String> retryPolicy =
         RetryPolicy.<String>builder()
             .handle(Exception.class)
@@ -270,12 +174,24 @@ public class OAuthAccessTokenFetcher {
       return Failsafe.with(retryPolicy)
           .get(
               () -> {
-                HttpResponse<String> response =
-                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                HttpPost request = new HttpPost(tokenUri);
+                request.setHeader("Authorization", basicAuth);
+                request.setEntity(
+                    new StringEntity(
+                        formBody,
+                        ContentType.create(OAUTH_CONTENT_TYPE_HEADER, StandardCharsets.UTF_8)));
+                int statusCode;
+                String body;
+                try (CloseableHttpResponse response = httpClient.execute(request)) {
+                  statusCode = response.getStatusLine().getStatusCode();
+                  body =
+                      response.getEntity() == null
+                          ? ""
+                          : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                }
 
-                int statusCode = response.statusCode();
                 if (statusCode < 200 || statusCode >= 300) {
-                  String message = "HTTP " + statusCode + ": " + response.body();
+                  String message = "HTTP " + statusCode + ": " + body;
                   // 5xx and 429 are transient -- rethrow as IOException so the retry policy handles
                   // them. Every other non-2xx status (e.g. 400/401/403) is a permanent auth/request
                   // error that retrying cannot fix, so surface it as the terminal exception, which
@@ -286,11 +202,11 @@ public class OAuthAccessTokenFetcher {
                   throw SnowflakeErrors.ERROR_1004.getException(message);
                 }
 
-                JsonNode json = MAPPER.readTree(response.body());
+                JsonNode json = MAPPER.readTree(body);
                 JsonNode accessTokenNode = json.get(ACCESS_TOKEN);
                 if (accessTokenNode == null || accessTokenNode.isNull()) {
                   throw SnowflakeErrors.ERROR_1004.getException(
-                      "Response does not contain access_token: " + response.body());
+                      "Response does not contain access_token: " + body);
                 }
                 return accessTokenNode.asText();
               });

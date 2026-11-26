@@ -8,13 +8,22 @@ which proxy tier a connector used:
   8081  worker JVM tier (-Dhttps.proxyHost / -Dhttps.proxyPort)
   8082  a second connector's proxy, for tests that run two connectors at once
 
+When JVM_TIER_PROXY_USER and JVM_TIER_PROXY_PASSWORD are set, the worker JVM
+tier requires those Basic credentials on CONNECT and answers 407 otherwise. Only
+HTTPS tunnels are checked: Snowflake and OAuth traffic is all HTTPS, and the
+other listeners stay open.
+
 Control API on :9080:
-  GET  /status  {"counts": {"8080": {...}, ...}, "connect_hosts": {...}, "pipes": {...}}
+  GET  /status  {"counts": {"8080": {...}, ...}, "connect_hosts": {...}, "pipes": {...},
+                 "proxy_auth": {"8081": {"accepted": n, "rejected": n}}}
                 pipes: streaming pipe names seen in SDK request paths, per port
+                proxy_auth: CONNECT requests the authenticating listener let through or refused
   POST /reset   clears all counters
 """
 
+import base64
 import json
+import os
 import re
 import sys
 import threading
@@ -30,6 +39,19 @@ CONNECT_HOSTS = {}
 # connectors can tell whose traffic went through which listener.
 PIPES = {}
 _PIPE_IN_PATH = re.compile(r"/pipes/([^/:?]+)")
+# CONNECT outcomes on the authenticating listener, kept apart from COUNTS so the
+# Snowflake call assertions are unaffected.
+PROXY_AUTH = {}
+
+JVM_TIER_PORT = "8081"
+_JVM_TIER_USER = os.environ.get("JVM_TIER_PROXY_USER", "")
+_JVM_TIER_PASSWORD = os.environ.get("JVM_TIER_PROXY_PASSWORD", "")
+_JVM_TIER_CREDENTIALS = (
+    "Basic "
+    + base64.b64encode(f"{_JVM_TIER_USER}:{_JVM_TIER_PASSWORD}".encode()).decode()
+    if _JVM_TIER_USER and _JVM_TIER_PASSWORD
+    else None
+)
 
 
 def log(msg: str) -> None:
@@ -45,6 +67,15 @@ def _operations(flow: http.HTTPFlow) -> list:
     method = flow.request.method
     host = flow.request.pretty_host.lower()
 
+    # The connector's OAuth token request goes out on the JDBC driver's HTTP client, so it
+    # carries the driver's user agent. The endpoint may be any IdP (CI uses Okta), so it is
+    # recognized by its grant_type form body rather than its path.
+    if (
+        method == "POST"
+        and flow.request.headers.get("user-agent", "").startswith("JDBC/")
+        and "grant_type=" in (flow.request.get_text(strict=False) or "")
+    ):
+        return ["connector_oauth_token"]
     # JDBC (connector's Snowflake connection)
     if method == "POST" and path.endswith("/session/v1/login-request"):
         return ["jdbc_login"]
@@ -78,6 +109,19 @@ def http_connect(flow: http.HTTPFlow) -> None:
     with LOCK:
         hosts = CONNECT_HOSTS.setdefault(listener, {})
         hosts[host] = hosts.get(host, 0) + 1
+    if listener == JVM_TIER_PORT and _JVM_TIER_CREDENTIALS is not None:
+        _require_proxy_credentials(flow, listener)
+
+
+def _require_proxy_credentials(flow: http.HTTPFlow, listener: str) -> None:
+    accepted = flow.request.headers.get("proxy-authorization") == _JVM_TIER_CREDENTIALS
+    with LOCK:
+        outcomes = PROXY_AUTH.setdefault(listener, {"accepted": 0, "rejected": 0})
+        outcomes["accepted" if accepted else "rejected"] += 1
+    if not accepted:
+        flow.response = http.Response.make(
+            407, b"", {"Proxy-Authenticate": 'Basic realm="https-proxy"'}
+        )
 
 
 def _pipe(flow: http.HTTPFlow) -> str | None:
@@ -113,6 +157,7 @@ class _ControlHandler(BaseHTTPRequestHandler):
                 "counts": {k: dict(v) for k, v in COUNTS.items()},
                 "connect_hosts": {k: dict(v) for k, v in CONNECT_HOSTS.items()},
                 "pipes": {k: dict(v) for k, v in PIPES.items()},
+                "proxy_auth": {k: dict(v) for k, v in PROXY_AUTH.items()},
             }
         self._respond(200, body)
 
@@ -124,6 +169,7 @@ class _ControlHandler(BaseHTTPRequestHandler):
             COUNTS.clear()
             CONNECT_HOSTS.clear()
             PIPES.clear()
+            PROXY_AUTH.clear()
         log("counters reset")
         self._respond(200, {"status": "reset"})
 
@@ -145,3 +191,5 @@ def _serve_control():
 
 threading.Thread(target=_serve_control, daemon=True).start()
 log("control API listening on :9080")
+if _JVM_TIER_CREDENTIALS is not None:
+    log(f"listener {JVM_TIER_PORT} requires Basic proxy credentials on CONNECT")

@@ -26,13 +26,15 @@ import java.util.Base64;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Lightweight in-process HTTP CONNECT proxy for testing proxy configurations. Supports basic
- * authentication and HTTPS tunneling via the CONNECT method.
+ * authentication and HTTPS tunneling via the CONNECT method. A null user name makes an open proxy
+ * that tunnels every CONNECT without asking for credentials.
  *
  * <p>Can be used as a JUnit Rule to automatically manage the proxy lifecycle per test method.
  */
@@ -44,6 +46,7 @@ public class EmbeddedProxyServer extends ExternalResource {
   private ServerSocket serverSocket;
   private ExecutorService executor;
   private volatile boolean running;
+  private final AtomicInteger tunneledConnects = new AtomicInteger();
 
   public EmbeddedProxyServer(final String username, final String password) {
     this.username = username;
@@ -125,6 +128,7 @@ public class EmbeddedProxyServer extends ExternalResource {
 
       // Handle CONNECT (HTTPS tunneling)
       if (requestLine.startsWith("CONNECT ")) {
+        tunneledConnects.incrementAndGet();
         handleConnect(requestLine, client, out);
       } else {
         // For non-CONNECT, just close — tests only need CONNECT for Snowflake HTTPS
@@ -206,6 +210,7 @@ public class EmbeddedProxyServer extends ExternalResource {
   }
 
   private boolean checkAuth(String proxyAuth) {
+    if (username == null) return true;
     if (proxyAuth == null) return false;
     if (!proxyAuth.startsWith("Basic ")) return false;
     String decoded =
@@ -275,6 +280,14 @@ public class EmbeddedProxyServer extends ExternalResource {
 
   public final String getPassword() {
     return password;
+  }
+
+  /**
+   * Number of CONNECT requests that were tunneled, which for an authenticating proxy means they
+   * passed proxy authentication.
+   */
+  public final int getTunneledConnectCount() {
+    return tunneledConnects.get();
   }
 
   @Override
