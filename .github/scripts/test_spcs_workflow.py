@@ -1,6 +1,7 @@
 """Credential-free contracts for one-time setup and profile cleanup."""
 
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -21,7 +22,12 @@ def workflow(name):
 class WorkflowTests(unittest.TestCase):
     def test_setup_contracts_and_approval_attachment(self):
         document = workflow("spcs-infrastructure.yml")
-        self.assertEqual(set(document["on"]), {"pull_request", "workflow_dispatch"})
+        self.assertEqual(
+            set(document["on"]), {"pull_request", "workflow_call", "workflow_dispatch"}
+        )
+        self.assertEqual(
+            document["on"]["workflow_call"]["inputs"]["action"]["default"], "check"
+        )
         self.assertEqual(document["permissions"], {"contents": "read"})
         action = document["on"]["workflow_dispatch"]["inputs"]["action"]
         self.assertEqual(action["default"], "check")
@@ -48,6 +54,65 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("upload-artifact", str(setup))
         self.assertNotIn("run_spcs_release", str(document))
         self.assertNotIn("build-connector", str(document))
+        # The nightly preflight runs on a schedule.
+        self.assertIn("github.event_name == 'schedule'", setup["if"])
+
+    def test_nightly_checks_first_and_reports_only_scheduled_failures(self):
+        document = workflow("spcs-nightly.yml")
+        self.assertEqual(set(document["on"]), {"schedule", "workflow_dispatch"})
+        self.assertEqual(document["permissions"], {"contents": "read"})
+        jobs = document["jobs"]
+        self.assertEqual(
+            set(jobs), {"preflight", "smoke", "report-failure", "check-jira"}
+        )
+        self.assertTrue(jobs["preflight"]["if"].endswith("&& !inputs.check_jira"))
+        check = jobs["check-jira"]
+        for restriction in (
+            "workflow_dispatch",
+            "inputs.check_jira",
+            "refs/heads/master",
+            "snowflakedb/snowflake-kafka-connector",
+        ):
+            self.assertIn(restriction, check["if"])
+        self.assertIn("report_failure.py --check", str(check))
+        self.assertNotIn("SNOWFLAKE_TEST_PROFILE_SECRET", str(check))
+        preflight, smoke, report = (
+            jobs[key] for key in ("preflight", "smoke", "report-failure")
+        )
+        self.assertEqual(
+            preflight["uses"], "./.github/workflows/spcs-infrastructure.yml"
+        )
+        self.assertEqual(preflight["with"], {"action": "apply"})
+        for restriction in (
+            "refs/heads/master",
+            "snowflakedb/snowflake-kafka-connector",
+        ):
+            self.assertIn(restriction, preflight["if"])
+        self.assertEqual(smoke["needs"], "preflight")
+        self.assertEqual(smoke["uses"], "./.github/workflows/spcs-smoke.yml")
+        self.assertEqual(
+            report["if"],
+            "(failure() || cancelled()) && github.event_name == 'schedule'",
+        )
+        self.assertEqual(
+            set(re.findall(r"secrets\.(\w+)", str(report))),
+            {"JIRA_BASE_URL", "JIRA_USER_EMAIL", "JIRA_API_TOKEN"},
+        )
+        self.assertNotIn("SNOWFLAKE_TEST_PROFILE_SECRET", str(report))
+
+    def test_smoke_runs_only_from_master_of_this_repository(self):
+        smoke = workflow("spcs-smoke.yml")
+        self.assertEqual(set(smoke["on"]), {"workflow_call"})
+        job = smoke["jobs"]["smoke"]
+        for restriction in (
+            "refs/heads/master",
+            "snowflakedb/snowflake-kafka-connector",
+        ):
+            self.assertIn(restriction, job["if"])
+        self.assertEqual(
+            job["concurrency"],
+            {"group": "spcs-release-account", "cancel-in-progress": "false"},
+        )
 
     def test_setup_shell_cleanup_and_exit_propagation(self):
         setup = workflow("spcs-infrastructure.yml")["jobs"]["setup"]

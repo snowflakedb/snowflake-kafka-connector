@@ -46,6 +46,10 @@ class WorkflowTests(unittest.TestCase):
             (ROOT / ".github/workflows/end-to-end.yaml").read_text()
         )
         cls.jobs = cls.workflow["jobs"]
+        # spcs-release calls this workflow; its steps live there.
+        cls.smoke = yaml.safe_load(
+            (ROOT / ".github/workflows/spcs-smoke.yml").read_text()
+        )["jobs"]["smoke"]
         cls.java = yaml.safe_load(
             (ROOT / ".github/workflows/IntegrationTest.yml").read_text()
         )
@@ -160,8 +164,13 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.jobs["v4-trial"]["timeout-minutes"], 45)
         self.assertFalse(self.jobs["v4-trial"]["concurrency"]["cancel-in-progress"])
 
-    def test_spcs_egress_and_artifact_scope(self):
+    def test_spcs_release_calls_the_shared_smoke_workflow(self):
         job = self.jobs["spcs-release"]
+        self.assertEqual(job["uses"], "./.github/workflows/spcs-smoke.yml")
+        self.assertEqual(job["secrets"], "inherit")
+
+    def test_spcs_egress_and_artifact_scope(self):
+        job = self.smoke
         step = next(
             step for step in job["steps"] if step.get("name") == "Run SPCS smoke test"
         )
@@ -178,15 +187,15 @@ class WorkflowTests(unittest.TestCase):
     def test_spcs_release_uses_ci_profile_and_setup_fixture(self):
         step = next(
             step
-            for step in self.jobs["spcs-release"]["steps"]
+            for step in self.smoke["steps"]
             if step.get("name") == "Run SPCS smoke test"
         )
         secrets = set(re.findall(r"secrets\.(\w+)", str(step)))
         self.assertEqual(secrets, {"SNOWFLAKE_TEST_PROFILE_SECRET"})
         # Nothing for an admin to configure beyond the optional egress integration.
-        self.assertNotIn("environment", self.jobs["spcs-release"])
+        self.assertNotIn("environment", self.smoke)
         self.assertEqual(
-            set(re.findall(r"vars\.(\w+)", str(self.jobs["spcs-release"]))),
+            set(re.findall(r"vars\.(\w+)", str(self.smoke))),
             {"SPCS_EGRESS"},
         )
         # Read as text: importing setup_ci.py needs the Snowflake connector.

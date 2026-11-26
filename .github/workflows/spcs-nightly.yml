@@ -1,0 +1,76 @@
+name: KC SPCS nightly smoke test
+
+# SNOW-4202412. Separate from the 20:00 UTC end-to-end nightly so an SPCS
+# failure is reported on its own. Failures go to the Snowpipe Streaming triage
+# DL through one Jira ticket that collects a comment per failed night.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      check_jira:
+        description: 'Only check the Jira reporting secrets (files nothing)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Self-repair: apply only adds what is missing (objects, grants, the pool
+  # rule in the user and account network policies) and never removes anything.
+  # SFCTEST0's account policy changes without notice; a repair is logged as a
+  # warning annotation so it stays visible.
+  preflight:
+    if: github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector' && !inputs.check_jira
+    uses: ./.github/workflows/spcs-infrastructure.yml
+    with:
+      action: apply
+    secrets: inherit
+
+  smoke:
+    needs: preflight
+    uses: ./.github/workflows/spcs-smoke.yml
+    secrets: inherit
+
+  report-failure:
+    needs: [preflight, smoke]
+    # Manual runs report in the Actions UI only. cancelled(): all SPCS jobs
+    # share one concurrency group, and a newer queued job cancels an older one.
+    if: (failure() || cancelled()) && github.event_name == 'schedule'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Report to the Snowpipe Streaming triage DL
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        FAILED_STAGE: ${{ needs.preflight.result != 'success' && format('preflight ({0})', needs.preflight.result) || format('smoke ({0})', needs.smoke.result) }}
+      run: python3 test/spcs/report_failure.py
+
+  # Manual: confirm the Jira secrets work after setting or handing them over.
+  check-jira:
+    if: github.event_name == 'workflow_dispatch' && inputs.check_jira && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Check Jira reporting secrets
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      run: python3 test/spcs/report_failure.py --check

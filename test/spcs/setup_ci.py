@@ -1,10 +1,12 @@
 """One-time setup of the permanent KC SPCS CI objects.
 
-`check` (default) only reads. `apply` first grants TESTROLE_KAFKA the two
-privileges it needs, as ACCOUNTADMIN, then creates missing objects with IF NOT
-EXISTS as TESTROLE_KAFKA. Finally, as ACCOUNTADMIN, it adds the pool's network
-rule to the user and account network policies if absent. It never drops or
-removes anything, so rerunning is safe.
+`check` (default) only reads. It lists the objects and, when all exist, reads
+the user and account network policies as ACCOUNTADMIN to confirm each contains
+the pool's network rule. `apply`, which the nightly smoke test runs first,
+grants TESTROLE_KAFKA the two privileges it needs, as ACCOUNTADMIN, then
+creates missing objects with IF NOT EXISTS as TESTROLE_KAFKA. Finally, as
+ACCOUNTADMIN, it adds the pool's network rule to the user and account network
+policies if absent. It never drops or removes anything, so rerunning is safe.
 """
 
 import argparse
@@ -106,7 +108,9 @@ def policy_param(cursor, scope):
     return [row["value"] for row in found if row["value"]]
 
 
-def allow_pool(cursor):
+def allow_pool(cursor, apply):
+    """Return the number of applied policies still without the pool rule."""
+    missing = 0
     (user,) = rows(cursor, "SELECT CURRENT_USER() AS U")
     cursor.execute("USE ROLE ACCOUNTADMIN")
     try:
@@ -116,21 +120,32 @@ def allow_pool(cursor):
         print(f"account network policy: {account_policies or 'none'}", flush=True)
         for policy in dict.fromkeys(user_policies + account_policies):
             rules = rows(cursor, f"DESCRIBE NETWORK POLICY {policy}")
-            print(f"policy {policy}: {rules}", flush=True)
             if any(POOL_RULE.rsplit(".", 1)[-1] in str(r.get("value")) for r in rules):
                 print(f"{POOL_RULE} already in {policy}", flush=True)
+                continue
+            if not apply:
+                # Policies change without notice in SFCTEST0; say what to do.
+                print(
+                    f"MISSING: {POOL_RULE} is not in network policy {policy}, so "
+                    "SPCS calls will get HTTP 401. Run 'Set up permanent KC SPCS "
+                    "infrastructure' with apply.",
+                    flush=True,
+                )
+                missing += 1
                 continue
             cursor.execute(
                 f"ALTER NETWORK POLICY {policy} "
                 f"ADD ALLOWED_NETWORK_RULE_LIST=('{POOL_RULE}')"
             )
-            print(f"added {POOL_RULE} to {policy}", flush=True)
+            # A workflow annotation, so a nightly repair is seen, not silent.
+            print(f"::warning::self-repair: added {POOL_RULE} to {policy}", flush=True)
     finally:
         cursor.execute(f"USE ROLE {ROLE}")
+    return missing
 
 
 def setup(cursor, apply):
-    """Return the number of objects still missing."""
+    """Return the number of objects and policy rules still missing."""
     (identity,) = rows(cursor, "SELECT CURRENT_ACCOUNT() AS A, CURRENT_ROLE() AS R")
     if (identity["a"], identity["r"]) != (ACCOUNT, ROLE):
         raise RuntimeError(f"connected as {identity}, expected {ACCOUNT}/{ROLE}")
@@ -151,8 +166,8 @@ def setup(cursor, apply):
         missing += not exists
         if kind == "SCHEMA":
             schema_exists = exists
-    if apply and not missing:
-        allow_pool(cursor)
+    if not missing:
+        missing += allow_pool(cursor, apply)
     return missing
 
 

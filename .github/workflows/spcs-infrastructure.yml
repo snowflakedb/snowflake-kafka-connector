@@ -8,8 +8,18 @@ on:
       - '.github/scripts/test_spcs_workflow.py'
       - 'test/spcs/setup_ci.py'
       - 'test/spcs/test_setup_ci.py'
+      - 'test/spcs/report_failure.py'
+      - 'test/spcs/test_report_failure.py'
+      - '.github/workflows/spcs-nightly.yml'
+      - '.github/workflows/spcs-smoke.yml'
       - 'test/lib/config.py'
       - 'test/lib/crypto.py'
+  # spcs-nightly.yml calls this with apply as its self-repairing preflight.
+  workflow_call:
+    inputs:
+      action:
+        type: string
+        default: check
   workflow_dispatch:
     inputs:
       action:
@@ -34,12 +44,13 @@ jobs:
         python-version: '3.11'
     - run: pip install 'snowflake-connector-python==5.2.0' 'PyYAML==6.0.2' 'ruff==0.15.0'
     - run: python3 test/spcs/test_setup_ci.py -v
+    - run: python3 test/spcs/test_report_failure.py -v
     - run: python3 .github/scripts/test_spcs_workflow.py -v
-    - run: ruff check test/spcs/setup_ci.py test/spcs/test_setup_ci.py .github/scripts/test_spcs_workflow.py
-    - run: ruff format --check test/spcs/setup_ci.py test/spcs/test_setup_ci.py .github/scripts/test_spcs_workflow.py
+    - run: ruff check test/spcs/setup_ci.py test/spcs/test_setup_ci.py test/spcs/report_failure.py test/spcs/test_report_failure.py .github/scripts/test_spcs_workflow.py
+    - run: ruff format --check test/spcs/setup_ci.py test/spcs/test_setup_ci.py test/spcs/report_failure.py test/spcs/test_report_failure.py .github/scripts/test_spcs_workflow.py
 
   setup:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.ref == 'refs/heads/master' && github.repository == 'snowflakedb/snowflake-kafka-connector'
     needs: contracts
     runs-on: ubuntu-22.04
     timeout-minutes: 10

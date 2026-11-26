@@ -29,9 +29,15 @@ ALTER_POLICY = ALTERS[0]
 
 class FakeCursor:
     def __init__(
-        self, existing=(), account="SFCTEST0", owner="TESTROLE_KAFKA", admin=True
+        self,
+        existing=(),
+        account="SFCTEST0",
+        owner="TESTROLE_KAFKA",
+        admin=True,
+        allowed="[]",
     ):
         self.objects = {name: owner for name in existing}
+        self.allowed = allowed
         self.account = account
         self.admin = admin
         self.role = "TESTROLE_KAFKA"
@@ -57,7 +63,10 @@ class FakeCursor:
             self.result = [("key",), ("value",)], [("NETWORK_POLICY", POLICIES[1])]
         elif sql in [f"DESCRIBE NETWORK POLICY {p}" for p in POLICIES]:
             assert self.role == "ACCOUNTADMIN", sql
-            self.result = [("name",), ("value",)], [("ALLOWED_NETWORK_RULE_LIST", "[]")]
+            self.result = (
+                [("name",), ("value",)],
+                [("ALLOWED_NETWORK_RULE_LIST", self.allowed)],
+            )
         elif sql in ALTERS:
             assert self.role == "ACCOUNTADMIN", sql
             self.result = [("status",)], []
@@ -142,10 +151,44 @@ class SetupTest(unittest.TestCase):
         for verb in ("DROP", "REPLACE", "REVOKE", "REMOVE", "SET "):
             self.assertFalse(any(verb in s for s in cursor.statements), verb)
 
+    def test_apply_repair_is_announced_as_a_workflow_warning(self):
+        cursor = FakeCursor(SHOW_TO_NAME.values())
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(setup_ci.setup(cursor, apply=True), 0)
+        for policy in POLICIES:
+            self.assertIn(
+                "::warning::self-repair: added "
+                f"TESTDB_KAFKA.KC_SPCS_CI.KC_SPCS_CI_POOL_INGRESS to {policy}\n",
+                output.getvalue(),
+            )
+
     def test_policy_untouched_until_rule_exists(self):
         cursor = FakeCursor(admin=True)
         run(cursor, apply=False)
         self.assertNotIn(ALTER_POLICY, cursor.statements)
+
+    def test_check_reports_policies_missing_the_rule_without_altering(self):
+        cursor = FakeCursor(SHOW_TO_NAME.values())
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(setup_ci.setup(cursor, apply=False), 2)
+        for policy in POLICIES:
+            self.assertIn(f"not in network policy {policy}", output.getvalue())
+        for verb in ("ALTER", "CREATE", "GRANT"):
+            self.assertFalse(any(verb in s for s in cursor.statements), verb)
+        self.assertEqual(cursor.role, "TESTROLE_KAFKA")
+
+    def test_check_passes_when_policies_have_the_rule(self):
+        allowed = '[{"fullyQualifiedRuleName":"TESTDB_KAFKA.KC_SPCS_CI.KC_SPCS_CI_POOL_INGRESS"}]'
+        for apply in (False, True):
+            cursor = FakeCursor(SHOW_TO_NAME.values(), allowed=allowed)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(setup_ci.setup(cursor, apply=apply), 0)
+            # Action logs are public: never print the policies' contents.
+            self.assertNotIn("ALLOWED_NETWORK_RULE_LIST", output.getvalue())
+            self.assertNotIn("fullyQualifiedRuleName", output.getvalue())
 
     def test_rejects_wrong_account(self):
         with self.assertRaises(RuntimeError):
