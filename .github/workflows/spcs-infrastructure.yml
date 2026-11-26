@@ -32,7 +32,7 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    - run: pip install 'snowflake-connector-python==4.2.0' 'PyYAML==6.0.2' 'ruff==0.15.0'
+    - run: pip install 'snowflake-connector-python==5.2.0' 'PyYAML==6.0.2' 'ruff==0.15.0'
     - run: python3 test/spcs/test_setup_ci.py -v
     - run: python3 .github/scripts/test_spcs_workflow.py -v
     - run: ruff check test/spcs/setup_ci.py test/spcs/test_setup_ci.py .github/scripts/test_spcs_workflow.py
@@ -53,7 +53,7 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    - run: pip install 'snowflake-connector-python==4.2.0'
+    - run: pip install 'snowflake-connector-python==5.2.0'
     - name: Check or create permanent resources
       env:
         SETUP_ACTION: ${{ inputs.action }}

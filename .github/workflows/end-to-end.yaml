@@ -60,7 +60,7 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    - run: pip install 'snowflake-connector-python==4.2.0'
+    - run: pip install 'snowflake-connector-python==5.2.0'
     - name: Inspect existing AWS CI role without creating resources
       env:
         SNOWFLAKE_TEST_PROFILE_SECRET: ${{ secrets.SNOWFLAKE_TEST_PROFILE_SECRET }}
@@ -85,7 +85,7 @@ jobs:
     - name: Install offline test dependencies
       run: >-
         pip install requests certifi 'confluent-kafka[avro,json,protobuf]==2.13.0'
-        avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0' 'pytest==8.3.5' 'PyYAML==6.0.3'
+        avro-python3 kafka-python-ng 'snowflake-connector-python==5.2.0' 'pytest==8.3.5' 'PyYAML==6.0.3'
     - run: python3 test/scripts/functional_pacing_contract.py
     - run: python3 test/scripts/workflow_contract.py
 
@@ -430,7 +430,7 @@ jobs:
     - name: Install observer contract dependencies
       run: >-
         pip install requests certifi 'confluent-kafka[avro,json,protobuf]==2.13.0'
-        avro-python3 kafka-python-ng 'snowflake-connector-python==4.2.0' 'pytest==8.3.5'
+        avro-python3 kafka-python-ng 'snowflake-connector-python==5.2.0' 'pytest==8.3.5'
     - run: python3 -m unittest discover -s test/spcs -v
     - run: python3 test/spcs/observer_contract.py
 

@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir \
     "confluent-kafka[avro,json,protobuf]==2.13.0" \
     avro-python3 \
     kafka-python-ng \
-    "snowflake-connector-python==4.2.0" \
+    "snowflake-connector-python==5.2.0" \
     "pytest==8.3.5"
 
 # Create app directory
