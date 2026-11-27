@@ -1,7 +1,6 @@
 import json
-from time import sleep
 
-from test_suit.test_utils import NonRetryableError
+from test_suit.test_utils import NonRetryableError, RetryableError
 from test_suit.base_e2e import BaseE2eTest
 
 
@@ -61,9 +60,9 @@ class TestSchemaEvolutionMultiTopicDropTable(BaseE2eTest):
                 value.append(json.dumps(self.records[i]).encode('utf-8'))
             self.driver.sendBytesData(topic, value, key)
 
-        # Sleep for some time and then verify the rows are ingested
-        sleep(100)
-        self.verify("0")
+        # Schema evolution and ingestion complete at their own pace, so poll for the
+        # expected state instead of verifying once after a fixed wait.
+        self.driver.verifyWithRetry(self.verify, "0", self.getConfigFileName())
 
         # Recreate the table
         self.driver.snowflake_conn.cursor().execute(
@@ -98,12 +97,16 @@ class TestSchemaEvolutionMultiTopicDropTable(BaseE2eTest):
         print("Columns not in table: ", gold_columns_copy)
 
         for columnName in gold_columns_copy:
-            raise NonRetryableError("Column {} was not created".format(columnName))
+            raise RetryableError("Column {} was not created yet".format(columnName))
 
+        expected_records = self.recordNum * len(self.topics)
         res = self.driver.snowflake_conn.cursor().execute(
             "SELECT count(*) FROM {}".format(self.table)).fetchone()[0]
-        if res != self.recordNum * len(self.topics):
-            print("Number of record expected: {}, got: {}".format(self.recordNum * len(self.topics), res))
+        if res < expected_records:
+            print("Number of record expected: {}, got: {}".format(expected_records, res))
+            raise RetryableError("Not all records are ingested yet")
+        elif res != expected_records:
+            print("Number of record expected: {}, got: {}".format(expected_records, res))
             raise NonRetryableError("Number of record in table is different from number of record sent")
 
     def clean(self):

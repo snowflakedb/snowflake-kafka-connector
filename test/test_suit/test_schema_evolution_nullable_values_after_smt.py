@@ -67,7 +67,9 @@ class TestSchemaEvolutionNullableValuesAfterSmt(BaseE2eTest):
 
     def _verify_data(self):
         cur = self.driver.snowflake_conn.cursor(DictCursor)
-        res = cur.execute(f'select index, from_optional_field, record_metadata:offset::number as offset from {self.table}').fetchall()
+        res = cur.execute(
+            f'select index, from_optional_field, record_metadata:offset::number as offset '
+            f'from {self.table} order by offset').fetchall()
 
         if len(res) == 0:
             raise RetryableError()
