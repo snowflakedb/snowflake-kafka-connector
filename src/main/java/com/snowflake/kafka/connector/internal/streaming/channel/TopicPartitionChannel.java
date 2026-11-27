@@ -68,6 +68,19 @@ public interface TopicPartitionChannel {
   void setLatestConsumerGroupOffset(long consumerOffset);
 
   /**
+   * Returns a Kafka offset that is safe to commit without a fresh channel status: the larger of the
+   * first offset this channel received and one past the last offset token Snowflake reported. Every
+   * row before it is committed in Snowflake or was never appended to this channel. A recovery that
+   * finds no offset token resumes from it.
+   *
+   * @return the offset, or {@link #NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE} if the channel has
+   *     received no record and Snowflake never reported a token for it
+   */
+  default long getOffsetSafeToCommitWithoutStatus() {
+    return NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
+  }
+
+  /**
    * Processes a channel status: logs it, checks for ingestion errors, updates offset tracking, and
    * returns the offset safe to commit to Kafka.
    *

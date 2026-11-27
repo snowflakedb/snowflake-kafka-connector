@@ -107,6 +107,20 @@ class BatchOffsetFetcherTest {
   }
 
   @Test
+  void channelWithoutTokenReportsWhereItResumes() {
+    TopicPartition withToken = new TopicPartition("topicA", 0);
+    TopicPartition withoutToken = new TopicPartition("topicA", 1);
+    registerChannel(withToken, "pipeA", "ch0", 5L);
+    registerChannelWithNoOffset(withoutToken, "pipeA", "ch1");
+    when(channels.get(withoutToken).getOffsetSafeToCommitWithoutStatus()).thenReturn(40L);
+
+    Map<TopicPartition, Long> result =
+        fetcher.getCommittedOffsets(Set.of(withToken, withoutToken), channelLookup());
+
+    assertEquals(Map.of(withToken, 6L, withoutToken, 40L), result);
+  }
+
+  @Test
   void uninitializedPartitionsAreSkipped() {
     TopicPartition initialized = new TopicPartition("topicA", 0);
     TopicPartition uninitialized = new TopicPartition("topicA", 1);
@@ -138,6 +152,56 @@ class BatchOffsetFetcherTest {
 
     // A generic (non-client-invalid) failure must not trigger client recreation.
     verify(channels.get(tp0), never()).triggerReopenForInvalidClient();
+  }
+
+  @Test
+  void failedPipeReportsOffsetsItsChannelsKnowAreSafe() {
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+    TopicPartition tp1 = new TopicPartition("topicA", 1);
+    TopicPartition tp2 = new TopicPartition("topicB", 0);
+    registerChannel(tp0, "pipeA", "chA0", 10L);
+    registerChannel(tp1, "pipeA", "chA1", 20L);
+    registerChannel(tp2, "pipeB", "chB0", 30L);
+    when(channels.get(tp0).getOffsetSafeToCommitWithoutStatus()).thenReturn(8L);
+    clientSupplier.setFailingPipe("pipeA");
+
+    Map<TopicPartition, Long> result =
+        fetcher.getCommittedOffsets(Set.of(tp0, tp1, tp2), channelLookup());
+
+    // tp1 knows no safe offset of its own and stays out. tp0 must not be left to Kafka Connect,
+    // which would commit it at its last rewind target.
+    assertEquals(Map.of(tp0, 8L, tp2, 31L), result);
+  }
+
+  @Test
+  void clientInvalidPipeReportsOffsetsItsChannelsKnowAreSafe() {
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+    TopicPartition tp1 = new TopicPartition("topicB", 0);
+    registerChannel(tp0, "pipeA", "chA0", 10L);
+    registerChannel(tp1, "pipeB", "chB0", 30L);
+    when(channels.get(tp0).getOffsetSafeToCommitWithoutStatus()).thenReturn(8L);
+    clientSupplier.setClientInvalidPipe("pipeA");
+
+    Map<TopicPartition, Long> result =
+        fetcher.getCommittedOffsets(Set.of(tp0, tp1), channelLookup());
+
+    assertEquals(Map.of(tp0, 8L, tp1, 31L), result);
+    verify(channels.get(tp0)).triggerReopenForInvalidClient();
+  }
+
+  @Test
+  void channelMissingFromStatusBatchReportsOffsetItKnowsIsSafe() {
+    TopicPartition tp0 = new TopicPartition("topicA", 0);
+    TopicPartition tp1 = new TopicPartition("topicA", 1);
+    registerChannel(tp0, "pipeA", "ch0", 10L);
+    registerChannel(tp1, "pipeA", "ch1", 20L);
+    when(channels.get(tp1).getOffsetSafeToCommitWithoutStatus()).thenReturn(15L);
+    clientSupplier.omitStatus("ch1");
+
+    Map<TopicPartition, Long> result =
+        fetcher.getCommittedOffsets(Set.of(tp0, tp1), channelLookup());
+
+    assertEquals(Map.of(tp0, 11L, tp1, 15L), result);
   }
 
   @Test
@@ -260,6 +324,8 @@ class BatchOffsetFetcherTest {
     when(mockChannel.getPipeName()).thenReturn(pipeName);
     when(mockChannel.processChannelStatus(any(ChannelStatus.class), anyBoolean()))
         .thenReturn(committedOffset + 1);
+    when(mockChannel.getOffsetSafeToCommitWithoutStatus())
+        .thenReturn(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
     channels.put(topicPartition, mockChannel);
     clientSupplier.setChannelOffset(channelName, pipeName, String.valueOf(committedOffset));
@@ -271,6 +337,8 @@ class BatchOffsetFetcherTest {
     when(mockChannel.getChannelName()).thenReturn(channelName);
     when(mockChannel.getPipeName()).thenReturn(pipeName);
     when(mockChannel.processChannelStatus(any(ChannelStatus.class), anyBoolean()))
+        .thenReturn(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
+    when(mockChannel.getOffsetSafeToCommitWithoutStatus())
         .thenReturn(NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE);
 
     channels.put(topicPartition, mockChannel);
@@ -286,6 +354,7 @@ class BatchOffsetFetcherTest {
     private final Map<String, Map<String, String>> pipeChannelOffsets = new ConcurrentHashMap<>();
     private volatile String failingPipe = null;
     private volatile String clientInvalidPipe = null;
+    private final Set<String> omittedStatuses = ConcurrentHashMap.newKeySet();
 
     void setChannelOffset(String channelName, String pipeName, String offsetToken) {
       pipeChannelOffsets
@@ -300,6 +369,11 @@ class BatchOffsetFetcherTest {
     /** Makes {@code getChannelStatus} throw a client-invalid SFException for the given pipe. */
     void setClientInvalidPipe(String pipeName) {
       this.clientInvalidPipe = pipeName;
+    }
+
+    /** Leaves the given channel out of every status batch. */
+    void omitStatus(String channelName) {
+      omittedStatuses.add(channelName);
     }
 
     int getBatchCallCount() {
@@ -331,6 +405,9 @@ class BatchOffsetFetcherTest {
                 Map<String, String> offsets =
                     pipeChannelOffsets.getOrDefault(pipeName, Collections.emptyMap());
                 for (String name : names) {
+                  if (omittedStatuses.contains(name)) {
+                    continue;
+                  }
                   statusMap.put(
                       name,
                       new ChannelStatus(

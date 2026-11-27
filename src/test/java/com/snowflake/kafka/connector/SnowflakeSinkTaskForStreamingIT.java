@@ -311,10 +311,17 @@ public class SnowflakeSinkTaskForStreamingIT {
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 5, topicName, 0);
     task.put(records);
 
-    // Wait for preCommit to confirm data is flushed
+    // Wait until Snowflake has committed all 5 rows. preCommit reports a partition before then too,
+    // at an offset that is safe to commit without them.
     final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     offsetMap.put(topicPartition, new OffsetAndMetadata(10000));
-    TestUtils.assertWithRetry(() -> task.preCommit(offsetMap).size() == 1, 5, 20);
+    TestUtils.assertWithRetry(
+        () -> {
+          OffsetAndMetadata committed = task.preCommit(offsetMap).get(topicPartition);
+          return committed != null && committed.offset() == 5;
+        },
+        5,
+        20);
 
     task.close(Collections.singletonList(topicPartition));
     task.stop();
@@ -374,10 +381,17 @@ public class SnowflakeSinkTaskForStreamingIT {
     List<SinkRecord> records = TestUtils.createJsonStringSinkRecords(0, 5, topicName, 0);
     task.put(records);
 
-    // Wait for preCommit to confirm data is flushed
+    // Wait until Snowflake has committed all 5 rows. preCommit reports a partition before then too,
+    // at an offset that is safe to commit without them.
     final Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     offsetMap.put(topicPartition, new OffsetAndMetadata(10000));
-    TestUtils.assertWithRetry(() -> task.preCommit(offsetMap).size() == 1, 5, 20);
+    TestUtils.assertWithRetry(
+        () -> {
+          OffsetAndMetadata committed = task.preCommit(offsetMap).get(topicPartition);
+          return committed != null && committed.offset() == 5;
+        },
+        5,
+        20);
 
     task.close(Collections.singletonList(topicPartition));
     task.stop();

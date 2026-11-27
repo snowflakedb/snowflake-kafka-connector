@@ -1,7 +1,6 @@
 package com.snowflake.kafka.connector.internal.streaming;
 
 import static com.snowflake.kafka.connector.internal.TestUtils.TEST_CONNECTOR_NAME;
-import static com.snowflake.kafka.connector.internal.streaming.channel.TopicPartitionChannel.NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE;
 import static com.snowflake.kafka.connector.internal.streaming.v2.service.PartitionChannelManager.makeChannelName;
 
 import com.codahale.metrics.Gauge;
@@ -753,8 +752,9 @@ public class SnowflakeSinkServiceV2IT extends SnowflakeSinkServiceV2BaseIT {
     service.insert(brokenKey);
     service.insert(brokenKeyValue);
 
-    TestUtils.assertWithRetry(
-        () -> service.getOffset(topicPartition) == NO_OFFSET_TOKEN_REGISTERED_IN_SNOWFLAKE, 5, 20);
+    // No row reached Snowflake, so the channel has no offset token and reports the first offset it
+    // received. Committing it replays the 3 broken records instead of skipping any.
+    TestUtils.assertWithRetry(() -> service.getOffset(topicPartition) == startOffset, 5, 20);
 
     List<InMemoryKafkaRecordErrorReporter.ReportedRecord> reportedData =
         errorReporter.getReportedRecords();
