@@ -1,6 +1,7 @@
 package com.snowflake.kafka.connector.internal;
 
 import static com.snowflake.kafka.connector.Utils.TABLE_COLUMN_METADATA;
+import static com.snowflake.kafka.connector.Utils.validateIcebergCreateTableOptions;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowflake.kafka.connector.internal.advisory.AdvisoryMessage;
@@ -101,6 +102,12 @@ public class StandardSnowflakeConnectionService implements SnowflakeConnectionSe
   @Override
   public void createIcebergTableWithOnlyMetadataColumn(
       final String tableName, final String createTableOptions) {
+    // The options are spliced into the DDL as written, so reject unsafe text before any SQL runs.
+    try {
+      validateIcebergCreateTableOptions(createTableOptions);
+    } catch (IllegalArgumentException e) {
+      throw SnowflakeErrors.ERROR_0034.getException(e.getMessage());
+    }
     checkConnection();
     InternalUtils.assertNotEmpty("tableName", tableName);
 

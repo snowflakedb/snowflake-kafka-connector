@@ -507,6 +507,24 @@ public class StandardSnowflakeConnectionServiceDdlTest {
   }
 
   @Test
+  public void createIcebergTable_rejectedOptions_throwBeforeAnySql() throws SQLException {
+    for (String options :
+        Arrays.asList(
+            "EXTERNAL_VOLUME='v'; SELECT 1",
+            "EXTERNAL_VOLUME='v' -- catalog = 'X'",
+            "EXTERNAL_VOLUME='v' /* x */",
+            "COMMENT='see http://x'")) {
+      SnowflakeKafkaConnectorException ex =
+          assertThrows(
+              SnowflakeKafkaConnectorException.class,
+              () -> service.createIcebergTableWithOnlyMetadataColumn("test_table", options),
+              options);
+      assertEquals("0034", ex.getCode(), options);
+    }
+    verify(mockJdbcConn, never()).prepareStatement(anyString());
+  }
+
+  @Test
   public void createIcebergTable_blankOptions_treatedAsNone() throws SQLException {
     PreparedStatement createStmt = mock(PreparedStatement.class);
     when(mockJdbcConn.prepareStatement(anyString())).thenReturn(createStmt);

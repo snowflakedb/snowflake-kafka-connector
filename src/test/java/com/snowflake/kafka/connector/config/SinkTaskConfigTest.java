@@ -347,6 +347,17 @@ public class SinkTaskConfigTest {
   }
 
   @Test
+  void from_invalidIcebergCreateOptions_throws() {
+    Map<String, String> raw = minimalConfig();
+    raw.put("snowflake.autocreate.table.type", "iceberg");
+    raw.put("snowflake.validation", "server_side");
+    raw.put("snowflake.iceberg.create.table.options", "EXTERNAL_VOLUME='v'; SELECT 1; --");
+    assertThatThrownBy(() -> SinkTaskConfig.from(raw))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("snowflake.iceberg.create.table.options");
+  }
+
+  @Test
   void from_blankCreateOptionsWithoutIcebergTableType_ok() {
     Map<String, String> raw = minimalConfig();
     raw.put("snowflake.autocreate.table.type", "snowflake");

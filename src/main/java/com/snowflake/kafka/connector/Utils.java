@@ -27,6 +27,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -228,6 +229,33 @@ public class Utils {
    */
   public static boolean isValidSnowflakeApplicationName(String appName) {
     return appName.matches("^[-_a-zA-Z]{1}[-_$a-zA-Z0-9]+$");
+  }
+
+  private static final List<String> ICEBERG_CREATE_TABLE_OPTIONS_REJECTED_TOKENS =
+      Arrays.asList(";", "--", "/*", "//");
+
+  /**
+   * Rejects Iceberg create-table options that contain a statement delimiter or a SQL comment
+   * marker. The options are spliced into the CREATE as written, so these tokens could end the
+   * statement early or hide the clauses the connector appends after the options. The raw text is
+   * checked, including inside quoted strings, because the check does not parse SQL.
+   *
+   * @param options the value of snowflake.iceberg.create.table.options, may be null
+   * @throws IllegalArgumentException naming the first rejected token
+   */
+  public static void validateIcebergCreateTableOptions(String options) {
+    if (options == null) {
+      return;
+    }
+    for (String token : ICEBERG_CREATE_TABLE_OPTIONS_REJECTED_TOKENS) {
+      if (options.contains(token)) {
+        throw new IllegalArgumentException(
+            KafkaConnectorConfigParams.SNOWFLAKE_ICEBERG_CREATE_TABLE_OPTIONS
+                + " must not contain ';' or SQL comments ('--', '/*', '//'), found '"
+                + token
+                + "'");
+      }
+    }
   }
 
   /**

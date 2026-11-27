@@ -335,4 +335,44 @@ public class UtilsTest {
     assertEquals("MIXEDCASE", Utils.getTableName("otherTopic", resolver, true));
     assertEquals("MIXEDCASE", Utils.getTableName("otherTopic", resolver, false));
   }
+
+  private static String icebergOptionsRejection(String options) {
+    try {
+      Utils.validateIcebergCreateTableOptions(options);
+    } catch (IllegalArgumentException e) {
+      return e.getMessage();
+    }
+    throw new AssertionError("accepted options: " + options);
+  }
+
+  @Test
+  public void validateIcebergCreateTableOptions_acceptsAbsentBlankAndPlainOptions() {
+    Utils.validateIcebergCreateTableOptions(null);
+    Utils.validateIcebergCreateTableOptions("");
+    Utils.validateIcebergCreateTableOptions("   ");
+    Utils.validateIcebergCreateTableOptions(
+        "EXTERNAL_VOLUME='my_vol' ICEBERG_VERSION=3 CLUSTER BY"
+            + " (RECORD_METADATA:\"offset\"::NUMBER)");
+  }
+
+  @Test
+  public void validateIcebergCreateTableOptions_rejectsStatementDelimiter() {
+    assertEquals(
+        "snowflake.iceberg.create.table.options must not contain ';' or SQL comments ('--', '/*',"
+            + " '//'), found ';'",
+        icebergOptionsRejection("EXTERNAL_VOLUME='v'; SELECT 1"));
+  }
+
+  @Test
+  public void validateIcebergCreateTableOptions_rejectsCommentMarkers() {
+    assertTrue(icebergOptionsRejection("EXTERNAL_VOLUME='v' -- x").endsWith("found '--'"));
+    assertTrue(icebergOptionsRejection("EXTERNAL_VOLUME='v' /* x */").endsWith("found '/*'"));
+    assertTrue(icebergOptionsRejection("EXTERNAL_VOLUME='v' // x").endsWith("found '//'"));
+  }
+
+  @Test
+  public void validateIcebergCreateTableOptions_rejectsMarkersInsideQuotedString() {
+    assertTrue(icebergOptionsRejection("COMMENT='see http://x'").endsWith("found '//'"));
+    assertTrue(icebergOptionsRejection("COMMENT='a -- b'").endsWith("found '--'"));
+  }
 }
