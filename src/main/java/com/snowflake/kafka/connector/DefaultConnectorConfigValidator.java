@@ -16,7 +16,9 @@ import com.snowflake.kafka.connector.Constants.KafkaConnectorConfigParams;
 import com.snowflake.kafka.connector.config.AuthenticatorType;
 import com.snowflake.kafka.connector.internal.KCLogger;
 import com.snowflake.kafka.connector.internal.SnowflakeErrors;
+import com.snowflake.kafka.connector.internal.SnowflakeKafkaConnectorException;
 import com.snowflake.kafka.connector.internal.spcs.SpcsEnvironment;
+import com.snowflake.kafka.connector.internal.streaming.StreamingClientOverrides;
 import com.snowflake.kafka.connector.internal.streaming.StreamingConfigValidator;
 import java.util.HashMap;
 import java.util.Map;
@@ -171,6 +173,15 @@ public class DefaultConnectorConfigValidator implements ConnectorConfigValidator
             JMX_OPT,
             Utils.formatString("Kafka config: {} should either be true or false", JMX_OPT));
       }
+    }
+
+    try {
+      StreamingClientOverrides.parse(
+          config.get(KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP));
+    } catch (SnowflakeKafkaConnectorException e) {
+      invalidConfigParams.put(
+          KafkaConnectorConfigParams.SNOWFLAKE_STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP,
+          e.getMessage());
     }
 
     validateCacheConfig(config, invalidConfigParams);

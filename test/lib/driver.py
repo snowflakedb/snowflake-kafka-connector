@@ -1,11 +1,9 @@
 import json
 import logging
-import os
 import time
 from typing import Callable, Dict
 import uuid
 from pathlib import Path
-from urllib.parse import urlparse
 
 import requests
 import snowflake.connector
@@ -714,26 +712,6 @@ class KafkaDriver:
 
         if config_transform is not None:
             rest_request["config"] = config_transform(rest_request["config"])
-
-        # Allow the Snowpipe Streaming SDK's URL to be overridden for testing
-        # against a local Snowflake deployment.
-        if snowpipe_streaming_url := os.environ.get("SNOWPIPE_STREAMING_URL"):
-            logger.info(
-                f"Overriding Snowpipe Streaming SDK URL to {snowpipe_streaming_url}"
-            )
-            parsed = urlparse(snowpipe_streaming_url)
-            extra_overrides = [
-                f"scheme:{parsed.scheme}",
-                f"host:{parsed.hostname}",
-                f"port:{parsed.port}",
-            ]
-            override_key = "snowflake.streaming.client.provider.override.map"
-            match rest_request["config"].get(override_key):
-                case None | "":
-                    overrides = extra_overrides
-                case _ as existing_overrides:
-                    overrides = [existing_overrides] + extra_overrides
-            rest_request["config"][override_key] = ",".join(overrides)
 
         MAX_RETRY = 9
         retry = 0

@@ -22,7 +22,7 @@ public class ConnectorConfigDefinition {
       new ConfigDef.NonEmptyString();
   private static final ConfigDef.Validator TOPIC_TO_TABLE_VALIDATOR = new TopicToTableValidator();
   private static final ConfigDef.Validator STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR =
-      new CommaSeparatedKeyValueValidator();
+      new StreamingClientOverrideMapValidator();
 
   public static ConfigDef getConfig() {
     return new ConfigDef()
@@ -423,8 +423,10 @@ public class ConnectorConfigDefinition {
             STREAMING_CLIENT_PROVIDER_OVERRIDE_MAP_VALIDATOR,
             LOW,
             "Map of Key value pairs representing Streaming Client Properties to Override. These are"
-                + " optional and recommended to use ONLY after consulting Snowflake Support. Format"
-                + " : comma-separated tuples, e.g.: key1:value1,key2:value2",
+                + " optional and recommended to use ONLY after consulting Snowflake Support. Only"
+                + " SDK tuning parameters such as buffering, timeouts, and retries are accepted."
+                + " Endpoint, identity, and credential parameters are rejected. Format:"
+                + " comma-separated tuples, e.g.: key1:value1,key2:value2",
             CONNECTOR_CONFIG_DOC,
             6,
             Width.NONE,
