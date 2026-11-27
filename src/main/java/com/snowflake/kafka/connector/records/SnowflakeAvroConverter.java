@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import org.apache.avro.Schema;
 import org.apache.kafka.common.config.ConfigException;
@@ -36,6 +37,11 @@ import org.apache.kafka.connect.storage.Converter;
  * correct per record even when interleaved records on the same topic carry different schema
  * versions, and doesn't require whoever reads it (e.g. the sink task) to hold a reference to this
  * converter instance.
+ *
+ * <p>The converter also attaches the schema registry id from the wire header, under {@link
+ * #AVRO_SCHEMA_ID_PARAMETER_KEY}. {@link SnowflakeSinkRecord} copies that id into {@code
+ * RECORD_METADATA} as {@code schema_id} for a {@code value.converter} and as {@code key_schema_id}
+ * for a {@code key.converter}, as KC v3 did.
  */
 public class SnowflakeAvroConverter implements Converter {
 
@@ -50,6 +56,13 @@ public class SnowflakeAvroConverter implements Converter {
    */
   public static final String AVRO_SCHEMA_PARAMETER_KEY =
       "com.snowflake.kafka.connector.avro.schema";
+
+  /**
+   * Schema parameter key under which {@link #toConnectData} stores the schema registry id of the
+   * record, as a decimal string. The id comes from the 4 bytes that follow the magic byte.
+   */
+  public static final String AVRO_SCHEMA_ID_PARAMETER_KEY =
+      "com.snowflake.kafka.connector.avro.schema.id";
 
   private SchemaRegistryClient schemaRegistryClient;
   private AvroConverter delegate;
@@ -89,9 +102,12 @@ public class SnowflakeAvroConverter implements Converter {
 
   @Override
   public SchemaAndValue toConnectData(String topic, byte[] value) {
-    Schema avroSchema = tryResolveAvroSchema(value);
+    OptionalInt schemaId = readSchemaId(value);
+    Schema avroSchema = schemaId.isPresent() ? resolveAvroSchema(schemaId.getAsInt()) : null;
     SchemaAndValue converted = delegate.toConnectData(topic, value);
-    return avroSchema == null ? converted : attachAvroSchema(converted, avroSchema);
+    return avroSchema == null
+        ? converted
+        : attachAvroSchema(converted, avroSchema, schemaId.getAsInt());
   }
 
   /**
@@ -112,12 +128,13 @@ public class SnowflakeAvroConverter implements Converter {
   }
 
   /**
-   * Rebuilds {@code converted}'s top-level Connect schema with {@code avroSchema} attached as a
-   * parameter, and -- if the converted value is a {@link Struct} -- rebuilds the Struct against
-   * that new schema object too, so {@code struct.schema()} and {@code SinkRecord.valueSchema()}
-   * agree rather than silently diverging.
+   * Rebuilds {@code converted}'s top-level Connect schema with {@code avroSchema} and {@code
+   * schemaId} attached as parameters, and -- if the converted value is a {@link Struct} -- rebuilds
+   * the Struct against that new schema object too, so {@code struct.schema()} and {@code
+   * SinkRecord.valueSchema()} agree rather than silently diverging.
    */
-  private static SchemaAndValue attachAvroSchema(SchemaAndValue converted, Schema avroSchema) {
+  private static SchemaAndValue attachAvroSchema(
+      SchemaAndValue converted, Schema avroSchema, int schemaId) {
     org.apache.kafka.connect.data.Schema connectSchema = converted.schema();
     if (connectSchema == null
         || connectSchema.type() != org.apache.kafka.connect.data.Schema.Type.STRUCT) {
@@ -126,7 +143,7 @@ public class SnowflakeAvroConverter implements Converter {
       return converted;
     }
     org.apache.kafka.connect.data.Schema annotatedSchema =
-        withAvroSchemaParameter(connectSchema, avroSchema);
+        withAvroSchemaParameters(connectSchema, avroSchema, schemaId);
     Object value = converted.value();
     if (value instanceof Struct) {
       value = copyStructOntoSchema((Struct) value, annotatedSchema);
@@ -134,8 +151,8 @@ public class SnowflakeAvroConverter implements Converter {
     return new SchemaAndValue(annotatedSchema, value);
   }
 
-  private static org.apache.kafka.connect.data.Schema withAvroSchemaParameter(
-      org.apache.kafka.connect.data.Schema original, Schema avroSchema) {
+  private static org.apache.kafka.connect.data.Schema withAvroSchemaParameters(
+      org.apache.kafka.connect.data.Schema original, Schema avroSchema, int schemaId) {
     SchemaBuilder builder = SchemaBuilder.struct();
     if (original.name() != null) {
       builder.name(original.name());
@@ -150,6 +167,7 @@ public class SnowflakeAvroConverter implements Converter {
       original.parameters().forEach(builder::parameter);
     }
     builder.parameter(AVRO_SCHEMA_PARAMETER_KEY, avroSchema.toString());
+    builder.parameter(AVRO_SCHEMA_ID_PARAMETER_KEY, Integer.toString(schemaId));
     for (Field field : original.fields()) {
       builder.field(field.name(), field.schema());
     }
@@ -165,16 +183,20 @@ public class SnowflakeAvroConverter implements Converter {
     return copy;
   }
 
-  private Schema tryResolveAvroSchema(byte[] value) {
+  /** Returns the schema registry id from the Confluent wire header of {@code value}, if any. */
+  private static OptionalInt readSchemaId(byte[] value) {
     if (value == null || value.length < MAGIC_BYTE_AND_SCHEMA_ID_BYTES) {
-      return null;
+      return OptionalInt.empty();
     }
     if (value[0] != CONFLUENT_MAGIC_BYTE) {
       // Not Confluent wire-format Avro. Let the delegate converter raise the real error instead
       // of treating an arbitrary byte range as a schema id.
-      return null;
+      return OptionalInt.empty();
     }
-    int schemaId = ByteBuffer.wrap(value, 1, 4).getInt();
+    return OptionalInt.of(ByteBuffer.wrap(value, 1, 4).getInt());
+  }
+
+  private Schema resolveAvroSchema(int schemaId) {
     try {
       return schemaRegistryClient.getById(schemaId);
     } catch (IOException | RestClientException e) {

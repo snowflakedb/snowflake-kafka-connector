@@ -30,6 +30,11 @@ public final class SnowflakeSinkRecord {
   static final String CONNECTOR_PUSH_TIME = "SnowflakeConnectorPushTime";
   static final String HEADERS = "headers";
 
+  // Schema registry ids of the record value and of the record key, with the field names KC v3
+  // used. A field is present only when SnowflakeAvroConverter converted that side of the record.
+  static final String SCHEMA_ID = "schema_id";
+  static final String KEY_SCHEMA_ID = "key_schema_id";
+
   // The managed-Iceberg metadata schema declares BOTH timestamp fields. A Kafka record carries
   // exactly one timestamp type per topic, so at most one of the two is ever populated for a given
   // record; the other is absent from the raw metadata map, so conformIcebergMetadata pads it with
@@ -262,11 +267,39 @@ public final class SnowflakeSinkRecord {
       metadata.put(record.timestampType().name, record.timestamp());
     }
 
+    // As in KC v3, no per-field flag controls the schema ids.
+    putAvroSchemaId(metadata, SCHEMA_ID, record.valueSchema());
+    putAvroSchemaId(metadata, KEY_SCHEMA_ID, record.keySchema());
+
     if (connectorPushTime != null && metadataConfig.connectorPushTimeFlag) {
       metadata.put(CONNECTOR_PUSH_TIME, connectorPushTime.toEpochMilli());
     }
 
     return metadata;
+  }
+
+  /**
+   * Copies the schema registry id that {@link SnowflakeAvroConverter} attached to {@code schema}
+   * into {@code metadata} under {@code field}. Does nothing when {@code schema} carries no id.
+   *
+   * <p>This method reads the schema parameter itself and must not call a method of {@link
+   * SnowflakeAvroConverter}. Loading that class needs the Confluent Avro converter, which the
+   * Confluent package of this connector does not bundle.
+   */
+  private static void putAvroSchemaId(Map<String, Object> metadata, String field, Schema schema) {
+    if (schema == null || schema.parameters() == null) {
+      return;
+    }
+    String schemaId = schema.parameters().get(SnowflakeAvroConverter.AVRO_SCHEMA_ID_PARAMETER_KEY);
+    if (schemaId == null) {
+      return;
+    }
+    try {
+      metadata.put(field, Integer.valueOf(schemaId));
+    } catch (NumberFormatException e) {
+      // Something other than SnowflakeAvroConverter set this parameter. Omit the field. This
+      // method also runs for broken records, where no caller catches an exception.
+    }
   }
 
   private static void addKeyToMetadata(SinkRecord record, Map<String, Object> metadata) {
@@ -356,8 +389,10 @@ public final class SnowflakeSinkRecord {
    * <p>This method:
    *
    * <ol>
-   *   <li>Throws {@link IllegalStateException} if it encounters a field outside the Iceberg schema.
-   *       {@code buildMetadata} only ever emits schema fields, so this never fires in normal
+   *   <li>Drops {@code schema_id} and {@code key_schema_id}. The Iceberg schema does not declare
+   *       them, so only a VARIANT {@code RECORD_METADATA} column receives them.
+   *   <li>Throws {@link IllegalStateException} if it encounters any other field outside the Iceberg
+   *       schema. {@code buildMetadata} emits no such field, so this never fires in normal
    *       operation — it fires only if KC metadata emission and the Iceberg schema drift apart (a
    *       new field added on one side but not the other), which we want to surface loudly rather
    *       than silently drop.
@@ -377,6 +412,11 @@ public final class SnowflakeSinkRecord {
     Map<String, Object> conformed = new HashMap<>();
     for (Map.Entry<String, Object> entry : metadata.entrySet()) {
       String field = entry.getKey();
+      if (SCHEMA_ID.equals(field) || KEY_SCHEMA_ID.equals(field)) {
+        // The managed-Iceberg RECORD_METADATA schema does not declare the Avro schema ids, and the
+        // strict cast rejects an undeclared field. Only VARIANT RECORD_METADATA carries them.
+        continue;
+      }
       if (!ICEBERG_METADATA_FIELD_SET.contains(field)) {
         throw new IllegalStateException(
             "Unexpected metadata field '"

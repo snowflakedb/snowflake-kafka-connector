@@ -78,7 +78,7 @@ Every test scenario can be classified across these independent dimensions:
 
 ### Data Format
 
-Only formats used in the **Snowpipe Streaming** ingestion path are in scope. Legacy Snowpipe-only converters (`SnowflakeJsonConverter`, `SnowflakeAvroConverter`) are excluded -- we are migrating `SNOWPIPE_STREAMING` mode, not file-based `SNOWPIPE`.
+Only formats used in the **Snowpipe Streaming** ingestion path are in scope. Legacy Snowpipe-only converters of v3 (`SnowflakeJsonConverter`, `SnowflakeAvroConverter`) are excluded -- we are migrating `SNOWPIPE_STREAMING` mode, not file-based `SNOWPIPE`. The v4 `SnowflakeAvroConverter` is a different class with the same name. It wraps Confluent's `AvroConverter` and is in scope.
 
 | Format | Key Converter | Value Converter | Schema Registry | Platform |
 |--------|--------------|-----------------|-----------------|----------|
@@ -323,6 +323,7 @@ V3 parity was verified by running JSON, String, and ByteArray tests in dual mode
 | 🟢 | RECORD_CONTENT StringConverter (raw string payload) | v4 | v3 parity confirmed (dual run 2026-03-31). Assertions capture v3 reference behavior. | String | `test_snowpipe_streaming_legacy_string_converter.py` |
 | 🟢 | RECORD_CONTENT ByteArrayConverter (base64 payload) | v4 | v3 parity confirmed (dual run 2026-03-31). Assertions capture v3 reference behavior. | Bytes | `test_snowpipe_streaming_legacy_byte_array_converter.py` |
 | 🟢 | RECORD_CONTENT + Avro SR | v4 | v4 confirmed 2026-03-31. v3 parity cannot be verified: v3's bundled SR classes clash with Confluent 7.8.0 platform SR classes (ServiceConfigurationError). Assertions reflect expected Avro deserialization behavior. | Avro SR | `test_snowpipe_streaming_legacy_avro_sr.py` |
+| 🟡 | RECORD_CONTENT + `SnowflakeAvroConverter` keys and values (`schema_id`, `key_schema_id` in RECORD_METADATA) | v4 | Known gap: the test is written but has not run against a live environment yet. Assertions capture v3 reference behavior for the two schema id fields. | Avro SR (keys+values) | `test_snowflake_avro_converter_schema_id.py` |
 | 🔴 | RECORD_CONTENT + SMT (nullable values, ExtractField) | v4 | **P2.** Data values in VARIANT + SMT interaction. v3 equivalent: `TestSnowpipeStreamingNullableValuesAfterSmt` | JSON + SMT | -- |
 
 ---

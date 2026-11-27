@@ -35,6 +35,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class SnowflakeSinkRecordTest {
@@ -1133,6 +1134,178 @@ class SnowflakeSinkRecordTest {
         new HashSet<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS),
         metadata.keySet(),
         "conformed map must contain exactly ICEBERG_METADATA_FIELDS");
+  }
+
+  // ---- schema_id and key_schema_id, as in KC v3 ----
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("avroSchemaIdTestCases")
+  void testMetadataAvroSchemaIds(
+      String caseName,
+      SchemaAndValue key,
+      SchemaAndValue value,
+      Integer expectedSchemaId,
+      Integer expectedKeySchemaId) {
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(createSinkRecord(key, value), metadataConfig, true, false);
+
+    assertTrue(record.isValid());
+    Map<String, Object> metadata = record.getMetadata();
+    assertEquals(expectedSchemaId, metadata.get("schema_id"));
+    assertEquals(expectedSchemaId != null, metadata.containsKey("schema_id"));
+    assertEquals(expectedKeySchemaId, metadata.get("key_schema_id"));
+    assertEquals(expectedKeySchemaId != null, metadata.containsKey("key_schema_id"));
+  }
+
+  @ParameterizedTest(name = "schematization {0}, column identifier normalization {1}")
+  @CsvSource({"false,false", "true,false", "true,true"})
+  void testMetadataAvroSchemaIds_PresentInEveryContentMode(
+      boolean enableSchematization, boolean enableColumnIdentifierNormalization) {
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(
+            createSinkRecord(avroStruct(2), avroStruct(1)),
+            metadataConfig,
+            enableSchematization,
+            enableColumnIdentifierNormalization);
+
+    assertTrue(record.isValid());
+    assertEquals(1, record.getMetadata().get("schema_id"));
+    assertEquals(2, record.getMetadata().get("key_schema_id"));
+  }
+
+  @Test
+  void testMetadataAvroSchemaIds_TombstoneHasNoSchemaId() {
+    // KC v3 wrote "schema_id": 0 for a null value. A null value has no schema, so v4 omits the
+    // field. The key still has its schema.
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(
+            createSinkRecord(avroStruct(2), SchemaAndValue.NULL), metadataConfig, true, false);
+
+    assertTrue(record.isTombstone());
+    assertFalse(record.getMetadata().containsKey("schema_id"));
+    assertEquals(2, record.getMetadata().get("key_schema_id"));
+  }
+
+  @Test
+  void testMetadataAvroSchemaIds_NotControlledByPerFieldFlags() {
+    Map<String, String> config = new HashMap<>();
+    config.put("snowflake.metadata.createtime", "false");
+    config.put("snowflake.metadata.topic", "false");
+    config.put("snowflake.metadata.offset.and.partition", "false");
+    config.put("snowflake.streaming.metadata.connectorPushTime", "false");
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(
+            createSinkRecord(avroStruct(2), avroStruct(1)),
+            new SnowflakeMetadataConfig(config),
+            true,
+            false);
+
+    Map<String, Object> metadata = record.getMetadata();
+    assertFalse(metadata.containsKey("topic"));
+    assertEquals(1, metadata.get("schema_id"));
+    assertEquals(2, metadata.get("key_schema_id"));
+  }
+
+  @Test
+  void testMetadataAvroSchemaIds_NonNumericParameterIsOmitted() {
+    SchemaAndValue value = avroStruct("not-a-number");
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(
+            createSinkRecord(SchemaAndValue.NULL, value), metadataConfig, true, false);
+
+    assertTrue(record.isValid());
+    assertFalse(record.getMetadata().containsKey("schema_id"));
+  }
+
+  @Test
+  void testMetadataAvroSchemaIds_NonNumericParameterOnBrokenRecordDoesNotThrow() {
+    // The key does not match its schema, so the record is broken. The broken-record path builds
+    // the metadata outside any try block, so a bad schema id parameter must not throw there.
+    SchemaAndValue key = new SchemaAndValue(avroStruct("not-a-number").schema(), "not a struct");
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(createSinkRecord(key, avroStruct(1)), metadataConfig, true, false);
+
+    assertTrue(record.isBroken());
+    assertFalse(record.getMetadata().containsKey("key_schema_id"));
+    assertEquals(1, record.getMetadata().get("schema_id"));
+  }
+
+  @Test
+  void testMetadataAvroSchemaIds_VariantMetadataKeepsThem_IcebergMetadataDropsThem() {
+    // The managed-Iceberg RECORD_METADATA schema does not declare the schema ids, and its strict
+    // cast rejects an undeclared field. conformIcebergMetadata must drop them without throwing.
+    SchemaAndValue key = avroStruct(2);
+    SchemaAndValue value = avroStruct(1);
+    SinkRecord kafkaRecord =
+        new SinkRecord(
+            TOPIC,
+            PARTITION,
+            key.schema(),
+            key.value(),
+            value.schema(),
+            value.value(),
+            0L,
+            123L,
+            TimestampType.CREATE_TIME);
+
+    SnowflakeSinkRecord record =
+        SnowflakeSinkRecord.from(kafkaRecord, createMetadataConfigWithAll(), true, false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> variantMetadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, false).get(TABLE_COLUMN_METADATA);
+    assertEquals(1, variantMetadata.get("schema_id"));
+    assertEquals(2, variantMetadata.get("key_schema_id"));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> icebergMetadata =
+        (Map<String, Object>) record.getContentWithMetadata(true, true).get(TABLE_COLUMN_METADATA);
+    assertEquals(
+        new HashSet<>(SnowflakeSinkRecord.ICEBERG_METADATA_FIELDS),
+        icebergMetadata.keySet(),
+        "conformed map must contain exactly ICEBERG_METADATA_FIELDS");
+  }
+
+  // The key and value combinations of the KC v3 ProcessRecordTest. An "avro" side is a Struct
+  // whose schema carries the id parameter that SnowflakeAvroConverter attaches.
+  private static Stream<Arguments> avroSchemaIdTestCases() {
+    SchemaAndValue stringKey = new SchemaAndValue(Schema.STRING_SCHEMA, "string value");
+    return Stream.of(
+        Arguments.of("string key, avro value", stringKey, avroStruct(1), 1, null),
+        Arguments.of("avro key, avro value", avroStruct(2), avroStruct(1), 1, 2),
+        Arguments.of("avro key, json value", avroStruct(2), schemalessJson(), null, 2),
+        Arguments.of("json key, avro value", schemalessJson(), avroStruct(1), 1, null),
+        Arguments.of("json key, json value", schemalessJson(), schemalessJson(), null, null),
+        Arguments.of("null key, avro value", SchemaAndValue.NULL, avroStruct(1), 1, null),
+        Arguments.of("null key, json value", SchemaAndValue.NULL, schemalessJson(), null, null));
+  }
+
+  private static SchemaAndValue avroStruct(int schemaId) {
+    return avroStruct(Integer.toString(schemaId));
+  }
+
+  private static SchemaAndValue avroStruct(String schemaIdParameter) {
+    Schema schema =
+        SchemaBuilder.struct()
+            .parameter(SnowflakeAvroConverter.AVRO_SCHEMA_ID_PARAMETER_KEY, schemaIdParameter)
+            .field("int", Schema.INT32_SCHEMA)
+            .build();
+    return new SchemaAndValue(schema, new Struct(schema).put("int", 222));
+  }
+
+  private static SchemaAndValue schemalessJson() {
+    return new SchemaAndValue(null, Collections.singletonMap("some_field", "some_value"));
+  }
+
+  private static SinkRecord createSinkRecord(SchemaAndValue key, SchemaAndValue value) {
+    return SinkRecordBuilder.forTopicPartition(TOPIC, PARTITION)
+        .withKeySchema(key.schema())
+        .withKey(key.value())
+        .withSchemaAndValue(value)
+        .build();
   }
 
   private static JsonConverter createJsonConverter() {
